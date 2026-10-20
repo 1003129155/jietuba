@@ -870,6 +870,16 @@ private slots:
         QCOMPARE(edit.text(), QString("ctrl+alt+z"));
         press(Qt::Key_F7);
         QCOMPARE(edit.text(), QString("f7"));
+        // Letting go of a lone modifier puts back the value from before it, not an empty one.
+        press(Qt::Key_Alt, Qt::NoModifier);
+        QCOMPARE(edit.text(), QString("alt+"));
+        release(Qt::Key_Alt, Qt::AltModifier);
+        QCOMPARE(edit.text(), QString("f7"));
+        // So does leaving it unfinished.
+        press(Qt::Key_Control, Qt::NoModifier);
+        edit.clearFocus();
+        QCOMPARE(edit.text(), QString("f7"));
+        edit.setFocus();
         // Tab is recorded instead of moving the focus.
         press(Qt::Key_Tab);
         QCOMPARE(edit.text(), QString("tab"));

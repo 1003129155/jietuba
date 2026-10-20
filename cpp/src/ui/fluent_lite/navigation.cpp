@@ -16,13 +16,32 @@ protected:
         painter.fillRect(inset, height() / 2, width() - 2 * inset, 1, css_color(ui_tokens(this).separator));
     }
 };
+
+// A navigation item; the checked one carries a short rounded bar at its left edge. A style sheet
+// left border would run the full height and bend with the corner radius.
+class NavItemButton : public QPushButton {
+public:
+    using QPushButton::QPushButton;
+protected:
+    void paintEvent(QPaintEvent *event) override {
+        QPushButton::paintEvent(event);
+        if (!isChecked()) return;
+        const qreal bar_width = dialog_scaled(3);
+        const qreal bar_height = dialog_scaled(16);
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing);
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(css_color(ACCENT));
+        painter.drawRoundedRect(QRectF(dialog_scaled(4), (height() - bar_height) / 2, bar_width, bar_height), bar_width / 2, bar_width / 2);
+    }
+};
 }
 
 NavigationInterface::NavigationInterface(QWidget *parent) : QWidget(parent), group_(new QButtonGroup(this)) {
     group_->setExclusive(true);
     layout_ = new QVBoxLayout(this);
     layout_->setContentsMargins(0, 0, 0, 0);
-    layout_->setSpacing(5);
+    layout_->setSpacing(dialog_scaled(2));
     // The top list scrolls when the window is shorter than the whole navigation, so the
     // bottom items stay visible. It follows the viewport width: a shown scroll bar takes
     // its width from the items instead of clipping their right edge.
@@ -37,12 +56,12 @@ NavigationInterface::NavigationInterface(QWidget *parent) : QWidget(parent), gro
     auto *top_view_layout = new QVBoxLayout(top_view);
     top_view_layout->setContentsMargins(0, 0, 0, 0);
     top_ = new QVBoxLayout;
-    top_->setSpacing(5);
+    top_->setSpacing(dialog_scaled(2));
     top_view_layout->addLayout(top_);
     top_view_layout->addStretch(1);
     scroll_->setWidget(top_view);
     bottom_ = new QVBoxLayout;
-    bottom_->setSpacing(5);
+    bottom_->setSpacing(dialog_scaled(2));
     layout_->addWidget(scroll_, 1);
     layout_->addLayout(bottom_);
     set_own_style(this, "background: transparent;");
@@ -53,10 +72,10 @@ void NavigationInterface::addSeparator() { top_->addWidget(new NavSeparator(this
 
 QPushButton *NavigationInterface::addItem(const QString &route_key, const IconSource &icon, const QString &text, std::function<void()> on_click,
                                           NavigationItemPosition position, const QString &tooltip, const QString &tone) {
-    auto *button = new QPushButton(text, this);
+    auto *button = new NavItemButton(text, this);
     button->setObjectName("FluentLiteNavItem");
     button->setCheckable(true);
-    button->setIconSize(QSize(dialog_scaled(18), dialog_scaled(18)));
+    button->setIconSize(QSize(dialog_scaled(20), dialog_scaled(20)));
     button->setCursor(Qt::PointingHandCursor);
     // Labels are visible already; a tooltip only when it adds context.
     if (!tooltip.isEmpty()) button->setToolTip(tooltip);
@@ -75,16 +94,16 @@ QPushButton *NavigationInterface::addItem(const QString &route_key, const IconSo
 
 void NavigationInterface::style_button(QPushButton *button) {
     const auto &t = ui_tokens(button);
+    // The checked item keeps the regular weight: at this size a bold face snaps its strokes to
+    // other pixels, so the label would seem to jump when selected.
     apply_style_sheet(button, QString(R"(
             QPushButton#FluentLiteNavItem { min-height: %1px; padding: %2px %3px; text-align: left;
-                color: %4; background: transparent; border: 1px solid transparent; border-radius: %5px;
+                color: %4; background: transparent; border: none; border-radius: %5px;
                 font: %6px %7; }
             QPushButton#FluentLiteNavItem:hover { color: %4; background: %8; }
-            QPushButton#FluentLiteNavItem:checked { color: %9; background: %10;
-                border: 1px solid transparent; border-left: 4px solid %11;
-                padding-left: %12px; font-weight: 600; }
-        )").arg(dialog_scaled(40)).arg(dialog_scaled(2)).arg(dialog_scaled(13)).arg(t.text).arg(dialog_scaled(11)).arg(dialog_scaled(14))
-        .arg(FONT_FAMILY, t.surface_strong, t.accent_text, t.accent_soft, ACCENT).arg(dialog_scaled(10)));
+            QPushButton#FluentLiteNavItem:checked { color: %9; background: %10; }
+        )").arg(dialog_scaled(40)).arg(dialog_scaled(2)).arg(dialog_scaled(14)).arg(t.text).arg(dialog_scaled(8)).arg(dialog_scaled(16))
+        .arg(FONT_FAMILY, t.surface_strong, t.accent_text, t.accent_soft));
 }
 
 void NavigationInterface::apply_icon(const QString &route_key) {

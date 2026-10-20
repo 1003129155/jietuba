@@ -261,7 +261,7 @@ QWidget *create_mouse_page(SettingsDialog *dialog) {
     set_own_style(view, "background: transparent;");
     auto *layout = new QVBoxLayout(view);
     layout->setContentsMargins(0, 0, dialog_scaled(10), 0);
-    layout->setSpacing(dialog_scaled(16));
+    layout->setSpacing(dialog_scaled(12));
     layout->addWidget(create_global_section(dialog, view));
     layout->addWidget(create_inapp_section(dialog, view));
     layout->addStretch();
@@ -323,7 +323,7 @@ QString mouse_binding_conflict_message(SettingsDialog *dialog, const std::option
     QStringList lines{dialog->tr_text("The following shortcuts conflict:"), ""};
     for (const auto &[context, binding, owners] : conflicts) lines.append(QString::fromUtf8("• %1 · %2: %3").arg(context, binding, owners.join(" / ")));
     lines.append("");
-    lines.append(dialog->tr_text("Change one shortcut in each row before applying."));
+    lines.append(dialog->tr_text("The new shortcut was not saved."));
     return lines.join("\n");
 }
 }

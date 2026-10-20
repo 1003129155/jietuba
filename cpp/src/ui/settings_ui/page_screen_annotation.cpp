@@ -89,7 +89,7 @@ QWidget *create_screen_annotation_page(SettingsDialog *dialog) {
     set_own_style(view, "background: transparent;");
     auto *layout = new QVBoxLayout(view);
     layout->setContentsMargins(0, 0, dialog_scaled(10), 0);
-    layout->setSpacing(dialog_scaled(20));
+    layout->setSpacing(dialog_scaled(14));
     const std::pair<const char *, void (*)(SettingsDialog *, SettingsCardGroup *)> sections[] = {
         {"Start and End", build_start_section},
         {"Toolbar", build_toolbar_section},

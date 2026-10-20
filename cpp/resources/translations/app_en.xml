@@ -224,28 +224,12 @@
         <translation>Cancel</translation>
     </message>
     <message>
-        <source>Cancel / Close</source>
-        <translation>Cancel</translation>
-    </message>
-    <message>
-        <source>Apply</source>
-        <translation>Apply</translation>
-    </message>
-    <message>
-        <source>Unsaved Changes</source>
-        <translation>Unsaved Changes</translation>
-    </message>
-    <message>
-        <source>You have unsaved changes. Do you want to save before closing?</source>
-        <translation>You have unsaved changes. Do you want to save before closing?</translation>
+        <source>Restore the default settings of this page?</source>
+        <translation>Restore the default settings of this page?</translation>
     </message>
     <message>
         <source>Save</source>
         <translation>Save</translation>
-    </message>
-    <message>
-        <source>Don't Save</source>
-        <translation>Don't Save</translation>
     </message>
     <message>
         <source>Change</source>
@@ -337,10 +321,6 @@
         <translation>Shortcut Conflict</translation>
     </message>
     <message>
-        <source>Some global hotkeys are duplicated or unavailable. Please fix them before applying.</source>
-        <translation>Some global hotkeys are duplicated or unavailable. Please fix them before applying.</translation>
-    </message>
-    <message>
         <source>Some in-app shortcuts conflict within the same group. Please fix them first.</source>
         <translation>Some in-app shortcuts conflict within the same group. Please fix them first.</translation>
     </message>
@@ -349,8 +329,8 @@
         <translation>The following shortcuts conflict:</translation>
     </message>
     <message>
-        <source>Change one shortcut in each row before applying.</source>
-        <translation>Change one shortcut in each row before applying.</translation>
+        <source>The new shortcut was not saved.</source>
+        <translation>The new shortcut was not saved.</translation>
     </message>
     <message>
         <source>This is the same as a global hotkey — the system intercepts it first, so it won't work here.</source>
@@ -881,8 +861,8 @@ Replace it?</translation>
         <translation>This file is not a Jietuba settings file, or it is damaged.</translation>
     </message>
     <message>
-        <source>Settings loaded. Click Apply to use them.</source>
-        <translation>Settings loaded. Click Apply to use them.</translation>
+        <source>Settings imported.</source>
+        <translation>Settings imported.</translation>
     </message>
     
     <!-- Info Page -->

@@ -226,28 +226,12 @@
         <translation>キャンセル</translation>
     </message>
     <message>
-        <source>Cancel / Close</source>
-        <translation>キャンセル</translation>
-    </message>
-    <message>
-        <source>Apply</source>
-        <translation>適用</translation>
-    </message>
-    <message>
-        <source>Unsaved Changes</source>
-        <translation>未保存の変更</translation>
-    </message>
-    <message>
-        <source>You have unsaved changes. Do you want to save before closing?</source>
-        <translation>未保存の変更があります。閉じる前に保存しますか？</translation>
+        <source>Restore the default settings of this page?</source>
+        <translation>このページの設定を既定値に戻しますか？</translation>
     </message>
     <message>
         <source>Save</source>
         <translation>保存</translation>
-    </message>
-    <message>
-        <source>Don't Save</source>
-        <translation>保存しない</translation>
     </message>
     <message>
         <source>Change</source>
@@ -343,10 +327,6 @@
         <translation>ショートカット競合</translation>
     </message>
     <message>
-        <source>Some global hotkeys are duplicated or unavailable. Please fix them before applying.</source>
-        <translation>一部のグローバルショートカットが重複しているか、使用できません。修正してから適用してください。</translation>
-    </message>
-    <message>
         <source>Some in-app shortcuts conflict within the same group. Please fix them first.</source>
         <translation>同じグループ内にショートカットの重複があります。先に修正してください。</translation>
     </message>
@@ -355,8 +335,8 @@
         <translation>次のショートカットが競合しています：</translation>
     </message>
     <message>
-        <source>Change one shortcut in each row before applying.</source>
-        <translation>各行のいずれかのショートカットを変更してから適用してください。</translation>
+        <source>The new shortcut was not saved.</source>
+        <translation>新しいショートカットは保存されませんでした。</translation>
     </message>
     <message>
         <source>This is the same as a global hotkey — the system intercepts it first, so it won't work here.</source>
@@ -887,8 +867,8 @@ Replace it?</source>
         <translation>このファイルは Jietuba の設定ファイルではないか、破損しています。</translation>
     </message>
     <message>
-        <source>Settings loaded. Click Apply to use them.</source>
-        <translation>設定を読み込みました。「適用」をクリックすると反映されます。</translation>
+        <source>Settings imported.</source>
+        <translation>設定をインポートしました。</translation>
     </message>
     
     <!-- Info Page -->

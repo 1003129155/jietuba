@@ -1,5 +1,6 @@
 #include "core/elevation.h"
 #include "core/i18n.h"
+#include "core/resource_manager.h"
 #include "ocr/ocr_manager.h"
 #include "ocr/ppocr_models.h"
 #include "settings/settings_transfer.h"
@@ -49,10 +50,42 @@
 using namespace jietuba;
 
 namespace {
-QPushButton *apply_button(SettingsDialog &dialog) {
+// Answers the next modal question: yes clicks its Yes / OK button, no rejects it. Gives up
+// after two seconds, so a question that never comes cannot catch a later one.
+void answer_next(bool yes) {
+    auto *timer = new QTimer;
+    QElapsedTimer waited;
+    waited.start();
+    QObject::connect(timer, &QTimer::timeout, [timer, yes, waited] {
+        auto *modal = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+        if (!modal && waited.elapsed() < 2000) return;
+        timer->stop();
+        timer->deleteLater();
+        if (!modal) return;
+        if (!yes) {
+            modal->reject();
+            return;
+        }
+        for (auto *box : modal->findChildren<QDialogButtonBox *>())
+            for (auto *button : box->buttons())
+                if (box->buttonRole(button) == QDialogButtonBox::YesRole || box->buttonRole(button) == QDialogButtonBox::AcceptRole) {
+                    button->click();
+                    return;
+                }
+        modal->accept();
+    });
+    timer->start(20);
+}
+
+// Clicks "Reset This Page" and confirms its question.
+void reset_page(QWidget &dialog) {
     for (auto *button : dialog.findChildren<QPushButton *>())
-        if (button->text() == settings_tr("Apply")) return button;
-    return nullptr;
+        if (button->text() == settings_tr("Reset This Page")) {
+            answer_next(true);
+            button->click();
+            return;
+        }
+    QFAIL("no reset button");
 }
 
 std::vector<HotkeyEdit *> slots_of(SettingsDialog &dialog, const QString &first_attr) {
@@ -174,23 +207,47 @@ private slots:
         QVERIFY(about->isVisible());
     }
 
-    void applyFollowsChangesAndWritesConfig() {
+    // There is no Apply: an edit is saved once edits pause, and only what changed is written.
+    void editsAreSavedOnceTheyPause() {
         config_->set_screenshot_save_enabled(false);
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.show();
         dialog.on_nav_changed(1, "capture");
-        auto *apply = apply_button(dialog);
-        QVERIFY(apply);
-        QVERIFY(!apply->isEnabled());
+        for (auto *button : dialog.findChildren<QPushButton *>()) QVERIFY(button->text() != QLatin1String("Apply"));
         auto *toggle = dialog.attr<SwitchSettingCard>("save_toggle");
-        QVERIFY(toggle);
+        auto *grid = dialog.attr<SwitchSettingCard>("magnifier_grid_toggle");
+        QVERIFY(toggle && grid);
         QVERIFY(!toggle->isChecked());
+        QSignalSpy saved(&dialog, &SettingsDialog::settings_applied);
         toggle->setChecked(true);
-        QVERIFY(apply->isEnabled());
+        QVERIFY(dialog.has_unsaved_changes());
+        QVERIFY(!config_->get_screenshot_save_enabled());
+        QTRY_VERIFY(config_->get_screenshot_save_enabled());
+        QCOMPARE(saved.size(), 1);
+        QCOMPARE(dialog.saved_keys(), QSet<QString>{"save_toggle"});
+        QVERIFY(!dialog.hotkeys_saved());
+        QVERIFY(!dialog.has_unsaved_changes());
+
+        // A run of edits is one save.
+        toggle->setChecked(false);
+        toggle->setChecked(true);
+        toggle->setChecked(false);
+        QTRY_COMPARE(saved.size(), 2);
+        QVERIFY(!config_->get_screenshot_save_enabled());
+
+        // A setting changed elsewhere while the window is open survives saves of other controls.
+        const bool grid_shown = grid->isChecked();
+        config_->set_app_setting("magnifier_grid", !grid_shown);
+        toggle->setChecked(true);
         QVERIFY(dialog.apply_settings());
-        QVERIFY(config_->get_screenshot_save_enabled());
-        QVERIFY(!apply->isEnabled());
+        QCOMPARE(config_->get_app_setting("magnifier_grid").toBool(), !grid_shown);
+        config_->set_app_setting("magnifier_grid", grid_shown);
+
+        // Hiding saves what is still waiting.
+        toggle->setChecked(false);
         dialog.hide();
+        QVERIFY(!config_->get_screenshot_save_enabled());
+        QCOMPARE(saved.size(), 4);
     }
 
     // Run as administrator sits under autostart and hides with it. Without elevation it is the same
@@ -251,7 +308,7 @@ private slots:
             QVERIFY(dialog.apply_settings());
             QCOMPARE(elevated_calls, QStringList{"/Create"});
             QVERIFY(config_->get_app_setting("run_as_admin").toBool());
-            // Emitted after the apply has finished.
+            // Emitted after the save has finished.
             QCOMPARE(handed_off.count(), 0);
             QTRY_COMPARE(handed_off.count(), 1);
         }
@@ -259,7 +316,7 @@ private slots:
 
     // The OCR list holds what can be chosen: Auto, the installed models in catalog order with ones
     // added by hand last, then the download entry. A chosen model that is gone stays listed,
-    // disabled; Apply saves engine and model together.
+    // disabled; engine and model are saved together.
     void ocrListOffersInstalledModelsAndKeepsAMissingChoice() {
         QTemporaryDir models;
         QVERIFY(models.isValid());
@@ -328,8 +385,7 @@ private slots:
         QCOMPARE(ocr_choice("ppocr_rust:local"), (std::pair<QString, std::optional<QString>>{"ppocr_rust", QString("local")}));
         QCOMPARE(ocr_choice("oneocr"), (std::pair<QString, std::optional<QString>>{"oneocr", std::nullopt}));
 
-        for (auto *button : dialog.findChildren<QPushButton *>())
-            if (button->text() == settings_tr("Reset This Page")) button->click();
+        reset_page(dialog);
         QCOMPARE(combo->currentData().toString(), QString("auto"));
     }
 
@@ -339,8 +395,7 @@ private slots:
         auto *toggle = dialog.attr<SwitchSettingCard>("magnifier_grid_toggle");
         const bool default_value = config_->app_defaults().value("magnifier_grid").toBool();
         toggle->setChecked(!default_value);
-        for (auto *button : dialog.findChildren<QPushButton *>())
-            if (button->text() == settings_tr("Reset This Page")) button->click();
+        reset_page(dialog);
         QCOMPARE(toggle->isChecked(), default_value);
     }
 
@@ -358,8 +413,7 @@ private slots:
         combo->setCurrentIndex(combo->findData(QString("mss")));
         QVERIFY(dialog.apply_settings());
         QCOMPARE(config_->get_capture_engine(), QString("mss"));
-        for (auto *button : dialog.findChildren<QPushButton *>())
-            if (button->text() == settings_tr("Reset This Page")) button->click();
+        reset_page(dialog);
         QCOMPARE(combo->currentData().toString(), config_->app_defaults().value("capture_engine").toString());
         dialog.hide();
     }
@@ -411,18 +465,17 @@ private slots:
         qobject_cast<QPushButton *>(dialog.attr_widget("_theme_color_btn"))->click();
         QCOMPARE(*dialog.appearance_theme_color, QColor(17, 34, 51));
         combo->setCurrentIndex(combo->findData(QString("system")));
-        for (auto *button : dialog.findChildren<QPushButton *>())
-            if (button->text() == settings_tr("Reset This Page")) button->click();
+        reset_page(dialog);
         QCOMPARE(combo->currentData().toString(), QString("modern"));
         dialog.hide();
     }
 
+    // Duplicates already in the settings are flagged; filling them in asks nothing.
     void duplicateGlobalHotkeysAreFlagged() {
-        SettingsDialog dialog(config_, "ctrl+shift+a");
-        auto *main = dialog.attr<HotkeyEdit>("hotkey_input");
-        auto *alternate = dialog.attr<HotkeyEdit>("hotkey_input_2");
-        main->setText("ctrl+shift+q");
-        alternate->setText("ctrl+shift+q");
+        config_->set_global_hotkeys("translation", {"ctrl+alt+shift+f6", "ctrl+alt+shift+f6", "", ""});
+        const auto restore = qScopeGuard([this] { config_->set_global_hotkeys("translation", {"", "", "", ""}); });
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        auto *alternate = dialog.attr<HotkeyEdit>("translation_hotkey_edit_2");
         QVERIFY(!validate_global_hotkey_edits(&dialog));
         QVERIFY(!alternate->validation_error().isEmpty());
         alternate->setText("");
@@ -463,23 +516,81 @@ private slots:
         QCOMPARE(config_->get_global_hotkeys("clipboard")[2], QString());
         QVERIFY(!config_->get_app_setting("clipboard_take_over_win_v").toBool());
         // Reset puts Win+V back in the third clipboard slot.
-        for (auto *button : dialog.findChildren<QPushButton *>())
-            if (button->text() == settings_tr("Reset This Page")) button->click();
+        reset_page(dialog);
         QCOMPARE(dialog.attr<HotkeyEdit>("clipboard_hotkey_edit_3")->text(), QString("win+v"));
         config_->set_global_hotkeys("translation", {"", "", "", ""});
         config_->set_hotkey("ctrl+alt+shift+f10");
         config_->set_global_hotkeys("clipboard", {"", "", "", ""});
     }
 
-    void aDuplicateInTheNewSlotsBlocksApply() {
-        SettingsDialog dialog(config_, config_->get_hotkey());
-        dialog.attr<HotkeyEdit>("clipboard_hotkey_edit_3")->setText("win+v");
-        dialog.attr<HotkeyEdit>("hotkey_input_4")->setText("win+v");
-        QTimer::singleShot(0, &dialog, [] {
-            if (auto *modal = qobject_cast<QDialog *>(QApplication::activeModalWidget())) modal->reject();
+    // A global hotkey another one already uses asks before moving it; declining puts back the saved value.
+    void aGlobalHotkeyInUseAsksBeforeMoving() {
+        const auto restore = qScopeGuard([this] {
+            config_->set_global_hotkeys("translation", {"", "", "", ""});
+            config_->set_global_hotkeys("pin_clipboard", {"", "", "", ""});
         });
-        QVERIFY(!dialog.apply_settings());
-        QCOMPARE(config_->get_global_hotkeys("screenshot")[3], QString());
+        config_->set_global_hotkeys("translation", {"ctrl+alt+shift+f6", "", "", ""});
+        config_->set_global_hotkeys("pin_clipboard", {"", "", "", ""});
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        auto *taken = dialog.attr<HotkeyEdit>("translation_hotkey_edit");
+        auto *edit = dialog.attr<HotkeyEdit>("pin_clipboard_hotkey_edit_2");
+        answer_next(false);
+        edit->setText("ctrl+alt+shift+f6");
+        QCOMPARE(edit->text(), QString());
+        QCOMPARE(taken->text(), QString("ctrl+alt+shift+f6"));
+        answer_next(true);
+        edit->setText("ctrl+alt+shift+f6");
+        QCOMPARE(taken->text(), QString());
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_global_hotkeys("pin_clipboard")[1], QString("ctrl+alt+shift+f6"));
+        QCOMPARE(config_->get_global_hotkeys("translation")[0], QString());
+        QVERIFY(dialog.hotkeys_saved());
+    }
+
+    // An unfinished combination is never saved, and letting go of a lone modifier puts back the
+    // value from before it; a duplicate that slipped in stays unsaved until the other side changes.
+    void unfinishedAndDuplicateHotkeysStayUnsaved() {
+        const auto restore = qScopeGuard([this] { config_->set_global_hotkeys("translation", {"", "", "", ""}); });
+        config_->set_global_hotkeys("translation", {"ctrl+alt+shift+f8", "", "", ""});
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        auto *edit = dialog.attr<HotkeyEdit>("translation_hotkey_edit");
+        const auto send = [edit](QEvent::Type type, int key, Qt::KeyboardModifiers modifiers) {
+            QKeyEvent event(type, key, modifiers);
+            QApplication::sendEvent(edit->edit, &event);
+        };
+        QSignalSpy saved(&dialog, &SettingsDialog::settings_applied);
+        send(QEvent::KeyPress, Qt::Key_Control, Qt::NoModifier);
+        QCOMPARE(edit->text(), QString("ctrl+"));
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_global_hotkeys("translation")[0], QString("ctrl+alt+shift+f8"));
+        send(QEvent::KeyRelease, Qt::Key_Control, Qt::ControlModifier);
+        QCOMPARE(edit->text(), QString("ctrl+alt+shift+f8"));
+        // Nothing was written, so nothing is reported: the hotkeys are not registered again.
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(saved.size(), 0);
+        QVERIFY(!dialog.hotkeys_saved());
+        // An unfinished in-app shortcut writes nothing either.
+        auto *inapp = dialog.inapp_edits.front().second;
+        const QString inapp_saved = inapp->text();
+        inapp->setText("ctrl+");
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(saved.size(), 0);
+        inapp->setText(inapp_saved);
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(saved.size(), 0);
+
+        auto *second = dialog.attr<HotkeyEdit>("translation_hotkey_edit_2");
+        config_->set_global_hotkeys("translation", {"ctrl+alt+shift+f8", "ctrl+alt+shift+f8", "", ""});
+        dialog.refresh_settings();
+        config_->set_global_hotkeys("translation", {"ctrl+alt+shift+f8", "", "", ""});
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_global_hotkeys("translation"), QStringList({"ctrl+alt+shift+f8", "", "", ""}));
+        edit->setText("");
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_global_hotkeys("translation"), QStringList({"", "ctrl+alt+shift+f8", "", ""}));
+        QCOMPARE(saved.size(), 1);
+        QVERIFY(dialog.hotkeys_saved());
+        QCOMPARE(second->text(), QString("ctrl+alt+shift+f8"));
     }
 
     // The status icon tells how a value registers; single keys are recorded only when they bind alone.
@@ -549,7 +660,78 @@ private slots:
         QCOMPARE(std::get<2>(conflicts.front()).size(), 2);
     }
 
-    // Export writes what the pages read; import fills the controls without saving.
+    // A mouse binding that collides with another is put back on its saved value, with a warning.
+    void aCollidingMouseBindingIsPutBack() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.on_nav_changed(10, "mouse");
+        auto *first = qobject_cast<MouseBindingEditor *>(dialog.behavior_control("mouse_pin_zoom"));
+        auto *second = qobject_cast<MouseBindingEditor *>(dialog.behavior_control("mouse_pin_opacity"));
+        QVERIFY(first && second);
+        QVERIFY(!first->currentData().isEmpty());
+        const QString saved = second->currentData();
+        QVERIFY(saved != first->currentData());
+        answer_next(true);
+        second->setBinding(first->currentData());
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(second->currentData(), saved);
+        QVERIFY(!dialog.saved_keys().contains("mouse_pin_opacity"));
+        QVERIFY(!dialog.has_unsaved_changes());
+    }
+
+    // A window rebuilt for a language or scale change opens on the page and place the old one showed.
+    void aRebuiltWindowKeepsThePage() {
+        SettingsDialog::ViewState state;
+        {
+            SettingsDialog old_window(config_, config_->get_hotkey());
+            old_window.show();
+            old_window.on_nav_changed(5, "log");
+            state = old_window.view_state();
+            old_window.hide();
+        }
+        QCOMPARE(state.stack_index, 5);
+        QCOMPARE(state.route_key, QString("log"));
+        QVERIFY(state.position);
+        SettingsDialog window(config_, config_->get_hotkey());
+        window.setAttribute(Qt::WA_DontShowOnScreen);
+        window.restore_view_state(state);
+        // A hidden window opens the page when it shows.
+        QCOMPARE(window.pos(), *state.position);
+        QCOMPARE(window.content_stack->currentIndex(), 0);
+        window.show();
+        QCOMPARE(window.content_stack->currentIndex(), 5);
+        state.stack_index = 7;
+        window.restore_view_state(state);
+        QCOMPARE(window.content_stack->currentIndex(), 7);
+        window.hide();
+    }
+
+    // A window rebuilt on a page (language or scale change) paints nothing until that page is laid
+    // out: show() paints at once, before the queued relayouts that size the page's groups.
+    void aRestoredPageIsNotPaintedHalfLaidOut() {
+        SettingsDialog window(config_, config_->get_hotkey());
+        window.setAttribute(Qt::WA_DontShowOnScreen);
+        SettingsDialog::ViewState state;
+        state.stack_index = 6;
+        state.route_key = "other";
+        window.restore_view_state(state);
+        const auto geometries = [&window] {
+            QList<QRect> rects;
+            for (auto *group : window.content_stack->currentWidget()->findChildren<SettingCardGroup *>())
+                rects.append(QRect(group->mapTo(&window, QPoint(0, 0)), group->size()));
+            return rects;
+        };
+        window.show();
+        QCOMPARE(window.content_stack->currentIndex(), 6);
+        QVERIFY(!window.updatesEnabled());
+        QTRY_VERIFY(window.updatesEnabled());
+        const auto at_first_paint = geometries();
+        QVERIFY(!at_first_paint.isEmpty());
+        QTest::qWait(300);
+        QCOMPARE(at_first_paint, geometries());
+        window.hide();
+    }
+
+    // Export writes what the pages read; import fills the controls and saves them.
     void exportAndImportRoundTrip() {
         config_->set_log_level("ERROR");
         config_->set_screenshot_save_path(dir_.path());
@@ -576,9 +758,9 @@ private slots:
         values["app/log_level"] = "DEBUG";
         dialog.load_imported_settings(values);
         QCOMPARE(dialog.attr<QComboBox>("log_level_combo")->currentText(), QString("DEBUG"));
-        QVERIFY(dialog.has_unsaved_changes());
-        // Nothing is written until Apply.
-        QCOMPARE(config_->get_log_level(), QString("ERROR"));
+        QVERIFY(!dialog.has_unsaved_changes());
+        QCOMPARE(config_->get_log_level(), QString("DEBUG"));
+        config_->set_log_level("ERROR");
 
         QFile broken(dir_.filePath("broken.json"));
         QVERIFY(broken.open(QIODevice::WriteOnly));
@@ -587,8 +769,8 @@ private slots:
         QVERIFY_THROWS_EXCEPTION(settings_transfer::SettingsFileError, settings_transfer::read_settings_file(broken.fileName()));
     }
 
-    // No page has a control for the toolbar layouts; imported ones are written on Apply, each to its own key.
-    void importedToolbarLayoutsWaitForApply() {
+    // No page has a control for the toolbar layouts; imported ones are written each to its own key.
+    void importedToolbarLayoutsAreSaved() {
         SettingsDialog dialog(config_, config_->get_hotkey());
         const QString screenshot_layout = R"([["pin", "show"], ["text", "hide"]])";
         const QString pin_layout = R"([["text", "show"], ["pen", "more"]])";
@@ -597,8 +779,6 @@ private slots:
                                        {"pin/toolbar_layout", pin_layout},
                                        {"app/hotkey", config_->get_hotkey()},
                                        {"clipboard/hotkey", QString()}});
-        QCOMPARE(config_->get_app_setting("pin_toolbar_layout").toString(), QString());
-        QVERIFY(dialog.apply_settings());
         QCOMPARE(config_->get_app_setting("screenshot_toolbar_layout").toString(), screenshot_layout);
         QCOMPARE(config_->get_app_setting("pin_toolbar_layout").toString(), pin_layout);
         QVERIFY(config_->settings().contains("pin/toolbar_layout"));
@@ -859,7 +1039,7 @@ private slots:
         QCOMPARE(config_->get_translation_provider(), providers->currentData().toString());
     }
 
-    // "Reset This Page" puts the shown page back to the defaults; nothing is saved until Apply.
+    // "Reset This Page" asks, then puts the shown page back to the defaults and saves them.
     void resettingAPageRestoresItsDefaults() {
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.build_all_pages();
@@ -872,18 +1052,26 @@ private slots:
         auto *hotkey = dialog.attr<HotkeyEdit>("hotkey_input");
         QVERIFY(hotkey);
         hotkey->setText("ctrl+alt+9");
+        // Declining changes nothing.
+        answer_next(false);
+        reset->click();
+        QCOMPARE(hotkey->text(), QString("ctrl+alt+9"));
+        answer_next(true);
         reset->click();
         QCOMPARE(hotkey->text(), defaults.value("hotkey").toString());
         dialog.on_nav_changed(5, "log");
         auto *level = dialog.attr<QComboBox>("log_level_combo");
         QVERIFY(level);
         level->setCurrentIndex(level->findText(defaults.value("log_level").toString()) == 0 ? 1 : 0);
+        answer_next(true);
         reset->click();
         QCOMPARE(level->currentText(), defaults.value("log_level").toString());
+        QCOMPARE(config_->get_log_level(), defaults.value("log_level").toString());
         dialog.on_nav_changed(1, "capture");
         auto *format = dialog.attr<QComboBox>("screenshot_format_combo");
         QVERIFY(format);
         format->setCurrentIndex(format->count() - 1);
+        answer_next(true);
         reset->click();
         QCOMPARE(format->currentText().toUpper(), defaults.value("screenshot_format").toString().toUpper());
         // Every other page resets too.
@@ -892,6 +1080,7 @@ private slots:
         for (const auto &[index, route] : pages) {
             dialog.on_nav_changed(index, route);
             QCOMPARE(dialog.content_stack->currentIndex(), index);
+            answer_next(true);
             reset->click();
         }
         // Unknown pages are ignored.
@@ -922,8 +1111,7 @@ private slots:
         QVERIFY(dialog.apply_settings());
         QCOMPARE(config_->get_app_setting("screen_annotation_start_tool").toString(), QString("last"));
         QCOMPARE(config_->get_app_setting("screen_annotation_highlight_size").toString(), QString("large"));
-        for (auto *button : dialog.findChildren<QPushButton *>())
-            if (button->text() == settings_tr("Reset This Page")) button->click();
+        reset_page(dialog);
         QCOMPARE(start->currentData().toString(), QString("cursor"));
         QCOMPARE(size->currentData().toString(), QString("medium"));
         QVERIFY(dialog.apply_settings());
@@ -962,8 +1150,7 @@ private slots:
         QVERIFY(engine);
         const auto engine_default = config_->app_defaults().value("long_stitch_engine");
         engine->setCurrentIndex(engine->findData(engine_default) == 0 ? engine->count() - 1 : 0);
-        for (auto *button : dialog.findChildren<QPushButton *>())
-            if (button->text() == settings_tr("Reset This Page")) button->click();
+        reset_page(dialog);
         QCOMPARE(engine->currentData(), engine_default);
         dialog.show_pin_shortcuts(true);
         QCOMPARE(dialog.content_stack->currentIndex(), 10);
@@ -1029,6 +1216,47 @@ private slots:
     }
 
 
+    void inAppShortcutIconsRenderAtRowSize() {
+        for (const auto &key : INAPP_KEYS()) {
+            const auto source = inapp_icon(key.cfg_key);
+            QIcon icon;
+            if (const auto *name = std::get_if<QString>(&source)) icon = ResourceManager::get_icon_by_name(*name, 19);
+            else if (const auto *fluent = std::get_if<FluentIcon>(&source)) icon = fluent_icon(*fluent);
+            QVERIFY2(!icon.isNull(), qPrintable(key.cfg_key));
+            const auto image = icon.pixmap(19, 19).toImage();
+            QVERIFY2(!image.isNull(), qPrintable(key.cfg_key));
+            bool visible = false;
+            for (int y = 0; y < image.height() && !visible; ++y)
+                for (int x = 0; x < image.width(); ++x)
+                    if (qAlpha(image.pixel(x, y)) > 0) {
+                        visible = true;
+                        break;
+                    }
+            QVERIFY2(visible, qPrintable(key.cfg_key));
+        }
+    }
+
+    void undoAndRedoBelongToAnnotationTools() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        auto *stack = dialog.findChild<QStackedWidget *>("InAppShortcutStack");
+        QVERIFY(stack);
+        auto *screenshot_page = stack->widget(0);
+        auto *tools_page = stack->widget(1);
+        QVERIFY(screenshot_page && tools_page);
+        for (const char *key : {"inapp_undo", "inapp_redo"}) {
+            auto *edit = dialog.inapp_edit(key);
+            QVERIFY(edit);
+            QVERIFY(tools_page->isAncestorOf(edit));
+            QVERIFY(!screenshot_page->isAncestorOf(edit));
+            QCOMPARE(edit->text(), config_->get_inapp_shortcut(key));
+            QCOMPARE(dialog.inapp_groups.value(key), QString("screenshot"));
+            int count = 0;
+            for (const auto &entry : INAPP_KEYS())
+                if (entry.cfg_key == key) ++count;
+            QCOMPARE(count, 1);
+        }
+    }
+
     // An in-app shortcut taken by another one in the same window asks before moving it over.
     void inAppShortcutConflictsAskBeforeReplacing() {
         SettingsDialog dialog(config_, config_->get_hotkey());
@@ -1047,34 +1275,13 @@ private slots:
         QVERIFY(first && second);
         first->setText("ctrl+alt+k");
         // Declining keeps the other one and restores this one's saved value.
-        const auto answer = [](bool yes) {
-            auto *timer = new QTimer;
-            QObject::connect(timer, &QTimer::timeout, [timer, yes] {
-                auto *modal = qobject_cast<QDialog *>(QApplication::activeModalWidget());
-                if (!modal) return;
-                timer->stop();
-                timer->deleteLater();
-                if (!yes) {
-                    modal->reject();
-                    return;
-                }
-                for (auto *box : modal->findChildren<QDialogButtonBox *>())
-                    for (auto *button : box->buttons())
-                        if (box->buttonRole(button) == QDialogButtonBox::YesRole || box->buttonRole(button) == QDialogButtonBox::AcceptRole) {
-                            button->click();
-                            return;
-                        }
-                modal->accept();
-            });
-            timer->start(20);
-        };
         const QString saved = second->text();
-        answer(false);
+        answer_next(false);
         second->setText("ctrl+alt+k");
         QCOMPARE(first->text(), QString("ctrl+alt+k"));
         QCOMPARE(second->text(), saved);
         // Accepting moves the shortcut: the other one is cleared.
-        answer(true);
+        answer_next(true);
         second->setText("ctrl+alt+k");
         QCOMPARE(second->text(), QString("ctrl+alt+k"));
         QCOMPARE(first->text(), QString());
@@ -1152,9 +1359,9 @@ private slots:
         QVERIFY(exported.contains("text"));
     }
 
-    // Each provider's form tests its unsaved values and fetches model lists in the background;
+    // Each provider's form tests the values it shows and fetches model lists in the background;
     // nothing here reaches the network: DeepL lacks a key and the model list goes to a closed local port.
-    void translationFormsTestAndFetchWithoutSaving() {
+    void translationFormsTestAndFetchTheShownValues() {
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.build_all_pages();
         dialog.on_nav_changed(4, "translation");
@@ -1189,8 +1396,8 @@ private slots:
         auto custom_status = dialog.provider_status_labels.value("custom_llm");
         QTRY_VERIFY_WITH_TIMEOUT(custom_status->text().startsWith(QString::fromUtf8("✗")), 15000);
         QVERIFY(fetch->isEnabled());
-        // Nothing was saved.
-        QVERIFY(config_->get_provider_field("custom_llm_base_url")->toString() != QString("http://127.0.0.1:9/v1"));
+        // Like any edit, the address is saved once typing pauses.
+        QTRY_COMPARE(config_->get_provider_field("custom_llm_base_url")->toString(), QString("http://127.0.0.1:9/v1"));
     }
     // Saves each page as PNG for visual review when JIETUBA_SETTINGS_SHOTS names a folder;
     // needs -platform windows for real fonts.

@@ -21,8 +21,6 @@ namespace {
 const std::vector<InAppKey> SCREENSHOT_KEYS = {
     {"inapp_confirm", "Copy to Clipboard", "ctrl+c"},
     {"inapp_pin", "Pin to Screen", "mousemiddle"},
-    {"inapp_undo", "Undo", "ctrl+z"},
-    {"inapp_redo", "Redo", "ctrl+y"},
     {"inapp_delete", "Delete Selected", "delete"},
     {"inapp_restore_last_region", "Restore Last Region", "l"},
     {"inapp_zoom_in", "Magnifier Zoom In", "pageup"},
@@ -44,6 +42,8 @@ const std::vector<InAppKey> &TOOL_KEYS() {
     static const auto keys = [] {
         std::vector<InAppKey> result;
         for (const auto &tool : ANNOTATION_TOOL_SHORTCUTS()) result.push_back({tool.config_key, tool.label, tool.default_key});
+        result.push_back({"inapp_undo", "Undo", "ctrl+z"});
+        result.push_back({"inapp_redo", "Redo", "ctrl+y"});
         return result;
     }();
     return keys;
@@ -198,6 +198,7 @@ void check_pick_conflict(SettingsDialog *dialog, const QString &changed_key, con
 
 // A new value that duplicates another shortcut in its group asks whether to replace it.
 void on_shortcut_changed(SettingsDialog *dialog, const QString &changed_key, const QString &value) {
+    if (dialog->batch_editing()) return;
     const QString new_text = value.trimmed().toLower();
     // Empty values and unfinished prefixes ("ctrl+") are ignored.
     if (new_text.isEmpty() || new_text.endsWith("+")) return;
@@ -229,6 +230,10 @@ void on_shortcut_changed(SettingsDialog *dialog, const QString &changed_key, con
 // After switching the direct pick keys, checks each clipboard shortcut against them.
 void on_pick_mode_changed(SettingsDialog *dialog) {
     const QString mode = dialog->attr<QComboBox>("clipboard_pick_combo")->currentData().toString();
+    if (dialog->batch_editing()) {
+        dialog->clipboard_pick_mode = mode;
+        return;
+    }
     const QString keys = clipboard_pick_keys(mode);
     for (const auto &[cfg_key, edit] : dialog->inapp_edits) {
         if (dialog->inapp_groups.value(cfg_key) != "clipboard") continue;
@@ -243,6 +248,44 @@ void on_pick_mode_changed(SettingsDialog *dialog) {
         edit->blockSignals(false);
     }
     dialog->clipboard_pick_mode = mode;
+}
+
+struct GlobalSlot {
+    QString function;
+    QString label;
+    int slot = 0;
+};
+
+std::optional<GlobalSlot> global_slot_of(SettingsDialog *dialog, HotkeyEdit *edit) {
+    for (const auto &row : GLOBAL_HOTKEY_ROWS()) {
+        const auto attrs = global_hotkey_edit_attrs(row.first_attr);
+        for (int slot = 0; slot < attrs.size(); ++slot)
+            if (dialog->attr<HotkeyEdit>(attrs[slot]) == edit) {
+                const QString title = dialog->tr_text(row.title);
+                return GlobalSlot{row.function, slot ? QString("%1 (%2)").arg(title).arg(slot + 1) : title, slot};
+            }
+    }
+    return std::nullopt;
+}
+
+// A finished hotkey that another global hotkey already uses asks whether to move it here;
+// declining puts back the saved value.
+void on_global_hotkey_changed(SettingsDialog *dialog, HotkeyEdit *edit) {
+    if (dialog->batch_editing()) return;
+    const QString text = edit->text().trimmed();
+    if (text.isEmpty() || text.endsWith("+")) return;
+    const auto identity = hotkey_identity(text);
+    const auto mine = global_slot_of(dialog, edit);
+    if (!identity || !mine) return;
+    const QString saved = dialog->config_manager->get_global_hotkeys(mine->function).value(mine->slot);
+    if (hotkey_identity(saved) == identity) return;
+    for (auto *other : global_hotkey_edits(dialog)) {
+        if (other == edit || hotkey_identity(other->text()) != identity) continue;
+        const auto owner = global_slot_of(dialog, other);
+        if (ask_replace(dialog, text, owner ? owner->label : QString())) other->setText("");
+        else edit->setText(saved);
+        return;
+    }
 }
 }
 
@@ -306,9 +349,9 @@ IconSource inapp_icon(const QString &cfg_key) {
         {"inapp_tool_eraser", QString::fromUtf8("橡皮.svg")},
         {"inapp_copy_pin", QString::fromUtf8("复制.svg")},
         {"inapp_copy_pin_text", QString::fromUtf8("文字识别.svg")},
-        {"inapp_pin_reset_size", QString::fromUtf8("长截图.svg")},
-        {"inapp_thumbnail", FluentIcon::Hide},
-        {"inapp_toggle_toolbar", QString::fromUtf8("开发.svg")},
+        {"inapp_pin_reset_size", QString::fromUtf8("重置大小.svg")},
+        {"inapp_thumbnail", QString::fromUtf8("缩略图.svg")},
+        {"inapp_toggle_toolbar", QString::fromUtf8("切换工具栏.svg")},
         {"inapp_pin_lock", FluentIcon::Pin},
         {"inapp_clipboard_quick_edit", FluentIcon::Edit},
         {"inapp_clipboard_edit_save", FluentIcon::Save},
@@ -338,7 +381,7 @@ QWidget *create_hotkey_page(SettingsDialog *dialog) {
     set_own_style(view, "background: transparent;");
     auto *layout = new QVBoxLayout(view);
     layout->setContentsMargins(0, 0, dialog_scaled(10), 0);
-    layout->setSpacing(dialog_scaled(16));
+    layout->setSpacing(dialog_scaled(12));
 
     // ════ Global hotkeys ════
     auto *grp_global = new SectionCard(ResourceManager::get_icon_path(QString::fromUtf8("热键.svg")), dialog->tr_text("Global Hotkeys"), dialog->tr_text("Works anytime"), view);
@@ -359,6 +402,7 @@ QWidget *create_hotkey_page(SettingsDialog *dialog) {
     // Conflicts are checked once every editor exists, so initialisation never sees half the
     // group; a final run flags old conflicts left in the configuration.
     for (auto *edit : global_hotkey_edits(dialog)) {
+        QObject::connect(edit, &HotkeyEdit::textChanged, dialog, [dialog, edit] { on_global_hotkey_changed(dialog, edit); });
         QObject::connect(edit, &HotkeyEdit::textChanged, dialog, [dialog] { validate_global_hotkey_edits(dialog); });
         // In-app shortcuts that collide with a global hotkey update their hint too.
         QObject::connect(edit, &HotkeyEdit::textChanged, dialog, [dialog] { refresh_inapp_shadow_states(dialog); });

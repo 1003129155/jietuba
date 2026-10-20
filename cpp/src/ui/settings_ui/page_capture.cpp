@@ -20,7 +20,7 @@
 
 namespace jietuba {
 namespace {
-// Opens the colour format manager; the result stays on the dialog until Apply.
+// Opens the colour format manager; the result is kept on the dialog and saved when it closes.
 void manage_color_formats(SettingsDialog *dialog) {
     ColorFormatDialog editor(*dialog->magnifier_color_formats, dialog);
     if (exec_dialog(&editor)) dialog->magnifier_color_formats = editor.entries();
@@ -31,8 +31,8 @@ const QString PPOCR_PREFIX = "ppocr_rust:";
 // The last item, which opens the model manager.
 const QString MANAGE_MODELS = "manage_models";
 
-// Deleting the model in use sets the engine to Auto at once rather than at Apply, so no setting
-// is left pointing at a deleted model; a model only picked in the combo puts the combo back on Auto.
+// Deleting the model in use sets the engine to Auto at once, so no setting is left pointing at a
+// deleted model; a model only picked in the combo puts the combo back on Auto.
 void on_model_removed(SettingsDialog *dialog, PpocrModelDialog *window, const QString &model_id) {
     auto *config = dialog->config_manager;
     auto *combo = dialog->attr<QComboBox>("ocr_engine_combo");
@@ -85,7 +85,7 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     set_own_style(view, "background: transparent;");
     auto *layout = new QVBoxLayout(view);
     layout->setContentsMargins(0, 0, dialog_scaled(10), 0);
-    layout->setSpacing(dialog_scaled(20));
+    layout->setSpacing(dialog_scaled(14));
 
     // ── Capture engine ──
     auto *grp_engine = new SettingsCardGroup(dialog->tr_text("Screenshot"), view, "capture");
@@ -200,7 +200,7 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
                 "Show the switch-format and copy-color shortcuts under the readings. Off makes the magnifier shorter.",
                 config->get_app_setting("magnifier_hint").toBool(), "magnifier_hint_toggle");
     // Formats can be checked several at a time and added, which a combo cannot hold, so they
-    // get their own window; the result stays on the dialog until Apply.
+    // get their own window; the result is kept on the dialog and saved when it closes.
     auto *formats_card = new SettingCard(FluentIcon::Palette, dialog->tr_text("Color Formats"),
                                          dialog->tr_text("Which formats Shift cycles through on the magnifier, for C to copy."), grp_magnifier);
     dialog->magnifier_color_formats = color_formats::load(config);

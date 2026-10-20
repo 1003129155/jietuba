@@ -71,8 +71,8 @@ QWidget *(*const PAGE_BUILDERS[])(SettingsDialog *) = {
 };
 constexpr int PAGE_COUNT = static_cast<int>(std::size(PAGE_BUILDERS));
 
-// Value-change signals followed for the Apply button. Buttons opening a picker or editor may
-// update state only after their child closes, without a value signal, so clicked counts too.
+// Value-change signals that schedule a save. Buttons opening a picker or editor may update
+// state only after their child closes, without a value signal, so clicked counts too.
 const QSet<QByteArray> TRACKED_SIGNALS = {"textChanged", "checkedChanged", "toggled", "currentIndexChanged", "valueChanged", "clicked"};
 
 // The signals of a widget class to follow, one per name; cached per class.
@@ -132,6 +132,15 @@ void select_data(QComboBox *combo, const QVariant &value) {
 }
 
 QString hotkey_text(SettingsDialog *dialog, const QString &attr) { return text_of(dialog->attr_widget(attr)).trimmed(); }
+
+// Counts a stretch of programmatic control changes.
+class BatchEdit {
+public:
+    explicit BatchEdit(int &depth) : depth_(depth) { ++depth_; }
+    ~BatchEdit() { --depth_; }
+private:
+    int &depth_;
+};
 }
 
 QString settings_tr(const char *text) { return i18n_tr(text, "SettingsDialog"); }
@@ -163,6 +172,12 @@ SettingsDialog::SettingsDialog(ToolSettingsManager *manager, const QString &hotk
     window_font.setPointSize(dialog_scaled(11));
     setFont(window_font);
     setObjectName("SettingsDialog");
+    // Edits are saved once they pause: a series of keystrokes or a batch of control changes is
+    // written once, and a toggle still takes effect before the user can look for it.
+    save_timer_ = new QTimer(this);
+    save_timer_->setSingleShot(true);
+    save_timer_->setInterval(300);
+    connect(save_timer_, &QTimer::timeout, this, [this] { apply_settings(); });
     setup_ui();
     connect(get_ui_theme(), &UIThemeManager::theme_changed, this, [this] { on_ui_theme_changed(); });
 }
@@ -220,7 +235,7 @@ void SettingsDialog::setup_titlebar() {
 // ── UI ──
 
 void SettingsDialog::setup_ui() {
-    // Wide enough for the longest navigation item (Japanese "マウスショートカット" in bold when selected).
+    // Wide enough for the longest navigation item (Japanese "マウスショートカット").
     const int sidebar_width = dialog_scaled(222);
     const int title_bar_height = titleBar() ? titleBar()->height() : dialog_scaled(32);
 
@@ -233,28 +248,28 @@ void SettingsDialog::setup_ui() {
     left_panel->setObjectName("SettingsLeftPanel");
     left_panel->setFixedWidth(sidebar_width);
     auto *left_v = new QVBoxLayout(left_panel);
-    left_v->setContentsMargins(dialog_scaled(10), dialog_scaled(6), dialog_scaled(10), dialog_scaled(10));
-    left_v->setSpacing(dialog_scaled(8));
+    left_v->setContentsMargins(dialog_scaled(8), 0, dialog_scaled(8), dialog_scaled(8));
+    left_v->setSpacing(dialog_scaled(6));
 
     auto *logo_area = new QWidget;
-    logo_area->setFixedHeight(dialog_scaled(78));
+    logo_area->setFixedHeight(dialog_scaled(48));
     auto *logo_layout = new QHBoxLayout(logo_area);
-    logo_layout->setContentsMargins(dialog_scaled(12), dialog_scaled(10), dialog_scaled(12), dialog_scaled(10));
-    logo_layout->setSpacing(dialog_scaled(10));
+    logo_layout->setContentsMargins(dialog_scaled(10), 0, dialog_scaled(10), dialog_scaled(4));
+    logo_layout->setSpacing(dialog_scaled(9));
     logo_layout->setAlignment(Qt::AlignVCenter);
     auto *logo_icon_lbl = new QLabel;
-    logo_icon_lbl->setFixedSize(dialog_scaled(36), dialog_scaled(36));
+    logo_icon_lbl->setFixedSize(dialog_scaled(26), dialog_scaled(26));
     logo_icon_lbl->setAlignment(Qt::AlignCenter);
     const QString icon_path = ResourceManager::get_resource_path(QString::fromUtf8("svg/托盘.svg"));
-    if (QFileInfo::exists(icon_path)) logo_icon_lbl->setPixmap(QIcon(icon_path).pixmap(dialog_scaled(36), dialog_scaled(36)));
+    if (QFileInfo::exists(icon_path)) logo_icon_lbl->setPixmap(QIcon(icon_path).pixmap(dialog_scaled(26), dialog_scaled(26)));
     logo_layout->addWidget(logo_icon_lbl, 0, Qt::AlignVCenter);
     auto *text_box = new QVBoxLayout;
     text_box->setContentsMargins(0, 0, 0, 0);
-    text_box->setSpacing(dialog_scaled(2));
+    text_box->setSpacing(0);
     auto *app_name_lbl = new BodyLabel(tr_text("jietuba"));
-    apply_theme_text_style(app_name_lbl, 16, true);
+    apply_theme_text_style(app_name_lbl, 14, true);
     auto *app_desc_lbl = new QLabel(tr_text("Settings"));
-    apply_theme_text_style(app_desc_lbl, 13, false, {}, true);
+    apply_theme_text_style(app_desc_lbl, 11, false, {}, true);
     text_box->addWidget(app_name_lbl);
     text_box->addWidget(app_desc_lbl);
     logo_layout->addLayout(text_box, 1);
@@ -271,8 +286,8 @@ void SettingsDialog::setup_ui() {
     right_area_ = new QWidget;
     right_area_->setObjectName("SettingsRightArea");
     auto *right_layout = new QVBoxLayout(right_area_);
-    right_layout->setContentsMargins(dialog_scaled(24), dialog_scaled(16), dialog_scaled(24), dialog_scaled(18));
-    right_layout->setSpacing(dialog_scaled(14));
+    right_layout->setContentsMargins(dialog_scaled(12), dialog_scaled(2), dialog_scaled(4), dialog_scaled(2));
+    right_layout->setSpacing(dialog_scaled(10));
     content_title_ = new QLabel(tr_text("Shortcut Settings"));
     apply_theme_text_style(content_title_, 21, true, QString("padding: 0 %1px %2px %1px;").arg(dialog_scaled(6)).arg(dialog_scaled(2)));
 
@@ -290,9 +305,8 @@ void SettingsDialog::setup_ui() {
 
     apply_dialog_stylesheet();
     set_current_nav("shortcuts");
-    // The snapshot also decides whether Apply is enabled; later pages join it in ensure_page.
+    // Saves write what differs from the snapshot; later pages join it in ensure_page.
     settings_snapshot_ = snapshot_settings();
-    update_action_buttons();
 }
 
 NavigationInterface *SettingsDialog::create_navigation(QWidget *parent) {
@@ -356,7 +370,7 @@ void SettingsDialog::ensure_page(int index) {
     if (was_current) content_stack->setCurrentIndex(index);
     configure_dialog_controls(*page);
     disable_wheel_on_value_controls(page);
-    connect_action_button_tracking(page);
+    connect_save_tracking(page);
     if (settings_snapshot_) {
         const auto current = snapshot_settings();
         for (auto it = current.begin(); it != current.end(); ++it)
@@ -382,7 +396,10 @@ void SettingsDialog::on_nav_changed(int stack_index, const QString &route_key) {
     if (stack_index == 12) refresh_screen_annotation_hotkey();
     content_title_->setText(tr_text(title_map.value(stack_index)));
     content_stack->setCurrentIndex(stack_index);
-    if (!route_key.isEmpty()) set_current_nav(route_key);
+    if (!route_key.isEmpty()) {
+        set_current_nav(route_key);
+        current_route_ = route_key;
+    }
     refresh_after_page_change();
 }
 
@@ -450,104 +467,28 @@ QLayout *SettingsDialog::create_button_area() {
     // The footer is outside content_stack, so its controls opt in to dialog scaling themselves.
     auto *reset_btn = new TransparentPushButton(tr_text("Reset This Page"));
     configure_dialog_control(*reset_btn);
+    footer_reset_btn_ = reset_btn;
     reset_btn->setCursor(Qt::PointingHandCursor);
     reset_btn->setIcon(FluentIcon::Sync);
-    connect(reset_btn, &QPushButton::clicked, this, &SettingsDialog::reset_current_page);
-    connect(reset_btn, &QPushButton::clicked, this, &SettingsDialog::update_action_buttons);
-
-    // Separate from the unsaved-changes prompt's Cancel ("stay in settings"): this one closes
-    // the window, so it has its own source text and translation.
-    auto *cancel_btn = new PushButton(tr_text("Cancel / Close"));
-    configure_dialog_control(*cancel_btn);
-    footer_cancel_btn_ = cancel_btn;
-    cancel_btn->setFixedHeight(dialog_scaled(42));
-    cancel_btn->setMinimumWidth(dialog_scaled(120));
-    cancel_btn->setCursor(Qt::PointingHandCursor);
-    connect(cancel_btn, &QPushButton::clicked, this, &QDialog::reject);
-
-    auto *ok_btn = new PrimaryPushButton(tr_text("Apply"));
-    configure_dialog_control(*ok_btn);
-    footer_ok_btn_ = ok_btn;
-    ok_btn->setFixedHeight(dialog_scaled(42));
-    ok_btn->setMinimumWidth(dialog_scaled(120));
-    ok_btn->setCursor(Qt::PointingHandCursor);
-    ok_btn->setBaseIconSize(16);
-    connect(ok_btn, &QPushButton::clicked, this, [this] { apply_settings(); });
-    apply_footer_styles();
-
+    // Saved at once, so it asks first.
+    connect(reset_btn, &QPushButton::clicked, this, [this] {
+        if (!show_confirm_dialog(this, tr_text("Reset This Page"), tr_text("Restore the default settings of this page?"))) return;
+        reset_current_page();
+        apply_settings();
+    });
     layout->addWidget(reset_btn);
     layout->addStretch();
-    layout->addWidget(cancel_btn);
-    layout->addWidget(ok_btn);
     return layout;
 }
 
-void SettingsDialog::apply_footer_styles() {
-    const auto &t = get_ui_theme()->tokens();
-    if (footer_cancel_btn_)
-        footer_cancel_btn_->setStyleSheet(QString(R"(
-            QPushButton {
-                min-height: %1px;
-                padding: 0 %2px;
-                color: %3;
-                background: %4;
-                border: 1px solid %5;
-                border-radius: %6px;
-                font-size: %7px;
-                font-weight: 500;
-                outline: none;
-            }
-            QPushButton:hover { background: %8; }
-            QPushButton:pressed { background: %9; }
-        )")
-                                              .arg(dialog_scaled(40))
-                                              .arg(dialog_scaled(22))
-                                              .arg(t.text, t.surface, t.border_hover)
-                                              .arg(dialog_scaled(12))
-                                              .arg(dialog_scaled(15))
-                                              .arg(t.surface_hover, t.surface_subtle));
-    if (footer_ok_btn_) {
-        // The check mark asset is white; the disabled light background takes one in the text colour.
-        QIcon check;
-        check.addPixmap(fluent_icon(FluentIcon::Check).pixmap(64, 64), QIcon::Normal);
-        check.addPixmap(tinted_icon(FluentIcon::Check, t.text_disabled).pixmap(64, 64), QIcon::Disabled);
-        footer_ok_btn_->setIcon(check);
-        footer_ok_btn_->setStyleSheet(QString(R"(
-            QPushButton {
-                min-height: %1px;
-                padding: 0 %2px;
-                color: #FFFFFF;
-                background: %3;
-                border: 1px solid %3;
-                border-radius: %4px;
-                font-size: %5px;
-                font-weight: 600;
-                outline: none;
-            }
-            QPushButton:hover { background: %6; border-color: %6; }
-            QPushButton:pressed { background: %7; border-color: %7; }
-            QPushButton:disabled { color: %8; background: %9; border-color: %10; }
-        )")
-                                          .arg(dialog_scaled(40))
-                                          .arg(dialog_scaled(22))
-                                          .arg(t.accent_strong)
-                                          .arg(dialog_scaled(12))
-                                          .arg(dialog_scaled(15))
-                                          .arg(t.accent_strong_hover, t.accent_strong_pressed, t.text_disabled, t.surface_subtle, t.border));
-    }
-}
-
-void SettingsDialog::connect_action_button_tracking(QWidget *page) {
-    static const QMetaMethod slot = SettingsDialog::staticMetaObject.method(SettingsDialog::staticMetaObject.indexOfMethod("update_action_buttons()"));
+void SettingsDialog::connect_save_tracking(QWidget *page) {
+    static const QMetaMethod slot = SettingsDialog::staticMetaObject.method(SettingsDialog::staticMetaObject.indexOfMethod("schedule_save()"));
     for (auto *widget : page->findChildren<QWidget *>())
         for (const auto &signal : tracked_signals(widget->metaObject())) connect(widget, signal, this, slot);
 }
 
-void SettingsDialog::update_action_buttons() {
-    if (!footer_ok_btn_) return;
-    const bool dirty = has_unsaved_changes();
-    footer_ok_btn_->setEnabled(dirty);
-    footer_ok_btn_->setCursor(dirty ? Qt::PointingHandCursor : Qt::ArrowCursor);
+void SettingsDialog::schedule_save() {
+    if (save_timer_) save_timer_->start();
 }
 
 // ── Reset ──
@@ -583,7 +524,7 @@ void SettingsDialog::apply_startup() {
 }
 
 void SettingsDialog::save_magnifier_color_formats() {
-    // Edited in the manager window and kept on the instance; Apply saves them.
+    // Edited in the manager window and kept on the instance.
     if (magnifier_color_formats) color_formats::save(config_manager, *magnifier_color_formats);
 }
 
@@ -592,6 +533,7 @@ void SettingsDialog::save_special_paste_entries() {
 }
 
 void SettingsDialog::reset_current_page() {
+    BatchEdit batch(batch_editing_);
     switch (content_stack->currentIndex()) {
     case 0: reset_hotkey_page(); break;
     case 1: reset_screenshot_settings_page(); break;
@@ -785,204 +727,299 @@ void SettingsDialog::reset_clipboard_page() {
     if (clipboard_special_paste_entries) clipboard_special_paste_entries = special_paste::default_entries();
 }
 
-// ── Apply ──
+/// ── Saving ──
 
-bool SettingsDialog::apply_settings(bool close_after) {
-    dialog_scale_changed_on_accept_ = false;
-    language_changed_on_apply_ = false;
-    close_after_apply_ = close_after;
+bool SettingsDialog::hotkeys_saved() const {
+    for (const auto &key : saved_keys_)
+        if (GLOBAL_HOTKEY_EDIT_ATTRS.contains(key) || key.startsWith("quick_capture_") || key == "clipboard_enabled_toggle") return true;
+    return false;
+}
 
-    // Every global hotkey passes validation first, before any set_*, so conflicting values
-    // are never written and the window stays open.
-    if (!validate_global_hotkey_edits(this, true)) {
-        content_stack->setCurrentIndex(0);
-        set_current_nav("shortcuts");
-        show_warning_dialog(this, tr_text("Shortcut Conflict"), tr_text("Some global hotkeys are duplicated or unavailable. Please fix them before applying."));
-        return false;
-    }
-    const auto mouse_conflicts = mouse_binding_conflicts(this);
-    if (!mouse_conflicts.empty()) {
-        on_nav_changed(10, "mouse");
-        show_warning_dialog(this, tr_text("Shortcut Conflict"), mouse_binding_conflict_message(this, mouse_conflicts));
-        return false;
-    }
+bool SettingsDialog::apply_settings() {
+    if (save_timer_) save_timer_->stop();
+    // A question asked while saving runs a nested event loop; edits made meanwhile wait for the next save.
+    if (saving_ || !settings_snapshot_) return true;
+    const QVariantMap current = snapshot_settings();
+    QSet<QString> changed;
+    for (auto it = current.begin(); it != current.end(); ++it)
+        if (!settings_snapshot_->contains(it.key()) || settings_snapshot_->value(it.key()) != it.value()) changed.insert(it.key());
+    if (changed.isEmpty()) return true;
 
-    // Saving may rebuild windows (a language switch); that must not trigger the unsaved prompt.
-    skip_unsaved_close_prompt_ = true;
+    saving_ = true;
+    save_changes(changed);
+    // Only the keys handled here count as saved; controls put back by a rejection now show the saved value.
+    const QVariantMap after = snapshot_settings();
+    for (const auto &key : changed) settings_snapshot_->insert(key, after.value(key));
+    config_manager->qsettings.sync();
+    // An edit that ended on the saved value (a modifier pressed and let go) writes nothing.
+    if (!saved_keys_.isEmpty()) emit settings_applied();
+    saving_ = false;
+    if (save_timer_ && has_unsaved_changes()) save_timer_->start();
+    return true;
+}
 
-    // 0. Hotkeys.
-    for (const auto &[function, edits] : global_hotkey_edit_rows(this)) {
-        if (std::find(edits.begin(), edits.end(), nullptr) != edits.end()) continue;
-        QStringList values;
-        for (auto *edit : edits) values.append(edit->text().trimmed());
-        config_manager->set_global_hotkeys(function, values);
+void SettingsDialog::save_changes(QSet<QString> changed) {
+    dialog_scale_changed_ = false;
+    language_changed_ = false;
+    reject_mouse_conflicts(changed);
+    const auto has = [&changed](const QString &name) { return changed.contains(name); };
+    const auto has_any = [&changed](const QStringList &names) {
+        return std::any_of(names.begin(), names.end(), [&changed](const QString &name) { return changed.contains(name); });
+    };
+
+    // 0. Global hotkeys. Every row is checked whenever one changes, so a slot left unsaved for a
+    // conflict is saved once the other side is changed. Unfinished ("ctrl+"), duplicated and
+    // unavailable slots keep their saved value; their status icon tells why.
+    if (has_any(GLOBAL_HOTKEY_EDIT_ATTRS)) {
+        bool written = false;
+        validate_global_hotkey_edits(this);
+        for (const auto &[function, edits] : global_hotkey_edit_rows(this)) {
+            if (std::find(edits.begin(), edits.end(), nullptr) != edits.end()) continue;
+            const QStringList saved = config_manager->get_global_hotkeys(function);
+            QStringList values = saved;
+            for (int slot = 0; slot < static_cast<int>(edits.size()) && slot < values.size(); ++slot) {
+                const QString text = edits[slot]->text().trimmed();
+                if (text.endsWith("+") || !edits[slot]->validate_now()) continue;
+                values[slot] = text;
+            }
+            if (values != saved) {
+                config_manager->set_global_hotkeys(function, values);
+                written = true;
+            }
+        }
+        // Unwritten, they are not reported: the application would register every hotkey again.
+        if (!written)
+            for (const auto &name : GLOBAL_HOTKEY_EDIT_ATTRS) changed.remove(name);
     }
 
     // 1. Behaviour switches and capture interaction (smart selection).
     for (const auto &[key, control] : behavior_controls)
-        if (control) config_manager->set_app_setting(key, behavior_value(control));
-    if (auto *capture_copy = qobject_cast<MouseBindingEditor *>(behavior_control("mouse_capture_copy")))
-        config_manager->set_double_click_copy_close_enabled(capture_copy->currentData() == "doubleleft");
-    if (auto *toggle = attr_widget("ocr_copy_directly_toggle")) config_manager->set_ocr_copy_directly_enabled(checked_of(toggle));
-    if (auto *toggle = attr_widget("barcode_copy_single_toggle")) config_manager->set_barcode_copy_single_enabled(checked_of(toggle));
-    if (auto *toggle = attr_widget("cross_tool_selection_toggle")) config_manager->set_cross_tool_selection_enabled(checked_of(toggle));
-    if (auto *combo = attr<QComboBox>("shift_line_angle_combo")) config_manager->set_shift_line_angle(combo->currentData().toInt());
-    if (auto *toggle = attr_widget("text_always_on_top_toggle")) config_manager->set_text_always_on_top_enabled(checked_of(toggle));
-    if (auto *combo = attr<QComboBox>("smart_mode_combo")) config_manager->set_smart_selection_mode(combo->currentData().toString());
-    if (auto *toggle = attr_widget("smart_animation_toggle")) config_manager->set_smart_selection_animation(checked_of(toggle));
+        if (control && has(key)) config_manager->set_app_setting(key, behavior_value(control));
+    if (has("mouse_capture_copy"))
+        if (auto *capture_copy = qobject_cast<MouseBindingEditor *>(behavior_control("mouse_capture_copy")))
+            config_manager->set_double_click_copy_close_enabled(capture_copy->currentData() == "doubleleft");
+    if (auto *toggle = attr_widget("ocr_copy_directly_toggle"); toggle && has("ocr_copy_directly_toggle")) config_manager->set_ocr_copy_directly_enabled(checked_of(toggle));
+    if (auto *toggle = attr_widget("barcode_copy_single_toggle"); toggle && has("barcode_copy_single_toggle")) config_manager->set_barcode_copy_single_enabled(checked_of(toggle));
+    if (auto *toggle = attr_widget("cross_tool_selection_toggle"); toggle && has("cross_tool_selection_toggle")) config_manager->set_cross_tool_selection_enabled(checked_of(toggle));
+    if (auto *combo = attr<QComboBox>("shift_line_angle_combo"); combo && has("shift_line_angle_combo")) config_manager->set_shift_line_angle(combo->currentData().toInt());
+    if (auto *toggle = attr_widget("text_always_on_top_toggle"); toggle && has("text_always_on_top_toggle")) config_manager->set_text_always_on_top_enabled(checked_of(toggle));
+    if (auto *combo = attr<QComboBox>("smart_mode_combo"); combo && has("smart_mode_combo")) config_manager->set_smart_selection_mode(combo->currentData().toString());
+    if (auto *toggle = attr_widget("smart_animation_toggle"); toggle && has("smart_animation_toggle")) config_manager->set_smart_selection_animation(checked_of(toggle));
 
     // 2. Logging.
-    if (auto *log_toggle = attr_widget("log_toggle")) {
-        const bool log_enabled = checked_of(log_toggle);
-        config_manager->set_log_enabled(log_enabled);
-        if (auto *combo = attr<QComboBox>("log_level_combo")) {
-            const QString log_level = combo->currentText();
-            config_manager->set_log_level(log_level);
-            static const QMap<QString, int> level_map{{"DEBUG", LogLevel::Debug}, {"INFO", LogLevel::Info}, {"WARNING", LogLevel::Warning}, {"ERROR", LogLevel::Error}};
-            if (level_map.contains(log_level)) {
-                get_logger().set_level(level_map.value(log_level));
-                get_logger().set_console_level(level_map.value(log_level));
-            }
+    if (auto *toggle = attr_widget("log_toggle"); toggle && has("log_toggle")) {
+        config_manager->set_log_enabled(checked_of(toggle));
+        get_logger().set_enabled(checked_of(toggle));
+    }
+    if (auto *combo = attr<QComboBox>("log_level_combo"); combo && has("log_level_combo")) {
+        const QString log_level = combo->currentText();
+        config_manager->set_log_level(log_level);
+        static const QMap<QString, int> level_map{{"DEBUG", LogLevel::Debug}, {"INFO", LogLevel::Info}, {"WARNING", LogLevel::Warning}, {"ERROR", LogLevel::Error}};
+        if (level_map.contains(log_level)) {
+            get_logger().set_level(level_map.value(log_level));
+            get_logger().set_console_level(level_map.value(log_level));
         }
-        if (auto *combo = attr<QComboBox>("log_retention_combo")) {
-            const qint64 retention_days = combo->currentData().toLongLong();
-            const qint64 old_retention = config_manager->get_log_retention_days();
-            config_manager->set_log_retention_days(retention_days);
-            if (retention_days > 0 && retention_days < old_retention) cleanup_old_logs(config_manager->get_log_dir(), retention_days);
+    }
+    // Older logs are removed at the next start, so a mistaken pick deletes nothing.
+    if (auto *combo = attr<QComboBox>("log_retention_combo"); combo && has("log_retention_combo")) config_manager->set_log_retention_days(combo->currentData().toLongLong());
+    if (auto *path_lbl = attr_widget("path_lbl"); path_lbl && has("path_lbl")) {
+        const QString old_log_dir = config_manager->get_log_dir();
+        const QString new_log_dir = text_of(path_lbl);
+        config_manager->set_log_dir(new_log_dir);
+        if (new_log_dir != old_log_dir) {
+            get_logger().set_log_dir(new_log_dir);
+            show_info_dialog(this, tr_text("Log"), tr_text("Log save location changed.") + "\n" + tr_text("*Changes will fully take effect after restart."));
         }
-        if (auto *path_lbl = attr_widget("path_lbl")) {
-            const QString old_log_dir = config_manager->get_log_dir();
-            const QString new_log_dir = text_of(path_lbl);
-            config_manager->set_log_dir(new_log_dir);
-            get_logger().set_enabled(log_enabled);
-            if (new_log_dir != old_log_dir) {
-                get_logger().set_log_dir(new_log_dir);
-                show_info_dialog(this, tr_text("Log"), tr_text("Log save location changed.") + "\n" + tr_text("*Changes will fully take effect after restart."));
-            }
-            refresh_latest_log_label();
-        }
+        refresh_latest_log_label();
     }
 
     // 3. Saving.
-    if (auto *toggle = attr_widget("save_toggle")) config_manager->set_screenshot_save_enabled(checked_of(toggle));
-    if (auto *toggle = attr_widget("screenshot_pin_save_toggle")) config_manager->set_screenshot_pin_save_enabled(checked_of(toggle));
-    if (auto *toggle = attr_widget("screenshot_save_original_toggle")) config_manager->set_screenshot_save_original_enabled(checked_of(toggle));
-    if (auto *toggle = attr_widget("clipboard_file_reference_toggle")) config_manager->set_clipboard_file_reference_enabled(checked_of(toggle));
-    if (auto *toggle = attr_widget("watermark_auto_toggle")) config_manager->set_screenshot_watermark_auto(checked_of(toggle));
-    if (auto *label = attr_widget("save_path_lbl")) config_manager->set_screenshot_save_path(text_of(label));
-    if (auto *combo = attr<QComboBox>("screenshot_format_combo")) config_manager->set_screenshot_format(combo->currentData().toString());
-    if (auto *combo = attr<QComboBox>("save_dialog_style_combo")) config_manager->set_app_setting("save_dialog_style", combo->currentData());
+    if (auto *toggle = attr_widget("save_toggle"); toggle && has("save_toggle")) config_manager->set_screenshot_save_enabled(checked_of(toggle));
+    if (auto *toggle = attr_widget("screenshot_pin_save_toggle"); toggle && has("screenshot_pin_save_toggle")) config_manager->set_screenshot_pin_save_enabled(checked_of(toggle));
+    if (auto *toggle = attr_widget("screenshot_save_original_toggle"); toggle && has("screenshot_save_original_toggle"))
+        config_manager->set_screenshot_save_original_enabled(checked_of(toggle));
+    if (auto *toggle = attr_widget("clipboard_file_reference_toggle"); toggle && has("clipboard_file_reference_toggle"))
+        config_manager->set_clipboard_file_reference_enabled(checked_of(toggle));
+    if (auto *toggle = attr_widget("watermark_auto_toggle"); toggle && has("watermark_auto_toggle")) config_manager->set_screenshot_watermark_auto(checked_of(toggle));
+    if (auto *label = attr_widget("save_path_lbl"); label && has("save_path_lbl")) config_manager->set_screenshot_save_path(text_of(label));
+    if (auto *combo = attr<QComboBox>("screenshot_format_combo"); combo && has("screenshot_format_combo")) config_manager->set_screenshot_format(combo->currentData().toString());
+    if (auto *combo = attr<QComboBox>("save_dialog_style_combo"); combo && has("save_dialog_style_combo")) config_manager->set_app_setting("save_dialog_style", combo->currentData());
 
     // 3.5 Magnifier.
     for (const auto &[attr_name, key] : {std::make_pair("magnifier_enabled_toggle", "magnifier_enabled"), std::make_pair("magnifier_grid_toggle", "magnifier_grid"),
                                          std::make_pair("magnifier_hint_toggle", "magnifier_hint")})
-        if (auto *toggle = attr_widget(attr_name)) config_manager->set_app_setting(key, checked_of(toggle));
+        if (auto *toggle = attr_widget(attr_name); toggle && has(attr_name)) config_manager->set_app_setting(key, checked_of(toggle));
+    if (has("magnifier_color_formats")) save_magnifier_color_formats();
 
     // 4. OCR.
-    if (auto *toggle = attr_widget("ocr_enable_toggle")) config_manager->set_ocr_enabled(checked_of(toggle));
-    if (auto *combo = attr<QComboBox>("ocr_engine_combo")) {
+    if (auto *toggle = attr_widget("ocr_enable_toggle"); toggle && has("ocr_enable_toggle")) config_manager->set_ocr_enabled(checked_of(toggle));
+    if (auto *combo = attr<QComboBox>("ocr_engine_combo"); combo && has("ocr_engine_combo")) {
         const auto [engine, model] = ocr_choice(combo->currentData().toString());
         if (model && *model != config_manager->get_ppocr_model()) {
             config_manager->set_ppocr_model(*model);
             set_ppocr_model(*model);
         }
+        // Switching only marks the engine; it loads on the next recognition.
         if (engine != config_manager->get_ocr_engine()) {
             config_manager->set_ocr_engine(engine);
             set_ocr_engine(engine);
             request_trim_working_set();
         }
     }
-    if (auto *combo = attr<QComboBox>("ocr_result_position_combo")) config_manager->set_ocr_result_position(combo->currentData().toString());
+    if (auto *combo = attr<QComboBox>("ocr_result_position_combo"); combo && has("ocr_result_position_combo"))
+        config_manager->set_ocr_result_position(combo->currentData().toString());
 
     // 5. Translation. Every provider's credentials and switches are saved from the registry's declarations.
-    if (auto *combo = attr<QComboBox>("translation_provider_combo")) config_manager->set_translation_provider(combo->currentData().toString());
-    if (provider_field_widgets) provider_fields::save_from(config_manager, provider_fields::all_fields(*translation_registry), *provider_field_widgets);
-    if (auto *combo = attr<QComboBox>("translation_target_combo")) config_manager->set_translation_target_lang(combo->currentData().toString());
-    if (auto *toggle = attr_widget("split_sentences_toggle")) config_manager->set_translation_split_sentences(checked_of(toggle));
-    if (auto *toggle = attr_widget("preserve_formatting_toggle")) config_manager->set_translation_preserve_formatting(checked_of(toggle));
+    if (auto *combo = attr<QComboBox>("translation_provider_combo"); combo && has("translation_provider_combo"))
+        config_manager->set_translation_provider(combo->currentData().toString());
+    if (provider_field_widgets) {
+        const auto fields = provider_fields::all_fields(*translation_registry);
+        if (std::any_of(fields.begin(), fields.end(), [&has](const auto &f) { return has(f.config_key); }))
+            provider_fields::save_from(config_manager, fields, *provider_field_widgets);
+    }
+    if (auto *combo = attr<QComboBox>("translation_target_combo"); combo && has("translation_target_combo"))
+        config_manager->set_translation_target_lang(combo->currentData().toString());
+    if (auto *toggle = attr_widget("split_sentences_toggle"); toggle && has("split_sentences_toggle")) config_manager->set_translation_split_sentences(checked_of(toggle));
+    if (auto *toggle = attr_widget("preserve_formatting_toggle"); toggle && has("preserve_formatting_toggle"))
+        config_manager->set_translation_preserve_formatting(checked_of(toggle));
 
-    // 6. Miscellaneous.
-    if (attr_widget("autostart_toggle")) apply_startup();
-    if (auto *toggle = attr_widget("show_main_window_toggle")) config_manager->set_show_main_window(checked_of(toggle));
-    if (auto *toggle = attr_widget("pin_auto_toolbar_toggle")) config_manager->set_pin_auto_toolbar(checked_of(toggle));
-    save_magnifier_color_formats();
+    // 6. Miscellaneous. Changing autostart or admin mode may ask for administrator permission;
+    // that prompt is the confirmation.
+    if (attr_widget("autostart_toggle") && has_any({"autostart_toggle", "run_as_admin_toggle"})) apply_startup();
+    if (auto *toggle = attr_widget("show_main_window_toggle"); toggle && has("show_main_window_toggle")) config_manager->set_show_main_window(checked_of(toggle));
+    if (auto *toggle = attr_widget("pin_auto_toolbar_toggle"); toggle && has("pin_auto_toolbar_toggle")) config_manager->set_pin_auto_toolbar(checked_of(toggle));
 
     // Interface language.
-    if (auto *combo = attr<QComboBox>("language_combo")) {
+    if (auto *combo = attr<QComboBox>("language_combo"); combo && has("language_combo")) {
         const QString new_lang = combo->currentData().toString();
         const QString old_lang = config_manager->get_app_setting("language", "ja").toString();
         config_manager->qsettings.setValue("app/language", new_lang);
         if (new_lang != old_lang) {
-            language_changed_on_apply_ = true;
+            language_changed_ = true;
             I18nManager::load_language(new_lang);
         }
     }
 
     // 7. Clipboard.
-    save_special_paste_entries();
-    if (auto *toggle = attr_widget("clipboard_enabled_toggle")) config_manager->set_clipboard_enabled(checked_of(toggle));
-    if (auto *spin = attr<QSpinBox>("clipboard_history_limit_spin")) config_manager->set_clipboard_history_limit(spin->value());
+    if (has("clipboard_special_paste_entries")) save_special_paste_entries();
+    if (auto *toggle = attr_widget("clipboard_enabled_toggle"); toggle && has("clipboard_enabled_toggle")) config_manager->set_clipboard_enabled(checked_of(toggle));
+    if (auto *spin = attr<QSpinBox>("clipboard_history_limit_spin"); spin && has("clipboard_history_limit_spin")) config_manager->set_clipboard_history_limit(spin->value());
 
-    // 7.5 In-app shortcuts.
-    if (!inapp_edits.empty()) {
+    // 7.5 In-app shortcuts. Unfinished prefixes keep their saved value.
+    if (std::any_of(inapp_edits.begin(), inapp_edits.end(), [&has](const auto &entry) { return has("inapp_" + entry.first); })) {
+        const auto stored = [this] {
+            QStringList values;
+            for (const auto &[cfg_key, edit] : inapp_edits) values.append(config_manager->get_inapp_shortcut(cfg_key));
+            return values;
+        };
+        const QStringList before = stored();
         save_inapp_shortcut_edits(config_manager, inapp_edits);
-        // The pin shortcut handlers reload their bindings.
-        try {
-            if (auto *pin_ctrl = PinShortcutController::existing()) pin_ctrl->reload_bindings();
-        } catch (const std::exception &e) {
-            log_exception(e, T("重载 Pin 快捷键绑定"));
+        if (stored() != before) {
+            // The pin shortcut handlers reload their bindings.
+            try {
+                if (auto *pin_ctrl = PinShortcutController::existing()) pin_ctrl->reload_bindings();
+            } catch (const std::exception &e) {
+                log_exception(e, T("重载 Pin 快捷键绑定"));
+            }
+        } else {
+            for (const auto &[cfg_key, edit] : inapp_edits) changed.remove("inapp_" + cfg_key);
         }
     }
-    if (auto *combo = attr<QComboBox>("cursor_move_combo")) config_manager->set_inapp_cursor_move_mode(combo->currentData().toString());
-    if (auto *combo = attr<QComboBox>("clipboard_pick_combo")) config_manager->set_inapp_clipboard_pick_mode(combo->currentData().toString());
+    if (auto *combo = attr<QComboBox>("cursor_move_combo"); combo && has("cursor_move_combo")) config_manager->set_inapp_cursor_move_mode(combo->currentData().toString());
+    if (auto *combo = attr<QComboBox>("clipboard_pick_combo"); combo && has("clipboard_pick_combo")) config_manager->set_inapp_clipboard_pick_mode(combo->currentData().toString());
 
     // 8. Long screenshot / developer.
-    if (auto *combo = attr<QComboBox>("capture_engine_combo")) config_manager->set_capture_engine(combo->currentData().toString());
-    if (auto *combo = attr<QComboBox>("engine_combo")) config_manager->set_long_stitch_engine(combo->currentData().toString());
-    if (auto *spin = attr<QSpinBox>("ignore_top_pixels_spinbox")) config_manager->set_long_stitch_ignore_top_pixels(spin->value());
+    if (auto *combo = attr<QComboBox>("capture_engine_combo"); combo && has("capture_engine_combo")) config_manager->set_capture_engine(combo->currentData().toString());
+    if (auto *combo = attr<QComboBox>("engine_combo"); combo && has("engine_combo")) config_manager->set_long_stitch_engine(combo->currentData().toString());
+    if (auto *spin = attr<QSpinBox>("ignore_top_pixels_spinbox"); spin && has("ignore_top_pixels_spinbox")) config_manager->set_long_stitch_ignore_top_pixels(spin->value());
 
     // 9. Preload switches (effective after restart).
     for (const char *key : {"preload_screenshot", "preload_toolbar", "preload_ocr", "preload_settings", "preload_clipboard"})
-        if (auto *toggle = attr_widget(QString(key) + "_toggle")) config_manager->set_app_setting(key, checked_of(toggle));
+        if (auto *toggle = attr_widget(QString(key) + "_toggle"); toggle && has(QString(key) + "_toggle")) config_manager->set_app_setting(key, checked_of(toggle));
 
     // 10. Selection info panel behaviour.
-    if (auto *toggle = attr_widget("info_hide_on_drag_toggle")) config_manager->set_app_setting("screenshot_info_hide_on_drag", checked_of(toggle));
+    if (auto *toggle = attr_widget("info_hide_on_drag_toggle"); toggle && has("info_hide_on_drag_toggle"))
+        config_manager->set_app_setting("screenshot_info_hide_on_drag", checked_of(toggle));
 
     // 10.5 Clipboard appearance.
-    apply_clipboard_appearance();
+    if (has_any({"_clip_theme_name", "_clip_font_combo", "_clip_opacity_combo"})) apply_clipboard_appearance();
 
     // 11. Appearance (theme colour, mask colour, selection look, scales).
-    if (auto *combo = attr<QComboBox>("_ui_theme_combo")) get_ui_theme()->set_mode(combo->currentData());
+    if (auto *combo = attr<QComboBox>("_ui_theme_combo"); combo && has("_ui_theme_combo")) get_ui_theme()->set_mode(combo->currentData());
     // Built toolbars and panels recompute on scale_changed.
-    if (auto *combo = attr<QComboBox>("_ui_scale_combo")) get_ui_scale().set_percent(combo->currentData());
-    // The window scale applies to standalone windows created afterwards, at their own base
-    // sizes; this window is not stretched after the fact, which would squeeze fixed-height
-    // controls against laid-out content.
-    if (auto *combo = attr<QComboBox>("_dialog_scale_combo")) dialog_scale_changed_on_accept_ = get_dialog_scale().set_percent(combo->currentData());
+    if (auto *combo = attr<QComboBox>("_ui_scale_combo"); combo && has("_ui_scale_combo")) get_ui_scale().set_percent(combo->currentData());
+    // The window scale applies to standalone windows created afterwards, at their own base sizes;
+    // this window is rebuilt rather than stretched, which would squeeze fixed-height controls.
+    if (auto *combo = attr<QComboBox>("_dialog_scale_combo"); combo && has("_dialog_scale_combo")) dialog_scale_changed_ = get_dialog_scale().set_percent(combo->currentData());
     auto &theme = get_theme();
-    if (appearance_theme_color) theme.set_theme_color(*appearance_theme_color);
-    if (appearance_mask_color) theme.set_mask_color(*appearance_mask_color);
-    if (auto *combo = attr<QComboBox>("_selection_border_combo")) theme.set_selection_border_width(combo->currentData());
-    if (auto *combo = attr<QComboBox>("_selection_handle_combo")) theme.set_selection_handle_style(combo->currentData().toString());
-    if (auto *combo = attr<QComboBox>("_selection_handle_size_combo")) theme.set_selection_handle_size(combo->currentData().toString());
-    if (auto *combo = attr<QComboBox>("_color_picker_style_combo")) config_manager->set_app_setting("color_picker_style", combo->currentData());
+    if (appearance_theme_color && has("theme_color")) theme.set_theme_color(*appearance_theme_color);
+    if (appearance_mask_color && has("mask_color")) theme.set_mask_color(*appearance_mask_color);
+    if (auto *combo = attr<QComboBox>("_selection_border_combo"); combo && has("_selection_border_combo")) theme.set_selection_border_width(combo->currentData());
+    if (auto *combo = attr<QComboBox>("_selection_handle_combo"); combo && has("_selection_handle_combo")) theme.set_selection_handle_style(combo->currentData().toString());
+    if (auto *combo = attr<QComboBox>("_selection_handle_size_combo"); combo && has("_selection_handle_size_combo"))
+        theme.set_selection_handle_size(combo->currentData().toString());
+    if (auto *combo = attr<QComboBox>("_color_picker_style_combo"); combo && has("_color_picker_style_combo")) config_manager->set_app_setting("color_picker_style", combo->currentData());
 
-    for (const auto &[key, layout] : imported_toolbar_layouts_) config_manager->set_app_setting(key, layout);
+    saved_keys_ = changed;
+    if (changed.isEmpty()) return;
+    QStringList names(changed.begin(), changed.end());
+    names.sort();
+    log_info(T("设置已保存: {keys}", {{"keys", names.join(", ")}}), "Settings");
+}
 
-    log_info(T("所有设置已保存"), "Settings");
-    import_unsaved_ = false;
-    imported_toolbar_layouts_.clear();
-    settings_snapshot_ = snapshot_settings();
-    update_action_buttons();
-    config_manager->qsettings.sync();
-    skip_unsaved_close_prompt_ = true;
-    emit settings_applied();
-    skip_unsaved_close_prompt_ = false;
-    return true;
+namespace {
+bool is_mouse_binding_key(const QString &key) {
+    return key.startsWith("quick_capture_") || key.startsWith("mouse_capture_") || key.startsWith("mouse_pin_") || key.startsWith("mouse_clipboard_");
+}
+}
+
+void SettingsDialog::reject_mouse_conflicts(QSet<QString> &changed) {
+    // The changed mouse bindings and in-app shortcuts set to a mouse gesture, with their new values.
+    std::vector<std::pair<QString, QString>> bindings;
+    std::vector<std::pair<QString, QString>> inapp;
+    for (const auto &key : changed)
+        if (is_mouse_binding_key(key))
+            if (auto *editor = qobject_cast<MouseBindingEditor *>(behavior_control(key))) bindings.emplace_back(key, editor->currentData());
+    for (const auto &[cfg_key, edit] : inapp_edits)
+        if (changed.contains("inapp_" + cfg_key) && is_inapp_mouse_shortcut(edit->text())) inapp.emplace_back(cfg_key, edit->text());
+    if (bindings.empty() && inapp.empty()) return;
+    const auto conflicts = mouse_binding_conflicts(this);
+    if (conflicts.empty()) return;
+
+    // Puts the changed controls on their saved values, or back on the new ones.
+    const auto put = [this, &bindings, &inapp](bool saved_values) {
+        ++batch_editing_;
+        std::set<QString> keys;
+        for (const auto &[key, value] : bindings) {
+            if (saved_values) keys.insert(key);
+            else qobject_cast<MouseBindingEditor *>(behavior_control(key))->setBinding(value);
+        }
+        if (saved_values) refresh_behavior_controls(false, {}, keys);
+        for (const auto &[cfg_key, value] : inapp) {
+            QString saved = config_manager->get_inapp_shortcut(cfg_key);
+            if (cfg_key == "inapp_pin_reset_size" && is_inapp_mouse_shortcut(saved)) saved = "";
+            inapp_edit(cfg_key)->setText(saved_values ? (is_reserved_inapp_shortcut(saved) ? QString() : saved) : value);
+        }
+        --batch_editing_;
+    };
+    // Conflicts already in the saved settings are not this edit's doing and do not hold it back.
+    put(true);
+    const auto saved_conflicts = mouse_binding_conflicts(this);
+    const bool adds_conflict = std::any_of(conflicts.begin(), conflicts.end(), [&saved_conflicts](const auto &conflict) {
+        return std::find(saved_conflicts.begin(), saved_conflicts.end(), conflict) == saved_conflicts.end();
+    });
+    if (!adds_conflict) {
+        put(false);
+        return;
+    }
+    for (const auto &[key, value] : bindings) changed.remove(key);
+    for (const auto &[cfg_key, value] : inapp) changed.remove("inapp_" + cfg_key);
+    show_warning_dialog(this, tr_text("Shortcut Conflict"), mouse_binding_conflict_message(this, conflicts));
 }
 
 void SettingsDialog::accept() {
-    if (apply_settings(true)) FrostedFramelessDialog::accept();
+    apply_settings();
+    FrostedFramelessDialog::accept();
 }
 
 QString SettingsDialog::get_hotkey() const { return hotkey_text(const_cast<SettingsDialog *>(this), "hotkey_input"); }
@@ -1005,18 +1042,18 @@ void SettingsDialog::apply_dialog_stylesheet() {
                 border-radius: 12px;
             }
             QWidget#SettingsRightArea {
-                background: %1;
-                border: 1px solid %2;
-                border-radius: 12px;
+                /* The setting groups are the cards; the page sits on the window background. */
+                background: transparent;
+                border: none;
             }
             QLabel {
-                color: %3;
+                color: %1;
             }
             QStackedWidget {
                 background: transparent;
             }
         )")
-                              .arg(theme_surface_color(), tokens.separator, tokens.text) +
+                              .arg(tokens.text) +
                           scrollbar_qss(this) + R"(
             QScrollBar::handle:vertical:disabled { background: transparent; }
         )";
@@ -1027,7 +1064,6 @@ void SettingsDialog::apply_dialog_stylesheet() {
 void SettingsDialog::on_ui_theme_changed() {
     apply_dialog_stylesheet();
     refresh_theme_widget_styles(this);
-    apply_footer_styles();
     content_title_->setStyleSheet(theme_text_style(21, true, "padding: 0 6px 2px 6px;"));
     update();
 }
@@ -1038,16 +1074,24 @@ void SettingsDialog::resizeEvent(QResizeEvent *event) {
 }
 
 void SettingsDialog::showEvent(QShowEvent *event) {
-    skip_unsaved_close_prompt_ = false;
     apply_dialog_stylesheet();
     refresh_settings();
     settings_snapshot_ = snapshot_settings();
-    update_action_buttons();
+    if (save_timer_) save_timer_->stop();
     FrostedFramelessDialog::showEvent(event);
     apply_taskbar_icon();
+    // A page opened before the window was shown would get its width, and its groups the height of
+    // their wrapped rows, only now: show() paints at once, before those queued relayouts. Painting
+    // waits for them; the translucent window shows nothing until then.
+    if (pending_view_) {
+        setUpdatesEnabled(false);
+        open_view(*std::exchange(pending_view_, std::nullopt));
+        QTimer::singleShot(0, this, [this] { setUpdatesEnabled(true); });
+    }
 }
 
 void SettingsDialog::hideEvent(QHideEvent *event) {
+    apply_settings();
     // Title bar buttons go back to their normal state when hidden.
     if (titleBar())
         for (auto *button : titleBar()->findChildren<TitleBarButton *>()) {
@@ -1057,7 +1101,7 @@ void SettingsDialog::hideEvent(QHideEvent *event) {
     FrostedFramelessDialog::hideEvent(event);
 }
 
-// ── Unsaved changes ──
+// ── Saved state ──
 
 void SettingsDialog::update_snapshot(const QString &name, const QVariant &value) {
     if (settings_snapshot_ && settings_snapshot_->contains(name)) (*settings_snapshot_)[name] = value;
@@ -1118,39 +1162,39 @@ QVariantMap SettingsDialog::snapshot_settings() const {
 }
 
 bool SettingsDialog::has_unsaved_changes() const {
-    if (import_unsaved_) return true;
     if (!settings_snapshot_) return false;
     return snapshot_settings() != *settings_snapshot_;
 }
 
-QString SettingsDialog::confirm_close_with_unsaved_changes() {
-    const std::vector<DialogButton> buttons{
-        {"save", tr_text("Save"), QDialogButtonBox::AcceptRole},
-        {"discard", tr_text("Don't Save"), QDialogButtonBox::DestructiveRole},
-        {"cancel", tr_text("Cancel"), QDialogButtonBox::RejectRole, true},
-    };
-    return show_custom_confirm_dialog(this, tr_text("Unsaved Changes"), tr_text("You have unsaved changes. Do you want to save before closing?"), buttons).toString();
+void SettingsDialog::closeEvent(QCloseEvent *event) {
+    apply_settings();
+    event->accept();
 }
 
-void SettingsDialog::closeEvent(QCloseEvent *event) {
-    event->ignore();
-    if (skip_unsaved_close_prompt_) {
-        event->accept();
-        return;
-    }
-    if (!has_unsaved_changes()) {
-        event->accept();
-        return;
-    }
-    const QString action = confirm_close_with_unsaved_changes();
-    if (action == "save") {
-        if (apply_settings(true)) event->accept();
-        else event->ignore();
-    } else if (action == "discard") {
-        event->accept();
-    } else {
-        event->ignore();
-    }
+SettingsDialog::ViewState SettingsDialog::view_state() const {
+    ViewState state;
+    state.stack_index = content_stack->currentIndex();
+    state.route_key = current_route_;
+    if (auto *scroll = qobject_cast<QScrollArea *>(content_stack->currentWidget())) state.scroll = scroll->verticalScrollBar()->value();
+    if (isVisible()) state.position = pos();
+    return state;
+}
+
+void SettingsDialog::restore_view_state(const ViewState &state) {
+    if (state.position) move(*state.position);
+    if (isVisible()) open_view(state);
+    else pending_view_ = state;
+}
+
+void SettingsDialog::open_view(const ViewState &state) {
+    if (state.stack_index == 7) open_developer_page();
+    else on_nav_changed(state.stack_index, state.route_key);
+    // The page lays out once shown.
+    QPointer<QScrollArea> scroll(qobject_cast<QScrollArea *>(content_stack->currentWidget()));
+    const int value = state.scroll;
+    QTimer::singleShot(0, this, [scroll, value] {
+        if (scroll) scroll->verticalScrollBar()->setValue(value);
+    });
 }
 
 void SettingsDialog::apply_taskbar_icon() {
@@ -1197,8 +1241,7 @@ void SettingsDialog::refresh_behavior_controls(bool defaults, const QString &pre
 }
 
 void SettingsDialog::refresh_settings() {
-    import_unsaved_ = false;
-    imported_toolbar_layouts_.clear();
+    BatchEdit batch(batch_editing_);
     refresh_behavior_controls();
     refresh_screen_annotation_hotkey();
     for (const auto &[function, edits] : global_hotkey_edit_rows(this)) {
@@ -1368,6 +1411,7 @@ void SettingsDialog::load_imported_settings(const QVariantMap &values) {
         auto preview = settings_transfer::preview_config(config, values, tmp.filePath("import.ini"));
         config_manager = preview.config.get();
         try {
+            BatchEdit batch(batch_editing_);
             refresh_settings();
             refresh_appearance_controls(configured_appearance(preview.config.get()));
         } catch (...) {
@@ -1376,14 +1420,13 @@ void SettingsDialog::load_imported_settings(const QVariantMap &values) {
         }
         config_manager = config;
     }
-    // Absent from the file, or not text (edited by hand): the current layout stays.
-    imported_toolbar_layouts_.clear();
+    // No control shows the toolbar layouts. Absent from the file, or not text (edited by hand):
+    // the current layout stays.
     for (const auto &key : toolbar_layout::setting_keys()) {
         const QVariant layout = values.value(ToolSettingsManager::app_setting_path(key));
-        if (layout.typeId() == QMetaType::QString) imported_toolbar_layouts_.emplace_back(key, layout.toString());
+        if (layout.typeId() == QMetaType::QString) config_manager->set_app_setting(key, layout.toString());
     }
-    import_unsaved_ = true;
-    update_action_buttons();
+    apply_settings();
 }
 
 std::set<QString> SettingsDialog::settings_keys() {

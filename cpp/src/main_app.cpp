@@ -226,7 +226,8 @@ void MainApp::on_language_changed(const QString &lang_code) {
     log_debug(T("语言已切换到: {lang_code}，更新 UI", {{"lang_code", lang_code}}), "I18n");
     update_tray_menu();
     // The settings window is preloaded, so it is rebuilt to pick up the translations.
-    if (settings_window && !settings_window->skip_unsaved_close_prompt()) recreate_settings_window();
+    // A switch made by the settings window itself rebuilds it once that save is done.
+    if (settings_window && !settings_window->saving()) recreate_settings_window();
     // Translation windows are created again in the new language.
     TranslationManager::instance()->close_dialog();
 }
@@ -440,19 +441,22 @@ void MainApp::preload_settings() {
 }
 
 void MainApp::on_settings_accepted(SettingsDialog *accepted_window) {
-    const bool dialog_scale_changed = accepted_window && accepted_window->dialog_scale_changed_on_accept();
-    set_clipboard_monitoring_enabled(config_manager->get_clipboard_enabled());
-    update_hotkey(true);
-    apply_capture_engine(config_manager->get_capture_engine());
+    // Saves follow every edit, so only what the save touched is redone: re-registering hotkeys or
+    // warming the capture engine on each toggle would repeat their work and their warnings.
+    const auto &saved = accepted_window->saved_keys();
+    if (saved.contains("clipboard_enabled_toggle")) set_clipboard_monitoring_enabled(config_manager->get_clipboard_enabled());
+    if (accepted_window->hotkeys_saved()) update_hotkey(true);
+    if (saved.contains("capture_engine_combo")) apply_capture_engine(config_manager->get_capture_engine());
     if (clipboard_window) {
         clipboard_window->load_settings();
         clipboard_window->controller->load_settings();
         if (clipboard_manager) clipboard_manager->apply_history_limit();
     }
     PinManager::instance()->refresh_all_appearance();
+    const bool dialog_scale_changed = accepted_window->dialog_scale_changed();
     if (dialog_scale_changed) recreate_clipboard_manage_dialog();
-    if (dialog_scale_changed || (accepted_window && accepted_window->language_changed_on_apply()))
-        recreate_settings_window(!(accepted_window && accepted_window->close_after_apply()));
+    // After the save returns, on the page it was made on.
+    if (dialog_scale_changed || accepted_window->language_changed()) QTimer::singleShot(0, this, [this] { recreate_settings_window(); });
 }
 
 void MainApp::recreate_clipboard_manage_dialog() {
@@ -485,11 +489,14 @@ void MainApp::recreate_settings_window(std::optional<bool> reopen) {
     SettingsDialog *window = settings_window;
     if (update_preparing || !window) return;
     const bool show_again = reopen.value_or(window->isVisible());
+    const auto view = window->view_state();
     window->hide();
     window->deleteLater();
     settings_window = nullptr;
     preload_settings();
-    if (show_again) open_settings();
+    if (!show_again) return;
+    settings_window->restore_view_state(view);
+    open_settings();
 }
 
 void MainApp::open_settings() {
@@ -665,7 +672,6 @@ void MainApp::cancel_update_preparation() {
 
 void MainApp::hand_off_to_admin() {
     if (!hand_off_to_admin_task()) return;
-    if (settings_window) settings_window->set_skip_unsaved_close_prompt(true);
     quit_app();
 }
 

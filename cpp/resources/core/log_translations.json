@@ -490,7 +490,7 @@
 "截图窗口已存在，忽略重复触发": "Screenshot window already exists, ignoring duplicate trigger",
 "截图进行中，忽略屏幕标注": "Capture in progress, screen annotation ignored",
 "截图进行中，忽略重复触发": "Screenshot in progress, ignoring duplicate trigger",
-"所有设置已保存": "All settings saved",
+"设置已保存: {keys}": "Settings saved: {keys}",
 "所有设置已重置为默认值": "All settings have been reset to defaults",
 "所有钉图已关闭": "All pins closed",
 "所有钉图窗口已关闭": "All pin windows closed",

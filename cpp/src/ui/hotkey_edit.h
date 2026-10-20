@@ -52,11 +52,15 @@ protected:
     void keyPressEvent(QKeyEvent *event) override { capture_key(event); }
     void keyReleaseEvent(QKeyEvent *event) override;
     void focusInEvent(QFocusEvent *event) override;
+    // An unfinished prefix left behind goes back to the value before it.
     void focusOutEvent(QFocusEvent *event) override;
     // No context menu, so invalid text cannot be pasted.
     void contextMenuEvent(QContextMenuEvent *) override {}
 private:
     void release_capture();
+    // The value before the current unfinished prefix ("ctrl+"); settings save as they change, so
+    // letting go of a lone modifier must not leave the hotkey cleared.
+    QString before_prefix_;
     std::unique_ptr<HotkeyEditHandler> shortcut_handler_;
     // Side-button exclusivity and key capture are reference counted; this keeps focus in / out paired.
     bool capture_held_ = false;

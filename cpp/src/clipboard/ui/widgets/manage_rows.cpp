@@ -103,7 +103,8 @@ void GroupRowDelegate::paint(QPainter *painter, const QStyleOptionViewItem &opti
         right = static_cast<int>(tag_rect.left()) - dialog_scaled(6);
     }
 
-    const QFont name_font = font_of(option.font, 13, selected ? QFont::DemiBold : QFont::Normal);
+    // Same weight when selected: a bold face would shift the name by a fraction of a pixel.
+    const QFont name_font = font_of(option.font, 13, QFont::Normal);
     painter->setFont(name_font);
     painter->setPen(css_color(tokens.text));
     const QRect name_rect(x, rect.top(), std::max(0, right - x), rect.height());

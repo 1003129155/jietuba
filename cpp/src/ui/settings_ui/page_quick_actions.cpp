@@ -19,7 +19,7 @@ QWidget *create_quick_actions_page(SettingsDialog *dialog) {
     set_own_style(view, "background: transparent;");
     auto *layout = new QVBoxLayout(view);
     layout->setContentsMargins(0, 0, dialog_scaled(10), 0);
-    layout->setSpacing(dialog_scaled(20));
+    layout->setSpacing(dialog_scaled(14));
 
     // ── Screenshot ──
     auto *grp_capture = new SettingsCardGroup(dialog->tr_text("Screenshot"), view, "capture");

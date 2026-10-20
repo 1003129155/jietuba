@@ -99,7 +99,7 @@ void build_screenshot_section(SettingsDialog *dialog, SettingsCardGroup *grp) {
                    theme.selection_handle_size());
 }
 
-// Clipboard appearance: theme, font size and opacity; saved on Apply like the rest.
+// Clipboard appearance: theme, font size and opacity; saved like the rest.
 void build_clipboard_section(SettingsDialog *dialog, SettingsCardGroup *grp) {
     auto *config = dialog->config_manager;
 
@@ -131,8 +131,8 @@ void build_clipboard_section(SettingsDialog *dialog, SettingsCardGroup *grp) {
                 apply_clip_theme_btn_style(theme_btn, name);
                 update_btns(name);
                 menu->close();
-                // The theme is held on the dialog; no control signal moves the Apply button.
-                dialog->update_action_buttons();
+                // The theme is held on the dialog; no control signal schedules the save.
+                dialog->schedule_save();
             });
             action->setDefaultWidget(btn);
             menu->addAction(action);
@@ -180,7 +180,7 @@ QWidget *create_appearance_page(SettingsDialog *dialog) {
     set_own_style(view, "background: transparent;");
     auto *layout = new QVBoxLayout(view);
     layout->setContentsMargins(0, 0, dialog_scaled(10), 0);
-    layout->setSpacing(dialog_scaled(20));
+    layout->setSpacing(dialog_scaled(14));
 
     auto *grp_app = new SettingsCardGroup(dialog->tr_text("Application"), view);
     build_application_section(dialog, grp_app);

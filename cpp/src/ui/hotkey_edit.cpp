@@ -89,6 +89,7 @@ void HotkeyLineEdit::capture_key(QKeyEvent *event) {
     }
     // Modifiers without a main key yet show as "ctrl+".
     if (is_modifier_present && key_text.isEmpty()) {
+        if (!text().endsWith("+")) before_prefix_ = text();
         setText(parts.join("+").toLower() + "+");
         return;
     }
@@ -100,10 +101,10 @@ void HotkeyLineEdit::capture_key(QKeyEvent *event) {
 }
 
 void HotkeyLineEdit::keyReleaseEvent(QKeyEvent *event) {
-    // Releasing a modifier of an unfinished combination shows what is still held, or clears.
+    // Releasing a modifier of an unfinished combination shows what is still held, or the value before.
     if (is_modifier_key(event->key()) && text().endsWith("+")) {
         const auto parts = modifier_parts(event->modifiers());
-        setText(parts.isEmpty() ? QString() : parts.join("+").toLower() + "+");
+        setText(parts.isEmpty() ? before_prefix_ : parts.join("+").toLower() + "+");
     }
     KeyChipLineEdit::keyReleaseEvent(event);
 }
@@ -124,6 +125,7 @@ void HotkeyLineEdit::focusInEvent(QFocusEvent *event) {
 
 void HotkeyLineEdit::focusOutEvent(QFocusEvent *event) {
     release_capture();
+    if (text().endsWith("+")) setText(before_prefix_);
     KeyChipLineEdit::focusOutEvent(event);
 }
 

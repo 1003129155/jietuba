@@ -224,28 +224,12 @@
         <translation>取消</translation>
     </message>
     <message>
-        <source>Cancel / Close</source>
-        <translation>取消/关闭</translation>
-    </message>
-    <message>
-        <source>Apply</source>
-        <translation>应用</translation>
-    </message>
-    <message>
-        <source>Unsaved Changes</source>
-        <translation>未保存的更改</translation>
-    </message>
-    <message>
-        <source>You have unsaved changes. Do you want to save before closing?</source>
-        <translation>您有未保存的更改，是否在关闭前保存？</translation>
+        <source>Restore the default settings of this page?</source>
+        <translation>确定恢复此页面的默认设置？</translation>
     </message>
     <message>
         <source>Save</source>
         <translation>保存</translation>
-    </message>
-    <message>
-        <source>Don't Save</source>
-        <translation>不保存</translation>
     </message>
     <message>
         <source>Change</source>
@@ -341,10 +325,6 @@
         <translation>快捷键冲突</translation>
     </message>
     <message>
-        <source>Some global hotkeys are duplicated or unavailable. Please fix them before applying.</source>
-        <translation>某些全局快捷键重复或不可用，请修正后再应用。</translation>
-    </message>
-    <message>
         <source>Some in-app shortcuts conflict within the same group. Please fix them first.</source>
         <translation>同组内存在重复的快捷键，请先修正冲突。</translation>
     </message>
@@ -353,8 +333,8 @@
         <translation>以下快捷键存在冲突：</translation>
     </message>
     <message>
-        <source>Change one shortcut in each row before applying.</source>
-        <translation>请修改每一行中的一个快捷键后再应用。</translation>
+        <source>The new shortcut was not saved.</source>
+        <translation>新的快捷键没有保存。</translation>
     </message>
     <message>
         <source>This is the same as a global hotkey — the system intercepts it first, so it won't work here.</source>
@@ -885,8 +865,8 @@ Replace it?</source>
         <translation>这个文件不是 Jietuba 的设置文件，或者已经损坏。</translation>
     </message>
     <message>
-        <source>Settings loaded. Click Apply to use them.</source>
-        <translation>设置已载入，点「应用」后生效。</translation>
+        <source>Settings imported.</source>
+        <translation>设置已导入。</translation>
     </message>
     
     <!-- Info Page -->

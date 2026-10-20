@@ -79,15 +79,15 @@ int ExpandLayout::heightForWidth(int width) const {
 SettingCard::SettingCard(const IconSource &icon, const QString &title, const QString &content, QWidget *parent, const QString &tone)
     : QFrame(parent), own_tone_(tone) {
     setObjectName("FluentLiteSettingCard");
-    setMinimumHeight(dialog_scaled(62));
+    setMinimumHeight(dialog_scaled(52));
     hBoxLayout = new QHBoxLayout(this);
-    hBoxLayout->setContentsMargins(dialog_scaled(CARD_LEFT), dialog_scaled(9), card_right_margin(), dialog_scaled(9));
+    hBoxLayout->setContentsMargins(dialog_scaled(CARD_LEFT), dialog_scaled(7), card_right_margin(), dialog_scaled(7));
     hBoxLayout->setSpacing(dialog_scaled(CARD_GAP));
     iconBadge = new IconBadge(icon, tone.isEmpty() ? QString("neutral") : tone, this, TILE_SIZE, 19);
     hBoxLayout->addWidget(iconBadge);
     text_layout_ = new QVBoxLayout;
     text_layout_->setContentsMargins(0, 0, 0, 0);
-    text_layout_->setSpacing(dialog_scaled(3));
+    text_layout_->setSpacing(dialog_scaled(2));
     titleLabel = new BodyLabel(title, this);
     text_layout_->addWidget(titleLabel);
     contentLabel = new CaptionLabel(content, this);
@@ -168,14 +168,14 @@ SubSwitchSettingCard::SubSwitchSettingCard(const QString &title, const QString &
     iconBadge->hide();
     const auto margins = hBoxLayout->contentsMargins();
     hBoxLayout->setContentsMargins(card_text_left(), margins.top(), margins.right(), margins.bottom());
-    setMinimumHeight(dialog_scaled(52));
+    setMinimumHeight(dialog_scaled(44));
 }
 
 SettingCardGroup::SettingCardGroup(const QString &title, QWidget *parent, const QString &tone) : QWidget(parent), tone_(tone) {
     setObjectName("FluentLiteSettingCardGroup");
     vBoxLayout = new QVBoxLayout(this);
     vBoxLayout->setContentsMargins(0, 0, 0, 0);
-    vBoxLayout->setSpacing(dialog_scaled(10));
+    vBoxLayout->setSpacing(dialog_scaled(6));
     titleLabel = new QLabel(title, this);
     vBoxLayout->addWidget(titleLabel);
     card_container_ = new QFrame(this);

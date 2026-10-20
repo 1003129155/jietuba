@@ -421,13 +421,13 @@ private slots:
         QTRY_COMPARE(editor->text(), QString("win+v"));
         emit input_hub()->captured({}, VK_SNAPSHOT);
         QTRY_COMPARE(editor->text(), QString("print"));
-        // Typed combinations: a held modifier shows the prefix, releasing it clears it again.
+        // Typed combinations: a held modifier shows the prefix, releasing it puts back the value from before it.
         QKeyEvent ctrl(QEvent::KeyPress, Qt::Key_Control, Qt::NoModifier);
         QApplication::sendEvent(editor->edit, &ctrl);
         QCOMPARE(editor->text(), QString("ctrl+"));
         QKeyEvent release(QEvent::KeyRelease, Qt::Key_Control, Qt::ControlModifier);
         QApplication::sendEvent(editor->edit, &release);
-        QCOMPARE(editor->text(), QString());
+        QCOMPARE(editor->text(), QString("print"));
         QKeyEvent f13(QEvent::KeyPress, Qt::Key_F13, Qt::ControlModifier);
         QApplication::sendEvent(editor->edit, &f13);
         QCOMPARE(editor->text(), QString("ctrl+f13"));

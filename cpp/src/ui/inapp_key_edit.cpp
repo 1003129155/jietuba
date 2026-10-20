@@ -65,7 +65,9 @@ void InAppKeyEdit::keyPressEvent(QKeyEvent *event) {
 
     // Only a modifier: the intermediate "ctrl+".
     if (is_modifier_key(key)) {
-        if (!parts.isEmpty()) setText(parts.join("+").toLower() + "+");
+        if (parts.isEmpty()) return;
+        if (!text().endsWith("+")) before_prefix_ = text();
+        setText(parts.join("+").toLower() + "+");
         return;
     }
     // Backspace without modifiers clears.
@@ -82,12 +84,17 @@ void InAppKeyEdit::keyPressEvent(QKeyEvent *event) {
 }
 
 void InAppKeyEdit::keyReleaseEvent(QKeyEvent *event) {
-    // A modifier released before the combination is complete shows what is still held, or clears.
+    // A modifier released before the combination is complete shows what is still held, or the value before.
     if (is_modifier_key(event->key()) && text().endsWith("+")) {
         const auto parts = modifier_parts(event->modifiers());
-        setText(parts.isEmpty() ? QString() : parts.join("+").toLower() + "+");
+        setText(parts.isEmpty() ? before_prefix_ : parts.join("+").toLower() + "+");
     }
     KeyChipLineEdit::keyReleaseEvent(event);
+}
+
+void InAppKeyEdit::focusOutEvent(QFocusEvent *event) {
+    if (text().endsWith("+")) setText(before_prefix_);
+    KeyChipLineEdit::focusOutEvent(event);
 }
 
 bool InAppKeyEdit::is_text_editing_key(QKeyEvent *event) {

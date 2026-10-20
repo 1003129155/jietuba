@@ -20,6 +20,8 @@ protected:
     void mousePressEvent(QMouseEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
     void keyReleaseEvent(QKeyEvent *event) override;
+    // An unfinished prefix left behind goes back to the value before it.
+    void focusOutEvent(QFocusEvent *event) override;
     void contextMenuEvent(QContextMenuEvent *) override {}
 private:
     // Keys that type a character or move the caret without Ctrl / Alt.
@@ -27,5 +29,8 @@ private:
     static QString key_to_text(int key);
     bool allow_mouse_;
     bool allow_text_keys_;
+    // The value before the current unfinished prefix ("ctrl+"); settings save as they change, so
+    // letting go of a lone modifier must not leave the shortcut cleared.
+    QString before_prefix_;
 };
 }

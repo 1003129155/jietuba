@@ -19,6 +19,7 @@
 #include <QApplication>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QDialogButtonBox>
 #include <QDir>
 #include <QLabel>
 #include <QListWidget>
@@ -28,15 +29,22 @@
 #include <QSpinBox>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QTimer>
 
 using namespace jietuba;
 using namespace jietuba::clipboard;
 
 namespace {
-QPushButton *apply_button(SettingsDialog &dialog) {
+// Clicks "Reset This Page" and answers Yes to its question.
+void reset_page(QWidget &dialog) {
+    QTimer::singleShot(0, [] {
+        auto *modal = QApplication::activeModalWidget();
+        for (auto *box : modal ? modal->findChildren<QDialogButtonBox *>() : QList<QDialogButtonBox *>())
+            for (auto *button : box->buttons())
+                if (box->buttonRole(button) == QDialogButtonBox::YesRole) button->click();
+    });
     for (auto *button : dialog.findChildren<QPushButton *>())
-        if (button->text() == settings_tr("Apply")) return button;
-    return nullptr;
+        if (button->text() == settings_tr("Reset This Page")) button->click();
 }
 
 QStringList item_contents(const QList<ClipboardItem> &items) {
@@ -58,7 +66,7 @@ private slots:
         config_ = get_tool_settings_manager(new QSettings(dir_.filePath("settings.ini"), QSettings::IniFormat, this));
         config_->set_log_dir(dir_.filePath("logs"));
         config_->set_clipboard_db_path(QDir::toNativeSeparators(dir_.filePath("clipboard/clipboard.db")));
-        // Applying settings checks global hotkeys against the system; the default may be taken here.
+        // Saving checks global hotkeys against the system; the default may be taken here.
         config_->set_hotkey("");
         config_->set_clipboard_hotkey("");
         // Kept open after deactivation, which offscreen windows never get.
@@ -181,15 +189,14 @@ private slots:
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.show();
         dialog.on_nav_changed(2, "clipboard");
-        auto *apply = apply_button(dialog);
-        QVERIFY(apply && !apply->isEnabled());
+        QVERIFY(!dialog.has_unsaved_changes());
         auto *enabled = dialog.attr<SwitchSettingCard>("clipboard_enabled_toggle");
         auto *limit = dialog.attr<QSpinBox>("clipboard_history_limit_spin");
         QVERIFY(enabled && limit);
         enabled->setChecked(false);
         limit->setValue(321);
-        QVERIFY(apply->isEnabled());
-        // Special paste entries are edited elsewhere and saved on Apply.
+        QVERIFY(dialog.has_unsaved_changes());
+        // Special paste entries are edited elsewhere and saved like the controls.
         auto entries = special_paste::default_entries();
         entries.first().second = false;
         dialog.clipboard_special_paste_entries = entries;
@@ -208,15 +215,14 @@ private slots:
         QCOMPARE(font_changed.size(), 1);
         QCOMPARE(config_->get_clipboard_font_size(), font_combo->currentData().toLongLong());
 
-        // Reset restores the clipboard page's defaults without saving.
+        // Reset restores and saves the clipboard page's defaults.
         dialog.on_nav_changed(2, "clipboard");
-        for (auto *button : dialog.findChildren<QPushButton *>())
-            if (button->text() == settings_tr("Reset This Page")) button->click();
+        reset_page(dialog);
         QCOMPARE(enabled->isChecked(), config_->app_defaults().value("clipboard_enabled").toBool());
         QCOMPARE(limit->value(), config_->app_defaults().value("clipboard_history_limit").toInt());
         QCOMPARE(*dialog.clipboard_special_paste_entries, special_paste::default_entries());
-        QVERIFY(dialog.apply_settings());
         QCOMPARE(special_paste::load(config_), special_paste::default_entries());
+        QCOMPARE(config_->get_clipboard_history_limit(), config_->app_defaults().value("clipboard_history_limit").toLongLong());
         dialog.hide();
     }
 
