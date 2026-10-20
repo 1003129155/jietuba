@@ -55,6 +55,8 @@ MP4 区域录制支持自定义帧率和码率、暂停/继续、鼠标指针及
 
 首次安装包含更新器的版本后，可在**关于 → 检查更新 → 一键更新并重启**中升级。更新器下载匹配架构的 GitHub Release ZIP，仅替换主 EXE 后重启；保留设置、剪贴板历史、模型和其他文件。录制、导出或后台保存未结束时保留下载结果，结束任务后重试。最近一次主程序备份保存在 `.jietuba-update/` 中，详见[更新器恢复说明](rust_libs/updater/README.md)。2.1.8 之前的 Python 版一键更新后会换成 C++ 实现，设置、剪贴板历史和模型照常保留。
 
+WinGet 发布接入已准备：发布流程会附带清单，公共源尚需提交审核。发布步骤及上架后的安装命令见 [WinGet 发布说明](docs/winget.md)。
+
 <a id="ppocr-pack"></a>
 
 ### PP-OCR 组件包（轻量版）
@@ -123,7 +125,7 @@ ctest --test-dir build\msvc -C Release --output-on-failure -E "_desktop$|_window
 
 测试程序都在临时沙盒里运行，不会读写本机的设置、剪贴板历史和日志。另有分析构建（`scripts\check.ps1`：AddressSanitizer、代码分析、泄漏检测）和覆盖率（`scripts\coverage.ps1`）。
 
-[C++ CI](.github/workflows/cpp.yml) 在每个 PR 上编译并运行不需要桌面的测试；改到 `rust_libs/` 时，[Rust CI](.github/workflows/rust-wheels.yml) 运行 Rust 单元测试并复查第三方许可。
+[C++ CI](.github/workflows/cpp.yml) 在每个 PR 上编译、运行测试并检查改动代码的行覆盖率；改到 `rust_libs/` 时，[Rust CI](.github/workflows/rust.yml) 运行 Rust 单元测试并复查第三方许可。
 
 发行由 [build.yml](.github/workflows/build.yml) 完成：标签必须是 `release-<VERSION 文件里的版本>`；[lite.yml](.github/workflows/lite.yml) 构建轻量版和完整版（x64 与 ARM64），签名后分别生成 `jietuba_lite-<tag>-<arch>.zip` 和 `jietuba_pp-<tag>-<arch>.zip`。
 

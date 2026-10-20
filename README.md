@@ -122,7 +122,7 @@ ctest --test-dir build\msvc -C Release --output-on-failure -E "_desktop$|_window
 
 The test programs run in a temporary sandbox and never read or write your own settings, clipboard history or logs. There are also analysis builds (`scripts\check.ps1`: AddressSanitizer, code analysis, leak detection) and coverage (`scripts\coverage.ps1`).
 
-[C++ CI](.github/workflows/cpp.yml) builds every pull request and runs the tests that need no desktop; when `rust_libs/` changes, [Rust CI](.github/workflows/rust-wheels.yml) runs the Rust unit tests and rechecks third-party notices.
+[C++ CI](.github/workflows/cpp.yml) builds every pull request, runs the tests and checks the line coverage of the changed code; when `rust_libs/` changes, [Rust CI](.github/workflows/rust.yml) runs the Rust unit tests and rechecks third-party notices.
 
 Releases are made by [build.yml](.github/workflows/build.yml): the tag must be `release-<version in the VERSION file>`; [lite.yml](.github/workflows/lite.yml) builds the Lite and Full packages for x64 and ARM64, which are signed and published as `jietuba_lite-<tag>-<arch>.zip` and `jietuba_pp-<tag>-<arch>.zip`.
 

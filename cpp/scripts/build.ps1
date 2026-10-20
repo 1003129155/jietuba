@@ -47,6 +47,23 @@ $generator = if ($vsVersion -eq '18') { 'Visual Studio 18 2026' } else { 'Visual
 # local Chinese-only compiler made Ninja's detected prefix unusable.
 $suffix = if ($Full) { '-full' } else { '' }
 $buildDir = Join-Path $projectRoot $(if ($Arch -eq 'arm64') { "build\static-arm64$suffix" } elseif ($Static) { "build\static$suffix" } else { 'build\msvc' })
+# Configuration, compilation and deployment share mutable files in this directory.
+New-Item -ItemType Directory -Path $buildDir -Force | Out-Null
+try {
+    $buildLock = [System.IO.File]::Open((Join-Path $buildDir '.build.lock'), 'OpenOrCreate', 'ReadWrite', 'None')
+} catch [System.IO.IOException] {
+    throw "Another build.ps1 is using $buildDir. Wait for it to finish before rebuilding."
+}
+try {
+# Direct CMake builds do not acquire the script's lock.
+foreach ($process in (Get-CimInstance Win32_Process -Filter "Name = 'cmake.exe'")) {
+    if ($process.CommandLine -match '--build\s+(?:"([^"]+)"|(\S+))') {
+        $activeDir = if ($Matches[1]) { $Matches[1] } else { $Matches[2] }
+        if ($activeDir.Replace('/', '\').TrimEnd('\') -ieq $buildDir.TrimEnd('\')) {
+            throw "CMake process $($process.ProcessId) is already building $buildDir. Wait for it to finish before rebuilding."
+        }
+    }
+}
 $configureArgs = @('-DBUILD_TESTING=ON')
 if ($Static) {
     # The static Qt links the static MSVC runtime; every C/C++ and Rust object must match it.
@@ -158,3 +175,6 @@ foreach ($dll in 'msvcp140.dll', 'msvcp140_1.dll', 'vcruntime140.dll', 'vcruntim
 }
 Copy-Notices
 Write-Host "Ready: $deployDir\$exeName"
+} finally {
+    $buildLock.Dispose()
+}

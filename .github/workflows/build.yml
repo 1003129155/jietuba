@@ -130,6 +130,9 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
       - name: Download release artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
@@ -141,12 +144,18 @@ jobs:
         working-directory: release-assets
         run: sha256sum *.zip > SHA256SUMS.txt
 
+      - name: Generate WinGet manifests from final release packages
+        run: |
+          python3 -m unittest discover -s scripts -p test_generate_winget.py
+          python3 scripts/generate_winget.py --assets release-assets --output build/winget --archive release-assets/winget-manifests.zip
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           files: |
-            release-assets/*.zip
+            release-assets/jietuba_*.zip
             release-assets/SHA256SUMS.txt
+            release-assets/winget-manifests.zip
           generate_release_notes: true
           # 先建草稿：发布说明审过、发布包验过之后再公开
           draft: true

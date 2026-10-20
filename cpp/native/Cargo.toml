@@ -8,15 +8,15 @@ description = "C ABI over the repository's Rust libraries, linked statically int
 [lib]
 crate-type = ["staticlib"]
 
-# The rust_libs crates without their Python bindings (default-features = false).
+# The rust_libs crates, linked statically.
 [dependencies]
-longstitch = { path = "../../rust_libs/longstitch", default-features = false }
-gifrecorder = { path = "../../rust_libs/gifrecorder", default-features = false }
-video_recorder = { path = "../../rust_libs/video_recorder", default-features = false }
-hdrcapture = { path = "../../rust_libs/hdrcapture", default-features = false }
+longstitch = { path = "../../rust_libs/longstitch" }
+gifrecorder = { path = "../../rust_libs/gifrecorder" }
+video_recorder = { path = "../../rust_libs/video_recorder" }
+hdrcapture = { path = "../../rust_libs/hdrcapture" }
 # ONNX Runtime is not linked: jb_ppocr_init_runtime loads the onnxruntime.dll of the PP-OCR pack.
-ppocr_rust = { path = "../../rust_libs/ppocr_rust", default-features = false, features = ["load-dynamic"] }
-pyclipboard = { path = "../../rust_libs/pyclipboard", default-features = false }
+ppocr_rust = { path = "../../rust_libs/ppocr_rust", features = ["load-dynamic"] }
+pyclipboard = { path = "../../rust_libs/pyclipboard" }
 # Clipboard items, groups and PP-OCR model lists cross the C boundary as JSON.
 serde = "1.0"
 serde_json = "1.0"

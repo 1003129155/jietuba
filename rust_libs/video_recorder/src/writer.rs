@@ -124,9 +124,6 @@ pub struct Writer {
 
 impl Writer {
     pub fn new(options: &Options, output_file: &mut OwnedOutput, hardware: bool) -> Result<Self> {
-        if cfg!(feature = "test-support") && hardware && options.fail_hardware {
-            return Err(Failure::new("encoding", "Injected hardware initialization failure (test build)"));
-        }
         unsafe {
             let attributes = create_attributes(6)?;
             check(attributes.SetUINT32(&MF_READWRITE_ENABLE_HARDWARE_TRANSFORMS, u32::from(hardware)), "Set hardware preference")?;

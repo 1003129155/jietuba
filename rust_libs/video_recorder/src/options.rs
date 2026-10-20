@@ -22,7 +22,6 @@ pub struct Options {
     pub prefer_dxgi: bool,
     pub synthetic: bool,
     pub synthetic_medium: bool,
-    pub fail_hardware: bool,
     pub duration: Option<f64>,
 }
 
@@ -31,7 +30,7 @@ impl Default for Options {
         Self {
             output: PathBuf::new(), x: 0, y: 0, width: 0, height: 0, fps: 30,
             bitrate: 4_000_000, audio: true, hardware: true, cursor: true, prefer_dxgi: true,
-            synthetic: false, synthetic_medium: false, fail_hardware: false, duration: None,
+            synthetic: false, synthetic_medium: false, duration: None,
         }
     }
 }

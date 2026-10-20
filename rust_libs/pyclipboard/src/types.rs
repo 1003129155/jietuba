@@ -1,5 +1,3 @@
-#[cfg(feature = "python")]
-use pyo3::prelude::*;
 use serde::{Deserialize, Serialize};
 
 /// 剪贴板项
@@ -17,7 +15,6 @@ use serde::{Deserialize, Serialize};
 ///     char_count: 字符数
 ///     created_at: 创建时间戳
 ///     updated_at: 更新时间戳
-#[cfg_attr(feature = "python", pyclass(name = "ClipboardItem", get_all, set_all))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PyClipboardItem {
     pub id: i64,
@@ -73,7 +70,6 @@ impl PyClipboardItem {
 ///     >>> for item in result:  # 迭代
 ///     ...     print(item.content)
 ///     >>> first = result[0]  # 索引访问
-#[cfg_attr(feature = "python", pyclass(name = "PaginatedResult", get_all))]
 #[derive(Clone, Debug)]
 pub struct PyPaginatedResult {
     pub total_count: i64,
@@ -107,7 +103,6 @@ impl PyPaginatedResult {
 ///     item_order: 排序顺序
 ///     created_at: 创建时间戳
 ///     group_type: 分组类型 (0=普通, 1=快速启动, 2=隐藏, 3/4/5=筛选文本/图片/文件)
-#[cfg_attr(feature = "python", pyclass(name = "Group", get_all, set_all))]
 #[derive(Clone, Debug)]
 pub struct PyGroup {
     pub id: i64,

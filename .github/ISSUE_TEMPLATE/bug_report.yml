@@ -49,8 +49,8 @@ body:
     id: environment
     attributes:
       label: 系统环境
-      description: 填写 Windows 版本和系统架构，不清楚的部分可写“不确定”；源码运行时也请填写 Python 版本。
-      placeholder: "例如：Windows 11 24H2，x64；Python 3.11（仅源码运行需填）"
+      description: 填写 Windows 版本和系统架构，不清楚的部分可写“不确定”。
+      placeholder: "例如：Windows 11 24H2，x64"
     validations:
       required: true
 

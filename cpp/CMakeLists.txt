@@ -6,6 +6,11 @@ set(CMAKE_AUTOMOC ON)
 find_package(Qt6 6.8 REQUIRED COMPONENTS Widgets Svg)
 qt_standard_project_setup()
 set(CMAKE_AUTOUIC OFF)
+if(MSVC)
+    # cl.exe compiles one source at a time unless asked; the Visual Studio generator's parallel
+    # build only spreads across targets. Set before the dependencies are added so they get it too.
+    add_compile_options(/MP)
+endif()
 # The repository root holds the version number, the Rust libraries, the icons and svg/.
 get_filename_component(JIETUBA_REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/.. ABSOLUTE)
 
@@ -112,7 +117,8 @@ add_custom_command(OUTPUT ${JIETUBA_NATIVE_LIB}
     COMMENT "Building native Rust libraries"
     VERBATIM)
 add_custom_target(jietuba_native DEPENDS ${JIETUBA_NATIVE_LIB})
-add_dependencies(jietuba_lib jietuba_native)
+# jietuba_lib is static and compiles without the Rust library, so only the executables linking it
+# wait for cargo (below); the C++ sources build alongside it.
 # The Rust standard library's system dependencies (cargo --print native-static-libs).
 target_link_libraries(jietuba_lib PUBLIC ${JIETUBA_NATIVE_LIB} ntdll userenv ws2_32 dbghelp)
 # Media Foundation is used only by the MP4 recorder worker; delay loading lets the app start on
@@ -186,6 +192,7 @@ if(JIETUBA_FULL_EXE)
     set_source_files_properties(${CMAKE_BINARY_DIR}/generated/app.rc PROPERTIES OBJECT_DEPENDS "${JIETUBA_ORT_DLL}")
 endif()
 target_link_libraries(jietuba_cpp PRIVATE jietuba_lib)
+add_dependencies(jietuba_cpp jietuba_native)
 # One-click updates need the updater helper from rust_libs inside the exe, copied out to run (see
 # core/updater_process). build.ps1 turns it on for the single-file lite build only.
 option(JIETUBA_UPDATES "Bundle the updater helper and offer one-click updates" OFF)
@@ -441,9 +448,17 @@ if(BUILD_TESTING)
     foreach(target IN LISTS jietuba_targets)
         if(target MATCHES "_tests$")
             target_link_libraries(${target} PRIVATE jietuba_test_sandbox)
+            add_dependencies(${target} jietuba_native)
             if(JIETUBA_LEAK_CHECK)
                 target_compile_options(${target} PRIVATE "/FI${CMAKE_CURRENT_SOURCE_DIR}/tests/leak_check.h")
             endif()
+        endif()
+    endforeach()
+    # ctest -j: the clipboard tests share the system clipboard, so they take turns.
+    get_property(jietuba_tests DIRECTORY PROPERTY TESTS)
+    foreach(test IN LISTS jietuba_tests)
+        if(test MATCHES "clipboard")
+            set_tests_properties(${test} PROPERTIES RESOURCE_LOCK system_clipboard)
         endif()
     endforeach()
 endif()

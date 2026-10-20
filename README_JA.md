@@ -122,7 +122,7 @@ ctest --test-dir build\msvc -C Release --output-on-failure -E "_desktop$|_window
 
 テストプログラムは一時的なサンドボックスで動作し、お使いの設定、クリップボード履歴、ログを読み書きしません。ほかに分析ビルド（`scripts\check.ps1`：AddressSanitizer、コード分析、リーク検出）とカバレッジ（`scripts\coverage.ps1`）があります。
 
-[C++ CI](.github/workflows/cpp.yml) はすべてのプルリクエストでビルドし、デスクトップを必要としないテストを実行します。`rust_libs/` を変更したときは [Rust CI](.github/workflows/rust-wheels.yml) が Rust の単体テストとサードパーティライセンスの再確認を行います。
+[C++ CI](.github/workflows/cpp.yml) はすべてのプルリクエストでビルドしてテストを実行し、変更したコードの行カバレッジを確認します。`rust_libs/` を変更したときは [Rust CI](.github/workflows/rust.yml) が Rust の単体テストとサードパーティライセンスの再確認を行います。
 
 リリースは [build.yml](.github/workflows/build.yml) で行います。タグは `release-<VERSION ファイルのバージョン>` でなければなりません。[lite.yml](.github/workflows/lite.yml) が x64 と ARM64 の軽量版・フル版をビルドし、署名後にそれぞれ `jietuba_lite-<tag>-<arch>.zip` と `jietuba_pp-<tag>-<arch>.zip` を作成します。
 

@@ -93,9 +93,8 @@ pub enum DxgiDuplicationFormat {
 }
 
 impl DxgiDuplicationFormat {
-    /// Maps a DXGI format; anything else is an error rather than a panic, because pyo3 turns a
-    /// panic into `PanicException`, which derives from `BaseException` and so escapes the callers'
-    /// `except Exception` fallbacks.
+    /// Maps a DXGI format; anything else is an error rather than a panic, so callers can fall back
+    /// to GDI.
     fn from_dxgi(format: DXGI_FORMAT) -> Result<Self, Error> {
         match format {
             DXGI_FORMAT_R16G16B16A16_FLOAT => Ok(Self::Rgba16F),

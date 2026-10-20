@@ -1043,15 +1043,7 @@ impl ClipboardManager {
     ///     before_id: 它前面的项 ID（None = 移到最前）
     ///     after_id: 它后面的项 ID（None = 移到最后）
     /// 
-    /// Example:
-    ///     # 将 item_3 移到 item_1 和 item_2 之间
-    ///     manager.move_item_between(3, before_id=1, after_id=2)
-    ///     
-    ///     # 移到最前面
-    ///     manager.move_item_between(3, before_id=None, after_id=1)
-    ///     
-    ///     # 移到最后面
-    ///     manager.move_item_between(3, before_id=5, after_id=None)
+    /// 例如把 3 移到 1 和 2 之间传 (3, Some(1), Some(2))，移到最前传 (3, None, Some(1))。
     pub fn move_item_between(&self, id: i64, before_id: Option<i64>, after_id: Option<i64>) -> Result<(), String> {
         let db = self.db.lock();
         db.move_item_between(id, before_id, after_id)
