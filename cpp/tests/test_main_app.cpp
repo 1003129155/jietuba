@@ -1,24 +1,29 @@
 #include "annotation/annotation_view.h"
 #include "annotation/screen_annotation.h"
 #include "canvas/scene.h"
+#include "capture/capture_service.h"
 #include "clipboard/core/manager.h"
 #include "clipboard/ui/windows/clipboard_window.h"
 #include "core/background_tasks.h"
 #include "core/constants.h"
 #include "core/game_mode_monitor.h"
 #include "capture/quick_capture_controller.h"
+#include "core/i18n.h"
 #include "core/input_hub.h"
 #include "core/logger.h"
 #include "core/shortcut_manager.h"
+#include "core/ui_scale.h"
 #include "main_app.h"
 #include "pin/pin_manager.h"
 #include "pin/pin_window.h"
 #include "settings/tool_settings.h"
 #include "translation/translation_manager.h"
+#include "ui/screenshot_countdown.h"
 #include "ui/screenshot_window.h"
 #include "ui/settings_ui/dialog.h"
 #include "ui/welcome/wizard.h"
 #include <QClipboard>
+#include <QCursor>
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
@@ -26,15 +31,18 @@
 #include <QElapsedTimer>
 #include <QLabel>
 #include <QMenu>
+#include <QPushButton>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QSystemTrayIcon>
 #include <QTemporaryDir>
 #include <QScreen>
+#include <QScopeGuard>
 #include <QTest>
 #include <QTimer>
 #include <QThread>
 #include <atomic>
+#include <tuple>
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -135,6 +143,11 @@ private slots:
         auto *menu = main_app_->tray_icon->contextMenu();
         QVERIFY(menu);
         QVERIFY(action_texts(menu).size() >= 4);
+        const auto actions = menu->actions();
+        QVERIFY(actions.size() >= 3);
+        QCOMPARE(actions.at(actions.size() - 3)->text(), i18n_tr("Settings", "SystemTray"));
+        QVERIFY(actions.at(actions.size() - 2)->isSeparator());
+        QCOMPARE(actions.last()->text(), i18n_tr("Exit", "SystemTray"));
         // A new pin rebuilds the menu.
         PinManager::instance()->create_pin(solid(QSize(60, 40)), QPoint(100, 100), main_app_->config_manager);
         QVERIFY(main_app_->tray_icon->contextMenu() != menu);
@@ -166,6 +179,150 @@ private slots:
         QTRY_VERIFY(!ended);
         main_app_->start_screenshot();
         QTRY_VERIFY(main_app_->screenshot_window && main_app_->screenshot_window->session_active());
+    }
+
+    void theDelayedTrayScreenshotCountsDownWithoutBlockingTheDesktop_data() {
+        QTest::addColumn<QString>("engine");
+        QTest::newRow("auto") << QString("auto");
+        QTest::newRow("gdi") << QString("mss");
+    }
+
+    void theDelayedTrayScreenshotCountsDownWithoutBlockingTheDesktop() {
+        QFETCH(QString, engine);
+        const auto saved_engine = main_app_->config_manager->get_capture_engine();
+        main_app_->config_manager->set_capture_engine(engine);
+        const auto restore_engine = qScopeGuard([&] { main_app_->config_manager->set_capture_engine(saved_engine); });
+        auto *screen = QGuiApplication::screenAt(QCursor::pos());
+        if (!screen) screen = QGuiApplication::primaryScreen();
+        QVERIFY(screen);
+        QPushButton target(nullptr);
+        target.setWindowFlags(Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+        target.setFixedSize(scaled(200), scaled(200));
+        target.move(screen->geometry().center() - target.rect().center());
+        target.setStyleSheet("QPushButton { background: #dd5533; border: none; }");
+        target.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&target));
+        QSignalSpy clicked(&target, &QPushButton::clicked);
+        auto countdowns = [] {
+            QList<ScreenshotCountdown *> found;
+            for (auto *widget : QApplication::topLevelWidgets())
+                if (auto *countdown = qobject_cast<ScreenshotCountdown *>(widget)) found << countdown;
+            return found;
+        };
+        QVERIFY(countdowns().isEmpty());
+        QAction *delayed_action = nullptr;
+        for (auto *action : main_app_->tray_icon->contextMenu()->actions())
+            if (action->text() == i18n_tr("Delayed Screenshot", "SystemTray")) delayed_action = action;
+        QVERIFY(delayed_action);
+        QElapsedTimer elapsed;
+        elapsed.start();
+        delayed_action->trigger();
+        QVERIFY(main_app_->capture_busy());
+        QCOMPARE(countdowns().size(), 1);
+        QPointer<ScreenshotCountdown> countdown = countdowns().first();
+        const auto finish_pending = qScopeGuard([&] {
+            if (countdown && countdown->isVisible()) QTest::qWait(3100);
+        });
+        QVERIFY(countdown->isVisible());
+        QCOMPARE(countdown->text(), QString("3"));
+        QCOMPARE(countdown->geometry().center(), screen->geometry().center());
+        QCOMPARE(countdown->width(), scaled(96));
+        QVERIFY(GetForegroundWindow() != reinterpret_cast<HWND>(countdown->winId()));
+        delayed_action->trigger();
+        main_app_->start_screenshot();
+        QCOMPARE(countdowns().size(), 1);
+        QCOMPARE(countdowns().first(), countdown.data());
+        QVERIFY(!main_app_->screenshot_window || !main_app_->screenshot_window->session_active());
+        const auto centre = countdown->geometry().center();
+        QTRY_COMPARE(GetAncestor(WindowFromPoint(POINT{centre.x(), centre.y()}), GA_ROOT), reinterpret_cast<HWND>(target.winId()));
+        QTest::mouseClick(&target, Qt::LeftButton, Qt::NoModifier, target.rect().center());
+        QCOMPARE(clicked.count(), 1);
+        // Changes made during the delay, rather than the initial screen, must be captured.
+        target.setStyleSheet("QPushButton { background: #28b487; border: none; }");
+        QTRY_COMPARE(countdown->text(), QString("2"));
+        QVERIFY(!main_app_->screenshot_window || !main_app_->screenshot_window->session_active());
+        QTRY_COMPARE(countdown->text(), QString("1"));
+        QTRY_VERIFY(main_app_->screenshot_window && main_app_->screenshot_window->session_active());
+        QVERIFY(elapsed.elapsed() >= 3000);
+        QVERIFY(!countdown || !countdown->isVisible());
+        auto *window = main_app_->screenshot_window.data();
+        const QPoint sample = target.geometry().center() - QPoint(qRound(window->virtual_x), qRound(window->virtual_y));
+        QVERIFY(window->original_image.rect().contains(sample));
+        const auto pixel = window->original_image.pixelColor(sample);
+        QVERIFY(qAbs(pixel.red() - 40) <= 10 && qAbs(pixel.green() - 180) <= 10 && qAbs(pixel.blue() - 135) <= 10);
+        main_app_->start_delayed_screenshot();
+        QCOMPARE(main_app_->screenshot_window.data(), window);
+        QTRY_VERIFY(countdowns().isEmpty());
+    }
+
+    // The window is a square around a disc: whatever lies under the corners and just outside it must
+    // show through, with no system border, shadow or square background.
+    void theCountdownIsADiscWithoutASystemFrame() {
+        auto *screen = QGuiApplication::screenAt(QCursor::pos());
+        if (!screen) screen = QGuiApplication::primaryScreen();
+        QVERIFY(screen);
+        const QColor under("#dd5533");
+        QPushButton backdrop(nullptr);
+        backdrop.setWindowFlags(Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+        backdrop.setFixedSize(scaled(300), scaled(300));
+        backdrop.move(screen->geometry().center() - backdrop.rect().center());
+        backdrop.setStyleSheet("QPushButton { background: #dd5533; border: none; }");
+        backdrop.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&backdrop));
+        ScreenshotCountdown countdown(screen);
+        QVERIFY(QTest::qWaitForWindowExposed(&countdown));
+        const QRect area = countdown.geometry();
+        const int w = area.width(), h = area.height();
+        QImage image;
+        QRectF rect;
+        auto pixel = [&](const QPoint &global) { return image.pixelColor(global - rect.topLeft().toPoint()); };
+        // Inside the disc and clear of the digit: dark, so the capture does contain the window.
+        const QPoint inside = area.topLeft() + QPoint(w / 2, h / 8);
+        QElapsedTimer waited;
+        waited.start();
+        bool drawn = false;
+        while (!drawn && waited.elapsed() < 2000) {
+            std::tie(image, rect) = CaptureService("mss").capture_all_screens();
+            drawn = pixel(inside).red() < 120;
+            if (!drawn) QTest::qWait(50);
+        }
+        QVERIFY2(drawn, qPrintable(pixel(inside).name()));
+        const QPoint outside[] = {
+            // The corners of the square.
+            {area.left() + 2, area.top() + 2}, {area.right() - 2, area.top() + 2},
+            {area.left() + 2, area.bottom() - 2}, {area.right() - 2, area.bottom() - 2},
+            // On the window's edges, outside the disc.
+            {area.left(), area.top() + h / 4}, {area.right(), area.top() + h / 4},
+            {area.left(), area.bottom() - h / 4}, {area.right(), area.bottom() - h / 4},
+            {area.left() + w / 4, area.top()}, {area.right() - w / 4, area.top()},
+            {area.left() + w / 4, area.bottom()}, {area.right() - w / 4, area.bottom()},
+            // Just outside the window, where a shadow would fall.
+            {area.left() - 3, area.center().y()}, {area.right() + 3, area.center().y()},
+            {area.center().x(), area.top() - 3}, {area.center().x(), area.bottom() + 3},
+        };
+        for (const auto &point : outside) {
+            const auto color = pixel(point);
+            QVERIFY2(qAbs(color.red() - under.red()) <= 6 && qAbs(color.green() - under.green()) <= 6 && qAbs(color.blue() - under.blue()) <= 6,
+                     qPrintable(QString("(%1,%2) is %3").arg(point.x()).arg(point.y()).arg(color.name())));
+        }
+    }
+    void delayedScreenshotsRespectModalAndUpdateGuards() {
+        main_app_->update_preparing = true;
+        main_app_->start_delayed_screenshot();
+        const bool captured_during_update = main_app_->capture_busy();
+        main_app_->update_preparing = false;
+        QVERIFY(!captured_during_update);
+        bool captured_while_modal = true;
+        QTimer::singleShot(0, main_app_, [&] {
+            auto *dialog = QApplication::activeModalWidget();
+            main_app_->start_delayed_screenshot();
+            captured_while_modal = main_app_->capture_busy();
+            if (dialog) dialog->close();
+        });
+        QDialog modal;
+        modal.setModal(true);
+        modal.exec();
+        QVERIFY(!captured_while_modal);
     }
 
     void thePinHotkeyPinsTheSelectionDuringACapture() {
@@ -425,7 +582,7 @@ private slots:
         main_app_->setup_tray();
         const auto monitor_action = [this]() -> QAction * {
             for (auto *action : main_app_->tray_icon->contextMenu()->actions())
-                if (action->text() == "Monitor Clipboard") return action;
+                if (action->text() == "Record Clipboard") return action;
             return nullptr;
         };
         QVERIFY(monitor_action());

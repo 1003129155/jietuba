@@ -1,17 +1,20 @@
 #pragma once
 #include "ui/fluent_lite/frameless.h"
-#include "ui/screen_color_picker.h"
 #include <QColor>
 #include <QImage>
-#include <QPointer>
+#include <QPoint>
 #include <QWidget>
+#include <array>
 #include <functional>
+#include <memory>
 #include <optional>
 
 class QComboBox;
 class QFrame;
 class QPushButton;
+class QTimer;
 class QToolButton;
+class QWindow;
 
 namespace jietuba {
 class FluentTitleBar;
@@ -90,20 +93,20 @@ private:
 };
 
 // Frameless colour dialog: saturation/value field, hue and opacity tracks beside an eyedropper,
-// text entry in Hex/RGB/HSL. Used like QColorDialog; callers go through choose_color.
+// text entry in Hex/RGB/HSV/HSL. Used like QColorDialog; callers go through choose_color.
 class ColorPickerDialog : public FrostedFramelessDialog {
     Q_OBJECT
 public:
     enum Option { NoOption = 0x0, ShowAlphaChannel = 0x1 };
     Q_DECLARE_FLAGS(Options, Option)
-    enum Format { HEX, RGB, HSL };
+    enum Format { HEX, RGB, HSL, HSV };
     struct ParsedColor {
         QColor color;
         // Only #RRGGBBAA carries opacity; other text keeps the current one.
         bool has_alpha = false;
     };
     // Sizes at 100% window scale. The field spans the width less ColorSquare::BASE_INSET on each side.
-    static constexpr int BASE_WIDTH = 245;
+    static constexpr int BASE_WIDTH = 260;
     static constexpr int BASE_TITLE_HEIGHT = 28;
     static constexpr int BASE_FIELD_HEIGHT = 199;
     static constexpr int BASE_MARGIN = 9;
@@ -121,8 +124,12 @@ public:
     QColor selectedColor() const { return selected_; }
     // Below the anchor, above it when there is no room, kept on the anchor's screen.
     void place_near(QWidget *anchor);
-    bool picking_screen() const { return !picker_.isNull(); }
-    ScreenColorPicker *screen_picker() const { return picker_; }
+    bool picking_screen() const { return picking_; }
+    // The window under the pointer that takes the click while picking from the screen.
+    QWindow *pick_catcher() const { return pick_catcher_.get(); }
+    // Screen pixel under a global point; replaced in tests, empty restores it.
+    using ScreenSampler = std::function<QColor(const QPoint &)>;
+    static void set_screen_sampler_for_test(ScreenSampler sampler);
     // Text in format as one colour; nullopt while incomplete or out of range.
     static std::optional<ParsedColor> parse_color(Format format, const QString &text);
     // hue_fallback (0..1) names the hue of greys, which have none of their own.
@@ -139,6 +146,7 @@ public:
     // The value and opacity fields share one frame.
     QFrame *value_group = nullptr;
     LineEdit *value_edit = nullptr, *alpha_edit = nullptr;
+    std::array<LineEdit *, 3> channel_edits{};
     QToolButton *eyedropper_button = nullptr;
     QPushButton *ok_button = nullptr, *cancel_button = nullptr;
 
@@ -152,13 +160,14 @@ public slots:
 protected:
     void paintEvent(QPaintEvent *event) override;
     void showEvent(QShowEvent *event) override;
-    void keyPressEvent(QKeyEvent *event) override;
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
     // Which control the change came from; that control is not written back.
     enum class Origin { SQUARE, HUE, ALPHA, VALUE_TEXT, ALPHA_TEXT, OTHER };
     Format current_format() const;
+    void update_input_format();
+    QString value_text() const;
     void apply_theme();
     // From the square or the tracks: the colour follows hue, saturation and value.
     void apply_hsv(Origin origin);
@@ -169,20 +178,32 @@ private:
     // finished: Enter or leaving the field, when short forms count too.
     void apply_value_text(bool finished);
     std::optional<int> parse_alpha_text() const;
-    // A direct edit ends a running eyedropper and keeps what it showed.
-    void end_eyedropper_for_edit();
+    // The eyedropper of QColorDialog: the dialog grabs mouse and keyboard and previews the
+    // pixel under the pointer; a release picks, Esc restores. Over other programs no mouse
+    // moves arrive, so a timer follows the pointer and keeps a small window under it to take
+    // the click.
     void start_eyedropper();
-    void stop_eyedropper(bool restore);
-    // Back to the colour and control positions from before the eyedropper started.
-    void restore_before_pick();
+    void toggle_eyedropper();
+    void follow_pointer();
+    void preview_screen_color(const QPoint &global);
+    // Picks under the pointer, or restores the colour from before picking.
+    void finish_eyedropper(bool pick);
+    void release_eyedropper();
+    bool filter_picking_event(QEvent *event);
 
     FluentTitleBar *caption_bar_ = nullptr;
     QFrame *separator_ = nullptr, *value_divider_ = nullptr;
+    std::array<QFrame *, 2> channel_dividers_{};
     bool show_alpha_ = true;
     double hue_ = 0, saturation_ = 0, value_ = 1;
-    QColor color_, selected_, before_pick_;
+    QColor color_, selected_;
+    bool picking_ = false, tracked_before_pick_ = false;
+    QColor before_pick_;
     double before_hue_ = 0, before_saturation_ = 0, before_value_ = 1;
-    QPointer<ScreenColorPicker> picker_;
+    QPoint last_pick_pos_;
+    QTimer *pick_timer_ = nullptr;
+    std::unique_ptr<QWindow> pick_catcher_;
+    QMetaObject::Connection app_state_connection_;
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(ColorPickerDialog::Options)

@@ -9,6 +9,7 @@
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/titlebar.h"
 #include "ui/fluent_lite/labels.h"
+#include "caption_check.h"
 #include <QApplication>
 #include <QClipboard>
 #include <QDir>
@@ -361,6 +362,17 @@ private slots:
         QVERIFY(window.cards[0]->open_button);
         QVERIFY(!window.cards[1]->open_button);
         QVERIFY(!window.cards[2]->open_button);
+    }
+
+    void theResultWindowsShareTheStandardCaption() {
+        use_test_app_icon();
+        DecodedCode code;
+        code.text = "example.com";
+        code.outline = QPolygonF(QRectF(10, 10, 50, 50));
+        BarcodeResultWindow barcode(codes_image_, {code});
+        VERIFY_STANDARD_CAPTION(barcode);
+        TextRecognitionWindow text(blank_image());
+        VERIFY_STANDARD_CAPTION(text);
     }
 };
 

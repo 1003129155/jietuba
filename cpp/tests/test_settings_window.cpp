@@ -16,8 +16,10 @@
 #include "ui/settings_ui/dialog.h"
 #include "ui/settings_ui/mouse_binding_editor.h"
 #include "ui/settings_ui/pages.h"
+#include "ui/toolbar_layout.h"
 #include "ui/welcome/pages.h"
 #include "ui/welcome/wizard.h"
+#include "caption_check.h"
 #include <QApplication>
 #include <QColorDialog>
 #include <QComboBox>
@@ -133,7 +135,8 @@ private slots:
     void everyPageBuilds() {
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.build_all_pages();
-        for (int index = 0; index < 12; ++index) QVERIFY2(qobject_cast<QScrollArea *>(dialog.content_stack->widget(index)), qPrintable(QString::number(index)));
+        for (int index = 0; index < 12; ++index)
+            if (index != 9) QVERIFY2(qobject_cast<QScrollArea *>(dialog.content_stack->widget(index)), qPrintable(QString::number(index)));
         for (const char *name : {"hotkey_input", "save_toggle", "clipboard_hotkey_edit", "pin_clipboard_hotkey_edit", "clipboard_pick_combo", "clipboard_enabled_toggle",
                                  "clipboard_history_limit_spin", "special_paste_manage_btn", "_clip_theme_btn", "_clip_font_combo", "_clip_opacity_combo",
                                  "preload_clipboard_toggle"})
@@ -878,6 +881,12 @@ private slots:
         QCOMPARE(wizard.current_page(), 3);
     }
 
+    void wizardUsesTheStandardCaption() {
+        use_test_app_icon();
+        WelcomeWizard wizard(config_);
+        VERIFY_STANDARD_CAPTION(wizard);
+    }
+
     // A conflicting hotkey keeps its stored value; an empty main hotkey keeps the old one.
     void wizardHotkeyPageSkipsConflicts() {
         config_->set_hotkey("ctrl+1");
@@ -1074,11 +1083,16 @@ private slots:
         auto *format = dialog.attr<QComboBox>("screenshot_format_combo");
         QVERIFY(format);
         format->setCurrentIndex(format->count() - 1);
+        // The quick actions group sits on the screenshot page and resets with it.
+        auto *text_on_top = dialog.attr<SwitchSettingCard>("text_always_on_top_toggle");
+        QVERIFY(text_on_top);
+        text_on_top->setChecked(!defaults.value("text_always_on_top").toBool());
         answer_next(true);
         reset->click();
         QCOMPARE(format->currentText().toUpper(), defaults.value("screenshot_format").toString().toUpper());
+        QCOMPARE(text_on_top->isChecked(), defaults.value("text_always_on_top").toBool());
         // Every other page resets too.
-        const std::pair<int, const char *> pages[] = {{3, "appearance"}, {4, "translation"}, {6, "other"}, {9, "quick_actions"}, {10, "mouse"}, {11, "pin"},
+        const std::pair<int, const char *> pages[] = {{3, "appearance"}, {4, "translation"}, {6, "other"}, {10, "mouse"}, {11, "pin"},
                                                       {12, "screen_annotation"}};
         for (const auto &[index, route] : pages) {
             dialog.on_nav_changed(index, route);
@@ -1098,7 +1112,7 @@ private slots:
         config_->set_global_hotkeys("screen_annotation", {"ctrl+alt+f9", "", "", ""});
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.show();
-        dialog.on_nav_changed(9, "quick_actions");
+        dialog.on_nav_changed(1, "capture");
         QVERIFY(!dialog.behavior_control("screen_annotation_keep_drawings"));
         dialog.on_nav_changed(12, "screen_annotation");
         QCOMPARE(dialog.content_stack->currentIndex(), 12);
@@ -1410,7 +1424,7 @@ private slots:
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.setAttribute(Qt::WA_DontShowOnScreen);
         dialog.show();
-        const std::pair<int, const char *> pages[] = {{0, "shortcuts"}, {10, "mouse"}, {9, "quick_actions"}, {1, "capture"}, {11, "pin"}, {12, "screen_annotation"},
+        const std::pair<int, const char *> pages[] = {{0, "shortcuts"}, {10, "mouse"}, {1, "capture"}, {11, "pin"}, {12, "screen_annotation"},
                                                       {4, "translation"}, {3, "appearance"}, {5, "log"}, {6, "other"}, {8, "about"}};
         for (const auto &[index, route] : pages) {
             dialog.on_nav_changed(index, route);

@@ -97,9 +97,6 @@ TextRecognitionWindow::TextRecognitionWindow(const QImage &image, QWidget *paren
     auto *title_bar = new FluentTitleBar(this);
     configure_dialog_control(*title_bar);
     setTitleBar(title_bar);
-    title_bar->iconLabel->hide();
-    // As in the scan result window: with the icon hidden the title would touch the left edge.
-    title_bar->hBoxLayout->setContentsMargins(dialog_scaled(12), 0, 0, 0);
     setWindowTitle(tr_text("Text recognition"));
 
     auto *manager = get_tool_settings_manager();

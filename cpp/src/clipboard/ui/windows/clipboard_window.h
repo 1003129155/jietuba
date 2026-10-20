@@ -93,7 +93,6 @@ public:
     QStringList type_filter_labels;
     int type_filter_index = 0;
     QToolButton *type_filter_btn = nullptr;
-    QIcon type_filter_arrow_;
     QMenu *type_filter_menu = nullptr;
     QList<QAction *> type_filter_actions;
     QToolButton *clear_time_filter_btn = nullptr;

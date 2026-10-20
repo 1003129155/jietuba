@@ -152,10 +152,8 @@ PathTagNameDialog::PathTagNameDialog(const QString &initial, QWidget *parent) : 
     auto *title_bar = new FluentTitleBar(this);
     configure_dialog_control(*title_bar);
     setTitleBar(title_bar);
-    title_bar->iconLabel->hide();
     title_bar->maxBtn->hide();
     title_bar->minBtn->hide();
-    title_bar->hBoxLayout->setContentsMargins(dialog_scaled(12), 0, 0, 0);
     setWindowTitle(tr_text("Tag Name"));
     setResizeEnabled(false);
     name_edit = new LineEdit(this);
@@ -412,6 +410,11 @@ void SavePreviewView::set_image(const QImage &image) {
     else update();
 }
 
+void SavePreviewView::set_original(const QImage &original) {
+    original_ = original;
+    update();
+}
+
 void SavePreviewView::set_encoded(const QImage &encoded) {
     encoded_ = encoded.size() == image_.size() ? encoded : QImage();
     update();
@@ -519,17 +522,24 @@ void SavePreviewView::paintEvent(QPaintEvent *) {
         const auto target = image_rect();
         painter.fillRect(target, QBrush(checker_));
         // Smooth when shrunk; at 100% and above every pixel stays a sharp block, which is
-        // where compression artefacts show.
+        // where compression artefacts show. The source is resampled whenever the result
+        // has another size.
+        const auto &source = original_source();
+        const auto &result = this->result();
+        const auto draw_source = [&] {
+            painter.setRenderHint(QPainter::SmoothPixmapTransform, zoom_ < 1.0 || source.size() != result.size());
+            painter.drawImage(target, source);
+        };
         painter.setRenderHint(QPainter::SmoothPixmapTransform, zoom_ < 1.0);
         if (splitting()) {
             const double x = divider_x();
             painter.save();
             painter.setClipRect(QRectF(0, 0, x, height()), Qt::IntersectClip);
-            painter.drawImage(target, image_);
+            draw_source();
             painter.restore();
             painter.save();
             painter.setClipRect(QRectF(x, 0, width() - x, height()), Qt::IntersectClip);
-            painter.drawImage(target, encoded_);
+            painter.drawImage(target, result);
             painter.restore();
             const double top = std::max(target.top(), 0.0), bottom = std::min(target.bottom(), static_cast<double>(height()));
             // White with a dark edge, so the line shows on light and dark images alike.
@@ -548,10 +558,11 @@ void SavePreviewView::paintEvent(QPaintEvent *) {
             painter.drawLine(QPointF(knob.x() + a, knob.y() - a), QPointF(knob.x() + 2 * a, knob.y()));
             painter.drawLine(QPointF(knob.x() + 2 * a, knob.y()), QPointF(knob.x() + a, knob.y() + a));
             const double label_top = std::max(target.top(), static_cast<double>(top_inset_)) + dialog_scaled(8);
-            draw_pill(painter, QPointF(x - dialog_scaled(8), label_top), true, tr_text("Original"));
-            draw_pill(painter, QPointF(x + dialog_scaled(8), label_top), false, tr_text("Encoded"));
+            draw_pill(painter, QPointF(x - dialog_scaled(8), label_top), true, tr_text("Original Image"));
+            draw_pill(painter, QPointF(x + dialog_scaled(8), label_top), false, tr_text("Adjusted"));
         } else {
-            painter.drawImage(target, mode_ == ENCODED && !encoded_.isNull() ? encoded_ : image_);
+            if (mode_ == ORIGINAL) draw_source();
+            else painter.drawImage(target, result);
         }
         if (loading_) draw_pill(painter, QPointF(width() - dialog_scaled(10), height() - dialog_scaled(30)), true, tr_text("Estimating..."));
     }
@@ -610,19 +621,20 @@ SaveImageDialog::SaveImageDialog(const QImage &image, const QString &base_name, 
     auto *title_bar = new FluentTitleBar(this);
     configure_dialog_control(*title_bar);
     setTitleBar(title_bar);
-    title_bar->iconLabel->hide();
     title_bar->maxBtn->hide();
-    title_bar->hBoxLayout->setContentsMargins(dialog_scaled(16), 0, 0, 0);
     setWindowTitle(tr_text("Save Image"));
     const int panel_width = dialog_scaled(PANEL_WIDTH);
 
     // ── Preview, with the view mode floating at its top ──
     preview = new SavePreviewView(this);
     view_mode = new SegmentedWidget(preview);
-    view_mode->addItem("original", tr_text("Original"));
-    view_mode->addItem("encoded", tr_text("Encoded"));
+    view_mode->setLarge(true);
+    view_mode->addItem("encoded", tr_text("Adjusted"));
+    view_mode->addItem("original", tr_text("Original Image"));
     view_mode->addItem("split", tr_text("Compare"));
-    view_mode->setCurrentItem("original");
+    // Starts on the adjusted result, so size and quality changes show without switching.
+    view_mode->setCurrentItem("encoded");
+    preview->set_mode(SavePreviewView::ENCODED);
     view_mode->adjustSize();
     preview->set_top_inset(view_mode->height() + dialog_scaled(12));
     preview->installEventFilter(this);
@@ -843,6 +855,7 @@ SaveImageDialog::SaveImageDialog(const QImage &image, const QString &base_name, 
     encode_timer_.setSingleShot(true);
     connect(&encode_timer_, &QTimer::timeout, this, &SaveImageDialog::start_encode);
 
+    preview->set_original(image_);
     preview->set_image(image_);
     show_size();
     on_format_changed();
@@ -910,9 +923,14 @@ void SaveImageDialog::update_quality_controls() {
     if (!has_quality)
         lossless_hint->setText(format == "PDF" ? tr_text("PDF has no quality setting.")
                                                : tr_text("%1 format is lossless and does not support quality adjustment.").arg(format));
-    // Nothing differs from the original to compare against.
-    view_mode->setEnabled(has_quality);
-    if (!has_quality) view_mode->setCurrentItem("original");
+    update_view_mode();
+}
+
+// A lossless save at the original size is the original; nothing to switch between.
+void SaveImageDialog::update_view_mode() {
+    const bool differs = SaveService::format_has_quality(current_format()) || size_ != image_.size();
+    view_mode->setEnabled(differs);
+    if (!differs) view_mode->setCurrentItem("encoded");
 }
 
 void SaveImageDialog::on_size_typed(bool width_changed) {
@@ -962,6 +980,7 @@ void SaveImageDialog::show_size() {
     }
     updating_size_ = false;
     reset_size_button->setEnabled(size_ != original);
+    update_view_mode();
 }
 
 void SaveImageDialog::schedule_encode() {
@@ -1053,7 +1072,7 @@ void SaveImageDialog::choose_directory() {
 void SaveImageDialog::switch_to_classic() {
     if (!show_confirm_dialog(this, tr_text("Use Classic Dialog"),
                              tr_text("Use the system Save As dialog for this and every later image save? "
-                                     "You can change this back in Settings > Capture Settings > Save Dialog.")))
+                                     "You can change this back in Settings > Screenshot > Save Dialog.")))
         return;
     config_->set_app_setting("save_dialog_style", "classic");
     classic_ = true;

@@ -98,8 +98,9 @@ private:
 };
 
 // The image being saved: fitted (never enlarged) on open, the wheel zooms around the
-// cursor, dragging pans, double click fits again. In split mode the original is left
-// of a draggable divider and the encoded copy right of it, pixel for pixel.
+// cursor, dragging pans, double click fits again. The adjusted result (resized and
+// encoded) is what shows by default; in split mode the original is left of a draggable
+// divider and the result right of it, both filling the result's rectangle.
 class SavePreviewView : public QWidget {
     Q_OBJECT
 public:
@@ -107,9 +108,13 @@ public:
     static constexpr double MIN_ZOOM = 0.02;
     static constexpr double MAX_ZOOM = 32.0;
     explicit SavePreviewView(QWidget *parent = nullptr);
-    // A new size drops the encoded copy, which no longer lines up.
+    // The image at the saved size, before encoding. A new size drops the encoded copy,
+    // which no longer lines up.
     void set_image(const QImage &image);
-    // A null image shows the original in every mode.
+    // The untouched source, shown by Original and left of the divider. Without one the
+    // image itself stands in.
+    void set_original(const QImage &original);
+    // A null image shows the unencoded one as the result.
     void set_encoded(const QImage &encoded);
     void set_mode(Mode mode);
     void set_loading(bool loading);
@@ -135,14 +140,16 @@ protected:
     void mouseReleaseEvent(QMouseEvent *event) override;
     void mouseDoubleClickEvent(QMouseEvent *event) override;
 private:
-    bool splitting() const { return mode_ == SPLIT && !encoded_.isNull(); }
+    bool splitting() const { return mode_ == SPLIT; }
+    const QImage &original_source() const { return original_.isNull() ? image_ : original_; }
+    const QImage &result() const { return encoded_.isNull() ? image_ : encoded_; }
     QRectF fit_area() const;
     double divider_x() const;
     bool near_divider(const QPointF &pos) const;
     void clamp_offset();
     void update_cursor(const QPointF &pos);
     enum Drag { NONE, PAN, DIVIDER };
-    QImage image_, encoded_;
+    QImage image_, encoded_, original_;
     Mode mode_ = ORIGINAL;
     double zoom_ = 1.0;
     QPointF offset_;
@@ -227,6 +234,7 @@ private:
     void set_target_size(const QSize &size);
     void show_size();
     void update_quality_controls();
+    void update_view_mode();
     void update_status();
     void update_save_enabled();
     void choose_directory();

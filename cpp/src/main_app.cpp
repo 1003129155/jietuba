@@ -34,6 +34,7 @@
 #include "translation/smart_translation_controller.h"
 #include "translation/translation_manager.h"
 #include "ui/dialogs.h"
+#include "ui/screenshot_countdown.h"
 #include "ui/screenshot_window.h"
 #include "ui/tray_menu.h"
 #include <QCursor>
@@ -171,6 +172,7 @@ MainApp::MainApp(int &argc, char **argv) : app(std::make_unique<QApplication>(ar
 bool MainApp::starting_up() const { return preloader_ && !preloader_->finished(); }
 
 MainApp::~MainApp() {
+    delete screenshot_countdown_.data();
     // The watcher calls back into this object; stopping joins its thread.
     if (clipboard_manager && clipboard_manager->is_available()) {
         clipboard_manager->clear_callback();
@@ -192,6 +194,8 @@ bool MainApp::capture_busy() const {
 }
 
 void MainApp::on_about_to_quit() {
+    delete screenshot_countdown_.data();
+    capture_pending_ = false;
     set_trim_busy_check({});
     try {
         wait_for_clipboard_writes(3.0);
@@ -357,6 +361,14 @@ bool MainApp::activate_blocking_modal() {
 }
 
 void MainApp::start_screenshot() {
+    request_screenshot(false);
+}
+
+void MainApp::start_delayed_screenshot() {
+    request_screenshot(true);
+}
+
+void MainApp::request_screenshot(bool delayed) {
     if (update_preparing || quick_capture->busy()) return;
 
     // An active session: ignore the repeat and give focus back to the capture window.
@@ -399,10 +411,26 @@ void MainApp::start_screenshot() {
     // One event loop later, so windows just closed have left the screen.
     capture_pending_ = true;
     quick_capture->set_capture_pending(true);
+    if (delayed) {
+        auto *screen = QGuiApplication::screenAt(QCursor::pos());
+        auto *countdown = new ScreenshotCountdown(screen ? screen : QGuiApplication::primaryScreen());
+        screenshot_countdown_ = countdown;
+        connect(countdown, &ScreenshotCountdown::finished, this, [this, countdown] {
+            screenshot_countdown_ = nullptr;
+            countdown->deleteLater();
+            // Wait for the hidden countdown to leave the composed desktop, also for GDI capture.
+            QTimer::singleShot(0, this, [this] {
+                flush_desktop();
+                capture_and_prepare_window();
+            });
+        });
+        return;
+    }
     QTimer::singleShot(0, this, &MainApp::capture_and_prepare_window);
 }
 
 void MainApp::capture_and_prepare_window() {
+    if (!capture_pending_) return;
     const bool include_cursor = config_manager->get_app_setting("capture_include_cursor", false).toBool();
     std::shared_ptr<SystemCursor> cursor;
     QImage image;
@@ -698,6 +726,8 @@ bool MainApp::quit_app() {
         return false;
     }
     recording_quit_pending_ = nullptr;
+    delete screenshot_countdown_.data();
+    capture_pending_ = false;
     quick_capture->close();
     if (screen_annotation) screen_annotation->stop();
     // Ends an open capture; its window deletes itself.

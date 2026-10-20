@@ -404,11 +404,8 @@ void MagnifierOverlay::draw_info_lines(QPainter &painter, const QRect &info_rect
 }
 
 bool MagnifierOverlay::should_render() const {
-    if (!cursor_scene_pos) return false;
-    // Without a capture scene (the colour dialog's eyedropper) the magnifier is the
-    // tool itself: it shows whenever it has a sample, whatever the capture setting says.
-    if (!scene || !view) return !sample_image_.isNull();
     if (!enabled_) return false;
+    if (!cursor_scene_pos || !scene || !view) return false;
     if (view->drawing && view->drawing->active) return false;
     if (view->text_drag && view->text_drag->active) return false;
     if (view->smart_edit_controller && view->smart_edit_controller->layer_editor && view->smart_edit_controller->layer_editor->dragging_handle) return false;

@@ -8,11 +8,11 @@
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/theme.h"
 #include "ui/fluent_lite/titlebar.h"
-#include "ui/screen_color_picker.h"
 #include <QAbstractItemView>
 #include <QApplication>
 #include <QColorDialog>
 #include <QComboBox>
+#include <QFontMetrics>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QKeyEvent>
@@ -24,10 +24,12 @@
 #include <QRegularExpression>
 #include <QRegularExpressionValidator>
 #include <QScreen>
-#include <QSignalBlocker>
+#include <QShortcut>
 #include <QStyle>
+#include <QTimer>
 #include <QToolButton>
 #include <QVBoxLayout>
+#include <QWindow>
 #include <algorithm>
 #include <cmath>
 
@@ -42,6 +44,21 @@ QColor rgb8(const QColor &color) { return QColor(color.red(), color.green(), col
 
 // The next dialog opens in the format last chosen during this run.
 ColorPickerDialog::Format last_format = ColorPickerDialog::HEX;
+
+ColorPickerDialog::ScreenSampler &screen_sampler_override() {
+    static ColorPickerDialog::ScreenSampler sampler;
+    return sampler;
+}
+
+QColor grab_screen_color(const QPoint &global) {
+    if (screen_sampler_override()) return screen_sampler_override()(global);
+    auto *screen = QGuiApplication::screenAt(global);
+    if (!screen) screen = QGuiApplication::primaryScreen();
+    if (!screen) return {};
+    const QRect area = screen->geometry();
+    const QImage image = screen->grabWindow(0, global.x() - area.x(), global.y() - area.y(), 1, 1).toImage();
+    return image.isNull() ? QColor() : QColor(image.pixel(0, 0));
+}
 
 // Transparency checkerboard; light in both themes, as image viewers show it.
 QBrush checker_brush(int cell) {
@@ -333,15 +350,11 @@ void ColorSlider::set_and_emit(double value) {
 ColorPickerDialog::ColorPickerDialog(const QColor &initial, Options options, QWidget *parent)
     : FrostedFramelessDialog(parent), show_alpha_(options.testFlag(ShowAlphaChannel)) {
     scale_dialog_font(*this);
-    // exec() would make it application-modal and block the eyedropper window.
-    setWindowModality(Qt::WindowModal);
     caption_bar_ = new FluentTitleBar(this);
     configure_dialog_control(*caption_bar_);
     setTitleBar(caption_bar_);
     caption_bar_->maxBtn->hide();
     caption_bar_->minBtn->hide();
-    caption_bar_->hBoxLayout->setContentsMargins(dialog_scaled(8), 0, 0, 0);
-    caption_bar_->hBoxLayout->setSpacing(dialog_scaled(6));
     setWindowTitle(cp_tr("Select Color"));
     setResizeEnabled(false);
 
@@ -356,7 +369,13 @@ ColorPickerDialog::ColorPickerDialog(const QColor &initial, Options options, QWi
     eyedropper_button->setCheckable(true);
     eyedropper_button->setCursor(Qt::PointingHandCursor);
     eyedropper_button->setFixedSize(dialog_scaled(32), dialog_scaled(33));
-    eyedropper_button->setToolTip(cp_tr("Pick color from screen") + "\n" + cp_tr("Click to pick; right-click or Esc to cancel"));
+    eyedropper_button->setToolTip(cp_tr("Pick color from screen") + "\n" + cp_tr("Click to pick; Esc to cancel"));
+    pick_timer_ = new QTimer(this);
+    pick_timer_->setInterval(30);
+    // Never painted: it takes the click without showing in screen grabs.
+    pick_catcher_ = std::make_unique<QWindow>();
+    pick_catcher_->resize(5, 5);
+    pick_catcher_->setFlags(Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
     hue_slider = new ColorSlider(ColorSlider::HUE, this);
     hue_slider->setToolTip(cp_tr("Hue"));
     alpha_slider = new ColorSlider(ColorSlider::ALPHA, this);
@@ -369,18 +388,23 @@ ColorPickerDialog::ColorPickerDialog(const QColor &initial, Options options, QWi
     format_combo->setFont(control_font);
     format_combo->addItem("Hex", HEX);
     format_combo->addItem("RGB", RGB);
+    format_combo->addItem("HSV", HSV);
     format_combo->addItem("HSL", HSL);
     format_combo->setCurrentIndex(std::max(0, format_combo->findData(last_format)));
     format_combo->setFixedSize(dialog_scaled(61), control_height);
 
     value_group = new QFrame(this);
     value_group->setObjectName("valueGroup");
-    value_group->setFixedSize(dialog_scaled(133), control_height);
+    value_group->setFixedHeight(control_height);
     value_edit = new LineEdit(value_group, false);
+    value_edit->setAlignment(Qt::AlignCenter);
+    value_edit->setMinimumWidth(0);
+    value_edit->setMaxLength(9);
     value_divider_ = new QFrame(value_group);
     value_divider_->setFixedWidth(1);
     alpha_edit = new LineEdit(value_group, false);
-    alpha_edit->setFixedWidth(dialog_scaled(50));
+    alpha_edit->setFixedWidth(dialog_scaled(48));
+    alpha_edit->setAlignment(Qt::AlignCenter);
     alpha_edit->setValidator(new QRegularExpressionValidator(QRegularExpression(R"(\s*\d{0,3}\s*%?\s*)"), alpha_edit));
     alpha_edit->setToolTip(cp_tr("Opacity"));
     value_divider_->setVisible(show_alpha_);
@@ -389,6 +413,24 @@ ColorPickerDialog::ColorPickerDialog(const QColor &initial, Options options, QWi
     group_layout->setContentsMargins(1, 1, 1, 1);
     group_layout->setSpacing(0);
     group_layout->addWidget(value_edit, 1);
+    for (int i = 0; i < 3; ++i) {
+        if (i > 0) {
+            auto *divider = new QFrame(value_group);
+            divider->setFixedWidth(1);
+            channel_dividers_[i - 1] = divider;
+            group_layout->addWidget(divider);
+        }
+        auto *edit = new LineEdit(value_group, false);
+        edit->setMinimumWidth(0);
+        edit->setMaxLength(3);
+        edit->setAlignment(Qt::AlignCenter);
+        edit->setValidator(new QRegularExpressionValidator(QRegularExpression(R"(\d{0,3})"), edit));
+        channel_edits[i] = edit;
+        group_layout->addWidget(edit, 1);
+        connect(edit, &QLineEdit::textEdited, this, [this] { apply_value_text(false); });
+        connect(edit, &QLineEdit::editingFinished, this, [this] { refresh_texts(Origin::OTHER); });
+        edit->installEventFilter(this);
+    }
     group_layout->addWidget(value_divider_);
     group_layout->addWidget(alpha_edit);
 
@@ -398,8 +440,12 @@ ColorPickerDialog::ColorPickerDialog(const QColor &initial, Options options, QWi
     ok_button->setDefault(true);
     cancel_button = new QPushButton(cp_tr("Cancel"), this);
     cancel_button->setAutoDefault(false);
+    // Both buttons share the widest label, so longer translations are not cut off.
+    int button_width = dialog_scaled(BASE_BUTTON_WIDTH);
+    for (auto *button : {ok_button, cancel_button})
+        button_width = std::max(button_width, QFontMetrics(control_font).horizontalAdvance(button->text()) + 2 * dialog_scaled(8));
     for (auto *button : {ok_button, cancel_button}) {
-        button->setFixedSize(dialog_scaled(BASE_BUTTON_WIDTH), dialog_scaled(BASE_BUTTON_HEIGHT));
+        button->setFixedSize(button_width, dialog_scaled(BASE_BUTTON_HEIGHT));
         button->setCursor(Qt::PointingHandCursor);
     }
 
@@ -424,9 +470,9 @@ ColorPickerDialog::ColorPickerDialog(const QColor &initial, Options options, QWi
     root->addSpacing(dialog_scaled(2));
     auto *inputs = new QHBoxLayout;
     inputs->setContentsMargins(margin, 0, margin, 0);
+    inputs->setSpacing(0);
     inputs->addWidget(format_combo);
-    inputs->addStretch(1);
-    inputs->addWidget(value_group);
+    inputs->addWidget(value_group, 1);
     root->addLayout(inputs);
     root->addSpacing(dialog_scaled(6));
     auto *rule = new QHBoxLayout;
@@ -443,63 +489,64 @@ ColorPickerDialog::ColorPickerDialog(const QColor &initial, Options options, QWi
     root->addLayout(buttons);
 
     connect(square, &ColorSquare::sv_changed, this, [this](double saturation, double value) {
-        end_eyedropper_for_edit();
         saturation_ = saturation;
         value_ = value;
         apply_hsv(Origin::SQUARE);
     });
     connect(hue_slider, &ColorSlider::value_changed, this, [this](double hue) {
-        end_eyedropper_for_edit();
         hue_ = hue;
         apply_hsv(Origin::HUE);
     });
     connect(alpha_slider, &ColorSlider::value_changed, this, [this](double alpha) {
-        end_eyedropper_for_edit();
         QColor color = color_;
         color.setAlpha(static_cast<int>(std::lround(alpha * 255)));
         commit(color, Origin::ALPHA);
     });
     connect(format_combo, &QComboBox::currentIndexChanged, this, [this] {
         last_format = current_format();
+        update_input_format();
         refresh_texts(Origin::OTHER);
     });
     connect(value_edit, &QLineEdit::textEdited, this, [this] { apply_value_text(false); });
     connect(alpha_edit, &QLineEdit::textEdited, this, [this] {
         const auto percent = parse_alpha_text();
         if (!percent) return;
-        end_eyedropper_for_edit();
         QColor color = color_;
         color.setAlpha(static_cast<int>(std::lround(*percent * 255 / 100.0)));
         commit(color, Origin::ALPHA_TEXT);
     });
     // Leaving a field shows the colour in its usual spelling again, or undoes unreadable text.
     connect(value_edit, &QLineEdit::editingFinished, this, [this] {
+        if (current_format() != HEX) return;
         apply_value_text(true);
         refresh_texts(Origin::OTHER);
     });
     connect(alpha_edit, &QLineEdit::editingFinished, this, [this] { refresh_texts(Origin::OTHER); });
     value_edit->installEventFilter(this);
     alpha_edit->installEventFilter(this);
-    connect(eyedropper_button, &QToolButton::toggled, this, [this](bool checked) {
-        if (checked) start_eyedropper();
-        else stop_eyedropper(true);
-    });
+    connect(eyedropper_button, &QToolButton::clicked, this, &ColorPickerDialog::start_eyedropper);
+    connect(pick_timer_, &QTimer::timeout, this, &ColorPickerDialog::follow_pointer);
+    auto *pick_key = new QShortcut(QKeySequence(Qt::Key_Space), this);
+    pick_key->setContext(Qt::WidgetWithChildrenShortcut);
+    connect(pick_key, &QShortcut::activated, this, &ColorPickerDialog::toggle_eyedropper);
     connect(ok_button, &QPushButton::clicked, this, &QDialog::accept);
     connect(cancel_button, &QPushButton::clicked, this, &QDialog::reject);
     connect(get_ui_theme(), &UIThemeManager::theme_changed, this, [this] { apply_theme(); });
 
+    configure_dialog_controls(*this);
+    update_input_format();
     apply_theme();
     apply_color(initial.isValid() ? initial : QColor(Qt::white), Origin::OTHER);
     setFixedWidth(width);
     adjustSize();
+    // The dialog starts with the focus, so Space reaches the eyedropper instead of a text field.
+    setFocusPolicy(Qt::StrongFocus);
+    setFocus();
 }
 
-ColorPickerDialog::~ColorPickerDialog() {
-    if (picker_) {
-        picker_->disconnect(this);
-        picker_->close();
-    }
-}
+ColorPickerDialog::~ColorPickerDialog() { release_eyedropper(); }
+
+void ColorPickerDialog::set_screen_sampler_for_test(ScreenSampler sampler) { screen_sampler_override() = std::move(sampler); }
 
 void ColorPickerDialog::apply_theme() {
     const auto &t = ui_tokens(this);
@@ -517,7 +564,7 @@ void ColorPickerDialog::apply_theme() {
     const int icon = dialog_scaled(22);
     QIcon glyph;
     glyph.addPixmap(eyedropper_pixmap(icon, css_color(t.text)), QIcon::Normal, QIcon::Off);
-    glyph.addPixmap(eyedropper_pixmap(icon, css_color(t.accent_text)), QIcon::Normal, QIcon::On);
+    glyph.addPixmap(eyedropper_pixmap(icon, css_color(t.selected_text)), QIcon::Normal, QIcon::On);
     eyedropper_button->setIcon(glyph);
     eyedropper_button->setIconSize(QSize(icon, icon));
     apply_style_sheet(eyedropper_button, QString("QToolButton { background: %1; border: 1px solid %2; border-radius: %3px; }"
@@ -525,7 +572,7 @@ void ColorPickerDialog::apply_theme() {
                                                  "QToolButton:checked { background: %5; border-color: %6; }")
                                              .arg(t.input_background, t.border)
                                              .arg(radius)
-                                             .arg(t.border_hover, t.accent_soft, t.accent));
+                                             .arg(t.border_hover, t.accent_strong, t.accent_strong));
     apply_style_sheet(format_combo, QString("QComboBox QAbstractItemView { background: %1; color: %2; border: 1px solid %3; outline: none;"
                                             " selection-background-color: %4; selection-color: %2; }")
                                         .arg(t.popup_background, t.text, t.border, t.popup_hover));
@@ -539,10 +586,12 @@ void ColorPickerDialog::apply_theme() {
                               .arg(t.text)
                               .arg(font_px)
                               .arg(FONT_FAMILY)
-                              .arg(dialog_scaled(6))
+                              .arg(dialog_scaled(4))
                               .arg(t.accent, t.selected_text);
     apply_style_sheet(value_edit, field);
     apply_style_sheet(alpha_edit, field);
+    for (auto *edit : channel_edits) apply_style_sheet(edit, field);
+    for (auto *line : channel_dividers_) apply_style_sheet(line, QString("QFrame { background: %1; border: none; }").arg(t.border));
     for (auto *line : {value_divider_, separator_}) apply_style_sheet(line, QString("QFrame { background: %1; border: none; }").arg(line == separator_ ? t.separator : t.border));
     const QString button = QString("QPushButton { border-radius: %1px; font: %2px %3; padding: 0; outline: none; }").arg(dialog_scaled(4)).arg(font_px).arg(FONT_FAMILY);
     apply_style_sheet(ok_button, button + QString("QPushButton { background: %1; color: %2; border: none; }"
@@ -559,6 +608,27 @@ void ColorPickerDialog::apply_theme() {
 }
 
 ColorPickerDialog::Format ColorPickerDialog::current_format() const { return static_cast<Format>(format_combo->currentData().toInt()); }
+
+void ColorPickerDialog::update_input_format() {
+    const bool hex = current_format() == HEX;
+    value_edit->setVisible(hex);
+    const QStringList names = current_format() == RGB ? QStringList{"R", "G", "B"}
+                             : current_format() == HSV ? QStringList{"H (0–360)", "S (0–100%)", "V (0–100%)"}
+                                                       : QStringList{"H (0–360)", "S (0–100%)", "L (0–100%)"};
+    for (int i = 0; i < 3; ++i) {
+        channel_edits[i]->setVisible(!hex);
+        channel_edits[i]->setToolTip(names[i]);
+        channel_edits[i]->setAccessibleName(names[i]);
+    }
+    for (auto *divider : channel_dividers_) divider->setVisible(!hex);
+}
+
+QString ColorPickerDialog::value_text() const {
+    if (current_format() == HEX) return value_edit->text();
+    QStringList parts;
+    for (auto *edit : channel_edits) parts.append(edit->text());
+    return parts.join(", ");
+}
 
 void ColorPickerDialog::setCurrentColor(const QColor &color) {
     if (color.isValid()) apply_color(color, Origin::OTHER);
@@ -602,8 +672,16 @@ void ColorPickerDialog::commit(const QColor &input, Origin origin) {
 
 void ColorPickerDialog::refresh_texts(Origin origin) {
     if (origin != Origin::VALUE_TEXT) {
-        const QString text = format_color(current_format(), color_, hue_);
-        if (value_edit->text() != text) value_edit->setText(text);
+        const auto format = current_format();
+        const QColor color = format == HSV ? QColor::fromHsvF(hue_, saturation_, value_) : color_;
+        const QString text = format_color(format, color, hue_);
+        if (format == HEX) {
+            if (value_edit->text() != text) value_edit->setText(text);
+        } else {
+            const auto parts = QString(text).remove('%').split(", ");
+            for (int i = 0; i < 3; ++i)
+                if (channel_edits[i]->text() != parts[i]) channel_edits[i]->setText(parts[i]);
+        }
     }
     if (origin != Origin::ALPHA_TEXT) {
         const QString text = QString("%1%").arg(std::lround(color_.alpha() * 100 / 255.0));
@@ -612,16 +690,22 @@ void ColorPickerDialog::refresh_texts(Origin origin) {
 }
 
 void ColorPickerDialog::apply_value_text(bool finished) {
-    const QString text = value_edit->text();
+    const QString text = value_text();
     const auto parsed = parse_color(current_format(), text);
     if (!parsed) return;
     // Three hex digits are also how six begin; while typing they would flash an unrelated colour.
     if (!finished && current_format() == HEX && QString(text).remove('#').trimmed().size() == 3) return;
+    if (current_format() == HSV) {
+        hue_ = channel_edits[0]->text().toDouble() / 360.0;
+        saturation_ = channel_edits[1]->text().toDouble() / 100.0;
+        value_ = channel_edits[2]->text().toDouble() / 100.0;
+        apply_hsv(Origin::VALUE_TEXT);
+        return;
+    }
     QColor color = parsed->color;
     if (!parsed->has_alpha) color.setAlpha(color_.alpha());
     // Unchanged text re-read on leaving would round the controls to 8-bit steps.
     if (color == color_) return;
-    end_eyedropper_for_edit();
     apply_color(color, Origin::VALUE_TEXT);
 }
 
@@ -650,8 +734,8 @@ std::optional<ColorPickerDialog::ParsedColor> ColorPickerDialog::parse_color(For
         }
         return parsed;
     }
-    // Three numbers, bare or as rgb(...) / hsl(...), separated by commas or spaces; % and deg are allowed.
-    static const QRegularExpression wrapper(R"(^(?:rgba?|hsla?)\s*\((.*)\)$)", QRegularExpression::CaseInsensitiveOption);
+    // Three numbers, bare or wrapped, separated by commas or spaces; % and deg are allowed.
+    static const QRegularExpression wrapper(R"(^(?:rgba?|hsla?|hsva?)\s*\((.*)\)$)", QRegularExpression::CaseInsensitiveOption);
     if (const auto match = wrapper.match(text); match.hasMatch()) text = match.captured(1);
     static const QRegularExpression separators(R"([\s,]+)");
     const auto parts = text.split(separators, Qt::SkipEmptyParts);
@@ -670,12 +754,19 @@ std::optional<ColorPickerDialog::ParsedColor> ColorPickerDialog::parse_color(For
         return ParsedColor{QColor(static_cast<int>(std::lround(values[0])), static_cast<int>(std::lround(values[1])), static_cast<int>(std::lround(values[2])))};
     }
     if (values[0] > 360 || values[1] > 100 || values[2] > 100) return std::nullopt;
+    if (format == HSV)
+        return ParsedColor{rgb8(QColor::fromHsvF(std::fmod(values[0], 360.0) / 360.0, values[1] / 100.0, values[2] / 100.0))};
     return ParsedColor{rgb8(QColor::fromHslF(std::fmod(values[0], 360.0) / 360.0, values[1] / 100.0, values[2] / 100.0))};
 }
 
 QString ColorPickerDialog::format_color(Format format, const QColor &color, double hue_fallback) {
     switch (format) {
     case RGB: return QString("%1, %2, %3").arg(color.red()).arg(color.green()).arg(color.blue());
+    case HSV: {
+        int hue = color.hsvHue();
+        if (hue < 0) hue = static_cast<int>(std::lround(clamp01(hue_fallback) * 360)) % 360;
+        return QString("%1, %2%, %3%").arg(hue).arg(std::lround(color.hsvSaturationF() * 100)).arg(std::lround(color.valueF() * 100));
+    }
     case HSL: {
         const QColor hsl = color.toHsl();
         int hue = hsl.hslHue();
@@ -693,52 +784,100 @@ void ColorPickerDialog::place_near(QWidget *anchor) {
     place_below(this, anchor);
 }
 
-void ColorPickerDialog::end_eyedropper_for_edit() {
-    if (picker_) stop_eyedropper(false);
-}
-
 void ColorPickerDialog::start_eyedropper() {
-    if (picker_) return;
+    if (picking_) return;
+    picking_ = true;
     before_pick_ = color_;
     before_hue_ = hue_;
     before_saturation_ = saturation_;
     before_value_ = value_;
-    auto *picker = new ScreenColorPicker;
-    picker_ = picker;
-    picker->keep_above(this);
-    // Screen pixels are opaque; the opacity set in the dialog stays.
-    const auto with_alpha = [this](QColor color) {
-        color.setAlpha(before_pick_.alpha());
-        return color;
-    };
-    connect(picker, &ScreenColorPicker::hovered, this, [this, with_alpha](const QColor &color) { apply_color(with_alpha(color), Origin::OTHER); });
-    connect(picker, &ScreenColorPicker::left, this, [this] { restore_before_pick(); });
-    connect(picker, &ScreenColorPicker::picked, this, [this, with_alpha](const QColor &color) {
-        apply_color(with_alpha(color), Origin::OTHER);
-        stop_eyedropper(false);
+    eyedropper_button->setChecked(true);
+    installEventFilter(this);
+    app_state_connection_ = connect(qApp, &QGuiApplication::applicationStateChanged, this, [this](Qt::ApplicationState state) {
+        if (state != Qt::ApplicationActive) release_eyedropper();
     });
-    connect(picker, &ScreenColorPicker::cancelled, this, [this] { stop_eyedropper(true); });
-    if (!picker->start()) stop_eyedropper(true);
+    grabMouse(Qt::CrossCursor);
+    last_pick_pos_ = QPoint();
+    pick_timer_->start();
+    pick_catcher_->show();
+    grabKeyboard();
+    // Moves without a button reach only a tracking widget.
+    tracked_before_pick_ = hasMouseTracking();
+    setMouseTracking(true);
+    preview_screen_color(QCursor::pos());
 }
 
-void ColorPickerDialog::restore_before_pick() {
+void ColorPickerDialog::toggle_eyedropper() {
+    if (picking_) finish_eyedropper(true);
+    else eyedropper_button->click();
+}
+
+void ColorPickerDialog::follow_pointer() {
+    const QPoint pos = QCursor::pos();
+    if (pos == last_pick_pos_) return;
+    last_pick_pos_ = pos;
+    // Over the dialog the grabbed mouse reports its own moves.
+    if (rect().contains(mapFromGlobal(pos))) return;
+    preview_screen_color(pos);
+    pick_catcher_->setPosition(pos - QPoint(2, 2));
+}
+
+void ColorPickerDialog::preview_screen_color(const QPoint &global) {
+    QColor color = grab_screen_color(global);
+    if (!color.isValid()) return;
+    // Screen pixels are opaque; the opacity set in the dialog stays.
+    color.setAlpha(color_.alpha());
+    apply_color(color, Origin::OTHER);
+}
+
+void ColorPickerDialog::finish_eyedropper(bool pick) {
+    if (!picking_) return;
+    release_eyedropper();
+    if (pick) {
+        preview_screen_color(QCursor::pos());
+        return;
+    }
     hue_ = before_hue_;
     saturation_ = before_saturation_;
     value_ = before_value_;
     commit(before_pick_, Origin::OTHER);
 }
 
-void ColorPickerDialog::stop_eyedropper(bool restore) {
-    {
-        const QSignalBlocker blocker(eyedropper_button);
-        eyedropper_button->setChecked(false);
+void ColorPickerDialog::release_eyedropper() {
+    if (!picking_) return;
+    picking_ = false;
+    removeEventFilter(this);
+    disconnect(app_state_connection_);
+    releaseMouse();
+    pick_timer_->stop();
+    pick_catcher_->hide();
+    releaseKeyboard();
+    setMouseTracking(tracked_before_pick_);
+    eyedropper_button->setChecked(false);
+}
+
+bool ColorPickerDialog::filter_picking_event(QEvent *event) {
+    switch (event->type()) {
+    case QEvent::MouseMove:
+        preview_screen_color(static_cast<QMouseEvent *>(event)->globalPosition().toPoint());
+        return true;
+    case QEvent::MouseButtonRelease:
+        finish_eyedropper(true);
+        return true;
+    case QEvent::KeyPress: {
+        auto *key = static_cast<QKeyEvent *>(event);
+        if (key->matches(QKeySequence::Cancel)) {
+            finish_eyedropper(false);
+        } else if (key->key() == Qt::Key_Space) {
+            finish_eyedropper(true);
+        } else if (key->key() == Qt::Key_Return || key->key() == Qt::Key_Enter) {
+            finish_eyedropper(true);
+            accept();
+        }
+        return true;
     }
-    if (!picker_) return;
-    picker_->disconnect(this);
-    picker_->close();
-    picker_ = nullptr;
-    if (restore) restore_before_pick();
-    if (isVisible()) activateWindow();
+    default: return false;
+    }
 }
 
 void ColorPickerDialog::paintEvent(QPaintEvent *) {
@@ -768,25 +907,20 @@ void ColorPickerDialog::showEvent(QShowEvent *event) {
     set_window_topmost(static_cast<quintptr>(winId()), true);
 }
 
-void ColorPickerDialog::keyPressEvent(QKeyEvent *event) {
-    if (picker_ && event->key() == Qt::Key_Escape) {
-        stop_eyedropper(true);
-        return;
-    }
-    FrostedFramelessDialog::keyPressEvent(event);
-}
-
 bool ColorPickerDialog::eventFilter(QObject *watched, QEvent *event) {
-    if (watched == value_edit || watched == alpha_edit) {
+    if (watched == this && picking_) return filter_picking_event(event);
+    const bool channel = std::find(channel_edits.begin(), channel_edits.end(), watched) != channel_edits.end();
+    if (watched == value_edit || watched == alpha_edit || channel) {
         if (event->type() == QEvent::FocusIn || event->type() == QEvent::FocusOut) {
             // The shared frame takes the focus colour for either field.
-            value_group->setProperty("focused", value_edit->hasFocus() || alpha_edit->hasFocus());
+            const bool channel_focus = std::any_of(channel_edits.begin(), channel_edits.end(), [](auto *edit) { return edit->hasFocus(); });
+            value_group->setProperty("focused", value_edit->hasFocus() || alpha_edit->hasFocus() || channel_focus);
             value_group->style()->unpolish(value_group);
             value_group->style()->polish(value_group);
         } else if (event->type() == QEvent::KeyPress) {
             const int key = static_cast<QKeyEvent *>(event)->key();
             if (key == Qt::Key_Return || key == Qt::Key_Enter) {
-                const bool readable = watched == value_edit ? parse_color(current_format(), value_edit->text()).has_value() : parse_alpha_text().has_value();
+                const bool readable = watched == alpha_edit ? parse_alpha_text().has_value() : parse_color(current_format(), value_text()).has_value();
                 // Enter confirms only text that names a colour; otherwise the field shows the colour again.
                 if (!readable) {
                     refresh_texts(Origin::OTHER);
@@ -799,7 +933,7 @@ bool ColorPickerDialog::eventFilter(QObject *watched, QEvent *event) {
 }
 
 void ColorPickerDialog::done(int result) {
-    stop_eyedropper(true);
+    release_eyedropper();
     if (result == QDialog::Accepted) {
         selected_ = color_;
         emit colorSelected(color_);

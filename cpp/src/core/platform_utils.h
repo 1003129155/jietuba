@@ -66,6 +66,9 @@ constexpr int DWMWCP_DONOTROUND = 1;
 constexpr int DWMWCP_ROUND = 2;
 bool supports_window_corner_preference();
 bool set_window_rounded_corners(quintptr hwnd, bool rounded);
+// Turns off the border, rounded corners and shadow DWM adds to a frameless window. Windows 11 sets them
+// again on every show, so call it after the window is shown.
+void disable_native_frame(quintptr hwnd);
 
 long long get_last_error();
 // The HKCU Run entry starting this program at sign-in. Shared with the Python version, like

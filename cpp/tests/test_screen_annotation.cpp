@@ -14,6 +14,7 @@
 #include "clipboard/controllers/paste_keystroke.h"
 #include "settings/tool_settings.h"
 #include "tools/controller.h"
+#include "ui/number_settings_panel.h"
 #include "ui/paint_settings_panel.h"
 #include "ui/toolbar_layout.h"
 #include <QApplication>
@@ -84,6 +85,18 @@ void draw_stroke(AnnotationView *view, const QPoint &from = QPoint(100, 100), co
     for (int i = 1; i <= 4; ++i) send_mouse(viewport, QEvent::MouseMove, from + (to - from) * i / 4, Qt::LeftButton);
     send_mouse(viewport, QEvent::MouseButtonRelease, to, Qt::NoButton);
 }
+
+// Counts how often a window is hidden and shown.
+class VisibilityCounter : public QObject {
+public:
+    int hides = 0;
+    int shows = 0;
+    bool eventFilter(QObject *, QEvent *event) override {
+        if (event->type() == QEvent::Hide) ++hides;
+        else if (event->type() == QEvent::Show) ++shows;
+        return false;
+    }
+};
 
 int drawing_count(AnnotationView *view) {
     int count = 0;
@@ -597,6 +610,37 @@ private slots:
         send_mouse(view->viewport(), QEvent::MouseButtonPress, QPoint(400, 400), Qt::LeftButton);
         send_mouse(view->viewport(), QEvent::MouseButtonRelease, QPoint(400, 400), Qt::NoButton);
         QVERIFY(dynamic_cast<QGraphicsTextItem *>(view->smart_edit_controller->selected_item()));
+    }
+
+    void panelStaysShownWhileNumbersAreSelectedAndDeleted() {
+        auto &annotation = start();
+        auto *view = annotation.views().front();
+        annotation.select_tool("number");
+        auto *panel = annotation.toolbar()->number_panel;
+        QVERIFY(panel && panel->isVisible());
+        int x = 200;
+        for (int i = 0; i < 3; ++i, x += 200) {
+            send_mouse(view->viewport(), QEvent::MouseButtonPress, QPoint(x, 200), Qt::LeftButton);
+            send_mouse(view->viewport(), QEvent::MouseButtonRelease, QPoint(x, 200), Qt::NoButton);
+        }
+        QList<NumberItem *> numbers;
+        for (auto *item : view->scene_obj()->items())
+            if (auto *number = dynamic_cast<NumberItem *>(item)) numbers.append(number);
+        QCOMPARE(numbers.size(), 3);
+        // A separate top-level window: hiding and showing it again for each change flickers.
+        VisibilityCounter counter;
+        panel->installEventFilter(&counter);
+        auto *controller = view->smart_edit_controller.get();
+        controller->select_item(numbers[0]);
+        QVERIFY(panel->isVisible());
+        controller->delete_selected(true, true);
+        QVERIFY(panel->isVisible());
+        controller->select_item(numbers[1]);
+        controller->delete_selected(true, true);
+        QVERIFY(panel->isVisible());
+        QCOMPARE(drawing_count(view), 1);
+        QCOMPARE(counter.hides, 0);
+        QCOMPARE(counter.shows, 0);
     }
 
     void cursorHighlightComesBackNextSession() {

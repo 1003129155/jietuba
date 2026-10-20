@@ -128,6 +128,10 @@ QMenu *create_tray_menu(MainApp *app) {
     QObject::connect(action_screenshot, &QAction::triggered, app, &MainApp::start_screenshot);
     menu->addAction(action_screenshot);
 
+    auto *action_delayed_screenshot = new QAction(tr_text("Delayed Screenshot"), menu);
+    QObject::connect(action_delayed_screenshot, &QAction::triggered, app, &MainApp::start_delayed_screenshot);
+    menu->addAction(action_delayed_screenshot);
+
     auto *action_clipboard = new QAction(with_hotkey(app, tr_text("Clipboard"), "clipboard"), menu);
     QObject::connect(action_clipboard, &QAction::triggered, app, &MainApp::open_clipboard_window);
     menu->addAction(action_clipboard);
@@ -157,7 +161,7 @@ QMenu *create_tray_menu(MainApp *app) {
     QObject::connect(action_game_pause, &QAction::triggered, app, &MainApp::set_pause_hotkeys_in_games);
     menu->addAction(action_game_pause);
 
-    auto *action_clipboard_monitor = new QAction(tr_text("Monitor Clipboard"), menu);
+    auto *action_clipboard_monitor = new QAction(tr_text("Record Clipboard"), menu);
     action_clipboard_monitor->setCheckable(true);
     action_clipboard_monitor->setChecked(app->config_manager->get_clipboard_enabled());
     QObject::connect(action_clipboard_monitor, &QAction::triggered, app, &MainApp::set_clipboard_enabled);
@@ -170,6 +174,8 @@ QMenu *create_tray_menu(MainApp *app) {
     auto *action_settings = new QAction(tr_text("Settings"), menu);
     QObject::connect(action_settings, &QAction::triggered, app, &MainApp::open_settings);
     menu->addAction(action_settings);
+
+    menu->addSeparator();
 
     auto *action_quit = new QAction(tr_text("Exit"), menu);
     QObject::connect(action_quit, &QAction::triggered, app, [app] { app->quit_app(); });

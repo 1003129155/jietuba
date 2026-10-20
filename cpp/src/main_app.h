@@ -27,6 +27,7 @@ class HotkeySystem;
 class PreloadManager;
 class QuickCaptureController;
 class ScreenAnnotation;
+class ScreenshotCountdown;
 class ScreenshotWindow;
 class SettingsDialog;
 class SmartTranslationController;
@@ -59,6 +60,7 @@ public:
     void set_pause_hotkeys_in_games(bool enabled);
     void setup_tray();
     void start_screenshot();
+    void start_delayed_screenshot();
     void open_settings();
     void open_translator();
     void open_clipboard_window();
@@ -131,6 +133,7 @@ private:
     // While an application-modal window exists no capture layer is created that could
     // not take input; the modal window comes to the front instead.
     bool activate_blocking_modal();
+    void request_screenshot(bool delayed);
     void capture_and_prepare_window();
     // The settings window asks for the wizard: hide it and unregister hotkeys while the wizard runs.
     void on_wizard_requested();
@@ -143,6 +146,7 @@ private:
     void on_clipboard_item_received(const clipboard::ClipboardItem &item);
 
     bool capture_pending_ = false;
+    QPointer<ScreenshotCountdown> screenshot_countdown_;
     DisplayChangeWatcher *display_watcher_ = nullptr;
     std::unique_ptr<PreloadManager> preloader_;
 };

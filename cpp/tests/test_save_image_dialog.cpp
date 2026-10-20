@@ -6,6 +6,7 @@
 #include "ui/fluent_lite/labels.h"
 #include "ui/fluent_lite/segmented.h"
 #include "ui/save_image_dialog.h"
+#include "caption_check.h"
 #include <QApplication>
 #include <QDialogButtonBox>
 #include <QFile>
@@ -152,6 +153,14 @@ private slots:
             QVERIFY2(!SaveImageDialog::file_name_problem(bad).isEmpty(), bad);
     }
 
+    void theSaveWindowsUseTheStandardCaption() {
+        use_test_app_icon();
+        SaveImageDialog dialog(noisy_image(), "shot", config_);
+        VERIFY_STANDARD_CAPTION(dialog);
+        PathTagNameDialog tag_name("name");
+        VERIFY_STANDARD_CAPTION(tag_name);
+    }
+
     void startsFromSettingsAndLosslessHasNoQuality() {
         settings_->setValue("app/screenshot_format", "PNG");
         SaveImageDialog dialog(noisy_image(), "screenshot_x", config_);
@@ -161,12 +170,24 @@ private slots:
         QVERIFY(dialog.quality_block->isHidden());
         QVERIFY(!dialog.lossless_hint->isHidden());
         QVERIFY(!dialog.view_mode->isEnabled());
+        QCOMPARE(dialog.preview->mode(), SavePreviewView::ENCODED);
         QVERIFY(!dialog.reset_size_button->isEnabled());
         QCOMPARE(dialog.format_combo->currentText(), QString(".PNG"));
         QCOMPARE(QDir::fromNativeSeparators(dialog.target_path()), QDir::fromNativeSeparators(dir_.filePath("shots/screenshot_x.png")));
         QCOMPARE(wait_encoded(dialog), static_cast<qint64>(SaveService::encode_image(noisy_image(), "PNG").size()));
         QVERIFY(dialog.preview->encoded().isNull());
         QVERIFY(dialog.file_size_label->text().endsWith("KB"));
+    }
+
+    void resizingLosslessStillOffersTheOriginal() {
+        settings_->setValue("app/screenshot_format", "PNG");
+        SaveImageDialog dialog(noisy_image(), "shot", config_);
+        QVERIFY(!dialog.view_mode->isEnabled());
+        dialog.width_spin->setValue(160);
+        QVERIFY(dialog.view_mode->isEnabled());
+        QCOMPARE(dialog.preview->mode(), SavePreviewView::ENCODED);
+        dialog.reset_size_button->click();
+        QVERIFY(!dialog.view_mode->isEnabled());
     }
 
     void qualityAndFormatReencode() {
@@ -177,6 +198,9 @@ private slots:
         QVERIFY(!dialog.quality_block->isHidden());
         QVERIFY(dialog.lossless_hint->isHidden());
         QVERIFY(dialog.view_mode->isEnabled());
+        // The preview starts on the saved result, so a quality change shows at once.
+        QCOMPARE(dialog.view_mode->currentItem(), QString("encoded"));
+        QCOMPARE(dialog.preview->mode(), SavePreviewView::ENCODED);
         dialog.quality_slider->setValue(20);
         const auto low = wait_encoded(dialog);
         QCOMPARE(low, static_cast<qint64>(SaveService::encode_image(noisy_image(), "JPG", 20).size()));
@@ -191,7 +215,7 @@ private slots:
         QCOMPARE(spy.count(), 1);
         QCOMPARE(spy.first().first().toLongLong(), static_cast<qint64>(SaveService::encode_image(noisy_image(), "JPG", 70).size()));
         select_format(dialog, "PNG");
-        QCOMPARE(dialog.preview->mode(), SavePreviewView::ORIGINAL);
+        QCOMPARE(dialog.preview->mode(), SavePreviewView::ENCODED);
         QVERIFY(dialog.quality_block->isHidden());
     }
 
@@ -359,6 +383,19 @@ private slots:
         const auto rect = view.image_rect();
         QCOMPARE(shot.pixelColor(static_cast<int>(rect.left() + 20), static_cast<int>(rect.center().y() + 20)), QColor(200, 40, 40));
         QCOMPARE(shot.pixelColor(static_cast<int>(rect.right() - 20), static_cast<int>(rect.center().y() + 20)), QColor(40, 40, 200));
+        // Original is the source even when the result has another size: it fills the same rectangle.
+        SavePreviewView resized;
+        resized.resize(220, 120);
+        resized.set_original(image);
+        QImage half(100, 50, QImage::Format_RGB32);
+        half.fill(QColor(40, 200, 40));
+        resized.set_image(half);
+        resized.set_mode(SavePreviewView::ORIGINAL);
+        const auto original_shot = resized.grab().toImage();
+        const auto half_rect = resized.image_rect();
+        QCOMPARE(original_shot.pixelColor(static_cast<int>(half_rect.center().x()), static_cast<int>(half_rect.center().y())), QColor(200, 40, 40));
+        resized.set_mode(SavePreviewView::ENCODED);
+        QCOMPARE(resized.grab().toImage().pixelColor(static_cast<int>(half_rect.center().x()), static_cast<int>(half_rect.center().y())), QColor(40, 200, 40));
         // An encoded copy of another size is not shown against the original.
         view.set_encoded(QImage(10, 10, QImage::Format_RGB32));
         QVERIFY(view.encoded().isNull());

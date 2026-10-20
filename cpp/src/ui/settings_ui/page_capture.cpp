@@ -107,7 +107,7 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     // Three levels in one combo rather than a master switch plus a drill-down switch: the
     // configuration has only off / window / element, and two switches would add the invalid
     // "master off, drill-down on" combination.
-    auto *mode_card = new SettingCard(FluentIcon::Camera, dialog->tr_text("Detection Mode"),
+    auto *mode_card = new SettingCard(FluentIcon::Camera, dialog->tr_text("Detection Precision"),
                                       dialog->tr_text("Snap the selection to the window or control under the cursor. "
                                                       "Control detection reads the accessibility tree and takes longer on large windows."),
                                       grp_smart);
@@ -121,6 +121,8 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     switch_card(dialog, grp_smart, FluentIcon::Sync, "Selection Switch Animation", "Slide the selection when it moves from one window or control to another.",
                 config->get_smart_selection_animation(), "smart_animation_toggle");
     layout->addWidget(grp_smart);
+
+    add_quick_actions_group(dialog, view, layout);
 
     // ── Saving ──
     auto *grp_save = new SettingsCardGroup(dialog->tr_text("Save Settings"), view, "capture");

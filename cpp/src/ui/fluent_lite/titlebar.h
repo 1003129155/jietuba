@@ -43,8 +43,6 @@ public:
     explicit FluentTitleBar(QWidget *parent);
     void setTitle(const QString &title);
     void setIcon(const QIcon &icon);
-    // Icon and title centred across the whole bar instead of left-aligned.
-    void center_title();
     Q_INVOKABLE void _apply_theme();
     QHBoxLayout *buttonLayout;
     QLabel *iconLabel;
@@ -53,10 +51,12 @@ protected:
     // The single overridable source of caption colours; colours applied from
     // outside would be repainted on the next theme change.
     virtual void apply_caption_colors();
-    void resizeEvent(QResizeEvent *event) override;
+    // Left inset and icon-to-title gap, shared by every window so the caption reads the same everywhere;
+    // a bar with its own branding overrides it.
+    virtual void apply_layout_metrics();
     void update_max_state() override;
 private:
-    void place_centered_title();
-    bool title_centered_ = false;
+    void refresh_icon();
+    QIcon icon_;
 };
 }

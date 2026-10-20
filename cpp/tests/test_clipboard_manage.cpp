@@ -15,6 +15,7 @@
 #include "core/ui_theme.h"
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/segmented.h"
+#include "caption_check.h"
 #include <QDragEnterEvent>
 #include <QEvent>
 #include <QFile>
@@ -78,6 +79,12 @@ class ClipboardManageTests : public QObject {
 
 private slots:
     void initTestCase() { QVERIFY(env_.init(this)); }
+
+    void theManageWindowUsesTheStandardCaption() {
+        use_test_app_icon();
+        auto *dialog = open_dialog();
+        VERIFY_STANDARD_CAPTION(*dialog);
+    }
 
     void init() { QVERIFY(env_.fresh_database()); }
 

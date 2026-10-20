@@ -64,7 +64,7 @@ QWidget *(*const PAGE_BUILDERS[])(SettingsDialog *) = {
     create_misc_page,           // 6
     create_developer_page,      // 7
     create_about_page,          // 8
-    create_quick_actions_page,  // 9
+    nullptr,                    // 9, formerly Quick Actions, now a group on the screenshot page
     create_mouse_page,          // 10
     create_pin_page,            // 11
     create_screen_annotation_page,  // 12
@@ -236,7 +236,7 @@ void SettingsDialog::setup_titlebar() {
 
 void SettingsDialog::setup_ui() {
     // Wide enough for the longest navigation item (Japanese "マウスショートカット").
-    const int sidebar_width = dialog_scaled(222);
+    const int sidebar_width = dialog_scaled(246);
     const int title_bar_height = titleBar() ? titleBar()->height() : dialog_scaled(32);
 
     auto *main_layout = new QHBoxLayout(this);
@@ -263,16 +263,9 @@ void SettingsDialog::setup_ui() {
     const QString icon_path = ResourceManager::get_resource_path(QString::fromUtf8("svg/托盘.svg"));
     if (QFileInfo::exists(icon_path)) logo_icon_lbl->setPixmap(QIcon(icon_path).pixmap(dialog_scaled(26), dialog_scaled(26)));
     logo_layout->addWidget(logo_icon_lbl, 0, Qt::AlignVCenter);
-    auto *text_box = new QVBoxLayout;
-    text_box->setContentsMargins(0, 0, 0, 0);
-    text_box->setSpacing(0);
     auto *app_name_lbl = new BodyLabel(tr_text("jietuba"));
     apply_theme_text_style(app_name_lbl, 14, true);
-    auto *app_desc_lbl = new QLabel(tr_text("Settings"));
-    apply_theme_text_style(app_desc_lbl, 11, false, {}, true);
-    text_box->addWidget(app_name_lbl);
-    text_box->addWidget(app_desc_lbl);
-    logo_layout->addLayout(text_box, 1);
+    logo_layout->addWidget(app_name_lbl, 1, Qt::AlignVCenter);
     left_v->addWidget(logo_area);
     // The logo's context menu opens developer options.
     logo_area->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -311,11 +304,11 @@ void SettingsDialog::setup_ui() {
 NavigationInterface *SettingsDialog::create_navigation(QWidget *parent) {
     auto *nav = new NavigationInterface(parent);
     nav->setObjectName("SettingsNavigation");
-    nav->setExpandWidth(dialog_scaled(198));
+    nav->setExpandWidth(dialog_scaled(222));
     nav->setMinimumExpandWidth(0);
     nav->expand();
-    nav->setMinimumWidth(dialog_scaled(198));
-    nav->setMaximumWidth(dialog_scaled(206));
+    nav->setMinimumWidth(dialog_scaled(222));
+    nav->setMaximumWidth(dialog_scaled(230));
 
     struct NavItem {
         QString route_key;
@@ -327,8 +320,7 @@ NavigationInterface *SettingsDialog::create_navigation(QWidget *parent) {
     std::vector<NavItem> items{
         {"shortcuts", ResourceManager::get_icon_path(QString::fromUtf8("热键.svg")), "Shortcuts", 0, NavigationItemPosition::TOP},
         {"mouse", ResourceManager::get_icon_path(QString::fromUtf8("鼠标线框.svg")), "Mouse Shortcuts", 10, NavigationItemPosition::TOP},
-        {"quick_actions", FluentIcon::StopWatch, "Quick Actions", 9, NavigationItemPosition::TOP},
-        {"capture", FluentIcon::Camera, "Capture Settings", 1, NavigationItemPosition::TOP},
+        {"capture", FluentIcon::Camera, "Screenshot", 1, NavigationItemPosition::TOP},
         {"pin", FluentIcon::Pin, "Pin", 11, NavigationItemPosition::TOP},
         {"screen_annotation", ResourceManager::get_icon_path(QString::fromUtf8("画笔.svg")), "Screen Annotation", 12, NavigationItemPosition::TOP},
         {"clipboard", FluentIcon::Paste, "Clipboard", 2, NavigationItemPosition::TOP},
@@ -387,7 +379,7 @@ void SettingsDialog::on_nav_changed(int stack_index, const QString &route_key) {
     static const QMap<int, const char *> title_map{
         {0, "Shortcut Settings"}, {1, "Capture Settings"}, {2, "Clipboard Settings"}, {3, "Appearance Settings"},
         {4, "Translation Settings"}, {5, "Log Settings"}, {6, "Other Settings"}, {8, "Software Information"},
-        {9, "Quick Actions"}, {10, "Mouse Shortcuts"}, {11, "Pin Settings"}, {12, "Screen Annotation Settings"},
+        {10, "Mouse Shortcuts"}, {11, "Pin Settings"}, {12, "Screen Annotation Settings"},
     };
     if (!title_map.contains(stack_index)) return;
     ensure_page(stack_index);
@@ -539,14 +531,16 @@ void SettingsDialog::reset_current_page() {
     BatchEdit batch(batch_editing_);
     switch (content_stack->currentIndex()) {
     case 0: reset_hotkey_page(); break;
-    case 1: reset_screenshot_settings_page(); break;
+    case 1:
+        reset_screenshot_settings_page();
+        reset_quick_actions_page();
+        break;
     case 2: reset_clipboard_page(); break;
     case 3: reset_appearance_page(); break;
     case 4: reset_translation_page(); break;
     case 5: reset_log_page(); break;
     case 6: reset_misc_page(); break;
     case 7: reset_long_screenshot_page(); break;
-    case 9: reset_quick_actions_page(); break;
     case 10: reset_mouse_page(); break;
     case 11: reset_pin_page(); break;
     case 12: reset_screen_annotation_page(); break;

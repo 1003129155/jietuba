@@ -3,7 +3,6 @@
 #include "clipboard/ui/image_item_actions.h"
 #include "clipboard/ui/menus/action_menu.h"
 #include "clipboard/ui/panels/setting_panel.h"
-#include "clipboard/ui/theme/chevron.h"
 #include "clipboard/ui/theme/theme_styles.h"
 #include "clipboard/ui/widgets/group_bar.h"
 #include "clipboard/ui/widgets/item_delegate.h"
@@ -280,7 +279,7 @@ void ClipboardWindow::apply_scale_metrics() {
     time_filter_layout_->setSpacing(scaled(4));
     bottom_layout_->setSpacing(scaled(8));
     const std::tuple<QWidget *, int, int> sizes[] = {
-        {start_date_edit, 108, 26}, {end_date_edit, 108, 26},         {apply_time_filter_btn, 36, 26}, {type_filter_btn, 64, 26},
+        {start_date_edit, 108, 26}, {end_date_edit, 108, 26},         {apply_time_filter_btn, 36, 26}, {type_filter_btn, 80, 26},
         {clear_time_filter_btn, 26, 26}, {time_filter_toggle_btn, 28, 28}, {clear_search_btn, 24, 24},  {menu_btn, 28, 28},
     };
     for (const auto &[widget, width, height] : sizes) widget->setFixedSize(scaled(width), scaled(height));
@@ -515,8 +514,7 @@ void ClipboardWindow::setup_ui() {
     type_filter_btn->setCursor(Qt::PointingHandCursor);
     type_filter_btn->setToolTip(tr_text("Filter Type"));
     type_filter_btn->setFocusPolicy(Qt::NoFocus);
-    type_filter_btn->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-    type_filter_btn->setLayoutDirection(Qt::RightToLeft);
+    type_filter_btn->setToolButtonStyle(Qt::ToolButtonTextOnly);
     connect(type_filter_btn, &QToolButton::clicked, this, [this] { show_type_filter_menu(); });
     type_filter_menu = new QMenu(type_filter_btn);
     for (int idx = 0; idx < type_filter_labels.size(); ++idx) {
@@ -861,9 +859,6 @@ void ClipboardWindow::apply_time_filter_styles() {
     if (type_filter_btn) {
         type_filter_btn->setStyleSheet(generator.generate_time_filter_type_btn_style());
         type_filter_menu->setStyleSheet(generator.generate_menu_style());
-        // The arrow is the same image as the date edits' drop-down; text on the left, arrow on the right.
-        type_filter_arrow_ = QIcon(chevron_image(current_theme.colors.text_secondary, scaled(9), scaled(6)));
-        type_filter_btn->setIconSize(QSize(scaled(9), scaled(6)));
         refresh_type_filter_button();
     }
     if (clear_time_filter_btn) clear_time_filter_btn->setStyleSheet(generator.generate_time_filter_close_btn_style());
@@ -887,7 +882,6 @@ void ClipboardWindow::refresh_type_filter_button() {
     const auto fixed = rule ? rule->kind : std::nullopt;
     const int index = fixed ? std::max<int>(0, type_filter_kinds().indexOf(*fixed)) : type_filter_index;
     type_filter_btn->setText(type_filter_labels[index]);
-    type_filter_btn->setIcon(fixed ? QIcon() : type_filter_arrow_);
     type_filter_btn->setEnabled(!fixed);
     type_filter_btn->setToolTip(fixed ? tr_text("Fixed by this filter group") : tr_text("Filter Type"));
 }

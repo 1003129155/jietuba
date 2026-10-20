@@ -6,13 +6,19 @@
 
 namespace jietuba {
 namespace {
-int bold_text_width(const QString &text) {
+int bold_text_width(const QString &text, int pixel_size) {
     QFont font;
     font.setFamilies(FONT_FAMILIES());
-    font.setPixelSize(dialog_scaled(12));
+    font.setPixelSize(dialog_scaled(pixel_size));
     font.setWeight(QFont::DemiBold);
     return QFontMetrics(font).horizontalAdvance(text);
 }
+
+struct Metrics {
+    int font, pad_v, pad_h;
+    int radius() const { return pad_v + 5; }
+};
+Metrics metrics(bool large) { return large ? Metrics{14, 7, 20} : Metrics{12, 4, 14}; }
 }
 
 SegmentedWidget::SegmentedWidget(QWidget *parent) : QWidget(parent), indicator_(ACCENT), group_(new QButtonGroup(this)), layout_(new QHBoxLayout(this)) {
@@ -25,19 +31,32 @@ SegmentedWidget::SegmentedWidget(QWidget *parent) : QWidget(parent), indicator_(
 
 QString SegmentedWidget::style() const {
     const auto &t = ui_tokens(this);
+    const auto m = metrics(large_);
     return QString(R"(
             QPushButton { padding: %1px %2px; color: %3; background: transparent;
                 border: none; border-radius: %4px; font: %5px %6; }
             QPushButton:hover { color: %7; background: %8; }
             QPushButton:checked { color: %9; background: %10; font-weight: 600; }
-        )").arg(dialog_scaled(4)).arg(dialog_scaled(14)).arg(t.text_muted).arg(dialog_scaled(9)).arg(dialog_scaled(12))
+        )").arg(dialog_scaled(m.pad_v)).arg(dialog_scaled(m.pad_h)).arg(t.text_muted).arg(dialog_scaled(m.radius())).arg(dialog_scaled(m.font))
         .arg(FONT_FAMILY, t.text, t.surface_subtle, t.accent_text, t.accent_soft);
 }
 
 void SegmentedWidget::_apply_theme() {
     const auto &t = ui_tokens(this);
-    set_own_style(this, QString("background: %1; border: 1px solid %2; border-radius: %3px;").arg(t.surface_subtle, t.border).arg(dialog_scaled(11)));
+    set_own_style(this, QString("background: %1; border: 1px solid %2; border-radius: %3px;").arg(t.surface_subtle, t.border).arg(dialog_scaled(metrics(large_).radius() + 2)));
     for (auto *button : items_) apply_style_sheet(button, style());
+}
+
+void SegmentedWidget::setLarge(bool large) {
+    if (large_ == large) return;
+    large_ = large;
+    _apply_theme();
+    refresh_items();
+}
+
+void SegmentedWidget::refresh_items() {
+    const auto m = metrics(large_);
+    for (auto *button : items_) button->setMinimumWidth(bold_text_width(button->text(), m.font) + 2 * dialog_scaled(m.pad_h) + 2);
 }
 
 void SegmentedWidget::addItem(const QString &route_key, const QString &text, std::function<void()> on_click) {
@@ -49,7 +68,8 @@ void SegmentedWidget::insertItem(int index, const QString &route_key, const QStr
     button->setCheckable(true);
     apply_style_sheet(button, style());
     // The checked item is bold; measure it bold so the text is not clipped.
-    button->setMinimumWidth(bold_text_width(text) + 2 * dialog_scaled(14) + 2);
+    const auto m = metrics(large_);
+    button->setMinimumWidth(bold_text_width(text, m.font) + 2 * dialog_scaled(m.pad_h) + 2);
     connect(button, &QPushButton::clicked, this, [this, route_key] { setCurrentItem(route_key); });
     if (on_click) connect(button, &QPushButton::clicked, this, [on_click] { on_click(); });
     group_->addButton(button);

@@ -14,6 +14,8 @@
 #include <tuple>
 #include <vector>
 
+class QVBoxLayout;
+
 // Settings page builders, by content stack index (see SettingsDialog).
 namespace jietuba {
 class HotkeyEdit;
@@ -30,7 +32,8 @@ QWidget *create_log_page(SettingsDialog *dialog);
 QWidget *create_misc_page(SettingsDialog *dialog);
 QWidget *create_developer_page(SettingsDialog *dialog);
 QWidget *create_about_page(SettingsDialog *dialog);
-QWidget *create_quick_actions_page(SettingsDialog *dialog);
+// The quick actions group, laid out on the screenshot page.
+void add_quick_actions_group(SettingsDialog *dialog, QWidget *view, QVBoxLayout *layout);
 QWidget *create_mouse_page(SettingsDialog *dialog);
 QWidget *create_pin_page(SettingsDialog *dialog);
 QWidget *create_screen_annotation_page(SettingsDialog *dialog);

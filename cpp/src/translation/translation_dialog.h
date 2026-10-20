@@ -120,6 +120,7 @@ public:
     DashboardPinButton *pin_button;
 protected:
     void apply_caption_colors() override;
+    void apply_layout_metrics() override;
 private:
     const DashboardPalette *palette_ = &dashboard_dark();
 };

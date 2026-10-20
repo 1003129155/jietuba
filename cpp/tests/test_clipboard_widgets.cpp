@@ -495,6 +495,8 @@ private slots:
                                        styles.generate_time_filter_action_btn_style(true), styles.generate_time_filter_action_btn_style(false),
                                        styles.generate_time_filter_type_btn_style(), styles.generate_menu_btn_style()})
                 QVERIFY2(css.contains("{") && css.contains("}"), qPrintable(name));
+            // The empty search field keeps a faint base so it reads as an input.
+            QVERIFY2(styles.generate_search_input_style(false).contains("rgba(" + ThemeStyleGenerator::hex_to_rgb(theme.colors.text_primary)), qPrintable(name));
         }
         QVERIFY(!changed.isEmpty());
         QCOMPARE(ThemeStyleGenerator::hex_to_rgb("#FF8000"), QString("255, 128, 0"));

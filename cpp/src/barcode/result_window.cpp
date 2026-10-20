@@ -225,9 +225,6 @@ BarcodeResultWindow::BarcodeResultWindow(const QImage &image, const std::vector<
     auto *title_bar = new FluentTitleBar(this);
     configure_dialog_control(*title_bar);
     setTitleBar(title_bar);
-    title_bar->iconLabel->hide();
-    // With the icon hidden the title would touch the left edge; restore the native bar's margin.
-    title_bar->hBoxLayout->setContentsMargins(dialog_scaled(12), 0, 0, 0);
     setWindowTitle(tr_text("Scan result"));
 
     image_view = new CodeImageView(image, codes, this);

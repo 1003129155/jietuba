@@ -175,11 +175,8 @@ void WelcomeWizard::setup_titlebar() {
     auto *title_bar = new FluentTitleBar(this);
     configure_dialog_control(*title_bar);
     setTitleBar(title_bar);
-    title_bar->iconLabel->hide();
     if (title_bar->maxBtn) title_bar->maxBtn->hide();
     if (title_bar->minBtn) title_bar->minBtn->hide();
-    // Without the icon the title would touch the left edge; the native title bar's margin stays.
-    title_bar->hBoxLayout->setContentsMargins(dialog_scaled(12), 0, 0, 0);
     title_bar->setDoubleClickEnabled(false);
 }
 

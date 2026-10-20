@@ -5,6 +5,7 @@
 #include "core/crash_handler.h"
 #include "core/logger.h"
 #include <QFileInfo>
+#include <QGuiApplication>
 #include <QTimer>
 #include <cmath>
 #include <thread>
@@ -257,6 +258,24 @@ bool set_window_rounded_corners(quintptr hwnd, bool rounded) {
 #else
     Q_UNUSED(hwnd); Q_UNUSED(rounded);
     return false;
+#endif
+}
+
+void disable_native_frame(quintptr hwnd) {
+#ifdef Q_OS_WIN
+    if (QGuiApplication::platformName() != "windows") return;
+    const std::pair<DWORD, DWORD> attributes[] = {
+        {2, 1},            // DWMWA_NCRENDERING_POLICY = DWMNCRP_DISABLED
+        {33, 1},           // DWMWA_WINDOW_CORNER_PREFERENCE = DWMWCP_DONOTROUND
+        {34, 0xFFFFFFFE},  // DWMWA_BORDER_COLOR = DWMWA_COLOR_NONE
+    };
+    for (const auto &[attribute, value] : attributes) {
+        DWORD native_value = value;
+        // Windows 10 rejects the last two; the first still applies.
+        DwmSetWindowAttribute(to_hwnd(hwnd), attribute, &native_value, sizeof native_value);
+    }
+#else
+    Q_UNUSED(hwnd);
 #endif
 }
 

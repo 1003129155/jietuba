@@ -21,7 +21,6 @@
 #include "core/logger.h"
 #include "core/platform_utils.h"
 #include "core/py_text.h"
-#include "core/resource_manager.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
 #include "ui/dialogs.h"
@@ -35,7 +34,6 @@
 #include <QClipboard>
 #include <QCloseEvent>
 #include <QCursor>
-#include <QFileInfo>
 #include <QHBoxLayout>
 #include <QListWidgetItem>
 #include <QMenu>
@@ -107,8 +105,6 @@ ManageDialog::ManageDialog(ClipboardManager *manager, QWidget *parent) : Frosted
     setWindowFlags(windowFlags() | Qt::Window | Qt::WindowCloseButtonHint | Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint);
     // setWindowFlags recreates the native window, dropping the frameless WS_THICKFRAME and shadow, so the edges no longer resize; add them back.
     helper_.install();
-    const QString icon_path = ResourceManager::get_resource_path(QString::fromUtf8("svg/托盘.svg"));
-    if (QFileInfo::exists(icon_path)) setWindowIcon(QIcon(icon_path));
     setAttribute(Qt::WA_DeleteOnClose, false);
 
     setup_ui();
@@ -131,7 +127,6 @@ void ManageDialog::setup_titlebar() {
     configure_dialog_control(*title_bar);
     setTitleBar(title_bar);
     title_bar->setDoubleClickEnabled(true);
-    title_bar->center_title();
 }
 
 void ManageDialog::fit_to_screen() {

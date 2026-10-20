@@ -6,23 +6,14 @@
 #include "ui/settings_ui/dialog.h"
 #include "ui/settings_ui/pages.h"
 
-// How capturing and annotating behave, and switches that skip a confirmation or result window.
+// The screenshot page's "Quick Actions" group: how capturing and annotating behave, and switches
+// that skip a confirmation or result window.
 // The result windows' check boxes write the same keys: once checked there the window stops
 // appearing and only this page turns it back, so each description says what happens while it is on.
 namespace jietuba {
-QWidget *create_quick_actions_page(SettingsDialog *dialog) {
+void add_quick_actions_group(SettingsDialog *dialog, QWidget *view, QVBoxLayout *layout) {
     auto *config = dialog->config_manager;
-    auto *scroll = page_scroll_area(dialog);
-    scroll->setWidgetResizable(true);
-    scroll->setStyleSheet("QScrollArea { border: none; background: transparent; }");
-    auto *view = new QWidget;
-    set_own_style(view, "background: transparent;");
-    auto *layout = new QVBoxLayout(view);
-    layout->setContentsMargins(0, 0, dialog_scaled(10), 0);
-    layout->setSpacing(dialog_scaled(14));
-
-    // ── Screenshot ──
-    auto *grp_capture = new SettingsCardGroup(dialog->tr_text("Screenshot"), view, "capture");
+    auto *grp_capture = new SettingsCardGroup(dialog->tr_text("Quick Actions"), view, "capture");
     const auto add = [&](FluentIcon icon, const char *title, const char *content, bool checked) {
         auto *card = new SwitchSettingCard(icon, dialog->tr_text(title), dialog->tr_text(content), grp_capture);
         card->setChecked(checked);
@@ -59,9 +50,5 @@ QWidget *create_quick_actions_page(SettingsDialog *dialog) {
                                                        "When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.",
                                                        config->get_barcode_copy_single_enabled()));
     layout->addWidget(grp_capture);
-
-    layout->addStretch();
-    scroll->setWidget(view);
-    return scroll;
 }
 }
