@@ -508,10 +508,12 @@ if(BUILD_TESTING)
             endif()
         endif()
     endforeach()
-    # ctest -j: the clipboard tests share the system clipboard, so they take turns.
+    # ctest -j: the clipboard tests share the system clipboard, so they take turns. So do these others
+    # that write it; a write waits only briefly for another holder, and a paste is then dropped.
+    set(jietuba_clipboard_writers python_core_parity translation_ui pin_window screenshot_window)
     get_property(jietuba_tests DIRECTORY PROPERTY TESTS)
     foreach(test IN LISTS jietuba_tests)
-        if(test MATCHES "clipboard")
+        if(test MATCHES "clipboard" OR test IN_LIST jietuba_clipboard_writers)
             set_tests_properties(${test} PROPERTIES RESOURCE_LOCK system_clipboard)
         endif()
     endforeach()
