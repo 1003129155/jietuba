@@ -29,8 +29,12 @@ protected:
     void focusOutEvent(QFocusEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
 private:
+    // Long titles end in an ellipsis instead of being cut mid-character; the tooltip has them whole.
+    void elide_text();
     int index_;
+    QString full_text_;
     bool hovered_ = false;
     bool active_ = false;
     bool completed_ = false;
@@ -41,9 +45,9 @@ private:
 class WelcomeWizard : public FrostedFramelessDialog {
     Q_OBJECT
 public:
-    static constexpr int WINDOW_W = 960;
-    static constexpr int WINDOW_H = 680;
-    static constexpr int PAGE_COUNT = 6;
+    static constexpr int WINDOW_W = 1040;
+    static constexpr int WINDOW_H = 740;
+    static constexpr int PAGE_COUNT = 8;
     explicit WelcomeWizard(ToolSettingsManager *config, QWidget *parent = nullptr);
     // Refreshes every text after a language switch (navigation and pages).
     void retranslate_ui();

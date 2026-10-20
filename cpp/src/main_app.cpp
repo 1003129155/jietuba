@@ -146,7 +146,7 @@ MainApp::MainApp(int &argc, char **argv) : app(std::make_unique<QApplication>(ar
     // Started before the hotkeys register, so a game already running keeps them from registering at all.
     game_mode_monitor = new GameModeMonitor(this);
     connect(game_mode_monitor, &GameModeMonitor::changed, this, &MainApp::on_game_mode_changed);
-    if (config_manager->get_app_setting("pause_hotkeys_in_games", false).toBool()) game_mode_monitor->start();
+    sync_game_mode_monitor();
     update_controller = new UpdateController(this, this);
     app->setProperty("_update_controller", QVariant::fromValue<QObject *>(update_controller));
     connect(app.get(), &QCoreApplication::aboutToQuit, update_controller, &UpdateController::cancel);
@@ -308,7 +308,11 @@ void MainApp::set_global_hotkeys_disabled(bool disabled) {
 void MainApp::set_pause_hotkeys_in_games(bool enabled) {
     config_manager->set_app_setting("pause_hotkeys_in_games", enabled);
     log_info(enabled ? T("已开启玩游戏时暂停热键") : T("已关闭玩游戏时暂停热键"), "Hotkey");
-    if (enabled) game_mode_monitor->start();
+    sync_game_mode_monitor();
+}
+
+void MainApp::sync_game_mode_monitor() {
+    if (config_manager->get_app_setting("pause_hotkeys_in_games", false).toBool()) game_mode_monitor->start();
     else game_mode_monitor->stop();
 }
 
@@ -517,6 +521,7 @@ void MainApp::on_wizard_requested() {
     } catch (const std::exception &e) {
         log_exception(e, T("向导启动失败"));
     }
+    sync_game_mode_monitor();
     update_hotkey();
     log_info(T("向导完成，热键已恢复"), "MainApp");
 }

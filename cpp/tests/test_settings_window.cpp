@@ -871,9 +871,9 @@ private slots:
         config_->settings().remove("translation/providers/volcengine");
     }
 
-    void wizardNavigatesAcrossSixPages() {
+    void wizardNavigatesAcrossEveryPage() {
         WelcomeWizard wizard(config_);
-        QCOMPARE(wizard.page_count(), 6);
+        QCOMPARE(wizard.page_count(), 8);
         QCOMPARE(wizard.current_page(), 0);
         wizard.go_to_page(3);
         QCOMPARE(wizard.current_page(), 3);
@@ -914,6 +914,154 @@ private slots:
         combo->setCurrentIndex(combo->findData("WEBP"));
         page.save();
         QCOMPARE(config_->get_screenshot_format(), QString("WEBP"));
+        // Detection precision sits in the smart selection card and is greyed out while it is off.
+        QComboBox *precision = nullptr;
+        for (auto *candidate : page.findChildren<QComboBox *>())
+            if (candidate->findData("element") >= 0) precision = candidate;
+        QVERIFY(precision);
+        auto *smart = page.findChildren<WelcomeToggleSwitch *>().last();
+        smart->setChecked(true);
+        precision->setCurrentIndex(precision->findData("element"));
+        page.save();
+        QCOMPARE(config_->get_smart_selection_mode(), QString("element"));
+        smart->setChecked(false);
+        QVERIFY(!precision->isEnabled());
+        page.save();
+        QCOMPARE(config_->get_smart_selection_mode(), QString("off"));
+        config_->set_smart_selection_mode("window");
+    }
+
+    // Every tool of the capture toolbar shows in the screenshot page's preview, and only those.
+    void wizardToolPreviewCoversTheCaptureToolbar() {
+        const QStringList preview = screenshot_preview_tools();
+        QStringList expected;
+        for (const auto &key : toolbar_layout::default_order())
+            if (key != "undo" && key != "redo" && key != "cancel") expected.append(key);
+        QCOMPARE(QSet<QString>(preview.begin(), preview.end()), QSet<QString>(expected.begin(), expected.end()));
+        QCOMPARE(preview.size(), expected.size());
+    }
+
+    // The screen annotation hotkey shares the hotkey page's duplicate check; a duplicate keeps the stored value.
+    void wizardAnnotationHotkeyJoinsTheConflictCheck() {
+        const auto restore = qScopeGuard([this] { config_->set_app_setting("screen_annotation_hotkey", ""); });
+        WelcomeWizard wizard(config_);
+        auto *hotkeys = wizard.findChild<HotkeyPage *>();
+        auto *annotation = wizard.findChild<ScreenAnnotationPage *>();
+        QVERIFY(hotkeys && annotation);
+        auto *screenshot_edit = hotkeys->findChildren<HotkeyEdit *>().first();
+        auto *annotation_edit = annotation->hotkey_edits().front();
+        QVERIFY(annotation_edit->text().isEmpty());
+        annotation_edit->setText(screenshot_edit->text());
+        QVERIFY(!annotation_edit->validation_error().isEmpty());
+        QVERIFY(!screenshot_edit->validation_error().isEmpty());
+        annotation->save();
+        QCOMPARE(config_->get_global_hotkeys("screen_annotation").first(), QString());
+        annotation_edit->setText("ctrl+alt+shift+f9");
+        QVERIFY(annotation_edit->validation_error().isEmpty());
+        QVERIFY(screenshot_edit->validation_error().isEmpty());
+        annotation->save();
+        QCOMPARE(config_->get_global_hotkeys("screen_annotation").first(), QString("ctrl+alt+shift+f9"));
+    }
+
+    // Mouse shortcuts are written back; two actions sharing a gesture keep their stored bindings.
+    void wizardMousePageSavesBindingsAndSkipsConflicts() {
+        const auto restore = qScopeGuard([this] {
+            for (const auto &action : QUICK_CAPTURE_ACTIONS()) config_->set_app_setting(QString("quick_capture_") + action.key, action.binding);
+        });
+        MouseShortcutPage page(config_);
+        const auto editors = page.findChildren<MouseBindingEditor *>();
+        QCOMPARE(editors.size(), static_cast<qsizetype>(QUICK_CAPTURE_ACTIONS().size()));
+        const auto editor_for = [&](const QString &key) {
+            for (size_t i = 0; i < QUICK_CAPTURE_ACTIONS().size(); ++i)
+                if (key == QUICK_CAPTURE_ACTIONS()[i].key) return editors[static_cast<qsizetype>(i)];
+            return static_cast<MouseBindingEditor *>(nullptr);
+        };
+        QCOMPARE(editor_for("pin")->currentData(), QString("win+dragleft"));
+        QLabel *conflict = nullptr;
+        for (auto *label : page.findChildren<QLabel *>())
+            if (label->styleSheet().contains("#D9534F")) conflict = label;
+        QVERIFY(conflict && conflict->isHidden());
+        editor_for("ocr")->setBinding("ctrl+win+dragleft");
+        editor_for("copy")->setBinding("win+dragleft");
+        QVERIFY(!conflict->isHidden());
+        QVERIFY(conflict->text().contains(settings_tr("Pin to Screen")));
+        page.save();
+        QCOMPARE(get_quick_capture_binding(config_, "ocr"), QString("ctrl+win+dragleft"));
+        QCOMPARE(get_quick_capture_binding(config_, "copy"), QString(""));
+        QCOMPARE(get_quick_capture_binding(config_, "pin"), QString("win+dragleft"));
+        editor_for("pin")->setBinding("");
+        QVERIFY(conflict->isHidden());
+        page.save();
+        QCOMPARE(get_quick_capture_binding(config_, "copy"), QString("win+dragleft"));
+        QCOMPARE(get_quick_capture_binding(config_, "pin"), QString(""));
+    }
+
+    // The two new demos paint through every phase of their loop.
+    void wizardDemosPaintEveryPhase() {
+        MouseShortcutPage mouse(config_);
+        ScreenAnnotationPage annotation(config_);
+        for (BasePage *page : std::initializer_list<BasePage *>{&mouse, &annotation}) {
+            page->resize(900, 560);
+            page->show();
+            QImage previous;
+            for (int ms : {0, 600, 1400, 2200, 2800, 4000, 5500}) {
+                if (page == &mouse) mouse.set_animation_time(ms);
+                else annotation.set_animation_time(ms);
+                const QImage frame = page->illus_area->grab().toImage();
+                QVERIFY(!frame.isNull());
+                if (ms == 1400) QVERIFY(frame != previous);
+                previous = frame;
+            }
+            page->hide();
+        }
+    }
+
+    // The shared switch follows the window scale only, and its knob stays centred at any size.
+    void switchFollowsTheWindowScale() {
+        const auto restore = qScopeGuard([] {
+            get_dialog_scale().set_percent(100);
+            get_ui_scale().set_percent(100);
+        });
+        get_dialog_scale().set_percent(100);
+        SwitchButton normal;
+        configure_dialog_control(normal);
+        QCOMPARE(normal.size(), QSize(46, 26));
+        get_dialog_scale().set_percent(150);
+        WelcomeToggleSwitch large;
+        configure_dialog_control(large);
+        QCOMPARE(large.size(), QSize(69, 39));
+        get_ui_scale().set_percent(200);
+        configure_dialog_control(large);
+        QCOMPARE(large.size(), QSize(69, 39));
+        // Down the knob's middle column, the white knob has as much track above it as below.
+        const QImage image = large.grab().toImage();
+        const int column = large.height() / 2;
+        int first = -1, last = -1;
+        for (int y = 0; y < image.height(); ++y) {
+            const QColor pixel = image.pixelColor(column, y);
+            if (pixel.red() > 245 && pixel.green() > 245 && pixel.blue() > 245) {
+                if (first < 0) first = y;
+                last = y;
+            }
+        }
+        QVERIFY(first > 0);
+        QVERIFY(qAbs(first - (image.height() - 1 - last)) <= 1);
+    }
+
+    // The finish page offers pausing hotkeys in games, off unless chosen before.
+    void wizardFinishPageStoresTheGamePause() {
+        const auto restore = qScopeGuard([this] { config_->set_app_setting("pause_hotkeys_in_games", false); });
+        config_->set_app_setting("pause_hotkeys_in_games", false);
+        FinishPage page(config_);
+        auto switches = page.findChildren<WelcomeToggleSwitch *>();
+        QCOMPARE(switches.size(), 4);
+        auto *game = switches.last();
+        QVERIFY(!game->isChecked());
+        game->setChecked(true);
+        page.save_preferences();
+        QVERIFY(config_->get_app_setting("pause_hotkeys_in_games").toBool());
+        FinishPage again(config_);
+        QVERIFY(again.findChildren<WelcomeToggleSwitch *>().last()->isChecked());
     }
 
     // The wizard's steps, buttons and pages respond and paint; nothing here closes or finishes
@@ -923,7 +1071,7 @@ private slots:
         wizard.show();
         QVERIFY(QTest::qWaitForWindowExposed(&wizard));
         auto steps = wizard.findChildren<StepItem *>();
-        QCOMPARE(steps.size(), 6);
+        QCOMPARE(steps.size(), 8);
         QTest::mouseClick(steps[2], Qt::LeftButton);
         QCOMPARE(wizard.current_page(), 2);
         steps[1]->setFocus();

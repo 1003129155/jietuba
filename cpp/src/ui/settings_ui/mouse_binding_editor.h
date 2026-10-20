@@ -5,13 +5,12 @@
 // Modifier combination plus mouse gesture; currentData() is like "ctrl+dragright".
 namespace jietuba {
 class ComboBox;
-class SettingsDialog;
 
 class MouseBindingEditor : public QWidget {
     Q_OBJECT
 public:
     // kind: "wheel", "drag", "click", "capture" or "global".
-    MouseBindingEditor(SettingsDialog *dialog, const QString &kind, QWidget *parent = nullptr);
+    explicit MouseBindingEditor(const QString &kind, QWidget *parent = nullptr);
     QString currentData() const;
     void setBinding(const QString &binding);
     ComboBox *modifiers;

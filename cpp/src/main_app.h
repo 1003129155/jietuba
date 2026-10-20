@@ -58,6 +58,8 @@ public:
     void set_global_hotkeys_disabled(bool disabled);
     // The tray switch: global input pauses on its own while a game holds the foreground.
     void set_pause_hotkeys_in_games(bool enabled);
+    // Starts or stops watching for games as pause_hotkeys_in_games says.
+    void sync_game_mode_monitor();
     void setup_tray();
     void start_screenshot();
     void start_delayed_screenshot();

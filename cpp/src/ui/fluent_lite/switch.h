@@ -3,13 +3,15 @@
 #include <QWidget>
 
 namespace jietuba {
-// Animated on/off switch.
+// Animated on/off switch; 46x26 at 100%, following the window scale.
 class SwitchButton : public QWidget {
     Q_OBJECT
     Q_PROPERTY(double progress READ progress WRITE set_progress)
 public:
     explicit SwitchButton(QWidget *parent = nullptr);
-    QSize sizeHint() const override { return QSize(46, 26); }
+    QSize sizeHint() const override { return size(); }
+    // Called by configure_dialog_controls once the window scale is known.
+    Q_INVOKABLE void _apply_theme();
     double progress() const { return progress_; }
     void set_progress(double value);
     bool isChecked() const { return checked_; }

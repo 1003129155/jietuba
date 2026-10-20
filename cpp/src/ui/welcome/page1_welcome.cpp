@@ -5,6 +5,7 @@
 #include "core/ui_theme.h"
 #include "settings/tool_settings.h"
 #include "ui/fluent_lite/inputs.h"
+#include "ui/fluent_lite/theme.h"
 #include "ui/welcome/pages.h"
 #include "ui/welcome/wizard.h"
 #include <QFileInfo>
@@ -19,15 +20,29 @@ QString theme_label_tr(const char *text) { return i18n_tr(text, "ClipboardWindow
 
 QString welcome_title() { return brand_text(welcome_tr("欢迎使用截图吧 👋")).remove(QString::fromUtf8("👋")).trimmed(); }
 
-// The first screen's product preview: the four core capabilities rather than one capture editor.
+// The first screen's product preview: the main capabilities rather than one capture editor.
 class ProductCanvas : public QWidget {
     Q_OBJECT
 public:
+    // (title, meta, accent colour, icon); the titles are decorative and stay in English.
+    struct Module {
+        const char *title, *meta, *color, *icon;
+    };
+    static constexpr Module MODULES[] = {
+        {"Capture", "SCREEN", "#6F8FAB", "svg/选择.svg"},       {"Recognize", "OCR", "#6FA18F", "svg/文字识别.svg"},
+        {"Pin", "ON TOP", "#8A7FA7", "svg/钉图.svg"},            {"Record", "GIF · MP4", "#B18468", "svg/gif.svg"},
+        {"Long Shot", "SCROLL", "#6F8FAB", "svg/长截图.svg"},    {"Draw", "ON SCREEN", "#6FA18F", "svg/画笔.svg"},
+        {"Clipboard", "HISTORY", "#8A7FA7", "svg/copy.svg"},     {"Translate", "LANGUAGE", "#B18468", "svg/翻译.svg"},
+    };
     explicit ProductCanvas(QWidget *parent = nullptr) : QWidget(parent) {
         setMinimumHeight(dialog_scaled(220));
         set_own_style(this, "background: transparent;");
+        load_icons();
     }
-    Q_INVOKABLE void apply_welcome_child_theme() { update(); }
+    Q_INVOKABLE void apply_welcome_child_theme() {
+        load_icons();
+        update();
+    }
 protected:
     void paintEvent(QPaintEvent *) override {
         QPainter p(this);
@@ -42,13 +57,13 @@ protected:
         p.setBrush(QColor(96, 168, 151, theme.is_dark ? 28 : 18));
         p.drawEllipse(-18, static_cast<int>(h * 0.62), static_cast<int>(w * 0.42), static_cast<int>(w * 0.42));
 
-        const QRectF card(12, 18, std::max(80, w - 24), std::max(120, h - 36));
+        const QRectF card(12, 14, std::max(80, w - 24), std::max(120, h - 28));
         p.setPen(QPen(QColor(theme.border), 1));
         p.setBrush(QColor(theme.panel));
         p.drawRoundedRect(card, 12, 12);
 
         // The workspace title bar.
-        const int top_h = 34;
+        const int top_h = 30;
         p.setBrush(QColor(theme.panel_subtle));
         p.setPen(Qt::NoPen);
         p.drawRoundedRect(QRectF(card.x() + 1, card.y() + 1, card.width() - 2, top_h), 11, 11);
@@ -56,72 +71,59 @@ protected:
         const QString dots[] = {theme.text_soft, theme.border_strong, theme.border};
         for (int i = 0; i < 3; ++i) {
             p.setBrush(QColor(dots[i]));
-            p.drawEllipse(static_cast<int>(card.x() + 13 + i * 12), static_cast<int>(card.y() + 13), 5, 5);
+            p.drawEllipse(static_cast<int>(card.x() + 13 + i * 12), static_cast<int>(card.y() + 12), 5, 5);
         }
 
-        const QRectF content = card.adjusted(12, top_h + 10, -12, -12);
+        const QRectF content = card.adjusted(10, top_h + 9, -10, -10);
 
         // The value summary on top.
-        const QRectF summary(content.x(), content.y(), content.width(), 62);
+        const QRectF summary(content.x(), content.y(), content.width(), 46);
         p.setPen(Qt::NoPen);
         p.setBrush(QColor(theme.accent_soft));
         p.drawRoundedRect(summary, 9, 9);
         p.setPen(QColor(theme.accent));
-        p.setFont(QFont("Segoe UI", 8, QFont::DemiBold));
-        p.drawText(summary.adjusted(12, 8, -10, -34), Qt::AlignLeft | Qt::AlignVCenter, "ONE WORKSPACE");
+        p.setFont(QFont("Segoe UI", 7, QFont::DemiBold));
+        p.drawText(summary.adjusted(12, 6, -10, -26), Qt::AlignLeft | Qt::AlignVCenter, "ONE WORKSPACE");
         p.setPen(QColor(theme.text));
-        p.setFont(QFont("Segoe UI", 10, QFont::DemiBold));
-        p.drawText(summary.adjusted(12, 25, -8, -7), Qt::AlignLeft | Qt::AlignVCenter, "Capture. Organize. Translate.");
+        p.setFont(QFont("Segoe UI", 9, QFont::DemiBold));
+        p.drawText(summary.adjusted(12, 19, -8, -5), Qt::AlignLeft | Qt::AlignVCenter, "Capture. Recognize. Organize.");
 
-        // Four capability tiles.
-        const double grid_y = summary.bottom() + 9;
-        const double gap = 8;
+        // Two columns of capability tiles: icon on the left, name and meta beside it.
+        constexpr int count = static_cast<int>(std::size(MODULES));
+        constexpr int rows = (count + 1) / 2;
+        const double grid_y = summary.bottom() + 8;
+        const double gap = 7;
         const double tile_w = (content.width() - gap) / 2;
-        const double available_h = std::max(120.0, content.bottom() - grid_y);
-        const double tile_h = (available_h - gap) / 2;
-        const std::tuple<const char *, const char *, const char *> modules[] = {
-            {"Capture", "SCREEN", "#6F8FAB"}, {"Annotate", "CREATE", "#6FA18F"}, {"Clipboard", "ORGANIZE", "#8A7FA7"}, {"Translate", "LANGUAGE", "#B18468"}};
-        for (int idx = 0; idx < 4; ++idx) {
-            const auto &[title, meta, color] = modules[idx];
+        const double tile_h = std::max(30.0, (content.bottom() - grid_y - gap * (rows - 1)) / rows);
+        for (int idx = 0; idx < count; ++idx) {
+            const auto &module = MODULES[idx];
             const int col = idx % 2, row = idx / 2;
             const QRectF tile(content.x() + col * (tile_w + gap), grid_y + row * (tile_h + gap), tile_w, tile_h);
             p.setPen(QPen(QColor(theme.border), 1));
             p.setBrush(QColor(theme.panel));
-            p.drawRoundedRect(tile, 9, 9);
-            const QRectF icon(tile.x() + 10, tile.y() + 10, 27, 27);
+            p.drawRoundedRect(tile, 8, 8);
+            const double icon_size = std::min(26.0, tile_h - 12);
+            const QRectF icon(tile.x() + 8, tile.center().y() - icon_size / 2, icon_size, icon_size);
             p.setPen(Qt::NoPen);
-            QColor icon_color(color);
-            icon_color.setAlpha(32);
+            QColor icon_color(module.color);
+            icon_color.setAlpha(theme.is_dark ? 52 : 36);
             p.setBrush(icon_color);
             p.drawRoundedRect(icon, 7, 7);
-            draw_module_icon(p, idx, icon, QColor(color));
+            if (!icons_[idx].isNull()) icons_[idx].paint(&p, icon.adjusted(5, 5, -5, -5).toRect());
+            const QRectF text_box(icon.right() + 8, tile.y(), tile.right() - icon.right() - 12, tile.height());
             p.setPen(QColor(theme.text));
             p.setFont(QFont("Segoe UI", 8, QFont::DemiBold));
-            p.drawText(tile.adjusted(10, 41, -6, -18), Qt::AlignLeft | Qt::AlignVCenter, title);
+            p.drawText(QRectF(text_box.x(), text_box.y(), text_box.width(), text_box.height() / 2 + 2), Qt::AlignLeft | Qt::AlignBottom, module.title);
             p.setPen(QColor(theme.text_soft));
             p.setFont(QFont("Segoe UI", 6, QFont::Medium));
-            p.drawText(tile.adjusted(10, 57, -6, -5), Qt::AlignLeft | Qt::AlignVCenter, meta);
+            p.drawText(QRectF(text_box.x(), text_box.center().y() + 3, text_box.width(), text_box.height() / 2 - 3), Qt::AlignLeft | Qt::AlignTop, module.meta);
         }
     }
 private:
-    static void draw_module_icon(QPainter &p, int index, const QRectF &rect, const QColor &color) {
-        p.setPen(QPen(color, 1.6));
-        p.setBrush(Qt::NoBrush);
-        const double cx = rect.center().x(), cy = rect.center().y();
-        if (index == 0) {
-            p.drawRoundedRect(rect.adjusted(7, 8, -7, -8), 2, 2);
-            p.drawEllipse(static_cast<int>(cx - 2), static_cast<int>(cy - 2), 4, 4);
-        } else if (index == 1) {
-            p.drawLine(static_cast<int>(rect.x() + 8), static_cast<int>(rect.bottom() - 8), static_cast<int>(rect.right() - 7), static_cast<int>(rect.y() + 7));
-            p.drawLine(static_cast<int>(rect.x() + 8), static_cast<int>(rect.bottom() - 8), static_cast<int>(rect.x() + 13), static_cast<int>(rect.bottom() - 9));
-        } else if (index == 2) {
-            p.drawRoundedRect(rect.adjusted(8, 7, -8, -6), 2, 2);
-            p.drawLine(static_cast<int>(cx - 4), static_cast<int>(rect.y() + 7), static_cast<int>(cx + 4), static_cast<int>(rect.y() + 7));
-        } else {
-            p.setFont(QFont("Segoe UI", 9, QFont::Bold));
-            p.drawText(rect, Qt::AlignCenter, "A");
-        }
+    void load_icons() {
+        for (size_t i = 0; i < std::size(MODULES); ++i) icons_[i] = to_qicon(ResourceManager::get_resource_path(QString::fromUtf8(MODULES[i].icon)), this);
     }
+    QIcon icons_[std::size(MODULES)];
 };
 
 class WelcomeIllus : public IllustrationArea {
@@ -178,7 +180,7 @@ private:
 }
 
 WelcomePage::WelcomePage(ToolSettingsManager *config, WelcomeWizard *wizard, QWidget *parent)
-    : BasePage(welcome_title(), welcome_tr("截图 · 标注 · 剪贴板 · 翻译，一站搞定"), parent), config_(config), wizard_(wizard) {
+    : BasePage(welcome_title(), welcome_tr("截图、文字识别、钉图、录屏、屏幕标注、剪贴板和翻译，一站搞定"), parent), config_(config), wizard_(wizard) {
     // The wizard loaded the language before building any page.
     init_lang_ = I18nManager::get_current_language();
     init();
@@ -225,7 +227,7 @@ void WelcomePage::build_controls(QVBoxLayout *layout) {
 
 void WelcomePage::retranslate() {
     title_label->setText(welcome_title());
-    subtitle_label->setText(welcome_tr("截图 · 标注 · 剪贴板 · 翻译，一站搞定"));
+    subtitle_label->setText(welcome_tr("截图、文字识别、钉图、录屏、屏幕标注、剪贴板和翻译，一站搞定"));
     if (row_lang_lbl_) row_lang_lbl_->setText(welcome_tr("🌐 界面语言").remove(QString::fromUtf8("🌐")).trimmed());
     if (theme_lbl_) theme_lbl_->setText(theme_label_tr("Theme"));
     if (theme_combo_) populate_theme_combo();

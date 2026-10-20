@@ -50,13 +50,15 @@ struct Row {
 class ClipboardFeatureAnimation : public QWidget {
     Q_OBJECT
 public:
-    static constexpr int DURATION_MS = 14200;
+    static constexpr int DURATION_MS = 18200;
     // Font sizes are drawn in proportion to the real window's default.
     static constexpr int BASE_FONT_SIZE = 17;
     static constexpr int TYPE_SCAN_END_MS = 6000;
     static constexpr int CONTENT_GROUP_START_MS = 7200;
     static constexpr int QUICK_FOCUS_START_MS = 9000;
     static constexpr int QUICK_GROUP_START_MS = 10200;
+    static constexpr int FILTER_FOCUS_START_MS = 13000;
+    static constexpr int FILTER_GROUP_START_MS = 14200;
 
     explicit ClipboardFeatureAnimation(QWidget *parent = nullptr) : QWidget(parent) {
         set_own_style(this, "background: transparent;");
@@ -125,17 +127,21 @@ protected:
         p.drawLine(static_cast<int>(separator_x), static_cast<int>(toolbar.y() + 7), static_cast<int>(separator_x), static_cast<int>(toolbar.bottom() - 7));
         const QRectF content_btn(separator_x + 6, button_y, button_size, button_size);
         const QRectF quick_btn(content_btn.right() + 5, button_y, button_size, button_size);
-        const QRectF add_btn(quick_btn.right() + 5, button_y, button_size, button_size);
+        const QRectF filter_btn(quick_btn.right() + 5, button_y, button_size, button_size);
+        const QRectF add_btn(filter_btn.right() + 5, button_y, button_size, button_size);
         const QRectF close_btn(toolbar.right() - button_size - 5, button_y, button_size, button_size);
 
         const int elapsed = elapsed_ms_;
         const bool content_selected = CONTENT_GROUP_START_MS <= elapsed && elapsed < QUICK_GROUP_START_MS;
-        const bool quick_selected = elapsed >= QUICK_GROUP_START_MS;
+        const bool quick_selected = QUICK_GROUP_START_MS <= elapsed && elapsed < FILTER_GROUP_START_MS;
+        const bool filter_selected = elapsed >= FILTER_GROUP_START_MS;
         const bool content_focused = TYPE_SCAN_END_MS <= elapsed && elapsed < CONTENT_GROUP_START_MS;
         const bool quick_focused = QUICK_FOCUS_START_MS <= elapsed && elapsed < QUICK_GROUP_START_MS;
-        draw_toolbar_button(p, clipboard_btn, "clipboard", palette, !content_selected && !quick_selected);
+        const bool filter_focused = FILTER_FOCUS_START_MS <= elapsed && elapsed < FILTER_GROUP_START_MS;
+        draw_toolbar_button(p, clipboard_btn, "clipboard", palette, !content_selected && !quick_selected && !filter_selected);
         draw_toolbar_button(p, content_btn, "folder", palette, content_selected, content_focused);
         draw_toolbar_button(p, quick_btn, "bolt", palette, quick_selected, quick_focused);
+        draw_toolbar_button(p, filter_btn, "funnel", palette, filter_selected, filter_focused);
         draw_toolbar_button(p, add_btn, "plus", palette);
         draw_toolbar_button(p, close_btn, "close", palette);
 
@@ -145,9 +151,11 @@ protected:
             rows = &type_rows_;
         } else if (elapsed < QUICK_GROUP_START_MS) {
             rows = &content_rows_;
-        } else {
+        } else if (elapsed < FILTER_GROUP_START_MS) {
             rows = &quick_rows_;
             quick_group = true;
+        } else {
+            rows = &filter_rows_;
         }
 
         const double bottom_h = 36.0;
@@ -173,6 +181,10 @@ protected:
             const double mix = static_cast<double>(elapsed - QUICK_GROUP_START_MS) / transition_ms;
             draw_rows(p, content_rows_, canvas, list_top, row_height, palette, 1.0 - mix);
             draw_rows(p, quick_rows_, canvas, list_top, row_height, palette, mix, -1, 0.0, true);
+        } else if (FILTER_GROUP_START_MS <= elapsed && elapsed < FILTER_GROUP_START_MS + transition_ms) {
+            const double mix = static_cast<double>(elapsed - FILTER_GROUP_START_MS) / transition_ms;
+            draw_rows(p, quick_rows_, canvas, list_top, row_height, palette, 1.0 - mix, -1, 0.0, true);
+            draw_rows(p, filter_rows_, canvas, list_top, row_height, palette, mix);
         } else {
             draw_rows(p, *rows, canvas, list_top, row_height, palette, 1.0, scan_index, scan_progress, quick_group);
         }
@@ -188,9 +200,12 @@ protected:
         } else if (elapsed < QUICK_FOCUS_START_MS) {
             label_target = content_btn;
             label_text = content_group_;
-        } else {
+        } else if (elapsed < FILTER_FOCUS_START_MS) {
             label_target = quick_btn;
             label_text = quick_group_;
+        } else {
+            label_target = filter_btn;
+            label_text = filter_group_;
         }
         draw_group_label(p, label_target, canvas, label_text, palette);
     }
@@ -200,6 +215,7 @@ private:
         history_group_ = welcome_tr("历史记录");
         content_group_ = welcome_tr("内容分组");
         quick_group_ = welcome_tr("快速启动");
+        filter_group_ = welcome_tr("筛选分组");
         search_ = clipboard_tr("Search");
         type_labels_ = {welcome_tr("文字"), welcome_tr("图片"), welcome_tr("文件")};
         type_rows_ = {
@@ -211,6 +227,12 @@ private:
             {"text", welcome_tr("感谢您的联系"), QString::fromUtf8("Edge · 10:32")},
             {"image", welcome_tr("设计预览.png"), QString::fromUtf8("Photos · 10:18")},
             {"text", welcome_tr("下周一 10:00 开会"), QString::fromUtf8("Notepad · 09:45")},
+        };
+        // A filter group fills itself: here every image, wherever it was copied from.
+        filter_rows_ = {
+            {"image", welcome_tr("产品封面.png"), QString::fromUtf8("Photos · 14:18")},
+            {"image", welcome_tr("设计预览.png"), QString::fromUtf8("Photos · 10:18")},
+            {"image", welcome_tr("活动海报.png"), QString::fromUtf8("Edge · 09:12")},
         };
         quick_rows_ = {
             {"app_edge", "Microsoft Edge", ""},
@@ -309,6 +331,11 @@ private:
             p.setBrush(stroke);
             p.setPen(Qt::NoPen);
             p.drawPolygon(bolt);
+        } else if (icon == "funnel") {
+            const QPolygonF funnel({QPointF(cx - 8, cy - 7), QPointF(cx + 8, cy - 7), QPointF(cx + 2, cy), QPointF(cx + 2, cy + 7), QPointF(cx - 2, cy + 5), QPointF(cx - 2, cy)});
+            p.setBrush(with_alpha(stroke, 45));
+            p.setPen(QPen(stroke, 1.5));
+            p.drawPolygon(funnel);
         } else if (icon == "plus") {
             p.setPen(QPen(palette.success, 1.8));
             line(cx - 5, cy, cx + 5, cy);
@@ -475,9 +502,9 @@ private:
     double font_scale_ = 1.0;
     double opacity_factor_ = 1.0;
     QTimer *timer_ = nullptr;
-    QString history_group_, content_group_, quick_group_, search_;
+    QString history_group_, content_group_, quick_group_, filter_group_, search_;
     QStringList type_labels_;
-    QList<Row> type_rows_, content_rows_, quick_rows_;
+    QList<Row> type_rows_, content_rows_, quick_rows_, filter_rows_;
 };
 
 // The non-interactive clipboard demo on the page's left.

@@ -318,6 +318,7 @@ bool PreloadManager::show_main_window_on_start() {
             app_->hotkey_system->unregister_all();
             WelcomeWizard wizard(config_);
             exec_dialog(&wizard);
+            app_->sync_game_mode_monitor();
             app_->update_hotkey();
             app_->setup_tray();
             app_->setup_pin_tray_updates();

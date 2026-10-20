@@ -230,7 +230,7 @@ private slots:
         ClipboardHotkeyPage page(config_);
         page.resize(900, 600);
         page.show();
-        for (int ms : {0, 3000, 6500, 7300, 9500, 10300, 14000}) {
+        for (int ms : {0, 3000, 6500, 7300, 9500, 10300, 13500, 14300, 18000}) {
             page.set_animation_time(ms);
             QVERIFY(!page.grab().isNull());
         }
