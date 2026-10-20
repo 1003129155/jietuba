@@ -1,10 +1,12 @@
 #include "ocr/ppocr_models.h"
+#include "core/constants.h"
 #include "core/i18n.h"
 #include "core/logger.h"
 #include "core/native.h"
 #include "ocr/ocr_manager.h"
 #include <QCoreApplication>
 #include <QDir>
+#include <QFileInfo>
 #include <QJsonDocument>
 #include <QTemporaryFile>
 #include <QElapsedTimer>
@@ -46,7 +48,14 @@ QString models_root() { return test_root().isEmpty() ? QDir(QCoreApplication::ap
 
 void set_models_root_for_test(const QString &root) { test_root() = root; }
 
-QString runtime_path() { return QDir(models_root()).filePath("onnxruntime.dll"); }
+QString fallback_runtime_path() { return QDir(get_app_data_dir()).filePath(QString("runtime/%1/onnxruntime.dll").arg(ARCH)); }
+
+QString runtime_path() {
+    const QString primary = QDir(models_root()).filePath("onnxruntime.dll");
+    if (QFileInfo::exists(primary) && ppocr_runtime_supported(primary)) return primary;
+    const QString fallback = fallback_runtime_path();
+    return QFileInfo::exists(fallback) && ppocr_runtime_supported(fallback) ? fallback : primary;
+}
 
 QJsonObject catalog() { return take_json(jb_ppocr_models_catalog()).object(); }
 

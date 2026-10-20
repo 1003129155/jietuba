@@ -33,5 +33,23 @@ SeedResult seed(QByteArrayView bytes, const QString &path, QString *error) {
     return SeedResult::Written;
 }
 
-SeedResult seed_embedded(QString *error) { return seed(data(), ppocr_models::runtime_path(), error); }
+SeedResult seed_with_fallback(QByteArrayView bytes, const QString &primary, const QString &fallback, QString *written, QString *error) {
+    if (bytes.isEmpty() || (QFileInfo::exists(fallback) && ppocr_runtime_supported(fallback))) return SeedResult::Unneeded;
+    QString primary_error;
+    SeedResult result = seed(bytes, primary, &primary_error);
+    if (result != SeedResult::Failed) {
+        if (written && result == SeedResult::Written) *written = primary;
+        return result;
+    }
+    // models/ next to the exe can be read-only (a protected install folder, a security tool).
+    QString fallback_error;
+    result = seed(bytes, fallback, &fallback_error);
+    if (result == SeedResult::Written && written) *written = fallback;
+    if (result == SeedResult::Failed && error) *error = primary_error + "; " + fallback_error;
+    return result;
+}
+
+SeedResult seed_embedded(QString *written, QString *error) {
+    return seed_with_fallback(data(), QDir(ppocr_models::models_root()).filePath("onnxruntime.dll"), ppocr_models::fallback_runtime_path(), written, error);
+}
 }

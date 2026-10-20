@@ -416,7 +416,7 @@
 "已复制钉图文字: {count} 字符": "Copied pin text: {count} character(s)",
 "已完成复制到剪贴板": "Copied to clipboard",
 "已开启玩游戏时暂停热键": "Pausing hotkeys while gaming turned on",
-"已把内置的 ONNX Runtime 放到 models/": "Placed the bundled ONNX Runtime in models/",
+"已把内置的 ONNX Runtime 放到 {path}": "Placed the bundled ONNX Runtime at {path}",
 "已激活": "Activated",
 "已禁用": "Disabled",
 "已移动 {count} 个钉图到屏幕中心": "Moved {count} pin(s) to screen center",

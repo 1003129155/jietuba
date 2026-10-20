@@ -85,6 +85,71 @@ private slots:
         QVERIFY(!error.isEmpty());
         QCOMPARE(read_all(blocker), QByteArray("x"));
     }
+
+    void aWritableModelsFolderLeavesTheFallbackUntouched() {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString primary = QDir(dir.path()).filePath("models/onnxruntime.dll");
+        const QString fallback = QDir(dir.path()).filePath("runtime/onnxruntime.dll");
+        QString written;
+        QCOMPARE(bundled_runtime::seed_with_fallback("bytes", primary, fallback, &written), SeedResult::Written);
+        QCOMPARE(written, primary);
+        QCOMPARE(read_all(primary), QByteArray("bytes"));
+        QVERIFY(!QFileInfo::exists(fallback));
+    }
+
+    void aModelsFolderThatCannotBeWrittenFallsBack() {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString blocker = QDir(dir.path()).filePath("models");
+        write_all(blocker, "x");
+        const QString fallback = QDir(dir.path()).filePath("runtime/x64/onnxruntime.dll");
+        QString written, error;
+        QCOMPARE(bundled_runtime::seed_with_fallback("bytes", QDir(blocker).filePath("onnxruntime.dll"), fallback, &written, &error), SeedResult::Written);
+        QCOMPARE(written, fallback);
+        QVERIFY(error.isEmpty());
+        QCOMPARE(read_all(fallback), QByteArray("bytes"));
+    }
+
+    void bothFailuresAreReported() {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString blocker = QDir(dir.path()).filePath("blocker");
+        write_all(blocker, "x");
+        QString written, error;
+        QCOMPARE(bundled_runtime::seed_with_fallback("bytes", QDir(blocker).filePath("a/onnxruntime.dll"), QDir(blocker).filePath("b/onnxruntime.dll"), &written, &error),
+                 SeedResult::Failed);
+        QVERIFY(written.isEmpty());
+        QVERIFY(error.contains("; "));
+    }
+
+    void theFallbackIsDefaultedUnderLocalAppData() {
+        const QString fallback = QDir::fromNativeSeparators(ppocr_models::fallback_runtime_path());
+        QVERIFY(fallback.startsWith(QDir::fromNativeSeparators(qEnvironmentVariable("LOCALAPPDATA")) + "/Jietuba/runtime/"));
+        QVERIFY(fallback.endsWith("/onnxruntime.dll"));
+    }
+
+    void theLoadedRuntimeIsTheFallbackOnlyWhenModelsHasNoUsableOne() {
+        const QString pack = QDir(QCoreApplication::applicationDirPath()).filePath("models/onnxruntime.dll");
+        if (!QFileInfo::exists(pack) || !ppocr_runtime_supported(pack)) QSKIP("No usable onnxruntime.dll next to the test executable; set JIETUBA_PPOCR_MODELS for the OCR tests.");
+        QTemporaryDir models;
+        QVERIFY(models.isValid());
+        ppocr_models::set_models_root_for_test(models.path());
+        const QString fallback = ppocr_models::fallback_runtime_path();
+        const auto restore = qScopeGuard([fallback] {
+            ppocr_models::set_models_root_for_test({});
+            QFile::remove(fallback);
+        });
+        const QString primary = QDir(models.path()).filePath("onnxruntime.dll");
+        // Neither usable: the models/ path, where a download would put it.
+        QCOMPARE(ppocr_models::runtime_path(), primary);
+        QVERIFY(QDir().mkpath(QFileInfo(fallback).absolutePath()));
+        QVERIFY(QFile::copy(pack, fallback));
+        QCOMPARE(ppocr_models::runtime_path(), fallback);
+        // A usable DLL in models/ wins over the fallback.
+        QVERIFY(QFile::copy(pack, primary));
+        QCOMPARE(ppocr_models::runtime_path(), primary);
+    }
 };
 
 QTEST_GUILESS_MAIN(BundledRuntimeTests)

@@ -252,9 +252,9 @@ bool PreloadManager::seed_bundled_runtime() {
     // A write of some 16 MB, only when models/ has no usable DLL (first start, or after an update
     // from a package that linked ONNX Runtime in); off the main thread.
     auto *thread = QThread::create([] {
-        QString error;
-        switch (bundled_runtime::seed_embedded(&error)) {
-        case bundled_runtime::SeedResult::Written: log_info(T("已把内置的 ONNX Runtime 放到 models/"), "OCR"); break;
+        QString written, error;
+        switch (bundled_runtime::seed_embedded(&written, &error)) {
+        case bundled_runtime::SeedResult::Written: log_info(T("已把内置的 ONNX Runtime 放到 {path}", {{"path", QDir::toNativeSeparators(written)}}), "OCR"); break;
         case bundled_runtime::SeedResult::Failed: log_warning(T("无法放置内置的 ONNX Runtime: {error}", {{"error", error}}), "OCR"); break;
         case bundled_runtime::SeedResult::Unneeded: break;
         }
