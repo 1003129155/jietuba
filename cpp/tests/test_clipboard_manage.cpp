@@ -857,6 +857,9 @@ private slots:
         QVERIFY(I18nManager::load_language("zh"));
         QCOMPARE(QCoreApplication::translate("ManageDialog", moved), QString::fromUtf8("分组内的内容会移回剪贴板历史。"));
         QCOMPARE(QCoreApplication::translate("ManageDialog", "Are you sure you want to delete this group?"), QString::fromUtf8("确定要删除这个分组吗？"));
+        QVERIFY(I18nManager::load_language("zh_TW"));
+        QCOMPARE(QCoreApplication::translate("ManageDialog", moved), QString::fromUtf8("分組內的內容會移回剪貼簿歷史。"));
+        QCOMPARE(QCoreApplication::translate("ManageDialog", "Are you sure you want to delete this group?"), QString::fromUtf8("確定要刪除這個分組嗎？"));
         QVERIFY(I18nManager::load_language("ja"));
         QCOMPARE(QCoreApplication::translate("GroupBar", moved), QString::fromUtf8("グループ内のアイテムはクリップボード履歴に戻ります。"));
         QVERIFY(I18nManager::load_language("en"));

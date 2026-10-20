@@ -1572,10 +1572,6 @@ Replace it?</source>
         <translation>クリックするたびに波紋が広がります。左ボタンは黄色、右ボタンは青。</translation>
     </message>
     <message>
-        <source>Baidu Translate</source>
-        <translation>Baidu 翻訳</translation>
-    </message>
-    <message>
         <source>Pin Clipboard Image</source>
         <translation>クリップボード画像をピン留め</translation>
     </message>
@@ -1697,10 +1693,6 @@ Replace it?</source>
         <translation>ファイルに保存</translation>
     </message>
     
-    <message>
-        <source>GIF recording</source>
-        <translation>GIF 録画</translation>
-    </message>
 
     <message>
         <source>Copy image</source>
@@ -2271,24 +2263,8 @@ Replace it?</source>
         <translation>翻訳</translation>
     </message>
     <message>
-        <source>Original</source>
-        <translation>原文</translation>
-    </message>
-    <message>
         <source>Translation</source>
         <translation>訳文</translation>
-    </message>
-    <message>
-        <source>Translation Result</source>
-        <translation>翻訳結果</translation>
-    </message>
-    <message>
-        <source>Original:</source>
-        <translation>原文:</translation>
-    </message>
-    <message>
-        <source>Translation:</source>
-        <translation>訳文:</translation>
     </message>
     <message>
         <source>Copy Original</source>
@@ -2307,32 +2283,12 @@ Replace it?</source>
         <translation>閉じる</translation>
     </message>
     <message>
-        <source>Reverse</source>
-        <translation>逆翻訳</translation>
-    </message>
-    <message>
-        <source>Reverse Translate</source>
-        <translation>逆翻訳</translation>
-    </message>
-    <message>
-        <source>Swap source and target, translate back</source>
-        <translation>原文と訳文を入れ替えて逆翻訳</translation>
-    </message>
-    <message>
-        <source>Translate the result back to original language</source>
-        <translation>訳文を元の言語に翻訳し直す</translation>
-    </message>
-    <message>
         <source>Translating...</source>
         <translation>翻訳中...</translation>
     </message>
     <message>
         <source>Translation failed:</source>
         <translation>翻訳失敗:</translation>
-    </message>
-    <message>
-        <source>Translation failed: </source>
-        <translation>翻訳失敗: </translation>
     </message>
     <message>
         <source>Enter text to translate...</source>
@@ -2365,14 +2321,6 @@ Replace it?</source>
     <message>
         <source>Translate text</source>
         <translation>テキストを翻訳</translation>
-    </message>
-    <message>
-        <source>Translate left to right</source>
-        <translation>左から右へ翻訳</translation>
-    </message>
-    <message>
-        <source>Translate right to left</source>
-        <translation>右から左へ翻訳</translation>
     </message>
     <message>
         <source>Pin</source>
@@ -4332,18 +4280,6 @@ This action cannot be undone.</source>
         <translation>保存先フォルダを選択</translation>
     </message>
     <!-- page3 -->
-    <message>
-        <source>请选择工具栏布局首选项</source>
-        <translation>ツールバーのレイアウトを選択してください</translation>
-    </message>
-    <message>
-        <source>工具栏在右侧</source>
-        <translation>ツールバーを右側に</translation>
-    </message>
-    <message>
-        <source>工具栏在顶部</source>
-        <translation>ツールバーを上部に</translation>
-    </message>
     <message><source>剪贴板</source><translation>クリップボード</translation></message>
     <message><source>历史记录</source><translation>履歴</translation></message>
     <message><source>内容分组</source><translation>内容グループ</translation></message>

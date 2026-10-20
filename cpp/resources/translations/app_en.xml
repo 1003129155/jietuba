@@ -1449,6 +1449,102 @@ Replace it?</translation>
         <source>A ring spreads from every click: yellow for the left button, blue for the right.</source>
         <translation>A ring spreads from every click: yellow for the left button, blue for the right.</translation>
     </message>
+    <message>
+        <source>Model</source>
+        <translation>Model</translation>
+    </message>
+    <message>
+        <source>Extra Body</source>
+        <translation>Extra Body</translation>
+    </message>
+    <message>
+        <source>JSON Mode</source>
+        <translation>JSON Mode</translation>
+    </message>
+    <message>
+        <source>Paired with APPID in the Baidu console</source>
+        <translation>Paired with APPID in the Baidu console</translation>
+    </message>
+    <message>
+        <source>DeepSeek API Key</source>
+        <translation>DeepSeek API Key</translation>
+    </message>
+    <message>
+        <source>LLM translation: better with context and idioms, but slower, billed per token, and may refuse some content</source>
+        <translation>LLM translation: better with context and idioms, but slower, billed per token, and may refuse some content</translation>
+    </message>
+    <message>
+        <source>Timeout (s)</source>
+        <translation>Timeout (s)</translation>
+    </message>
+    <message>
+        <source>Temperature</source>
+        <translation>Temperature</translation>
+    </message>
+    <message>
+        <source>Optional for local models</source>
+        <translation>Optional for local models</translation>
+    </message>
+    <message>
+        <source>Any OpenAI-compatible service. Ollama: http://localhost:11434/v1, LM Studio: http://localhost:1234/v1</source>
+        <translation>Any OpenAI-compatible service. Ollama: http://localhost:11434/v1, LM Studio: http://localhost:1234/v1</translation>
+    </message>
+    <message>
+        <source>Shown in the translation window</source>
+        <translation>Shown in the translation window</translation>
+    </message>
+    <message>
+        <source>Custom LLM-1</source>
+        <translation>Custom LLM-1</translation>
+    </message>
+    <message>
+        <source>Display Name</source>
+        <translation>Display Name</translation>
+    </message>
+    <message>
+        <source>Baidu APPID</source>
+        <translation>Baidu APPID</translation>
+    </message>
+    <message>
+        <source>Server default</source>
+        <translation>Server default</translation>
+    </message>
+    <message>
+        <source>Instructions</source>
+        <translation>Instructions</translation>
+    </message>
+    <message>
+        <source>Baidu Secret Key</source>
+        <translation>Baidu Secret Key</translation>
+    </message>
+    <message>
+        <source>API Base URL</source>
+        <translation>API Base URL</translation>
+    </message>
+    <message>
+        <source>Ask for JSON replies. If the service rejects it, the request is retried without; turn it off to skip that retry</source>
+        <translation>Ask for JSON replies. If the service rejects it, the request is retried without; turn it off to skip that retry</translation>
+    </message>
+    <message>
+        <source>e.g. Keep product names untranslated</source>
+        <translation>e.g. Keep product names untranslated</translation>
+    </message>
+    <message>
+        <source>Custom LLM-3</source>
+        <translation>Custom LLM-3</translation>
+    </message>
+    <message>
+        <source>Baidu Translate Open Platform</source>
+        <translation>Baidu Translate Open Platform</translation>
+    </message>
+    <message>
+        <source>API Key</source>
+        <translation>API Key</translation>
+    </message>
+    <message>
+        <source>Custom LLM-2</source>
+        <translation>Custom LLM-2</translation>
+    </message>
 </context>
 
 <context>
@@ -2067,18 +2163,6 @@ Replace it?</translation>
         <translation>Translator</translation>
     </message>
     <message>
-        <source>Translation Result</source>
-        <translation>Translation Result</translation>
-    </message>
-    <message>
-        <source>Original:</source>
-        <translation>Original:</translation>
-    </message>
-    <message>
-        <source>Translation:</source>
-        <translation>Translation:</translation>
-    </message>
-    <message>
         <source>Clipboard</source>
         <translation>Clipboard</translation>
     </message>
@@ -2101,14 +2185,6 @@ Replace it?</translation>
     <message>
         <source>Translation failed:</source>
         <translation>Translation failed:</translation>
-    </message>
-    <message>
-        <source>Reverse Translate</source>
-        <translation>Reverse Translate</translation>
-    </message>
-    <message>
-        <source>Translate the result back to original language</source>
-        <translation>Translate the result back to original language</translation>
     </message>
     <message>
         <source>Toggle always on top</source>
@@ -2228,6 +2304,38 @@ Replace it?</translation>
     <message>
         <source>Recognition failed</source>
         <translation>Recognition failed</translation>
+    </message>
+    <message>
+        <source>Dutch</source>
+        <translation>Dutch</translation>
+    </message>
+    <message>
+        <source>Polish</source>
+        <translation>Polish</translation>
+    </message>
+    <message>
+        <source>Portuguese</source>
+        <translation>Portuguese</translation>
+    </message>
+    <message>
+        <source>German</source>
+        <translation>German</translation>
+    </message>
+    <message>
+        <source>Russian</source>
+        <translation>Russian</translation>
+    </message>
+    <message>
+        <source>Italian</source>
+        <translation>Italian</translation>
+    </message>
+    <message>
+        <source>French</source>
+        <translation>French</translation>
+    </message>
+    <message>
+        <source>Spanish</source>
+        <translation>Spanish</translation>
     </message>
 </context>
 
@@ -4081,18 +4189,6 @@ This action cannot be undone.</translation>
         <translation>Select Save Folder</translation>
     </message>
     <!-- page3 -->
-    <message>
-        <source>请选择工具栏布局首选项</source>
-        <translation>Choose your toolbar layout preference</translation>
-    </message>
-    <message>
-        <source>工具栏在右侧</source>
-        <translation>Toolbar on the right</translation>
-    </message>
-    <message>
-        <source>工具栏在顶部</source>
-        <translation>Toolbar at the top</translation>
-    </message>
     <message><source>剪贴板</source><translation>Clipboard</translation></message>
     <message><source>历史记录</source><translation>History</translation></message>
     <message><source>内容分组</source><translation>Content Groups</translation></message>
@@ -4423,6 +4519,58 @@ You can tweak more options in Settings anytime.</translation>
     <message>
         <source>活动海报.png</source>
         <translation>Event Poster.png</translation>
+    </message>
+    <message>
+        <source>Model</source>
+        <translation>Model</translation>
+    </message>
+    <message>
+        <source>APPID</source>
+        <translation>APPID</translation>
+    </message>
+    <message>
+        <source>Paired with APPID in the Baidu console</source>
+        <translation>Paired with APPID in the Baidu console</translation>
+    </message>
+    <message>
+        <source>DeepSeek API Key</source>
+        <translation>DeepSeek API Key</translation>
+    </message>
+    <message>
+        <source>Optional for local models</source>
+        <translation>Optional for local models</translation>
+    </message>
+    <message>
+        <source>Custom LLM-1</source>
+        <translation>Custom LLM-1</translation>
+    </message>
+    <message>
+        <source>Baidu APPID</source>
+        <translation>Baidu APPID</translation>
+    </message>
+    <message>
+        <source>Baidu Secret Key</source>
+        <translation>Baidu Secret Key</translation>
+    </message>
+    <message>
+        <source>API Base URL</source>
+        <translation>API Base URL</translation>
+    </message>
+    <message>
+        <source>Custom LLM-3</source>
+        <translation>Custom LLM-3</translation>
+    </message>
+    <message>
+        <source>Baidu Translate Open Platform</source>
+        <translation>Baidu Translate Open Platform</translation>
+    </message>
+    <message>
+        <source>API Key</source>
+        <translation>API Key</translation>
+    </message>
+    <message>
+        <source>Custom LLM-2</source>
+        <translation>Custom LLM-2</translation>
     </message>
 </context>
 

@@ -63,6 +63,7 @@ I18nManager &I18nManager::instance() {
 const QMap<QString, QString> &I18nManager::LANGUAGES() {
     static const QMap<QString, QString> languages = {
         {"ja", QString::fromUtf8("日本語")}, {"en", "English"}, {"ko", QString::fromUtf8("한국어")}, {"zh", QString::fromUtf8("简体中文")},
+        {"zh_TW", QString::fromUtf8("繁體中文")},
     };
     return languages;
 }
@@ -133,7 +134,13 @@ QString I18nManager::get_system_language() {
     case QLocale::Japanese: return "ja";
     case QLocale::English: return "en";
     case QLocale::Korean: return "ko";
-    case QLocale::Chinese: return "zh";
+    case QLocale::Chinese: {
+        // Traditional is what Taiwan, Hong Kong and Macao read, and what a Traditional script asks for.
+        const auto locale = QLocale::system();
+        const bool traditional = locale.script() == QLocale::TraditionalHanScript || locale.territory() == QLocale::Taiwan
+            || locale.territory() == QLocale::HongKong || locale.territory() == QLocale::Macao;
+        return traditional ? "zh_TW" : "zh";
+    }
     default: return "en";
     }
 }

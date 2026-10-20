@@ -164,7 +164,9 @@ bool python_format(const QString &format, const LogMsg::Args &args, QString *out
 
 QString LogMsg::render() const {
     QString text = template_;
-    if (translatable_ && I18nManager::get_current_language() != "zh")
+    // Log templates are written in Chinese; both Chinese interfaces keep them as written.
+    const QString language = I18nManager::get_current_language();
+    if (translatable_ && language != "zh" && language != "zh_TW")
         text = log_translations().value(template_, template_);
     if (args_.empty()) return text;
     QString out;

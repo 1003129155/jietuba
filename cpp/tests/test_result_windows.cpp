@@ -166,6 +166,7 @@ private slots:
         const std::vector<std::pair<QString, QString>> languages = {
             {"en", "ONNX Runtime, which PP-OCR needs, is not installed"},
             {"zh", QString::fromUtf8("没有安装 PP-OCR 所需的 ONNX Runtime")},
+            {"zh_TW", QString::fromUtf8("沒有安裝 PP-OCR 所需的 ONNX Runtime")},
             {"ja", QString::fromUtf8("PP-OCR に必要な ONNX Runtime がインストールされていません")},
             {"ko", QString::fromUtf8("PP-OCR에 필요한 ONNX Runtime이 설치되어 있지 않습니다")}};
         for (const auto &[language, expected] : languages) {

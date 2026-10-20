@@ -39,7 +39,7 @@ public:
     // (code, name) in the reference's listing order; the map above is sorted by code.
     static std::vector<std::pair<QString, QString>> language_items() {
         std::vector<std::pair<QString, QString>> items;
-        for (const char *code : {"ja", "en", "ko", "zh"}) items.emplace_back(code, LANGUAGES().value(code));
+        for (const char *code : {"ja", "en", "ko", "zh", "zh_TW"}) items.emplace_back(code, LANGUAGES().value(code));
         return items;
     }
     static QString get_system_language();

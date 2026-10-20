@@ -963,10 +963,6 @@ Replace it?</source>
         <translation>可选，留空使用默认值</translation>
     </message>
     <message>
-        <source>Baidu Translate</source>
-        <translation>百度翻译</translation>
-    </message>
-    <message>
         <source>Baidu APPID</source>
         <translation>百度 APPID</translation>
     </message>
@@ -1654,10 +1650,6 @@ Replace it?</source>
         <source>Save to file</source>
         <translation>保存到文件</translation>
     </message>
-    <message>
-        <source>GIF recording</source>
-        <translation>GIF 录制</translation>
-    </message>
     
     <message>
         <source>Copy image</source>
@@ -2228,10 +2220,6 @@ Replace it?</source>
         <translation>翻译</translation>
     </message>
     <message>
-        <source>Original</source>
-        <translation>原文</translation>
-    </message>
-    <message>
         <source>Translation</source>
         <translation>译文</translation>
     </message>
@@ -2246,14 +2234,6 @@ Replace it?</source>
     <message>
         <source>Translate</source>
         <translation>翻译</translation>
-    </message>
-    <message>
-        <source>Reverse</source>
-        <translation>反向</translation>
-    </message>
-    <message>
-        <source>Swap source and target, translate back</source>
-        <translation>交换原文和译文，反向翻译</translation>
     </message>
     <message>
         <source>Swap languages</source>
@@ -2278,10 +2258,6 @@ Replace it?</source>
     <message>
         <source>Translating...</source>
         <translation>正在翻译...</translation>
-    </message>
-    <message>
-        <source>Translation failed: </source>
-        <translation>翻译失败: </translation>
     </message>
     <message>
         <source>Enter text to translate...</source>
@@ -2343,14 +2319,6 @@ Replace it?</source>
     <message>
         <source>Dutch</source>
         <translation>荷兰语</translation>
-    </message>
-    <message>
-        <source>Translate left to right</source>
-        <translation>从左向右翻译</translation>
-    </message>
-    <message>
-        <source>Translate right to left</source>
-        <translation>从右向左翻译</translation>
     </message>
     <message>
         <source>Pin</source>

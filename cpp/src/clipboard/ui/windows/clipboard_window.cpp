@@ -325,6 +325,7 @@ QLocale ClipboardWindow::current_date_locale() const {
     if (lang_code == "ja") return QLocale(QLocale::Japanese, QLocale::Japan);
     if (lang_code == "ko") return QLocale(QLocale::Korean, QLocale::SouthKorea);
     if (lang_code == "en") return QLocale(QLocale::English, QLocale::UnitedStates);
+    if (lang_code == "zh_TW") return QLocale(QLocale::Chinese, QLocale::Taiwan);
     return QLocale(QLocale::Chinese, QLocale::China);
 }
 

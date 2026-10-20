@@ -731,12 +731,13 @@ translation/
 translations/
 ├── app_zh.xml / app_en.xml  # 中国語 / 英語ソースファイル
 ├── app_ja.xml / app_ko.xml  # 日本語 / 韓国語ソースファイル
+├── app_zh_TW.xml            # 繁体字中国語（台湾）ソースファイル
 └── app_*.qm                 # コンパイル済み Qt バイナリ（app_zh.qm 等）
 ```
 
 </details>
 
-`.xml` = 編集可能なソースファイル、`.qm` = Qt ランタイムで読み込むコンパイル済みファイル。UI テキストを追加・変更したら、4 つの `.xml` すべてに同じコンテキストのエントリを追加し（複数行の文言は実際の改行で書く）、`scripts/compile_translations.py` を実行して再コンパイルしてください。ログの文言は `resources/core/log_translations.json` を直接編集します。
+`.xml` = 編集可能なソースファイル、`.qm` = Qt ランタイムで読み込むコンパイル済みファイル。UI テキストを追加・変更したら、5 つの `.xml` すべてに同じコンテキストのエントリを追加し（複数行の文言は実際の改行で書く）、`scripts/compile_translations.py` を実行して再コンパイルしてください。ログの文言は `resources/core/log_translations.json` を直接編集します。
 
 ---
 

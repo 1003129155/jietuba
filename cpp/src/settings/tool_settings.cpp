@@ -674,7 +674,7 @@ bool ToolSettingsManager::get_custom_llm_json_mode(const QString &slot) const {
 QString ToolSettingsManager::get_translation_target_lang() const {
     const auto saved = qsettings.value("app/translation_target_lang", "").toString();
     if (!saved.isEmpty()) return saved;
-    static const QMap<QString, QString> lang_map = {{"zh", "ZH"}, {"ja", "JA"}, {"en", "EN"}};
+    static const QMap<QString, QString> lang_map = {{"zh", "ZH"}, {"zh_TW", "ZH-HANT"}, {"ja", "JA"}, {"en", "EN"}};
     return lang_map.value(I18nManager::get_system_language(), "EN");
 }
 

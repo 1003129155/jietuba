@@ -55,6 +55,10 @@
 #include <QSlider>
 #include <QTemporaryDir>
 #include <QFile>
+#include <QDir>
+#include <QHash>
+#include <QSet>
+#include <QXmlStreamReader>
 #include <QTest>
 #include <QTimer>
 #include <QToolButton>
@@ -956,6 +960,45 @@ private slots:
         const auto tr = make_tr("First");
         QCOMPARE(tr("Not in any catalog"), QString("Not in any catalog"));
         QVERIFY(!I18nManager::load_language("xx-unsupported"));
+    }
+
+    void traditionalChineseIsAListedLanguage() {
+        const auto items = I18nManager::language_items();
+        QCOMPARE(items.size(), size_t(5));
+        QCOMPARE(items.back().first, QString("zh_TW"));
+        QCOMPARE(items.back().second, QString::fromUtf8("繁體中文"));
+        const auto previous = I18nManager::get_current_language();
+        QVERIFY(I18nManager::load_language("zh_TW"));
+        QCOMPARE(QCoreApplication::translate("SettingsDialog", "Language"), QString::fromUtf8("語言"));
+        QCOMPARE(QCoreApplication::translate("SaveImageDialog", "Save Image"), QString::fromUtf8("儲存圖片"));
+        I18nManager::load_language(previous);
+    }
+
+    // Every catalog carries the same sources, so a switch never drops a line back to English.
+    void catalogsCoverTheSameSources() {
+        const QDir dir(QStringLiteral(JIETUBA_TRANSLATIONS_DIR));
+        const auto names = dir.entryList({"app_*.xml"}, QDir::Files, QDir::Name);
+        QCOMPARE(names.size(), 5);
+        QHash<QString, QSet<QString>> sources;
+        for (const auto &name : names) {
+            QFile file(dir.filePath(name));
+            QVERIFY2(file.open(QIODevice::ReadOnly), qPrintable(name));
+            QXmlStreamReader xml(&file);
+            QSet<QString> set;
+            while (!xml.atEnd()) {
+                if (xml.readNext() == QXmlStreamReader::StartElement && xml.name() == QLatin1String("source"))
+                    set.insert(xml.readElementText());
+            }
+            QVERIFY2(!xml.hasError(), qPrintable(name));
+            sources.insert(name, set);
+        }
+        const auto reference = sources.value(names.first());
+        QVERIFY(reference.size() > 1000);
+        for (const auto &name : names) {
+            const auto difference = reference - sources.value(name);
+            QVERIFY2(difference.isEmpty(),
+                     qPrintable(QString("%1 misses: %2").arg(name, QStringList(difference.values()).join(", "))));
+        }
     }
 
     // The number panel steps the next number and picks a style from the popup over its preview.

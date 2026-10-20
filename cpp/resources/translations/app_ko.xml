@@ -1565,10 +1565,6 @@ Replace it?</source>
         <translation>클릭할 때마다 물결이 퍼집니다. 왼쪽 버튼은 노란색, 오른쪽 버튼은 파란색입니다.</translation>
     </message>
     <message>
-        <source>Baidu Translate</source>
-        <translation>Baidu 번역</translation>
-    </message>
-    <message>
         <source>Pin Clipboard Image</source>
         <translation>클립보드 이미지 고정</translation>
     </message>
@@ -1824,10 +1820,6 @@ Replace it?</source>
     <message>
         <source>Cursor highlight: a light around the pointer and a ring for every click</source>
         <translation>커서 강조: 포인터 주위에 빛을 비추고 클릭마다 물결을 표시</translation>
-    </message>
-    <message>
-        <source>GIF recording</source>
-        <translation>GIF 녹화</translation>
     </message>
 </context>
 
@@ -2238,18 +2230,6 @@ Replace it?</source>
         <translation>사용자 지정 LLM-3</translation>
     </message>
     <message>
-        <source>Translation Result</source>
-        <translation>번역 결과</translation>
-    </message>
-    <message>
-        <source>Original:</source>
-        <translation>원문:</translation>
-    </message>
-    <message>
-        <source>Translation:</source>
-        <translation>번역:</translation>
-    </message>
-    <message>
         <source>Clipboard</source>
         <translation>클립보드</translation>
     </message>
@@ -2272,14 +2252,6 @@ Replace it?</source>
     <message>
         <source>Translation failed:</source>
         <translation>번역 실패:</translation>
-    </message>
-    <message>
-        <source>Reverse Translate</source>
-        <translation>역번역</translation>
-    </message>
-    <message>
-        <source>Translate the result back to original language</source>
-        <translation>결과를 원래 언어로 다시 번역합니다</translation>
     </message>
     <message>
         <source>Toggle always on top</source>
@@ -2405,22 +2377,6 @@ Replace it?</source>
         <translation>인식 실패</translation>
     </message>
     <message>
-        <source>Original</source>
-        <translation>원문</translation>
-    </message>
-    <message>
-        <source>Reverse</source>
-        <translation>역번역</translation>
-    </message>
-    <message>
-        <source>Swap source and target, translate back</source>
-        <translation>원문과 번역문을 바꿔 다시 번역</translation>
-    </message>
-    <message>
-        <source>Translation failed: </source>
-        <translation>번역 실패: </translation>
-    </message>
-    <message>
         <source>Chinese</source>
         <translation>중국어</translation>
     </message>
@@ -2467,14 +2423,6 @@ Replace it?</source>
     <message>
         <source>Dutch</source>
         <translation>네덜란드어</translation>
-    </message>
-    <message>
-        <source>Translate left to right</source>
-        <translation>왼쪽에서 오른쪽으로 번역</translation>
-    </message>
-    <message>
-        <source>Translate right to left</source>
-        <translation>오른쪽에서 왼쪽으로 번역</translation>
     </message>
 </context>
 
@@ -4319,18 +4267,6 @@ This action cannot be undone.</source>
         <translation>저장 폴더 선택</translation>
     </message>
     <!-- page3 -->
-    <message>
-        <source>请选择工具栏布局首选项</source>
-        <translation>도구 모음 레이아웃 선호도를 선택하세요</translation>
-    </message>
-    <message>
-        <source>工具栏在右侧</source>
-        <translation>도구 모음 오른쪽</translation>
-    </message>
-    <message>
-        <source>工具栏在顶部</source>
-        <translation>도구 모음 위쪽</translation>
-    </message>
     <message><source>剪贴板</source><translation>클립보드</translation></message>
     <message><source>历史记录</source><translation>기록</translation></message>
     <message><source>内容分组</source><translation>내용 그룹</translation></message>

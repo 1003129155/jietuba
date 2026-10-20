@@ -440,7 +440,7 @@ core/
 - 全局崩溃处理，自动捕获未处理异常
 - SVG/图片资源统一加载
 - 应用级亮色/暗色主题管理
-- XML 格式的多语言国际化系统（中/英/日/韩）
+- XML 格式的多语言国际化系统（中/英/日/韩/繁中）
 - 全局热键系统（基于 Windows API）和应用内快捷键管理
 - 文件保存/导出服务（含高质量 PDF 输出）
 - 以管理员身份运行：计划任务开机自启免 UAC，普通启动时转交给管理员实例
@@ -737,12 +737,13 @@ translation/
 translations/
 ├── app_zh.xml / app_en.xml  # 中文/英文翻译源文件
 ├── app_ja.xml / app_ko.xml  # 日文/韩文翻译源文件
+├── app_zh_TW.xml            # 繁体中文（台湾）翻译源文件
 └── app_*.qm                 # 编译后的 Qt 二进制文件（app_zh.qm 等）
 ```
 
 </details>
 
-**说明：** `.xml` 为可编辑的翻译源文件，`.qm` 为 Qt 运行时加载的编译文件。新增或修改界面文字时，四个 `.xml` 都要补上同一上下文的条目（多行文案写真换行），再运行 `scripts/compile_translations.py` 重新编译。日志文案直接改 `resources/core/log_translations.json`。
+**说明：** `.xml` 为可编辑的翻译源文件，`.qm` 为 Qt 运行时加载的编译文件。新增或修改界面文字时，五个 `.xml` 都要补上同一上下文的条目（多行文案写真换行），再运行 `scripts/compile_translations.py` 重新编译。日志文案直接改 `resources/core/log_translations.json`。
 
 ---
 

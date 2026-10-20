@@ -436,7 +436,7 @@ core/
 - Global crash handling that captures unhandled exceptions
 - Unified loading of SVG and image resources
 - Application-wide light/dark theme management
-- XML-based i18n system (Chinese / English / Japanese / Korean)
+- XML-based i18n system (Chinese / English / Japanese / Korean / Traditional Chinese)
 - Global hotkey system (Windows API) and in-app shortcut management
 - File save/export services (including high-quality PDF output)
 - Run as administrator: a scheduled task starts it at sign-in without a UAC prompt, and a normal launch hands over to the elevated instance
@@ -731,12 +731,13 @@ The interface texts in several languages, in `cpp/resources/translations/`.
 translations/
 ├── app_zh.xml / app_en.xml  # Chinese / English source files
 ├── app_ja.xml / app_ko.xml  # Japanese / Korean source files
+├── app_zh_TW.xml            # Traditional Chinese (Taiwan) source file
 └── app_*.qm                 # compiled Qt binaries (e.g. app_zh.qm)
 ```
 
 </details>
 
-`.xml` = editable source files, `.qm` = compiled Qt runtime files. When adding or changing UI text, add an entry with the same context to all four `.xml` files (use real line breaks in multi-line text), then run `scripts/compile_translations.py`. Log texts are edited directly in `resources/core/log_translations.json`.
+`.xml` = editable source files, `.qm` = compiled Qt runtime files. When adding or changing UI text, add an entry with the same context to all five `.xml` files (use real line breaks in multi-line text), then run `scripts/compile_translations.py`. Log texts are edited directly in `resources/core/log_translations.json`.
 
 ---
 

@@ -464,7 +464,8 @@ private slots:
 
     void translatedInEveryLanguage() {
         const std::vector<std::pair<QString, QString>> languages = {
-            {"en", "Save Image"}, {"zh", QString::fromUtf8("保存图片")}, {"ja", QString::fromUtf8("画像を保存")}, {"ko", QString::fromUtf8("이미지 저장")}};
+            {"en", "Save Image"}, {"zh", QString::fromUtf8("保存图片")}, {"zh_TW", QString::fromUtf8("儲存圖片")},
+            {"ja", QString::fromUtf8("画像を保存")}, {"ko", QString::fromUtf8("이미지 저장")}};
         for (const auto &[language, title] : languages) {
             QTranslator translator;
             QVERIFY(translator.load(QString(":/translations/app_%1.qm").arg(language)));
@@ -475,6 +476,10 @@ private slots:
             if (language == "zh") {
                 QCOMPARE(dialog.save_button->text(), QString::fromUtf8("保存"));
                 QVERIFY(dialog.classic_link->text().contains(QString::fromUtf8("使用经典对话框")));
+            }
+            if (language == "zh_TW") {
+                QCOMPARE(dialog.save_button->text(), QString::fromUtf8("儲存"));
+                QVERIFY(dialog.classic_link->text().contains(QString::fromUtf8("使用經典對話方塊")));
             }
         }
     }
