@@ -1,10 +1,18 @@
-[中文](README_zh-CN.md) | [English](README.md) | **[日本語](README_JA.md)**
+<div align="center">
 
-# jietuba — Windows 向けスクリーンショット・OCR・ピン留め・翻訳・クリップボードツール
+<img src="svg/%E6%89%98%E7%9B%98.svg" width="128" alt="jietuba logo" />
+
+# jietuba
+
+**Windows 向けスクリーンショット・OCR・ピン留め・翻訳・クリップボードツール**
 
 [![build](https://img.shields.io/github/actions/workflow/status/1003129155/jietuba/cpp.yml?branch=master2&label=build&style=flat-square)](https://github.com/1003129155/jietuba/actions/workflows/cpp.yml) [![license](https://img.shields.io/github/license/1003129155/jietuba?style=flat-square)](LICENSE) [![release](https://img.shields.io/github/v/release/1003129155/jietuba?style=flat-square)](https://github.com/1003129155/jietuba/releases/latest) ![platform](https://img.shields.io/badge/Windows-x64%20%7C%20ARM64-0078D4?style=flat-square)
 
 [Windows 版をダウンロード](https://github.com/1003129155/jietuba/releases/latest) · [ソースからビルド](#source-setup) · [開発とテスト](#development)
+
+[中文](README_zh-CN.md) | [English](README.md) | **日本語**
+
+</div>
 
 <img width="1391" height="844" alt="21" src="https://github.com/user-attachments/assets/5eb5e82a-7a5f-4c60-a877-679d1b29cf0c" />
 

@@ -1,10 +1,18 @@
-**[中文](README_zh-CN.md)** | [English](README.md) | [日本語](README_JA.md)
+<div align="center">
 
-# 截图吧 — Windows 截图、OCR、钉图、翻译与剪贴板工具
+<img src="svg/%E6%89%98%E7%9B%98.svg" width="128" alt="截图吧 logo" />
+
+# 截图吧
+
+**Windows 截图、OCR、钉图、翻译与剪贴板工具**
 
 [![build](https://img.shields.io/github/actions/workflow/status/1003129155/jietuba/cpp.yml?branch=master2&label=build&style=flat-square)](https://github.com/1003129155/jietuba/actions/workflows/cpp.yml) [![license](https://img.shields.io/github/license/1003129155/jietuba?style=flat-square)](LICENSE) [![release](https://img.shields.io/github/v/release/1003129155/jietuba?style=flat-square)](https://github.com/1003129155/jietuba/releases/latest) ![platform](https://img.shields.io/badge/Windows-x64%20%7C%20ARM64-0078D4?style=flat-square)
 
 [下载 Windows 版](https://github.com/1003129155/jietuba/releases/latest) · [从源码构建](#source-setup) · [开发与测试](#development)
+
+**中文** | [English](README.md) | [日本語](README_JA.md)
+
+</div>
 
 <img width="1391" height="844" alt="21" src="https://github.com/user-attachments/assets/3f25de58-2780-4a28-931b-8430f764ee51" />
 

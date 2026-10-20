@@ -1,7 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128"
      viewBox="8 12 48 42" fill="none">
-  <!-- White background for camera area -->
-  <rect x="10" y="14" width="44" height="36" rx="6" fill="white"/>
+  <!-- White fill inside the body and hump outlines only -->
+  <rect x="10" y="20" width="44" height="30" rx="6" fill="white"/>
+  <path d="M18 20 L22 14 H36 L40 20 Z" fill="white"/>
   <!-- Camera body -->
   <rect x="10" y="20" width="44" height="30" rx="6"
         stroke="currentColor" stroke-width="3"/>

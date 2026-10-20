@@ -1,11 +1,18 @@
-[中文](README_zh-CN.md) | **[English](README.md)** | [日本語](README_JA.md)
+<div align="center">
 
-# jietuba — Screenshot, OCR, Pin, Translation & Clipboard Tool for Windows
+<img src="svg/%E6%89%98%E7%9B%98.svg" width="128" alt="jietuba logo" />
+
+# jietuba
+
+**Screenshot, OCR, Pin, Translation & Clipboard Tool for Windows**
 
 [![build](https://img.shields.io/github/actions/workflow/status/1003129155/jietuba/cpp.yml?branch=master2&label=build&style=flat-square)](https://github.com/1003129155/jietuba/actions/workflows/cpp.yml) [![license](https://img.shields.io/github/license/1003129155/jietuba?style=flat-square)](LICENSE) [![release](https://img.shields.io/github/v/release/1003129155/jietuba?style=flat-square)](https://github.com/1003129155/jietuba/releases/latest) ![platform](https://img.shields.io/badge/Windows-x64%20%7C%20ARM64-0078D4?style=flat-square)
 
 [Download for Windows](https://github.com/1003129155/jietuba/releases/latest) · [Build from Source](#source-setup) · [Development and Tests](#development)
 
+[中文](README_zh-CN.md) | **English** | [日本語](README_JA.md)
+
+</div>
 
 <img width="1391" height="844" alt="21" src="https://github.com/user-attachments/assets/01770043-6dbe-4c9f-b1d9-5d9eb467c559" />
 
