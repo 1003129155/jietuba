@@ -3,11 +3,13 @@
 
 namespace jietuba {
 class PinCanvas;
+class PinTextSelection;
 class PinWindow;
 
 // The pin window's only content renderer: shows the CanvasScene through the view's
 // own (GPU-accelerated, incremental) painting, rounded by a viewport mask, on a
-// transparent background. Outside editing, dragging moves the window.
+// transparent background. Outside editing, dragging on text selects it and dragging
+// anywhere else moves the window.
 class PinCanvasView : public CanvasView {
     Q_OBJECT
 public:
@@ -16,6 +18,8 @@ public:
     void update_viewport_mask();
     PinWindow *pin_window;
     PinCanvas *pin_canvas;
+    // Set by the OCR manager once recognition starts; owned there.
+    PinTextSelection *text_selection = nullptr;
     bool window_dragging = false;
 protected:
     void resizeEvent(QResizeEvent *event) override;
@@ -24,6 +28,9 @@ protected:
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
+    void mouseDoubleClickEvent(QMouseEvent *event) override;
+    // The text selection's highlight, over the scene and outside its exported image.
+    void drawForeground(QPainter *painter, const QRectF &rect) override;
     // Outside editing the window zooms instead.
     void wheelEvent(QWheelEvent *event) override;
     // Pin shortcuts go through the ShortcutManager; this is the fallback when it does not take the key.

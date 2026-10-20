@@ -50,7 +50,8 @@ public:
               const std::optional<QPoint> &selection_offset = std::nullopt, std::optional<int> number_next = std::nullopt);
     ~PinWindow() override;
 
-    OCRTextLayer *ocr_text_layer() const { return ocr_mgr_ ? ocr_mgr_->ocr_text_layer : nullptr; }
+    // Null until recognition has started.
+    PinTextSelection *text_selection() const { return ocr_mgr_ ? ocr_mgr_->text_selection() : nullptr; }
     PinOCRManager *ocr_manager() const { return ocr_mgr_.get(); }
     bool ocr_has_result() const { return ocr_mgr_ && ocr_mgr_->has_result(); }
     bool text_selection_enabled() const { return ocr_mgr_ && ocr_mgr_->text_selection_enabled(); }
@@ -113,6 +114,9 @@ public:
     void flip_image_vertical();
     void reset_image_transform();
     QImage get_current_image();
+    // Maps the pixels of a get_current_image() result of that size to the image's pixels,
+    // undoing the pixel ratio, rotation and flips.
+    QTransform from_current_image(const QSize &size) const;
     // Leaves editing for func and restores the tool afterwards.
     void with_edit_paused(const std::function<void()> &func);
     void save_image();

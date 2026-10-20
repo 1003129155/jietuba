@@ -1,5 +1,6 @@
 #include "ocr/snipping_tool_ocr.h"
 #include "core/constants.h"
+#include "ocr/ocr_line_geometry.h"
 // Generated at configure time from the oneocr package (CMakeLists.txt).
 #include "ocr/oneocr_model_key.h"
 #include <QCoreApplication>
@@ -47,9 +48,12 @@ struct OcrImage {
     int64_t step_size;
     const uint8_t *data;
 };
+// Corners from top-left clockwise.
 struct OcrBoundingBox {
     float x1, y1, x2, y2, x3, y3, x4, y4;
 };
+
+QVector<QPointF> corners(const OcrBoundingBox &box) { return {QPointF(box.x1, box.y1), QPointF(box.x2, box.y2), QPointF(box.x3, box.y3), QPointF(box.x4, box.y4)}; }
 }
 
 struct SnippingToolOcr::Api {
@@ -80,6 +84,9 @@ struct SnippingToolOcr::Api {
     GetOcrLineWordCount get_line_word_count;
     GetOcrWord get_word;
     GetOcrWordConfidence get_word_confidence;
+    // Optional: without them lines carry no character positions.
+    GetOcrContent get_word_content;
+    GetOcrBoundingBox get_word_bounding_box;
     Release release_result, release_init_options, release_pipeline, release_process_options;
 };
 
@@ -172,6 +179,8 @@ SnippingToolOcr::SnippingToolOcr(const std::pair<QString, QString> &package) {
         api_->get_line_word_count = reinterpret_cast<Api::GetOcrLineWordCount>(bind("GetOcrLineWordCount"));
         api_->get_word = reinterpret_cast<Api::GetOcrWord>(bind("GetOcrWord"));
         api_->get_word_confidence = reinterpret_cast<Api::GetOcrWordConfidence>(bind("GetOcrWordConfidence"));
+        api_->get_word_content = reinterpret_cast<Api::GetOcrContent>(GetProcAddress(module, "GetOcrWordContent"));
+        api_->get_word_bounding_box = reinterpret_cast<Api::GetOcrBoundingBox>(GetProcAddress(module, "GetOcrWordBoundingBox"));
         api_->release_result = reinterpret_cast<Api::Release>(bind("ReleaseOcrResult"));
         api_->release_init_options = reinterpret_cast<Api::Release>(bind("ReleaseOcrInitOptions"));
         api_->release_pipeline = reinterpret_cast<Api::Release>(bind("ReleaseOcrPipeline"));
@@ -235,22 +244,40 @@ QVector<OcrLine> SnippingToolOcr::recognize(const QImage &source) {
             if (text.isEmpty() || api_->get_line_bounding_box(line, &box) != 0 || !box) continue;
             OcrLine out;
             out.text = text;
-            out.box = {QPointF(box->x1, box->y1), QPointF(box->x2, box->y2), QPointF(box->x3, box->y3), QPointF(box->x4, box->y4)};
+            out.box = corners(*box);
             // Average word confidence; 1.0 when no word reports one.
             double total = 0;
             int counted = 0;
             int64_t word_count = 0;
+            // Positions need every word's text and box.
+            QVector<OcrWord> words;
+            bool words_complete = api_->get_word_content && api_->get_word_bounding_box;
             if (api_->get_line_word_count(line, &word_count) == 0) {
                 for (int64_t w = 0; w < word_count; ++w) {
                     int64_t word = 0;
+                    if (api_->get_word(line, w, &word) != 0) {
+                        words_complete = false;
+                        continue;
+                    }
                     float confidence = 0;
-                    if (api_->get_word(line, w, &word) == 0 && api_->get_word_confidence(word, &confidence) == 0) {
+                    if (api_->get_word_confidence(word, &confidence) == 0) {
                         total += confidence;
                         ++counted;
                     }
+                    if (!words_complete) continue;
+                    const char *word_text = nullptr;
+                    const OcrBoundingBox *word_box = nullptr;
+                    if (api_->get_word_content(word, &word_text) != 0 || !word_text || api_->get_word_bounding_box(word, &word_box) != 0 || !word_box)
+                        words_complete = false;
+                    else
+                        words.append(OcrWord{QString::fromUtf8(word_text), corners(*word_box)});
                 }
             }
             out.score = counted ? total / counted : 1.0;
+            if (words_complete && !words.isEmpty()) {
+                out.vertical = words_run_vertically(out.box, words);
+                out.chars = spans_from_words(out.text, line_frame(out.box, out.vertical), words);
+            }
             lines.append(out);
         }
     }

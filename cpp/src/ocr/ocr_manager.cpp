@@ -80,7 +80,7 @@ public:
     }
     ~PpocrEngine() { jb_ppocr_free(engine_); }
     void close() { jb_ppocr_close(engine_); }
-    // RGB888 rows of `stride` bytes; (four corners, text, score) per line.
+    // RGB888 rows of `stride` bytes; corners, text, score, direction and characters per line.
     QVector<OcrLine> recognize(const uchar *rgb, size_t len, int w, int h, int stride) {
         JbOcrLine *lines = nullptr;
         size_t count = 0;
@@ -93,6 +93,12 @@ public:
             for (int corner = 0; corner < 4; ++corner) line.box.append(QPointF(lines[index].points[corner * 2], lines[index].points[corner * 2 + 1]));
             line.text = QString::fromUtf8(lines[index].text);
             line.score = lines[index].score;
+            line.vertical = lines[index].vertical;
+            line.chars.reserve(static_cast<qsizetype>(lines[index].char_count));
+            for (size_t c = 0; c < lines[index].char_count; ++c) {
+                const auto &span = lines[index].chars[c];
+                line.chars.append(OcrCharSpan{span.start, span.center, span.end});
+            }
             result.append(line);
         }
         jb_ppocr_lines_free(lines, count);

@@ -3,7 +3,7 @@
 #include <QString>
 
 namespace jietuba {
-class OCRTextLayer;
+class OcrTextLayout;
 class PinWindow;
 class ToolSettingsManager;
 
@@ -12,7 +12,7 @@ class PinTranslationHelper {
 public:
     PinTranslationHelper(PinWindow *parent, ToolSettingsManager *config_manager) : parent(parent), config_manager(config_manager) {}
     // Whether translation started.
-    bool translate(OCRTextLayer *ocr_text_layer);
+    bool translate(const OcrTextLayout &layout);
     // Shows the recognizing state at once; the OCR manager fills in the result later.
     bool begin_ocr_translation();
     // Hands the pin's OCR result to the shared OCR translation completion.

@@ -1,7 +1,7 @@
 #include "pin/pin_translation.h"
 #include "core/i18n.h"
 #include "core/logger.h"
-#include "pin/ocr_text_layer.h"
+#include "pin/ocr_text_layout.h"
 #include "pin/pin_window.h"
 #include "settings/tool_settings.h"
 #include "translation/translation_dialog.h"
@@ -17,13 +17,13 @@ QVariantMap request_params(ToolSettingsManager *config_manager) {
 }
 }
 
-bool PinTranslationHelper::translate(OCRTextLayer *ocr_text_layer) {
+bool PinTranslationHelper::translate(const OcrTextLayout &layout) {
     try {
-        if (!ocr_text_layer || !ocr_text_layer->has_text()) {
+        if (layout.empty()) {
             log_warning(T("没有可翻译的文字"), "Translate");
             return false;
         }
-        const auto all_text = ocr_text_layer->get_all_text("\n");
+        const auto all_text = layout.all_text("\n");
         if (all_text.trimmed().isEmpty()) {
             log_warning(T("OCR 文字为空"), "Translate");
             return false;

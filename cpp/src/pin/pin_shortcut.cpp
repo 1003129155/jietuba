@@ -1,6 +1,5 @@
 #include "pin/pin_shortcut.h"
 #include "core/logger.h"
-#include "pin/ocr_text_layer.h"
 #include "pin/pin_canvas.h"
 #include "pin/pin_canvas_view.h"
 #include "pin/pin_manager.h"
@@ -16,6 +15,9 @@ const QStringList PIN_KEYS = {
     "inapp_copy_pin", "inapp_copy_pin_text", "inapp_pin_reset_size",
     "inapp_thumbnail", "inapp_toggle_toolbar", "inapp_delete", "inapp_pin_lock",
 };
+
+// Esc clears a text selection before it leaves a tool or closes the pin.
+bool clear_text_selection(PinWindow *pin) { return pin->text_selection() && pin->text_selection()->clear_selection(); }
 }
 
 PinHandlerBase::PinHandlerBase(PinShortcutController *controller) : controller_(controller) { reload_bindings(); }
@@ -41,9 +43,8 @@ bool PinHandlerBase::match(QInputEvent *event, const QString &cfg_key) const { r
 
 bool PinHandlerBase::handle_shared(PinWindow *pin, QInputEvent *event) {
     if (match(event, "inapp_copy_pin")) {
-        auto *ocr_layer = pin->ocr_text_layer();
-        if (ocr_layer && !ocr_layer->get_selected_text().isEmpty()) ocr_layer->copy_selected_text();
-        else pin->copy_to_clipboard();
+        auto *selection = pin->text_selection();
+        if (!(selection && selection->copy_selected_text())) pin->copy_to_clipboard();
         return true;
     }
     if (match(event, "inapp_copy_pin_text")) {
@@ -66,10 +67,8 @@ bool PinHandlerBase::handle_shared(PinWindow *pin, QInputEvent *event) {
 
 QString PinHandlerBase::selected_ocr_text() const {
     auto *pin = find_pin_under_cursor();
-    if (!pin) return {};
-    auto *ocr_layer = pin->ocr_text_layer();
-    if (!ocr_layer) return {};
-    return ocr_layer->get_selected_text().trimmed();
+    if (!pin || !pin->text_selection()) return {};
+    return pin->text_selection()->selected_text().trimmed();
 }
 
 bool PinHandlerBase::handle_hotkey(int, const std::function<void()> &callback) { return intercept_translation_hotkey(callback); }
@@ -104,12 +103,7 @@ bool PinEditShortcutHandler::handle_key(QInputEvent *event) {
     // Copy, copy text, toolbar (closing it also leaves editing), reset size.
     if (handle_shared(pin, event)) return true;
     if (key == Qt::Key_Escape) {
-        // A text selection in the OCR layer is cleared first.
-        auto *ocr_layer = pin->ocr_text_layer();
-        if (ocr_layer && ocr_layer->is_active() && (ocr_layer->selection_start || ocr_layer->selection_end)) {
-            ocr_layer->clear_selection();
-            return true;
-        }
+        if (clear_text_selection(pin)) return true;
         pin->canvas->deactivate_tool();
         if (pin->toolbar && pin->toolbar->current_tool) {
             for (auto *button : pin->toolbar->tool_buttons) button->setChecked(false);
@@ -148,7 +142,7 @@ bool PinNormalShortcutHandler::handle_key(QInputEvent *event) {
         return true;
     }
     if (key == Qt::Key_Escape) {
-        pin->close_unless_locked();
+        if (!clear_text_selection(pin)) pin->close_unless_locked();
         return true;
     }
     return false;

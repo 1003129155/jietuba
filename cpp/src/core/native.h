@@ -58,10 +58,20 @@ void jb_input_hub_set_test_marker(const JbInputHub *hub, size_t marker);
 
 // PP-OCR. ONNX Runtime is loaded at run time from the PP-OCR pack (jb_ppocr_init_runtime).
 struct JbPpocr;
+// Where one character sits along the line's reading direction, the line's length being 1.
+struct JbOcrChar {
+    float start, center, end;
+};
+// Four corners from top-left clockwise. Reading runs from the top-right corner down when
+// vertical, else from the top-left corner right; chars has one entry per character of
+// text (Unicode scalar), or none.
 struct JbOcrLine {
     double points[8];
     char *text;
     double score;
+    bool vertical;
+    JbOcrChar *chars;
+    size_t char_count;
 };
 bool jb_ppocr_init_runtime(const char *dll_path, char *error, size_t error_len);
 // dict_path may be null: the dictionary then comes from the rec model's metadata.

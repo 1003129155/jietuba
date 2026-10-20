@@ -147,6 +147,15 @@ private slots:
         QVERIFY2(recognized_text(result).contains("Hello"), qPrintable(recognized_text(result)));
         QVERIFY(result.elapse > 0);
         QCOMPARE(result.data.first().box.size(), 4);
+        // One position per character, in reading order and inside the line.
+        for (const auto &line : result.data) {
+            QCOMPARE(line.chars.size(), line.text.toUcs4().size());
+            float previous = 0;
+            for (const auto &span : line.chars) {
+                QVERIFY2(span.start >= previous - 1e-6f && span.start <= span.center && span.center <= span.end && span.end <= 1.0f, qPrintable(line.text));
+                previous = span.end;
+            }
+        }
         QVERIFY(format_ocr_result_text(result).contains("2026"));
         // Formats other than RGB888 are converted; blank and null images find nothing.
         QImage alpha = text_image("Second line").convertToFormat(QImage::Format_ARGB32);

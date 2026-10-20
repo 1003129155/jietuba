@@ -1,7 +1,6 @@
 #include "pin/pin_image_transform.h"
 #include "core/logger.h"
 #include "core/ui_scale.h"
-#include "pin/ocr_text_layer.h"
 #include "pin/pin_border_overlay.h"
 #include "pin/pin_canvas.h"
 #include "pin/pin_canvas_view.h"
@@ -62,15 +61,10 @@ void PinImageTransform::apply_to_window(PinWindow *pin_window) const {
     pin_window->refresh_background_for_scale();
     pin_window->update_button_positions();
     if (pin_window->toolbar && pin_window->toolbar->isVisible()) pin_window->toolbar->sync_with_pin_window();
-    update_ocr_layer(pin_window);
     refresh_border(pin_window);
     pin_window->update();
     log_debug(T("变换已应用: rotation={rotation}, flip_h={flip_h}, flip_v={flip_v}", {{"rotation", rotation_}, {"flip_h", flip_h_}, {"flip_v", flip_v_}}),
               "ImageTransform");
-}
-
-void PinImageTransform::update_ocr_layer(PinWindow *pin_window) const {
-    if (auto *ocr_layer = pin_window->ocr_text_layer()) ocr_layer->set_image_transform(this);
 }
 
 void PinImageTransform::refresh_border(PinWindow *pin_window) const {
@@ -99,55 +93,5 @@ QImage PinImageTransform::transform_image(const QImage &image) const {
     auto result = image.transformed(t, Qt::SmoothTransformation);
     result.setDevicePixelRatio(image.devicePixelRatio());
     return result;
-}
-
-std::pair<double, double> PinImageTransform::map_ocr_point(double x, double y, double orig_w, double orig_h) const {
-    const double cx = orig_w / 2.0, cy = orig_h / 2.0;
-    double px = x - cx, py = y - cy;
-    // 1) rotate
-    if (rotation_ == 90) {
-        std::tie(px, py) = std::make_pair(-py, px);
-    } else if (rotation_ == 180) {
-        std::tie(px, py) = std::make_pair(-px, -py);
-    } else if (rotation_ == 270) {
-        std::tie(px, py) = std::make_pair(py, -px);
-    }
-    // 2) flip
-    if (flip_h_) px = -px;
-    if (flip_v_) py = -py;
-    // 3) back to the transformed system, whose centre swaps after 90/270
-    if (is_rotated_90_or_270()) {
-        px += orig_h / 2.0;
-        py += orig_w / 2.0;
-    } else {
-        px += cx;
-        py += cy;
-    }
-    return {px, py};
-}
-
-QRectF PinImageTransform::map_ocr_rect(const QRectF &rect, double orig_w, double orig_h) const {
-    const std::pair<double, double> corners[] = {{rect.left(), rect.top()}, {rect.right(), rect.top()}, {rect.right(), rect.bottom()}, {rect.left(), rect.bottom()}};
-    double min_x = 0, min_y = 0, max_x = 0, max_y = 0;
-    bool first = true;
-    for (const auto &[cx, cy] : corners) {
-        const auto [mx, my] = map_ocr_point(cx, cy, orig_w, orig_h);
-        if (first) {
-            min_x = max_x = mx;
-            min_y = max_y = my;
-            first = false;
-        } else {
-            min_x = std::min(min_x, mx);
-            max_x = std::max(max_x, mx);
-            min_y = std::min(min_y, my);
-            max_y = std::max(max_y, my);
-        }
-    }
-    return QRectF(min_x, min_y, max_x - min_x, max_y - min_y);
-}
-
-std::pair<double, double> PinImageTransform::mapped_image_size(double orig_w, double orig_h) const {
-    if (is_rotated_90_or_270()) return {orig_h, orig_w};
-    return {orig_w, orig_h};
 }
 }

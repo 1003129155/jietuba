@@ -186,8 +186,8 @@ fn connected_components(bitmap: &[bool], w: usize, h: usize) -> Vec<Vec<(usize, 
 
 // ====================== 透视裁剪（四边形 → 矩形） ======================
 
-/// 用四边形双线性映射把文本框抠出来并校正为正立矩形。
-fn crop_quad(img: &Img, quad: &[Pt]) -> Img {
+/// 用四边形双线性映射把文本框抠出来并校正为正立矩形；第二项为真表示竖排、已转成横向。
+fn crop_quad(img: &Img, quad: &[Pt]) -> (Img, bool) {
     let tl = quad[0];
     let tr = quad[1];
     let br = quad[2];
@@ -215,12 +215,12 @@ fn crop_quad(img: &Img, quad: &[Pt]) -> Img {
             data[i + 2] = rgb[2] as u8;
         }
     }
-    let mut out = Img { w: crop_w, h: crop_h, data };
+    let out = Img { w: crop_w, h: crop_h, data };
     // 竖排文本（高远大于宽）：顺时针转 90°，让文字变横向
     if out.h as f32 >= out.w as f32 * 1.5 {
-        out = rotate90(&out);
+        return (rotate90(&out), true);
     }
-    out
+    (out, false)
 }
 
 fn rotate90(img: &Img) -> Img {
@@ -266,10 +266,22 @@ fn preprocess_rec(img: &Img, target_h: usize) -> (Vec<f32>, usize) {
 
 // ====================== 引擎 ======================
 
+/// 一个字符在行内的位置，沿阅读方向，以整行长度为 1。
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CharSpan {
+    pub start: f32,
+    pub center: f32,
+    pub end: f32,
+}
+
 pub struct OcrLine {
-    pub box_pts: Vec<Pt>, // 原图坐标的 4 点
+    pub box_pts: Vec<Pt>, // 原图坐标的 4 点，左上起顺时针
     pub text: String,
     pub score: f32,
+    /// 竖排：识别前整行顺时针转了 90°，阅读方向是右上角到右下角，否则是左上角到右上角。
+    pub vertical: bool,
+    /// text 里每个字符（Unicode 标量）一项，按出现顺序。
+    pub chars: Vec<CharSpan>,
 }
 
 pub struct Engine {
@@ -432,7 +444,7 @@ impl Engine {
     // ---- rec ----
     let mut results = Vec::new();
     for quad in boxes {
-        let crop = crop_quad(&img, &quad);
+        let (crop, vertical) = crop_quad(&img, &quad);
         if crop.w < 3 || crop.h < 3 {
             continue;
         }
@@ -452,9 +464,11 @@ impl Engine {
         // shape = [1, T, C]
         let t = shape[1] as usize;
         let c = shape[2] as usize;
-        let (text, score) = ctc_decode(data, t, c, &self.vocab);
-        if !text.is_empty() {
-            results.push(OcrLine { box_pts: quad, text, score });
+        let decoded = ctc_decode(data, t, c, &self.vocab);
+        if !decoded.text.is_empty() {
+            // 识别输入按比例缩放、不补边，时间步与裁出的行图线性对应。
+            let chars = char_spans(&decoded.tokens, crop.w as f32, crop.h as f32);
+            results.push(OcrLine { box_pts: quad, text: decoded.text, score: decoded.score, vertical, chars });
         }
     }
 
@@ -513,12 +527,30 @@ fn box_score(prob: &[f32], w: usize, h: usize, quad: &[Pt]) -> f32 {
     }
 }
 
-/// CTC 贪心解码。data 为 [T*C] 行优先。返回 (text, mean_score)。
-fn ctc_decode(data: &[f32], t: usize, c: usize, vocab: &[String]) -> (String, f32) {
+/// 解码出的一个字典项：含几个字符，以及它在行内的中心（以帧数为 1）。
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Token {
+    chars: usize,
+    center: f32,
+}
+
+struct Decoded {
+    text: String,
+    score: f32,
+    tokens: Vec<Token>,
+}
+
+/// CTC 贪心解码。data 为 [T*C] 行优先；分数是各字首帧概率的均值。
+/// 一个字常连续占几帧，中心取这几帧的中点。
+fn ctc_decode(data: &[f32], t: usize, c: usize, vocab: &[String]) -> Decoded {
+    let run_center = |first: usize, last: usize| ((first + last) as f32 / 2.0 + 0.5) / t as f32;
     let mut text = String::new();
+    let mut tokens: Vec<Token> = Vec::new();
     let mut score_sum = 0.0f32;
     let mut score_cnt = 0u32;
     let mut prev_idx = 0usize;
+    // 还在延续的已输出项：(tokens 下标, 起始帧)
+    let mut run: Option<(usize, usize)> = None;
     for ti in 0..t {
         let row = &data[ti * c..ti * c + c];
         let mut best = 0usize;
@@ -529,15 +561,159 @@ fn ctc_decode(data: &[f32], t: usize, c: usize, vocab: &[String]) -> (String, f3
                 best = i;
             }
         }
-        if best != 0 && best != prev_idx {
-            if best < vocab.len() {
+        if best != prev_idx {
+            if let Some((index, first)) = run.take() {
+                tokens[index].center = run_center(first, ti - 1);
+            }
+            if best != 0 && best < vocab.len() {
                 text.push_str(&vocab[best]);
                 score_sum += best_v;
                 score_cnt += 1;
+                tokens.push(Token { chars: vocab[best].chars().count(), center: 0.0 });
+                run = Some((tokens.len() - 1, ti));
             }
         }
         prev_idx = best;
     }
+    if let Some((index, first)) = run {
+        tokens[index].center = run_center(first, t - 1);
+    }
     let score = if score_cnt > 0 { score_sum / score_cnt as f32 } else { 0.0 };
-    (text, score)
+    Decoded { text, score, tokens }
+}
+
+/// 由各项中心推出逐字区间，length、thickness 是行图的宽高（像素），结果以 length 为 1。
+/// 字宽取与前后中心间距的平均、不超过行高（首字以行首、末字以行尾为邻），夹在行内；
+/// 相邻重叠时在两者之间对半分，分界不越过两边的中心。一项含多个字符时平分它的区间。
+fn char_spans(tokens: &[Token], length: f32, thickness: f32) -> Vec<CharSpan> {
+    if tokens.is_empty() || !(length > 0.0) || !(thickness > 0.0) {
+        return Vec::new();
+    }
+    let n = tokens.len();
+    let centers: Vec<f32> = tokens.iter().map(|token| token.center * length).collect();
+    let mut bounds: Vec<(f32, f32)> = (0..n)
+        .map(|i| {
+            let prev = if i == 0 { 0.0 } else { centers[i - 1] };
+            let next = if i + 1 == n { length } else { centers[i + 1] };
+            let half = ((next - prev) / 2.0).min(thickness) / 2.0;
+            ((centers[i] - half).max(0.0), (centers[i] + half).min(length))
+        })
+        .collect();
+    for i in 1..n {
+        if bounds[i].0 < bounds[i - 1].1 {
+            let split = ((bounds[i - 1].1 + bounds[i].0) / 2.0).max(centers[i - 1]).min(centers[i]);
+            bounds[i - 1].1 = split;
+            bounds[i].0 = split;
+        }
+    }
+    let mut spans = Vec::new();
+    for (i, token) in tokens.iter().enumerate() {
+        let (start, end) = bounds[i];
+        let width = (end - start) / token.chars.max(1) as f32;
+        for j in 0..token.chars {
+            let (s, e) = (start + width * j as f32, start + width * (j + 1) as f32);
+            let center = if token.chars == 1 { centers[i] } else { (s + e) / 2.0 };
+            spans.push(CharSpan { start: s / length, center: center / length, end: e / length });
+        }
+    }
+    spans
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn logits(frames: &[usize], classes: usize) -> Vec<f32> {
+        let mut data = vec![0.0f32; frames.len() * classes];
+        for (t, &best) in frames.iter().enumerate() {
+            data[t * classes + best] = 0.9;
+        }
+        data
+    }
+
+    fn vocab(items: &[&str]) -> Vec<String> {
+        items.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn decode_centers_each_item_on_its_frames() {
+        let words = vocab(&["", "a", "b", "cd"]);
+        let decoded = ctc_decode(&logits(&[0, 1, 1, 0, 2, 0, 0, 3, 3, 3], 4), 10, 4, &words);
+        assert_eq!(decoded.text, "abcd");
+        assert!((decoded.score - 0.9).abs() < 1e-6);
+        assert_eq!(
+            decoded.tokens,
+            vec![Token { chars: 1, center: 0.2 }, Token { chars: 1, center: 0.45 }, Token { chars: 2, center: 0.85 }]
+        );
+    }
+
+    #[test]
+    fn decode_repeats_only_across_a_blank() {
+        let words = vocab(&["", "a"]);
+        let decoded = ctc_decode(&logits(&[1, 1, 0, 1], 2), 4, 2, &words);
+        assert_eq!(decoded.text, "aa");
+        assert_eq!(decoded.tokens.len(), 2);
+        assert!((decoded.tokens[0].center - 0.25).abs() < 1e-6);
+        assert!((decoded.tokens[1].center - 0.875).abs() < 1e-6);
+    }
+
+    #[test]
+    fn decode_skips_classes_outside_the_vocabulary() {
+        let decoded = ctc_decode(&logits(&[3, 1], 4), 2, 4, &vocab(&["", "a"]));
+        assert_eq!(decoded.text, "a");
+        assert_eq!(decoded.tokens, vec![Token { chars: 1, center: 0.75 }]);
+    }
+
+    #[test]
+    fn spans_follow_the_neighbouring_centers() {
+        let tokens = [Token { chars: 1, center: 0.2 }, Token { chars: 1, center: 0.45 }];
+        let spans = char_spans(&tokens, 100.0, 30.0);
+        // 字宽 22.5 与 40（封顶为行高 30），重叠的 [30, 31.25] 在 30.625 处分开。
+        let expected = [(0.0875, 0.2, 0.30625), (0.30625, 0.45, 0.6)];
+        assert_eq!(spans.len(), 2);
+        for (span, (start, center, end)) in spans.iter().zip(expected) {
+            assert!((span.start - start).abs() < 1e-5 && (span.center - center).abs() < 1e-5 && (span.end - end).abs() < 1e-5, "{span:?}");
+        }
+    }
+
+    #[test]
+    fn spans_stay_around_their_centers_when_spacing_is_uneven() {
+        // 第三项后面间隔很大，它的半宽会伸过前一项的中心；分界仍要落在两个中心之间。
+        let tokens = [Token { chars: 1, center: 0.09 }, Token { chars: 1, center: 0.10 }, Token { chars: 1, center: 0.11 }, Token { chars: 1, center: 1.0 - 0.005 }];
+        let spans = char_spans(&tokens, 1000.0, 200.0);
+        for (i, span) in spans.iter().enumerate() {
+            assert!(span.start <= span.center && span.center <= span.end, "{i}: {span:?}");
+            assert!(span.start >= 0.0 && span.end <= 1.0, "{i}: {span:?}");
+        }
+        for pair in spans.windows(2) {
+            assert!(pair[0].end <= pair[1].start + 1e-6, "{pair:?}");
+        }
+    }
+
+    #[test]
+    fn spans_split_items_with_several_characters() {
+        let spans = char_spans(&[Token { chars: 2, center: 0.5 }], 100.0, 100.0);
+        // 字宽 min(100/2, 100) = 50，区间 [25, 75]，两个字符各占一半。
+        assert_eq!(spans.len(), 2);
+        assert!((spans[0].start - 0.25).abs() < 1e-6 && (spans[0].end - 0.5).abs() < 1e-6 && (spans[0].center - 0.375).abs() < 1e-6);
+        assert!((spans[1].start - 0.5).abs() < 1e-6 && (spans[1].end - 0.75).abs() < 1e-6);
+    }
+
+    #[test]
+    fn spans_need_a_real_line() {
+        let token = [Token { chars: 1, center: 0.5 }];
+        assert!(char_spans(&token, 0.0, 10.0).is_empty());
+        assert!(char_spans(&token, 10.0, 0.0).is_empty());
+        assert!(char_spans(&[], 10.0, 10.0).is_empty());
+    }
+
+    #[test]
+    fn vertical_crops_are_turned() {
+        let img = Img { w: 20, h: 100, data: vec![255; 20 * 100 * 3] };
+        let (tall, vertical) = crop_quad(&img, &[[0.0, 0.0], [10.0, 0.0], [10.0, 60.0], [0.0, 60.0]]);
+        assert!(vertical);
+        assert!(tall.w > tall.h);
+        let (_, horizontal) = crop_quad(&img, &[[0.0, 0.0], [19.0, 0.0], [19.0, 10.0], [0.0, 10.0]]);
+        assert!(!horizontal);
+    }
 }

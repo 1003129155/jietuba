@@ -11,7 +11,8 @@
 #include "tools/number.h"
 #include "translation/translation_dialog.h"
 #include "translation/translation_manager.h"
-#include "pin/ocr_text_layer.h"
+#include "ocr/ocr_line_geometry.h"
+#include "pin/ocr_text_layout.h"
 #include "pin/pin_border_overlay.h"
 #include "pin/pin_canvas.h"
 #include "pin/pin_canvas_view.h"
@@ -22,6 +23,7 @@
 #include "pin/pin_manager.h"
 #include "pin/pin_ocr_manager.h"
 #include "pin/pin_shortcut.h"
+#include "pin/pin_text_selection.h"
 #include "pin/pin_toolbar.h"
 #include "pin/pin_window.h"
 #include "core/clipboard_utils.h"
@@ -72,22 +74,12 @@ using namespace jietuba;
 namespace tl = jietuba::toolbar_layout;
 
 namespace {
-constexpr double ORIG_W = 200.0;
-constexpr double ORIG_H = 100.0;
-
 PinImageTransform transform_state(int rotation, bool flip_h, bool flip_v) {
     PinImageTransform transform;
     for (int turned = 0; turned < rotation; turned += 90) transform.rotate_cw();
     if (flip_h) transform.flip_horizontal();
     if (flip_v) transform.flip_vertical();
     return transform;
-}
-
-template <typename F>
-void for_each_state(F check) {
-    for (int rotation : {0, 90, 180, 270})
-        for (bool flip_h : {false, true})
-            for (bool flip_v : {false, true}) check(transform_state(rotation, flip_h, flip_v), QString("rotation=%1 flip_h=%2 flip_v=%3").arg(rotation).arg(flip_h).arg(flip_v));
 }
 
 bool close_to(double a, double b, double eps = 1e-6) { return std::abs(a - b) <= eps; }
@@ -116,8 +108,10 @@ QImage marked(int w = 8, int h = 4) {
 
 void flush_deletes() { QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete); }
 
-// Mouse events go to the view's viewport, through the same event filter as real input.
+// Mouse events go to the view's viewport, through the same event filter as real input. A pin
+// closed by an earlier event (a double click bound to closing) gets no more.
 void send_mouse(PinWindow *pin, QEvent::Type type, const QPoint &local, Qt::MouseButton button, Qt::MouseButtons buttons, Qt::KeyboardModifiers modifiers = Qt::NoModifier) {
+    if (!pin->view) return;
     auto *viewport = pin->view->viewport();
     QMouseEvent event(type, QPointF(local), QPointF(viewport->mapToGlobal(local)), button, buttons, modifiers);
     QApplication::sendEvent(viewport, &event);
@@ -178,8 +172,6 @@ const QString LOCKED_HINT = "Locked, right-click to unlock";
 
 QVector<QPointF> box(double x, double y, double w, double h) { return {QPointF(x, y), QPointF(x + w, y), QPointF(x + w, y + h), QPointF(x, y + h)}; }
 
-OCRTextItem text_item(const QString &text, double x = 0, double y = 0, double w = 100, double h = 20) { return OCRTextItem(text, box(x, y, w, h), 0.99); }
-
 OcrResult ocr_result(const QList<OcrLine> &lines, int code = 100) {
     OcrResult result;
     result.code = code;
@@ -187,20 +179,31 @@ OcrResult ocr_result(const QList<OcrLine> &lines, int code = 100) {
     return result;
 }
 
-// Gives a pin a text layer with these blocks, as a finished recognition would.
-OCRTextLayer *give_text(PinWindow *pin, const QList<OcrLine> &lines) {
-    const auto size = pin->orig_size();
-    auto *layer = new OCRTextLayer(pin, size.width(), size.height());
-    layer->setGeometry(pin->content_rect().toRect());
-    pin->ocr_manager()->ocr_text_layer = layer;
-    auto [items, union_rect] = OCRTextLayer::prepare_ocr_items(ocr_result(lines));
-    layer->load_prepared_ocr_items(std::move(items), union_rect, size.width(), size.height());
-    return layer;
+// Gives a pin recognized text, as a finished recognition would: recognizing turns selection on.
+PinTextSelection *give_text(PinWindow *pin, const QList<OcrLine> &lines) {
+    pin->ocr_manager()->load_text(OcrTextLayout(ocr_result(lines)));
+    pin->ocr_manager()->set_text_selection_enabled(true);
+    return pin->text_selection();
 }
 
-void send_layer_mouse(QWidget *layer, QEvent::Type type, const QPoint &local, Qt::MouseButton button, Qt::MouseButtons buttons) {
-    QMouseEvent event(type, QPointF(local), QPointF(layer->mapToGlobal(local)), button, buttons, Qt::NoModifier);
-    QApplication::sendEvent(layer, &event);
+// Starts, centres and ends of character spans, flattened, for comparing with expected values.
+QVector<double> span_points(const QVector<OcrCharSpan> &spans) {
+    QVector<double> points;
+    for (const auto &span : spans) points << span.start << span.center << span.end;
+    return points;
+}
+
+bool all_close(const QVector<double> &got, const QVector<double> &want, double eps = 1e-6) {
+    if (got.size() != want.size()) return false;
+    for (qsizetype i = 0; i < got.size(); ++i)
+        if (std::abs(got[i] - want[i]) > eps) return false;
+    return true;
+}
+
+QString points_text(const QVector<double> &points) {
+    QStringList parts;
+    for (const double p : points) parts << QString::number(p, 'g', 6);
+    return parts.join(", ");
 }
 
 // Ends a single-shot timer the way Qt does: stopped, then timeout.
@@ -384,75 +387,6 @@ private slots:
         transform.flip_horizontal();
         transform.flip_vertical();
         QCOMPARE(transform.display_size(size), size);
-        // The OCR layer scales by mapped_image_size, so both must agree.
-        for_each_state([&](const PinImageTransform &state, const QString &label) {
-            const auto shown = state.display_size(size);
-            QVERIFY2(state.mapped_image_size(200, 100) == std::make_pair(double(shown.width()), double(shown.height())), qPrintable(label));
-        });
-    }
-
-    // ---- OCR coordinate mapping ----
-
-    void ocrPointMappingFollowsEachTransform() {
-        QVERIFY(transform_state(0, false, false).map_ocr_point(37, 21, ORIG_W, ORIG_H) == std::make_pair(37.0, 21.0));
-        // Clockwise 90: the top-left corner lands top-right.
-        auto [x, y] = transform_state(90, false, false).map_ocr_point(0, 0, ORIG_W, ORIG_H);
-        QVERIFY(close_to(x, ORIG_H) && close_to(y, 0));
-        std::tie(x, y) = transform_state(180, false, false).map_ocr_point(30, 20, ORIG_W, ORIG_H);
-        QVERIFY(close_to(x, ORIG_W - 30) && close_to(y, ORIG_H - 20));
-        std::tie(x, y) = transform_state(270, false, false).map_ocr_point(0, 0, ORIG_W, ORIG_H);
-        QVERIFY(close_to(x, 0) && close_to(y, ORIG_W));
-        std::tie(x, y) = transform_state(0, true, false).map_ocr_point(30, 20, ORIG_W, ORIG_H);
-        QVERIFY(close_to(x, ORIG_W - 30) && close_to(y, 20));
-        std::tie(x, y) = transform_state(0, false, true).map_ocr_point(30, 20, ORIG_W, ORIG_H);
-        QVERIFY(close_to(x, 30) && close_to(y, ORIG_H - 20));
-    }
-
-    void centreAndCornersMapOntoTheTransformedImage() {
-        for_each_state([](const PinImageTransform &state, const QString &label) {
-            const auto [mapped_w, mapped_h] = state.mapped_image_size(ORIG_W, ORIG_H);
-            const auto [cx, cy] = state.map_ocr_point(ORIG_W / 2, ORIG_H / 2, ORIG_W, ORIG_H);
-            QVERIFY2(close_to(cx, mapped_w / 2) && close_to(cy, mapped_h / 2), qPrintable(label));
-            // Corners land exactly on corners: nothing out of bounds, nothing collapsed.
-            QSet<QPair<qint64, qint64>> got, want;
-            const auto key = [](double px, double py) { return qMakePair(std::llround(px * 1e6), std::llround(py * 1e6)); };
-            for (const auto &corner : {QPointF(0, 0), QPointF(ORIG_W, 0), QPointF(ORIG_W, ORIG_H), QPointF(0, ORIG_H)}) {
-                const auto [px, py] = state.map_ocr_point(corner.x(), corner.y(), ORIG_W, ORIG_H);
-                got.insert(key(px, py));
-            }
-            for (const auto &corner : {QPointF(0, 0), QPointF(mapped_w, 0), QPointF(mapped_w, mapped_h), QPointF(0, mapped_h)}) want.insert(key(corner.x(), corner.y()));
-            QVERIFY2(got == want, qPrintable(label));
-        });
-    }
-
-    void ocrRectMappingStaysInsideTheImage() {
-        const QRectF rect(10, 20, 50, 30);
-        const auto identity = transform_state(0, false, false).map_ocr_rect(rect, ORIG_W, ORIG_H);
-        QVERIFY(close_to(identity.left(), 10) && close_to(identity.top(), 20) && close_to(identity.width(), 50) && close_to(identity.height(), 30));
-        const auto turned = transform_state(90, false, false).map_ocr_rect(rect, ORIG_W, ORIG_H);
-        QVERIFY(close_to(turned.width(), 30) && close_to(turned.height(), 50));
-        for_each_state([&](const PinImageTransform &state, const QString &label) {
-            const auto [mapped_w, mapped_h] = state.mapped_image_size(ORIG_W, ORIG_H);
-            const auto mapped = state.map_ocr_rect(rect, ORIG_W, ORIG_H);
-            QVERIFY2(mapped.left() >= -1e-6 && mapped.top() >= -1e-6 && mapped.right() <= mapped_w + 1e-6 && mapped.bottom() <= mapped_h + 1e-6, qPrintable(label));
-        });
-        // 180 degrees twice puts the rectangle back.
-        const auto half_turn = transform_state(180, false, false);
-        const auto twice = half_turn.map_ocr_rect(half_turn.map_ocr_rect(rect, ORIG_W, ORIG_H), ORIG_W, ORIG_H);
-        QVERIFY(close_to(twice.left(), 10) && close_to(twice.top(), 20) && close_to(twice.width(), 50) && close_to(twice.height(), 30));
-    }
-
-    // The OCR text layer and the picture must line up: both use the same order of rotate and flip.
-    void viewTransformAgreesWithOcrMapping() {
-        for_each_state([](const PinImageTransform &state, const QString &label) {
-            const auto [mapped_w, mapped_h] = state.mapped_image_size(ORIG_W, ORIG_H);
-            const auto view = state.build_view_transform(mapped_w, mapped_h, ORIG_W, ORIG_H);
-            for (const auto &point : {QPointF(0, 0), QPointF(ORIG_W, 0), QPointF(ORIG_W, ORIG_H), QPointF(0, ORIG_H), QPointF(ORIG_W / 2, ORIG_H / 2), QPointF(37, 21)}) {
-                const auto via_view = view.map(point);
-                const auto [ox, oy] = state.map_ocr_point(point.x(), point.y(), ORIG_W, ORIG_H);
-                QVERIFY2(close_to(via_view.x(), ox) && close_to(via_view.y(), oy), qPrintable(label + QString(" point=%1,%2").arg(point.x()).arg(point.y())));
-            }
-        });
     }
 
     void transformImageMovesPixelsAndKeepsDpr() {
@@ -1618,14 +1552,13 @@ private slots:
         auto *pin = make_pin();
         QCursor::setPos(pin->mapToGlobal(QPoint(150, 100)));
         PinShortcutController::instance()->reload_bindings();
-        auto *layer = give_text(pin, {{box(10, 10, 100, 20), "hello", 0.9}});
+        auto *selection = give_text(pin, {{box(10, 10, 100, 20), "hello", 0.9}});
+        drag(pin, QPoint(12, 20), QPoint(108, 20));
+        QCOMPARE(selection->selected_text(), QString("hello"));
         QVERIFY(pin->canvas->activate_tool("pen"));
-        layer->selection_start = std::make_pair(0, 0);
-        layer->selection_end = std::make_pair(0, 5);
-        // The text selection is cleared first, but only while the layer is active.
-        layer->set_drawing_mode(false);
+        // The text selection is cleared first.
         press_key(pin, Qt::Key_Escape);
-        QVERIFY(!layer->selection_start);
+        QVERIFY(!selection->has_selection());
         QVERIFY(pin->canvas->is_editing());
         // Then Esc leaves editing, never closing the pin.
         press_key(pin, Qt::Key_Escape);
@@ -1708,241 +1641,399 @@ private slots:
         auto *pin = make_pin();
         QCursor::setPos(pin->mapToGlobal(QPoint(150, 100)));
         PinShortcutController::instance()->reload_bindings();
-        auto *layer = give_text(pin, {{box(10, 10, 100, 20), "hello world", 0.9}});
-        layer->selection_start = std::make_pair(0, 6);
-        layer->selection_end = std::make_pair(0, 11);
+        // Eleven characters of 10 px from x = 10: dragging from x = 70 passes the centres of "world".
+        give_text(pin, {{box(10, 10, 110, 20), "hello world", 0.9}});
+        drag(pin, QPoint(70, 20), QPoint(125, 20));
         QApplication::clipboard()->clear();
         press_key(pin, Qt::Key_C, Qt::ControlModifier);
         QCOMPARE(clipboard_text(), QString("world"));
         // Editing does not change that.
         QVERIFY(pin->canvas->activate_tool("pen"));
-        layer->selection_start = std::make_pair(0, 0);
-        layer->selection_end = std::make_pair(0, 5);
-        layer->set_drawing_mode(false);
+        QApplication::clipboard()->clear();
         press_key(pin, Qt::Key_C, Qt::ControlModifier);
-        QCOMPARE(clipboard_text(), QString("hello"));
+        QCOMPARE(clipboard_text(), QString("world"));
     }
 
-    // ---- OCR text layer: geometry and character positions ----
-
-    void textItemsTakeTheBoundingBoxOfTheirCorners() {
-        const auto item = text_item("abc", 10, 20, 100, 30);
-        QCOMPARE(item.norm_rect, QRectF(10, 20, 100, 30));
-        // Engines give corners in any order.
-        const OCRTextItem shuffled("x", {QPointF(10, 5), QPointF(0, 0), QPointF(0, 5), QPointF(10, 0)}, 1.0);
-        QCOMPARE(shuffled.norm_rect, QRectF(0, 0, 10, 5));
-        QCOMPARE(item.get_scaled_rect(2.0, 3.0), QRect(20, 60, 200, 90));
-        const auto plain = text_item("abc", 0, 0, 100, 20);
-        QVERIFY(plain.contains(QPoint(50, 10), 1.0, 1.0));
-        QVERIFY(!plain.contains(QPoint(500, 500), 1.0, 1.0));
-        // A small margin makes edge characters easy to hit.
-        QVERIFY(text_item("abc", 10, 10, 100, 20).contains(QPoint(7, 8), 1.0, 1.0));
-    }
-
-    void charPositionsWeighWideCharactersDouble() {
-        auto ascii = text_item("abcd");
-        ascii.calculate_char_positions(QRect(0, 0, 80, 20));
-        QCOMPARE(ascii.char_positions, (std::vector<int>{0, 20, 40, 60, 80}));
-        auto mixed = text_item(QString::fromUtf8("中a"));
-        mixed.calculate_char_positions(QRect(0, 0, 90, 20));
-        QCOMPARE(mixed.char_positions, (std::vector<int>{0, 60, 90}));
-        auto punctuation = text_item(QString::fromUtf8("，a"));
-        punctuation.calculate_char_positions(QRect(0, 0, 90, 20));
-        QCOMPARE(punctuation.char_positions, (std::vector<int>{0, 60, 90}));
-        auto offset = text_item("ab");
-        offset.calculate_char_positions(QRect(100, 0, 40, 20));
-        QCOMPARE(offset.char_positions.front(), 100);
-        QCOMPARE(offset.char_positions.back(), 140);
-        // Characters outside the BMP count once.
-        auto emoji = text_item(QString::fromUtf8("a😀b"));
-        emoji.calculate_char_positions(QRect(0, 0, 90, 20));
-        QCOMPARE(emoji.length(), 3);
-        QCOMPARE(emoji.slice(1, 2), QString::fromUtf8("😀"));
-        // A tall narrow block (after rotation) runs vertically.
-        auto vertical = text_item("abcd");
-        vertical.calculate_char_positions(QRect(0, 0, 20, 80));
-        QVERIFY(vertical.is_vertical);
-        QCOMPARE(vertical.char_positions, (std::vector<int>{0, 20, 40, 60, 80}));
-        auto empty = text_item("");
-        empty.calculate_char_positions(QRect(0, 0, 80, 20));
-        QVERIFY(empty.char_positions.empty());
-    }
-
-    void clicksSnapToTheNearestCharacterBoundary() {
-        auto item = text_item("abcd");
-        const QRect rect(0, 0, 80, 20);
-        QCOMPARE(item.get_char_index_at_pos(50, rect), 0);
-        item.calculate_char_positions(rect);
-        QCOMPARE(item.get_char_index_at_pos(-50, rect), 0);
-        QCOMPARE(item.get_char_index_at_pos(500, rect), 4);
-        QCOMPARE(item.get_char_index_at_pos(0, rect), 0);
-        QCOMPARE(item.get_char_index_at_pos(22, rect), 1);
-        QCOMPARE(item.get_char_index_at_pos(38, rect), 2);
-        auto vertical = text_item("abcd");
-        const QRect tall(0, 0, 20, 80);
-        vertical.calculate_char_positions(tall);
-        QCOMPARE(vertical.get_char_index_at_pos(999, tall, 42), 2);
-    }
-
-    void prepareOcrItemsSkipsFailuresAndBadEntries() {
-        auto [items, union_rect] = OCRTextLayer::prepare_ocr_items(ocr_result({{box(0, 0, 50, 10), "hello", 0.9}, {box(0, 20, 60, 10), "world", 0.8}}));
-        QCOMPARE(items.size(), size_t(2));
-        QCOMPARE(items[1].text, QString("world"));
-        QCOMPARE(*union_rect, QRectF(0, 0, 60, 30));
-        std::tie(items, union_rect) = OCRTextLayer::prepare_ocr_items(ocr_result({{box(10, 10, 20, 5), "a", 1}, {box(100, 50, 30, 5), "b", 1}}));
-        QCOMPARE(*union_rect, QRectF(10, 10, 120, 45));
-        for (const auto &result : {OcrResult{}, ocr_result({{box(0, 0, 1, 1), "x", 1}}, 101), ocr_result({}), ocr_result({{box(0, 0, 10, 10), "", 0.9}, {{}, "ok", 0.9}})}) {
-            std::tie(items, union_rect) = OCRTextLayer::prepare_ocr_items(result);
-            QVERIFY(items.empty());
-            QVERIFY(!union_rect);
-        }
-        std::tie(items, union_rect) = OCRTextLayer::prepare_ocr_items(ocr_result({{box(0, 0, 10, 10), "", 0.9}, {{}, "ok", 0.9}, {box(0, 0, 10, 10), "good", 0.9}}));
-        QCOMPARE(items.size(), size_t(1));
-        QCOMPARE(items[0].text, QString("good"));
-    }
-
-
-    // A recognition result replaces the layer's text; an empty one clears it.
-    void aRecognitionResultLoadsIntoTheLayer() {
-        OCRTextLayer layer(nullptr, 200, 100);
-        layer.load_ocr_result(ocr_result({{box(10, 10, 80, 20), "loaded", 0.9}, {box(10, 40, 80, 20), "second", 0.9}}), 200, 100);
-        QCOMPARE(layer.text_items.size(), size_t(2));
-        QVERIFY(layer.has_text());
-        QCOMPARE(layer.get_all_text("\n"), QString("loaded\nsecond"));
-        layer.load_ocr_result(ocr_result({}), 200, 100);
-        QVERIFY(!layer.has_text());
-        layer.close();
-    }
-    void selectedTextJoinsBlocksByLine() {
-        OCRTextLayer layer(nullptr, 200, 100);
-        const auto fill = [&](const QList<std::tuple<QString, int, int>> &specs) {
-            layer.text_items.clear();
-            for (const auto &[text, x, y] : specs) layer.text_items.push_back(text_item(text, x, y, text.size() * 10, 20));
-        };
-        const auto select = [&](int a, int b, int c, int d) {
-            layer.selection_start = std::make_pair(a, b);
-            layer.selection_end = std::make_pair(c, d);
-            return layer.get_selected_text();
-        };
-        fill({{"hello world", 0, 0}});
-        QCOMPARE(layer.get_selected_text(), QString());
-        QCOMPARE(select(0, 0, 0, 5), QString("hello"));
-        // Backwards selections read the same.
-        QCOMPARE(select(0, 5, 0, 0), QString("hello"));
-        QCOMPARE(select(0, 2, 0, 2), QString());
-        fill({{"hello", 0, 0}, {"world", 60, 0}});
-        QCOMPARE(select(0, 0, 1, 5), QString("hello world"));
-        fill({{"hello", 0, 0}, {"world", 0, 60}});
-        QCOMPARE(select(0, 0, 1, 5), QString("hello\nworld"));
-        fill({{"abcdef", 0, 0}, {"ghijkl", 0, 60}});
-        QCOMPARE(select(0, 3, 1, 2), QString("def\ngh"));
-        fill({{"aa", 0, 0}, {"bb", 0, 60}, {"cc", 0, 120}});
-        QCOMPARE(select(0, 1, 2, 1), QString("a\nbb\nc"));
-        fill({{"abc", 0, 0}, {"def", 0, 60}});
-        QCOMPARE(select(1, 2, 0, 1), QString("bc\nde"));
-        // A selection left over from an older result stops cleanly.
-        fill({{"hello", 0, 0}});
-        QCOMPARE(select(0, 0, 5, 3), QString("hello"));
-        layer.clear_selection();
-        QVERIFY(!layer.selection_start && !layer.selection_end && !layer.is_selecting);
-        QCOMPARE(layer.get_selected_text(), QString());
-        // All text keeps reading order: same-line blocks with spaces.
-        fill({{"one", 0, 0}, {"two", 40, 2}, {"three", 0, 60}});
-        QCOMPARE(layer.get_all_text("\n"), QString("one two\nthree"));
-        QCOMPARE(layer.get_all_text(" | "), QString("one two | three"));
-    }
-
-    void layerScalesAndFollowsImageTransforms() {
-        OCRTextLayer layer(nullptr, 200, 100);
-        QVERIFY(!layer.has_text());
-        auto [items, union_rect] = OCRTextLayer::prepare_ocr_items(ocr_result({{box(0, 0, 20, 10), "hi", 1}}));
-        layer.load_prepared_ocr_items(std::move(items), union_rect, 200, 100);
-        QVERIFY(layer.has_text());
-        layer.resize(400, 200);
-        QVERIFY(layer.get_scale_factors() == std::make_pair(2.0, 2.0));
-        // A rotated pin maps every block and swaps the reference size.
-        layer.selection_start = std::make_pair(0, 0);
-        layer.selection_end = std::make_pair(0, 2);
-        const auto turned = transform_state(90, false, false);
-        layer.set_image_transform(&turned);
-        QCOMPARE(layer.original_width, 100);
-        QCOMPARE(layer.original_height, 200);
-        QCOMPARE(layer.text_items[0].norm_rect, turned.map_ocr_rect(QRectF(0, 0, 20, 10), 200, 100));
-        QVERIFY(!layer.selection_start);
-        const PinImageTransform none;
-        layer.set_image_transform(&none);
-        QCOMPARE(layer.text_items[0].norm_rect, QRectF(0, 0, 20, 10));
-        QCOMPARE(layer.original_width, 200);
-        layer.original_width = 0;
-        layer.original_height = 0;
-        QVERIFY(layer.get_scale_factors() == std::make_pair(1.0, 1.0));
-    }
-
-    void draggingOverTextSelectsAcrossBlocks() {
-        auto *pin = make_pin(QSize(200, 120), QPoint(100, 100));
-        auto *layer = give_text(pin, {{box(10, 10, 100, 20), "abcdefghij", 0.9}, {box(10, 50, 100, 20), "klmnopqrst", 0.9}});
-        QVERIFY(layer->isVisible());
-        QCursor::setPos(0, 0);
-        send_layer_mouse(layer, QEvent::MouseMove, QPoint(30, 20), Qt::NoButton, Qt::NoButton);
-        QCOMPARE(layer->cursor().shape(), Qt::IBeamCursor);
-        send_layer_mouse(layer, QEvent::MouseButtonPress, QPoint(30, 20), Qt::LeftButton, Qt::LeftButton);
-        QVERIFY(layer->is_selecting);
-        QVERIFY(!pin->is_dragging());
-        send_layer_mouse(layer, QEvent::MouseMove, QPoint(60, 60), Qt::NoButton, Qt::LeftButton);
-        send_layer_mouse(layer, QEvent::MouseButtonRelease, QPoint(60, 60), Qt::LeftButton, Qt::NoButton);
-        QVERIFY(!layer->is_selecting);
-        QCOMPARE(layer->get_selected_text(), QString("cdefghij\nklmno"));
-        // The selection is painted from the start block's caret to the end block's.
-        QVERIFY(!layer->grab().isNull());
-        // Dragging backwards selects the same span.
-        send_layer_mouse(layer, QEvent::MouseButtonPress, QPoint(60, 60), Qt::LeftButton, Qt::LeftButton);
-        send_layer_mouse(layer, QEvent::MouseMove, QPoint(30, 20), Qt::NoButton, Qt::LeftButton);
-        send_layer_mouse(layer, QEvent::MouseButtonRelease, QPoint(30, 20), Qt::LeftButton, Qt::NoButton);
-        QVERIFY(!layer->grab().isNull());
-        // Ctrl+A selects everything, Ctrl+C copies it; Esc clears a selection first.
-        QTest::keyClick(layer, Qt::Key_A, Qt::ControlModifier);
-        QVERIFY(!layer->grab().isNull());
-        QTest::keyClick(layer, Qt::Key_C, Qt::ControlModifier);
-        QCOMPARE(clipboard_text(), QString("abcdefghij\nklmnopqrst"));
-        QTest::keyClick(layer, Qt::Key_Escape);
-        QVERIFY(!layer->selection_start);
-        QKeyEvent escape(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
-        QApplication::sendEvent(layer, &escape);
-        QVERIFY(!escape.isAccepted());
-        QKeyEvent other(QEvent::KeyPress, Qt::Key_B, Qt::NoModifier, "b");
-        QApplication::sendEvent(layer, &other);
-        QVERIFY(!other.isAccepted());
-        QTest::keyClick(layer, Qt::Key_A, Qt::ControlModifier);
-        QCOMPARE(layer->get_selected_text(), QString("abcdefghij\nklmnopqrst"));
-        // A click on empty space clears the selection and lets the pin drag.
-        send_layer_mouse(layer, QEvent::MouseButtonPress, QPoint(180, 100), Qt::LeftButton, Qt::LeftButton);
-        QVERIFY(!layer->selection_start);
-        send_layer_mouse(layer, QEvent::MouseButtonRelease, QPoint(180, 100), Qt::LeftButton, Qt::NoButton);
-        // Drawing turns the layer off.
-        layer->set_drawing_mode(true);
-        QVERIFY(!layer->isVisible() && !layer->is_active());
-    }
-
-    void doubleClickSelectsABlockUnlessBoundToAnAction() {
+    void escapeClearsTheTextSelectionBeforeClosing() {
         auto *pin = make_pin();
-        auto *layer = give_text(pin, {{box(10, 10, 100, 20), "hello", 0.9}});
-        const auto double_click_layer = [&] {
-            send_layer_mouse(layer, QEvent::MouseButtonPress, QPoint(40, 20), Qt::LeftButton, Qt::LeftButton);
-            send_layer_mouse(layer, QEvent::MouseButtonRelease, QPoint(40, 20), Qt::LeftButton, Qt::NoButton);
-            send_layer_mouse(layer, QEvent::MouseButtonDblClick, QPoint(40, 20), Qt::LeftButton, Qt::LeftButton);
-            send_layer_mouse(layer, QEvent::MouseButtonRelease, QPoint(40, 20), Qt::LeftButton, Qt::NoButton);
+        QCursor::setPos(pin->mapToGlobal(QPoint(150, 100)));
+        PinShortcutController::instance()->reload_bindings();
+        auto *selection = give_text(pin, {{box(10, 10, 100, 20), "hello", 0.9}});
+        drag(pin, QPoint(12, 20), QPoint(108, 20));
+        QVERIFY(selection->has_selection());
+        press_key(pin, Qt::Key_Escape);
+        QVERIFY(!selection->has_selection());
+        QVERIFY(!pin->is_closed());
+        press_key(pin, Qt::Key_Escape);
+        QVERIFY(pin->is_closed());
+    }
+
+    // ---- Recognized text: line geometry and character positions ----
+
+    void linesTakeTheirFrameFromTheCorners() {
+        const auto across = line_frame(box(10, 20, 100, 30), false);
+        QVERIFY(across.valid());
+        QCOMPARE(across.origin, QPointF(10, 20));
+        QCOMPARE(across.along, QPointF(1, 0));
+        QCOMPARE(across.across, QPointF(0, 1));
+        QCOMPARE(across.length, 100.0);
+        QCOMPARE(across.thickness, 30.0);
+        // Vertical text reads from the top-right corner down.
+        const auto down = line_frame(box(10, 20, 30, 100), true);
+        QCOMPARE(down.origin, QPointF(40, 20));
+        QCOMPARE(down.along, QPointF(0, 1));
+        QCOMPARE(down.across, QPointF(-1, 0));
+        QCOMPARE(down.length, 100.0);
+        QCOMPARE(down.thickness, 30.0);
+        QCOMPARE(down.to_source().map(QPointF(50, 15)), QPointF(25, 70));
+        // A tilted line: along its top edge, 100 long and 10 thick.
+        const auto tilted = line_frame({QPointF(0, 0), QPointF(80, 60), QPointF(74, 68), QPointF(-6, 8)}, false);
+        QCOMPARE(tilted.along, QPointF(0.8, 0.6));
+        QCOMPARE(tilted.length, 100.0);
+        QCOMPARE(tilted.thickness, 10.0);
+        // A pixel of lean along a line is the engine's noise: the frame stands upright on the
+        // corners' bounding box.
+        const auto leaning = line_frame({QPointF(43, 61), QPointF(156, 60), QPointF(155, 81), QPointF(43, 80)}, false);
+        QCOMPARE(leaning.origin, QPointF(43, 60));
+        QCOMPARE(leaning.along, QPointF(1, 0));
+        QCOMPARE(leaning.across, QPointF(0, 1));
+        QCOMPARE(leaning.length, 113.0);
+        QCOMPARE(leaning.thickness, 21.0);
+        // Mirrored, it reads leftwards from the right edge.
+        const auto mirrored = line_frame({QPointF(100, 0), QPointF(0, 1), QPointF(0, 21), QPointF(100, 20)}, false);
+        QCOMPARE(mirrored.origin, QPointF(100, 0));
+        QCOMPARE(mirrored.along, QPointF(-1, 0));
+        QCOMPARE(mirrored.across, QPointF(0, 1));
+        QCOMPARE(mirrored.length, 100.0);
+        // Too few corners, or corners on one line, give no frame.
+        QVERIFY(!line_frame({QPointF(0, 0), QPointF(1, 0), QPointF(2, 0)}, false).valid());
+        QVERIFY(!line_frame({QPointF(0, 0), QPointF(10, 0), QPointF(20, 0), QPointF(30, 0)}, false).valid());
+    }
+
+    void estimatedPositionsWeighWideCharactersDouble() {
+        const auto check = [](const QString &text, const QVector<double> &want) {
+            const auto got = span_points(estimate_char_spans(text));
+            QVERIFY2(all_close(got, want), qPrintable(text + ": " + points_text(got)));
         };
+        check("abcd", {0, 0.125, 0.25, 0.25, 0.375, 0.5, 0.5, 0.625, 0.75, 0.75, 0.875, 1});
+        check(QString::fromUtf8("中a"), {0, 1.0 / 3, 2.0 / 3, 2.0 / 3, 5.0 / 6, 1});
+        check(QString::fromUtf8("，a"), {0, 1.0 / 3, 2.0 / 3, 2.0 / 3, 5.0 / 6, 1});
+        // Half-width punctuation next to a wide character is read as the full-width mark.
+        check(QString::fromUtf8("中,a"), {0, 0.2, 0.4, 0.4, 0.6, 0.8, 0.8, 0.9, 1});
+        check("a,b", {0, 1.0 / 6, 1.0 / 3, 1.0 / 3, 0.5, 2.0 / 3, 2.0 / 3, 5.0 / 6, 1});
+        // Characters outside the BMP count once.
+        QCOMPARE(estimate_char_spans(QString::fromUtf8("a😀b")).size(), 3);
+        QVERIFY(estimate_char_spans("").isEmpty());
+    }
+
+    void wordBoxesGiveCharacterPositions() {
+        const auto frame = line_frame(box(0, 0, 200, 20), false);
+        const auto check = [&](const QString &text, const QVector<OcrWord> &words, const QVector<double> &want_pixels) {
+            QVector<double> want;
+            for (const double x : want_pixels) want << x / 200;
+            const auto got = span_points(spans_from_words(text, frame, words));
+            QVERIFY2(all_close(got, want), qPrintable(text + ": " + points_text(got)));
+        };
+        // Chinese: every character is a word of its own, so each keeps its box, moved a tenth of
+        // the 20 px line height along the line, where the engine's ink lies.
+        check(QString::fromUtf8("中文"), {{QString::fromUtf8("中"), box(0, 0, 20, 20)}, {QString::fromUtf8("文"), box(25, 0, 20, 20)}}, {2, 12, 22, 27, 37, 47});
+        // Read down, the boxes stay where they are.
+        const auto column = line_frame(box(0, 0, 20, 200), true);
+        const auto down = span_points(spans_from_words(QString::fromUtf8("中文"), column, {{QString::fromUtf8("中"), box(0, 0, 20, 20)}, {QString::fromUtf8("文"), box(0, 25, 20, 20)}}));
+        QVERIFY2(all_close(down, {0, 0.05, 0.1, 0.125, 0.175, 0.225}), qPrintable(points_text(down)));
+        // Words as wide as their letter counts read as a fixed-width face: the letters split
+        // evenly, and the space fills the gap between the words.
+        const QVector<OcrWord> latin{{"ab", box(0, 0, 40, 20)}, {"cd", box(60, 0, 40, 20)}};
+        check("ab cd", latin, {0, 10, 20, 20, 30, 40, 40, 50, 60, 60, 70, 80, 80, 90, 100});
+        check("ill mom", {{"ill", box(0, 0, 30, 20)}, {"mom", box(40, 0, 30, 20)}},
+              {0, 5, 10, 10, 15, 20, 20, 25, 30, 30, 35, 40, 40, 45, 50, 50, 55, 60, 60, 65, 70});
+        // Extents that follow a proportional face split by its widths: at 10 px a half em, "ill"
+        // (0.46 each) is 13.8 px and "mom" (1.69, 1.14, 1.69) 45.2 px.
+        check("ill mom", {{"ill", box(0, 0, 13.8, 20)}, {"mom", box(30, 0, 45.2, 20)}},
+              {0, 2.3, 4.6, 4.6, 6.9, 9.2, 9.2, 11.5, 13.8, 13.8, 21.9, 30, 30, 38.45, 46.9, 46.9, 52.6, 58.3, 58.3, 66.75, 75.2});
+        // A half-width comma after a Chinese character takes a full width (2 against 1.10 per digit).
+        check(QString::fromUtf8("中,12"), {{QString::fromUtf8("中"), box(0, 0, 20, 20)}, {",12", box(20, 0, 42, 20)}}, {2, 12, 22, 22, 32, 42, 42, 47.5, 53, 53, 58.5, 64});
+        // Spaces before the first word and after the last reach the line's ends.
+        check(" 12 ", {{"12", box(50, 0, 40, 20)}}, {0, 25, 50, 50, 60, 70, 70, 80, 90, 90, 145, 200});
+        // Words out of step with the text give nothing, so the line falls back to estimates.
+        QVERIFY(spans_from_words("abc", frame, {{"abd", box(0, 0, 30, 20)}}).isEmpty());
+        QVERIFY(spans_from_words("ab x", frame, latin).isEmpty());
+        QVERIFY(spans_from_words("ab cd e", frame, latin).isEmpty());
+        QVERIFY(spans_from_words("ab cd", OcrLineFrame(), latin).isEmpty());
+    }
+
+    void wordsTellWhichWayALineReads() {
+        QVERIFY(words_run_vertically(box(0, 0, 20, 200), {{QString::fromUtf8("一"), box(0, 0, 20, 20)}, {QString::fromUtf8("二"), box(0, 30, 20, 20)}}));
+        QVERIFY(!words_run_vertically(box(0, 0, 200, 20), {{"ab", box(0, 0, 40, 20)}, {"cd", box(60, 0, 40, 20)}}));
+        // With one word the line's shape decides.
+        QVERIFY(words_run_vertically(box(0, 0, 20, 100), {{"x", box(0, 0, 20, 20)}}));
+        QVERIFY(!words_run_vertically(box(0, 0, 100, 20), {{"x", box(0, 0, 20, 20)}}));
+    }
+
+    // ---- Recognized text: layout and selection ----
+
+    void aLayoutKeepsLinesWithTextAndCorners() {
+        const OcrTextLayout layout(ocr_result({{box(0, 0, 50, 10), "hello", 0.9}, {box(0, 20, 60, 10), "world", 0.8}}));
+        QCOMPARE(layout.lines().size(), size_t(2));
+        QCOMPARE(layout.lines()[1].text, QString("world"));
+        QCOMPARE(layout.bounds(), QRectF(0, 0, 60, 30));
+        for (const auto &result : {OcrResult{}, ocr_result({{box(0, 0, 1, 1), "x", 1}}, 101), ocr_result({}), ocr_result({{box(0, 0, 10, 10), "", 0.9}, {{}, "ok", 0.9}})})
+            QVERIFY(OcrTextLayout(result).empty());
+        // Degenerate corners fall back to their bounding box.
+        const OcrTextLayout squashed(ocr_result({{{QPointF(5, 5), QPointF(5, 5), QPointF(25, 5), QPointF(25, 15)}, "ok", 1}}));
+        QCOMPARE(squashed.lines().size(), size_t(1));
+        QCOMPARE(squashed.lines()[0].bounds, QRectF(5, 5, 20, 10));
+        // The engine's positions are used when there is one per character; otherwise they are estimated.
+        OcrLine given{box(0, 0, 100, 20), "abc", 1};
+        given.chars = {{0, 0.1f, 0.2f}, {0.2f, 0.5f, 0.6f}, {0.6f, 0.9f, 1}};
+        OcrLine short_of_one{box(0, 30, 100, 20), "abcd", 1};
+        short_of_one.chars = given.chars;
+        const OcrTextLayout mixed(ocr_result({given, short_of_one}));
+        QVERIFY(!mixed.lines()[0].estimated);
+        QVERIFY(all_close(QVector<double>(mixed.lines()[0].centers.begin(), mixed.lines()[0].centers.end()), {10, 50, 90}, 1e-4));
+        QVERIFY(mixed.lines()[1].estimated);
+        QCOMPARE(mixed.lines()[1].centers.size(), size_t(4));
+    }
+
+    // A recognition rendered at a screen's pixel ratio comes back in the pin's own image pixels.
+    void recognizedPixelsMapToThePinsImage() {
+        const OcrTextLayout layout(ocr_result({{box(20, 40, 200, 40), "hi", 1}}), QTransform::fromScale(0.5, 0.5));
+        QCOMPARE(layout.bounds(), QRectF(10, 20, 100, 20));
+        QCOMPARE(layout.line_at(QPointF(60, 30)), std::optional<int>(0));
+    }
+
+    void dragsSelectByCharacterCentres() {
+        // Ten characters of 10 px from x = 10: centres at 15, 25, ... 105.
+        OcrTextLayout layout(ocr_result({{box(10, 10, 100, 20), "abcdefghij", 1}}));
+        const auto selected = [&](const QPointF &from, const QPointF &to) {
+            layout.select_between(from, to);
+            return layout.selected_text();
+        };
+        QCOMPARE(selected(QPointF(20, 20), QPointF(60, 20)), QString("bcde"));
+        // Backwards reads the same.
+        QCOMPARE(selected(QPointF(60, 20), QPointF(20, 20)), QString("bcde"));
+        // A character counts once the drag passes its centre.
+        QCOMPARE(selected(QPointF(14, 20), QPointF(16, 20)), QString("a"));
+        QCOMPARE(selected(QPointF(16, 20), QPointF(24, 20)), QString());
+        QVERIFY(!layout.has_selection());
+        // Past the line's ends the run stops there.
+        QCOMPARE(selected(QPointF(0, 20), QPointF(500, 20)), QString("abcdefghij"));
+        layout.select_line(0);
+        QCOMPARE(layout.selected_text(), QString("abcdefghij"));
+        QVERIFY(layout.selection(0) == std::make_optional(std::make_pair(0, 10)));
+        QCOMPARE(layout.selection_bounds(), QRectF(10, 10, 100, 20));
+        layout.clear_selection();
+        QVERIFY(!layout.has_selection());
+        QCOMPARE(layout.selected_text(), QString());
+        QVERIFY(layout.selection_bounds().isNull());
+    }
+
+    void dragsAcrossLinesKeepShortLinesAndStayInTheirColumn() {
+        // A paragraph whose middle line is short, and a second column beside it.
+        OcrTextLayout layout(ocr_result({
+            {box(10, 10, 100, 20), "abcdefghij", 1},
+            {box(10, 40, 30, 20), "klm", 1},
+            {box(10, 70, 100, 20), "nopqrstuvw", 1},
+            {box(300, 10, 100, 20), "ABCDEFGHIJ", 1},
+            {box(300, 40, 100, 20), "KLMNOPQRST", 1},
+        }));
+        layout.select_between(QPointF(62, 20), QPointF(52, 80));
+        QCOMPARE(layout.selected_text(), QString("fghij\nklm\nnopq"));
+        layout.select_between(QPointF(306, 20), QPointF(344, 50));
+        QCOMPARE(layout.selected_text(), QString("BCDEFGHIJ\nKLMN"));
+        // Lines side by side on one row join with a space.
+        OcrTextLayout row(ocr_result({{box(0, 0, 50, 20), "hello", 1}, {box(60, 0, 50, 20), "world", 1}}));
+        row.select_between(QPointF(1, 10), QPointF(109, 10));
+        QCOMPARE(row.selected_text(), QString("hello world"));
+    }
+
+    void rotatedAndVerticalLinesSelectAlongTheirOwnDirection() {
+        // A line tilted by 30 degrees, 100 long and 20 thick, and a vertical one reading down.
+        const QPointF along(std::cos(M_PI / 6), std::sin(M_PI / 6)), across(-along.y(), along.x());
+        const QPointF origin(100, 100);
+        const QVector<QPointF> tilted{origin, origin + 100 * along, origin + 100 * along + 20 * across, origin + 20 * across};
+        OcrLine vertical{box(300, 0, 20, 100), QString::fromUtf8("一二三四五"), 1};
+        vertical.vertical = true;
+        OcrTextLayout layout(ocr_result({{tilted, "abcdefghij", 1}, vertical}));
+        const auto at = [&](int line, double x, double y) { return layout.lines()[line].frame.to_source().map(QPointF(x, y)); };
+        QCOMPARE(layout.line_at(at(0, 50, 10)), std::optional<int>(0));
+        QVERIFY(!layout.line_at(at(0, 50, 40)));
+        layout.select_between(at(0, 22, 10), at(0, 58, 10));
+        QCOMPARE(layout.selected_text(), QString("cdef"));
+        // Five characters of 20 px from the top: the drag from y = 25 to 75 passes three centres.
+        layout.select_between(QPointF(310, 25), QPointF(310, 75));
+        QCOMPARE(layout.selected_text(), QString::fromUtf8("二三四"));
+    }
+
+    void textJoinsByLineInReadingOrder() {
+        OcrTextLayout stacked(ocr_result({{box(0, 0, 50, 20), "hello", 1}, {box(0, 60, 50, 20), "world", 1}}));
+        stacked.select_between(QPointF(1, 10), QPointF(49, 70));
+        QCOMPARE(stacked.selected_text(), QString("hello\nworld"));
+        stacked.select_all();
+        QCOMPARE(stacked.selected_text(), QString("hello\nworld"));
+        // All text keeps reading order: same-line blocks with spaces.
+        const OcrTextLayout blocks(ocr_result({{box(0, 0, 30, 20), "one", 1}, {box(40, 2, 30, 20), "two", 1}, {box(0, 60, 50, 20), "three", 1}}));
+        QCOMPARE(blocks.all_text("\n"), QString("one two\nthree"));
+        QCOMPARE(blocks.all_text(" | "), QString("one two | three"));
+        QCOMPARE(OcrTextLayout(ocr_result({{box(0, 0, 30, 20), "single", 1}})).all_text(), QString("single"));
+        QCOMPARE(OcrTextLayout().all_text(), QString());
+        // Recognized on a pin turned a quarter: the lines stand side by side in the image and
+        // still join by how they were read.
+        const QTransform quarter(0, 1, -1, 0, 80, 0);
+        OcrTextLayout turned(ocr_result({{box(0, 0, 30, 20), "one", 1}, {box(40, 2, 30, 20), "two", 1}, {box(0, 60, 50, 20), "three", 1}}), quarter);
+        QCOMPARE(turned.all_text("\n"), QString("one two\nthree"));
+        turned.select_all();
+        QCOMPARE(turned.selected_text(), QString("one two\nthree"));
+    }
+
+    // ---- Recognized text on a pin ----
+
+    void aLoadedResultReplacesTheText() {
+        auto *pin = make_pin();
+        QVERIFY(!pin->text_selection());
+        auto *selection = give_text(pin, {{box(10, 10, 80, 20), "loaded", 0.9}, {box(10, 40, 80, 20), "second", 0.9}});
+        QVERIFY(selection && selection->has_text());
+        QVERIFY(pin->ocr_has_result());
+        QCOMPARE(selection->layout().all_text("\n"), QString("loaded\nsecond"));
+        give_text(pin, {});
+        QVERIFY(!selection->has_text());
+    }
+
+    void theRecognizedImageMapsBackThroughRotationAndFlips() {
+        // A white block at the top-left corner and a red one on the right, centred at (2, 2) and (70, 20).
+        QImage image(80, 40, QImage::Format_RGB32);
+        image.fill(Qt::black);
+        QPainter painter(&image);
+        painter.fillRect(0, 0, 4, 4, Qt::white);
+        painter.fillRect(68, 18, 4, 4, Qt::red);
+        painter.end();
+        auto *pin = new PinWindow(image, QPoint(100, 100), config_);
+        pins_.append(pin);
+        // Pixel-centre average of the pixels matching a colour.
+        const auto centre_of = [](const QImage &shown, const std::function<bool(QRgb)> &matches) {
+            QPointF sum;
+            int count = 0;
+            for (int y = 0; y < shown.height(); ++y)
+                for (int x = 0; x < shown.width(); ++x)
+                    if (matches(shown.pixel(x, y))) {
+                        sum += QPointF(x + 0.5, y + 0.5);
+                        ++count;
+                    }
+            return count ? sum / count : QPointF(-1, -1);
+        };
+        const auto white = [](QRgb c) { return qRed(c) > 200 && qGreen(c) > 200 && qBlue(c) > 200; };
+        const auto red = [](QRgb c) { return qRed(c) > 200 && qGreen(c) < 80 && qBlue(c) < 80; };
+        for (int rotation = 0; rotation < 360; rotation += 90) {
+            for (const bool flip : {false, true}) {
+                pin->reset_image_transform();
+                for (int turned = 0; turned < rotation; turned += 90) pin->rotate_image_cw();
+                if (flip) pin->flip_image_horizontal();
+                const auto shown = pin->get_current_image();
+                const auto to_image = pin->from_current_image(shown.size());
+                const auto corner = to_image.map(centre_of(shown, white)), right = to_image.map(centre_of(shown, red));
+                const auto state = QString("rotation %1 flip %2: corner (%3, %4) right (%5, %6)").arg(rotation).arg(flip)
+                    .arg(corner.x()).arg(corner.y()).arg(right.x()).arg(right.y());
+                QVERIFY2(QLineF(corner, QPointF(2, 2)).length() < 1 && QLineF(right, QPointF(70, 20)).length() < 1, qPrintable(state));
+            }
+        }
+    }
+
+    void draggingOverTextSelectsAcrossLines() {
+        auto *pin = make_pin(QSize(200, 120), QPoint(100, 100));
+        auto *selection = give_text(pin, {{box(10, 10, 100, 20), "abcdefghij", 0.9}, {box(10, 50, 100, 20), "klmnopqrst", 0.9}});
+        auto *viewport = pin->view->viewport();
+        QCursor::setPos(0, 0);
+        send_mouse(pin, QEvent::MouseMove, QPoint(30, 20), Qt::NoButton, Qt::NoButton);
+        QCOMPARE(viewport->cursor().shape(), Qt::IBeamCursor);
+        send_mouse(pin, QEvent::MouseButtonPress, QPoint(30, 20), Qt::LeftButton, Qt::LeftButton);
+        QVERIFY(!pin->view->window_dragging);
+        send_mouse(pin, QEvent::MouseMove, QPoint(60, 60), Qt::NoButton, Qt::LeftButton);
+        send_mouse(pin, QEvent::MouseButtonRelease, QPoint(60, 60), Qt::LeftButton, Qt::NoButton);
+        QCOMPARE(selection->selected_text(), QString("cdefghij\nklmno"));
+        QVERIFY(!pin->is_dragging());
+        // Dragging backwards selects the same span.
+        drag(pin, QPoint(60, 60), QPoint(30, 20));
+        QCOMPARE(selection->selected_text(), QString("cdefghij\nklmno"));
+        // Ctrl+A on the view selects everything; other keys pass.
+        QTest::keyClick(pin->view, Qt::Key_A, Qt::ControlModifier);
+        QCOMPARE(selection->selected_text(), QString("abcdefghij\nklmnopqrst"));
+        QKeyEvent other(QEvent::KeyPress, Qt::Key_B, Qt::NoModifier, "b");
+        QVERIFY(!selection->key_press(&other));
+        // Off the text the arrow comes back, and a press there clears the selection and drags the window.
+        send_mouse(pin, QEvent::MouseMove, QPoint(180, 100), Qt::NoButton, Qt::NoButton);
+        QCOMPARE(viewport->cursor().shape(), Qt::ArrowCursor);
+        send_mouse(pin, QEvent::MouseButtonPress, QPoint(180, 100), Qt::LeftButton, Qt::LeftButton);
+        QVERIFY(!selection->has_selection());
+        QVERIFY(pin->view->window_dragging);
+        send_mouse(pin, QEvent::MouseButtonRelease, QPoint(180, 100), Qt::LeftButton, Qt::NoButton);
+        QVERIFY(!pin->view->window_dragging);
+        // Drawing turns selection off and clears it; leaving the tool turns it back on.
+        QTest::keyClick(pin->view, Qt::Key_A, Qt::ControlModifier);
+        pin->ocr_manager()->set_drawing_mode(true);
+        QVERIFY(!selection->is_active() && !selection->has_selection());
+        pin->ocr_manager()->set_drawing_mode(false);
+        QVERIFY(selection->is_active());
+    }
+
+    void doubleClickSelectsALineUnlessBoundToAnAction() {
+        auto *pin = make_pin();
+        auto *selection = give_text(pin, {{box(10, 10, 100, 20), "hello", 0.9}, {box(10, 50, 100, 20), "other", 0.9}});
         QApplication::clipboard()->setText("before");
-        double_click_layer();
-        QCOMPARE(layer->get_selected_text(), QString("hello"));
+        double_click(pin, QPoint(40, 20), Qt::LeftButton);
+        QCOMPARE(selection->selected_text(), QString("hello"));
         QCOMPARE(clipboard_text(), QString("before"));
 
         config_->set_app_setting("mouse_pin_close", "doubleleft");
         auto *bound = make_pin();
-        layer = give_text(bound, {{box(10, 10, 100, 20), "hello", 0.9}});
-        double_click_layer();
+        give_text(bound, {{box(10, 10, 100, 20), "hello", 0.9}});
+        double_click(bound, QPoint(40, 20), Qt::LeftButton);
         QVERIFY(bound->is_closed());
         QCOMPARE(clipboard_text(), QString("before"));
+    }
+
+    // Selection lives in image pixels: dragging over the text where it is shown selects the same
+    // characters however the pin is zoomed, turned or flipped, and a selection survives those.
+    void theSelectionFollowsZoomRotationAndFlips() {
+        auto *pin = make_pin(QSize(200, 120), QPoint(100, 100));
+        auto *selection = give_text(pin, {{box(10, 10, 100, 20), "abcdefghij", 0.9}});
+        const auto drag_shown = [pin](const QPointF &from, const QPointF &to) { drag(pin, pin->view->mapFromScene(from), pin->view->mapFromScene(to)); };
+        // Centres at 15, 25, ... 105: the drag passes those of c, d, e and f.
+        const auto check = [&](const char *label) {
+            drag_shown(QPointF(32, 20), QPointF(68, 20));
+            QVERIFY2(selection->selected_text() == "cdef", qPrintable(QString("%1: %2").arg(label, selection->selected_text())));
+        };
+        check("plain");
+        pin->rotate_image_cw();
+        QCOMPARE(selection->selected_text(), QString("cdef"));
+        check("turned");
+        pin->flip_image_horizontal();
+        check("turned and flipped");
+        wheel(pin, 120, Qt::NoModifier, false, 3);
+        QVERIFY(pin->scale_factor > 1.2);
+        check("zoomed");
+        pin->reset_image_transform();
+        check("reset");
+    }
+
+    // The highlight is drawn where the text is shown, and never goes into the pin's image.
+    void theHighlightIsShownButNotExported() {
+        auto *pin = make_pin(QSize(200, 120), QPoint(100, 100));
+        auto *selection = give_text(pin, {{box(10, 10, 100, 20), "abcdefghij", 0.9}});
+        const auto shown = [pin](const QPointF &image_point) {
+            const auto image = pin->view->viewport()->grab().toImage();
+            return image.pixelColor(pin->view->mapFromScene(image_point) * image.devicePixelRatio());
+        };
+        const auto plain = shown(QPointF(35, 20));
+        drag(pin, pin->view->mapFromScene(QPointF(22, 20)), pin->view->mapFromScene(QPointF(58, 20)));
+        QVERIFY(selection->has_selection());
+        QVERIFY(shown(QPointF(35, 20)) != plain);
+        QCOMPARE(shown(QPointF(95, 20)), plain);
+        const auto image = pin->get_current_image();
+        QCOMPARE(image.pixelColor(QPointF(35, 20).toPoint() * image.devicePixelRatio()), solid(QSize(1, 1)).pixelColor(0, 0));
+        // Turned, it is still over the same characters.
+        pin->rotate_image_cw();
+        QVERIFY(shown(QPointF(35, 20)) != plain);
+        QCOMPARE(shown(QPointF(95, 20)), plain);
     }
 
     // ---- Recognition on demand ----
@@ -1950,11 +2041,11 @@ private slots:
     void textSelectionStartsOffWithoutAutomaticRecognition() {
         auto *pin = make_pin();
         QVERIFY(!pin->text_selection_enabled());
-        QVERIFY(!pin->ocr_text_layer());
+        QVERIFY(!pin->text_selection());
         QTest::qWait(350);
         // The automatic run after pinning follows the setting.
         QVERIFY(!pin->ocr_manager()->is_running());
-        QVERIFY(!pin->ocr_text_layer());
+        QVERIFY(!pin->text_selection());
     }
 
     void copyingAllTextUsesAnExistingResultOrRecognizes() {
@@ -1976,7 +2067,7 @@ private slots:
         QVERIFY(pin->ocr_manager()->is_running());
         QTRY_VERIFY_WITH_TIMEOUT(!pin->ocr_manager()->is_running(), 30000);
         QVERIFY2(clipboard_text().contains("Hello"), qPrintable(QString("clipboard=%1 hint=%2 result=%3 text=%4")
-            .arg(clipboard_text(), hint_text(pin)).arg(pin->ocr_has_result()).arg(pin->ocr_text_layer() ? pin->ocr_text_layer()->get_all_text() : "-")));
+            .arg(clipboard_text(), hint_text(pin)).arg(pin->ocr_has_result()).arg(pin->text_selection() ? pin->text_selection()->layout().all_text() : "-")));
         QVERIFY(pin->ocr_has_result());
         QVERIFY(pin->text_selection_enabled());
         QCOMPARE(hint_text(pin), QString("Text copied"));
@@ -1985,11 +2076,19 @@ private slots:
         pin->copy_all_text();
         QVERIFY(!pin->ocr_manager()->is_running());
         QVERIFY(clipboard_text().contains("2026"));
-        // Turning text selection off hides the layer; on shows it again without recognizing.
+        // The engine's character positions put a drag over "2026" on exactly those characters.
+        const QFontMetricsF metrics(QFont(arial, 28), &image);
+        const double left = (image.width() - metrics.horizontalAdvance("Hello 2026")) / 2;
+        const double start = left + metrics.horizontalAdvance("Hello "), end = left + metrics.horizontalAdvance("Hello 2026");
+        auto *selection = pin->text_selection();
+        QVERIFY(selection);
+        drag(pin, pin->view->mapFromScene(QPointF(start + 2, 45)), pin->view->mapFromScene(QPointF(end - 2, 45)));
+        QCOMPARE(selection->selected_text(), QString("2026"));
+        // Turning text selection off stops it; on starts it again without recognizing.
         pin->toggle_text_selection();
-        QVERIFY(!pin->ocr_text_layer()->isVisible());
+        QVERIFY(!selection->is_active() && !selection->has_selection());
         pin->toggle_text_selection();
-        QVERIFY(pin->ocr_text_layer()->isVisible());
+        QVERIFY(selection->is_active());
         QVERIFY(!pin->ocr_manager()->is_running());
     }
 

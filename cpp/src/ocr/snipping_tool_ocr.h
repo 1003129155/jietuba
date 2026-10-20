@@ -26,11 +26,20 @@ QString snipping_tool_cache_root();
 // directory with missing files; other versions are removed when not in use.
 QString prepare_snipping_tool_files(const std::pair<QString, QString> &package);
 
-// One recognized line: four corners, text, confidence.
+// Where one character sits along its line's reading direction, the line's length being 1.
+struct OcrCharSpan {
+    float start = 0, center = 0, end = 0;
+};
+
+// One recognized line: four corners from top-left clockwise, text, confidence. Reading runs
+// from the top-right corner down when vertical, else from the top-left corner right. chars
+// has one entry per character (code point) of text, or none when the engine gave no positions.
 struct OcrLine {
     QVector<QPointF> box;
     QString text;
     double score = 0;
+    bool vertical = false;
+    QVector<OcrCharSpan> chars;
 };
 
 // Holds one oneocr engine. Not locked: callers ensure one thread at a time.
