@@ -10,8 +10,10 @@
 #include "ui/fluent_lite/inputs.h"
 #include <QDateEdit>
 #include <QDesktopServices>
+#include <QDrag>
 #include <QFile>
 #include <QKeyEvent>
+#include <QMimeData>
 #include <QMouseEvent>
 #include <QScrollBar>
 #include <QSignalSpy>
@@ -19,8 +21,18 @@
 #include <QToolButton>
 #include <algorithm>
 #include <memory>
+#include <cstring>
+#include <windows.h>
+#include <shlobj.h>
 
 using namespace clipboard_test;
+
+// 手势测试只记录拖动请求，避免在离屏 CI 中进入系统拖放循环。
+class DragRecorderWindow : public ClipboardWindow {
+public:
+    QList<qint64> dragged;
+    void start_item_drag(qint64 item_id) override { dragged << item_id; }
+};
 
 // Records the URLs the window asks the desktop to open.
 class UrlCatcher : public QObject {
@@ -167,6 +179,148 @@ private slots:
         env_.config->set_clipboard_close_after_paste(true);
         click(ids[1]);
         QVERIFY(!window->isVisible());
+    }
+
+    void textDragExportsUtf8FileWithoutChangingHistory() {
+        const QString text = QString::fromUtf8("中文 😀\n第二行\r\n") + QString(100000, u'x');
+        const auto id = manager().add_item(text);
+        QVERIFY(id);
+        const auto item = manager().get_item(*id);
+        QVERIFY(item);
+        auto mime = clipboard_drag_mime(manager(), *item);
+        QVERIFY(mime);
+        const auto bytes = mime->data("application/x-qt-windows-mime;value=\"FileGroupDescriptorW\"");
+        QCOMPARE(bytes.size(), qsizetype(sizeof(FILEGROUPDESCRIPTORW)));
+        FILEGROUPDESCRIPTORW descriptor{};
+        std::memcpy(&descriptor, bytes.constData(), sizeof(descriptor));
+        QCOMPARE(descriptor.cItems, 1u);
+        QVERIFY(descriptor.fgd[0].dwFlags & FD_FILESIZE);
+        QCOMPARE(descriptor.fgd[0].nFileSizeLow, static_cast<DWORD>(text.toUtf8().size()));
+        QCOMPARE(descriptor.fgd[0].nFileSizeHigh, 0u);
+        QVERIFY(QString::fromWCharArray(descriptor.fgd[0].cFileName).endsWith(".txt"));
+        QVERIFY(!mime->hasUrls()); // 不创建临时文件，也不暴露数据库目录。
+        QCOMPARE(mime->data("application/x-qt-windows-mime;value=\"FileContents\";index=0"), text.toUtf8());
+        QCOMPARE(manager().get_item(*id)->paste_count, item->paste_count);
+        QCOMPARE(manager().get_item(*id)->content, text);
+        // 每次拖拽保留自己的快照，后续编辑不能覆盖仍在传输的内容。
+        QVERIFY(manager().update_item(*id, "changed"));
+        auto later = clipboard_drag_mime(manager(), *manager().get_item(*id));
+        QCOMPARE(later->data("application/x-qt-windows-mime;value=\"FileContents\";index=0"), QByteArray("changed"));
+        QCOMPARE(mime->data("application/x-qt-windows-mime;value=\"FileContents\";index=0"), text.toUtf8());
+    }
+
+    void imageDragKeepsOriginalPngBytesAndRejectsMissingData() {
+        ClipboardItem item;
+        item.id = 42;
+        item.content_type = "image";
+        QVERIFY(!clipboard_drag_mime(manager(), item));
+        item.image_id = "drag-image";
+        QVERIFY(!clipboard_drag_mime(manager(), item));
+        const auto folder = manager().get_images_dir();
+        QVERIFY(folder);
+        const QString path = QDir(*folder).filePath(*item.image_id + ".png");
+        QImage image(32, 24, QImage::Format_ARGB32);
+        image.fill(QColor(12, 34, 56, 78));
+        QVERIFY(image.save(path));
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const auto original = file.readAll();
+        file.close();
+        auto mime = clipboard_drag_mime(manager(), item);
+        QVERIFY(mime);
+        QCOMPARE(mime->data("application/x-qt-windows-mime;value=\"FileContents\";index=0"), original);
+        const auto bytes = mime->data("application/x-qt-windows-mime;value=\"FileGroupDescriptorW\"");
+        FILEGROUPDESCRIPTORW descriptor{};
+        QCOMPARE(bytes.size(), qsizetype(sizeof(descriptor)));
+        std::memcpy(&descriptor, bytes.constData(), sizeof(descriptor));
+        QCOMPARE(QString::fromWCharArray(descriptor.fgd[0].cFileName), QString("clipboard_image_42.png"));
+        QCOMPARE(descriptor.fgd[0].nFileSizeLow, static_cast<DWORD>(original.size()));
+        // Shell 取走的是快照；删除历史或结束拖动都不会改变原图。
+        mime.reset();
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QCOMPARE(file.readAll(), original);
+        file.close();
+        QVERIFY(QFile::remove(path));
+        QVERIFY(!clipboard_drag_mime(manager(), item));
+        item.content_type = "file";
+        QVERIFY(!clipboard_drag_mime(manager(), item));
+    }
+
+    void rejectedDragReleasesDataWithoutPasting() {
+        // 离屏平台不接受系统拖放；这里只验证返回后的对象和业务状态。
+        if (QGuiApplication::platformName() != "offscreen") QSKIP("Requires the offscreen drag platform");
+        const QString text = QString::fromUtf8("取消拖动 😀\n保留原内容");
+        const auto ids = add_texts({text});
+        auto *window = open_window();
+        window->start_item_drag(-1); // 已不存在的记录不能启动拖动。
+        QVERIFY(window->findChildren<QDrag *>().isEmpty());
+        for (int i = 0; i < 2; ++i) {
+            window->start_item_drag(ids[0]);
+            const auto drags = window->findChildren<QDrag *>();
+            QVERIFY(drags.size() <= 1);
+            QList<QPointer<QMimeData>> payloads;
+            for (auto *drag : drags) {
+                auto *mime = const_cast<QMimeData *>(drag->mimeData());
+                QVERIFY(mime);
+                QCOMPARE(mime->data("application/x-qt-windows-mime;value=\"FileContents\";index=0"), text.toUtf8());
+                payloads.append(mime);
+            }
+            QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+            QVERIFY(window->findChildren<QDrag *>().isEmpty());
+            for (const auto &payload : payloads) QVERIFY(!payload);
+        }
+        QVERIFY(env_.pastes.isEmpty());
+        QCOMPARE(manager().get_item(ids[0])->content, text);
+        QCOMPARE(manager().get_item(ids[0])->paste_count, 0);
+    }
+
+    void draggingCancelsClicksAndUsesThePressedRow() {
+        const auto ids = add_texts({"first", "second"});
+        auto window = std::make_unique<DragRecorderWindow>();
+        auto *recorded = window.get();
+        window_ = std::move(window);
+        window_->show();
+        QApplication::processEvents();
+        auto *viewport = window_->list_widget->viewport();
+        const QPoint start = row_center(ids[0]);
+        const QPoint end = row_center(ids[1]) + QPoint(QApplication::startDragDistance() + 1, 0);
+        auto move = [&](const QPoint &pos, Qt::MouseButtons buttons, Qt::KeyboardModifiers modifiers = Qt::NoModifier) {
+            QMouseEvent event(QEvent::MouseMove, pos, viewport->mapToGlobal(pos), Qt::NoButton, buttons, modifiers);
+            QApplication::sendEvent(viewport, &event);
+        };
+        QTest::mousePress(viewport, Qt::LeftButton, Qt::NoModifier, start);
+        move(start + QPoint(1, 0), Qt::LeftButton);
+        QVERIFY(recorded->dragged.isEmpty());
+        move(end, Qt::LeftButton);
+        QCOMPARE(recorded->dragged, QList<qint64>{ids[0]});
+        move(start, Qt::LeftButton); // 一次按住只启动一次拖动。
+        QTest::mouseRelease(viewport, Qt::LeftButton, Qt::NoModifier, start);
+        QCOMPARE(recorded->dragged.size(), 1);
+        QVERIFY(env_.pastes.isEmpty());
+        QCOMPARE(manager().get_item(ids[0])->paste_count, 0);
+
+        for (const auto modifiers : {Qt::ControlModifier, Qt::ShiftModifier}) {
+            QTest::mousePress(viewport, Qt::LeftButton, modifiers, start);
+            move(end, Qt::LeftButton, modifiers);
+            QTest::mouseRelease(viewport, Qt::LeftButton, modifiers, end);
+        }
+        QTest::mousePress(viewport, Qt::RightButton, Qt::NoModifier, start);
+        move(end, Qt::RightButton);
+        QTest::mouseRelease(viewport, Qt::RightButton, Qt::NoModifier, end);
+        QCOMPARE(recorded->dragged.size(), 1);
+        QVERIFY(env_.pastes.isEmpty());
+        QVERIFY(!window_->selection_manager->has_marks());
+
+        // 上一次单击在等双击时开始拖动，也不能留下延迟粘贴。
+        env_.config->set_app_setting("mouse_clipboard_quick_edit", "doubleleft");
+        click(ids[0]);
+        QTest::mousePress(viewport, Qt::LeftButton, Qt::NoModifier, start);
+        move(end, Qt::LeftButton);
+        QTest::mouseRelease(viewport, Qt::LeftButton, Qt::NoModifier, end);
+        QTest::qWait(QApplication::doubleClickInterval() + 20);
+        QCOMPARE(recorded->dragged.size(), 2);
+        QVERIFY(env_.pastes.isEmpty());
+        env_.config->set_app_setting("mouse_clipboard_quick_edit", "middle");
     }
 
     void ctrlAndShiftClicksSelectAndAClickOnTheSelectionPastesItAll() {

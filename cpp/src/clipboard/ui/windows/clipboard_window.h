@@ -24,6 +24,8 @@
 #include <memory>
 #include <optional>
 
+class QMimeData;
+
 namespace jietuba {
 class LineEdit;
 class ToolSettingsManager;
@@ -57,6 +59,9 @@ private:
 
 // The direct pick character of a key: "1"-"9" or "a"-"z"; empty for other keys.
 QString pick_char(int key);
+
+// 将一条历史记录作为文件交给 Windows 拖放，不写入系统剪贴板。
+std::unique_ptr<QMimeData> clipboard_drag_mime(ClipboardManager &manager, const ClipboardItem &item);
 
 // The clipboard history window: the list, search and filters, the group bar and the gear menu.
 class ClipboardWindow : public QWidget {
@@ -124,6 +129,7 @@ public:
     void create_pin_window(qint64 item_id);
     void quick_edit_item(qint64 item_id);
     void show_item_context_menu(qint64 item_id, const QPoint &pos);
+    virtual void start_item_drag(qint64 item_id);
     void toggle_item_mark(qint64 item_id);
     void mark_items_to(qint64 item_id);
     // The quick edit key: text opens quick edit, other items in a group open the group editor.
@@ -245,6 +251,7 @@ private:
     int auto_fill_max_pages_ = 3;
     int auto_fill_remaining_ = 3;
     bool offscreen_warmup_in_progress_ = false;
+    bool dragging_ = false;
     inline static bool offscreen_warmup_done_ = false;
     FramelessMixin frameless_;
     std::unique_ptr<QSettings> qsettings_;
