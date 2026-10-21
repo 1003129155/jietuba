@@ -3030,6 +3030,26 @@ This action cannot be undone.</source>
         <source>Fixed by this filter group</source>
         <translation>由篩選分組固定</translation>
     </message>
+    <message>
+        <source>Choose a Folder to Save To</source>
+        <translation>選擇儲存到的資料夾</translation>
+    </message>
+    <message>
+        <source>Text Files (*.txt)</source>
+        <translation>文字檔 (*.txt)</translation>
+    </message>
+    <message>
+        <source>Failed to save the file.</source>
+        <translation>儲存檔案失敗。</translation>
+    </message>
+    <message>
+        <source>These files are no longer where they were, so there is nothing to save.</source>
+        <translation>這些檔案已不在原來的位置，沒有可以另存的內容。</translation>
+    </message>
+    <message>
+        <source>{count} files are no longer where they were and were skipped.</source>
+        <translation>有 {count} 個檔案已不在原來的位置，已略過。</translation>
+    </message>
 </context>
 <context>
     <name>ManageDialog</name>

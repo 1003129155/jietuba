@@ -33,6 +33,14 @@ std::optional<std::pair<quint64, QString>> get_process_identity(qint64 pid);
 // Does not check identity; callers must confirm it with get_process_identity first.
 bool terminate_process_by_pid(qint64 pid);
 
+// Files and folders copied into folder by Windows' own copy engine, the one the file manager uses: its progress
+// window can cancel, and a name already taken gets a new one. Sources that no longer exist are left out. Runs on a
+// worker thread, the existence checks too, since a path on a disconnected drive can take seconds to answer. done runs
+// on the main thread: whether everything that existed was copied, and the sources that were missing.
+void copy_into_folder(const QStringList &sources, const QString &folder, std::function<void(bool, const QStringList &)> done = {});
+// Replaces the copy engine, called on the worker thread; empty restores it.
+void set_copy_into_folder_for_test(std::function<bool(const QStringList &, const QString &)> copy);
+
 // Executables Windows' game bar has recognized as games, from HKCU\System\GameConfigStore. The key is
 // undocumented: missing or changed, the list is empty. children_key is the HKCU path of the entries,
 // for tests; empty is Windows' own.

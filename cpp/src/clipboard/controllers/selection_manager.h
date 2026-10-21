@@ -13,7 +13,7 @@ namespace jietuba::clipboard {
 //   Moved by moving the mouse onto a row, pressing a row, the arrow keys, and marking a row.
 //   Left alone by leaving the list, wheel or keyboard scrolling under a still mouse, and dragging.
 // - Marks: the rows picked to be used together (Ctrl/Shift+click, Shift+arrows, Space, the item menu). While there are any,
-//   the list is in multiple selection: every row shows a circle, a left click marks and a right click unmarks.
+//   the list is in multiple selection: every row shows a circle, and a click with either button marks or unmarks it.
 // - Anchor: where a Shift range starts. Set by a plain left press, a keyboard move and marking a row; never by hovering.
 //
 // Opening the window starts with none of them. Qt's own current item and selection are not used.

@@ -8,6 +8,7 @@
 #include "clipboard/ui/widgets/selection_bar.h"
 #include "clipboard/ui/widgets/quick_edit_popup.h"
 #include "core/i18n.h"
+#include "core/platform_utils.h"
 #include "core/ui_scale.h"
 #include "ui/fluent_lite/inputs.h"
 #include <QDateEdit>
@@ -17,12 +18,14 @@
 #include <QKeyEvent>
 #include <QMimeData>
 #include <QMouseEvent>
+#include <QScopeGuard>
 #include <QScrollBar>
 #include <QTemporaryDir>
 #include <QSignalSpy>
 #include <QTest>
 #include <QToolButton>
 #include <algorithm>
+#include <atomic>
 #include <memory>
 
 using namespace clipboard_test;
@@ -360,17 +363,21 @@ private slots:
         click(ids[3], Qt::LeftButton, Qt::ControlModifier);
         QVERIFY(bar->isVisible());
         QVERIFY(bar->count_label->text().contains("1"));
-        // Now a plain left click adds a row, and again leaves it marked; nothing is pasted.
-        click(ids[1]);
+        // Now a plain click marks a row and a second one unmarks it, like a check box; nothing is pasted.
         click(ids[1]);
         QCOMPARE(selection->marked_ids(true), (QList<qint64>{ids[3], ids[1]}));
         QVERIFY(bar->count_label->text().contains("2"));
-        // The right button removes a row instead of opening a menu.
+        click(ids[1]);
+        QCOMPARE(selection->marked_ids(), QList<qint64>{ids[3]});
+        // The right button does the same, and opens no menu.
         MenuPicker picker;
+        click(ids[2], Qt::RightButton);
+        QCOMPARE(selection->marked_ids(true), (QList<qint64>{ids[3], ids[2]}));
         click(ids[3], Qt::RightButton);
         QVERIFY(!picker.shown);
-        QCOMPARE(selection->marked_ids(), QList<qint64>{ids[1]});
+        QCOMPARE(selection->marked_ids(), QList<qint64>{ids[2]});
         // Shift+click spans from the last row clicked; Ctrl+click still toggles.
+        click(ids[1]);
         click(ids[0], Qt::LeftButton, Qt::ShiftModifier);
         QCOMPARE(selection->marked_ids(), (QList<qint64>{ids[1], ids[0]}));
         click(ids[0], Qt::LeftButton, Qt::ControlModifier);
@@ -385,6 +392,91 @@ private slots:
         // Outside of it a click pastes again.
         click(ids[2]);
         QTRY_COMPARE(env_.pastes.size(), 1);
+    }
+
+    void theSelectionBarSavesTheMarkedRowsIntoAFolder() {
+        const QDir dir(env_.dir.path());
+        QVERIFY(dir.mkpath("source") && dir.mkpath("chosen"));
+        const QString kept = dir.filePath("source/kept.txt");
+        {
+            QFile file(kept);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            file.write("kept");
+        }
+        const auto texts = add_texts({"saved text"});
+        // A file row records only paths; this one's second file has since gone.
+        const auto file_row = manager().add_item(file_payload({kept, dir.filePath("source/gone.txt")}), "file");
+        QVERIFY(file_row);
+        set_copy_into_folder_for_test([](const QStringList &sources, const QString &folder) {
+            bool ok = true;
+            for (const auto &source : sources) ok = QFile::copy(source, QDir(folder).filePath(QFileInfo(source).fileName())) && ok;
+            return ok;
+        });
+        const auto restore = qScopeGuard([] { set_copy_into_folder_for_test({}); });
+        auto *window = open_window();
+        auto *bar = window->selection_bar;
+        window->toggle_item_mark(texts[0]);
+        window->toggle_item_mark(*file_row);
+        // A cancelled folder picker keeps the selection for another try.
+        {
+            FileDialogAnswerer cancel({});
+            bar->save_button->click();
+            QVERIFY(cancel.answered);
+        }
+        QCOMPARE(window->selection_manager->marked_ids().size(), 2);
+        ModalAnswerer notice(true);
+        const QString chosen = dir.filePath("chosen");
+        {
+            FileDialogAnswerer pick(chosen);
+            bar->save_button->click();
+            QVERIFY(pick.answered);
+        }
+        QVERIFY(!window->selection_manager->has_marks());
+        QCOMPARE(QDir::cleanPath(QDir::fromNativeSeparators(env_.config->get_app_setting("save_dialog_last_dir").toString())), QDir::cleanPath(chosen));
+        // The text becomes a .txt file, the file still there is copied, and the one gone is reported once the copy is done.
+        QTRY_COMPARE(notice.answered(), 1);
+        QVERIFY(notice.texts.front().contains("1 files are no longer where they were"));
+        QFile text(QDir(chosen).filePath(ItemDragMimeData::file_name(*manager().get_item(texts[0]))));
+        QVERIFY(text.open(QIODevice::ReadOnly));
+        QCOMPARE(text.readAll(), QByteArray("saved text"));
+        QVERIFY(QFile::exists(QDir(chosen).filePath("kept.txt")));
+        QCOMPARE(QDir(chosen).entryList(QDir::Files).size(), 2);
+    }
+
+    void theItemMenuSavesTextAndFileRows() {
+        const QDir dir(env_.dir.path());
+        const auto texts = add_texts({"line one\nline two"});
+        const auto file_row = manager().add_item(file_payload({dir.filePath("moved.txt")}), "file");
+        QVERIFY(file_row);
+        std::atomic<int> copies = 0;
+        set_copy_into_folder_for_test([&copies](const QStringList &, const QString &) { return ++copies > 0; });
+        const auto restore = qScopeGuard([] { set_copy_into_folder_for_test({}); });
+        auto *window = open_window();
+        // Text goes to a file named in the save dialog; a name without a suffix gets .txt.
+        {
+            MenuPicker picker("Save as");
+            FileDialogAnswerer pick(dir.filePath("note"));
+            click(texts[0], Qt::RightButton);
+            QTRY_VERIFY(pick.answered);
+            QVERIFY(picker.picked);
+        }
+        QFile saved(dir.filePath("note.txt"));
+        QTRY_VERIFY(saved.exists());
+        QVERIFY(saved.open(QIODevice::ReadOnly));
+        QCOMPARE(QString::fromUtf8(saved.readAll()), QString("line one\nline two"));
+        // A file row whose files have all gone has nothing to save, and says so without copying.
+        ModalAnswerer notice(true);
+        {
+            MenuPicker picker("Save as");
+            FileDialogAnswerer pick(dir.path());
+            click(*file_row, Qt::RightButton);
+            QTRY_VERIFY(pick.answered);
+            QVERIFY(picker.picked);
+        }
+        QTRY_COMPARE(notice.answered(), 1);
+        QVERIFY(notice.texts.front().contains("nothing to save"));
+        QCOMPARE(copies.load(), 0);
+        QVERIFY(window->isVisible());
     }
 
     void theSelectionBarPastesOrLeaves() {

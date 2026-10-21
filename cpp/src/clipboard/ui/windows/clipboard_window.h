@@ -126,6 +126,10 @@ public:
     void show_item_context_menu(qint64 item_id, const QPoint &pos);
     // Drags the row, or every marked row when it is marked, out of the window; copy only.
     virtual void start_item_drag(qint64 item_id);
+    // Every marked row into a folder the user picks: text as .txt, images as their PNG, files and folders copied.
+    void save_marked_to_folder();
+    // One row: an image or text to a file named in the save dialog, a file row's files into a folder.
+    void save_item_as(qint64 item_id);
     void toggle_item_mark(qint64 item_id);
     void mark_items_to(qint64 item_id);
     // The quick edit key: text opens quick edit, other items in a group open the group editor.
@@ -212,6 +216,9 @@ private:
     void open_launch_item(qint64 item_id);
     void open_link(qint64 item_id);
     void paste_plain_text(qint64 item_id);
+    // False when the folder picker was cancelled.
+    bool save_items_to_folder(const QList<ClipboardItem> &items);
+    QString last_save_folder() const;
     void paste_marked(const QList<qint64> &item_ids, bool plain_text = false, const QString &layout = "vertical", bool explicit_paste = false);
     void show_context_menu(const QPoint &pos);
     void show_marked_context_menu(const QList<qint64> &item_ids, const QPoint &pos);

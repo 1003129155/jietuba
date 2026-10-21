@@ -26,6 +26,13 @@ SelectionBar::SelectionBar(QWidget *parent) : QWidget(parent) {
     connect(paste_button, &QPushButton::clicked, this, &SelectionBar::paste_requested);
     layout->addWidget(paste_button);
 
+    save_button = new QPushButton;
+    save_button->setObjectName("selection_save");
+    save_button->setCursor(Qt::PointingHandCursor);
+    save_button->setFocusPolicy(Qt::NoFocus);
+    connect(save_button, &QPushButton::clicked, this, &SelectionBar::save_requested);
+    layout->addWidget(save_button);
+
     more_button = new QToolButton;
     more_button->setText(QString::fromUtf8("···"));
     connect(more_button, &QToolButton::clicked, this, &SelectionBar::more_requested);
@@ -51,6 +58,7 @@ void SelectionBar::retranslate() {
     set_count(count_);
     count_label->setToolTip(tr_text("Enter pastes them together, Esc clears the selection"));
     paste_button->setText(tr_text("Paste"));
+    save_button->setText(tr_text("Save as"));
     more_button->setToolTip(tr_text("More actions"));
     exit_button->setToolTip(tr_text("Exit multi-select"));
 }
@@ -60,13 +68,15 @@ void SelectionBar::apply_style(const Theme &theme) {
     setFixedHeight(scaled(36));
     layout()->setContentsMargins(scaled(12), 0, scaled(6), 0);
     static_cast<QHBoxLayout *>(layout())->setSpacing(scaled(4));
-    paste_button->setFixedHeight(scaled(24));
+    for (QPushButton *button : {paste_button, save_button}) button->setFixedHeight(scaled(24));
     for (QToolButton *button : {more_button, exit_button}) button->setFixedSize(scaled(28), scaled(28));
     setStyleSheet(QString(R"(
         #selection_bar { background: %1; }
         QLabel { color: white; font-size: %2; font-weight: bold; background: transparent; }
         #selection_paste { background: white; color: %1; border: none; border-radius: %3; padding: 0 %4; font-size: %5; font-weight: bold; }
         #selection_paste:hover { background: rgba(255, 255, 255, 0.86); }
+        #selection_save { background: transparent; color: white; border: 1px solid rgba(255, 255, 255, 0.7); border-radius: %3; padding: 0 %4; font-size: %5; font-weight: bold; }
+        #selection_save:hover { background: rgba(255, 255, 255, 0.18); }
         QToolButton { background: transparent; color: white; border: none; border-radius: %6; font-size: %7; font-weight: bold; }
         QToolButton:hover { background: rgba(255, 255, 255, 0.18); }
     )")

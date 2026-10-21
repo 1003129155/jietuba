@@ -22,6 +22,7 @@ namespace {
 QTimer *trim_timer = nullptr;
 std::function<bool()> trim_busy;
 std::function<void()> trim_override;
+std::function<bool(const QStringList &, const QString &)> copy_override;
 
 void trim_when_idle() {
     if (trim_busy && trim_busy()) {
@@ -55,6 +56,56 @@ void trim_working_set() {
 void set_trim_busy_check(std::function<bool()> predicate) { trim_busy = std::move(predicate); }
 
 void set_trim_for_test(std::function<void()> trim) { trim_override = std::move(trim); }
+
+namespace {
+#ifdef Q_OS_WIN
+bool shell_copy(const QStringList &sources, const QString &folder) {
+    const HRESULT init = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+    IFileOperation *operation = nullptr;
+    IShellItem *destination = nullptr;
+    HRESULT hr = CoCreateInstance(CLSID_FileOperation, nullptr, CLSCTX_ALL, IID_PPV_ARGS(&operation));
+    if (SUCCEEDED(hr)) hr = operation->SetOperationFlags(FOF_ALLOWUNDO | FOF_RENAMEONCOLLISION | FOF_NOCONFIRMMKDIR);
+    if (SUCCEEDED(hr))
+        hr = SHCreateItemFromParsingName(reinterpret_cast<LPCWSTR>(QDir::toNativeSeparators(folder).utf16()), nullptr, IID_PPV_ARGS(&destination));
+    for (const QString &source : sources) {
+        if (FAILED(hr)) break;
+        IShellItem *item = nullptr;
+        hr = SHCreateItemFromParsingName(reinterpret_cast<LPCWSTR>(QDir::toNativeSeparators(source).utf16()), nullptr, IID_PPV_ARGS(&item));
+        if (SUCCEEDED(hr)) hr = operation->CopyItem(item, destination, nullptr, nullptr);
+        if (item) item->Release();
+    }
+    BOOL aborted = FALSE;
+    if (SUCCEEDED(hr)) hr = operation->PerformOperations();
+    if (SUCCEEDED(hr)) operation->GetAnyOperationsAborted(&aborted);
+    if (destination) destination->Release();
+    if (operation) operation->Release();
+    if (SUCCEEDED(init)) CoUninitialize();
+    if (FAILED(hr)) log_exception("OSError", QString("IFileOperation failed: 0x%1").arg(static_cast<quint32>(hr), 8, 16, QChar('0')), T("复制到文件夹"));
+    return SUCCEEDED(hr) && !aborted;
+}
+#endif
+}
+
+void copy_into_folder(const QStringList &sources, const QString &folder, std::function<void(bool, const QStringList &)> done) {
+    std::function<bool(const QStringList &, const QString &)> copy = copy_override;
+#ifdef Q_OS_WIN
+    if (!copy) copy = &shell_copy;
+#endif
+    std::thread([sources, folder, copy = std::move(copy), done = std::move(done)]() mutable {
+#ifdef Q_OS_WIN
+        SetThreadDescription(GetCurrentThread(), L"CopyIntoFolder");
+#endif
+        QStringList present, missing;
+        for (const QString &source : sources) (QFileInfo::exists(source) ? present : missing).append(source);
+        bool ok = present.isEmpty();
+        if (!present.isEmpty()) run_thread_guarded("CopyIntoFolder", [&] { ok = copy && copy(present, folder); });
+        // done goes to the main thread whole, so what it holds is released there.
+        if (done && QCoreApplication::instance())
+            QMetaObject::invokeMethod(QCoreApplication::instance(), [done = std::move(done), ok, missing] { done(ok, missing); }, Qt::QueuedConnection);
+    }).detach();
+}
+
+void set_copy_into_folder_for_test(std::function<bool(const QStringList &, const QString &)> copy) { copy_override = std::move(copy); }
 
 void request_trim_working_set(int delay_ms) {
     if (!trim_timer) {

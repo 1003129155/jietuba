@@ -128,6 +128,10 @@ const QList<ItemMenuSpec> &item_menu_specs() {
         ItemMenuSpec save{"save_image_as", "Save as"};
         save.predicate = [](const ItemMenuState &state) { return state.is_image_item(); };
         list.append(save);
+        // Text to a .txt file, a file row's files copied into a folder; images keep their own entry above.
+        ItemMenuSpec save_other{"save_item_as", "Save as"};
+        save_other.predicate = [](const ItemMenuState &state) { return is_text_item(state) || state.is_file_item(); };
+        list.append(save_other);
         ItemMenuSpec toggle{"toggle_pin"};
         toggle.predicate = [](const ItemMenuState &state) { return !state.is_image_item(); };
         toggle.label_builder = [](const ItemMenuState &state) { return QString(state.clipboard_item.is_pinned ? "Unpin" : "Pin"); };

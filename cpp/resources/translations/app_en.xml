@@ -2929,6 +2929,26 @@ This action cannot be undone.</translation>
         <source>Fixed by this filter group</source>
         <translation>Fixed by this filter group</translation>
     </message>
+    <message>
+        <source>Choose a Folder to Save To</source>
+        <translation>Choose a Folder to Save To</translation>
+    </message>
+    <message>
+        <source>Text Files (*.txt)</source>
+        <translation>Text Files (*.txt)</translation>
+    </message>
+    <message>
+        <source>Failed to save the file.</source>
+        <translation>Failed to save the file.</translation>
+    </message>
+    <message>
+        <source>These files are no longer where they were, so there is nothing to save.</source>
+        <translation>These files are no longer where they were, so there is nothing to save.</translation>
+    </message>
+    <message>
+        <source>{count} files are no longer where they were and were skipped.</source>
+        <translation>{count} files are no longer where they were and were skipped.</translation>
+    </message>
 </context>
 
 <!-- ========== Clipboard Management Dialog ========== -->

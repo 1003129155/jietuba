@@ -3000,6 +3000,26 @@ This action cannot be undone.</source>
         <source>Fixed by this filter group</source>
         <translation>由筛选分组固定</translation>
     </message>
+    <message>
+        <source>Choose a Folder to Save To</source>
+        <translation>选择保存到的文件夹</translation>
+    </message>
+    <message>
+        <source>Text Files (*.txt)</source>
+        <translation>文本文件 (*.txt)</translation>
+    </message>
+    <message>
+        <source>Failed to save the file.</source>
+        <translation>保存文件失败。</translation>
+    </message>
+    <message>
+        <source>These files are no longer where they were, so there is nothing to save.</source>
+        <translation>这些文件已不在原来的位置，没有可以另存的内容。</translation>
+    </message>
+    <message>
+        <source>{count} files are no longer where they were and were skipped.</source>
+        <translation>有 {count} 个文件已不在原来的位置，已跳过。</translation>
+    </message>
 </context>
 
 <!-- ========== Clipboard Management Dialog ========== -->

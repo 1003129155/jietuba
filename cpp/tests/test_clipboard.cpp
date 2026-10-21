@@ -362,7 +362,8 @@ private slots:
             if (!value.toObject()["group"].isNull()) QVERIFY(manager.move_to_group(*id, group_ids[value.toObject()["group"].toInt()]));
             item_ids << *id;
         }
-        // The item menu's Multi-select entry is C++ only (notes/PARITY.md); the reference menus never have it.
+        // The item menu's Multi-select entry and Save as for text and file rows are C++ only (notes/PARITY.md); the
+        // reference menus never have them.
         int multi_select_entries = 0;
         std::function<QJsonArray(const QList<MenuAction> &)> menu_json = [&](const QList<MenuAction> &actions) {
             QJsonArray result;
@@ -372,6 +373,7 @@ private slots:
                     ++multi_select_entries;
                     continue;
                 }
+                if (key == "save_item_as") continue;
                 if (key.startsWith("move_to_group_")) key = QString("move_to_group_{G%1}").arg(group_ids.indexOf(key.mid(14).toLongLong()));
                 result.append(QJsonObject{{"label", action.label}, {"key", key}, {"enabled", action.enabled}, {"checkable", action.checkable}, {"checked", action.checked},
                                           {"separator", action.is_separator}, {"translate", action.translate_label}, {"children", menu_json(action.children)}});

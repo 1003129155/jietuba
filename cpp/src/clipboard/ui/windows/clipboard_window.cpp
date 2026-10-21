@@ -12,6 +12,7 @@
 #include "clipboard/ui/windows/pin_window.h"
 #include "core/constants.h"
 #include "core/logger.h"
+#include "core/platform_utils.h"
 #include "core/py_text.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
@@ -35,8 +36,10 @@
 #include <QPainter>
 #include <QMouseEvent>
 #include <QProcess>
+#include <QSaveFile>
 #include <QScreen>
 #include <QScrollBar>
+#include <QStandardPaths>
 #include <QStyle>
 #include <QUrl>
 
@@ -540,6 +543,7 @@ void ClipboardWindow::setup_ui() {
     selection_bar = new SelectionBar;
     selection_bar->apply_style(current_theme);
     connect(selection_bar, &SelectionBar::paste_requested, this, [this] { paste_selected(false); });
+    connect(selection_bar, &SelectionBar::save_requested, this, &ClipboardWindow::save_marked_to_folder);
     connect(selection_bar, &SelectionBar::more_requested, this, [this] {
         const QPoint at = list_widget->mapFromGlobal(selection_bar->more_button->mapToGlobal(QPoint(0, 0)));
         show_marked_context_menu(selection_manager->marked_ids(true), at);
@@ -1109,6 +1113,7 @@ QMap<QString, std::function<void()>> ClipboardWindow::item_context_menu_handlers
         {"start_marking", [this, item_id] { selection_manager->mark(item_id); }},
         {"pin_image", [this, item_id] { create_pin_window(item_id); }},
         {"save_image_as", [this, item_id] { save_image_item_as(this, manager, controller->get_item(item_id)); }},
+        {"save_item_as", [this, item_id] { save_item_as(item_id); }},
         {"toggle_pin", [this, item_id] { controller->toggle_pin(item_id); }},
         {"open_file_location", [this, item_id] { open_file_location(item_id); }},
         {"open_link", [this, item_id] { open_link(item_id); }},
@@ -1247,6 +1252,69 @@ void ClipboardWindow::start_item_drag(qint64 item_id) {
     dragging_ = false;
     drag->deleteLater();
     check_and_hide();
+}
+
+QString ClipboardWindow::last_save_folder() const {
+    // Shared with the save image window: the last folder anything was saved to.
+    const QString folder = config->get_app_setting("save_dialog_last_dir").toString();
+    return !folder.isEmpty() && QFileInfo(folder).isDir() ? folder : QStandardPaths::writableLocation(QStandardPaths::DesktopLocation);
+}
+
+bool ClipboardWindow::save_items_to_folder(const QList<ClipboardItem> &items) {
+    if (items.isEmpty()) return false;
+    PreviewPopup::instance()->hide_preview();
+    const QString start = last_save_folder();
+    const QString folder = get_existing_directory(this, tr_text("Choose a Folder to Save To"), start);
+    if (folder.isEmpty()) return false;
+    config->set_app_setting("save_dialog_last_dir", QDir::toNativeSeparators(folder));
+    // Text and images become files the way a drag makes them; they stay until the copy that reads them is done.
+    auto staged = std::make_shared<ItemDragMimeData>(items, manager.get_images_dir().value_or(QString()), ItemDragMimeData::default_temp_root());
+    const QStringList sources = staged->file_paths();
+    log_info(T("另存 {count} 项到文件夹: {folder}", {{"count", sources.size()}, {"folder", QDir::toNativeSeparators(folder)}}), "Clipboard");
+    // A file row records only where the files were; they may have been moved or deleted since.
+    copy_into_folder(sources, folder, [staged, window = QPointer<ClipboardWindow>(this), total = sources.size()](bool, const QStringList &missing) {
+        if (missing.isEmpty()) return;
+        log_warning(T("另存时跳过已不存在的文件: {paths}", {{"paths", missing.join("; ")}}), "Clipboard");
+        QWidget *parent = window && window->isVisible() ? window.data() : nullptr;
+        if (missing.size() == total) show_info_dialog(parent, tr_text("Save as"), tr_text("These files are no longer where they were, so there is nothing to save."));
+        else show_info_dialog(parent, tr_text("Save as"), tr_text("{count} files are no longer where they were and were skipped.").replace("{count}", QString::number(missing.size())));
+    });
+    return true;
+}
+
+void ClipboardWindow::save_marked_to_folder() {
+    const QString images_dir = manager.get_images_dir().value_or(QString());
+    QList<ClipboardItem> items;
+    for (const qint64 id : selection_manager->marked_ids(true))
+        if (const auto item = get_item_data(id); item && ItemDragMimeData::can_drag(*item, images_dir)) items.append(*item);
+    // A cancelled picker keeps the selection for another try.
+    if (save_items_to_folder(items)) selection_manager->clear_marks();
+}
+
+void ClipboardWindow::save_item_as(qint64 item_id) {
+    const auto item = get_item_data(item_id);
+    if (!item) return;
+    if (item->content_type == "image") {
+        save_image_item_as(this, manager, item);
+        return;
+    }
+    if (item->content_type == "file") {
+        save_items_to_folder({*item});
+        return;
+    }
+    if (item->content_type != "text") return;
+    PreviewPopup::instance()->hide_preview();
+    const QString suggested = QDir(last_save_folder()).filePath(ItemDragMimeData::file_name(*item));
+    QString path = get_save_file_name(this, tr_text("Save as"), suggested, tr_text("Text Files (*.txt)")).first;
+    if (path.isEmpty()) return;
+    if (QFileInfo(path).suffix().isEmpty()) path += ".txt";
+    config->set_app_setting("save_dialog_last_dir", QDir::toNativeSeparators(QFileInfo(path).absolutePath()));
+    QSaveFile file(path);
+    const QByteArray bytes = item->content.toUtf8();
+    if (!file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size() || !file.commit()) {
+        log_error(T("保存文本失败: {path}: {e}", {{"path", QDir::toNativeSeparators(path)}, {"e", file.errorString()}}), "Clipboard");
+        show_warning_dialog(this, tr_text("Save Failed"), tr_text("Failed to save the file."));
+    }
 }
 
 QPixmap ClipboardWindow::drag_pixmap(qint64 item_id, int count, QPoint *hot_spot) const {
@@ -1598,12 +1666,11 @@ void ClipboardMouseController::run(const QString &action, qint64 item_id, const 
 }
 
 void ClipboardMouseController::select_by_click(Qt::MouseButton button, Qt::KeyboardModifiers modifiers, qint64 item_id) {
+    // Either button picks or drops the row, as with check boxes; the actions for the marks are under the bar's ··· button.
+    if (button != Qt::LeftButton && button != Qt::RightButton) return;
     SelectionManager *selection = window_->selection_manager;
-    if (button == Qt::RightButton) selection->unmark(item_id);
-    else if (button != Qt::LeftButton) return;
-    else if (modifiers == Qt::ShiftModifier) selection->mark_range_to(item_id);
-    else if (modifiers == Qt::ControlModifier) selection->toggle_mark(item_id);
-    else selection->mark(item_id);
+    if (modifiers == Qt::ShiftModifier) selection->mark_range_to(item_id);
+    else selection->toggle_mark(item_id);
 }
 
 void ClipboardMouseController::finish_click() {

@@ -3007,6 +3007,26 @@ This action cannot be undone.</source>
         <source>Fixed by this filter group</source>
         <translation>필터 그룹에서 고정됨</translation>
     </message>
+    <message>
+        <source>Choose a Folder to Save To</source>
+        <translation>저장할 폴더 선택</translation>
+    </message>
+    <message>
+        <source>Text Files (*.txt)</source>
+        <translation>텍스트 파일 (*.txt)</translation>
+    </message>
+    <message>
+        <source>Failed to save the file.</source>
+        <translation>파일 저장에 실패했습니다.</translation>
+    </message>
+    <message>
+        <source>These files are no longer where they were, so there is nothing to save.</source>
+        <translation>이 파일들은 원래 위치에 없어 저장할 내용이 없습니다.</translation>
+    </message>
+    <message>
+        <source>{count} files are no longer where they were and were skipped.</source>
+        <translation>{count}개 파일이 원래 위치에 없어 건너뛰었습니다.</translation>
+    </message>
 </context>
 
 <!-- ========== Clipboard Management Dialog ========== -->

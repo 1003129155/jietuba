@@ -13,6 +13,7 @@
 #include <QScopeGuard>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QThread>
 #include <QWidget>
 #include <atomic>
 #include <chrono>
@@ -130,6 +131,43 @@ private slots:
 
     // Windows' recognized games are full exe paths; the game check answers on any desktop, quickly
     // enough for the UI thread.
+    void copyIntoFolderRenamesTakenNamesAndSkipsMissingSources() {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QDir root(dir.path());
+        QVERIFY(root.mkpath("source") && root.mkpath("folder"));
+        const auto write = [](const QString &path, const QByteArray &bytes) {
+            QFile file(path);
+            return file.open(QIODevice::WriteOnly) && file.write(bytes) == bytes.size();
+        };
+        const QString source = root.filePath("source/a.txt");
+        QVERIFY(write(source, "new"));
+        QVERIFY(write(root.filePath("folder/a.txt"), "old"));
+        QVERIFY(root.mkpath("source/sub"));
+        QVERIFY(write(root.filePath("source/sub/inner.txt"), "inner"));
+        const QString missing = root.filePath("source/gone.txt");
+        bool done = false, ok = false;
+        QStringList reported;
+        Qt::HANDLE thread = nullptr;
+        copy_into_folder({source, root.filePath("source/sub"), missing}, root.filePath("folder"), [&](bool copied, const QStringList &gone) {
+            done = true;
+            ok = copied;
+            reported = gone;
+            thread = QThread::currentThreadId();
+        });
+        QTRY_VERIFY_WITH_TIMEOUT(done, 30000);
+        QVERIFY(ok);
+        QCOMPARE(reported, QStringList{missing});
+        QCOMPARE(thread, QThread::currentThreadId());
+        // The file already there is kept; the copy takes a new name beside it. Folders are copied whole.
+        QFile old(root.filePath("folder/a.txt"));
+        QVERIFY(old.open(QIODevice::ReadOnly));
+        QCOMPARE(old.readAll(), QByteArray("old"));
+        const auto files = QDir(root.filePath("folder")).entryList(QDir::Files);
+        QCOMPARE(files.size(), 2);
+        QVERIFY(QFile::exists(root.filePath("folder/sub/inner.txt")));
+    }
+
     void recognizedGamesAreExecutables() {
         QElapsedTimer clock;
         clock.start();

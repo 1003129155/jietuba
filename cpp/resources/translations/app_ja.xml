@@ -3028,6 +3028,26 @@ This action cannot be undone.</source>
         <source>Fixed by this filter group</source>
         <translation>フィルターグループで固定</translation>
     </message>
+    <message>
+        <source>Choose a Folder to Save To</source>
+        <translation>保存先のフォルダーを選択</translation>
+    </message>
+    <message>
+        <source>Text Files (*.txt)</source>
+        <translation>テキスト ファイル (*.txt)</translation>
+    </message>
+    <message>
+        <source>Failed to save the file.</source>
+        <translation>ファイルの保存に失敗しました。</translation>
+    </message>
+    <message>
+        <source>These files are no longer where they were, so there is nothing to save.</source>
+        <translation>これらのファイルは元の場所にないため、保存できるものがありません。</translation>
+    </message>
+    <message>
+        <source>{count} files are no longer where they were and were skipped.</source>
+        <translation>{count} 個のファイルが元の場所になかったため、スキップしました。</translation>
+    </message>
 </context>
 
 <!-- ========== Clipboard Management Dialog ========== -->
