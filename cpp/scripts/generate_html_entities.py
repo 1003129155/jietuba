@@ -1,6 +1,5 @@
-"""Generates src/core/html_entities.inc from the reference interpreter's html module.
+"""Generates src/core/html_entities.inc from Python's html module.
 
-Run with the reference interpreter so the tables match the Python build:
     python scripts/generate_html_entities.py
 """
 import html

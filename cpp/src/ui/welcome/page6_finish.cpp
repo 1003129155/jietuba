@@ -225,7 +225,7 @@ void FinishPage::create_desktop_shortcut() {
     if (link) link->Release();
     if (SUCCEEDED(init)) CoUninitialize();
     if (SUCCEEDED(hr)) log_info(T("已创建桌面快捷方式: {desktop_lnk}", {{"desktop_lnk", QDir::toNativeSeparators(desktop_lnk)}}), "page6");
-    else log_exception("OSError", QString("IShellLink failed: 0x%1").arg(static_cast<quint32>(hr), 8, 16, QChar('0')), T("创建桌面快捷方式"));
+    else log_exception(QString("IShellLink failed: 0x%1").arg(static_cast<quint32>(hr), 8, 16, QChar('0')), T("创建桌面快捷方式"));
 }
 
 void FinishPage::retranslate() {

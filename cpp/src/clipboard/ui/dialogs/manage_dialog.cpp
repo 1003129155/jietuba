@@ -20,7 +20,6 @@
 #include "core/clipboard_utils.h"
 #include "core/logger.h"
 #include "core/platform_utils.h"
-#include "core/py_text.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
 #include "ui/dialogs.h"
@@ -34,6 +33,7 @@
 #include <QClipboard>
 #include <QCloseEvent>
 #include <QCursor>
+#include <QDir>
 #include <QHBoxLayout>
 #include <QListWidgetItem>
 #include <QMenu>
@@ -71,7 +71,7 @@ QAction *add_menu_action(QMenu *menu, const QString &text, const std::function<v
 }
 
 std::optional<QString> stripped_or_none(const QString &text) {
-    const QString stripped = py_strip(text);
+    const QString stripped = text.trimmed();
     return stripped.isEmpty() ? std::nullopt : std::optional<QString>(stripped);
 }
 }
@@ -739,7 +739,7 @@ void ManageDialog::show_list_empty(const QString &text) {
 }
 
 void ManageDialog::apply_search_filter(const QString &text) {
-    const QString keyword = py_casefold(py_strip(text));
+    const QString keyword = text.trimmed();
     if (!selected_group_id) return;
     if (item_list->count() == 0) {
         show_list_empty(tr_text("No content in this group yet"));
@@ -748,8 +748,8 @@ void ManageDialog::apply_search_filter(const QString &text) {
     int visible = 0;
     for (int row = 0; row < item_list->count(); ++row) {
         QListWidgetItem *row_item = item_list->item(row);
-        const QString haystack = py_casefold(row_item->text() + " " + row_item->data(SEARCH_ROLE).toString());
-        const bool hidden = !keyword.isEmpty() && !haystack.contains(keyword);
+        const QString haystack = row_item->text() + " " + row_item->data(SEARCH_ROLE).toString();
+        const bool hidden = !keyword.isEmpty() && !haystack.contains(keyword, Qt::CaseInsensitive);
         item_list->setRowHidden(row, hidden);
         visible += hidden ? 0 : 1;
     }
@@ -1190,7 +1190,7 @@ void ManageDialog::browse_image_file() {
 }
 
 void ManageDialog::set_selected_file_path(const QString &path) {
-    const QString normalized_path = py_normpath(path);
+    const QString normalized_path = QDir::toNativeSeparators(QDir::cleanPath(path));
     selected_file_path = normalized_path;
     if (file_path_input) file_path_input->setText(normalized_path);
 }
@@ -1270,7 +1270,7 @@ void ManageDialog::on_save_clicked() {
 
 void ManageDialog::save_group() {
     if (!group_name_input) return;
-    const QString name = py_strip(group_name_input->text());
+    const QString name = group_name_input->text().trimmed();
     if (name.isEmpty()) {
         show_warning_dialog(this, tr_text("Hint"), tr_text("Please enter group name"));
         return;
@@ -1448,7 +1448,7 @@ void ManageDialog::after_content_saved(const QString &action, std::optional<qint
 
 void ManageDialog::save_file_content() {
     QString path = selected_file_path.value_or(QString());
-    if (path.isEmpty() && file_path_input) path = py_strip(file_path_input->text());
+    if (path.isEmpty() && file_path_input) path = file_path_input->text().trimmed();
     if (path.isEmpty()) {
         show_warning_dialog(this, tr_text("Hint"), tr_text("Please select a file"));
         return;
@@ -1468,7 +1468,7 @@ void ManageDialog::save_file_content() {
 }
 
 void ManageDialog::save_text_content() {
-    const QString content = content_edit ? py_strip(content_edit->toPlainText()) : QString();
+    const QString content = content_edit ? content_edit->toPlainText().trimmed() : QString();
     if (content.isEmpty()) {
         show_warning_dialog(this, tr_text("Hint"), tr_text("Please enter content"));
         return;

@@ -71,8 +71,8 @@ std::optional<QString> locked_mouse_action(const QString &action) {
     return std::nullopt;
 }
 
-// Python round(value, 4).
-double round4(double value) { return python_fixed(value, 4).toDouble(); }
+// Keeps repeated steps from drifting off the four-decimal grid.
+double round4(double value) { return std::round(value * 10000) / 10000; }
 }
 
 PinWindow::PinWindow(const QImage &image, const QPoint &position, ToolSettingsManager *config_manager, const QList<QGraphicsItem *> &items,

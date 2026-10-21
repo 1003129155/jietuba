@@ -5,7 +5,6 @@
 #include "clipboard/ui/group_kind_style.h"
 #include "clipboard/ui/layout_scale.h"
 #include "clipboard/ui/resources/emoji_data.h"
-#include "core/py_text.h"
 #include "core/ui_theme.h"
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/theme.h"
@@ -257,7 +256,7 @@ void switch_emoji_group(ManageDialog *dialog, int group_idx) {
 }
 
 QString first_icon_cluster(const QString &text) {
-    const QString rest = py_lstrip(text);
+    const QString rest = text.trimmed();
     if (rest.isEmpty()) return {};
     QTextBoundaryFinder finder(QTextBoundaryFinder::Grapheme, rest);
     const qsizetype end = finder.toNextBoundary();
@@ -265,7 +264,7 @@ QString first_icon_cluster(const QString &text) {
 }
 
 void on_icon_input_changed(ManageDialog *dialog, const QString &text) {
-    if (py_strip(text).isEmpty()) {
+    if (text.trimmed().isEmpty()) {
         dialog->icon_preview->setText(QString::fromUtf8("📁"));
         return;
     }
@@ -274,7 +273,7 @@ void on_icon_input_changed(ManageDialog *dialog, const QString &text) {
         dialog->icon_preview->setText(QString::fromUtf8("📁"));
         return;
     }
-    if (py_len(py_strip(text)) > py_len(first_char)) {
+    if (text.trimmed().size() > first_char.size()) {
         dialog->icon_input->blockSignals(true);
         dialog->icon_input->setText(first_char);
         dialog->icon_input->blockSignals(false);

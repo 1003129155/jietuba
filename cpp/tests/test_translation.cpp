@@ -329,6 +329,23 @@ private slots:
             }
         }
     }
+    // Hand-written: the limit is a plain integer with optional sign; full-width digits from an IME
+    // count, anything the reference's int() accepted beyond that does not.
+    void quotaLimitParsesPlainIntegers() {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QSettings settings(dir.filePath("quota.ini"), QSettings::IniFormat);
+        ToolSettingsManager manager(settings);
+        const QList<std::pair<QString, qint64>> cases{
+            {" 1234 ", 1234}, {"+7", 7}, {"-5", -5}, {QString::fromUtf8("\uFF11\uFF12\uFF13"), 123}, {QString::fromUtf8("\uFF0B\uFF17"), 7},
+            {"1_000", 0}, {QString::fromUtf8("\u0663\u0664"), 0}, {"1.5", 0}, {"abc", 0},
+            {"9223372036854775807", 9223372036854775807LL}, {"9223372036854775808", 0},
+        };
+        for (const auto &[input, expected] : cases) {
+            manager.set_tencent_translate_quota_limit(input);
+            QVERIFY2(manager.get_translation_quota_limit("tencent") == expected, qPrintable(input));
+        }
+    }
     void youdaoMetadata() {
         const auto item = fixtures_["youdao_metadata"].toObject();
         const auto metadata = YoudaoTranslateProvider::class_metadata();

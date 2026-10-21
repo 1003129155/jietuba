@@ -100,7 +100,7 @@ QString user_name() {
     wchar_t buffer[256] = {};
     ULONG size = static_cast<ULONG>(std::size(buffer));
     if (GetUserNameExW(NameSamCompatible, buffer, &size)) return QString::fromWCharArray(buffer, static_cast<int>(size));
-    log_exception("OSError", QString::number(GetLastError()), T("查询当前用户名"));
+    log_exception(QString("[WinError %1]").arg(GetLastError()), T("查询当前用户名"));
     return qEnvironmentVariable("USERNAME");
 }
 
@@ -113,7 +113,7 @@ std::pair<int, QByteArray> run_schtasks_process(const QStringList &args) {
     HANDLE read_pipe = nullptr, write_pipe = nullptr;
     // Large enough for the task XML, so the child never blocks on a full pipe while it is awaited.
     if (!CreatePipe(&read_pipe, &write_pipe, &attributes, 1 << 16)) {
-        log_exception("OSError", QString::number(GetLastError()), T("运行 schtasks"));
+        log_exception(QString("[WinError %1]").arg(GetLastError()), T("运行 schtasks"));
         return {-1, {}};
     }
     SetHandleInformation(read_pipe, HANDLE_FLAG_INHERIT, 0);
@@ -130,7 +130,7 @@ std::pair<int, QByteArray> run_schtasks_process(const QStringList &args) {
     const BOOL started = CreateProcessW(nullptr, command_line.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr, nullptr, &startup, &process);
     CloseHandle(write_pipe);
     if (!started) {
-        log_exception("OSError", QString::number(GetLastError()), T("运行 schtasks"));
+        log_exception(QString("[WinError %1]").arg(GetLastError()), T("运行 schtasks"));
         CloseHandle(read_pipe);
         return {-1, {}};
     }
@@ -256,7 +256,7 @@ std::optional<QString> query_task_command() {
         if (reader.readNext() == QXmlStreamReader::StartElement && reader.name() == u"Command")
             return reader.readElementText().trimmed().remove('"');
     }
-    if (reader.hasError()) log_exception("ParseError", reader.errorString(), T("解析计划任务"));
+    if (reader.hasError()) log_exception(reader.errorString(), T("解析计划任务"));
     return QString();
 }
 
@@ -272,7 +272,7 @@ bool install_task() {
     const QString path = QDir::toNativeSeparators(QDir::temp().filePath(QString("jietuba_task_%1.xml").arg(QCoreApplication::applicationPid())));
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-        log_exception("OSError", file.errorString(), T("创建管理员计划任务"));
+        log_exception(file.errorString(), T("创建管理员计划任务"));
         return false;
     }
     // schtasks reads the file as the XML declaration says: UTF-16 with a BOM.

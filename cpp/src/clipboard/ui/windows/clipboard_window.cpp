@@ -13,7 +13,6 @@
 #include "core/constants.h"
 #include "core/logger.h"
 #include "core/platform_utils.h"
-#include "core/py_text.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
 #include "settings/tool_settings.h"
@@ -306,7 +305,7 @@ void ClipboardWindow::apply_theme() {
     apply_opacity();
     group_bar->set_theme(current_theme);
     if (search_input) {
-        apply_search_input_style(!py_strip(search_input->text()).isEmpty());
+        apply_search_input_style(!search_input->text().trimmed().isEmpty());
         apply_clear_search_btn_style();
         apply_menu_btn_style();
         apply_time_filter_styles();
@@ -824,7 +823,7 @@ void ClipboardWindow::on_pointer_moved(const QPoint &viewport_pos, const QPoint 
 }
 
 void ClipboardWindow::update_search_background(const QString &text) {
-    const bool has_text = !py_strip(text).isEmpty();
+    const bool has_text = !text.trimmed().isEmpty();
     apply_search_input_style(has_text);
     clear_search_btn->setVisible(has_text);
 }
@@ -1370,7 +1369,7 @@ void ClipboardWindow::open_file_item(qint64 item_id) {
     }
     const QStringList files = item_paths(*clipboard_item);
     if (files.isEmpty()) return;
-    const QString file_path = py_normpath(files.front());
+    const QString file_path = QDir::toNativeSeparators(QDir::cleanPath(files.front()));
     if (QFileInfo::exists(file_path)) {
         QTimer::singleShot(0, this, [file_path] { QDesktopServices::openUrl(QUrl::fromLocalFile(file_path)); });
         QTimer::singleShot(50, this, [this] { hide(); });
@@ -1395,13 +1394,13 @@ void ClipboardWindow::open_file_location(qint64 item_id) {
     }
     const QStringList files = item_paths(*clipboard_item);
     if (files.isEmpty()) return;
-    const QString file_path = py_normpath(files.front());
+    const QString file_path = QDir::toNativeSeparators(QDir::cleanPath(files.front()));
     const QFileInfo info(file_path);
     if (info.isDir()) {
         QTimer::singleShot(0, this, [file_path] { QProcess::startDetached("explorer", {file_path}); });
     } else if (info.exists()) {
         QTimer::singleShot(0, this, [file_path] { QProcess::startDetached("explorer", {"/select,", file_path}); });
-    } else if (const QString parent = py_dirname(file_path); QFileInfo::exists(parent)) {
+    } else if (const QString parent = QDir::toNativeSeparators(info.path()); QFileInfo::exists(parent)) {
         QTimer::singleShot(0, this, [parent] { QProcess::startDetached("explorer", {parent}); });
     }
 }
@@ -1409,7 +1408,7 @@ void ClipboardWindow::open_file_location(qint64 item_id) {
 void ClipboardWindow::open_link(qint64 item_id) {
     const auto clipboard_item = controller->get_item(item_id);
     if (!clipboard_item || clipboard_item->sub_kind != SUB_KIND_URL) return;
-    QString text = py_strip(clipboard_item->content);
+    QString text = clipboard_item->content.trimmed();
     if (text.startsWith("www.", Qt::CaseInsensitive)) text.prepend("https://");
     const QUrl url(text);
     if (!url.isValid()) return;

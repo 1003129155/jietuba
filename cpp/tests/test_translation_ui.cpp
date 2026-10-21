@@ -195,7 +195,7 @@ private slots:
         auto service = quota_service();
         QVERIFY(service->translate(TranslationRequest(QString::fromUtf8("你好世界"), "EN"), "volcengine").success);
         QCOMPARE(get_tool_settings_manager()->get_translation_usage_chars("volcengine"), qint64(4));
-        // len() counts an emoji once, not as two UTF-16 units.
+        // An emoji counts once, not as two UTF-16 units.
         QVERIFY(service->translate(TranslationRequest(QString::fromUtf8("\U0001F600a"), "EN"), "volcengine").success);
         QCOMPARE(get_tool_settings_manager()->get_translation_usage_chars("volcengine"), qint64(6));
     }

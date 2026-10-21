@@ -2,7 +2,8 @@
 #include "core/i18n.h"
 #include "core/logger.h"
 #include "core/native.h"
-#include "core/py_text.h"
+#include "core/text_utils.h"
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonValue>
@@ -49,32 +50,37 @@ QString ClipboardItem::display_text() const {
     if (content_type == "text") {
         QString text = content;
         text.replace(u'\n', u' ');
-        text = py_strip(text);
-        return py_len(text) > 100 ? py_slice(text, 0, 100) + "..." : text;
+        text = text.trimmed();
+        const QString head = left_chars(text, 100);
+        return head.size() < text.size() ? head + "..." : text;
     }
-    if (content_type == "image") return py_strip_chars(content, "[]");
+    if (content_type == "image") {
+        qsizetype start = 0, end = content.size();
+        while (start < end && (content[start] == u'[' || content[start] == u']')) ++start;
+        while (end > start && (content[end - 1] == u'[' || content[end - 1] == u']')) --end;
+        return content.mid(start, end - start);
+    }
     if (content_type == "file") {
         QJsonParseError error;
         const auto document = QJsonDocument::fromJson(content.toUtf8(), &error);
         if (error.error != QJsonParseError::NoError || !document.isObject()) {
-            log_exception(error.error != QJsonParseError::NoError ? "JSONDecodeError" : "AttributeError",
-                          error.error != QJsonParseError::NoError ? error.errorString() : "object has no attribute 'get'", T("解析文件类型显示文本"));
+            log_exception(error.error != QJsonParseError::NoError ? error.errorString() : "content is not a JSON object", T("解析文件类型显示文本"));
             return tr_file();
         }
         const auto files = document.object().value("files").toArray();
         QStringList names;
         for (const auto &file : files) {
             if (!file.isString()) {
-                log_exception("TypeError", "expected str, bytes or os.PathLike object", T("解析文件类型显示文本"));
+                log_exception("file entry is not a string", T("解析文件类型显示文本"));
                 return tr_file();
             }
-            names.append(py_basename(file.toString()));
+            names.append(QFileInfo(file.toString()).fileName());
         }
         if (names.size() == 1) return names.front();
         if (names.size() > 1) return names.join(", ");
         return tr_file();
     }
-    return py_slice(content, 0, 50);
+    return left_chars(content, 50);
 }
 
 QString ClipboardItem::icon() const {

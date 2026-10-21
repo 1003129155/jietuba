@@ -2,7 +2,6 @@
 #include "core/i18n.h"
 #include "core/logger.h"
 #include "core/platform_utils.h"
-#include "core/py_text.h"
 #include "core/resource_manager.h"
 #include "core/ui_scale.h"
 #include "settings/tool_settings.h"
@@ -474,7 +473,7 @@ void TranslationDialog::build_ui() {
     clear_source_button = tool_button("trash", tr_text("Clear Original"));
     connect(clear_source_button, &QAbstractButton::clicked, source_edit, &QTextEdit::clear);
     speak_source_button = tool_button("speak", tr_text("Read Aloud"));
-    source_speech_ = new SpeechButton(speak_source_button, [this] { return py_strip(source_edit->toPlainText()); }, [this] { return source_text_lang(); });
+    source_speech_ = new SpeechButton(speak_source_button, [this] { return source_edit->toPlainText().trimmed(); }, [this] { return source_text_lang(); });
     // Editing the text being read stops it; the button's state follows the text.
     connect(source_edit, &QTextEdit::textChanged, source_speech_, [this] {
         source_speech_->stop();
@@ -676,7 +675,7 @@ void TranslationDialog::copy_target() {
 
 QString TranslationDialog::speakable_text() const {
     if (target_edit->property("loading").toBool() || target_edit->property("error").toBool()) return {};
-    return py_strip(target_edit->toPlainText());
+    return target_edit->toPlainText().trimmed();
 }
 
 QString TranslationDialog::source_text_lang() const {

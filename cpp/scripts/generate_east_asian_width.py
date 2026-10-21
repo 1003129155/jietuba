@@ -1,6 +1,6 @@
-"""Generates src/core/east_asian_width.inc from the reference interpreter's unicodedata.
+"""Generates src/core/east_asian_width.inc from Python's unicodedata.
 
-Run with the reference interpreter so the Unicode version matches the Python build:
+The table follows the running interpreter's Unicode version:
     python scripts/generate_east_asian_width.py
 """
 import pathlib

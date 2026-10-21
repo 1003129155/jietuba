@@ -49,7 +49,7 @@ QString win32_error(DWORD code) { return QString("[WinError %1]").arg(code); }
 void trim_working_set() {
 #ifdef Q_OS_WIN
     if (!SetProcessWorkingSetSize(GetCurrentProcess(), static_cast<SIZE_T>(-1), static_cast<SIZE_T>(-1)))
-        log_exception("OSError", win32_error(GetLastError()), T("释放工作集"));
+        log_exception(win32_error(GetLastError()), T("释放工作集"));
 #endif
 }
 
@@ -80,7 +80,7 @@ bool shell_copy(const QStringList &sources, const QString &folder) {
     if (destination) destination->Release();
     if (operation) operation->Release();
     if (SUCCEEDED(init)) CoUninitialize();
-    if (FAILED(hr)) log_exception("OSError", QString("IFileOperation failed: 0x%1").arg(static_cast<quint32>(hr), 8, 16, QChar('0')), T("复制到文件夹"));
+    if (FAILED(hr)) log_exception(QString("IFileOperation failed: 0x%1").arg(static_cast<quint32>(hr), 8, 16, QChar('0')), T("复制到文件夹"));
     return SUCCEEDED(hr) && !aborted;
 }
 #endif
@@ -120,8 +120,8 @@ void set_dpi_awareness() {
 #ifdef Q_OS_WIN
     const HRESULT hr = SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
     if (FAILED(hr)) {
-        log_exception("OSError", QString("HRESULT 0x%1").arg(static_cast<quint32>(hr), 8, 16, QChar('0')), "SetProcessDpiAwareness");
-        if (!SetProcessDPIAware()) log_exception("OSError", win32_error(GetLastError()), "SetProcessDPIAware");
+        log_exception(QString("HRESULT 0x%1").arg(static_cast<quint32>(hr), 8, 16, QChar('0')), "SetProcessDpiAwareness");
+        if (!SetProcessDPIAware()) log_exception(win32_error(GetLastError()), "SetProcessDPIAware");
     }
 #endif
 }
@@ -149,7 +149,7 @@ double get_system_dpi(double fallback) {
 void set_app_user_model_id(const QString &app_id) {
 #ifdef Q_OS_WIN
     const HRESULT hr = SetCurrentProcessExplicitAppUserModelID(reinterpret_cast<PCWSTR>(app_id.utf16()));
-    if (FAILED(hr)) log_exception("OSError", QString("HRESULT 0x%1").arg(static_cast<quint32>(hr), 8, 16, QChar('0')), "SetAppUserModelID");
+    if (FAILED(hr)) log_exception(QString("HRESULT 0x%1").arg(static_cast<quint32>(hr), 8, 16, QChar('0')), "SetAppUserModelID");
 #else
     Q_UNUSED(app_id);
 #endif
@@ -352,7 +352,7 @@ void set_autostart(bool enabled) {
     HKEY key = nullptr;
     LSTATUS status = RegOpenKeyExW(HKEY_CURRENT_USER, AUTOSTART_REG_KEY, 0, KEY_SET_VALUE, &key);
     if (status != ERROR_SUCCESS) {
-        log_exception("OSError", QString("RegOpenKeyEx failed: %1").arg(status), T("设置开机自启"));
+        log_exception(QString("RegOpenKeyEx failed: %1").arg(status), T("设置开机自启"));
         return;
     }
     const auto *name = reinterpret_cast<LPCWSTR>(AUTOSTART_APP_NAME.utf16());
@@ -360,12 +360,12 @@ void set_autostart(bool enabled) {
         const QString exe_path = QDir::toNativeSeparators(QCoreApplication::applicationFilePath());
         status = RegSetValueExW(key, name, 0, REG_SZ, reinterpret_cast<const BYTE *>(exe_path.utf16()), static_cast<DWORD>((exe_path.size() + 1) * sizeof(wchar_t)));
         if (status == ERROR_SUCCESS) log_info(T("已写入开机自启注册表项: {exe_path}", {{"exe_path", exe_path}}), "page6");
-        else log_exception("OSError", QString("RegSetValueEx failed: %1").arg(status), T("设置开机自启"));
+        else log_exception(QString("RegSetValueEx failed: %1").arg(status), T("设置开机自启"));
     } else {
         // A missing value is fine.
         status = RegDeleteValueW(key, name);
         if (status == ERROR_SUCCESS) log_info(T("已删除开机自启注册表项"), "page6");
-        else if (status != ERROR_FILE_NOT_FOUND) log_exception("OSError", QString("RegDeleteValue failed: %1").arg(status), T("设置开机自启"));
+        else if (status != ERROR_FILE_NOT_FOUND) log_exception(QString("RegDeleteValue failed: %1").arg(status), T("设置开机自启"));
     }
     RegCloseKey(key);
 }

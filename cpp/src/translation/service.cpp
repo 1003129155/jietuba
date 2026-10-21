@@ -1,6 +1,5 @@
 #include "translation/service.h"
 #include "core/logger.h"
-#include "core/py_text.h"
 #include "settings/tool_settings.h"
 #include "translation/providers/amazon.h"
 #include "translation/providers/azure.h"
@@ -74,7 +73,7 @@ TranslationResult TranslationService::translate(const TranslationRequest &reques
     if (!selected->is_configured()) return TranslationResult::failure(TranslationErrorCode::NOT_CONFIGURED, selected->display_name() + " is not configured");
     if (auto quota_error = check_quota(*selected)) return *quota_error;
     auto result = selected->translate(request);
-    if (result.success) record_usage(*selected, py_len(request.text));
+    if (result.success) record_usage(*selected, request.text.toUcs4().size());
     return result;
 }
 

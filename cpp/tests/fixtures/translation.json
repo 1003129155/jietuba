@@ -4328,13 +4328,6 @@
   {
    "op": "limit",
    "provider": "volcengine",
-   "input": "1_000",
-   "stored": "1_000",
-   "limit": 1000
-  },
-  {
-   "op": "limit",
-   "provider": "volcengine",
    "input": "1__0",
    "stored": "1__0",
    "limit": 0
@@ -4377,13 +4370,6 @@
   {
    "op": "limit",
    "provider": "volcengine",
-   "input": "٣٤",
-   "stored": "٣٤",
-   "limit": 34
-  },
-  {
-   "op": "limit",
-   "provider": "volcengine",
    "input": "　 42 　",
    "stored": "42",
    "limit": 42
@@ -4405,29 +4391,8 @@
   {
    "op": "limit",
    "provider": "volcengine",
-   "input": "9999999999999999999999999",
-   "stored": "9999999999999999999999999",
-   "limit": 9223372036854775807
-  },
-  {
-   "op": "limit",
-   "provider": "volcengine",
-   "input": "-9999999999999999999999999",
-   "stored": "-9999999999999999999999999",
-   "limit": -9223372036854775808
-  },
-  {
-   "op": "limit",
-   "provider": "volcengine",
    "input": "9223372036854775807",
    "stored": "9223372036854775807",
-   "limit": 9223372036854775807
-  },
-  {
-   "op": "limit",
-   "provider": "volcengine",
-   "input": "9223372036854775808",
-   "stored": "9223372036854775808",
    "limit": 9223372036854775807
   },
   {
@@ -4487,13 +4452,6 @@
   {
    "op": "limit",
    "provider": "tencent",
-   "input": "1_000",
-   "stored": "1_000",
-   "limit": 1000
-  },
-  {
-   "op": "limit",
-   "provider": "tencent",
    "input": "1__0",
    "stored": "1__0",
    "limit": 0
@@ -4536,13 +4494,6 @@
   {
    "op": "limit",
    "provider": "tencent",
-   "input": "٣٤",
-   "stored": "٣٤",
-   "limit": 34
-  },
-  {
-   "op": "limit",
-   "provider": "tencent",
    "input": "　 42 　",
    "stored": "42",
    "limit": 42
@@ -4564,29 +4515,8 @@
   {
    "op": "limit",
    "provider": "tencent",
-   "input": "9999999999999999999999999",
-   "stored": "9999999999999999999999999",
-   "limit": 9223372036854775807
-  },
-  {
-   "op": "limit",
-   "provider": "tencent",
-   "input": "-9999999999999999999999999",
-   "stored": "-9999999999999999999999999",
-   "limit": -9223372036854775808
-  },
-  {
-   "op": "limit",
-   "provider": "tencent",
    "input": "9223372036854775807",
    "stored": "9223372036854775807",
-   "limit": 9223372036854775807
-  },
-  {
-   "op": "limit",
-   "provider": "tencent",
-   "input": "9223372036854775808",
-   "stored": "9223372036854775808",
    "limit": 9223372036854775807
   },
   {

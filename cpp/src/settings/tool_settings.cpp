@@ -4,7 +4,6 @@
 #include "core/global_hotkey.h"
 #include "core/logger.h"
 #include "core/i18n.h"
-#include "core/py_text.h"
 #include <QDate>
 #include <QDir>
 #include <QFile>
@@ -598,7 +597,8 @@ qint64 ToolSettingsManager::get_translation_quota_limit(const QString &requested
     if (provider_id == "volcengine") limit = get_volcengine_translate_quota_limit();
     else if (provider_id == "tencent") limit = get_tencent_translate_quota_limit();
     if (limit.isEmpty()) return 0;
-    return py_int(limit).value_or(0);
+    // NFKC turns full-width digits and signs typed through an IME into ASCII ones.
+    return limit.normalized(QString::NormalizationForm_KC).toLongLong();
 }
 
 namespace {

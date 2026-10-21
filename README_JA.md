@@ -432,8 +432,7 @@ core/
 ├── html_unescape.h/.cpp        # html_unescape — HTML の名前付き・数値文字参照をデコード
 ├── http_client.h/.cpp          # http_request — システムの WinHTTP とプロキシ設定を使う同期通信。HTTP エラー・タイムアウト・ネットワーク障害を区別し、キャンセル可能
 ├── native.h                    # Rust ライブラリへの C インターフェース（cpp/native）の宣言
-├── py_case_tables.inc          # 大文字小文字の変換テーブル（スクリプトで生成）
-├── py_text.h/.cpp              # UTF-16 単位ではなくコードポイントで数える文字列関数：長さ、切り出し、空白判定、strip
+├── text_utils.h/.cpp           # left_chars — サロゲートペアを分けずに文字数で切り詰める
 └── serial_executor.h           # SerialExecutor — 専用スレッドで投入順に 1 つずつタスクを実行
 ```
 

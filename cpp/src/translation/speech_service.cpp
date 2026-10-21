@@ -1,6 +1,5 @@
 #include "translation/speech_service.h"
 #include "core/logger.h"
-#include "core/py_text.h"
 #include <QCoreApplication>
 #include <QSet>
 #include <QStringList>
@@ -33,7 +32,7 @@ QString take_string(wchar_t *value) {
 
 // Accepts surrounding whitespace, a sign, a 0x prefix and single underscores between digits.
 std::optional<qint64> parse_hex(const QString &raw) {
-    const QString text = py_strip(raw);
+    const QString text = raw.trimmed();
     qsizetype i = 0;
     bool negative = false;
     if (i < text.size() && (text[i] == '+' || text[i] == '-')) negative = text[i++] == '-';
@@ -382,7 +381,7 @@ void SpeechService::toggle(quint64 owner, const QString &text, const QString &la
 }
 
 bool SpeechService::speak(quint64 owner, const QString &raw_text, const QString &lang_code) {
-    const QString text = py_strip(raw_text);
+    const QString text = raw_text.trimmed();
     const auto voice = text.isEmpty() ? std::nullopt : voice_for(lang_code);
     if (!voice || !backend_) return false;
     QString error;

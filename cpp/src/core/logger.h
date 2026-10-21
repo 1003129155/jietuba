@@ -16,6 +16,8 @@ class ToolSettingsManager;
 // Log text: a Chinese template plus named arguments, formatted only when the
 // line is actually written. Templates built with T() are looked up in the
 // zh->en table when the UI language is not Chinese; plain strings are not.
+// Fields are {name}, {name:.Nf}, {name:d}, {name:x} or {name:X}; {{ and }} are literal braces.
+// A plain {name} writes the argument's QVariant text.
 class LogMsg {
 public:
     using Args = std::vector<std::pair<QString, QVariant>>;
@@ -35,13 +37,6 @@ private:
 inline LogMsg T(const QString &text) { return LogMsg(text, {}, true); }
 inline LogMsg T(const QString &text, std::initializer_list<std::pair<QString, QVariant>> args) { return LogMsg(text, LogMsg::Args(args), true); }
 
-// str.format with named fields; supports {name}, {name:.Nf}, {name:d}, {name:X} and {{ }}.
-// Returns false (leaving *out untouched) when a field is missing or malformed.
-bool python_format(const QString &format, const LogMsg::Args &args, QString *out);
-// Python str() of the common argument types.
-QString python_str(const QVariant &value);
-// Python f"{value:.{precision}f}": rounds the exact binary value, ties to even.
-QString python_fixed(double value, int precision);
 // Qt's debug text of the value types, as they appear in log arguments: QRectF(868,123 1654x1039).
 QString geometry_text(const QPointF &value);
 QString geometry_text(const QPoint &value);
@@ -66,8 +61,8 @@ public:
     void error(const LogMsg &message, const QString &module = {}) { log(LogLevel::Error, message, module); }
     void set_level(int level);
     void set_console_level(int level) { console_min_level = level; }
-    void exception(const QString &exc_type, const QString &exc_msg, const LogMsg &context = {}, bool silent = true);
-    void exception_with_traceback(const QString &exc_type, const QString &exc_msg, const LogMsg &context = {});
+    void exception(const QString &reason, const LogMsg &context = {}, bool silent = true);
+    void exception_with_traceback(const QString &reason, const LogMsg &context = {});
     void set_enabled(bool enabled);
     void set_log_dir(const QString &log_dir);
     void close();
@@ -100,7 +95,8 @@ void cleanup_old_logs(const QString &log_dir, qint64 retention_days);
 // e.what() as text: messages built from QString are UTF-8, system and runtime-library ones use the ANSI code page.
 QString exception_text(const std::exception &e);
 void log_exception(const std::exception &e, const LogMsg &context = {}, bool silent = true);
-void log_exception(const QString &exc_type, const QString &exc_msg, const LogMsg &context = {}, bool silent = true);
+// An error without an exception object: reason says what went wrong, context what was being done.
+void log_exception(const QString &reason, const LogMsg &context = {}, bool silent = true);
 void log_exception_full(const std::exception &e, const LogMsg &context = {});
 void log_debug(const LogMsg &message, const QString &module = {});
 void log_info(const LogMsg &message, const QString &module = {});

@@ -84,8 +84,8 @@ private slots:
         log_debug(T("hidden {n}", {{"n", 1}}), "Test");
         log_info(T("shown {n:d} {h:X} {l:x} {f:.2f}", {{"n", 42}, {"h", 255}, {"l", -26}, {"f", 1.005}}), "Test");
         log_warning("plain warning");
-        // Geometry goes in as its debug text, as the callers write it; None and booleans as Python prints them.
-        log_error(T("rect {r} point {p} size {s} none {x} flag {b}", {{"r", geometry_text(QRect(1, 2, 3, 4))}, {"p", geometry_text(QPoint(5, 6))}, {"s", geometry_text(QSize(7, 8))}, {"x", QVariant()}, {"b", true}}));
+        // Geometry goes in as its debug text, as the callers write it; other values as QVariant's text.
+        log_error(T("rect {r} point {p} size {s} none [{x}] flag {b} ratio {d}", {{"r", geometry_text(QRect(1, 2, 3, 4))}, {"p", geometry_text(QPoint(5, 6))}, {"s", geometry_text(QSize(7, 8))}, {"x", QVariant()}, {"b", true}, {"d", 2.0}}));
         // A malformed template is written as it is rather than lost.
         log_error(T("broken {n:d}", {{"n", 1.5}}));
         log_error(T("missing {absent}"));
@@ -99,7 +99,7 @@ private slots:
         QVERIFY(text.contains("[WARNING] plain warning"));
         QVERIFY(text.contains("rect QRect(1,2 3x4)"));
         QVERIFY(text.contains("point QPoint(5,6)"));
-        QVERIFY(text.contains("size QSize(7, 8) none None flag True"));
+        QVERIFY(text.contains("size QSize(7, 8) none [] flag true ratio 2"));
         QVERIFY(text.contains("broken {n:d}"));
         QVERIFY(text.contains("missing {absent}"));
         QVERIFY(text.contains("now visible"));
@@ -111,14 +111,16 @@ private slots:
     void exceptionsAndQtMessagesReachTheFile() {
         auto &logger = get_logger();
         log_exception(std::runtime_error("quiet failure"), T("while testing"));
-        log_exception("ValueError", "loud failure", {}, false);
+        log_exception("loud failure", {}, false);
+        log_exception("disk full", T("saving"));
         log_exception_full(std::logic_error("full failure"), T("context"));
         qWarning("a Qt warning");
         logger.print("printed line");
         const auto text = read_all(log_path_);
         QVERIFY(text.contains("[SILENT] [静默异常] while testing"));
         QVERIFY(text.contains("quiet failure"));
-        QVERIFY(text.contains("[ERROR] [静默异常] ValueError: loud failure"));
+        QVERIFY(text.contains("[ERROR] [静默异常] loud failure"));
+        QVERIFY(text.contains("[SILENT] [静默异常] saving: disk full"));
         QVERIFY(text.contains("[异常] context"));
         QVERIFY(text.contains("full failure"));
         QVERIFY(text.contains("a Qt warning"));

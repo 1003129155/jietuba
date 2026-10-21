@@ -436,8 +436,7 @@ core/
 ├── html_unescape.h/.cpp        # html_unescape — 解码 HTML 命名与数字字符引用
 ├── http_client.h/.cpp          # http_request — 经系统 WinHTTP 的一次阻塞式请求，沿用系统代理，区分 HTTP 错误、超时与网络失败，可取消
 ├── native.h                    # Rust 库 C 接口（cpp/native）的声明
-├── py_case_tables.inc          # 大小写映射表（脚本生成）
-├── py_text.h/.cpp              # 按码点计长度、切片、判断空白与 strip 的文本函数（Qt 的 UTF-16 语义不适用的地方）
+├── text_utils.h/.cpp           # left_chars — 按字符数截断，不切开代理对
 └── serial_executor.h           # SerialExecutor — 在一条专用线程上按提交顺序逐个执行任务
 ```
 

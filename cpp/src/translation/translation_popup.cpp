@@ -1,6 +1,5 @@
 #include "translation/translation_popup.h"
 #include "core/i18n.h"
-#include "core/py_text.h"
 #include "core/ui_scale.h"
 #include "translation/languages.h"
 #include "translation/speech_service.h"
@@ -86,7 +85,7 @@ void TranslationPopup::build_ui() {
     source_edit->setPlaceholderText(tr_text("Enter text to translate..."));
     connect(source_edit, &QTextEdit::textChanged, this, &TranslationPopup::on_source_changed);
     speak_source_button = new VectorToolButton("speak", tr_text("Read Aloud"), this);
-    source_speech_ = new SpeechButton(speak_source_button, [this] { return py_strip(source_edit->toPlainText()); }, [this] { return source_text_lang(); });
+    source_speech_ = new SpeechButton(speak_source_button, [this] { return source_edit->toPlainText().trimmed(); }, [this] { return source_text_lang(); });
     // Editing the text being read stops it, whether typed or filled in by a new selection.
     connect(source_edit, &QTextEdit::textChanged, source_speech_, [this] {
         source_speech_->stop();
@@ -297,7 +296,7 @@ QString TranslationPopup::source_text_lang() const {
 
 QString TranslationPopup::speakable_result() const {
     if (result_edit->isHidden() || result_edit->property("error").toBool() || loading_dots_->is_running()) return {};
-    return py_strip(translated_text_);
+    return translated_text_.trimmed();
 }
 
 void TranslationPopup::refresh_speech() {

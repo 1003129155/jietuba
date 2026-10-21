@@ -1,5 +1,4 @@
 #include "clipboard/services/group_service.h"
-#include "core/py_text.h"
 #include <QHash>
 
 namespace jietuba::clipboard {
@@ -60,7 +59,7 @@ QString get_group_display_icon(const std::optional<QString> &custom_icon, int gr
 }
 
 QString get_toggled_default_group_icon(const QString &current_icon, int group_type, const std::optional<FilterRule> &filter_rule) {
-    if (py_strip(current_icon).isEmpty() || default_icons().contains(current_icon)) return get_default_group_icon(group_type, filter_rule);
+    if (current_icon.trimmed().isEmpty() || default_icons().contains(current_icon)) return get_default_group_icon(group_type, filter_rule);
     return current_icon;
 }
 

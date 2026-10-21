@@ -103,12 +103,6 @@ private slots:
         fixtures_ = QJsonDocument::fromJson(file.readAll()).object();
         QVERIFY(!fixtures_.isEmpty());
     }
-    void floatRepr() {
-        for (const auto &value : fixtures_["float_repr"].toArray()) {
-            const auto item = value.toObject();
-            QCOMPARE(python_str(item["value"].toDouble()), item["expected"].toString());
-        }
-    }
     void levelNames() {
         const auto names = fixtures_["level_names"].toObject();
         for (auto it = names.begin(); it != names.end(); ++it) QCOMPARE(LogLevel::name(it.key().toInt()), it.value().toString());

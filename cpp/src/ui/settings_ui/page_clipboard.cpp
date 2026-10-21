@@ -1,7 +1,6 @@
 #include "clipboard/core/manager.h"
 #include "clipboard/ui/windows/clipboard_window.h"
 #include "core/logger.h"
-#include "core/py_text.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
 #include "settings/special_paste.h"
@@ -34,14 +33,16 @@ using clipboard::ClipboardManager;
 
 QString format_size(qint64 value) {
     if (value < 1024) return QString("%1 B").arg(value);
-    if (value < 1024LL * 1024) return python_fixed(value / 1024.0, 1) + " KB";
-    if (value < 1024LL * 1024 * 1024) return python_fixed(value / (1024.0 * 1024), 1) + " MB";
-    return python_fixed(value / (1024.0 * 1024 * 1024), 2) + " GB";
+    if (value < 1024LL * 1024) return QString::number(value / 1024.0, 'f', 1) + " KB";
+    if (value < 1024LL * 1024 * 1024) return QString::number(value / (1024.0 * 1024), 'f', 1) + " MB";
+    return QString::number(value / (1024.0 * 1024 * 1024), 'f', 2) + " GB";
 }
 
 QString absolute_path(const QString &path) { return QDir::toNativeSeparators(QDir::cleanPath(QFileInfo(path).absoluteFilePath())); }
 
-QString path_join(const QString &first, const QString &second) { return py_path_join(first, second); }
+QString path_join(const QString &first, const QString &second) { return QDir::toNativeSeparators(QDir(first).filePath(second)); }
+
+QString parent_dir(const QString &path) { return QDir::toNativeSeparators(QFileInfo(path).path()); }
 
 // Clipboard storage size: the database with its WAL files plus the image folder.
 QString calc_clipboard_storage_size() {
@@ -182,7 +183,7 @@ private:
             const QFileInfo info(source_db_path_ + suffix);
             if (info.isFile()) payload.append({info.filePath(), QString("clipboard.db") + suffix, info.size()});
         }
-        const QString images_dir = path_join(py_dirname(source_db_path_), "images");
+        const QString images_dir = path_join(parent_dir(source_db_path_), "images");
         if (QFileInfo(images_dir).isDir()) {
             QDirIterator it(images_dir, QDir::Files | QDir::Hidden | QDir::System, QDirIterator::Subdirectories);
             while (it.hasNext()) {
@@ -196,7 +197,7 @@ private:
     }
 
     qint64 copy_file(const QString &source, const QString &destination, qint64 total_bytes, qint64 copied_before, qint64 file_size) {
-        QDir().mkpath(py_dirname(destination));
+        QDir().mkpath(parent_dir(destination));
         QFile src(source), dst(destination);
         if (!src.open(QIODevice::ReadOnly)) throw std::runtime_error((src.errorString() + ": " + source).toStdString());
         if (!dst.open(QIODevice::WriteOnly | QIODevice::Truncate)) throw std::runtime_error((dst.errorString() + ": " + destination).toStdString());
@@ -256,8 +257,8 @@ private:
     }
 
     void remove_source_payload() {
-        const QString source_dir = py_dirname(source_db_path_);
-        if (py_normcase(target_dir_) == py_normcase(absolute_path(source_dir))) return;
+        const QString source_dir = parent_dir(source_db_path_);
+        if (target_dir_.compare(absolute_path(source_dir), Qt::CaseInsensitive) == 0) return;
         for (const char *suffix : {"", "-wal", "-shm"}) {
             const QString path = source_db_path_ + suffix;
             if (QFileInfo::exists(path) && !QFile::remove(path)) throw std::runtime_error(("Cannot remove " + path).toStdString());
@@ -319,21 +320,21 @@ void change_clipboard_data_location(SettingsDialog *dialog) {
         show_warning_dialog(dialog, dialog->tr_text("Error"), dialog->tr_text("Current clipboard database path is unavailable."));
         return;
     }
-    const QString current_dir = py_dirname(current_db_path);
+    const QString current_dir = parent_dir(current_db_path);
     const QString target_dir = get_existing_directory(dialog, dialog->tr_text("Choose Clipboard Data Folder"), current_dir);
     if (target_dir.isEmpty()) return;
 
-    const QString current_dir_norm = py_normcase(absolute_path(current_dir));
-    const QString target_dir_norm = py_normcase(absolute_path(target_dir));
-    if (current_dir_norm == target_dir_norm) {
+    const QString current_dir_norm = absolute_path(current_dir);
+    const QString target_dir_norm = absolute_path(target_dir);
+    if (current_dir_norm.compare(target_dir_norm, Qt::CaseInsensitive) == 0) {
         show_info_dialog(dialog, dialog->tr_text("Info"), dialog->tr_text("The selected folder is already the current location."));
         return;
     }
     const QString images_dir = path_join(current_dir, "images");
     if (QFileInfo(images_dir).isDir()) {
-        const QString images_dir_norm = py_normcase(absolute_path(images_dir));
-        // os.path.commonpath: the target is the images folder or inside it
-        if (target_dir_norm == images_dir_norm || target_dir_norm.startsWith(images_dir_norm + "\\")) {
+        const QString images_dir_norm = absolute_path(images_dir);
+        // The target is the images folder or inside it.
+        if (target_dir_norm.compare(images_dir_norm, Qt::CaseInsensitive) == 0 || target_dir_norm.startsWith(images_dir_norm + "\\", Qt::CaseInsensitive)) {
             show_warning_dialog(dialog, dialog->tr_text("Error"), dialog->tr_text("Please choose a folder outside the current clipboard images folder."));
             return;
         }
@@ -390,10 +391,10 @@ void change_clipboard_data_location(SettingsDialog *dialog) {
 }
 
 void open_clipboard_data_folder(SettingsDialog *dialog, const QString &path) {
-    const QString folder = QFileInfo(path).isFile() ? py_dirname(path) : path;
+    const QString folder = QFileInfo(path).isFile() ? parent_dir(path) : path;
     if (QFileInfo::exists(folder)) {
         // Opened from the event loop rather than inside the button's mouse release.
-        const QString normalized = py_normpath(folder);
+        const QString normalized = QDir::toNativeSeparators(QDir::cleanPath(folder));
         QTimer::singleShot(0, dialog, [normalized] { QDesktopServices::openUrl(QUrl::fromLocalFile(normalized)); });
     } else {
         show_warning_dialog(dialog, dialog->tr_text("Warning"), dialog->tr_text("Folder does not exist"));

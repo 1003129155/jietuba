@@ -339,7 +339,7 @@ void MagnifierOverlay::draw_combined_magnifier(QPainter &painter, const QRect &r
     painter.drawLine(mag_rect.center().x(), mag_rect.top(), mag_rect.center().x(), mag_rect.bottom());
 
     // Zoom badge at the top-left corner.
-    const auto zoom_text = python_fixed(zoom_factor_, 1) + "x";
+    const auto zoom_text = QString::number(zoom_factor_, 'f', 1) + "x";
     painter.setFont(font_);
     painter.setPen(pen_white_2_);
     painter.setBrush(brush_black_a_);

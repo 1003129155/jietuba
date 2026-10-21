@@ -51,7 +51,7 @@ namespace {
 QString window_tr(const char *text) { return i18n_tr(text, "ScreenshotWindow"); }
 
 // Milliseconds since the timer started, as a "{:.1f}ms" timing entry.
-QString timing_entry(const QString &name, double ms) { return QString("%1=%2ms").arg(name, python_fixed(ms, 1)); }
+QString timing_entry(const QString &name, double ms) { return QString("%1=%2ms").arg(name, QString::number(ms, 'f', 1)); }
 }
 
 ScreenshotShortcutHandler::ScreenshotShortcutHandler(ScreenshotWindow *window) : window(window) {

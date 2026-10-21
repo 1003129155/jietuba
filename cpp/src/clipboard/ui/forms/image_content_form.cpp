@@ -22,7 +22,7 @@ constexpr int NEW_IMAGE_PREVIEW_MAX_HEIGHT = 240;
 constexpr int CHECKER = 8;
 
 QString format_bytes(qint64 size) {
-    if (size >= 1024 * 1024) return python_fixed(static_cast<double>(size) / 1024 / 1024, 1) + " MB";
+    if (size >= 1024 * 1024) return QString::number(static_cast<double>(size) / 1024 / 1024, 'f', 1) + " MB";
     return QString::number(std::max<qint64>(1, python_round(static_cast<double>(size) / 1024))) + " KB";
 }
 

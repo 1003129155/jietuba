@@ -132,9 +132,9 @@ MainApp::MainApp(int &argc, char **argv) : app(std::make_unique<QApplication>(ar
     get_dialog_scale().init(config_manager);
 
     if (auto *primary_screen = QGuiApplication::primaryScreen()) {
-        log_debug(QString("Device Pixel Ratio: %1").arg(python_str(primary_screen->devicePixelRatio())), "DPI");
-        log_debug(QString("Logical DPI: %1").arg(python_str(primary_screen->logicalDotsPerInch())), "DPI");
-        log_debug(QString("Physical DPI: %1").arg(python_str(primary_screen->physicalDotsPerInch())), "DPI");
+        log_debug(QString("Device Pixel Ratio: %1").arg(primary_screen->devicePixelRatio()), "DPI");
+        log_debug(QString("Logical DPI: %1").arg(primary_screen->logicalDotsPerInch()), "DPI");
+        log_debug(QString("Physical DPI: %1").arg(primary_screen->physicalDotsPerInch()), "DPI");
     }
 
     // The hotkey system exists now; an early start-up step registers the hotkeys.

@@ -1,12 +1,14 @@
 #include "clipboard/ui/widgets/preview_popup.h"
 #include "clipboard/core/manager.h"
 #include "core/logger.h"
-#include "core/py_text.h"
+#include "core/text_utils.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
 #include "ui/fluent_lite/inputs.h"
 #include <QApplication>
 #include <QCoreApplication>
+#include <QDir>
+#include <QFileInfo>
 #include <QFontMetrics>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -183,7 +185,7 @@ void PreviewPopup::show_text_preview(const ClipboardItem &item) {
     title_label->setText(item.created_at.isValid() ? item.created_at.toString("yyyy-MM-dd HH:mm:ss") : tr_preview("📝 文本"));
     title_label->show();
     // Length limited to stay responsive.
-    const QString content = py_slice(item.content, 0, 2000);
+    const QString content = left_chars(item.content, 2000);
     content_widget->setMinimumSize(0, 0);
     content_widget->setMaximumSize(scaled(500), scaled(400));
     content_widget->setPlainText(content);
@@ -216,8 +218,7 @@ void PreviewPopup::show_file_preview(const ClipboardItem &item) {
     QJsonParseError error;
     const auto document = QJsonDocument::fromJson(item.content.toUtf8(), &error);
     if (error.error != QJsonParseError::NoError || !document.isObject()) {
-        log_exception(error.error != QJsonParseError::NoError ? "JSONDecodeError" : "AttributeError",
-                      error.error != QJsonParseError::NoError ? error.errorString() : "object has no attribute 'get'", T("加载文本预览"));
+        log_exception(error.error != QJsonParseError::NoError ? error.errorString() : "content is not a JSON object", T("加载文本预览"));
         content_widget->setMinimumSize(0, 0);
         content_widget->setMaximumSize(scaled(500), scaled(400));
         content_widget->setPlainText(item.content);
@@ -235,13 +236,14 @@ void PreviewPopup::show_file_preview(const ClipboardItem &item) {
 
     QStringList lines;
     if (files.size() == 1) {
-        lines << py_basename(files[0]) << "" << files[0];
+        lines << QFileInfo(files[0]).fileName() << "" << files[0];
     } else {
         // Grouped by folder, in order of first appearance.
         QList<std::pair<QString, QStringList>> dir_files;
         for (const auto &filepath : files) {
-            const QString dir_path = py_dirname(filepath);
-            const QString filename = py_basename(filepath);
+            const QFileInfo info(filepath);
+            const QString dir_path = QDir::toNativeSeparators(info.path());
+            const QString filename = info.fileName();
             auto it = std::find_if(dir_files.begin(), dir_files.end(), [&dir_path](const auto &entry) { return entry.first == dir_path; });
             if (it == dir_files.end()) dir_files.append({dir_path, {filename}});
             else it->second.append(filename);
@@ -254,7 +256,7 @@ void PreviewPopup::show_file_preview(const ClipboardItem &item) {
             for (const auto &[dir_path, filenames] : dir_files) {
                 if (filenames.size() == 1) {
                     lines.append(QString("[%1] %2").arg(group_num).arg(filenames.front()));
-                    lines.append(py_path_join(dir_path, filenames.front()));
+                    lines.append(QDir::toNativeSeparators(QDir(dir_path).filePath(filenames.front())));
                 } else {
                     lines.append(QString("[%1]").arg(group_num));
                     for (const auto &fn : filenames) lines.append("  " + fn);

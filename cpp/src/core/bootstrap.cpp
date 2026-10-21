@@ -117,7 +117,7 @@ void ensure_single_instance() {
         if (my_create_time) content += QByteArray::number(*my_create_time) + "\n";
         file.write(content);
     } else {
-        log_exception("OSError", file.errorString(), T("写入实例记录"));
+        log_exception(file.errorString(), T("写入实例记录"));
     }
     // Removed on normal exit; a killed or crashed process leaves it to the check above.
     std::atexit([] {

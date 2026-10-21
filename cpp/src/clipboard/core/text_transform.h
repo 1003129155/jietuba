@@ -9,7 +9,8 @@
 namespace jietuba::clipboard {
 QString to_uppercase(const QString &text);
 QString to_lowercase(const QString &text);
-// Title Case, as str.title().
+// Upper-cases the first letter of each word and lower-cases the rest. Digits and combining
+// marks belong to the word, and an apostrophe inside a word does not start a new one.
 QString capitalize_words(const QString &text);
 // Upper-cases the first letter after each run of . ! ? and following whitespace.
 QString capitalize_sentences(const QString &text);
