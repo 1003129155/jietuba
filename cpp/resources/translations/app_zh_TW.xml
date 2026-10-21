@@ -3050,6 +3050,10 @@ This action cannot be undone.</source>
         <source>{count} files are no longer where they were and were skipped.</source>
         <translation>有 {count} 個檔案已不在原來的位置，已略過。</translation>
     </message>
+    <message>
+        <source>Save</source>
+        <translation>另存為</translation>
+    </message>
 </context>
 <context>
     <name>ManageDialog</name>

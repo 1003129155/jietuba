@@ -479,6 +479,41 @@ private slots:
         QVERIFY(window->isVisible());
     }
 
+    void theSelectionBarFitsEveryLanguageInTheNarrowestWindow() {
+        // Text widths need real fonts, which the offscreen platform does not have.
+        if (QGuiApplication::platformName() != "windows") QSKIP("needs -platform windows");
+        const auto ids = add_texts({"a", "b"});
+        auto *window = open_window();
+        auto *bar = window->selection_bar;
+        const QString language = I18nManager::get_current_language();
+        const auto restore = qScopeGuard([language] {
+            get_ui_scale().set_percent(100);
+            I18nManager::load_language(language);
+        });
+        for (const int percent : {100, 150, 200}) {
+            get_ui_scale().set_percent(percent);
+            for (const char *code : {"zh", "zh_TW", "en", "ja", "ko"}) {
+                QVERIFY(I18nManager::load_language(code));
+                // A scale change reloads the rows and drops the marks.
+                if (!window->selection_manager->has_marks()) {
+                    window->toggle_item_mark(ids[0]);
+                    window->toggle_item_mark(ids[1]);
+                }
+                QVERIFY(bar->isVisible());
+                window->resize(window->minimumSize());
+                QApplication::processEvents();
+                bar->layout()->activate();
+                // The bar does not widen the window past its own minimum.
+                QVERIFY2(window->width() <= scaled(390), qPrintable(QString("%1 at %2%: the window is %3 wide").arg(code).arg(percent).arg(window->width())));
+                // Each text gets its whole width; the ··· and ✕ buttons keep their fixed size.
+                for (QWidget *part : std::initializer_list<QWidget *>{bar->count_label, bar->paste_button, bar->save_button})
+                    QVERIFY2(part->width() >= part->sizeHint().width(), qPrintable(QString("%1 at %2%: %3 is %4 wide, needs %5").arg(code).arg(percent).arg(part->property("text").toString()).arg(part->width()).arg(part->sizeHint().width())));
+                for (QWidget *part : std::initializer_list<QWidget *>{bar->count_label, bar->paste_button, bar->save_button, bar->more_button, bar->exit_button})
+                    QVERIFY2(bar->rect().contains(part->geometry()), qPrintable(QString("%1 at %2%: the bar is %3 wide").arg(code).arg(percent).arg(bar->width())));
+            }
+        }
+    }
+
     void theSelectionBarPastesOrLeaves() {
         const auto ids = add_texts({"a", "b", "c"});
         auto *window = open_window();

@@ -58,7 +58,8 @@ void SelectionBar::retranslate() {
     set_count(count_);
     count_label->setToolTip(tr_text("Enter pastes them together, Esc clears the selection"));
     paste_button->setText(tr_text("Paste"));
-    save_button->setText(tr_text("Save as"));
+    // Shorter than the menus' "Save as" where that is long (Japanese, Korean): the bar has the window's narrowest width.
+    save_button->setText(tr_text("Save"));
     more_button->setToolTip(tr_text("More actions"));
     exit_button->setToolTip(tr_text("Exit multi-select"));
 }

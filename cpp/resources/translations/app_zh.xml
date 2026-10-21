@@ -3020,6 +3020,10 @@ This action cannot be undone.</source>
         <source>{count} files are no longer where they were and were skipped.</source>
         <translation>有 {count} 个文件已不在原来的位置，已跳过。</translation>
     </message>
+    <message>
+        <source>Save</source>
+        <translation>另存为</translation>
+    </message>
 </context>
 
 <!-- ========== Clipboard Management Dialog ========== -->

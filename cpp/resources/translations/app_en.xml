@@ -2949,6 +2949,10 @@ This action cannot be undone.</translation>
         <source>{count} files are no longer where they were and were skipped.</source>
         <translation>{count} files are no longer where they were and were skipped.</translation>
     </message>
+    <message>
+        <source>Save</source>
+        <translation>Save as</translation>
+    </message>
 </context>
 
 <!-- ========== Clipboard Management Dialog ========== -->

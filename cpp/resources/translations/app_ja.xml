@@ -3048,6 +3048,10 @@ This action cannot be undone.</source>
         <source>{count} files are no longer where they were and were skipped.</source>
         <translation>{count} 個のファイルが元の場所になかったため、スキップしました。</translation>
     </message>
+    <message>
+        <source>Save</source>
+        <translation>保存</translation>
+    </message>
 </context>
 
 <!-- ========== Clipboard Management Dialog ========== -->

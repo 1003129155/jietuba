@@ -3027,6 +3027,10 @@ This action cannot be undone.</source>
         <source>{count} files are no longer where they were and were skipped.</source>
         <translation>{count}개 파일이 원래 위치에 없어 건너뛰었습니다.</translation>
     </message>
+    <message>
+        <source>Save</source>
+        <translation>저장</translation>
+    </message>
 </context>
 
 <!-- ========== Clipboard Management Dialog ========== -->
