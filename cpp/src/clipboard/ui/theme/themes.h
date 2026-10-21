@@ -14,7 +14,8 @@ struct ThemeColors {
     QString bg_tertiary = "#F5F6F8";
     QString bg_hover = "#F0F0F0";
     QString bg_selected = "#DCE6ED";
-    QString bg_selected_highlight = "rgba(0, 0, 0, 0.15)";
+    // Marked rows in the clipboard list: the accent, so marks never read as the neutral cursor.
+    QString bg_selected_highlight = "rgba(111, 143, 171, 0.45)";
     // Text
     QString text_primary = "#333333";
     QString text_secondary = "#666666";

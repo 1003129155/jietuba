@@ -40,6 +40,13 @@ protected:
     QGraphicsItem *drawing_item_;
     bool hovered_ = false;
 };
+// A highlighter's colour on a layer with no image to multiply onto: enough to tint a line of text,
+// little enough to keep the text readable.
+constexpr qreal TRANSLUCENT_HIGHLIGHTER_ALPHA = 0.35;
+// Sets painter up for the highlighter item: multiplied onto the image below, or laid on at
+// TRANSLUCENT_HIGHLIGHTER_ALPHA where the scene has no image (CanvasScene::highlighters_multiply).
+// Returns whether it is laid on translucent.
+bool begin_highlighter_paint(QPainter *painter, const QGraphicsItem *item);
 #define JIETUBA_DRAWING_EVENTS \
     void hoverEnterEvent(QGraphicsSceneHoverEvent *e) override { hover_enter(e); } \
     void hoverMoveEvent(QGraphicsSceneHoverEvent *e) override { hover_move(e); } \

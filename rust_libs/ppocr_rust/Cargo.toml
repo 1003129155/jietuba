@@ -1,24 +1,16 @@
 [package]
 name = "ppocr_rust"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2021"
 license = "Apache-2.0"
 authors = ["JYAARU"]
-description = "PP-OCR (PaddleOCR) ONNX inference for Python via Rust + ort (det+rec, no opencv/numpy)"
-
-[lib]
-name = "ppocr_rust"
-# rlib 供 C++ 版以 default-features = false 静态链接
-crate-type = ["rlib", "cdylib"]
+description = "PP-OCR (PaddleOCR) ONNX inference via Rust + ort (det+rec, no opencv/numpy)"
 
 [features]
-default = ["python"]
-python = ["dep:pyo3"]
 # ONNX Runtime 不静态链接，运行时由 engine::init_runtime 从给定路径加载（C++ 版用）
 load-dynamic = ["ort/load-dynamic"]
 
 [dependencies]
-pyo3 = { version = "0.22", features = ["extension-module", "abi3-py311"], optional = true }
 ort = { version = "=2.0.0-rc.12", features = ["ndarray"] }
 ndarray = "0.16"
 image = { version = "0.25", default-features = false }

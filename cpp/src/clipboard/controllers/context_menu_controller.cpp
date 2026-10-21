@@ -1,5 +1,6 @@
 #include "clipboard/controllers/context_menu_controller.h"
 #include "clipboard/controllers/clipboard_controller.h"
+#include <QFileInfo>
 #include "settings/special_paste.h"
 #include "settings/tool_settings.h"
 #include <QSet>
@@ -15,6 +16,8 @@ struct ItemMenuState {
     bool can_move_down = false;
     bool is_image_item() const { return clipboard_item.content_type == "image"; }
     bool is_file_item() const { return clipboard_item.content_type == "file"; }
+    bool is_path_item() const { return clipboard_item.content_type == "text" && clipboard_item.sub_kind == SUB_KIND_PATH; }
+    bool is_link_item() const { return clipboard_item.content_type == "text" && clipboard_item.sub_kind == SUB_KIND_URL; }
     bool in_group() const { return current_group_id.has_value(); }
 };
 
@@ -69,20 +72,42 @@ QList<MenuAction> move_group_menu_children(const ItemMenuState &state) {
     return normalize_menu_actions(children);
 }
 
-// The Special Paste submenu: enabled options for this content type, a separator between option groups.
+// Whether any path still exists; network paths count without asking, which can take seconds.
+bool any_path_exists(const ClipboardItem &item) {
+    for (const auto &path : item_paths(item))
+        if (path.startsWith("\\\\") || QFileInfo::exists(path)) return true;
+    return false;
+}
+
+// Entries a path or color item adds before the configurable options.
+QList<MenuAction> sub_kind_paste_entries(const ItemMenuState &state) {
+    QList<MenuAction> entries;
+    if (state.is_path_item()) entries.append(entry("Paste as File", "path_paste_as_files", any_path_exists(state.clipboard_item)));
+    const QStringList colors = ClipboardController::color_conversions(state.clipboard_item);
+    for (int index = 0; index < colors.size(); ++index) {
+        MenuAction action = entry(colors[index], QString("color_paste_%1").arg(index));
+        action.translate_label = false;
+        entries.append(action);
+    }
+    return entries;
+}
+
+// The Special Paste submenu: entries for path and color items, then the enabled options for this content type,
+// a separator between option groups.
 QList<MenuAction> special_paste_menu_children(const ItemMenuState &state) {
-    QList<MenuAction> children;
+    QList<MenuAction> children = sub_kind_paste_entries(state);
+    if (!children.isEmpty()) children.append(separator("sep_sp_sub_kind"));
     QString previous_group;
     bool has_previous = false;
     for (const auto &[key, enabled] : special_paste::load(get_tool_settings_manager())) {
         const auto &option = special_paste::OPTIONS_BY_KEY().at(key);
         if (!enabled || option.content_type != state.clipboard_item.content_type) continue;
-        if (!children.isEmpty() && (!has_previous || option.group != previous_group)) children.append(separator("sep_sp_" + key));
+        if (has_previous && option.group != previous_group) children.append(separator("sep_sp_" + key));
         children.append(entry(option.label, key));
         previous_group = option.group;
         has_previous = true;
     }
-    return children;
+    return normalize_menu_actions(children);
 }
 
 bool is_text_item(const ItemMenuState &state) { return state.clipboard_item.content_type == "text"; }
@@ -95,6 +120,7 @@ const QList<ItemMenuSpec> &item_menu_specs() {
         special.predicate = [](const ItemMenuState &state) { return is_text_item(state) || state.is_file_item(); };
         special.children_builder = special_paste_menu_children;
         list.append(special);
+        list.append(ItemMenuSpec{"start_marking", "Multi-select"});
         list.append(ItemMenuSpec{"sep_after_paste", {}, true});
         ItemMenuSpec pin{"pin_image", "Pin as Overlay"};
         pin.predicate = [](const ItemMenuState &state) { return state.is_image_item(); };
@@ -102,13 +128,20 @@ const QList<ItemMenuSpec> &item_menu_specs() {
         ItemMenuSpec save{"save_image_as", "Save as"};
         save.predicate = [](const ItemMenuState &state) { return state.is_image_item(); };
         list.append(save);
+        // Text to a .txt file, a file row's files copied into a folder; images keep their own entry above.
+        ItemMenuSpec save_other{"save_item_as", "Save as"};
+        save_other.predicate = [](const ItemMenuState &state) { return is_text_item(state) || state.is_file_item(); };
+        list.append(save_other);
         ItemMenuSpec toggle{"toggle_pin"};
         toggle.predicate = [](const ItemMenuState &state) { return !state.is_image_item(); };
         toggle.label_builder = [](const ItemMenuState &state) { return QString(state.clipboard_item.is_pinned ? "Unpin" : "Pin"); };
         list.append(toggle);
         ItemMenuSpec location{"open_file_location", "Open File Location"};
-        location.predicate = [](const ItemMenuState &state) { return state.is_file_item(); };
+        location.predicate = [](const ItemMenuState &state) { return state.is_file_item() || state.is_path_item(); };
         list.append(location);
+        ItemMenuSpec link{"open_link", "Open in Browser"};
+        link.predicate = [](const ItemMenuState &state) { return state.is_link_item(); };
+        list.append(link);
         list.append(ItemMenuSpec{"sep_before_groups", {}, true});
         ItemMenuSpec move{"move_group_menu", "Move to Group"};
         move.predicate = [](const ItemMenuState &state) { return !state.visible_groups.isEmpty(); };
@@ -167,7 +200,7 @@ QList<MenuAction> normalize_menu_actions(QList<MenuAction> actions) {
 QList<Group> ClipboardContextMenuController::item_context_menu_groups(const ClipboardItem &clipboard_item) {
     QList<Group> groups;
     for (const auto &group : controller_->get_groups())
-        if (group.group_type != GroupType::HIDDEN && group.accepts(clipboard_item.content_type)) groups.append(group);
+        if (group.group_type != GroupType::HIDDEN && group.accepts(clipboard_item)) groups.append(group);
     return groups;
 }
 
@@ -237,7 +270,7 @@ std::optional<ContextMenuData> ClipboardContextMenuController::build_marked_cont
     state.current_group_id = controller_->shows_history() ? std::nullopt : controller_->current_group_id;
     for (const auto &group : controller_->get_groups()) {
         bool takes_all = true;
-        for (const auto &kind : kinds) takes_all = takes_all && group.accepts(kind);
+        for (const auto &item : items) takes_all = takes_all && group.accepts(item);
         if (group.group_type != GroupType::HIDDEN && takes_all) state.visible_groups.append(group);
     }
     const auto move_children = move_group_menu_children(state);

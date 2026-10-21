@@ -6,10 +6,14 @@
 #include <QApplication>
 #include <QScreen>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
+#include <QFileInfo>
 #include <QProcess>
+#include <QScopeGuard>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QThread>
 #include <QWidget>
 #include <atomic>
 #include <chrono>
@@ -102,6 +106,20 @@ private slots:
         QVERIFY(!set_window_exclude_from_capture(0, true));
     }
 
+    void theThreadCursorTakesTheSystemShape() {
+        set_thread_cursor(Qt::CrossCursor);
+        QCOMPARE(GetCursor(), LoadCursorW(nullptr, IDC_CROSS));
+        set_thread_cursor(Qt::ArrowCursor);
+        QCOMPARE(GetCursor(), LoadCursorW(nullptr, IDC_ARROW));
+        set_thread_cursor(Qt::BlankCursor);
+        QVERIFY(!GetCursor());
+        // A shape without a system cursor leaves it as it was.
+        set_thread_cursor(Qt::CrossCursor);
+        set_thread_cursor(Qt::OpenHandCursor);
+        QCOMPARE(GetCursor(), LoadCursorW(nullptr, IDC_CROSS));
+        set_thread_cursor(Qt::ArrowCursor);
+    }
+
     void dpiAndIdentityHelpersAnswer() {
         const double dpi = get_system_dpi();
         QVERIFY(dpi >= 96);
@@ -109,6 +127,84 @@ private slots:
         // Awareness is already set by Qt; a second request only logs.
         set_dpi_awareness();
         set_app_user_model_id("jietuba.platform.test");
+    }
+
+    // Windows' recognized games are full exe paths; the game check answers on any desktop, quickly
+    // enough for the UI thread.
+    void copyIntoFolderRenamesTakenNamesAndSkipsMissingSources() {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QDir root(dir.path());
+        QVERIFY(root.mkpath("source") && root.mkpath("folder"));
+        const auto write = [](const QString &path, const QByteArray &bytes) {
+            QFile file(path);
+            return file.open(QIODevice::WriteOnly) && file.write(bytes) == bytes.size();
+        };
+        const QString source = root.filePath("source/a.txt");
+        QVERIFY(write(source, "new"));
+        QVERIFY(write(root.filePath("folder/a.txt"), "old"));
+        QVERIFY(root.mkpath("source/sub"));
+        QVERIFY(write(root.filePath("source/sub/inner.txt"), "inner"));
+        const QString missing = root.filePath("source/gone.txt");
+        bool done = false, ok = false;
+        QStringList reported;
+        Qt::HANDLE thread = nullptr;
+        copy_into_folder({source, root.filePath("source/sub"), missing}, root.filePath("folder"), [&](bool copied, const QStringList &gone) {
+            done = true;
+            ok = copied;
+            reported = gone;
+            thread = QThread::currentThreadId();
+        });
+        QTRY_VERIFY_WITH_TIMEOUT(done, 30000);
+        QVERIFY(ok);
+        QCOMPARE(reported, QStringList{missing});
+        QCOMPARE(thread, QThread::currentThreadId());
+        // The file already there is kept; the copy takes a new name beside it. Folders are copied whole.
+        QFile old(root.filePath("folder/a.txt"));
+        QVERIFY(old.open(QIODevice::ReadOnly));
+        QCOMPARE(old.readAll(), QByteArray("old"));
+        const auto files = QDir(root.filePath("folder")).entryList(QDir::Files);
+        QCOMPARE(files.size(), 2);
+        QVERIFY(QFile::exists(root.filePath("folder/sub/inner.txt")));
+    }
+
+    void recognizedGamesAreExecutables() {
+        QElapsedTimer clock;
+        clock.start();
+        recognized_game_executables();
+        const qint64 cold = clock.nsecsElapsed() / 1000;
+        clock.restart();
+        const auto games = recognized_game_executables();
+        qInfo("%lld recognized games read in %lld us (first read %lld us)", static_cast<long long>(games.size()),
+              static_cast<long long>(clock.nsecsElapsed() / 1000), static_cast<long long>(cold));
+        for (const auto &path : games)
+            QVERIFY2(QFileInfo(path).isAbsolute() && path.endsWith(".exe", Qt::CaseInsensitive), qPrintable(path));
+        clock.restart();
+        const bool game = is_game_in_foreground();
+        qInfo("game check: %s in %lld us", game ? "game" : "no game", static_cast<long long>(clock.nsecsElapsed() / 1000));
+    }
+
+    // The entries come from the key given: those with a path, by key name; a key without one is skipped.
+    void recognizedGamesComeFromTheirRegistryKey() {
+        const QString root = QString("Software\\JietubaTests\\Games%1").arg(QCoreApplication::applicationPid());
+        const QString children = root + "\\Children";
+        auto cleanup = qScopeGuard([&] {
+            RegDeleteTreeW(HKEY_CURRENT_USER, root.toStdWString().c_str());
+            RegDeleteKeyW(HKEY_CURRENT_USER, L"Software\\JietubaTests");
+        });
+        const auto add = [&](const QString &name, const std::wstring &path) {
+            HKEY key = nullptr;
+            const auto full = (children + "\\" + name).toStdWString();
+            QVERIFY(RegCreateKeyExW(HKEY_CURRENT_USER, full.c_str(), 0, nullptr, 0, KEY_WRITE, nullptr, &key, nullptr) == ERROR_SUCCESS);
+            if (!path.empty())
+                RegSetValueExW(key, L"MatchedExeFullPath", 0, REG_SZ, reinterpret_cast<const BYTE *>(path.c_str()), static_cast<DWORD>((path.size() + 1) * sizeof(wchar_t)));
+            RegCloseKey(key);
+        };
+        QVERIFY(recognized_game_executables(children).isEmpty());
+        add("a", L"C:\\Games\\a.exe");
+        add("b", L"");
+        add("c", L"D:/Games/c.exe");
+        QCOMPARE(recognized_game_executables(children), QStringList({"C:\\Games\\a.exe", "D:/Games/c.exe"}));
     }
 
     // A due trim waits while the program is busy, then runs.

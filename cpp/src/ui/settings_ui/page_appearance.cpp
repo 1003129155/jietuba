@@ -3,14 +3,13 @@
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
 #include "settings/tool_settings.h"
-#include "ui/dialogs.h"
+#include "ui/color_picker_dialog.h"
 #include "ui/fluent_lite/buttons.h"
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/labels.h"
 #include "ui/settings_ui/components.h"
 #include "ui/settings_ui/dialog.h"
 #include "ui/settings_ui/pages.h"
-#include <QColorDialog>
 #include <QMenu>
 #include <QWidgetAction>
 
@@ -41,17 +40,19 @@ void build_application_section(SettingsDialog *dialog, SettingsCardGroup *grp) {
     // Window scale: font and size of standalone windows.
     add_combo_card(dialog, grp, FluentIcon::FontSize, "Window Scale", "Font and size of application windows.", "_dialog_scale_combo", percents,
                    get_dialog_scale().percent());
+    // Read by choose_color, the one entry every colour control opens the picker through.
+    add_combo_card(dialog, grp, FluentIcon::Palette, "Color Picker", "Used when choosing a custom color.", "_color_picker_style_combo",
+                   {{dialog->tr_text("Modern"), "modern"}, {dialog->tr_text("Classic (system dialog)"), "system"}},
+                   dialog->config_manager->get_app_setting("color_picker_style"));
 }
 
-// Picks a colour into one of the dialog's appearance colours and its swatch.
+// Picks a colour into one of the dialog's appearance colours and its swatch; both are opaque.
 void pick_color(SettingsDialog *dialog, std::optional<QColor> SettingsDialog::*color, const QString &button_attr, const char *title) {
-    QColorDialog picker(dialog->*color ? *(dialog->*color) : QColor(), nullptr);
-    picker.setWindowTitle(dialog->tr_text(title));
-    picker.setWindowFlag(Qt::WindowStaysOnTopHint, true);
-    if (exec_dialog(&picker, dialog)) {
-        const QColor selected = picker.selectedColor();
-        dialog->*color = selected;
-        update_color_btn(dialog->attr_widget(button_attr), selected);
+    auto *button = dialog->attr_widget(button_attr);
+    const QColor current = dialog->*color ? *(dialog->*color) : QColor();
+    if (const auto selected = choose_color(current, button, dialog->tr_text(title), ColorPickerDialog::NoOption)) {
+        dialog->*color = *selected;
+        update_color_btn(button, *selected);
     }
 }
 
@@ -98,7 +99,7 @@ void build_screenshot_section(SettingsDialog *dialog, SettingsCardGroup *grp) {
                    theme.selection_handle_size());
 }
 
-// Clipboard appearance: theme, font size and opacity; saved on Apply like the rest.
+// Clipboard appearance: theme, font size and opacity; saved like the rest.
 void build_clipboard_section(SettingsDialog *dialog, SettingsCardGroup *grp) {
     auto *config = dialog->config_manager;
 
@@ -130,8 +131,8 @@ void build_clipboard_section(SettingsDialog *dialog, SettingsCardGroup *grp) {
                 apply_clip_theme_btn_style(theme_btn, name);
                 update_btns(name);
                 menu->close();
-                // The theme is held on the dialog; no control signal moves the Apply button.
-                dialog->update_action_buttons();
+                // The theme is held on the dialog; no control signal schedules the save.
+                dialog->schedule_save();
             });
             action->setDefaultWidget(btn);
             menu->addAction(action);
@@ -179,7 +180,7 @@ QWidget *create_appearance_page(SettingsDialog *dialog) {
     set_own_style(view, "background: transparent;");
     auto *layout = new QVBoxLayout(view);
     layout->setContentsMargins(0, 0, dialog_scaled(10), 0);
-    layout->setSpacing(dialog_scaled(20));
+    layout->setSpacing(dialog_scaled(14));
 
     auto *grp_app = new SettingsCardGroup(dialog->tr_text("Application"), view);
     build_application_section(dialog, grp_app);

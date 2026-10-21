@@ -34,6 +34,9 @@ public:
     std::unique_ptr<ToolController> tool_controller;
     // Set by the view that shows this scene.
     QPointer<CanvasView> view;
+    // Highlighters multiply onto the captured image under them. A layer over the live desktop has none
+    // of its pixels to multiply, so there they are laid on translucent instead.
+    bool highlighters_multiply = true;
 
     void confirm_selection();
     // An already confirmed selection, shown and announced like a dragged one.

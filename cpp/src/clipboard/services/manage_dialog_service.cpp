@@ -17,13 +17,14 @@ SaveResult save_content(ClipboardManager &manager, std::optional<qint64> editing
 }
 }
 
-SaveResult save_group(ClipboardManager &manager, std::optional<qint64> editing_group_id, const QString &name, const std::optional<QString> &icon, int group_type) {
+SaveResult save_group(ClipboardManager &manager, std::optional<qint64> editing_group_id, const QString &name, const std::optional<QString> &icon, int group_type,
+                      const std::optional<FilterRule> &filter_rule) {
     if (!editing_group_id) {
-        const auto group_id = manager.create_group(name, std::nullopt, icon, group_type);
+        const auto group_id = manager.create_group(name, std::nullopt, icon, group_type, filter_rule);
         if (group_id && *group_id) return {true, "created", {}, group_id};
         return {false, "created", "create_group_failed", std::nullopt};
     }
-    if (manager.update_group(*editing_group_id, name, std::nullopt, icon, group_type)) return {true, "updated", {}, editing_group_id};
+    if (manager.update_group(*editing_group_id, name, std::nullopt, icon, group_type, filter_rule)) return {true, "updated", {}, editing_group_id};
     return {false, "updated", "update_group_failed", std::nullopt};
 }
 

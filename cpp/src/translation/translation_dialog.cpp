@@ -260,22 +260,23 @@ std::pair<QColor, QColor> DashboardPinButton::colors() const {
 DashboardTitleBar::DashboardTitleBar(QWidget *parent) : FluentTitleBar(parent) {
     // The base constructor applied the theme's caption colours; use the palette's.
     apply_caption_colors();
-    hBoxLayout->setContentsMargins(dialog_scaled(12), 0, 0, 0);
-    hBoxLayout->setSpacing(0);
+    apply_layout_metrics();
 
     logo = iconLabel;
     logo->setObjectName("appLogo");
     logo->setAccessibleName(tr_text("Translation"));
     const auto logo_icon = ResourceManager::get_icon(ResourceManager::get_icon_path(QString::fromUtf8("翻译.svg")), dialog_scaled(22));
     if (logo_icon.isNull()) {
+        setIcon(QIcon());
         logo->setText(tr_text("Translation"));
     } else {
-        auto logo_pixmap = logo_icon.pixmap(dialog_scaled(16), dialog_scaled(16));
+        // Tinted at a large size; the bar scales it to the caption.
+        auto logo_pixmap = logo_icon.pixmap(64, 64);
         QPainter logo_painter(&logo_pixmap);
         logo_painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
         logo_painter.fillRect(logo_pixmap.rect(), QColor("white"));
         logo_painter.end();
-        logo->setPixmap(logo_pixmap);
+        setIcon(QIcon(logo_pixmap));
     }
 
     app_name = titleLabel;
@@ -306,6 +307,11 @@ void DashboardTitleBar::apply_palette(const DashboardPalette &palette) {
     palette_ = &palette;
     pin_button->apply_palette(palette);
     apply_caption_colors();
+}
+
+void DashboardTitleBar::apply_layout_metrics() {
+    hBoxLayout->setContentsMargins(widget_scaled(this, 12), 0, 0, 0);
+    titleLabel->setIndent(-1);
 }
 
 void DashboardTitleBar::apply_caption_colors() {

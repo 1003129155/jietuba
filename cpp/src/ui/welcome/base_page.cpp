@@ -36,14 +36,15 @@ void apply_welcome_label_style(QLabel *label) {
     if (role.isEmpty()) return;
     const auto theme = welcome_theme();
     const QString color = role == "muted" ? theme.text_muted : role == "soft" ? theme.text_soft : role == "accent" ? theme.accent : theme.text;
-    const int size = label->property("welcomeFontSize").toInt() ? label->property("welcomeFontSize").toInt() : 13;
+    int size = label->property("welcomeFontSize").toInt() ? label->property("welcomeFontSize").toInt() : 13;
+    // Body text reads one size larger than the base sizes pages pass; page titles keep theirs.
+    if (size < 20) ++size;
     const int weight = label->property("welcomeFontWeight").toInt() ? label->property("welcomeFontWeight").toInt() : 400;
     const QString extra = label->property("welcomeStyleExtra").toString();
     set_own_style(label, QString("font-size: %1px; font-weight: %2; color: %3; background: transparent; border: none; %4").arg(dialog_scaled(size)).arg(weight).arg(color, extra));
 }
 
 WelcomeToggleSwitch::WelcomeToggleSwitch(QWidget *parent) : SwitchButton(parent) {
-    setFixedSize(dialog_scaled(44), dialog_scaled(24));
     connect(this, &SwitchButton::checkedChanged, this, &WelcomeToggleSwitch::toggled);
 }
 
@@ -117,7 +118,7 @@ void BasePage::init() {
     body->setSpacing(dialog_scaled(18));
     illus_area = create_illustration();
     illus_area->init();
-    illus_area->setFixedWidth(dialog_scaled(300));
+    illus_area->setFixedWidth(dialog_scaled(320));
     body->addWidget(illus_area);
 
     content_widget_ = new QFrame(this);

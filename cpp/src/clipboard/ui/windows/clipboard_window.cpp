@@ -3,14 +3,16 @@
 #include "clipboard/ui/image_item_actions.h"
 #include "clipboard/ui/menus/action_menu.h"
 #include "clipboard/ui/panels/setting_panel.h"
-#include "clipboard/ui/theme/chevron.h"
 #include "clipboard/ui/theme/theme_styles.h"
 #include "clipboard/ui/widgets/group_bar.h"
 #include "clipboard/ui/widgets/item_delegate.h"
+#include "clipboard/ui/widgets/item_drag.h"
 #include "clipboard/ui/widgets/preview_popup.h"
+#include "clipboard/ui/widgets/selection_bar.h"
 #include "clipboard/ui/windows/pin_window.h"
 #include "core/constants.h"
 #include "core/logger.h"
+#include "core/platform_utils.h"
 #include "core/py_text.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
@@ -25,14 +27,19 @@
 #include <QIcon>
 #include <QDesktopServices>
 #include <QDir>
+#include <QDrag>
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QKeyEvent>
+#include <QPainter>
+#include <QMouseEvent>
 #include <QProcess>
+#include <QSaveFile>
 #include <QScreen>
 #include <QScrollBar>
+#include <QStandardPaths>
 #include <QStyle>
 #include <QUrl>
 
@@ -43,12 +50,6 @@ constexpr Qt::KeyboardModifiers DIRECT_PICK_BLOCKERS = Qt::ControlModifier | Qt:
 
 QString translate_window(const QString &text) { return ClipboardWindow::tr_text(text.toUtf8().constData()); }
 
-// The file paths stored in a file item.
-QStringList item_files(const ClipboardItem &item) {
-    QStringList files;
-    for (const auto &value : QJsonDocument::fromJson(item.content.toUtf8()).object().value("files").toArray()) files.append(value.toString());
-    return files;
-}
 }
 
 QString pick_char(int key) {
@@ -89,12 +90,8 @@ bool ClipboardShortcutHandler::handle_key(QInputEvent *event) {
     if (match_inapp_binding(event, QUICK_EDIT_SHORTCUT, bindings_) && w->edit_selected()) return true;
 
     if (key == Qt::Key_Escape) {
-        if (w->selection_manager->clear_marks()) return true;
-        if (w->selection_manager->selected_index() >= 0) {
-            w->selection_manager->reset();
-            return true;
-        }
-        w->close();
+        // The cursor only points, so there is nothing else to undo before closing.
+        if (!w->selection_manager->clear_marks()) w->close();
         return true;
     }
     if (key == Qt::Key_Return || key == Qt::Key_Enter) {
@@ -112,6 +109,8 @@ bool ClipboardShortcutHandler::handle_key(QInputEvent *event) {
     const QString character = pick_char(key);
     const qsizetype index = character.isEmpty() ? -1 : pick_keys.indexOf(character);
     if (index >= 0 && QApplication::focusWidget() != w->search_input) {
+        // During a multiple selection the rows show circles instead of their keys.
+        if (w->selection_manager->has_marks()) return true;
         const auto &items = w->controller->current_items;
         if (index < items.size()) {
             w->on_paste_item(items[index].id);
@@ -124,6 +123,17 @@ bool ClipboardShortcutHandler::handle_key(QInputEvent *event) {
 // ==================== Window ====================
 
 namespace {
+// Entries of the type filter menu: the kind it selects (see FilterRule::kind), empty for every type.
+const QStringList &type_filter_kinds() {
+    static const QStringList kinds = {QString(), "text", SUB_KIND_URL, SUB_KIND_COLOR, SUB_KIND_PATH, "image", "file"};
+    return kinds;
+}
+
+QStringList type_filter_label_texts() {
+    return {ClipboardWindow::tr_text("All"),  ClipboardWindow::tr_text("Text"),  ClipboardWindow::tr_text("Link"), ClipboardWindow::tr_text("Color"),
+            ClipboardWindow::tr_text("Path"), ClipboardWindow::tr_text("Image"), ClipboardWindow::tr_text("File")};
+}
+
 QString &geometry_file_for_test() {
     static QString path;
     return path;
@@ -200,7 +210,7 @@ void ClipboardWindow::on_item_inserted(const ClipboardItem &item, int row) {
     auto *list_item = new QListWidgetItem;
     apply_list_item_data(list_item, item);
     list_widget->insertItem(row, list_item);
-    selection_manager->shift_selection_after_insert(row);
+    selection_manager->row_inserted(row);
 }
 
 void ClipboardWindow::on_item_moved_to_top(qint64 item_id, int row) {
@@ -209,20 +219,19 @@ void ClipboardWindow::on_item_moved_to_top(qint64 item_id, int row) {
         if (list_widget->item(index)->data(ROLE_ITEM_ID).toLongLong() != item_id) continue;
         if (index == row) return;
         list_widget->insertItem(row, list_widget->takeItem(index));
-        selection_manager->shift_selection_after_move(index, row);
+        selection_manager->row_moved(index, row);
         return;
     }
 }
 
-// takeItem quietly moves Qt's current item to a neighbour, which the selection manager would take as a user choice;
-// the list signals are blocked and shift_selection_* adjusts the selected indices.
+// The selection manager does not follow Qt's current item; row_removed keeps its cursor row in step.
 void ClipboardWindow::on_item_removed(int row) {
     QListWidgetItem *list_item = list_widget->item(row);
     const std::optional<qint64> removed_id = list_item ? std::optional<qint64>(list_item->data(ROLE_ITEM_ID).toLongLong()) : std::nullopt;
     list_widget->blockSignals(true);
     delete list_widget->takeItem(row);
     list_widget->blockSignals(false);
-    selection_manager->shift_selection_after_remove(row);
+    selection_manager->row_removed(row);
     if (removed_id) selection_manager->unmark(*removed_id);
     // One row fewer may leave the window unfilled; load the next page if so.
     QTimer::singleShot(0, this, [this] { check_and_load_more_if_needed(); });
@@ -232,7 +241,7 @@ void ClipboardWindow::on_item_row_moved(int from_row, int to_row) {
     list_widget->blockSignals(true);
     list_widget->insertItem(to_row, list_widget->takeItem(from_row));
     list_widget->blockSignals(false);
-    selection_manager->shift_selection_after_move(from_row, to_row);
+    selection_manager->row_moved(from_row, to_row);
 }
 
 void ClipboardWindow::on_item_updated(int row, const ClipboardItem &item) {
@@ -273,7 +282,7 @@ void ClipboardWindow::apply_scale_metrics() {
     time_filter_layout_->setSpacing(scaled(4));
     bottom_layout_->setSpacing(scaled(8));
     const std::tuple<QWidget *, int, int> sizes[] = {
-        {start_date_edit, 108, 26}, {end_date_edit, 108, 26},         {apply_time_filter_btn, 36, 26}, {type_filter_btn, 64, 26},
+        {start_date_edit, 108, 26}, {end_date_edit, 108, 26},         {apply_time_filter_btn, 36, 26}, {type_filter_btn, 80, 26},
         {clear_time_filter_btn, 26, 26}, {time_filter_toggle_btn, 28, 28}, {clear_search_btn, 24, 24},  {menu_btn, 28, 28},
     };
     for (const auto &[widget, width, height] : sizes) widget->setFixedSize(scaled(width), scaled(height));
@@ -301,7 +310,7 @@ void ClipboardWindow::apply_theme() {
         apply_clear_search_btn_style();
         apply_menu_btn_style();
         apply_time_filter_styles();
-        apply_mark_count_style();
+        selection_bar->apply_style(current_theme);
     }
     refresh_list();
     log_debug(T("主题已切换到: {theme_name}", {{"theme_name", current_theme.display_name}}), "Clipboard");
@@ -310,7 +319,7 @@ void ClipboardWindow::apply_theme() {
 void ClipboardWindow::load_settings() {
     config = get_tool_settings_manager();
     window_opacity = static_cast<int>(config->get_clipboard_window_opacity());
-    display_lines = static_cast<int>(config->get_clipboard_font_size());
+    font_size = static_cast<int>(config->get_clipboard_font_size());
     group_bar_position = config->get_clipboard_group_bar_position();
 }
 
@@ -319,6 +328,7 @@ QLocale ClipboardWindow::current_date_locale() const {
     if (lang_code == "ja") return QLocale(QLocale::Japanese, QLocale::Japan);
     if (lang_code == "ko") return QLocale(QLocale::Korean, QLocale::SouthKorea);
     if (lang_code == "en") return QLocale(QLocale::English, QLocale::UnitedStates);
+    if (lang_code == "zh_TW") return QLocale(QLocale::Chinese, QLocale::Taiwan);
     return QLocale(QLocale::Chinese, QLocale::China);
 }
 
@@ -341,9 +351,9 @@ void ClipboardWindow::retranslate_ui() {
     clear_time_filter_btn->setToolTip(tr_text("Close filters"));
     search_input->setPlaceholderText(QString::fromUtf8("🔍 ") + tr_text("Search"));
     clear_search_btn->setToolTip(tr_text("Clear search"));
-    update_mark_count();
+    selection_bar->retranslate();
 
-    type_filter_labels = {tr_text("All"), tr_text("Text"), tr_text("Image"), tr_text("File")};
+    type_filter_labels = type_filter_label_texts();
     for (int index = 0; index < type_filter_actions.size(); ++index) type_filter_actions[index]->setText(type_filter_labels[index]);
     update_type_filter_button(type_filter_index);
     if (group_bar) group_bar->refresh_buttons();
@@ -438,17 +448,17 @@ void ClipboardWindow::setup_ui() {
             }
         )");
     list_widget->setSpacing(0);
+    list_widget->setResizeMode(QListView::Adjust);
     list_widget->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     list_widget->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     list_widget->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(list_widget, &QWidget::customContextMenuRequested, this, [this](const QPoint &pos) { show_context_menu(pos); });
 
-    item_delegate = new ClipboardItemDelegate(list_widget, current_theme, display_lines, window_opacity, config->get_clipboard_show_metadata(),
-                                              static_cast<int>(config->get_clipboard_line_height_padding()), true, config->get_clipboard_image_size());
+    item_delegate = new ClipboardItemDelegate(list_widget, current_theme, font_size, window_opacity, config->get_clipboard_show_metadata(),
+                                              static_cast<int>(config->get_clipboard_line_height_padding()), true, config->get_clipboard_image_size(), config->get_clipboard_display_lines());
     list_widget->setItemDelegate(item_delegate);
     list_widget->setMouseTracking(true);
     list_widget->viewport()->setMouseTracking(true);
-    connect(list_widget, &QListWidget::itemEntered, this, [this](QListWidgetItem *item) { on_delegate_item_entered(item); });
     list_widget->viewport()->installEventFilter(this);
 
     selection_manager = new SelectionManager(list_widget, [this](qint64 item_id) { return get_item_data(item_id); });
@@ -456,11 +466,14 @@ void ClipboardWindow::setup_ui() {
     selection_manager->group_bar_position = group_bar_position;
     connect(selection_manager, &SelectionManager::item_activated, this, [this](qint64 item_id) { on_paste_item(item_id); });
     connect(selection_manager, &SelectionManager::marks_changed, this, [this] { on_marks_changed(); });
+    connect(selection_manager, &SelectionManager::cursor_changed, this, [this](std::optional<qint64> item_id) {
+        item_delegate->set_cursor_id(item_id);
+        list_widget->viewport()->update();
+    });
     connect(selection_manager, &SelectionManager::request_sidebar_focus, this, [this] { enter_sidebar_mode(); });
     connect(selection_manager, &SelectionManager::request_group_switch, this, [this](int delta) { on_top_group_switch(delta); });
     mouse_controller = new ClipboardMouseController(this);
 
-    connect(list_widget, &QListWidget::itemSelectionChanged, this, [this] { on_selection_changed(); });
     QScrollBar *scrollbar = list_widget->verticalScrollBar();
     connect(scrollbar, &QScrollBar::valueChanged, this, [this](int value) { on_scroll(value); });
     connect(scrollbar, &QScrollBar::rangeChanged, this, [this] { list_widget->viewport()->update(); });
@@ -499,14 +512,13 @@ void ClipboardWindow::setup_ui() {
     time_filter_layout_->addWidget(apply_time_filter_btn);
     time_filter_layout_->addStretch(1);
 
-    type_filter_labels = {tr_text("All"), tr_text("Text"), tr_text("Image"), tr_text("File")};
+    type_filter_labels = type_filter_label_texts();
     type_filter_index = 0;
     type_filter_btn = new QToolButton;
     type_filter_btn->setCursor(Qt::PointingHandCursor);
     type_filter_btn->setToolTip(tr_text("Filter Type"));
     type_filter_btn->setFocusPolicy(Qt::NoFocus);
-    type_filter_btn->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-    type_filter_btn->setLayoutDirection(Qt::RightToLeft);
+    type_filter_btn->setToolButtonStyle(Qt::ToolButtonTextOnly);
     connect(type_filter_btn, &QToolButton::clicked, this, [this] { show_type_filter_menu(); });
     type_filter_menu = new QMenu(type_filter_btn);
     for (int idx = 0; idx < type_filter_labels.size(); ++idx) {
@@ -527,6 +539,17 @@ void ClipboardWindow::setup_ui() {
     connect(clear_time_filter_btn, &QToolButton::clicked, this, [this] { close_time_filter_bar(); });
     time_filter_layout_->addWidget(clear_time_filter_btn);
     left_layout->addWidget(time_filter_bar);
+
+    selection_bar = new SelectionBar;
+    selection_bar->apply_style(current_theme);
+    connect(selection_bar, &SelectionBar::paste_requested, this, [this] { paste_selected(false); });
+    connect(selection_bar, &SelectionBar::save_requested, this, &ClipboardWindow::save_marked_to_folder);
+    connect(selection_bar, &SelectionBar::more_requested, this, [this] {
+        const QPoint at = list_widget->mapFromGlobal(selection_bar->more_button->mapToGlobal(QPoint(0, 0)));
+        show_marked_context_menu(selection_manager->marked_ids(true), at);
+    });
+    connect(selection_bar, &SelectionBar::exit_requested, this, [this] { selection_manager->clear_marks(); });
+    left_layout->addWidget(selection_bar);
 
     bottom_bar = new QWidget;
     bottom_bar->setStyleSheet(R"(
@@ -561,11 +584,6 @@ void ClipboardWindow::setup_ui() {
     connect(clear_search_btn, &QPushButton::clicked, this, [this] { clear_search(); });
     clear_search_btn->hide();
     bottom_layout_->addWidget(clear_search_btn);
-
-    mark_count_label = new QLabel;
-    mark_count_label->hide();
-    apply_mark_count_style();
-    bottom_layout_->addWidget(mark_count_label);
 
     menu_btn = new QPushButton(QString::fromUtf8("⚙"));
     menu_btn->setCursor(Qt::PointingHandCursor);
@@ -614,6 +632,7 @@ void ClipboardWindow::show_main_menu() {
     options.window_opacity = window_opacity;
     options.current_font_size = static_cast<int>(config->get_clipboard_font_size());
     options.current_image_size = config->get_clipboard_image_size();
+    options.current_display_lines = config->get_clipboard_display_lines();
     options.current_theme_name = get_theme_manager()->get_current_theme().name;
     options.current_group_bar_position = group_bar_position;
     options.opacity_options = config->get_clipboard_window_opacity_options().toList();
@@ -631,6 +650,7 @@ void ClipboardWindow::show_main_menu() {
     options.on_set_opacity = [this](int percent) { set_window_opacity_percent(percent); };
     options.on_set_font_size = [this](int size) { set_font_size(size); };
     options.on_set_image_size = [this](const QString &size) { set_image_size(size); };
+    options.on_set_display_lines = [this](int lines) { set_display_lines(lines); };
     options.on_set_theme = [](const QString &name) { get_theme_manager()->set_theme(name); };
     options.on_add_item = [this] { on_add_item_clicked(); };
     options.on_clear_history = [this] { on_clear_clicked(); };
@@ -692,9 +712,9 @@ void ClipboardWindow::set_window_opacity_percent(int percent) {
 }
 
 void ClipboardWindow::set_font_size(int size) {
-    display_lines = size;
+    font_size = size;
     config->set_clipboard_font_size(size);
-    item_delegate->set_display_lines(size);
+    item_delegate->set_font_size(size);
     refresh_list();
 }
 
@@ -704,9 +724,15 @@ void ClipboardWindow::set_image_size(const QString &size) {
     refresh_list();
 }
 
+void ClipboardWindow::set_display_lines(int lines) {
+    config->set_clipboard_display_lines(lines);
+    item_delegate->set_display_lines(config->get_clipboard_display_lines());
+    refresh_list();
+}
+
 void ClipboardWindow::on_font_size_changed(int size) {
-    display_lines = size;
-    item_delegate->set_display_lines(size);
+    font_size = size;
+    item_delegate->set_font_size(size);
     refresh_list();
 }
 
@@ -724,10 +750,10 @@ void ClipboardWindow::refresh_list() {
     list_widget->setUpdatesEnabled(false);
     list_widget->clear();
     item_delegate->set_show_metadata(config->get_clipboard_show_metadata());
-    item_delegate->set_display_lines(display_lines);
+    item_delegate->set_font_size(font_size);
+    item_delegate->set_display_lines(config->get_clipboard_display_lines());
     item_delegate->set_window_opacity(window_opacity);
     item_delegate->set_theme(current_theme);
-    item_delegate->set_highlighted_id(std::nullopt);
     for (const auto &item : controller->current_items) {
         auto *list_item = new QListWidgetItem;
         apply_list_item_data(list_item, item);
@@ -778,27 +804,23 @@ void ClipboardWindow::on_search_changed() {
     search_timer_->start(300);
 }
 
-void ClipboardWindow::on_selection_changed() {
-    const auto selected_items = list_widget->selectedItems();
-    if (!selected_items.isEmpty()) set_highlighted_item(selected_items.front()->data(Qt::UserRole).toLongLong());
-    else set_highlighted_item(std::nullopt);
-}
-
-void ClipboardWindow::on_delegate_item_entered(QListWidgetItem *list_item) {
-    const QVariant id = list_item->data(ROLE_ITEM_ID);
-    if (!id.isValid()) return;
-    set_highlighted_item(id.toLongLong());
-    const int row = list_widget->row(list_item);
-    if (row >= 0) selection_manager->set_hovered_index(row);
-    const QVariant item_data = list_item->data(ROLE_ITEM_DATA);
-    if (item_data.canConvert<ClipboardItem>()) PreviewPopup::instance()->show_preview(item_data.value<ClipboardItem>(), QCursor::pos(), 5);
-}
-
-void ClipboardWindow::set_highlighted_item(std::optional<qint64> item_id) {
-    if (item_delegate->highlighted_id() != item_id) {
-        item_delegate->set_highlighted_id(item_id);
-        list_widget->viewport()->update();
+void ClipboardWindow::on_pointer_moved(const QPoint &viewport_pos, const QPoint &global_pos) {
+    // Qt reports the row under a still mouse again when the list scrolls; only a moved mouse points at something.
+    if (pointer_pos_ == global_pos) return;
+    pointer_pos_ = global_pos;
+    QListWidgetItem *list_item = list_widget->itemAt(viewport_pos);
+    if (!list_item) {
+        pointer_row_ = -1;
+        PreviewPopup::instance()->hide_preview();
+        return;
     }
+    // The preview follows the row the mouse comes onto, and comes back when the mouse takes the cursor back from the keys.
+    const int row = list_widget->row(list_item);
+    const bool preview = row != pointer_row_ || row != selection_manager->cursor_row();
+    pointer_row_ = row;
+    selection_manager->point_at(row);
+    const QVariant item_data = list_item->data(ROLE_ITEM_DATA);
+    if (preview && item_data.canConvert<ClipboardItem>()) PreviewPopup::instance()->show_preview(item_data.value<ClipboardItem>(), global_pos, 5);
 }
 
 void ClipboardWindow::update_search_background(const QString &text) {
@@ -813,22 +835,11 @@ void ClipboardWindow::apply_clear_search_btn_style() { clear_search_btn->setStyl
 
 void ClipboardWindow::apply_menu_btn_style() { menu_btn->setStyleSheet(ThemeStyleGenerator(current_theme).generate_menu_btn_style()); }
 
-void ClipboardWindow::apply_mark_count_style() {
-    set_own_style(mark_count_label,
-                  QString("background: transparent; border: none; color: %1; font-size: %2px;").arg(current_theme.colors.text_accent).arg(scaled(12)));
-}
-
-void ClipboardWindow::update_mark_count() {
-    const int count = static_cast<int>(selection_manager->marked_ids().size());
-    mark_count_label->setText(tr_text("{count} selected").replace("{count}", QString::number(count)));
-    mark_count_label->setToolTip(tr_text("Enter pastes them together, Esc clears the selection"));
-    mark_count_label->setVisible(count > 0);
-}
-
 void ClipboardWindow::on_marks_changed() {
     item_delegate->set_marked_ids(selection_manager->marked_ids());
+    if (config->get_clipboard_display_lines() > 1) list_widget->doItemsLayout();
     list_widget->viewport()->update();
-    update_mark_count();
+    selection_bar->set_count(static_cast<int>(selection_manager->marked_ids().size()));
 }
 
 void ClipboardWindow::toggle_item_mark(qint64 item_id) { selection_manager->toggle_mark(item_id); }
@@ -853,9 +864,6 @@ void ClipboardWindow::apply_time_filter_styles() {
     if (type_filter_btn) {
         type_filter_btn->setStyleSheet(generator.generate_time_filter_type_btn_style());
         type_filter_menu->setStyleSheet(generator.generate_menu_style());
-        // The arrow is the same image as the date edits' drop-down; text on the left, arrow on the right.
-        type_filter_arrow_ = QIcon(chevron_image(current_theme.colors.text_secondary, scaled(9), scaled(6)));
-        type_filter_btn->setIconSize(QSize(scaled(9), scaled(6)));
         refresh_type_filter_button();
     }
     if (clear_time_filter_btn) clear_time_filter_btn->setStyleSheet(generator.generate_time_filter_close_btn_style());
@@ -873,15 +881,12 @@ void ClipboardWindow::update_type_filter_button(int index) {
 }
 
 void ClipboardWindow::refresh_type_filter_button() {
-    // A filter group's type is fixed: the button shows it greyed out; other views show the user's choice.
+    // A filter group's kind is fixed: the button shows it greyed out; other views show the user's choice.
     if (!type_filter_btn) return;
-    const auto fixed = controller->current_filter_type();
-    int index = type_filter_index;
-    if (fixed == "text") index = 1;
-    else if (fixed == "image") index = 2;
-    else if (fixed == "file") index = 3;
+    const auto rule = controller->current_filter_rule();
+    const auto fixed = rule ? rule->kind : std::nullopt;
+    const int index = fixed ? std::max<int>(0, type_filter_kinds().indexOf(*fixed)) : type_filter_index;
     type_filter_btn->setText(type_filter_labels[index]);
-    type_filter_btn->setIcon(fixed ? QIcon() : type_filter_arrow_);
     type_filter_btn->setEnabled(!fixed);
     type_filter_btn->setToolTip(fixed ? tr_text("Fixed by this filter group") : tr_text("Filter Type"));
 }
@@ -890,7 +895,8 @@ void ClipboardWindow::show_type_filter_menu() { type_filter_menu->exec(type_filt
 
 void ClipboardWindow::set_type_filter(int index) {
     update_type_filter_button(index);
-    controller->set_content_type_filter(index);
+    const QString kind = type_filter_kinds().value(index);
+    controller->set_content_type_filter(kind.isEmpty() ? std::nullopt : std::optional(kind));
 }
 
 void ClipboardWindow::on_group_switched(std::optional<qint64> group_id) {
@@ -901,23 +907,22 @@ void ClipboardWindow::on_group_switched(std::optional<qint64> group_id) {
             if (group.id == *group_id) is_quick_launch = group.group_type == GroupType::FILE;
     }
     item_delegate->set_hide_file_icon(is_quick_launch);
+    if (config->get_clipboard_display_lines() > 1) list_widget->doItemsLayout();
     refresh_type_filter_button();
     list_widget->viewport()->update();
 }
 
 void ClipboardWindow::on_sidebar_entered() {
-    selection_manager->clear_selection();
-    set_highlighted_item(std::nullopt);
+    selection_manager->clear_cursor();
     list_widget->setFocus();
 }
 
 void ClipboardWindow::on_sidebar_exited(std::optional<qint64> prev_item_id) {
     list_widget->setFocus();
-    if (prev_item_id) selection_manager->select_item_id(prev_item_id);
-    else selection_manager->move_selection(1);
+    if (!selection_manager->move_cursor_to(prev_item_id)) selection_manager->move_cursor(1);
 }
 
-void ClipboardWindow::enter_sidebar_mode() { group_bar->enter_sidebar_mode(selection_manager->get_current_item_id()); }
+void ClipboardWindow::enter_sidebar_mode() { group_bar->enter_sidebar_mode(selection_manager->cursor_id()); }
 
 void ClipboardWindow::on_top_group_switch(int delta) { group_bar->handle_top_group_switch(delta); }
 
@@ -964,9 +969,15 @@ ClipboardController::CloseCallback ClipboardWindow::paste_close_callback() {
 
 std::optional<ClipboardItem> ClipboardWindow::get_item_data(qint64 item_id) const { return controller->loaded_item(item_id); }
 
-bool ClipboardWindow::is_file_item(qint64 item_id) const {
+bool ClipboardWindow::is_launch_item(qint64 item_id) const {
     const auto item = get_item_data(item_id);
-    return item && item->content_type == "file";
+    return item && group_accepts(static_cast<int>(GroupType::FILE), item->content_type, item->sub_kind);
+}
+
+void ClipboardWindow::open_launch_item(qint64 item_id) {
+    const auto item = get_item_data(item_id);
+    if (item && item->content_type == "text" && item->sub_kind == SUB_KIND_URL) open_link(item_id);
+    else open_file_item(item_id);
 }
 
 bool ClipboardWindow::in_file_group() {
@@ -985,9 +996,9 @@ void ClipboardWindow::on_paste_item(qint64 item_id) {
         return;
     }
     selection_manager->clear_marks();
-    // A quick launch group only changes how files are clicked; other items (moved in by changing the type) paste as usual.
-    if (in_file_group() && is_file_item(item_id)) {
-        open_file_item(item_id);
+    // Other items retained after a group type change still paste as usual.
+    if (in_file_group() && is_launch_item(item_id)) {
+        open_launch_item(item_id);
         return;
     }
     if (controller->paste_item(item_id, paste_close_callback())) emit item_pasted(item_id);
@@ -999,7 +1010,7 @@ void ClipboardWindow::paste_selected(bool plain_text) {
         paste_marked(marked, plain_text);
         return;
     }
-    const std::optional<qint64> item_id = !marked.isEmpty() ? std::optional<qint64>(marked.front()) : selection_manager->get_current_item_id();
+    const std::optional<qint64> item_id = !marked.isEmpty() ? std::optional<qint64>(marked.front()) : selection_manager->cursor_id();
     if (!item_id || !*item_id) return;
     if (plain_text) paste_plain_text(*item_id);
     else on_paste_item(*item_id);
@@ -1017,11 +1028,11 @@ void ClipboardWindow::paste_plain_text(qint64 item_id) {
 }
 
 void ClipboardWindow::paste_marked(const QList<qint64> &item_ids, bool plain_text, const QString &layout, bool explicit_paste) {
-    // In a file group a click opens the file; a multiple selection of only files opens each.
+    // A multiple selection of launchable items opens each; explicit paste keeps its usual behavior.
     if (mouse_controller) mouse_controller->cancel();
-    if (!explicit_paste && in_file_group() && std::all_of(item_ids.begin(), item_ids.end(), [this](qint64 item_id) { return is_file_item(item_id); })) {
+    if (!explicit_paste && in_file_group() && std::all_of(item_ids.begin(), item_ids.end(), [this](qint64 item_id) { return is_launch_item(item_id); })) {
         selection_manager->clear_marks();
-        for (qint64 item_id : item_ids) open_file_item(item_id);
+        for (qint64 item_id : item_ids) open_launch_item(item_id);
         return;
     }
     bool stitching = !plain_text;
@@ -1099,10 +1110,16 @@ void ClipboardWindow::delete_marked(const QList<qint64> &item_ids) {
 QMap<QString, std::function<void()>> ClipboardWindow::item_context_menu_handlers(qint64 item_id) {
     return {
         {"paste", [this, item_id] { paste_item_to_clipboard(item_id); }},
+        {"start_marking", [this, item_id] { selection_manager->mark(item_id); }},
         {"pin_image", [this, item_id] { create_pin_window(item_id); }},
         {"save_image_as", [this, item_id] { save_image_item_as(this, manager, controller->get_item(item_id)); }},
+        {"save_item_as", [this, item_id] { save_item_as(item_id); }},
         {"toggle_pin", [this, item_id] { controller->toggle_pin(item_id); }},
         {"open_file_location", [this, item_id] { open_file_location(item_id); }},
+        {"open_link", [this, item_id] { open_link(item_id); }},
+        {"path_paste_as_files", [this, item_id] {
+             if (controller->paste_as_files(item_id, paste_close_callback(), true)) emit item_pasted(item_id);
+         }},
         {"quick_edit_item", [this, item_id] { quick_edit_item(item_id); }},
         {"edit_item", [this, item_id] { edit_item(item_id); }},
         {"move_item_up", [this, item_id] { controller->move_item_order(item_id, controller->current_group_id, -1); }},
@@ -1124,6 +1141,15 @@ std::function<void()> ClipboardWindow::resolve_item_context_menu_handler(qint64 
     if (action_key.startsWith("special_paste_") || action_key.startsWith("transform_")) return [this, item_id, action_key] { special_paste(item_id, action_key); };
     // Special Paste entries of file items.
     if (action_key.startsWith("file_paste_")) return [this, item_id, action_key] { file_special_paste(item_id, action_key); };
+    // A color item's other formats.
+    if (const QString color_prefix = "color_paste_"; action_key.startsWith(color_prefix)) {
+        bool ok = false;
+        const int index = action_key.mid(color_prefix.size()).toInt(&ok);
+        if (!ok) return {};
+        return [this, item_id, index] {
+            if (controller->paste_color_conversion(item_id, index, paste_close_callback(), true)) emit item_pasted(item_id);
+        };
+    }
     return {};
 }
 
@@ -1142,7 +1168,7 @@ void ClipboardWindow::edit_item(qint64 item_id) {
 }
 
 bool ClipboardWindow::edit_selected() {
-    const auto item_id = selection_manager->get_current_item_id();
+    const auto item_id = selection_manager->cursor_id();
     const auto item = item_id && *item_id ? get_item_data(*item_id) : std::nullopt;
     if (!item) return false;
     if (is_quick_editable(*item)) {
@@ -1201,20 +1227,148 @@ bool ClipboardWindow::save_quick_edit(qint64 item_id, const QString &text) {
 
 void ClipboardWindow::create_pin_window(qint64 item_id) { create_pin_from_clipboard_item(item_id, controller, this); }
 
+void ClipboardWindow::start_item_drag(qint64 item_id) {
+    if (dragging_) return;
+    // A marked row carries every marked row, in the order a paste of them uses.
+    QList<qint64> ids = selection_manager->marked_ids(true);
+    if (!ids.contains(item_id)) ids = {item_id};
+    const QString images_dir = manager.get_images_dir().value_or(QString());
+    QList<ClipboardItem> items;
+    for (const qint64 id : ids)
+        if (const auto item = get_item_data(id); item && ItemDragMimeData::can_drag(*item, images_dir)) items.append(*item);
+    if (items.isEmpty()) return;
+    PreviewPopup::instance()->hide_preview();
+    auto *drag = new QDrag(list_widget);
+    drag->setMimeData(new ItemDragMimeData(items, images_dir, ItemDragMimeData::default_temp_root()));
+    QPoint hot_spot;
+    const QPixmap pixmap = drag_pixmap(item_id, static_cast<int>(items.size()), &hot_spot);
+    if (!pixmap.isNull()) {
+        drag->setPixmap(pixmap);
+        drag->setHotSpot(hot_spot);
+    }
+    dragging_ = true;
+    // 只允许复制，按 Shift 也不能移动或删除历史记录中的原图。
+    drag->exec(Qt::CopyAction, Qt::CopyAction);
+    dragging_ = false;
+    drag->deleteLater();
+    check_and_hide();
+}
+
+QString ClipboardWindow::last_save_folder() const {
+    // Shared with the save image window: the last folder anything was saved to.
+    const QString folder = config->get_app_setting("save_dialog_last_dir").toString();
+    return !folder.isEmpty() && QFileInfo(folder).isDir() ? folder : QStandardPaths::writableLocation(QStandardPaths::DesktopLocation);
+}
+
+bool ClipboardWindow::save_items_to_folder(const QList<ClipboardItem> &items) {
+    if (items.isEmpty()) return false;
+    PreviewPopup::instance()->hide_preview();
+    const QString start = last_save_folder();
+    const QString folder = get_existing_directory(this, tr_text("Choose a Folder to Save To"), start);
+    if (folder.isEmpty()) return false;
+    config->set_app_setting("save_dialog_last_dir", QDir::toNativeSeparators(folder));
+    // Text and images become files the way a drag makes them; they stay until the copy that reads them is done.
+    auto staged = std::make_shared<ItemDragMimeData>(items, manager.get_images_dir().value_or(QString()), ItemDragMimeData::default_temp_root());
+    const QStringList sources = staged->file_paths();
+    log_info(T("另存 {count} 项到文件夹: {folder}", {{"count", sources.size()}, {"folder", QDir::toNativeSeparators(folder)}}), "Clipboard");
+    // A file row records only where the files were; they may have been moved or deleted since.
+    copy_into_folder(sources, folder, [staged, window = QPointer<ClipboardWindow>(this), total = sources.size()](bool, const QStringList &missing) {
+        if (missing.isEmpty()) return;
+        log_warning(T("另存时跳过已不存在的文件: {paths}", {{"paths", missing.join("; ")}}), "Clipboard");
+        QWidget *parent = window && window->isVisible() ? window.data() : nullptr;
+        if (missing.size() == total) show_info_dialog(parent, tr_text("Save as"), tr_text("These files are no longer where they were, so there is nothing to save."));
+        else show_info_dialog(parent, tr_text("Save as"), tr_text("{count} files are no longer where they were and were skipped.").replace("{count}", QString::number(missing.size())));
+    });
+    return true;
+}
+
+void ClipboardWindow::save_marked_to_folder() {
+    const QString images_dir = manager.get_images_dir().value_or(QString());
+    QList<ClipboardItem> items;
+    for (const qint64 id : selection_manager->marked_ids(true))
+        if (const auto item = get_item_data(id); item && ItemDragMimeData::can_drag(*item, images_dir)) items.append(*item);
+    // A cancelled picker keeps the selection for another try.
+    if (save_items_to_folder(items)) selection_manager->clear_marks();
+}
+
+void ClipboardWindow::save_item_as(qint64 item_id) {
+    const auto item = get_item_data(item_id);
+    if (!item) return;
+    if (item->content_type == "image") {
+        save_image_item_as(this, manager, item);
+        return;
+    }
+    if (item->content_type == "file") {
+        save_items_to_folder({*item});
+        return;
+    }
+    if (item->content_type != "text") return;
+    PreviewPopup::instance()->hide_preview();
+    const QString suggested = QDir(last_save_folder()).filePath(ItemDragMimeData::file_name(*item));
+    QString path = get_save_file_name(this, tr_text("Save as"), suggested, tr_text("Text Files (*.txt)")).first;
+    if (path.isEmpty()) return;
+    if (QFileInfo(path).suffix().isEmpty()) path += ".txt";
+    config->set_app_setting("save_dialog_last_dir", QDir::toNativeSeparators(QFileInfo(path).absolutePath()));
+    QSaveFile file(path);
+    const QByteArray bytes = item->content.toUtf8();
+    if (!file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size() || !file.commit()) {
+        log_error(T("保存文本失败: {path}: {e}", {{"path", QDir::toNativeSeparators(path)}, {"e", file.errorString()}}), "Clipboard");
+        show_warning_dialog(this, tr_text("Save Failed"), tr_text("Failed to save the file."));
+    }
+}
+
+QPixmap ClipboardWindow::drag_pixmap(qint64 item_id, int count, QPoint *hot_spot) const {
+    QListWidgetItem *row = nullptr;
+    for (int i = 0; i < list_widget->count() && !row; ++i)
+        if (list_widget->item(i)->data(Qt::UserRole).toLongLong() == item_id) row = list_widget->item(i);
+    QWidget *viewport = list_widget->viewport();
+    const QRect rect = row ? list_widget->visualItemRect(row).intersected(viewport->rect()) : QRect();
+    if (rect.isEmpty()) return {};
+    QPixmap pixmap = viewport->grab(rect);
+    const qreal ratio = pixmap.devicePixelRatio();
+    const int max_width = scaled(240);
+    const qreal factor = rect.width() > max_width ? static_cast<qreal>(max_width) / rect.width() : 1.0;
+    if (factor < 1.0) {
+        pixmap = pixmap.scaledToWidth(qRound(max_width * ratio), Qt::SmoothTransformation);
+        pixmap.setDevicePixelRatio(ratio);
+    }
+    const QSize size = pixmap.deviceIndependentSize().toSize();
+    const QPoint offset = viewport->mapFromGlobal(QCursor::pos()) - rect.topLeft();
+    *hot_spot = QPoint(std::clamp(qRound(offset.x() * factor), 0, size.width() - 1), std::clamp(qRound(offset.y() * factor), 0, size.height() - 1));
+    if (count > 1) {
+        QPainter painter(&pixmap);
+        painter.setRenderHint(QPainter::Antialiasing);
+        const int diameter = scaled(20);
+        const QRect badge(size.width() - diameter - scaled(4), scaled(4), diameter, diameter);
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(QColor(current_theme.colors.accent_primary));
+        painter.drawEllipse(badge);
+        QFont font = painter.font();
+        font.setPixelSize(scaled(11));
+        font.setBold(true);
+        painter.setFont(font);
+        painter.setPen(Qt::white);
+        painter.drawText(badge, Qt::AlignCenter, QString::number(count));
+    }
+    return pixmap;
+}
+
 void ClipboardWindow::delete_item(qint64 item_id) {
     if (show_confirm_dialog(this, tr_text("Confirm Delete"), tr_text("Are you sure you want to delete this item?"))) controller->delete_item(item_id);
 }
 
 void ClipboardWindow::open_file_item(qint64 item_id) {
     const auto clipboard_item = controller->get_item(item_id);
-    if (!clipboard_item || clipboard_item->content_type != "file") return;
-    QJsonParseError error;
-    const auto document = QJsonDocument::fromJson(clipboard_item->content.toUtf8(), &error);
-    if (error.error != QJsonParseError::NoError) {
-        log_warning(T("打开文件失败: {e}", {{"e", error.errorString()}}), "Clipboard");
-        return;
+    if (!clipboard_item) return;
+    if (clipboard_item->content_type == "file") {
+        QJsonParseError error;
+        QJsonDocument::fromJson(clipboard_item->content.toUtf8(), &error);
+        if (error.error != QJsonParseError::NoError) {
+            log_warning(T("打开文件失败: {e}", {{"e", error.errorString()}}), "Clipboard");
+            return;
+        }
     }
-    const QStringList files = item_files(*clipboard_item);
+    const QStringList files = item_paths(*clipboard_item);
     if (files.isEmpty()) return;
     const QString file_path = py_normpath(files.front());
     if (QFileInfo::exists(file_path)) {
@@ -1230,14 +1384,16 @@ void ClipboardWindow::paste_item_to_clipboard(qint64 item_id) {
 
 void ClipboardWindow::open_file_location(qint64 item_id) {
     const auto clipboard_item = controller->get_item(item_id);
-    if (!clipboard_item || clipboard_item->content_type != "file") return;
-    QJsonParseError error;
-    QJsonDocument::fromJson(clipboard_item->content.toUtf8(), &error);
-    if (error.error != QJsonParseError::NoError) {
-        log_warning(T("打开文件位置失败: {e}", {{"e", error.errorString()}}), "Clipboard");
-        return;
+    if (!clipboard_item) return;
+    if (clipboard_item->content_type == "file") {
+        QJsonParseError error;
+        QJsonDocument::fromJson(clipboard_item->content.toUtf8(), &error);
+        if (error.error != QJsonParseError::NoError) {
+            log_warning(T("打开文件位置失败: {e}", {{"e", error.errorString()}}), "Clipboard");
+            return;
+        }
     }
-    const QStringList files = item_files(*clipboard_item);
+    const QStringList files = item_paths(*clipboard_item);
     if (files.isEmpty()) return;
     const QString file_path = py_normpath(files.front());
     const QFileInfo info(file_path);
@@ -1248,6 +1404,17 @@ void ClipboardWindow::open_file_location(qint64 item_id) {
     } else if (const QString parent = py_dirname(file_path); QFileInfo::exists(parent)) {
         QTimer::singleShot(0, this, [parent] { QProcess::startDetached("explorer", {parent}); });
     }
+}
+
+void ClipboardWindow::open_link(qint64 item_id) {
+    const auto clipboard_item = controller->get_item(item_id);
+    if (!clipboard_item || clipboard_item->sub_kind != SUB_KIND_URL) return;
+    QString text = py_strip(clipboard_item->content);
+    if (text.startsWith("www.", Qt::CaseInsensitive)) text.prepend("https://");
+    const QUrl url(text);
+    if (!url.isValid()) return;
+    QTimer::singleShot(0, this, [url] { QDesktopServices::openUrl(url); });
+    QTimer::singleShot(50, this, [this] { hide(); });
 }
 
 void ClipboardWindow::notify_new_content(const std::optional<ClipboardItem> &item) { emit new_item_received(item); }
@@ -1352,6 +1519,7 @@ bool ClipboardWindow::owns_window(const QWidget *window) const {
 }
 
 void ClipboardWindow::check_and_hide() {
+    if (dragging_) return;
     if (isActiveWindow()) return;
     // In resident mode the user closes it; pasting itself hands focus to the target window.
     if (!config->get_clipboard_close_after_paste()) return;
@@ -1376,12 +1544,15 @@ bool ClipboardWindow::is_date_filter_widget(QObject *obj) const {
 bool ClipboardWindow::eventFilter(QObject *obj, QEvent *event) {
     const QEvent::Type event_type = event->type();
 
-    if (event_type == QEvent::Leave && obj == list_widget->viewport()) {
-        selection_manager->clear_hovered_index();
+    const bool on_viewport = (event_type == QEvent::MouseMove || event_type == QEvent::Leave) && list_widget && obj == list_widget->viewport();
+    if (on_viewport && event_type == QEvent::MouseMove) {
+        const auto *mouse = static_cast<QMouseEvent *>(event);
+        on_pointer_moved(mouse->position().toPoint(), mouse->globalPosition().toPoint());
+    }
+    // Leaving keeps the cursor where it was, like a menu.
+    if (on_viewport && event_type == QEvent::Leave) {
+        pointer_row_ = -1;
         PreviewPopup::instance()->hide_preview();
-        const auto selected_items = list_widget->selectedItems();
-        if (!selected_items.isEmpty()) set_highlighted_item(selected_items.front()->data(Qt::UserRole).toLongLong());
-        else set_highlighted_item(std::nullopt);
     }
     if (event_type == QEvent::FocusIn && obj == list_widget && !group_bar->sidebar_mode()) group_bar->clear_sidebar_focus();
 
@@ -1430,7 +1601,7 @@ void ClipboardWindow::keyPressEvent(QKeyEvent *event) {
         QWidget *focus_widget = QApplication::focusWidget();
         if (!focus_widget || focus_widget == search_input || !(focus_widget == list_widget || list_widget->isAncestorOf(focus_widget))) {
             list_widget->setFocus();
-            selection_manager->move_selection(key == Qt::Key_Up ? -1 : 1);
+            selection_manager->move_cursor(key == Qt::Key_Up ? -1 : 1);
             return;
         }
     }
@@ -1494,6 +1665,14 @@ void ClipboardMouseController::run(const QString &action, qint64 item_id, const 
     else if (action == "menu") window_->show_item_context_menu(item_id, position);
 }
 
+void ClipboardMouseController::select_by_click(Qt::MouseButton button, Qt::KeyboardModifiers modifiers, qint64 item_id) {
+    // Either button picks or drops the row, as with check boxes; the actions for the marks are under the bar's ··· button.
+    if (button != Qt::LeftButton && button != Qt::RightButton) return;
+    SelectionManager *selection = window_->selection_manager;
+    if (modifiers == Qt::ShiftModifier) selection->mark_range_to(item_id);
+    else selection->toggle_mark(item_id);
+}
+
 void ClipboardMouseController::finish_click() {
     const auto pending = pending_;
     cancel();
@@ -1511,7 +1690,16 @@ bool ClipboardMouseController::eventFilter(QObject *obj, QEvent *event) {
     if (obj != viewport_) return false;
     if (kind == QEvent::MouseMove) {
         const auto *mouse = static_cast<QMouseEvent *>(event);
-        if (pressed_ && (mouse->globalPosition().toPoint() - pressed_->global_pos).manhattanLength() >= QApplication::startDragDistance()) cancel();
+        if (pressed_ && (mouse->globalPosition().toPoint() - pressed_->global_pos).manhattanLength() >= QApplication::startDragDistance()) {
+            const Pressed pressed = *pressed_;
+            cancel();
+            // 越过系统拖动阈值才准备数据，同时取消单击/双击待执行动作。
+            if (pressed.button == Qt::LeftButton && pressed.modifiers == Qt::NoModifier && mouse->buttons() == Qt::LeftButton &&
+                mouse->modifiers() == Qt::NoModifier) {
+                window_->start_item_drag(pressed.item_id);
+                return true;
+            }
+        }
         return false;
     }
     if (kind != QEvent::MouseButtonPress && kind != QEvent::MouseButtonRelease && kind != QEvent::MouseButtonDblClick) return false;
@@ -1531,8 +1719,9 @@ bool ClipboardMouseController::eventFilter(QObject *obj, QEvent *event) {
         const auto pending = pending_;
         cancel();
         if (!item_id) return true;
-        // A range starts from the current row before the press, so a multiple selection gesture leaves it on press.
-        if (!marking(mouse, gesture, *item_id)) list_widget_->setCurrentItem(row);
+        // The press points at the row; a plain left press also starts the next Shift range there.
+        window_->selection_manager->point_at(list_widget_->row(row));
+        if (button == Qt::LeftButton && !marking(mouse, gesture, *item_id)) window_->selection_manager->set_anchor(*item_id);
         list_widget_->setFocus();
         if (kind == QEvent::MouseButtonDblClick && pending && pending->item_id == *item_id && pending->button == button && pending->modifiers == modifiers) {
             const QString action = match(mouse, "double" + gesture, *item_id);
@@ -1547,6 +1736,10 @@ bool ClipboardMouseController::eventFilter(QObject *obj, QEvent *event) {
         pressed_.reset();
         if (item_id && pressed.item_id == *item_id && pressed.button == button && pressed.modifiers == modifiers &&
             (mouse->globalPosition().toPoint() - pressed.global_pos).manhattanLength() < QApplication::startDragDistance()) {
+            if (window_->selection_manager->has_marks()) {
+                select_by_click(button, modifiers, *item_id);
+                return true;
+            }
             if (const auto mark = marking(mouse, gesture, *item_id)) {
                 mark(*item_id);
                 return true;

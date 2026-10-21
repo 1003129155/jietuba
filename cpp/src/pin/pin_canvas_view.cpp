@@ -2,6 +2,7 @@
 #include "core/ui_theme.h"
 #include "pin/pin_canvas.h"
 #include "pin/pin_hover.h"
+#include "pin/pin_text_selection.h"
 #include "pin/pin_toolbar.h"
 #include "pin/pin_window.h"
 #include <QKeyEvent>
@@ -48,11 +49,14 @@ void PinCanvasView::enterEvent(QEnterEvent *event) {
 }
 
 void PinCanvasView::mousePressEvent(QMouseEvent *event) {
-    if (event->button() == Qt::LeftButton && !pin_canvas->is_editing()) {
-        window_dragging = true;
-        pin_window->start_window_drag(event->globalPosition().toPoint());
-        event->accept();
-        return;
+    if (!pin_canvas->is_editing()) {
+        if (text_selection && text_selection->mouse_press(event)) return;
+        if (event->button() == Qt::LeftButton) {
+            window_dragging = true;
+            pin_window->start_window_drag(event->globalPosition().toPoint());
+            event->accept();
+            return;
+        }
     }
     CanvasView::mousePressEvent(event);
 }
@@ -64,10 +68,22 @@ void PinCanvasView::mouseMoveEvent(QMouseEvent *event) {
         event->accept();
         return;
     }
+    if (!pin_canvas->is_editing() && text_selection && text_selection->mouse_move(event)) return;
     CanvasView::mouseMoveEvent(event);
 }
 
+void PinCanvasView::mouseDoubleClickEvent(QMouseEvent *event) {
+    if (!pin_canvas->is_editing() && text_selection && text_selection->mouse_double_click(event)) return;
+    CanvasView::mouseDoubleClickEvent(event);
+}
+
+void PinCanvasView::drawForeground(QPainter *painter, const QRectF &rect) {
+    CanvasView::drawForeground(painter, rect);
+    if (text_selection) text_selection->paint(painter);
+}
+
 void PinCanvasView::mouseReleaseEvent(QMouseEvent *event) {
+    if (!pin_canvas->is_editing() && text_selection && text_selection->mouse_release(event)) return;
     if (window_dragging && event->button() == Qt::LeftButton) {
         window_dragging = false;
         pin_window->end_window_drag();
@@ -91,6 +107,7 @@ void PinCanvasView::wheelEvent(QWheelEvent *event) {
 }
 
 void PinCanvasView::keyPressEvent(QKeyEvent *event) {
+    if (!pin_canvas->is_editing() && text_selection && text_selection->key_press(event)) return;
     if (event->key() == Qt::Key_Escape && pin_canvas->is_editing()) {
         // Esc while editing leaves the tool and keeps the window.
         pin_canvas->deactivate_tool();

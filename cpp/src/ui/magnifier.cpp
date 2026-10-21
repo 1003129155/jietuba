@@ -7,12 +7,14 @@
 #include "canvas/view.h"
 #include "core/i18n.h"
 #include "core/logger.h"
+#include "core/native.h"
 #include "core/theme.h"
 #include "core/ui_scale.h"
 #include "settings/tool_settings.h"
 #include "tools/controller.h"
 #include <QApplication>
 #include <QClipboard>
+#include <QMimeData>
 #include <QPainter>
 #include <QPainterPath>
 
@@ -187,7 +189,11 @@ bool MagnifierOverlay::copy_color_info() {
     if (!cursor_scene_pos) return false;
     const auto text = get_color_info_text();
     if (text.isEmpty()) return false;
-    QApplication::clipboard()->setText(text);
+    // The marker tells the clipboard history this text is a color, whatever format it is written in.
+    auto *mime = new QMimeData;
+    mime->setText(text);
+    mime->setData(QString("application/x-qt-windows-mime;value=\"%1\"").arg(QLatin1String(jb_clipboard_color_marker_format())), QByteArrayLiteral("1"));
+    QApplication::clipboard()->setMimeData(mime);
     return true;
 }
 

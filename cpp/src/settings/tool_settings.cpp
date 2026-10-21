@@ -190,6 +190,7 @@ const std::vector<GlobalHotkeyFunction> &GLOBAL_HOTKEY_FUNCTIONS() {
         {"clipboard", "clipboard_hotkey", "clipboard/hotkey"},
         {"pin_clipboard", "pin_clipboard_hotkey", "clipboard/pin_hotkey"},
         {"translation", "translation_hotkey", "app/translation_hotkey"},
+        {"screen_annotation", "screen_annotation_hotkey", "app/screen_annotation_hotkey"},
     };
     return functions;
 }
@@ -673,7 +674,7 @@ bool ToolSettingsManager::get_custom_llm_json_mode(const QString &slot) const {
 QString ToolSettingsManager::get_translation_target_lang() const {
     const auto saved = qsettings.value("app/translation_target_lang", "").toString();
     if (!saved.isEmpty()) return saved;
-    static const QMap<QString, QString> lang_map = {{"zh", "ZH"}, {"ja", "JA"}, {"en", "EN"}};
+    static const QMap<QString, QString> lang_map = {{"zh", "ZH"}, {"zh_TW", "ZH-HANT"}, {"ja", "JA"}, {"en", "EN"}};
     return lang_map.value(I18nManager::get_system_language(), "EN");
 }
 
@@ -701,6 +702,10 @@ QString ToolSettingsManager::get_clipboard_image_size() const {
     const auto fallback = app_defaults_.value("clipboard_image_size").toString();
     const auto value = qsettings.value("clipboard/image_size", fallback).toString();
     return CLIPBOARD_IMAGE_SIZES.contains(value) ? value : fallback;
+}
+
+int ToolSettingsManager::get_clipboard_display_lines() const {
+    return std::clamp(qsettings.value("clipboard/display_lines", app_defaults_.value("clipboard_display_lines")).toInt(), 1, 5);
 }
 
 void ToolSettingsManager::set_clipboard_image_size(const QString &value) {

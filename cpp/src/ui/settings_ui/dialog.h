@@ -4,7 +4,9 @@
 #include "ui/fluent_lite/frameless.h"
 #include <QColor>
 #include <QMap>
+#include <QPoint>
 #include <QPointer>
+#include <QSet>
 #include <QThread>
 #include <QVariantMap>
 #include <memory>
@@ -15,10 +17,13 @@
 class QLabel;
 class QStackedWidget;
 class QPushButton;
+class QTimer;
 
-// The settings dialog: navigation, page stack, footer buttons and apply / refresh / reset.
+// The settings dialog: navigation, page stack, saving / refresh / reset.
 // Pages live in page_*.cpp and register their controls here by the reference's attribute
 // names, so "the page that owns this control has been built" is has_attr(name).
+// There is no Apply: every edit is saved shortly after it is made, only the controls that
+// changed since the last save are written, and the application is told what changed.
 namespace jietuba {
 class InAppKeyEdit;
 class NavigationInterface;
@@ -50,9 +55,10 @@ public:
     // fit_to_screen for a given available area.
     void fit_to_available(const QSize &available);
 
-    // Saves and notifies the application without closing this window.
-    bool apply_settings(bool close_after = false);
-    // Explicit save-and-close.
+    // Saves the pending edits now instead of after the short delay, and notifies the application.
+    // Unfinished or rejected shortcuts are left out; always true.
+    bool apply_settings();
+    // Saves the pending edits and closes.
     void accept() override;
     QString get_hotkey() const;
     void update_hotkey(const QString &new_hotkey);
@@ -60,16 +66,35 @@ public:
     void refresh_settings();
     // Import and export go through every page's controls, so all pages are built first.
     void build_all_pages();
-    // Fills the controls with imported values; applying writes them like manual edits.
+    // Fills the controls with imported values and saves them like manual edits.
     void load_imported_settings(const QVariantMap &values);
     // The configuration keys the settings pages read, for export.
     std::set<QString> settings_keys();
+    // Edits made but not saved yet: the save waits for edits to pause.
     bool has_unsaved_changes() const;
-    bool dialog_scale_changed_on_accept() const { return dialog_scale_changed_on_accept_; }
-    bool language_changed_on_apply() const { return language_changed_on_apply_; }
-    bool close_after_apply() const { return close_after_apply_; }
-    bool skip_unsaved_close_prompt() const { return skip_unsaved_close_prompt_; }
-    void set_skip_unsaved_close_prompt(bool skip) { skip_unsaved_close_prompt_ = skip; }
+    // Restarts the delay after which the pending edits are saved.
+    Q_INVOKABLE void schedule_save();
+    // While controls are filled programmatically (refresh, reset, import), conflict questions are
+    // not asked: the values are checked when saved, and rejected ones are left unsaved.
+    bool batch_editing() const { return batch_editing_ > 0; }
+    // What the last save wrote, by control name; the application refreshes only what it affects.
+    const QSet<QString> &saved_keys() const { return saved_keys_; }
+    bool hotkeys_saved() const;
+    bool dialog_scale_changed() const { return dialog_scale_changed_; }
+    bool language_changed() const { return language_changed_; }
+    // True during a save, when a language switch it makes must not rebuild this window midway.
+    bool saving() const { return saving_; }
+
+    // The page, scroll position and window position, carried over when the window is rebuilt.
+    struct ViewState {
+        int stack_index = 0;
+        QString route_key;
+        int scroll = 0;
+        std::optional<QPoint> position;
+    };
+    ViewState view_state() const;
+    // On a hidden window the page is opened when it shows.
+    void restore_view_state(const ViewState &state);
 
     // Controls by their reference attribute names.
     void set_attr(const QString &name, QWidget *widget) { attrs_[name] = widget; }
@@ -92,7 +117,7 @@ public:
     QString clipboard_pick_mode;
     QPointer<SegmentedWidget> inapp_shortcut_tabs;
     QPointer<SegmentedWidget> mouse_inapp_tabs;
-    // Edited in their own window and kept here until Apply.
+    // Edited in their own window; a change is saved like any edit.
     std::optional<QVector<color_formats::ColorFormat>> magnifier_color_formats;
     std::optional<QColor> appearance_theme_color;
     std::optional<QColor> appearance_mask_color;
@@ -114,11 +139,14 @@ public:
     void open_welcome_wizard() { emit wizard_requested(); }
     // The pin page's shortcut entries: switch to the keyboard or mouse page and select the pin tab.
     void show_pin_shortcuts(bool mouse = false);
+    // The shortcut page, scrolled to the global hotkey editor attr.
+    void show_hotkey_row(const QString &attr);
+    // The screen annotation page's hotkey summary: the shortcut page's editors when built, else the settings.
+    void refresh_screen_annotation_hotkey();
     void on_nav_changed(int stack_index, const QString &route_key = {});
     void refresh_latest_log_label();
     // Shows the clipboard storage size, now or after delay_ms; skipped until the clipboard page is built.
     void refresh_clipboard_size(int delay_ms = 0);
-    Q_INVOKABLE void update_action_buttons();
 signals:
     void wizard_requested();
     // Admin mode was just turned on in an unelevated instance; the main app hands off to the elevated one.
@@ -127,10 +155,11 @@ signals:
 protected:
     void resizeEvent(QResizeEvent *event) override;
     void showEvent(QShowEvent *event) override;
+    // Saves what is pending before the window goes away.
     void hideEvent(QHideEvent *event) override;
-    // Asks before closing with unsaved changes.
     void closeEvent(QCloseEvent *event) override;
 private:
+    void open_view(const ViewState &state);
     void setup_titlebar();
     void setup_ui();
     NavigationInterface *create_navigation(QWidget *parent);
@@ -141,10 +170,14 @@ private:
     void open_developer_page();
     // Clears the translucent backing store before painting a new page.
     void refresh_after_page_change();
-    QLayout *create_button_area();
-    void apply_footer_styles();
-    // Keeps Apply in sync with edits made anywhere in the settings pages.
-    void connect_action_button_tracking(QWidget *page);
+    // The page title with the page's reset button on its right.
+    QLayout *create_title_row();
+    // Schedules a save on edits made anywhere in the page.
+    void connect_save_tracking(QWidget *page);
+    // Writes the controls named in changed and applies their effects.
+    void save_changes(QSet<QString> changed);
+    // Mouse bindings among changed that now collide are put back and dropped from changed.
+    void reject_mouse_conflicts(QSet<QString> &changed);
     // Autostart through the Run entry or, in admin mode, the scheduled task.
     void apply_startup();
     void save_magnifier_color_formats();
@@ -152,6 +185,7 @@ private:
     void apply_clipboard_appearance();
     void reset_current_page();
     void reset_pin_page();
+    void reset_screen_annotation_page();
     void reset_mouse_page();
     void reset_hotkey_page();
     void reset_long_screenshot_page();
@@ -166,7 +200,6 @@ private:
     void on_ui_theme_changed();
     // The current values of every editable control.
     QVariantMap snapshot_settings() const;
-    QString confirm_close_with_unsaved_changes();
     void apply_taskbar_icon();
     void refresh_behavior_controls(bool defaults = false, const QString &prefix = {}, const std::optional<std::set<QString>> &keys = std::nullopt);
     // The appearance values in effect, held by their managers; shown fresh after changes elsewhere.
@@ -179,20 +212,22 @@ private:
     std::set<int> built_pages_;
     // The size last set for a screen; a different current size means the user resized the dialog.
     std::optional<QSize> fitted_size_;
+    // The control values last saved (or loaded); a save writes what differs from it.
     std::optional<QVariantMap> settings_snapshot_;
-    // Whether the dialog scale changed on apply; the main app rebuilds the cached window then.
-    bool dialog_scale_changed_on_accept_ = false;
-    bool language_changed_on_apply_ = false;
-    bool close_after_apply_ = false;
-    bool skip_unsaved_close_prompt_ = false;
-    // Imported settings are in the controls but not applied; some are not in the snapshot.
-    bool import_unsaved_ = false;
-    // The imported toolbar layout (JSON text); no control shows it, Apply writes it.
-    std::vector<std::pair<QString, QString>> imported_toolbar_layouts_;
+    QTimer *save_timer_ = nullptr;
+    QSet<QString> saved_keys_;
+    // Whether the last save changed these; the main app rebuilds the cached window then.
+    bool dialog_scale_changed_ = false;
+    bool language_changed_ = false;
+    bool saving_ = false;
+    int batch_editing_ = 0;
+    // The current navigation item, for rebuilding the window on the same page.
+    QString current_route_ = "shortcuts";
+    // The page and scroll position to open once the window shows.
+    std::optional<ViewState> pending_view_;
     NavigationInterface *nav_list_ = nullptr;
     QWidget *right_area_ = nullptr;
     QLabel *content_title_ = nullptr;
-    QPushButton *footer_cancel_btn_ = nullptr;
-    QPushButton *footer_ok_btn_ = nullptr;
+    QPushButton *page_reset_btn_ = nullptr;
 };
 }

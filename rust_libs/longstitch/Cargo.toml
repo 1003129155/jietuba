@@ -4,16 +4,6 @@ version = "0.5.1"
 edition = "2021"
 license = "MIT"
 
-[lib]
-name = "longstitch"
-# rlib 供 C++ 版以 default-features = false 静态链接
-crate-type = ["cdylib", "rlib"]
-
-[features]
-default = ["python"]
-python = ["dep:pyo3"]
-
 [dependencies]
-pyo3 = { version = "0.22", features = ["extension-module", "abi3-py311"], optional = true }
 image = "0.24"
 rayon = "1.7"

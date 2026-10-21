@@ -10,9 +10,16 @@
 #include <vector>
 
 namespace jietuba {
-// One event from the native hub; text, value and flag depend on kind (see core/native.h).
+namespace input {
+struct Event;
+}
+
+// One event from the hook thread. text: the gesture phase (start/finish/cancel), the side button
+// (x1/x2), the hotkey or watcher name, the "+"-joined modifiers of a captured key, or the failure
+// message; value: the wheel delta, the virtual key, or a mouse button (input::Button); flag: horizontal or
+// pressed.
 struct InputHubEvent {
-    enum Kind { Gesture, Moved, Side, Hotkey, Wheel, Key, Foreground, Failure, Captured } kind = Failure;
+    enum Kind { Gesture, Moved, Side, Hotkey, Wheel, Key, Foreground, Failure, Captured, MouseButton, Pointer } kind = Failure;
     QString text;
     quint64 id = 0;
     int x = 0, y = 0, value = 0;
@@ -20,12 +27,15 @@ struct InputHubEvent {
     quintptr hwnd = 0;
 };
 
-// (left, top, right, bottom) in physical pixels, as the native hub takes it.
+// What the engine's event is to the UI side.
+InputHubEvent to_hub_event(const input::Event &event);
+
+// (left, top, right, bottom) in physical pixels.
 struct InputHubRect {
     int left, top, right, bottom;
 };
 
-// The native hub's operations; the Rust implementation in production, a stand-in in tests.
+// The hook thread's operations with Qt types (core/input_hooks in production).
 class InputHubNative {
 public:
     virtual ~InputHubNative() = default;
@@ -52,6 +62,11 @@ public:
     virtual void unwatch_wheel(const QString &watcher) = 0;
     virtual void watch_keys(const QString &watcher, const std::vector<quint32> &keys) = 0;
     virtual void unwatch_keys(const QString &watcher) = 0;
+    // Every mouse button press and release that no gesture or side-button hotkey took, with where it
+    // happened; moves are announced once until take_pointer collects the latest position.
+    virtual void watch_mouse(const QString &watcher) = 0;
+    virtual void unwatch_mouse(const QString &watcher) = 0;
+    virtual std::optional<QPoint> take_pointer(const QString &watcher) = 0;
     virtual void watch_foreground(const QString &watcher) = 0;
     virtual void unwatch_foreground(const QString &watcher) = 0;
     // The low-level hooks install on the native thread after a feature asks for them.
@@ -59,8 +74,8 @@ public:
     virtual void set_test_marker(quintptr marker) = 0;
 };
 
-// The low-level mouse and keyboard hooks and their state machines run on the
-// native library's own thread and decide on the spot whether to swallow an event,
+// The low-level mouse and keyboard hooks and their state machine run on their own
+// native thread (core/input_hooks) and decide on the spot whether to swallow an event,
 // so a busy GUI thread never holds up system input. Events the UI needs are turned
 // into signals by an event thread; receivers use queued connections.
 class InputHub : public QObject {
@@ -81,6 +96,8 @@ signals:
     void captured(const QStringList &modifiers, int vk);  // a key taken while recording
     void wheel(const QString &watcher, int x, int y, int delta, bool horizontal);  // delta in WHEEL_DELTA multiples
     void key(const QString &watcher, int vk, bool pressed);
+    void mouse_button(const QString &watcher, const QString &button, bool pressed, int x, int y);  // left / middle / right / x1 / x2, physical pixels
+    void pointer_moved(const QString &watcher);  // once until take_pointer collects it
     void foreground(quintptr hwnd);
     void failure(const QString &message);
 private:

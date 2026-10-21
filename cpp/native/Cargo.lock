@@ -876,13 +876,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e44b0a4eaa4c82f441d50a963f2d5f05a787240aeee097597033e72accfd22f"
 
 [[package]]
-name = "inputhub"
-version = "0.1.2"
-dependencies = [
- "windows-sys 0.61.2",
-]
-
-[[package]]
 name = "interpolate_name"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -923,7 +916,6 @@ version = "0.1.0"
 dependencies = [
  "gifrecorder",
  "hdrcapture",
- "inputhub",
  "longstitch",
  "ppocr_rust",
  "pyclipboard",
@@ -1698,7 +1690,7 @@ dependencies = [
 
 [[package]]
 name = "ppocr_rust"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "image 0.25.10",
  "imageproc",

@@ -127,6 +127,8 @@ protected:
     void keyPressEvent(QKeyEvent *event) override;
     void inputMethodEvent(QInputMethodEvent *event) override;
     void leaveEvent(QEvent *event) override;
+    // A drawing just made is selected, so it can be adjusted at once.
+    virtual void on_item_auto_select_requested(QGraphicsItem *item);
     bool is_closed_ = false;
 private:
     struct DoubleClickCandidate {
@@ -136,6 +138,7 @@ private:
         int count, index;
         bool had_redo, dragged = false;
     };
+    void follow_scene_for_handles(bool follow);
     void on_scene_changed_for_handles();
     void sync_fullscreen_crosshair();
     std::vector<SmartRect> smart_selection_chain(int x, int y, const SmartRect &capture_rect);
@@ -145,7 +148,6 @@ private:
     void on_element_cache_updated(quintptr hwnd);
     void set_selection_rect_now(const QRectF &rect);
     void on_cursor_tool_update_requested(const QString &tool_id, bool force);
-    void on_item_auto_select_requested(QGraphicsItem *item);
     void on_editing_cleanup();
     void on_tool_changed_for_edit(const QString &tool_id);
     void on_edit_cursor_change(const QString &cursor_type);
@@ -191,6 +193,7 @@ private:
     QMetaObject::Connection crosshair_confirm_connection_;
     int tool_changed_callback_ = 0;
     std::vector<QMetaObject::Connection> scene_connections_;
+    QMetaObject::Connection handles_follow_scene_;
     std::map<QGraphicsTextItem *, QMetaObject::Connection> text_geometry_connections_;
 };
 

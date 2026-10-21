@@ -1,6 +1,7 @@
 use rusqlite::{Connection, OptionalExtension, params, params_from_iter};
 use rusqlite::types::Value;
-use crate::group_kind;
+use crate::group_kind::{self, FilterRule};
+use crate::text_kind;
 use crate::types::{PyClipboardItem, PyPaginatedResult, PyGroup};
 use std::path::{Path, PathBuf};
 
@@ -9,7 +10,16 @@ const COMPRESS_THRESHOLD: usize = 100 * 1024;
 
 /// 读一条记录要的列，顺序与 item_from_row 对应
 const ITEM_COLUMNS: &str = "id, title, content, html_content, content_type, image_id, thumbnail, is_pinned, \
-                            paste_count, source_app, char_count, created_at, updated_at";
+                            paste_count, source_app, char_count, created_at, updated_at, COALESCE(sub_kind, '')";
+
+/// 要写进库的文本子类型：调用方给了（带取色标记）就用，文本没给就按内容判
+fn sub_kind_of(item: &PyClipboardItem) -> String {
+    if item.content_type == "text" && item.sub_kind.is_empty() {
+        text_kind::detect(&item.content, false).to_string()
+    } else {
+        item.sub_kind.clone()
+    }
+}
 
 /// 排到最上面用的 item_order：比现有最大值大 1000
 const TOP_ORDER: &str = "(SELECT COALESCE(MAX(item_order), 0) + 1000 FROM clipboard)";
@@ -36,6 +46,7 @@ fn item_from_row(row: &rusqlite::Row) -> rusqlite::Result<PyClipboardItem> {
         char_count: row.get(10)?,
         created_at: row.get(11)?,
         updated_at: row.get(12)?,
+        sub_kind: row.get(13)?,
     })
 }
 
@@ -126,6 +137,8 @@ impl Database {
             [],
         ).map_err(|e| format!("创建表失败: {}", e))?;
         add_column_if_missing(&conn, "clipboard", "title", "TEXT")?;
+        // NULL 表示还没判；旧版本写进来的行也是 NULL，每次打开库补判
+        add_column_if_missing(&conn, "clipboard", "sub_kind", "TEXT")?;
 
         // 一次复制的每个剪贴板格式存一行原始数据，event_id 就是 clipboard.id
         conn.execute(
@@ -154,6 +167,8 @@ impl Database {
             [],
         ).map_err(|e| format!("创建分组表失败: {}", e))?;
         add_column_if_missing(&conn, "groups", "group_type", "INTEGER NOT NULL DEFAULT 0")?;
+        // 筛选分组的条件，FilterRule 的 JSON
+        add_column_if_missing(&conn, "groups", "filter_rule", "TEXT")?;
 
         conn.execute_batch(
             "CREATE INDEX IF NOT EXISTS idx_formats_event ON clipboard_formats(event_id);
@@ -177,10 +192,54 @@ impl Database {
              PRAGMA cache_size = 10000;"
         ).map_err(|e| format!("设置参数失败: {}", e))?;
 
-        Ok(Self {
+        let db = Self {
             conn,
             db_path: db_path.to_string(),
-        })
+        };
+        db.upgrade_filter_groups()?;
+        db.fill_sub_kinds()?;
+        Ok(db)
+    }
+
+    /// 筛选分组统一成 group_type = FILTER 加规则：开发库里的图片、文件筛选分组和没有规则的文字筛选分组
+    fn upgrade_filter_groups(&self) -> Result<(), String> {
+        for (group_type, kind) in group_kind::LEGACY_FILTERS {
+            self.conn.execute(
+                "UPDATE groups SET group_type = ?1, filter_rule = ?2 WHERE group_type = ?3 AND filter_rule IS NULL",
+                params![group_kind::FILTER, FilterRule::kind(kind).to_json(), group_type],
+            ).map_err(|e| format!("升级筛选分组失败: {}", e))?;
+        }
+        Ok(())
+    }
+
+    /// 补判 sub_kind 为 NULL 的行；判定规则升过版本时先把文本全部置回 NULL 重判。
+    /// 取色标记随原始格式存在 clipboard_formats 里，重判时照样认得出
+    fn fill_sub_kinds(&self) -> Result<(), String> {
+        let fail = |e: rusqlite::Error| format!("补判内容类型失败: {}", e);
+        let tx = self.conn.unchecked_transaction().map_err(fail)?;
+        let version: i64 = tx.query_row("PRAGMA user_version", [], |row| row.get(0)).map_err(fail)?;
+        if version < text_kind::RULES_VERSION {
+            tx.execute("UPDATE clipboard SET sub_kind = NULL WHERE content_type = 'text'", []).map_err(fail)?;
+            tx.execute_batch(&format!("PRAGMA user_version = {}", text_kind::RULES_VERSION)).map_err(fail)?;
+        }
+        tx.execute("UPDATE clipboard SET sub_kind = '' WHERE sub_kind IS NULL AND content_type != 'text'", []).map_err(fail)?;
+        let pending: Vec<(i64, String, bool)> = {
+            let mut stmt = tx.prepare(
+                "SELECT id, content, EXISTS(SELECT 1 FROM clipboard_formats f WHERE f.event_id = clipboard.id AND f.format_name = ?1)
+                 FROM clipboard WHERE sub_kind IS NULL",
+            ).map_err(fail)?;
+            let rows = stmt.query_map(params![text_kind::COLOR_MARKER_FORMAT], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+                .and_then(|rows| rows.collect::<rusqlite::Result<Vec<_>>>())
+                .map_err(fail)?;
+            rows
+        };
+        {
+            let mut update = tx.prepare("UPDATE clipboard SET sub_kind = ?1 WHERE id = ?2").map_err(fail)?;
+            for (id, content, color_marked) in pending {
+                update.execute(params![text_kind::detect(&content, color_marked), id]).map_err(fail)?;
+            }
+        }
+        tx.commit().map_err(fail)
     }
 
     /// 获取图片存储目录
@@ -192,13 +251,18 @@ impl Database {
         images_dir
     }
     
-    /// 插入新记录；和已有记录内容相同时只把那条移到最前，返回它的 ID
+    /// 插入新记录；和已有记录内容相同时只把那条移到最前，返回它的 ID。
+    /// 重复复制时来源和子类型跟着这一次走（按来源筛时看的是最近从哪复制的），这次拿不到来源就保留原来的
     pub fn insert_item(&self, item: &PyClipboardItem) -> Result<i64, String> {
         let now = now();
+        let sub_kind = sub_kind_of(item);
         if let Some(id) = self.find_duplicate(item)? {
             self.conn.execute(
-                &format!("UPDATE clipboard SET updated_at = ?1, item_order = {TOP_ORDER} WHERE id = ?2"),
-                params![now, id],
+                &format!(
+                    "UPDATE clipboard SET updated_at = ?1, item_order = {TOP_ORDER}, source_app = COALESCE(?2, source_app),
+                     sub_kind = ?3 WHERE id = ?4"
+                ),
+                params![now, &item.source_app, &sub_kind, id],
             ).map_err(|e| format!("更新失败: {}", e))?;
             return Ok(id);
         }
@@ -206,8 +270,8 @@ impl Database {
         self.conn.execute(
             &format!(
                 "INSERT INTO clipboard (title, content, html_content, content_type, image_id, thumbnail, item_order,
-                 is_pinned, paste_count, source_app, char_count, created_at, updated_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, {TOP_ORDER}, ?7, ?8, ?9, ?10, ?11, ?11)"
+                 is_pinned, paste_count, source_app, char_count, created_at, updated_at, sub_kind)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, {TOP_ORDER}, ?7, ?8, ?9, ?10, ?11, ?11, ?12)"
             ),
             params![
                 &item.title,
@@ -221,6 +285,7 @@ impl Database {
                 &item.source_app,
                 item.content.chars().count() as i64,
                 now,
+                &sub_kind,
             ],
         ).map_err(|e| format!("插入失败: {}", e))?;
         Ok(self.conn.last_insert_rowid())
@@ -255,10 +320,11 @@ impl Database {
         offset: i64,
         limit: i64,
         search: Option<String>,
-        content_type: Option<String>,
+        filter: &FilterRule,
         start_time: Option<i64>,
         end_time: Option<i64>,
     ) -> Result<PyPaginatedResult, String> {
+        filter.check()?;
         let mut where_clauses = vec![];
         let mut params_vec: Vec<Value> = vec![];
 
@@ -271,12 +337,9 @@ impl Database {
             }
         }
 
-        if let Some(ref ct) = content_type {
-            if ct != "all" {
-                where_clauses.push("content_type = ?".to_string());
-                params_vec.push(Value::from(ct.clone()));
-            }
-        }
+        let (conditions, filter_params) = filter.sql_conditions();
+        where_clauses.extend(conditions.into_iter().map(|condition| format!("({condition})")));
+        params_vec.extend(filter_params);
 
         if let Some(start) = start_time {
             where_clauses.push("created_at >= ?".to_string());
@@ -308,6 +371,18 @@ impl Database {
             .map_err(|e| format!("查询失败: {}", e))?;
 
         Ok(PyPaginatedResult::new(total_count, items, offset, limit))
+    }
+
+    /// 出现过的来源应用及条数，按条数从多到少；本程序的几种 exe 合并成 OWN_APP
+    pub fn source_apps(&self) -> Result<Vec<(String, i64)>, String> {
+        let mut stmt = self.conn.prepare(
+            "SELECT CASE WHEN source_app LIKE 'jietuba%' THEN ?1 ELSE source_app END AS app, COUNT(*) AS n
+             FROM clipboard WHERE source_app IS NOT NULL AND source_app != ''
+             GROUP BY app COLLATE NOCASE ORDER BY n DESC, app COLLATE NOCASE",
+        ).map_err(|e| format!("查询来源失败: {}", e))?;
+        stmt.query_map(params![group_kind::OWN_APP], |row| Ok((row.get(0)?, row.get(1)?)))
+            .and_then(|rows| rows.collect::<rusqlite::Result<Vec<_>>>())
+            .map_err(|e| format!("查询来源失败: {}", e))
     }
 
     /// 获取总记录数
@@ -410,24 +485,33 @@ impl Database {
     // ==================== 分组功能 ====================
 
     /// 创建分组，排在最后
-    pub fn create_group(&self, name: &str, color: Option<&str>, icon: Option<&str>, group_type: i64) -> Result<i64, String> {
-        Self::check_group_type(group_type)?;
+    pub fn create_group(
+        &self,
+        name: &str,
+        color: Option<&str>,
+        icon: Option<&str>,
+        group_type: i64,
+        filter_rule: Option<&FilterRule>,
+    ) -> Result<i64, String> {
+        let rule = Self::stored_rule(group_type, filter_rule)?;
         self.conn.execute(
-            "INSERT INTO groups (name, color, icon, item_order, created_at, group_type)
-             VALUES (?1, ?2, ?3, (SELECT COALESCE(MAX(item_order), 0) + 1000 FROM groups), ?4, ?5)",
-            params![name, color, icon, now(), group_type],
+            "INSERT INTO groups (name, color, icon, item_order, created_at, group_type, filter_rule)
+             VALUES (?1, ?2, ?3, (SELECT COALESCE(MAX(item_order), 0) + 1000 FROM groups), ?4, ?5, ?6)",
+            params![name, color, icon, now(), group_type, rule],
         ).map_err(|e| format!("创建分组失败: {}", e))?;
 
         Ok(self.conn.last_insert_rowid())
     }
 
-    /// 获取所有分组
+    /// 获取所有分组；规则读不出来的筛选分组 filter_rule 为 None，显示为空
     pub fn get_groups(&self) -> Result<Vec<PyGroup>, String> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, name, color, icon, item_order, created_at, group_type FROM groups ORDER BY item_order ASC"
+            "SELECT id, name, color, icon, item_order, created_at, group_type, filter_rule FROM groups ORDER BY item_order ASC"
         ).map_err(|e| format!("查询分组失败: {}", e))?;
 
         stmt.query_map([], |row| {
+            let group_type: i64 = row.get(6)?;
+            let rule: Option<String> = row.get(7)?;
             Ok(PyGroup {
                 id: row.get(0)?,
                 name: row.get(1)?,
@@ -435,7 +519,8 @@ impl Database {
                 icon: row.get(3)?,
                 item_order: row.get(4)?,
                 created_at: row.get(5)?,
-                group_type: row.get(6)?,
+                group_type,
+                filter_rule: rule.filter(|_| group_type == group_kind::FILTER).and_then(|rule| FilterRule::parse(&rule).ok()),
             })
         })
         .and_then(|rows| rows.collect::<rusqlite::Result<Vec<_>>>())
@@ -464,21 +549,37 @@ impl Database {
         Ok(())
     }
 
-    fn check_group_type(group_type: i64) -> Result<(), String> {
-        if group_kind::is_known(group_type) {
-            Ok(())
-        } else {
-            Err(format!("未知的分组类型: {group_type}"))
+    /// 校验分组类型和规则，返回要存的规则：筛选分组必须有合法规则，其他分组不存规则
+    fn stored_rule(group_type: i64, filter_rule: Option<&FilterRule>) -> Result<Option<String>, String> {
+        if !group_kind::is_known(group_type) {
+            return Err(format!("未知的分组类型: {group_type}"));
         }
+        if group_type != group_kind::FILTER {
+            return Ok(None);
+        }
+        let rule = filter_rule.ok_or("筛选分组缺少筛选规则")?;
+        rule.check()?;
+        if rule.is_empty() {
+            return Err("筛选规则至少要有一项条件".to_string());
+        }
+        Ok(Some(rule.to_json()))
     }
 
-    /// 更新分组（名称、颜色、图标、类型）
+    /// 更新分组（名称、颜色、图标、类型、筛选规则）
     ///
     /// 筛选分组不存内容，所以里面还有内容的分组不能改成筛选分组；
     /// 内容自动移出的话会失去分组的清理保护，只能让用户先处理
-    pub fn update_group(&self, id: i64, name: &str, color: Option<&str>, icon: Option<&str>, group_type: i64) -> Result<(), String> {
-        Self::check_group_type(group_type)?;
-        if group_kind::filter_content_type(group_type).is_some() {
+    pub fn update_group(
+        &self,
+        id: i64,
+        name: &str,
+        color: Option<&str>,
+        icon: Option<&str>,
+        group_type: i64,
+        filter_rule: Option<&FilterRule>,
+    ) -> Result<(), String> {
+        let rule = Self::stored_rule(group_type, filter_rule)?;
+        if group_type == group_kind::FILTER {
             let members: i64 = self.conn
                 .query_row("SELECT COUNT(*) FROM clipboard WHERE group_id = ?", params![id], |row| row.get(0))
                 .map_err(|e| format!("更新分组失败: {}", e))?;
@@ -487,8 +588,8 @@ impl Database {
             }
         }
         self.conn.execute(
-            "UPDATE groups SET name = ?, color = ?, icon = ?, group_type = ? WHERE id = ?",
-            params![name, color, icon, group_type, id],
+            "UPDATE groups SET name = ?, color = ?, icon = ?, group_type = ?, filter_rule = ? WHERE id = ?",
+            params![name, color, icon, group_type, rule, id],
         ).map_err(|e| format!("更新分组失败: {}", e))?;
         Ok(())
     }
@@ -503,11 +604,15 @@ impl Database {
             let Some(group_type) = group_type else {
                 return Err("分组不存在".to_string());
             };
-            let content_type: Option<String> = self.conn
-                .query_row("SELECT content_type FROM clipboard WHERE id = ?", params![item_id], |row| row.get(0))
+            let kinds: Option<(String, String)> = self.conn
+                .query_row(
+                    "SELECT content_type, COALESCE(sub_kind, '') FROM clipboard WHERE id = ?",
+                    params![item_id],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )
                 .optional()
                 .map_err(|e| format!("移动到分组失败: {}", e))?;
-            if content_type.is_some_and(|content_type| !group_kind::accepts(group_type, &content_type)) {
+            if kinds.is_some_and(|(content_type, sub_kind)| !group_kind::accepts(group_type, &content_type, &sub_kind)) {
                 return Err("该分组不接受这类内容".to_string());
             }
         }
@@ -706,9 +811,11 @@ impl Database {
 
         let tx = self.conn.unchecked_transaction()
             .map_err(|e| format!("更新内容失败: {}", e))?;
+        // 原始格式连同取色标记一起删了，子类型只按文字重判
         tx.execute(
-            "UPDATE clipboard SET title = ?, content = ?, html_content = NULL, char_count = ?, updated_at = ? WHERE id = ?",
-            params![title, content, content.chars().count() as i64, now, id],
+            "UPDATE clipboard SET title = ?, content = ?, html_content = NULL, char_count = ?, updated_at = ?,
+             sub_kind = CASE WHEN content_type = 'text' THEN ? ELSE sub_kind END WHERE id = ?",
+            params![title, content, content.chars().count() as i64, now, text_kind::detect(content, false), id],
         ).map_err(|e| format!("更新内容失败: {}", e))?;
         tx.execute(
             "DELETE FROM clipboard_formats WHERE event_id = ?",
@@ -889,7 +996,7 @@ mod update_item_tests {
 #[cfg(test)]
 mod maintenance_tests {
     use super::{Database, OrderScope};
-    use crate::group_kind;
+    use crate::group_kind::{self, FilterRule};
     use crate::types::PyClipboardItem;
 
     fn add(db: &Database, text: &str) -> i64 {
@@ -897,7 +1004,7 @@ mod maintenance_tests {
     }
 
     fn search(db: &Database, keyword: &str) -> Vec<String> {
-        let mut found: Vec<String> = db.query_items(0, 50, Some(keyword.to_string()), None, None, None)
+        let mut found: Vec<String> = db.query_items(0, 50, Some(keyword.to_string()), &FilterRule::default(), None, None)
             .unwrap().items.into_iter().map(|item| item.content).collect();
         found.sort();
         found
@@ -920,7 +1027,7 @@ mod maintenance_tests {
         let ids: Vec<i64> = ["一", "二", "三", "四"].iter().map(|text| add(&db, text)).collect();
         // 列表从新到旧：四 三 二 一；把「一」和「三」挪上去，传入顺序不影响结果
         db.move_items_to_top(&[ids[0], ids[2], 999]).unwrap();
-        let order: Vec<String> = db.query_items(0, 10, None, None, None, None)
+        let order: Vec<String> = db.query_items(0, 10, None, &FilterRule::default(), None, None)
             .unwrap().items.into_iter().map(|item| item.content).collect();
         assert_eq!(order, vec!["三", "一", "四", "二"]);
     }
@@ -938,7 +1045,7 @@ mod maintenance_tests {
         std::fs::create_dir_all(&dir).unwrap();
         {
             let db = Database::new(dir.join("clipboard.db").to_str().unwrap()).unwrap();
-            let group = db.create_group("收藏", None, None, 0).unwrap();
+            let group = db.create_group("收藏", None, None, 0, None).unwrap();
             let image_file = |id: &str| db.get_images_dir().join(format!("{}.png", id));
             let with_image = |text: &str, image_id: &str| {
                 let mut item = PyClipboardItem::new(0, text.to_string(), "image".to_string());
@@ -1028,7 +1135,7 @@ mod maintenance_tests {
     #[test]
     fn query_by_group_covers_grouped_and_ungrouped_items() {
         let db = Database::new(":memory:").unwrap();
-        let group = db.create_group("收藏", None, None, 0).unwrap();
+        let group = db.create_group("收藏", None, None, 0, None).unwrap();
         let grouped = add(&db, "分组里的");
         db.move_to_group(grouped, Some(group)).unwrap();
         add(&db, "没分组的");
@@ -1044,7 +1151,7 @@ mod maintenance_tests {
     #[test]
     fn a_quick_launch_group_only_takes_files() {
         let db = Database::new(":memory:").unwrap();
-        let group = db.create_group("启动", None, None, group_kind::FILE).unwrap();
+        let group = db.create_group("启动", None, None, group_kind::FILE, None).unwrap();
         let text = add(&db, "文本");
         let file = add_file(&db, "C:/a.txt");
         assert!(db.move_to_group(text, Some(group)).is_err());
@@ -1057,7 +1164,7 @@ mod maintenance_tests {
     #[test]
     fn a_filter_group_takes_nothing() {
         let db = Database::new(":memory:").unwrap();
-        let group = db.create_group("只看图片", None, None, group_kind::FILTER_IMAGE).unwrap();
+        let group = db.create_group("只看图片", None, None, group_kind::FILTER, Some(&FilterRule::kind("image"))).unwrap();
         assert!(db.move_to_group(add(&db, "文本"), Some(group)).is_err());
         assert!(db.move_to_group(add_file(&db, "C:/a.txt"), Some(group)).is_err());
         assert!(group_contents(&db, Some(group)).is_empty());
@@ -1068,7 +1175,7 @@ mod maintenance_tests {
         let db = Database::new(":memory:").unwrap();
         let item = add(&db, "x");
         assert!(db.move_to_group(item, Some(999)).is_err());
-        let group = db.create_group("收藏", None, None, group_kind::NORMAL).unwrap();
+        let group = db.create_group("收藏", None, None, group_kind::NORMAL, None).unwrap();
         db.move_to_group(item, Some(group)).unwrap();
         db.move_to_group(item, None).unwrap();
         assert_eq!(group_contents(&db, None), vec!["x"]);
@@ -1077,40 +1184,40 @@ mod maintenance_tests {
     #[test]
     fn a_group_with_content_cannot_become_a_filter_group() {
         let db = Database::new(":memory:").unwrap();
-        let group = db.create_group("收藏", None, None, group_kind::NORMAL).unwrap();
+        let group = db.create_group("收藏", None, None, group_kind::NORMAL, None).unwrap();
         let item = add(&db, "x");
         db.move_to_group(item, Some(group)).unwrap();
-        assert!(db.update_group(group, "收藏", None, None, group_kind::FILTER_TEXT).is_err());
+        assert!(db.update_group(group, "收藏", None, None, group_kind::FILTER, Some(&FilterRule::kind("text"))).is_err());
         let kept = db.get_groups().unwrap().into_iter().find(|g| g.id == group).unwrap();
         assert_eq!(kept.group_type, group_kind::NORMAL);
 
         // 腾空后可以改；筛选分组改回别的类型不受限制
         db.move_to_group(item, None).unwrap();
-        db.update_group(group, "只看文本", None, None, group_kind::FILTER_TEXT).unwrap();
-        db.update_group(group, "只看图片", None, None, group_kind::FILTER_IMAGE).unwrap();
-        db.update_group(group, "收藏", None, None, group_kind::FILE).unwrap();
+        db.update_group(group, "只看文本", None, None, group_kind::FILTER, Some(&FilterRule::kind("text"))).unwrap();
+        db.update_group(group, "只看图片", None, None, group_kind::FILTER, Some(&FilterRule::kind("image"))).unwrap();
+        db.update_group(group, "收藏", None, None, group_kind::FILE, None).unwrap();
     }
 
     #[test]
     fn a_group_with_text_can_still_become_quick_launch() {
         let db = Database::new(":memory:").unwrap();
-        let group = db.create_group("收藏", None, None, group_kind::NORMAL).unwrap();
+        let group = db.create_group("收藏", None, None, group_kind::NORMAL, None).unwrap();
         db.move_to_group(add(&db, "x"), Some(group)).unwrap();
-        db.update_group(group, "收藏", None, None, group_kind::FILE).unwrap();
+        db.update_group(group, "收藏", None, None, group_kind::FILE, None).unwrap();
     }
 
     #[test]
     fn unknown_group_types_are_refused() {
         let db = Database::new(":memory:").unwrap();
-        assert!(db.create_group("坏", None, None, 99).is_err());
-        let group = db.create_group("好", None, None, group_kind::NORMAL).unwrap();
-        assert!(db.update_group(group, "好", None, None, -1).is_err());
+        assert!(db.create_group("坏", None, None, 99, None).is_err());
+        let group = db.create_group("好", None, None, group_kind::NORMAL, None).unwrap();
+        assert!(db.update_group(group, "好", None, None, -1, None).is_err());
     }
 
     #[test]
     fn a_missing_neighbour_puts_the_item_at_the_edge_instead_of_overflowing() {
         let db = Database::new(":memory:").unwrap();
-        let group = db.create_group("收藏", None, None, 0).unwrap();
+        let group = db.create_group("收藏", None, None, 0, None).unwrap();
         let ids: Vec<i64> = ["一", "二", "三"].iter().map(|text| {
             let id = add(&db, text);
             db.move_to_group(id, Some(group)).unwrap();
@@ -1130,7 +1237,7 @@ mod maintenance_tests {
     #[test]
     fn groups_are_renumbered_when_there_is_no_room_between_neighbours() {
         let db = Database::new(":memory:").unwrap();
-        let ids: Vec<i64> = ["甲", "乙", "丙"].iter().map(|name| db.create_group(name, None, None, 0).unwrap()).collect();
+        let ids: Vec<i64> = ["甲", "乙", "丙"].iter().map(|name| db.create_group(name, None, None, 0, None).unwrap()).collect();
         for (offset, id) in ids.iter().enumerate() {
             db.conn.execute("UPDATE groups SET item_order = ? WHERE id = ?", rusqlite::params![1000 + offset as i64, id]).unwrap();
         }
@@ -1163,7 +1270,7 @@ mod maintenance_tests {
         }
         {
             let db = Database::new(path.to_str().unwrap()).unwrap();
-            let id = db.create_group("新分组", None, None, 1).unwrap();
+            let id = db.create_group("新分组", None, None, 1, None).unwrap();
             assert_eq!(db.get_groups().unwrap().into_iter().find(|g| g.id == id).unwrap().group_type, 1);
             assert_eq!(search(&db, "旧内容"), vec!["旧内容"]);
             db.update_item(1, Some("标题"), "旧内容").unwrap();
@@ -1229,7 +1336,202 @@ mod maintenance_tests {
         assert_ne!(rich_id, plain);
         assert_eq!(db.insert_item(&rich).unwrap(), rich_id);
         // 合并后排到最前
-        let first = db.query_items(0, 1, None, None, None, None).unwrap().items[0].id;
+        let first = db.query_items(0, 1, None, &FilterRule::default(), None, None).unwrap().items[0].id;
         assert_eq!(first, rich_id);
+    }
+}
+
+#[cfg(test)]
+mod sub_kind_tests {
+    use super::Database;
+    use crate::group_kind::{self, FilterRule};
+    use crate::text_kind;
+    use crate::types::PyClipboardItem;
+
+    fn add_from(db: &Database, text: &str, app: Option<&str>) -> i64 {
+        let mut item = PyClipboardItem::new(0, text.to_string(), "text".to_string());
+        item.source_app = app.map(str::to_string);
+        db.insert_item(&item).unwrap()
+    }
+
+    fn sub_kind(db: &Database, id: i64) -> String {
+        db.get_item_by_id(id).unwrap().unwrap().sub_kind
+    }
+
+    fn matching(db: &Database, rule: FilterRule) -> Vec<String> {
+        let mut found: Vec<String> = db.query_items(0, 50, None, &rule, None, None)
+            .unwrap().items.into_iter().map(|item| item.content).collect();
+        found.sort();
+        found
+    }
+
+    #[test]
+    fn new_items_get_their_sub_kind() {
+        let db = Database::new(":memory:").unwrap();
+        assert_eq!(sub_kind(&db, add_from(&db, "https://example.com", None)), text_kind::URL);
+        assert_eq!(sub_kind(&db, add_from(&db, r"C:\a.txt", None)), text_kind::PATH);
+        assert_eq!(sub_kind(&db, add_from(&db, "一句话", None)), text_kind::PLAIN);
+        let image = db.insert_item(&PyClipboardItem::new(0, "[1x1]".to_string(), "image".to_string())).unwrap();
+        assert_eq!(sub_kind(&db, image), text_kind::PLAIN);
+        // 带取色标记的由监听线程判好传进来
+        let mut marked = PyClipboardItem::new(0, "255, 0, 0".to_string(), "text".to_string());
+        marked.sub_kind = text_kind::COLOR.to_string();
+        assert_eq!(sub_kind(&db, db.insert_item(&marked).unwrap()), text_kind::COLOR);
+    }
+
+    #[test]
+    fn a_repeated_copy_takes_the_new_source_and_sub_kind() {
+        let db = Database::new(":memory:").unwrap();
+        let id = add_from(&db, "255, 0, 0", Some("Code.exe"));
+        assert_eq!(sub_kind(&db, id), text_kind::PLAIN);
+        let mut marked = PyClipboardItem::new(0, "255, 0, 0".to_string(), "text".to_string());
+        marked.sub_kind = text_kind::COLOR.to_string();
+        marked.source_app = Some("jietuba_lite.exe".to_string());
+        assert_eq!(db.insert_item(&marked).unwrap(), id);
+        let item = db.get_item_by_id(id).unwrap().unwrap();
+        assert_eq!((item.sub_kind.as_str(), item.source_app.as_deref()), (text_kind::COLOR, Some("jietuba_lite.exe")));
+        // 这次拿不到来源：保留上次的
+        assert_eq!(add_from(&db, "255, 0, 0", None), id);
+        assert_eq!(db.get_item_by_id(id).unwrap().unwrap().source_app.as_deref(), Some("jietuba_lite.exe"));
+    }
+
+    #[test]
+    fn editing_the_text_redetects_it() {
+        let db = Database::new(":memory:").unwrap();
+        let id = add_from(&db, "一句话", None);
+        db.update_item(id, None, "www.example.com").unwrap();
+        assert_eq!(sub_kind(&db, id), text_kind::URL);
+        db.update_item(id, Some("标题"), "www.example.com").unwrap();
+        assert_eq!(sub_kind(&db, id), text_kind::URL);
+    }
+
+    #[test]
+    fn history_filters_by_kind_and_source() {
+        let db = Database::new(":memory:").unwrap();
+        add_from(&db, "https://a.com", Some("chrome.exe"));
+        add_from(&db, "#fff", Some("Code.exe"));
+        add_from(&db, r"C:\a.txt", Some("explorer.exe"));
+        add_from(&db, "普通", Some("CHROME.EXE"));
+        add_from(&db, "截图吧取的", Some("jietuba_pp.exe"));
+        add_from(&db, "开发版取的", Some("jietuba_cpp.exe"));
+        add_from(&db, "不知道来源", None);
+        let rule = |kind: Option<&str>, app: Option<&str>| FilterRule { kind: kind.map(str::to_string), app: app.map(str::to_string) };
+
+        assert_eq!(matching(&db, FilterRule::kind("url")), vec!["https://a.com"]);
+        assert_eq!(matching(&db, FilterRule::kind("color")), vec!["#fff"]);
+        assert_eq!(matching(&db, FilterRule::kind("path")), vec![r"C:\a.txt"]);
+        assert_eq!(matching(&db, FilterRule::kind("text")).len(), 7);
+        assert!(matching(&db, FilterRule::kind("image")).is_empty());
+        assert_eq!(matching(&db, rule(None, Some("Chrome.exe"))), vec!["https://a.com", "普通"]);
+        assert_eq!(matching(&db, rule(Some("url"), Some("chrome.exe"))), vec!["https://a.com"]);
+        assert_eq!(matching(&db, rule(None, Some(group_kind::OWN_APP))), vec!["开发版取的", "截图吧取的"]);
+        assert!(db.query_items(0, 50, None, &FilterRule::kind("email"), None, None).is_err());
+    }
+
+    #[test]
+    fn source_apps_are_counted_with_own_builds_merged() {
+        let db = Database::new(":memory:").unwrap();
+        for (text, app) in [("1", "chrome.exe"), ("2", "Chrome.exe"), ("3", "jietuba_lite.exe"), ("4", "jietuba_pp.exe"),
+                            ("5", "jietuba_cpp.exe"), ("6", "Code.exe"), ("7", "")] {
+            add_from(&db, text, Some(app));
+        }
+        add_from(&db, "8", None);
+        let apps = db.source_apps().unwrap();
+        assert_eq!(apps[0], (group_kind::OWN_APP.to_string(), 3));
+        assert_eq!(apps[1].1, 2);
+        assert!(apps[1].0.eq_ignore_ascii_case("chrome.exe"));
+        assert_eq!(apps[2], ("Code.exe".to_string(), 1));
+        assert_eq!(apps.len(), 3);
+    }
+
+    #[test]
+    fn quick_launch_takes_paths_and_links_but_not_plain_text() {
+        let db = Database::new(":memory:").unwrap();
+        let group = db.create_group("启动", None, None, group_kind::FILE, None).unwrap();
+        assert!(db.move_to_group(add_from(&db, "一句话", None), Some(group)).is_err());
+        db.move_to_group(add_from(&db, r#""D:\工具\a.exe""#, None), Some(group)).unwrap();
+        for link in ["https://example.com/page", "www.example.com", "ftp://example.com/file"] {
+            db.move_to_group(add_from(&db, link, None), Some(group)).unwrap();
+        }
+        assert!(db.move_to_group(add_from(&db, "#aabbcc", None), Some(group)).is_err());
+    }
+
+    #[test]
+    fn filter_groups_need_a_rule_and_other_groups_keep_none() {
+        let db = Database::new(":memory:").unwrap();
+        assert!(db.create_group("缺规则", None, None, group_kind::FILTER, None).is_err());
+        assert!(db.create_group("空规则", None, None, group_kind::FILTER, Some(&FilterRule::default())).is_err());
+        let rule = FilterRule { kind: Some("image".to_string()), app: Some("Weixin.exe".to_string()) };
+        let filter = db.create_group("微信图片", None, None, group_kind::FILTER, Some(&rule)).unwrap();
+        let normal = db.create_group("收藏", None, None, group_kind::NORMAL, Some(&rule)).unwrap();
+        let groups = db.get_groups().unwrap();
+        let find = |id: i64| groups.iter().find(|group| group.id == id).unwrap().clone();
+        assert_eq!(find(filter).filter_rule, Some(rule));
+        assert_eq!(find(normal).filter_rule, None);
+
+        // 改回普通分组时规则清掉
+        db.update_group(filter, "微信图片", None, None, group_kind::NORMAL, None).unwrap();
+        let stored: Option<String> = db.conn
+            .query_row("SELECT filter_rule FROM groups WHERE id = ?", [filter], |row| row.get(0)).unwrap();
+        assert_eq!(stored, None);
+    }
+
+    #[test]
+    fn old_rows_and_filter_groups_are_upgraded_once() {
+        let dir = std::env::temp_dir().join(format!("pyclipboard_sub_kind_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("clipboard.db");
+        let _ = std::fs::remove_file(&path);
+        {
+            // 加 sub_kind / filter_rule 之前的库，模拟旧版本写进来的内容和开发库里的筛选分组
+            let old = rusqlite::Connection::open(&path).unwrap();
+            old.execute_batch(
+                "CREATE TABLE clipboard (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, content TEXT NOT NULL,
+                     html_content TEXT, content_type TEXT NOT NULL DEFAULT 'text', image_id TEXT, thumbnail TEXT,
+                     item_order INTEGER NOT NULL DEFAULT 0, is_pinned INTEGER NOT NULL DEFAULT 0,
+                     paste_count INTEGER NOT NULL DEFAULT 0, source_app TEXT, char_count INTEGER, group_id INTEGER,
+                     created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
+                 CREATE TABLE clipboard_formats (id INTEGER PRIMARY KEY AUTOINCREMENT, event_id INTEGER NOT NULL,
+                     format_id INTEGER NOT NULL, format_name TEXT NOT NULL, data BLOB, compressed INTEGER NOT NULL DEFAULT 0);
+                 CREATE TABLE groups (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, color TEXT,
+                     icon TEXT, item_order INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL,
+                     group_type INTEGER NOT NULL DEFAULT 0);
+                 INSERT INTO clipboard (id, content, content_type, created_at, updated_at) VALUES
+                     (1, 'https://a.com', 'text', 1, 1), (2, '12, 34, 56', 'text', 1, 1),
+                     (3, '[1x1]', 'image', 1, 1), (4, '普通', 'text', 1, 1);
+                 INSERT INTO clipboard_formats (event_id, format_id, format_name, data) VALUES (2, 49999, 'Jietuba.Color', X'31');
+                 INSERT INTO groups (name, created_at, item_order, group_type) VALUES
+                     ('文字', 1, 1, 3), ('图片', 1, 2, 4), ('文件', 1, 3, 5), ('收藏', 1, 4, 0);"
+            ).unwrap();
+        }
+        let kinds = |db: &Database| -> Vec<String> { (1..=4).map(|id| sub_kind(db, id)).collect() };
+        let rules = |db: &Database| -> Vec<(i64, Option<FilterRule>)> {
+            db.get_groups().unwrap().into_iter().map(|group| (group.group_type, group.filter_rule)).collect()
+        };
+        {
+            let db = Database::new(path.to_str().unwrap()).unwrap();
+            assert_eq!(kinds(&db), vec!["url", "color", "", ""]);
+            assert_eq!(rules(&db), vec![
+                (group_kind::FILTER, Some(FilterRule::kind("text"))),
+                (group_kind::FILTER, Some(FilterRule::kind("image"))),
+                (group_kind::FILTER, Some(FilterRule::kind("file"))),
+                (group_kind::NORMAL, None),
+            ]);
+            // 旧版本又写进来一条没判过的
+            db.conn.execute("INSERT INTO clipboard (content, created_at, updated_at) VALUES ('#abc', 1, 1)", []).unwrap();
+        }
+        {
+            let db = Database::new(path.to_str().unwrap()).unwrap();
+            assert_eq!(sub_kind(&db, 5), text_kind::COLOR);
+            assert_eq!(kinds(&db), vec!["url", "color", "", ""]);
+            // 规则版本落后时全部文本重判，取色标记仍从原始格式里认出
+            db.conn.execute("UPDATE clipboard SET sub_kind = 'path' WHERE id IN (1, 2)", []).unwrap();
+            db.conn.execute_batch("PRAGMA user_version = 0").unwrap();
+        }
+        {
+            let db = Database::new(path.to_str().unwrap()).unwrap();
+            assert_eq!(kinds(&db), vec!["url", "color", "", ""]);
+        }
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

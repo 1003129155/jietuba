@@ -1,35 +1,13 @@
 #include "ui/quick_capture_overlay.h"
 #include "canvas/items/selection_item.h"
 #include "canvas/selection_model.h"
+#include "core/platform_utils.h"
 #include "settings/tool_settings.h"
 #include "ui/selection_info/panel.h"
 #include "ui/selection_overlay.h"
-#include <QGuiApplication>
 #include <cstdlib>
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <windows.h>
-#include <dwmapi.h>
 
 namespace jietuba {
-namespace {
-// Turns off the border, rounded corners and shadow DWM adds, leaving only the selection.
-void disable_native_frame(HWND hwnd) {
-    if (QGuiApplication::platformName() != "windows") return;
-    const std::pair<DWORD, DWORD> attributes[] = {
-        {2, 1},            // DWMWA_NCRENDERING_POLICY = DWMNCRP_DISABLED
-        {33, 1},           // DWMWA_WINDOW_CORNER_PREFERENCE = DWMWCP_DONOTROUND
-        {34, 0xFFFFFFFE},  // DWMWA_BORDER_COLOR = DWMWA_COLOR_NONE
-    };
-    for (const auto &[attribute, value] : attributes) {
-        DWORD native_value = value;
-        // Windows 10 rejects the last two; the first still applies.
-        DwmSetWindowAttribute(hwnd, attribute, &native_value, sizeof native_value);
-    }
-}
-}
-
 QRect selection_rect(const QPoint &start, const QPoint &end, const QRect &bounds) {
     const QRect rect(std::min(start.x(), end.x()), std::min(start.y(), end.y()), std::abs(end.x() - start.x()), std::abs(end.y() - start.y()));
     return rect.intersected(bounds);
@@ -106,7 +84,7 @@ void QuickCaptureOverlay::show_selection(const QPoint &start, const QPoint &end,
     }
     if (!isVisible()) show();
     if (!native_frame_configured_) {
-        disable_native_frame(reinterpret_cast<HWND>(winId()));
+        disable_native_frame(static_cast<quintptr>(winId()));
         // No capture exclusion: remote control software must see the frame too. The
         // controller hides the overlay before grabbing and the worker waits for DwmFlush.
         native_frame_configured_ = true;

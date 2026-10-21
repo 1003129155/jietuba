@@ -24,7 +24,9 @@ void set_click_through(HWND hwnd, bool enable) {
     if (enable) style |= WS_EX_TRANSPARENT;
     else style &= ~WS_EX_TRANSPARENT;
     SetWindowLongW(hwnd, GWL_EXSTYLE, style);
-    SetWindowPos(hwnd, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+    // Without SWP_NOACTIVATE the layer would take the focus when it starts letting the mouse through;
+    // drawing activates it explicitly.
+    SetWindowPos(hwnd, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 }
 }
 
@@ -33,6 +35,8 @@ GifDrawingScene::GifDrawingScene(int width, int height) : CanvasScene(QImage(), 
     background->hide();
     selection_item->hide();
     selection_model->initialize_confirmed_rect(QRectF());
+    // What lies under the layer is the live desktop, not an image in the scene.
+    highlighters_multiply = false;
 
     hit_rect = new QGraphicsRectItem(QRectF(0, 0, width, height));
     hit_rect->setBrush(QBrush(QColor(0, 0, 0, 1)));
@@ -51,7 +55,7 @@ void GifDrawingScene::resize_scene(int width, int height) {
 void GifDrawingScene::set_hit_test_visible(bool visible) { hit_rect->setVisible(visible); }
 
 bool GifDrawingScene::is_drawing(QGraphicsItem *item) const {
-    return item != hit_rect && item != background && item != selection_item;
+    return item != hit_rect && item != background && item != selection_item && !item->data(TRANSIENT_ITEM_DATA).toBool();
 }
 
 GifDrawingShortcutHandler::GifDrawingShortcutHandler(GifDrawingView *view)
@@ -88,7 +92,7 @@ bool GifDrawingShortcutHandler::handle_key(QInputEvent *event) {
     return false;
 }
 
-GifDrawingView::GifDrawingView(const QRect &rect) : CanvasView(new GifDrawingScene(rect.width(), rect.height())) {
+GifDrawingView::GifDrawingView(const QRect &rect, bool own_shortcuts) : CanvasView(new GifDrawingScene(rect.width(), rect.height())) {
     gif_scene_ = static_cast<GifDrawingScene *>(canvas_scene);
     // Deleted after the view base, which still reaches the scene while cleaning up.
     gif_scene_->setParent(this);
@@ -108,11 +112,15 @@ GifDrawingView::GifDrawingView(const QRect &rect) : CanvasView(new GifDrawingSce
     setGeometry(rect);
     apply_passthrough(true);
 
-    shortcut_handler_ = std::make_unique<GifDrawingShortcutHandler>(this);
-    ShortcutManager::instance()->register_handler(shortcut_handler_.get());
+    if (own_shortcuts) {
+        shortcut_handler_ = std::make_unique<GifDrawingShortcutHandler>(this);
+        ShortcutManager::instance()->register_handler(shortcut_handler_.get());
+    }
 }
 
-GifDrawingView::~GifDrawingView() { ShortcutManager::instance()->unregister_handler(shortcut_handler_.get()); }
+GifDrawingView::~GifDrawingView() {
+    if (shortcut_handler_) ShortcutManager::instance()->unregister_handler(shortcut_handler_.get());
+}
 
 CommandUndoStack *GifDrawingView::undo_stack() const { return gif_scene_->undo_stack; }
 

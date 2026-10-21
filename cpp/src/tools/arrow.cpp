@@ -15,7 +15,7 @@ bool ArrowTool::on_press(const QPointF &pos, Qt::MouseButton button, ToolContext
     const QPen pen(color_with_opacity(ctx.color, ctx.opacity), ctx.stroke_width);
     current_item = new ArrowItem(pos, pos, pen, arrow_style);
     ctx.scene->addItem(current_item);
-    log_debug(T("开始绘制: {pos}, 样式: {arrow_style}", {{"pos", py_repr(pos)}, {"arrow_style", arrow_style}}), "ArrowTool");
+    log_debug(T("开始绘制: {pos}, 样式: {arrow_style}", {{"pos", geometry_text(pos)}, {"arrow_style", arrow_style}}), "ArrowTool");
     return true;
 }
 

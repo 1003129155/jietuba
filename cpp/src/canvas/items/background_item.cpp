@@ -35,7 +35,7 @@ BackgroundItem::BackgroundItem(const QImage &image, const QRectF &scene_rect) : 
     // Scene coordinates via offset; boundingRect() stays in pixmap-local (0, 0, w, h).
     setOffset(scene_rect_.topLeft());
     setAcceptedMouseButtons(Qt::NoButton);
-    log_debug(T("背景层创建: scene_rect={scene_rect}, offset={offset}", {{"scene_rect", py_repr(scene_rect)}, {"offset", py_repr(scene_rect_.topLeft())}}), "Canvas");
+    log_debug(T("背景层创建: scene_rect={scene_rect}, offset={offset}", {{"scene_rect", geometry_text(scene_rect)}, {"offset", geometry_text(scene_rect_.topLeft())}}), "Canvas");
 }
 
 QImage BackgroundItem::image() {

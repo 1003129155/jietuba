@@ -3,10 +3,12 @@
 #include "clipboard/ui/dialogs/manage_dialog.h"
 #include "clipboard/ui/windows/clipboard_window.h"
 #include "clipboard/ui/windows/pin_window.h"
+#include "annotation/screen_annotation.h"
 #include "gif/composer.h"
 #include "gif/record_window.h"
 #include "pin/pin_manager.h"
 #include "core/elevation.h"
+#include "core/game_mode_monitor.h"
 #include "ui/settings_ui/dialog.h"
 #include "ui/welcome/wizard.h"
 #include "capture/capture_service.h"
@@ -32,6 +34,7 @@
 #include "translation/smart_translation_controller.h"
 #include "translation/translation_manager.h"
 #include "ui/dialogs.h"
+#include "ui/screenshot_countdown.h"
 #include "ui/screenshot_window.h"
 #include "ui/tray_menu.h"
 #include <QCursor>
@@ -139,6 +142,11 @@ MainApp::MainApp(int &argc, char **argv) : app(std::make_unique<QApplication>(ar
     hotkey_system->set_suppressed(config_manager->get_app_setting("global_hotkeys_disabled", false).toBool());
 
     quick_capture = new QuickCaptureController(this);
+    connect(ShortcutManager::instance(), &ShortcutManager::global_hotkeys_paused_changed, quick_capture, &QuickCaptureController::refresh);
+    // Started before the hotkeys register, so a game already running keeps them from registering at all.
+    game_mode_monitor = new GameModeMonitor(this);
+    connect(game_mode_monitor, &GameModeMonitor::changed, this, &MainApp::on_game_mode_changed);
+    sync_game_mode_monitor();
     update_controller = new UpdateController(this, this);
     app->setProperty("_update_controller", QVariant::fromValue<QObject *>(update_controller));
     connect(app.get(), &QCoreApplication::aboutToQuit, update_controller, &UpdateController::cancel);
@@ -164,6 +172,7 @@ MainApp::MainApp(int &argc, char **argv) : app(std::make_unique<QApplication>(ar
 bool MainApp::starting_up() const { return preloader_ && !preloader_->finished(); }
 
 MainApp::~MainApp() {
+    delete screenshot_countdown_.data();
     // The watcher calls back into this object; stopping joins its thread.
     if (clipboard_manager && clipboard_manager->is_available()) {
         clipboard_manager->clear_callback();
@@ -185,6 +194,8 @@ bool MainApp::capture_busy() const {
 }
 
 void MainApp::on_about_to_quit() {
+    delete screenshot_countdown_.data();
+    capture_pending_ = false;
     set_trim_busy_check({});
     try {
         wait_for_clipboard_writes(3.0);
@@ -219,7 +230,8 @@ void MainApp::on_language_changed(const QString &lang_code) {
     log_debug(T("语言已切换到: {lang_code}，更新 UI", {{"lang_code", lang_code}}), "I18n");
     update_tray_menu();
     // The settings window is preloaded, so it is rebuilt to pick up the translations.
-    if (settings_window && !settings_window->skip_unsaved_close_prompt()) recreate_settings_window();
+    // A switch made by the settings window itself rebuilds it once that save is done.
+    if (settings_window && !settings_window->saving()) recreate_settings_window();
     // Translation windows are created again in the new language.
     TranslationManager::instance()->close_dialog();
 }
@@ -253,9 +265,11 @@ void MainApp::update_hotkey(bool show_error) {
         // A selection opens the compact popup, otherwise the input window.
         {"translation", tr_text("Translation"), smart_translation_controller->hotkey()},
     };
-    if (config_manager->get_clipboard_enabled()) functions.emplace_back("clipboard", tr_text("Clipboard"), [this] { open_clipboard_window(); });
+    // Also with monitoring off: the window still shows the history already recorded.
+    functions.emplace_back("clipboard", tr_text("Clipboard"), [this] { open_clipboard_window(); });
     // Pinning prefers the system clipboard's image, so it is useful with history turned off.
     functions.emplace_back("pin_clipboard", tr_text("Pin Clipboard Image"), [this] { pin_clipboard_image(); });
+    functions.emplace_back("screen_annotation", tr_text("Screen Annotation"), [this] { toggle_screen_annotation(); });
 
     std::vector<std::pair<QString, QString>> failed_hotkeys;
     for (const auto &[function, label, callback] : functions) {
@@ -275,19 +289,41 @@ void MainApp::update_hotkey(bool show_error) {
     }
 
     quick_capture->refresh();
+    // The tray shows each function's hotkey.
+    update_tray_menu();
     if (show_error && !failed_hotkeys.empty()) show_hotkey_error(failed_hotkeys);
 }
 
 void MainApp::set_global_hotkeys_disabled(bool disabled) {
     config_manager->set_app_setting("global_hotkeys_disabled", disabled);
     hotkey_system->set_suppressed(disabled);
-    quick_capture->refresh();
     if (disabled) {
-        log_info(T("全局热键已临时禁用（保留注册，仅忽略回调）"), "Hotkey");
+        log_info(T("全局热键已临时禁用（已释放注册）"), "Hotkey");
     } else {
         log_info(T("全局热键已启用"), "Hotkey");
         if (!hotkey_system->has_registered_hotkeys()) update_hotkey(true);
     }
+}
+
+void MainApp::set_pause_hotkeys_in_games(bool enabled) {
+    config_manager->set_app_setting("pause_hotkeys_in_games", enabled);
+    log_info(enabled ? T("已开启玩游戏时暂停热键") : T("已关闭玩游戏时暂停热键"), "Hotkey");
+    sync_game_mode_monitor();
+}
+
+void MainApp::sync_game_mode_monitor() {
+    if (config_manager->get_app_setting("pause_hotkeys_in_games", false).toBool()) game_mode_monitor->start();
+    else game_mode_monitor->stop();
+}
+
+void MainApp::set_clipboard_enabled(bool enabled) {
+    config_manager->set_clipboard_enabled(enabled);
+    set_clipboard_monitoring_enabled(enabled);
+}
+
+void MainApp::on_game_mode_changed(bool active) {
+    log_info(active ? T("游戏在前台，暂停全局热键") : T("游戏已不在前台，恢复全局热键"), "Hotkey");
+    hotkey_system->set_game_mode_suppressed(active);
 }
 
 void MainApp::show_hotkey_error(const std::vector<std::pair<QString, QString>> &failed_hotkeys) {
@@ -329,6 +365,14 @@ bool MainApp::activate_blocking_modal() {
 }
 
 void MainApp::start_screenshot() {
+    request_screenshot(false);
+}
+
+void MainApp::start_delayed_screenshot() {
+    request_screenshot(true);
+}
+
+void MainApp::request_screenshot(bool delayed) {
     if (update_preparing || quick_capture->busy()) return;
 
     // An active session: ignore the repeat and give focus back to the capture window.
@@ -359,6 +403,8 @@ void MainApp::start_screenshot() {
     if (screenshot_window) {
         if (auto *leftover = blocking_modal(screenshot_window)) leftover->close();
     }
+    // The annotation's drawings are captured; its hit layer and its focus are not.
+    if (screen_annotation) screen_annotation->prepare_for_capture();
     // A clipboard window kept open after pasting would be captured too. close() rather than
     // hide(), which leaves its topmost context menu on screen.
     try {
@@ -369,10 +415,26 @@ void MainApp::start_screenshot() {
     // One event loop later, so windows just closed have left the screen.
     capture_pending_ = true;
     quick_capture->set_capture_pending(true);
+    if (delayed) {
+        auto *screen = QGuiApplication::screenAt(QCursor::pos());
+        auto *countdown = new ScreenshotCountdown(screen ? screen : QGuiApplication::primaryScreen());
+        screenshot_countdown_ = countdown;
+        connect(countdown, &ScreenshotCountdown::finished, this, [this, countdown] {
+            screenshot_countdown_ = nullptr;
+            countdown->deleteLater();
+            // Wait for the hidden countdown to leave the composed desktop, also for GDI capture.
+            QTimer::singleShot(0, this, [this] {
+                flush_desktop();
+                capture_and_prepare_window();
+            });
+        });
+        return;
+    }
     QTimer::singleShot(0, this, &MainApp::capture_and_prepare_window);
 }
 
 void MainApp::capture_and_prepare_window() {
+    if (!capture_pending_) return;
     const bool include_cursor = config_manager->get_app_setting("capture_include_cursor", false).toBool();
     std::shared_ptr<SystemCursor> cursor;
     QImage image;
@@ -419,19 +481,22 @@ void MainApp::preload_settings() {
 }
 
 void MainApp::on_settings_accepted(SettingsDialog *accepted_window) {
-    const bool dialog_scale_changed = accepted_window && accepted_window->dialog_scale_changed_on_accept();
-    set_clipboard_monitoring_enabled(config_manager->get_clipboard_enabled());
-    update_hotkey(true);
-    apply_capture_engine(config_manager->get_capture_engine());
+    // Saves follow every edit, so only what the save touched is redone: re-registering hotkeys or
+    // warming the capture engine on each toggle would repeat their work and their warnings.
+    const auto &saved = accepted_window->saved_keys();
+    if (saved.contains("clipboard_enabled_toggle")) set_clipboard_monitoring_enabled(config_manager->get_clipboard_enabled());
+    if (accepted_window->hotkeys_saved()) update_hotkey(true);
+    if (saved.contains("capture_engine_combo")) apply_capture_engine(config_manager->get_capture_engine());
     if (clipboard_window) {
         clipboard_window->load_settings();
         clipboard_window->controller->load_settings();
         if (clipboard_manager) clipboard_manager->apply_history_limit();
     }
     PinManager::instance()->refresh_all_appearance();
+    const bool dialog_scale_changed = accepted_window->dialog_scale_changed();
     if (dialog_scale_changed) recreate_clipboard_manage_dialog();
-    if (dialog_scale_changed || (accepted_window && accepted_window->language_changed_on_apply()))
-        recreate_settings_window(!(accepted_window && accepted_window->close_after_apply()));
+    // After the save returns, on the page it was made on.
+    if (dialog_scale_changed || accepted_window->language_changed()) QTimer::singleShot(0, this, [this] { recreate_settings_window(); });
 }
 
 void MainApp::recreate_clipboard_manage_dialog() {
@@ -456,6 +521,7 @@ void MainApp::on_wizard_requested() {
     } catch (const std::exception &e) {
         log_exception(e, T("向导启动失败"));
     }
+    sync_game_mode_monitor();
     update_hotkey();
     log_info(T("向导完成，热键已恢复"), "MainApp");
 }
@@ -464,11 +530,14 @@ void MainApp::recreate_settings_window(std::optional<bool> reopen) {
     SettingsDialog *window = settings_window;
     if (update_preparing || !window) return;
     const bool show_again = reopen.value_or(window->isVisible());
+    const auto view = window->view_state();
     window->hide();
     window->deleteLater();
     settings_window = nullptr;
     preload_settings();
-    if (show_again) open_settings();
+    if (!show_again) return;
+    settings_window->restore_view_state(view);
+    open_settings();
 }
 
 void MainApp::open_settings() {
@@ -567,6 +636,26 @@ void MainApp::pin_clipboard_image() {
     }
 }
 
+void MainApp::toggle_screen_annotation() {
+    if (update_preparing) return;
+    // The capture window is above any layer; a session started under it would sit on top of it.
+    if (capture_busy()) {
+        log_debug(T("截图进行中，忽略屏幕标注"), "MainApp");
+        return;
+    }
+    if (!screen_annotation) {
+        screen_annotation = new ScreenAnnotation(this);
+        // The tray entry shows whether a session runs.
+        connect(screen_annotation, &ScreenAnnotation::mode_changed, this, [this](ScreenAnnotation::Mode mode) {
+            const bool running = mode != ScreenAnnotation::Mode::Off;
+            if (running == screen_annotation_running_) return;
+            screen_annotation_running_ = running;
+            update_tray_menu();
+        });
+    }
+    screen_annotation->toggle();
+}
+
 QString MainApp::update_busy_reason() {
     if (background_tasks::busy() || capture_busy() || (clipboard_manager && clipboard_manager->pending_writes()))
         return tr_text("Finish capturing or saving before updating. The download has been kept.");
@@ -624,7 +713,6 @@ void MainApp::cancel_update_preparation() {
 
 void MainApp::hand_off_to_admin() {
     if (!hand_off_to_admin_task()) return;
-    if (settings_window) settings_window->set_skip_unsaved_close_prompt(true);
     quit_app();
 }
 
@@ -643,7 +731,10 @@ bool MainApp::quit_app() {
         return false;
     }
     recording_quit_pending_ = nullptr;
+    delete screenshot_countdown_.data();
+    capture_pending_ = false;
     quick_capture->close();
+    if (screen_annotation) screen_annotation->stop();
     // Ends an open capture; its window deletes itself.
     if (screenshot_window) {
         try {

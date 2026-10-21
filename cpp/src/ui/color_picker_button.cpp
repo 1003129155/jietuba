@@ -1,13 +1,10 @@
 #include "ui/color_picker_button.h"
 #include "core/theme.h"
 #include "ui/base_settings_panel.h"
-#include "ui/dialogs.h"
-#include <QApplication>
-#include <QColorDialog>
+#include "ui/color_picker_dialog.h"
 #include <QConicalGradient>
 #include <QPainter>
 #include <QPointer>
-#include <QScreen>
 
 namespace jietuba {
 namespace {
@@ -62,27 +59,13 @@ void ColorPickerButton::sync_swatches() {
 }
 
 void ColorPickerButton::pick_color() {
-    QColorDialog dlg(color_, nullptr);
-    dlg.setWindowFlag(Qt::WindowStaysOnTopHint, true);
-    if (show_alpha_) dlg.setOption(QColorDialog::ShowAlphaChannel);
-    // Below the button, moved back on screen when it would overflow.
-    const auto btn_global = mapToGlobal(QPoint(0, height() + 4));
-    dlg.adjustSize();
-    auto *screen = QApplication::screenAt(btn_global);
-    if (!screen) screen = QApplication::primaryScreen();
-    const auto sg = screen->availableGeometry();
-    int x = btn_global.x(), y = btn_global.y();
-    if (x + dlg.width() > sg.right()) x = sg.right() - dlg.width();
-    if (y + dlg.height() > sg.bottom()) y = mapToGlobal(QPoint(0, 0)).y() - dlg.height() - 4;
-    x = std::max(sg.left(), x);
-    y = std::max(sg.top(), y);
-    dlg.move(x, y);
     // Pin and GIF panels are separate windows; their host may be closed while
     // the dialog runs, deleting this button.
     QPointer<ColorPickerButton> self(this);
-    const int accepted = exec_dialog(&dlg, this);
-    if (accepted && self) {
-        color_ = dlg.selectedColor();
+    const auto options = show_alpha_ ? ColorPickerDialog::ShowAlphaChannel : ColorPickerDialog::NoOption;
+    const auto picked = choose_color(color_, this, {}, options);
+    if (picked && self) {
+        color_ = *picked;
         refresh();
         emit color_changed(color_);
     }

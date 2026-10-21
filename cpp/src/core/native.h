@@ -7,61 +7,22 @@ extern "C" {
 // A panic returns the export's failure value; its report goes here (null: stderr).
 void jb_set_panic_handler(void (*handler)(const char *report));
 
-struct JbInputHub;
-
-enum JbInputEventKind : int32_t {
-    JB_EVENT_GESTURE = 0,
-    JB_EVENT_MOVED = 1,
-    JB_EVENT_SIDE = 2,
-    JB_EVENT_HOTKEY = 3,
-    JB_EVENT_WHEEL = 4,
-    JB_EVENT_KEY = 5,
-    JB_EVENT_FOREGROUND = 6,
-    JB_EVENT_FAILURE = 7,
-    JB_EVENT_CAPTURED = 8,
-};
-
-struct JbInputEvent {
-    int32_t kind;
-    uint64_t id;
-    int32_t x;
-    int32_t y;
-    int32_t value;
-    bool flag;
-    intptr_t hwnd;
-    char text[512];
-};
-
-JbInputHub *jb_input_hub_new(char *error, size_t error_len);
-void jb_input_hub_free(JbInputHub *hub);
-void jb_input_hub_close(const JbInputHub *hub);
-bool jb_input_hub_next_event(const JbInputHub *hub, int64_t timeout_ms, JbInputEvent *out);
-bool jb_input_hub_configure_gestures(const JbInputHub *hub, const char *const *modifiers, const char *const *buttons, size_t count, bool enabled);
-void jb_input_hub_set_blocked(const JbInputHub *hub, bool blocked);
-void jb_input_hub_cancel_gesture(const JbInputHub *hub);
-bool jb_input_hub_take_position(const JbInputHub *hub, uint64_t gesture_id, int32_t *x, int32_t *y);
-bool jb_input_hub_dragging(const JbInputHub *hub);
-bool jb_input_hub_accepts(const JbInputHub *hub, uint64_t gesture_id);
-bool jb_input_hub_gesture_binding(const JbInputHub *hub, uint64_t gesture_id, char *modifiers, size_t modifiers_len, char *button, size_t button_len);
-bool jb_input_hub_configure_side_buttons(const JbInputHub *hub, bool enabled, const char *const *suppressed, size_t count, bool capture_all);
-int32_t jb_input_hub_bind_hotkey(const JbInputHub *hub, const char *name, const char *modifiers, uint32_t vk);
-void jb_input_hub_unbind_hotkey(const JbInputHub *hub, const char *name);
-void jb_input_hub_configure_key_capture(const JbInputHub *hub, bool enabled);
-void jb_input_hub_watch_wheel(const JbInputHub *hub, const char *watcher, bool has_rect, int32_t left, int32_t top, int32_t right, int32_t bottom);
-void jb_input_hub_unwatch_wheel(const JbInputHub *hub, const char *watcher);
-void jb_input_hub_watch_keys(const JbInputHub *hub, const char *watcher, const uint32_t *keys, size_t count);
-void jb_input_hub_unwatch_keys(const JbInputHub *hub, const char *watcher);
-void jb_input_hub_watch_foreground(const JbInputHub *hub, const char *watcher);
-void jb_input_hub_unwatch_foreground(const JbInputHub *hub, const char *watcher);
-bool jb_input_hub_hooks_installed(const JbInputHub *hub);
-void jb_input_hub_set_test_marker(const JbInputHub *hub, size_t marker);
-
 // PP-OCR. ONNX Runtime is loaded at run time from the PP-OCR pack (jb_ppocr_init_runtime).
 struct JbPpocr;
+// Where one character sits along the line's reading direction, the line's length being 1.
+struct JbOcrChar {
+    float start, center, end;
+};
+// Four corners from top-left clockwise. Reading runs from the top-right corner down when
+// vertical, else from the top-left corner right; chars has one entry per character of
+// text (Unicode scalar), or none.
 struct JbOcrLine {
     double points[8];
     char *text;
     double score;
+    bool vertical;
+    JbOcrChar *chars;
+    size_t char_count;
 };
 bool jb_ppocr_init_runtime(const char *dll_path, char *error, size_t error_len);
 // dict_path may be null: the dictionary then comes from the rec model's metadata.
@@ -255,8 +216,10 @@ void jb_clipboard_text_free(char *text);
 void jb_clipboard_bytes_free(uint8_t *data, size_t len);
 void jb_clipboard_ids_free(int64_t *ids, size_t len);
 uint64_t jb_clipboard_max_stitched_pixels();
-bool jb_clipboard_filter_content_type(int64_t group_type, char *out, size_t out_len);
-bool jb_clipboard_group_accepts(int64_t group_type, const char *content_type);
+bool jb_clipboard_group_accepts(int64_t group_type, const char *content_type, const char *sub_kind);
+bool jb_clipboard_parse_color(const char *text, uint8_t *out_rgba);
+const char *jb_clipboard_color_marker_format();
+char *jb_clipboard_text_paths(const char *text);
 bool jb_clipboard_set_text(const char *text, char *error, size_t error_len);
 char *jb_clipboard_db_path(const JbClipboard *clipboard);
 char *jb_clipboard_images_dir(const JbClipboard *clipboard);
@@ -268,8 +231,9 @@ bool jb_clipboard_is_monitoring(const JbClipboard *clipboard);
 bool jb_clipboard_pause_for_update(const JbClipboard *clipboard);
 void jb_clipboard_resume_after_update(const JbClipboard *clipboard);
 size_t jb_clipboard_pending_writes(const JbClipboard *clipboard);
-bool jb_clipboard_get_history(const JbClipboard *clipboard, int64_t offset, int64_t limit, const char *search, const char *content_type, const int64_t *start_time,
-                              const int64_t *end_time, char **out_json, char *error, size_t error_len);
+bool jb_clipboard_get_history(const JbClipboard *clipboard, int64_t offset, int64_t limit, const char *search, const char *kind, const char *app,
+                              const int64_t *start_time, const int64_t *end_time, char **out_json, char *error, size_t error_len);
+bool jb_clipboard_source_apps(const JbClipboard *clipboard, char **out_json, char *error, size_t error_len);
 bool jb_clipboard_get_count(const JbClipboard *clipboard, int64_t *out, char *error, size_t error_len);
 bool jb_clipboard_get_item(const JbClipboard *clipboard, int64_t id, char **out_json, char *error, size_t error_len);
 bool jb_clipboard_delete_item(const JbClipboard *clipboard, int64_t id, char *error, size_t error_len);
@@ -280,18 +244,19 @@ bool jb_clipboard_add_item(const JbClipboard *clipboard, const char *content, co
                            size_t error_len);
 bool jb_clipboard_update_item(const JbClipboard *clipboard, int64_t id, const char *content, const char *title, char *error, size_t error_len);
 bool jb_clipboard_move_item_between(const JbClipboard *clipboard, int64_t id, const int64_t *before_id, const int64_t *after_id, char *error, size_t error_len);
-bool jb_clipboard_create_group(const JbClipboard *clipboard, const char *name, const char *color, const char *icon, int64_t group_type, int64_t *out_id,
-                               char *error, size_t error_len);
+bool jb_clipboard_create_group(const JbClipboard *clipboard, const char *name, const char *color, const char *icon, int64_t group_type,
+                               const char *filter_rule, int64_t *out_id, char *error, size_t error_len);
 bool jb_clipboard_get_groups(const JbClipboard *clipboard, char **out_json, char *error, size_t error_len);
 bool jb_clipboard_delete_group(const JbClipboard *clipboard, int64_t id, char *error, size_t error_len);
 bool jb_clipboard_rename_group(const JbClipboard *clipboard, int64_t id, const char *name, char *error, size_t error_len);
-bool jb_clipboard_update_group(const JbClipboard *clipboard, int64_t id, const char *name, const char *color, const char *icon, int64_t group_type, char *error,
-                               size_t error_len);
+bool jb_clipboard_update_group(const JbClipboard *clipboard, int64_t id, const char *name, const char *color, const char *icon, int64_t group_type,
+                               const char *filter_rule, char *error, size_t error_len);
 bool jb_clipboard_move_to_group(const JbClipboard *clipboard, int64_t item_id, const int64_t *group_id, char *error, size_t error_len);
 bool jb_clipboard_move_group_between(const JbClipboard *clipboard, int64_t id, const int64_t *before_id, const int64_t *after_id, char *error, size_t error_len);
 bool jb_clipboard_get_by_group(const JbClipboard *clipboard, const int64_t *group_id, int64_t offset, int64_t limit, char **out_json, char *error,
                                size_t error_len);
 bool jb_clipboard_paste_item(const JbClipboard *clipboard, int64_t id, bool with_html, bool move_to_top, bool *out_ok, char *error, size_t error_len);
+bool jb_clipboard_paste_as_files(const JbClipboard *clipboard, int64_t id, bool *out_ok, char *error, size_t error_len);
 bool jb_clipboard_paste_items(const JbClipboard *clipboard, const int64_t *ids, size_t count, bool with_html, bool move_to_top, const char *separator,
                               bool plain_text, const char *layout, bool keep_in_history, int64_t **out_ids, size_t *out_count, char *error, size_t error_len);
 bool jb_clipboard_get_image_data(const JbClipboard *clipboard, const char *image_id, uint8_t **out, size_t *out_len, char *error, size_t error_len);

@@ -4,6 +4,7 @@
 #include "ui/fluent_lite/inputs.h"
 #include "ui/submenu_position.h"
 #include <QHBoxLayout>
+#include <QCoreApplication>
 #include <QMenu>
 #include <QPushButton>
 #include <QWidgetAction>
@@ -137,6 +138,18 @@ QMenu *show_setting_menu(QWidget *parent, const SettingMenuOptions &o) {
         act->setChecked(o.current_font_size == size);
         const auto on_set = o.on_set_font_size;
         QObject::connect(act, &QAction::triggered, font_menu, [on_set, size] { on_set(size); });
+    }
+
+    if (o.on_set_display_lines) {
+        QMenu *lines_menu = menu->addMenu(tr("Max Display Lines"));
+        lines_menu->setStyleSheet(o.menu_style);
+        for (int lines = 1; lines <= 5; ++lines) {
+            QAction *act = lines_menu->addAction(QCoreApplication::translate("ClipboardWindow", "%n line(s)", nullptr, lines));
+            act->setCheckable(true);
+            act->setChecked(o.current_display_lines == lines);
+            const auto on_set = o.on_set_display_lines;
+            QObject::connect(act, &QAction::triggered, lines_menu, [on_set, lines] { on_set(lines); });
+        }
     }
 
     // ── Image size submenu ──

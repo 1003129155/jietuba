@@ -66,7 +66,7 @@ QSvgRenderer &renderer_for(const QString &kind, const QString &color_name) {
 QString group_kind(int group_type) {
     if (group_type == GroupType::FILE) return KIND_FILE();
     if (group_type == GroupType::HIDDEN) return KIND_HIDDEN();
-    if (filter_content_type(group_type)) return KIND_FILTER();
+    if (group_type == GroupType::FILTER) return KIND_FILTER();
     return KIND_NORMAL();
 }
 

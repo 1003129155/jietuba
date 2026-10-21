@@ -193,7 +193,7 @@ QWidget *create_pin_page(SettingsDialog *dialog) {
     set_own_style(view, "background: transparent;");
     auto *layout = new QVBoxLayout(view);
     layout->setContentsMargins(0, 0, dialog_scaled(10), 0);
-    layout->setSpacing(dialog_scaled(20));
+    layout->setSpacing(dialog_scaled(14));
     const std::pair<const char *, void (*)(SettingsDialog *, SettingsCardGroup *)> sections[] = {
         {"Behavior", build_behavior_section},
         {"Zoom and Size", build_zoom_section},

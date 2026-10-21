@@ -42,6 +42,7 @@ public:
     QLabel *title_label = nullptr;
     TextEdit *content_widget = nullptr;
     QLabel *image_label = nullptr;
+    QLabel *color_label = nullptr;
 
 private:
     PreviewPopup();

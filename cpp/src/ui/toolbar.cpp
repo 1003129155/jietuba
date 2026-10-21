@@ -295,7 +295,9 @@ void Toolbar::arrange(const QStringList &keys) {
         if (!keys.contains(key)) buttons_[key]->hide();
     int x = drag_handle->width();
     for (const auto &key : keys) {
-        auto *button = buttons_[key];
+        // A subclass's own keys have no button yet while the base constructor arranges.
+        auto *button = buttons_.value(key);
+        if (!button) continue;
         // Just moved back from the "..." popup.
         if (button->parent() != this) button->setParent(this);
         const int width = button_widths_[key];
@@ -645,9 +647,11 @@ void Toolbar::hide_all_panels() {
 
 void Toolbar::show_panel_for_tool(const QString &tool_id) {
     // Panels are shared, so state left by the previous tool or selected item is
-    // overwritten here with what drawing now would produce.
-    hide_all_panels();
-    ensure_panel_for_tool(tool_id);
+    // overwritten here with what drawing now would produce. The panel that stays is not
+    // hidden first: a separate top-level window hidden and shown again flickers.
+    QWidget *const target = ensure_panel_for_tool(tool_id);
+    for (QWidget *panel : panels())
+        if (panel != target) panel->hide();
     // Which controls show follows the tool, independent of saved settings.
     if ((tool_id == "pen" || tool_id == "highlighter" || tool_id == "spotlight") && paint_panel) {
         paint_panel->set_line_style_visible(tool_id == "pen");
@@ -658,18 +662,10 @@ void Toolbar::show_panel_for_tool(const QString &tool_id) {
         paint_panel->set_color_visible(tool_id != "spotlight");
     }
     sync_panel_from_settings(tool_id);
-    QWidget *panel = nullptr;
-    if (tool_id == "pen" || tool_id == "highlighter" || tool_id == "spotlight") panel = paint_panel;
-    else if (tool_id == "rect" || tool_id == "ellipse") panel = shape_panel;
-    else if (tool_id == "arrow") panel = arrow_panel;
-    else if (tool_id == "number") panel = number_panel;
-    else if (tool_id == "text") panel = text_panel;
-    else if (tool_id == "mosaic") panel = mosaic_panel;
-    else if (tool_id == "watermark") panel = watermark_panel;
-    if (panel) {
-        panel->show();
-        panel->raise();
-        sync_panel_position(panel);
+    if (target) {
+        target->show();
+        target->raise();
+        sync_panel_position(target);
         // Keeps the toolbar above its panel.
         raise();
     }

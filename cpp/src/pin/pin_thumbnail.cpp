@@ -84,7 +84,6 @@ void PinThumbnailMode::exit() {
     win->setGeometry(new_x, new_y, prev_size.width(), prev_size.height());
     win->update_view_transform();
     win->ocr_manager()->set_enabled(true);
-    win->ocr_manager()->update_geometry(win->content_rect().toRect());
     win->hover_controls->sync();
     win->update_button_positions();
     log_debug(T("退出缩略图模式"), "PinWindow");

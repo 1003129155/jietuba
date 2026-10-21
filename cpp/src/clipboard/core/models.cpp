@@ -35,6 +35,9 @@ ClipboardItem ClipboardItem::from_json(const QJsonObject &object) {
     item.is_pinned = object.value("is_pinned").toBool();
     item.paste_count = object.value("paste_count").toInteger();
     item.source_app = optional_text(object, "source_app");
+    item.sub_kind = object.value("sub_kind").toString();
+    uint8_t rgba[4] = {};
+    if (item.sub_kind == SUB_KIND_COLOR && jb_clipboard_parse_color(item.content.toUtf8().constData(), rgba)) item.color = QColor(rgba[0], rgba[1], rgba[2], rgba[3]);
     item.created_at = timestamp(object, "created_at");
     item.updated_at = timestamp(object, "updated_at");
     return item;
@@ -80,19 +83,36 @@ QString ClipboardItem::icon() const {
     return {};
 }
 
-std::optional<QString> filter_content_type(int group_type) {
-    char buffer[16] = {};
-    if (!jb_clipboard_filter_content_type(group_type, buffer, sizeof buffer)) return std::nullopt;
-    return QString::fromUtf8(buffer);
+std::optional<FilterRule> FilterRule::from_json(const QJsonValue &value) {
+    if (!value.isObject()) return std::nullopt;
+    const auto object = value.toObject();
+    return FilterRule{optional_text(object, "kind"), optional_text(object, "app")};
 }
 
-std::optional<GroupType> filter_group_type(const QString &content_type) {
-    for (const auto group_type : {GroupType::FILTER_TEXT, GroupType::FILTER_IMAGE, GroupType::FILTER_FILE})
-        if (filter_content_type(static_cast<int>(group_type)) == content_type) return group_type;
-    return std::nullopt;
+QByteArray FilterRule::to_json() const {
+    QJsonObject object;
+    if (kind) object.insert("kind", *kind);
+    if (app) object.insert("app", *app);
+    return QJsonDocument(object).toJson(QJsonDocument::Compact);
 }
 
-bool group_accepts(int group_type, const QString &content_type) { return jb_clipboard_group_accepts(group_type, content_type.toUtf8().constData()); }
+QStringList item_paths(const ClipboardItem &item) {
+    QStringList paths;
+    if (item.content_type == "file") {
+        for (const auto &value : QJsonDocument::fromJson(item.content.toUtf8()).object().value("files").toArray())
+            if (!value.toString().isEmpty()) paths.append(value.toString());
+    } else if (item.sub_kind == SUB_KIND_PATH) {
+        char *json = jb_clipboard_text_paths(item.content.toUtf8().constData());
+        if (!json) return paths;
+        for (const auto &value : QJsonDocument::fromJson(json).array()) paths.append(value.toString());
+        jb_clipboard_text_free(json);
+    }
+    return paths;
+}
+
+bool group_accepts(int group_type, const QString &content_type, const QString &sub_kind) {
+    return jb_clipboard_group_accepts(group_type, content_type.toUtf8().constData(), sub_kind.toUtf8().constData());
+}
 
 Group Group::from_json(const QJsonObject &object) {
     Group group;
@@ -101,6 +121,7 @@ Group Group::from_json(const QJsonObject &object) {
     group.color = optional_text(object, "color");
     group.icon = optional_text(object, "icon");
     group.group_type = static_cast<int>(object.value("group_type").toInteger());
+    group.filter_rule = FilterRule::from_json(object.value("filter_rule"));
     return group;
 }
 }

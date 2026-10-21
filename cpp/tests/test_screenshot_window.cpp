@@ -1,3 +1,4 @@
+#include "save_dialog_answerer.h"
 #include "canvas/items/drawing_items.h"
 #include "canvas/items/stroke_item.h"
 #include "canvas/items/arrow_item.h"
@@ -8,6 +9,7 @@
 #include "canvas/view.h"
 #include "core/clipboard_utils.h"
 #include "core/last_capture_region.h"
+#include "core/native.h"
 #include "pin/pin_canvas.h"
 #include "pin/pin_window.h"
 #include "pin/pin_manager.h"
@@ -16,12 +18,16 @@
 #include "ui/mask_overlay.h"
 #include "ui/magnifier.h"
 #include "core/shortcut_manager.h"
+#include "annotation/screen_annotation.h"
+#include "annotation/annotation_view.h"
+#include "gif/drawing_view.h"
 #include "ui/screenshot_window.h"
 #include "ui/selection_info/panel.h"
 #include "ui/selection_info/border_shadow.h"
 #include "ui/selection_info/rounded_corners.h"
 #include "tools/action.h"
 #include "ui/color_picker_button.h"
+#include "ui/color_picker_dialog.h"
 #include "ui/toolbar.h"
 #include "core/i18n.h"
 #include "ui/arrow_settings_panel.h"
@@ -35,17 +41,21 @@
 #include "text_recognition/recognizer.h"
 #include "text_recognition/result_window.h"
 #include "translation/translation_manager.h"
+#include <QClipboard>
+#include <QMimeData>
 #include <QApplication>
 #include <QCheckBox>
-#include <QColorDialog>
 #include <QContextMenuEvent>
 #include <QDir>
 #include <QElapsedTimer>
+#include <QEventLoop>
+#include <QFile>
 #include <QFileDialog>
 #include <QImageReader>
 #include <QLineEdit>
 #include <QMouseEvent>
 #include <QPushButton>
+#include <QScreen>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QTemporaryDir>
@@ -166,6 +176,14 @@ private:
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
         window_ = new ScreenshotWindow(config_, capture_image(), rect);
         QApplication::processEvents();
+        return window_;
+    }
+
+    // As open(), but no event has run since the window showed.
+    ScreenshotWindow *open_unprocessed() {
+        if (window_) window_->cleanup_and_close();
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        window_ = new ScreenshotWindow(config_, capture_image(), QRectF(0, 0, W, H));
         return window_;
     }
 
@@ -351,6 +369,25 @@ private slots:
         click(window, Qt::MiddleButton, QPoint(120, 100));
         QCOMPARE(ended.count(), 1);
         QCOMPARE(saved_files().size(), 1);
+    }
+
+    // Windows paints the thread's current cursor when the window appears; left alone it is the last
+    // cursor of the capture before (a tool's, on Esc), flashed for a frame.
+    void theWindowShowsWithTheCaptureCursorNotTheLastOne() {
+        SetCursor(LoadCursorW(nullptr, IDC_HAND));
+        auto *window = open_unprocessed();
+        QCOMPARE(GetCursor(), LoadCursorW(nullptr, IDC_CROSS));
+        // Before the first mouse event the window's own cursor is what Qt answers a cursor request with; it
+        // is the arrow unless set, which would show for a frame between two crosses.
+        QCOMPARE(window->windowHandle()->cursor().shape(), Qt::CrossCursor);
+    }
+
+    void theFullscreenCrosshairShowsWithNoSystemCursor() {
+        config_->set_app_setting("capture_fullscreen_crosshair", true);
+        SetCursor(LoadCursorW(nullptr, IDC_HAND));
+        auto *window = open_unprocessed();
+        QVERIFY(!GetCursor());
+        QCOMPARE(window->windowHandle()->cursor().shape(), Qt::BlankCursor);
     }
 
     void fullscreenCrosshairIsRebuiltPerSession() {
@@ -657,7 +694,7 @@ private slots:
         }
         QVERIFY(border_group && shadow_group);
         QTimer::singleShot(0, qApp, [] {
-            if (auto *dialog = qobject_cast<QColorDialog *>(QApplication::activeModalWidget())) {
+            if (auto *dialog = qobject_cast<ColorPickerDialog *>(QApplication::activeModalWidget())) {
                 dialog->setCurrentColor(QColor("#00AA00"));
                 dialog->accept();
             }
@@ -746,30 +783,63 @@ private slots:
 
     // ---- Toolbar actions that leave the capture ----
 
-    // Save asks for a file, starting in the save folder; the chosen filter decides the format of a name without one.
+    // With the classic dialog, Save ends the capture and then asks for a file, starting in the save folder; the
+    // chosen filter decides the format of a name without one.
     void saveAsksForAFileAndWritesTheSelection() {
+        config_->set_app_setting("save_dialog_style", "classic");
         auto *window = open_with_selection();
         QSignalSpy ended(window, &ScreenshotWindow::session_ended);
         QTemporaryDir out;
         QString opened_in;
-        // Cancelling keeps the capture open.
         answer_file_dialog({}, {}, &opened_in);
         window->toolbar->save_btn->click();
-        QCOMPARE(ended.count(), 0);
-        QVERIFY(window->session_active());
+        QCOMPARE(ended.count(), 1);
+        QTRY_VERIFY(!opened_in.isEmpty());
         QCOMPARE(QDir(opened_in), QDir(dir_.filePath("captures")));
         QVERIFY(QFileInfo(dir_.filePath("captures")).isDir());
+        window = open_with_selection();
         answer_file_dialog(out.filePath("shot"), "JPG (*.jpg)");
         window->toolbar->save_btn->click();
-        QCOMPARE(ended.count(), 1);
-        const QImage saved(out.filePath("shot.jpg"));
-        QCOMPARE(saved.size(), QSize(200, 150));
+        QTRY_VERIFY(QFileInfo::exists(out.filePath("shot.jpg")));
+        QCOMPARE(QImage(out.filePath("shot.jpg")).size(), QSize(200, 150));
         QCOMPARE(QImageReader(out.filePath("shot.jpg")).format(), QByteArray("jpeg"));
         // A typed extension wins over the filter.
         window = open_with_selection();
         answer_file_dialog(out.filePath("typed.bmp"), "JPG (*.jpg)");
         window->toolbar->save_btn->click();
+        QTRY_VERIFY(QFileInfo::exists(out.filePath("typed.bmp")));
         QCOMPARE(QImageReader(out.filePath("typed.bmp")).format(), QByteArray("bmp"));
+    }
+
+    // Save ends the capture first and then opens the save window, which writes the selection; switching to the
+    // classic dialog opens it for the same save.
+    void saveWindowWritesTheSelection() {
+        auto *window = open_with_selection();
+        QSignalSpy ended(window, &ScreenshotWindow::session_ended);
+        QTemporaryDir out;
+        {
+            SaveDialogAnswerer answer(out.filePath("shot.webp"));
+            window->toolbar->save_btn->click();
+            QCOMPARE(ended.count(), 1);
+            QVERIFY(!answer.answered);
+            QTRY_VERIFY(answer.answered);
+        }
+        QTRY_VERIFY(QFileInfo::exists(out.filePath("shot.webp")));
+        QCOMPARE(QImageReader(out.filePath("shot.webp")).size(), QSize(200, 150));
+        window = open_with_selection();
+        {
+            SaveDialogAnswerer answer(QString{});
+            window->toolbar->save_btn->click();
+            QTRY_VERIFY(answer.answered);
+        }
+        window = open_with_selection();
+        SaveDialogAnswerer classic(SaveDialogAnswerer::CLASSIC);
+        answer_file_dialog(out.filePath("classic"), "PNG (*.png)");
+        window->toolbar->save_btn->click();
+        QTRY_VERIFY(classic.answered);
+        QTRY_VERIFY(QFileInfo::exists(out.filePath("classic.png")));
+        QCOMPARE(QImageReader(out.filePath("classic.png")).size(), QSize(200, 150));
+        QCOMPARE(config_->get_app_setting("save_dialog_style").toString(), QString("classic"));
     }
 
     // The quick-save action writes to the save folder, with the unannotated original beside it.
@@ -1003,10 +1073,13 @@ private slots:
         QCursor::setPos(300, 300);
         QTest::keyClick(window, Qt::Key_Left);
         QVERIFY(QCursor::pos() != QPoint(300, 300));
-        // C copies the colour under the pointer and ends the capture.
+        // C copies the colour under the pointer and ends the capture; the marker tells the clipboard history it is a colour.
         QTest::keyClick(window, Qt::Key_C);
         QVERIFY(!window->session_active());
         QVERIFY(wait_for_clipboard_writes(10.0));
+        const QMimeData *copied = QApplication::clipboard()->mimeData();
+        QVERIFY(copied && !copied->text().isEmpty());
+        QVERIFY(copied->hasFormat(QString("application/x-qt-windows-mime;value=\"%1\"").arg(QLatin1String(jb_clipboard_color_marker_format()))));
     }
 
     // Confirm, translate and recognize keys act only on a confirmed selection.
@@ -1036,6 +1109,84 @@ private slots:
         press(window, "inapp_translate");
         QCOMPARE(translate.size(), 1);
         TranslationManager::cleanup();
+    }
+
+    // A host for the external pen latency measurement: with JIETUBA_CANVAS_BENCH=<base path> it opens a
+    // capture over the primary screen on a dark image, or with JIETUBA_CANVAS_BENCH_TARGET a pin ("pin"),
+    // the GIF drawing layer ("gif") or the screen annotation ("annotation") over a dark backdrop, with a
+    // red 6 px pen ready, writes <base>.ready and stays until <base>.quit exists. It runs a real event
+    // loop as the application does; JIETUBA_CANVAS_BENCH_LOOP=qwait waits in QTest::qWaitFor instead,
+    // which sleeps 10 ms between passes and so adds up to 30 ms to every drag.
+    void latencyBenchHold() {
+        const QString base = qEnvironmentVariable("JIETUBA_CANVAS_BENCH");
+        if (base.isEmpty()) QSKIP("benchmark host only");
+        config_->update_settings("pen", {{"color", "#ff0000"}, {"stroke_width", 6}, {"opacity", 1.0}});
+        const QRect screen = QGuiApplication::primaryScreen()->geometry();
+        const auto dark = [](const QSize &size) {
+            QImage image(size, QImage::Format_ARGB32);
+            image.fill(QColor(0x30, 0x30, 0x30));
+            return image;
+        };
+        const QString target = qEnvironmentVariable("JIETUBA_CANVAS_BENCH_TARGET", "capture");
+        std::unique_ptr<QWidget> backdrop;
+        QPointer<PinWindow> pin;
+        std::unique_ptr<GifDrawingView> layer;
+        std::unique_ptr<ScreenAnnotation> annotation;
+        ToolController *tools = nullptr;
+        if (target != "capture") {
+            // The latency tool takes the rightmost red on its rows across the whole screen.
+            backdrop = std::make_unique<QWidget>(nullptr, Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
+            QPalette palette;
+            palette.setColor(QPalette::Window, QColor(0x30, 0x30, 0x30));
+            backdrop->setPalette(palette);
+            backdrop->setAutoFillBackground(true);
+            backdrop->setGeometry(screen);
+            backdrop->show();
+        }
+        if (target == "pin") {
+            pin = new PinWindow(dark(QSize(2100, 400)), screen.topLeft() + QPoint(200, 280), config_);
+            QVERIFY(pin->canvas->activate_tool("pen"));
+            tools = pin->canvas->tool_controller;
+        } else if (target == "gif") {
+            layer = std::make_unique<GifDrawingView>(screen, false);
+            layer->show();
+            layer->activate_tool("pen");
+            QVERIFY(!layer->passthrough());
+            tools = layer->scene_obj()->tool_controller.get();
+        } else if (target == "annotation") {
+            annotation = std::make_unique<ScreenAnnotation>();
+            annotation->start();
+            annotation->select_tool("pen");
+            QVERIFY(!annotation->views().empty());
+            tools = annotation->views().front()->scene_obj()->tool_controller.get();
+        } else {
+            window_ = new ScreenshotWindow(config_, dark(screen.size()), QRectF(screen));
+            QApplication::processEvents();
+            drag(window_, QPoint(100, 100), QPoint(screen.width() - 100, 1000));
+            QVERIFY(window_->scene->selection_model->is_confirmed());
+            window_->toolbar->select_tool("pen");
+            tools = window_->scene->tool_controller.get();
+        }
+        QCOMPARE(tools->current_tool_id(), QString("pen"));
+        QCOMPARE(tools->ctx.color, QColor("#ff0000"));
+        QFile ready(base + ".ready");
+        QVERIFY(ready.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        ready.write(QByteArray::number(static_cast<qulonglong>(GetCurrentProcessId())));
+        ready.close();
+        const auto quit = [&base] { return QFile::exists(base + ".quit"); };
+        if (qEnvironmentVariable("JIETUBA_CANVAS_BENCH_LOOP") == "qwait") {
+            QVERIFY(QTest::qWaitFor(quit, 4 * 60 * 60 * 1000));
+        } else {
+            QEventLoop loop;
+            QTimer poll;
+            connect(&poll, &QTimer::timeout, &loop, [&] {
+                if (quit()) loop.quit();
+            });
+            poll.start(200);
+            loop.exec();
+        }
+        if (pin) pin->close();
+        if (annotation) annotation->stop();
     }
 };
 

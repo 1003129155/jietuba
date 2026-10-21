@@ -253,19 +253,45 @@ size_t ClipboardManager::pending_writes() const {
     return backend ? jb_clipboard_pending_writes(backend.get()) : 0;
 }
 
-QList<ClipboardItem> ClipboardManager::get_history(qint64 offset, qint64 limit, const std::optional<QString> &search, const std::optional<QString> &content_type,
+QList<ClipboardItem> ClipboardManager::get_history(qint64 offset, qint64 limit, const std::optional<QString> &search, const FilterRule &filter,
                                                    std::optional<qint64> start_time, std::optional<qint64> end_time) {
     const auto backend = this->backend();
     if (!backend) return {};
-    QByteArray search_text, type_text;
+    QByteArray search_text, kind_text, app_text;
     char *json = nullptr;
     char error[ERROR_LEN] = {};
-    if (!jb_clipboard_get_history(backend.get(), offset, limit, optional_arg(search, search_text), optional_arg(content_type, type_text), optional_id(start_time),
-                                  optional_id(end_time), &json, error, ERROR_LEN)) {
+    if (!jb_clipboard_get_history(backend.get(), offset, limit, optional_arg(search, search_text), optional_arg(filter.kind, kind_text),
+                                  optional_arg(filter.app, app_text), optional_id(start_time), optional_id(end_time), &json, error, ERROR_LEN)) {
         log_error(T("获取历史失败: {e}", {{"e", QString::fromUtf8(error)}}), "Clipboard");
         return {};
     }
     return items_from(json);
+}
+
+bool ClipboardManager::paste_as_files(qint64 item_id) {
+    const auto backend = this->backend();
+    if (!backend) return false;
+    bool ok = false;
+    char error[ERROR_LEN] = {};
+    if (!jb_clipboard_paste_as_files(backend.get(), item_id, &ok, error, ERROR_LEN)) {
+        log_error(T("作为文件粘贴失败: {e}", {{"e", QString::fromUtf8(error)}}), "Clipboard");
+        return false;
+    }
+    return ok;
+}
+
+QList<QPair<QString, qint64>> ClipboardManager::source_apps() {
+    const auto backend = this->backend();
+    if (!backend) return {};
+    char *json = nullptr;
+    char error[ERROR_LEN] = {};
+    if (!jb_clipboard_source_apps(backend.get(), &json, error, ERROR_LEN)) {
+        log_error(T("获取来源应用失败: {e}", {{"e", QString::fromUtf8(error)}}), "Clipboard");
+        return {};
+    }
+    QList<QPair<QString, qint64>> apps;
+    for (const auto &value : take_json(json).array()) apps.emplaceBack(value.toObject().value("app").toString(), value.toObject().value("count").toInteger());
+    return apps;
 }
 
 qint64 ClipboardManager::get_total_count() {
@@ -414,14 +440,16 @@ std::optional<QByteArray> ClipboardManager::get_image_data(const QString &image_
     return bytes;
 }
 
-std::optional<qint64> ClipboardManager::create_group(const QString &name, const std::optional<QString> &color, const std::optional<QString> &icon, int group_type) {
+std::optional<qint64> ClipboardManager::create_group(const QString &name, const std::optional<QString> &color, const std::optional<QString> &icon, int group_type,
+                                                    const std::optional<FilterRule> &filter_rule) {
     const auto backend = this->backend();
     if (!backend) return std::nullopt;
     QByteArray color_text, icon_text;
+    const QByteArray rule_text = filter_rule ? filter_rule->to_json() : QByteArray();
     qint64 group_id = 0;
     char error[ERROR_LEN] = {};
-    if (!jb_clipboard_create_group(backend.get(), utf8(name).constData(), optional_arg(color, color_text), optional_arg(icon, icon_text), group_type, &group_id,
-                                   error, ERROR_LEN)) {
+    if (!jb_clipboard_create_group(backend.get(), utf8(name).constData(), optional_arg(color, color_text), optional_arg(icon, icon_text), group_type,
+                                   filter_rule ? rule_text.constData() : nullptr, &group_id, error, ERROR_LEN)) {
         log_error(T("创建分组失败: {e}", {{"e", QString::fromUtf8(error)}}), "Clipboard");
         return std::nullopt;
     }
@@ -464,13 +492,15 @@ bool ClipboardManager::rename_group(qint64 group_id, const QString &name) {
     return true;
 }
 
-bool ClipboardManager::update_group(qint64 group_id, const QString &name, const std::optional<QString> &color, const std::optional<QString> &icon, int group_type) {
+bool ClipboardManager::update_group(qint64 group_id, const QString &name, const std::optional<QString> &color, const std::optional<QString> &icon, int group_type,
+                                    const std::optional<FilterRule> &filter_rule) {
     const auto backend = this->backend();
     if (!backend) return false;
     QByteArray color_text, icon_text;
+    const QByteArray rule_text = filter_rule ? filter_rule->to_json() : QByteArray();
     char error[ERROR_LEN] = {};
-    if (!jb_clipboard_update_group(backend.get(), group_id, utf8(name).constData(), optional_arg(color, color_text), optional_arg(icon, icon_text), group_type, error,
-                                   ERROR_LEN)) {
+    if (!jb_clipboard_update_group(backend.get(), group_id, utf8(name).constData(), optional_arg(color, color_text), optional_arg(icon, icon_text), group_type,
+                                   filter_rule ? rule_text.constData() : nullptr, error, ERROR_LEN)) {
         log_error(T("更新分组失败: {e}", {{"e", QString::fromUtf8(error)}}), "Clipboard");
         return false;
     }

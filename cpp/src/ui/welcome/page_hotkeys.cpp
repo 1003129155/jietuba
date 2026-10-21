@@ -312,7 +312,7 @@ const std::vector<HotkeyPage::Row> &HotkeyPage::rows() {
 }
 
 HotkeyPage::HotkeyPage(ToolSettingsManager *config, QWidget *parent)
-    : BasePage(welcome_tr("快捷键"), welcome_tr("三个全局功能各可设置一个主快捷键和一个备用快捷键。"), parent), config_(config) {
+    : BasePage(welcome_tr("快捷键"), welcome_tr("截图、剪贴板和翻译各可设置一个主快捷键和一个备用快捷键。"), parent), config_(config) {
     init();
 }
 
@@ -393,11 +393,23 @@ void HotkeyPage::sync_key_highlight() {
     illus->keyboard_map->set_highlight(active_edit_ ? active_edit_->text() : QString());
 }
 
-bool HotkeyPage::revalidate() { return validate_hotkey_group(edits_); }
+bool HotkeyPage::revalidate() {
+    std::vector<HotkeyEdit *> group = edits_;
+    group.insert(group.end(), peer_edits_.begin(), peer_edits_.end());
+    return validate_hotkey_group(group);
+}
+
+void HotkeyPage::join_conflict_group(const std::vector<HotkeyEdit *> &edits) {
+    for (auto *edit : edits) {
+        peer_edits_.push_back(edit);
+        connect(edit, &HotkeyEdit::textChanged, this, [this] { revalidate(); });
+    }
+    revalidate();
+}
 
 void HotkeyPage::retranslate() {
     title_label->setText(welcome_tr("快捷键"));
-    subtitle_label->setText(welcome_tr("三个全局功能各可设置一个主快捷键和一个备用快捷键。"));
+    subtitle_label->setText(welcome_tr("截图、剪贴板和翻译各可设置一个主快捷键和一个备用快捷键。"));
     for (const auto &[label, text] : section_labels_) label->setText(welcome_tr(text));
     for (const auto &[label, text] : slot_labels_) label->setText(welcome_tr(text));
     if (hint_) hint_->setText(welcome_tr("点击输入框后，按下快捷键或鼠标侧键即可录入。"));

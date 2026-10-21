@@ -29,6 +29,7 @@ struct SettingMenuOptions {
     bool preserve_search = false;
     int window_opacity = 0;
     int current_font_size = 0;
+    int current_display_lines = 1;
     QString current_image_size = "small";
     QString current_theme_name;
     QString current_group_bar_position = "right";
@@ -42,6 +43,7 @@ struct SettingMenuOptions {
     std::function<void(bool)> on_toggle_preserve_search;
     std::function<void(int)> on_set_opacity;
     std::function<void(int)> on_set_font_size;
+    std::function<void(int)> on_set_display_lines;
     std::function<void(const QString &)> on_set_image_size;
     std::function<void(const QString &)> on_set_theme;
     std::function<void()> on_add_item;

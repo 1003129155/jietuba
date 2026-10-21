@@ -1,3 +1,4 @@
+#include "core/i18n.h"
 #include "core/resource_manager.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
@@ -17,25 +18,30 @@
 
 namespace jietuba {
 namespace {
-// (svg path, name key, description key).
+// (toolbar key, svg path, name key, description key), drawing tools in toolbar order first.
 struct ToolEntry {
-    const char *svg, *name_key, *desc_key;
+    const char *key, *svg, *name_key, *desc_key;
 };
 const ToolEntry TOOLS[] = {
-    {"svg/画笔.svg", "工具_画笔", "工具描述_画笔"},
-    {"svg/荧光笔.svg", "工具_荧光笔", "工具描述_荧光笔"},
-    {"svg/箭头.svg", "工具_箭头", "工具描述_箭头"},
-    {"svg/序号.svg", "工具_序号", "工具描述_序号"},
-    {"svg/方框.svg", "工具_矩形框", "工具描述_矩形框"},
-    {"svg/圆框.svg", "工具_椭圆框", "工具描述_椭圆框"},
-    {"svg/文字.svg", "工具_文字", "工具描述_文字"},
-    {"svg/橡皮.svg", "工具_橡皮擦", "工具描述_橡皮擦"},
-    {"svg/长截图.svg", "工具_长截图", "工具描述_长截图"},
-    {"svg/gif.svg", "工具_录屏", "工具描述_录屏"},
-    {"svg/翻译.svg", "工具_截图翻译", "工具描述_截图翻译"},
-    {"svg/钉图.svg", "工具_钉图", "工具描述_钉图"},
-    {"svg/下载.svg", "工具_保存", "工具描述_保存"},
-    {"svg/确定.svg", "工具_完成截图", "工具描述_完成截图"},
+    {"pen", "svg/画笔.svg", "工具_画笔", "工具描述_画笔"},
+    {"highlighter", "svg/荧光笔.svg", "工具_荧光笔", "工具描述_荧光笔"},
+    {"mosaic", "svg/马赛克.svg", "工具_马赛克", "工具描述_马赛克"},
+    {"spotlight", "svg/聚光灯.svg", "工具_聚光灯", "工具描述_聚光灯"},
+    {"watermark", "svg/水印.svg", "工具_水印", "工具描述_水印"},
+    {"arrow", "svg/箭头.svg", "工具_箭头", "工具描述_箭头"},
+    {"number", "svg/序号.svg", "工具_序号", "工具描述_序号"},
+    {"rect", "svg/方框.svg", "工具_矩形框", "工具描述_矩形框"},
+    {"ellipse", "svg/圆框.svg", "工具_椭圆框", "工具描述_椭圆框"},
+    {"text", "svg/文字.svg", "工具_文字", "工具描述_文字"},
+    {"eraser", "svg/橡皮.svg", "工具_橡皮擦", "工具描述_橡皮擦"},
+    {"long_screenshot", "svg/长截图.svg", "工具_长截图", "工具描述_长截图"},
+    {"gif", "svg/gif.svg", "工具_录屏", "工具描述_录屏"},
+    {"text_recognize", "svg/文字识别.svg", "工具_文字识别", "工具描述_文字识别"},
+    {"scan_code", "svg/扫码.svg", "工具_扫码", "工具描述_扫码"},
+    {"screenshot_translate", "svg/翻译.svg", "工具_截图翻译", "工具描述_截图翻译"},
+    {"pin", "svg/钉图.svg", "工具_钉图", "工具描述_钉图"},
+    {"save", "svg/下载.svg", "工具_保存", "工具描述_保存"},
+    {"confirm", "svg/确定.svg", "工具_完成截图", "工具描述_完成截图"},
 };
 constexpr int TOOL_COUNT = static_cast<int>(std::size(TOOLS));
 
@@ -44,6 +50,9 @@ QString tool_text(const char *key) {
     static const QHash<QString, QString> zh{
         {"工具_画笔", "画笔"},
         {"工具_荧光笔", "荧光笔"},
+        {"工具_马赛克", "马赛克"},
+        {"工具_聚光灯", "聚光灯"},
+        {"工具_水印", "水印"},
         {"工具_箭头", "箭头"},
         {"工具_序号", "序号"},
         {"工具_矩形框", "矩形框"},
@@ -52,12 +61,17 @@ QString tool_text(const char *key) {
         {"工具_橡皮擦", "橡皮擦"},
         {"工具_长截图", "长截图"},
         {"工具_录屏", "录屏"},
+        {"工具_文字识别", "文字识别"},
+        {"工具_扫码", "扫码"},
         {"工具_截图翻译", "截图翻译"},
         {"工具_钉图", "钉图"},
         {"工具_保存", "保存"},
         {"工具_完成截图", "完成截图"},
         {"工具描述_画笔", "自由绘制线条，Shift 画直线"},
         {"工具描述_荧光笔", "半透明高亮，标记重点区域"},
+        {"工具描述_马赛克", "涂抹打码遮住隐私，滚轮调粗细"},
+        {"工具描述_聚光灯", "调暗框外区域，突出重点"},
+        {"工具描述_水印", "给截图加上文字或时间水印"},
         {"工具描述_箭头", "绘制箭头，多种样式可选"},
         {"工具描述_序号", "标注①②③…有序说明步骤"},
         {"工具描述_矩形框", "圈出矩形区域，支持填充"},
@@ -66,6 +80,8 @@ QString tool_text(const char *key) {
         {"工具描述_橡皮擦", "擦除已绘制的标注内容"},
         {"工具描述_长截图", "自动滚动拼接超长页面"},
         {"工具描述_录屏", "录制屏幕区域为 GIF 动图或 MP4 视频"},
+        {"工具描述_文字识别", "识别选区中的文字，一键复制"},
+        {"工具描述_扫码", "识别二维码和条形码，链接可直接打开"},
         {"工具描述_截图翻译", "OCR 识别文字并即时翻译"},
         {"工具描述_钉图", "将截图悬浮置顶在屏幕上"},
         {"工具描述_保存", "保存截图到本地文件"},
@@ -78,7 +94,7 @@ QString tool_text(const char *key) {
 }
 
 // A compact tool matrix for the two-column wizard.
-constexpr int ICON_NORMAL = 23, ICON_ACTIVE = 29, BTN_NORMAL = 36, BTN_ACTIVE = 44, ANIM_MS = 2000;
+constexpr int ICON_NORMAL = 23, ICON_ACTIVE = 29, BTN_NORMAL = 36, BTN_ACTIVE = 44, ANIM_MS = 2000, ICONS_PER_ROW = 5;
 
 class IconCell : public QWidget {
 public:
@@ -142,20 +158,22 @@ public:
             name_lbl_->setText(tool_text(TOOLS[current_].name_key));
             desc_lbl_->setText(tool_text(TOOLS[current_].desc_key));
         }
+        folded_lbl_->setText(welcome_tr("工具栏上找不到的工具，到「…」里找找。"));
     }
     Q_INVOKABLE void apply_welcome_child_theme() {
         for (auto *cell : cells_) cell->render(cell->active());
         apply_welcome_label_style(name_lbl_);
         apply_welcome_label_style(desc_lbl_);
+        apply_welcome_label_style(folded_lbl_);
         update();
     }
 protected:
     void build_content() override {
         layout_->setContentsMargins(dialog_scaled(14), dialog_scaled(16), dialog_scaled(14), dialog_scaled(12));
         layout_->setSpacing(dialog_scaled(5));
-        // Three icon rows suit the narrow preview column of the horizontal wizard.
-        const std::pair<int, int> rows[] = {{0, 5}, {5, 10}, {10, TOOL_COUNT}};
-        for (const auto &[begin, end] : rows) {
+        // Five icons fill a row of the narrow preview column.
+        for (int begin = 0; begin < TOOL_COUNT; begin += ICONS_PER_ROW) {
+            const int end = std::min(begin + ICONS_PER_ROW, TOOL_COUNT);
             auto *row_w = new QWidget;
             set_own_style(row_w, "background: transparent;");
             auto *row_l = new QHBoxLayout(row_w);
@@ -191,6 +209,12 @@ protected:
         info_l->addWidget(name_lbl_);
         info_l->addWidget(desc_lbl_);
         layout_->addWidget(info_w);
+        // Folded tools would otherwise seem missing.
+        folded_lbl_ = new QLabel(welcome_tr("工具栏上找不到的工具，到「…」里找找。"));
+        folded_lbl_->setAlignment(Qt::AlignCenter);
+        folded_lbl_->setWordWrap(true);
+        set_welcome_label_style(folded_lbl_, "soft", 10, 400);
+        layout_->addWidget(folded_lbl_);
 
         timer_ = new QTimer(this);
         connect(timer_, &QTimer::timeout, this, &ToolPreviewIllus::advance);
@@ -212,13 +236,20 @@ private:
     }
     std::vector<IconCell *> cells_;
     int current_ = -1;
-    QLabel *name_lbl_ = nullptr, *desc_lbl_ = nullptr;
+    QLabel *name_lbl_ = nullptr, *desc_lbl_ = nullptr, *folded_lbl_ = nullptr;
     QGraphicsOpacityEffect *opacity_effect_ = nullptr;
     QPropertyAnimation *fade_anim_ = nullptr;
     QTimer *timer_ = nullptr;
 };
 
 QString page_title() { return welcome_tr("📸 截图设置").remove(QString::fromUtf8("📸")).trimmed(); }
+QString settings_text(const char *text) { return i18n_tr(text, "SettingsDialog"); }
+}
+
+QStringList screenshot_preview_tools() {
+    QStringList keys;
+    for (const auto &tool : TOOLS) keys.append(tool.key);
+    return keys;
 }
 
 ScreenshotHotkeyPage::ScreenshotHotkeyPage(ToolSettingsManager *config, QWidget *parent)
@@ -287,9 +318,39 @@ void ScreenshotHotkeyPage::build_controls(QVBoxLayout *layout) {
     smart_toggle_->setChecked(config_->get_smart_selection());
     QWidget *smart_row = nullptr;
     std::tie(smart_row, smart_lbl_, smart_desc_) = make_setting_row_with_refs(welcome_tr("智能选区"), smart_toggle_, welcome_tr("悬停时自动识别窗口边界，单击即可精准截取。"));
+    // Window or control, inside the same card: the switch is the settings window's "off".
+    precision_combo_ = new ComboBox;
+    precision_combo_->setFixedHeight(dialog_scaled(30));
+    precision_combo_->setCursor(Qt::PointingHandCursor);
+    populate_precision_combo();
+    precision_lbl_ = new QLabel(settings_text("Detection Precision"));
+    set_welcome_label_style(precision_lbl_, "muted", 12, 400);
+    auto *precision_row = new QHBoxLayout;
+    precision_row->setContentsMargins(0, dialog_scaled(4), 0, 0);
+    precision_row->addWidget(precision_lbl_);
+    precision_row->addStretch();
+    precision_row->addWidget(precision_combo_);
+    static_cast<QVBoxLayout *>(smart_row->layout())->addLayout(precision_row);
+    const auto sync_precision = [this](bool on) {
+        precision_lbl_->setEnabled(on);
+        precision_combo_->setEnabled(on);
+    };
+    connect(smart_toggle_, &SwitchButton::checkedChanged, this, sync_precision);
+    sync_precision(smart_toggle_->isChecked());
     layout->addWidget(smart_row);
 
     sync_save_section_enabled(autosave_toggle_->isChecked());
+}
+
+void ScreenshotHotkeyPage::populate_precision_combo() {
+    QString current = precision_combo_->count() ? precision_combo_->currentData().toString() : config_->get_smart_selection_mode();
+    if (current == "off") current = config_->app_defaults().value("smart_selection_mode").toString();
+    precision_combo_->blockSignals(true);
+    precision_combo_->clear();
+    precision_combo_->addItem(settings_text("Window"), "window");
+    precision_combo_->addItem(settings_text("Control"), "element");
+    precision_combo_->setCurrentIndex(std::max(0, precision_combo_->findData(current)));
+    precision_combo_->blockSignals(false);
 }
 
 void ScreenshotHotkeyPage::sync_save_section_enabled(bool enabled) {
@@ -309,6 +370,8 @@ void ScreenshotHotkeyPage::retranslate() {
     if (autosave_desc_) autosave_desc_->setText(welcome_tr("关闭时截图只复制到剪贴板，不落盘。"));
     format_lbl_->setText(welcome_tr("保存格式"));
     smart_lbl_->setText(welcome_tr("智能选区"));
+    precision_lbl_->setText(settings_text("Detection Precision"));
+    populate_precision_combo();
     if (smart_desc_) smart_desc_->setText(welcome_tr("悬停时自动识别窗口边界，单击即可精准截取。"));
     save_lbl_->setText(welcome_tr("截图保存位置"));
     save_desc_->setText(welcome_tr("确认截图后自动保存到该文件夹。"));
@@ -318,7 +381,8 @@ void ScreenshotHotkeyPage::retranslate() {
 
 void ScreenshotHotkeyPage::save() {
     config_->set_screenshot_save_enabled(autosave_toggle_->isChecked());
-    config_->set_smart_selection(smart_toggle_->isChecked());
+    if (smart_toggle_->isChecked()) config_->set_smart_selection_mode(precision_combo_->currentData().toString());
+    else config_->set_smart_selection(false);
     const QString fmt = format_combo_->currentData().toString();
     if (!fmt.isEmpty()) config_->set_screenshot_format(fmt);
     const QString path = path_edit_->text().trimmed();

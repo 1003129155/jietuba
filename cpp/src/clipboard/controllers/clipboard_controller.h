@@ -47,16 +47,16 @@ public:
     void check_scroll_load(int scroll_value, int scroll_max);
 
     void set_search_text(const QString &text);
-    // 0 all, 1 text, 2 image, 3 file.
-    void set_content_type_filter(int filter_index);
+    // A content type or text sub-kind (see FilterRule::kind); none for every type.
+    void set_content_type_filter(const std::optional<QString> &kind);
     // "2026/06/20-2026/06/30"; false when the text is not a valid range.
     bool set_time_range_text(const QString &range_text);
     void clear_time_and_type_filters();
     // [start of first day, start of the day after the last).
     static std::optional<std::pair<QDateTime, QDateTime>> parse_time_range_text(const QString &range_text);
 
-    // The content type of the selected group when it is a filter group.
-    std::optional<QString> current_filter_type() const;
+    // The rule of the selected group when it is a filter group; empty when its rule cannot be read.
+    std::optional<FilterRule> current_filter_rule() const;
     // History and filter groups follow the history rules; real groups do not.
     bool shows_history() const;
     void switch_to_group(std::optional<qint64> group_id);
@@ -78,6 +78,12 @@ public:
     void move_item_to_top(qint64 item_id);
     bool paste_transformed_text(qint64 item_id, const QString &transform_key, const CloseCallback &on_close_callback = {}, bool explicit_paste = false);
     bool paste_file_text(qint64 item_id, const QString &transform_key, const CloseCallback &on_close_callback = {}, bool explicit_paste = false);
+    // Pastes the files a path item names, as if they were copied in Explorer.
+    bool paste_as_files(qint64 item_id, const CloseCallback &on_close_callback = {}, bool explicit_paste = false);
+    // A color item's color in each enabled color format of the color picker, except the one it is written in.
+    static QStringList color_conversions(const ClipboardItem &item);
+    // Pastes entry `index` of color_conversions.
+    bool paste_color_conversion(qint64 item_id, int index, const CloseCallback &on_close_callback = {}, bool explicit_paste = false);
     bool delete_item(qint64 item_id);
     void toggle_pin(qint64 item_id);
     bool move_to_group(qint64 item_id, std::optional<qint64> group_id);

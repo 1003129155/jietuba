@@ -86,7 +86,7 @@ std::optional<ClipboardItem> find_latest_history_image() {
     auto &manager = ClipboardManager::instance();
     if (!manager.is_available()) return std::nullopt;
     QList<ClipboardItem> candidates;
-    for (const auto &item : manager.get_history(0, LATEST_IMAGE_SCAN_LIMIT, std::nullopt, QString("image")))
+    for (const auto &item : manager.get_history(0, LATEST_IMAGE_SCAN_LIMIT, std::nullopt, FilterRule::of_kind("image")))
         if (item.image_id && !item.image_id->isEmpty()) candidates.append(item);
     if (candidates.isEmpty()) return std::nullopt;
     const ClipboardItem *latest = nullptr;

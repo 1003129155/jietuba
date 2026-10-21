@@ -21,10 +21,13 @@ class ClipboardManager;
 class ClipboardWindow;
 }
 class DisplayChangeWatcher;
+class GameModeMonitor;
 class GifRecordWindow;
 class HotkeySystem;
 class PreloadManager;
 class QuickCaptureController;
+class ScreenAnnotation;
+class ScreenshotCountdown;
 class ScreenshotWindow;
 class SettingsDialog;
 class SmartTranslationController;
@@ -53,16 +56,26 @@ public:
     // show_error: report failures (on saving settings, not on start-up).
     void update_hotkey(bool show_error = false);
     void set_global_hotkeys_disabled(bool disabled);
+    // The tray switch: global input pauses on its own while a game holds the foreground.
+    void set_pause_hotkeys_in_games(bool enabled);
+    // Starts or stops watching for games as pause_hotkeys_in_games says.
+    void sync_game_mode_monitor();
     void setup_tray();
     void start_screenshot();
+    void start_delayed_screenshot();
     void open_settings();
     void open_translator();
     void open_clipboard_window();
+    // The tray switch: saves the setting and starts or stops the watcher. The hotkey and the recorded
+    // history stay available.
+    void set_clipboard_enabled(bool enabled);
     // Starts or stops the clipboard watcher to match the setting; whether that state was reached.
     // The manager stays once created, so enabling again only restarts its watcher.
     bool set_clipboard_monitoring_enabled(bool enabled);
     // Pins the clipboard image at the cursor; during a capture pins the selection instead.
     void pin_clipboard_image();
+    // Starts the screen annotation, or ends the running one; not while a capture is being prepared.
+    void toggle_screen_annotation();
     // Admin mode was just turned on here, unelevated: runs the task so the elevated instance takes
     // over (its single-instance check ends this one). Stays when that instance does not come up.
     void hand_off_to_admin();
@@ -87,6 +100,8 @@ public:
     ToolSettingsManager *config_manager;
     UIThemeManager *ui_theme_manager = nullptr;
     std::unique_ptr<HotkeySystem> hotkey_system;
+    // Runs while the game switch is on.
+    GameModeMonitor *game_mode_monitor = nullptr;
     QSystemTrayIcon *tray_icon = nullptr;
     QPointer<SettingsDialog> settings_window;
     QPointer<ScreenshotWindow> screenshot_window;
@@ -97,6 +112,10 @@ public:
     QPointer<GifRecordWindow> recording_quit_pending_;
     QuickCaptureController *quick_capture = nullptr;
     SmartTranslationController *smart_translation_controller = nullptr;
+    // Created on first use.
+    ScreenAnnotation *screen_annotation = nullptr;
+    // Whether a session runs, as the tray menu last showed it.
+    bool screen_annotation_running_ = false;
     bool update_preparing = false;
     UpdateController *update_controller = nullptr;
 
@@ -110,11 +129,13 @@ private:
     void on_language_changed(const QString &lang_code);
     void on_ui_theme_changed(const UIThemeTokens &tokens);
     void update_tray_menu();
+    void on_game_mode_changed(bool active);
     void show_hotkey_error(const std::vector<std::pair<QString, QString>> &failed_hotkeys);
     void on_tray_activated(QSystemTrayIcon::ActivationReason reason);
     // While an application-modal window exists no capture layer is created that could
     // not take input; the modal window comes to the front instead.
     bool activate_blocking_modal();
+    void request_screenshot(bool delayed);
     void capture_and_prepare_window();
     // The settings window asks for the wizard: hide it and unregister hotkeys while the wizard runs.
     void on_wizard_requested();
@@ -127,6 +148,7 @@ private:
     void on_clipboard_item_received(const clipboard::ClipboardItem &item);
 
     bool capture_pending_ = false;
+    QPointer<ScreenshotCountdown> screenshot_countdown_;
     DisplayChangeWatcher *display_watcher_ = nullptr;
     std::unique_ptr<PreloadManager> preloader_;
 };

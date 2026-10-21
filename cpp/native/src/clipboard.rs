@@ -6,9 +6,10 @@
 use std::ffi::{c_char, c_void, CString};
 use std::sync::Arc;
 
-use pyclipboard::group_kind;
+use pyclipboard::group_kind::{self, FilterRule};
 use pyclipboard::manager::{self, ClipboardManager, MultiPasteOptions};
 use pyclipboard::multi_paste;
+use pyclipboard::text_kind;
 use pyclipboard::types::{PyClipboardItem, PyGroup};
 
 use crate::panic::{guard, guard_error};
@@ -57,6 +58,7 @@ fn group_json(group: &PyGroup) -> serde_json::Value {
         "item_order": group.item_order,
         "created_at": group.created_at,
         "group_type": group.group_type,
+        "filter_rule": group.filter_rule,
     })
 }
 
@@ -66,6 +68,14 @@ unsafe fn opt_i64(ptr: *const i64) -> Option<i64> {
 
 unsafe fn opt_string(ptr: *const c_char) -> Option<String> {
     str_arg(ptr).map(str::to_owned)
+}
+
+/// A filter rule passed as JSON; null means none. Its conditions are checked by the core.
+unsafe fn rule_arg(ptr: *const c_char) -> Result<Option<FilterRule>, String> {
+    match str_arg(ptr) {
+        Some(json) => serde_json::from_str(json).map(Some).map_err(|e| format!("invalid filter rule: {e}")),
+        None => Ok(None),
+    }
 }
 
 unsafe fn put_text(text: &str, out: *mut *mut c_char) {
@@ -164,24 +174,39 @@ pub extern "C" fn jb_clipboard_max_stitched_pixels() -> u64 {
     })
 }
 
-/// Writes the content type ("text", "image" or "file") a filter group of `group_type` shows;
-/// false for group types that are not filter groups.
+/// Reads a color item's text into `out_rgba` (4 bytes: red, green, blue, alpha); false when it is no color.
 #[no_mangle]
-pub unsafe extern "C" fn jb_clipboard_filter_content_type(group_type: i64, out: *mut c_char, out_len: usize) -> bool {
-    guard(false, || match group_kind::filter_content_type(group_type) {
-        Some(content_type) => {
-            write_text(content_type, out, out_len);
+pub unsafe extern "C" fn jb_clipboard_parse_color(text: *const c_char, out_rgba: *mut u8) -> bool {
+    guard(false, || match (str_arg(text).and_then(text_kind::parse_color), out_rgba.is_null()) {
+        (Some(rgba), false) => {
+            std::ptr::copy_nonoverlapping(rgba.as_ptr(), out_rgba, 4);
             true
         }
-        None => false,
+        _ => false,
     })
 }
 
-/// Whether a group of `group_type` stores items of `content_type`.
+/// Name of the clipboard format the color picker adds to mark its text as a color; static, not freed.
 #[no_mangle]
-pub unsafe extern "C" fn jb_clipboard_group_accepts(group_type: i64, content_type: *const c_char) -> bool {
+pub extern "C" fn jb_clipboard_color_marker_format() -> *const c_char {
+    static NAME: std::sync::OnceLock<CString> = std::sync::OnceLock::new();
+    guard(std::ptr::null(), || NAME.get_or_init(|| CString::new(text_kind::COLOR_MARKER_FORMAT).unwrap_or_default()).as_ptr())
+}
+
+/// The paths in a path item's text as a JSON array (free with jb_clipboard_text_free); empty for other text.
+#[no_mangle]
+pub unsafe extern "C" fn jb_clipboard_text_paths(text: *const c_char) -> *mut c_char {
+    guard(std::ptr::null_mut(), || {
+        let paths = str_arg(text).map(text_kind::paths).unwrap_or_default();
+        owned_text(&serde_json::to_string(&paths).unwrap_or_else(|_| "[]".to_string()))
+    })
+}
+
+/// Whether a group of `group_type` stores items of `content_type` with text sub-kind `sub_kind` (null for none).
+#[no_mangle]
+pub unsafe extern "C" fn jb_clipboard_group_accepts(group_type: i64, content_type: *const c_char, sub_kind: *const c_char) -> bool {
     guard(false, || match str_arg(content_type) {
-        Some(content_type) => group_kind::accepts(group_type, content_type),
+        Some(content_type) => group_kind::accepts(group_type, content_type, str_arg(sub_kind).unwrap_or("")),
         None => false,
     })
 }
@@ -293,7 +318,8 @@ pub unsafe extern "C" fn jb_clipboard_pending_writes(ptr: *const JbClipboard) ->
     })
 }
 
-/// One page of history as a JSON array of items.
+/// One page of history as a JSON array of items. `kind` (content type or text sub-kind) and `app`
+/// (source exe name) narrow it; null for either means any.
 #[no_mangle]
 #[allow(clippy::too_many_arguments)]
 pub unsafe extern "C" fn jb_clipboard_get_history(
@@ -301,7 +327,8 @@ pub unsafe extern "C" fn jb_clipboard_get_history(
     offset: i64,
     limit: i64,
     search: *const c_char,
-    content_type: *const c_char,
+    kind: *const c_char,
+    app: *const c_char,
     start_time: *const i64,
     end_time: *const i64,
     out_json: *mut *mut c_char,
@@ -310,9 +337,23 @@ pub unsafe extern "C" fn jb_clipboard_get_history(
 ) -> bool {
     guard_error(false, error, error_len, || {
         let manager = manager_or_fail!(ptr, error, error_len);
-        let result = manager.get_history(offset, limit, opt_string(search), opt_string(content_type), opt_i64(start_time), opt_i64(end_time));
+        let filter = FilterRule { kind: opt_string(kind), app: opt_string(app) };
+        let result = manager.get_history(offset, limit, opt_string(search), &filter, opt_i64(start_time), opt_i64(end_time));
         finish(result, error, error_len, |page| {
             put_text(&serde_json::to_string(&page.items).unwrap_or_else(|_| "[]".to_string()), out_json)
+        })
+    })
+}
+
+/// The source apps seen in the history as a JSON array of {"app", "count"}, most items first;
+/// the application's own executables are merged into one "jietuba" entry.
+#[no_mangle]
+pub unsafe extern "C" fn jb_clipboard_source_apps(ptr: *const JbClipboard, out_json: *mut *mut c_char, error: *mut c_char, error_len: usize) -> bool {
+    guard_error(false, error, error_len, || {
+        let manager = manager_or_fail!(ptr, error, error_len);
+        finish(manager.source_apps(), error, error_len, |apps| {
+            let list: Vec<serde_json::Value> = apps.iter().map(|(app, count)| serde_json::json!({"app": app, "count": count})).collect();
+            put_text(&serde_json::Value::Array(list).to_string(), out_json)
         })
     })
 }
@@ -443,6 +484,7 @@ pub unsafe extern "C" fn jb_clipboard_create_group(
     color: *const c_char,
     icon: *const c_char,
     group_type: i64,
+    filter_rule: *const c_char,
     out_id: *mut i64,
     error: *mut c_char,
     error_len: usize,
@@ -453,7 +495,8 @@ pub unsafe extern "C" fn jb_clipboard_create_group(
             write_text("invalid argument", error, error_len);
             return false;
         };
-        finish(manager.create_group(name, opt_string(color), opt_string(icon), group_type), error, error_len, |id| {
+        let result = rule_arg(filter_rule).and_then(|rule| manager.create_group(name, opt_string(color), opt_string(icon), group_type, rule));
+        finish(result, error, error_len, |id| {
             if let Some(slot) = out_id.as_mut() {
                 *slot = id;
             }
@@ -501,6 +544,7 @@ pub unsafe extern "C" fn jb_clipboard_update_group(
     color: *const c_char,
     icon: *const c_char,
     group_type: i64,
+    filter_rule: *const c_char,
     error: *mut c_char,
     error_len: usize,
 ) -> bool {
@@ -510,7 +554,8 @@ pub unsafe extern "C" fn jb_clipboard_update_group(
             write_text("invalid argument", error, error_len);
             return false;
         };
-        finish(manager.update_group(id, name, opt_string(color), opt_string(icon), group_type), error, error_len, |_| {})
+        let result = rule_arg(filter_rule).and_then(|rule| manager.update_group(id, name, opt_string(color), opt_string(icon), group_type, rule));
+        finish(result, error, error_len, |_| {})
     })
 }
 
@@ -570,6 +615,19 @@ pub unsafe extern "C" fn jb_clipboard_paste_item(
     guard_error(false, error, error_len, || {
         let manager = manager_or_fail!(ptr, error, error_len);
         finish(manager.paste_item(id, with_html, move_to_top), error, error_len, |ok| {
+            if let Some(slot) = out_ok.as_mut() {
+                *slot = ok;
+            }
+        })
+    })
+}
+
+/// Writes the files a path item names to the clipboard; `*out_ok` is false when none of them exists.
+#[no_mangle]
+pub unsafe extern "C" fn jb_clipboard_paste_as_files(ptr: *const JbClipboard, id: i64, out_ok: *mut bool, error: *mut c_char, error_len: usize) -> bool {
+    guard_error(false, error, error_len, || {
+        let manager = manager_or_fail!(ptr, error, error_len);
+        finish(manager.paste_as_files(id), error, error_len, |ok| {
             if let Some(slot) = out_ok.as_mut() {
                 *slot = ok;
             }

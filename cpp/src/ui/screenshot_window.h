@@ -160,6 +160,7 @@ private:
     void on_redo();
 
     bool session_active_ = false;
+    bool fullscreen_crosshair_ = false;
     InitialSelectionGate *initial_selection_gate_ = nullptr;
     std::shared_ptr<SystemCursor> capture_cursor_;
     std::unique_ptr<ScreenshotShortcutHandler> shortcut_handler_;

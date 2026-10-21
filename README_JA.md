@@ -1,19 +1,29 @@
-[中文](README_zh-CN.md) | [English](README.md) | **[日本語](README_JA.md)**
+<div align="center">
 
-# jietuba — Windows 向けスクリーンショット・OCR・ピン留め・翻訳・クリップボードツール
+<img src="svg/%E6%89%98%E7%9B%98.svg" width="128" alt="jietuba logo" />
+
+# jietuba
+
+**Windows 向けスクリーンショット・OCR・ピン留め・翻訳・クリップボードツール**
 
 [![build](https://img.shields.io/github/actions/workflow/status/1003129155/jietuba/cpp.yml?branch=master2&label=build&style=flat-square)](https://github.com/1003129155/jietuba/actions/workflows/cpp.yml) [![license](https://img.shields.io/github/license/1003129155/jietuba?style=flat-square)](LICENSE) [![release](https://img.shields.io/github/v/release/1003129155/jietuba?style=flat-square)](https://github.com/1003129155/jietuba/releases/latest) ![platform](https://img.shields.io/badge/Windows-x64%20%7C%20ARM64-0078D4?style=flat-square)
 
 [Windows 版をダウンロード](https://github.com/1003129155/jietuba/releases/latest) · [ソースからビルド](#source-setup) · [開発とテスト](#development)
+
+[中文](README_zh-CN.md) | [English](README.md) | **日本語**
+
+</div>
 
 <img width="1391" height="844" alt="21" src="https://github.com/user-attachments/assets/5eb5e82a-7a5f-4c60-a877-679d1b29cf0c" />
 
 
 ## 概要
 
-jietuba は Windows 向けの無料・オープンソースのスクリーンショットツールです。領域/ウィンドウキャプチャ、スクロール（長い）スクリーンショット、注釈、OCR 文字認識、翻訳、画像のピン留め、GIF/MP4 録画、QR コード/バーコード読み取り、PDF エクスポート、そして完全なクリップボード履歴管理を備えています。すべてローカルで動作します。
+jietuba は Windows 向けの無料・オープンソースのスクリーンショットツールです。領域/ウィンドウキャプチャ、スクロール（長い）スクリーンショット、注釈、OCR 文字認識、翻訳、画像のピン留め、GIF/MP4 録画、画面への直接注釈、QR コード/バーコード読み取り、PDF エクスポート、そして完全なクリップボード履歴管理を備えています。すべてローカルで動作します。
 
 MP4 領域録画はフレームレートとビットレートの指定、一時停止/再開、マウスポインター、システム音声に対応しています。一般的な 5.1/7.1 再生デバイスの音声はステレオに変換します。マイク録音は含まれません。
+
+画面注釈では、操作中の画面に直接書き込めます。専用のグローバルホットキー（設定 → ショートカット → 画面注釈、既定は未設定）またはトレイメニューの「画面注釈」から開始します。ペン、蛍光ペン、矢印、番号、矩形、楕円、テキスト、消しゴムは、キャプチャ編集と同じツール・同じ設定です。ツールを選ぶまでマウスは下のウィンドウをそのまま操作でき、Esc または「透過」ボタンで透過に戻ると、元のウィンドウにフォーカスが戻ります（スライドショーのページ送りもそのまま使えます）。画面ごとにレイヤーを持ち、元に戻すは描いた順に画面をまたいで働きます。描画は非表示にしたり、まとめて消去（元に戻せます）したりできます。スクリーンショットと GIF/MP4 録画には描画が入り、注釈ツールバーは入りません。画面上の蛍光ペンは一定の半透明で色を付けるので、下の文字はそのまま読めます。ワンクリックで切り替わるホワイトボード、ポインターを光らせクリックごとに波紋を出すカーソルハイライトも使えます。設定 → 画面注釈 で、開始時の状態、ツールバーの位置、終了時に描画を残すか、カーソルハイライトの大きさとクリックの波紋を選べます。
 
 jietuba は C++（Qt6）で実装され、画像処理・クリップボード操作・PP-OCR エンジンなどのコアは Rust で実装しています。Windows x86_64 および ARM64 に対応。以前の Python（PySide6）実装は [`archive/python`](https://github.com/1003129155/jietuba/tree/archive/python) ブランチにアーカイブ済みで、今後は更新しません。
 
@@ -122,7 +132,7 @@ ctest --test-dir build\msvc -C Release --output-on-failure -E "_desktop$|_window
 
 テストプログラムは一時的なサンドボックスで動作し、お使いの設定、クリップボード履歴、ログを読み書きしません。ほかに分析ビルド（`scripts\check.ps1`：AddressSanitizer、コード分析、リーク検出）とカバレッジ（`scripts\coverage.ps1`）があります。
 
-[C++ CI](.github/workflows/cpp.yml) はすべてのプルリクエストでビルドし、デスクトップを必要としないテストを実行します。`rust_libs/` を変更したときは [Rust CI](.github/workflows/rust-wheels.yml) が Rust の単体テストとサードパーティライセンスの再確認を行います。
+[C++ CI](.github/workflows/cpp.yml) はすべてのプルリクエストでビルドしてテストを実行し、変更したコードの行カバレッジを確認します。`rust_libs/` を変更したときは [Rust CI](.github/workflows/rust.yml) が Rust の単体テストとサードパーティライセンスの再確認を行います。
 
 リリースは [build.yml](.github/workflows/build.yml) で行います。タグは `release-<VERSION ファイルのバージョン>` でなければなりません。[lite.yml](.github/workflows/lite.yml) が x64 と ARM64 の軽量版・フル版をビルドし、署名後にそれぞれ `jietuba_lite-<tag>-<arch>.zip` と `jietuba_pp-<tag>-<arch>.zip` を作成します。
 
@@ -139,6 +149,7 @@ ctest --test-dir build\msvc -C Release --output-on-failure -E "_desktop$|_window
 │
 ├── cpp/                     # C++（Qt6）実装
 │   ├── src/                 # ソース（<パッケージ>/<モジュール> 構成）
+│   │   ├── annotation/      # 画面注釈 — 画面ごとのレイヤー、透過の切り替え、画面をまたぐ元に戻す
 │   │   ├── barcode/         # QR コード・バーコード認識（zxing-cpp）
 │   │   ├── canvas/          # キャンバス — 編集の中核、元に戻す、レイヤー
 │   │   ├── capture/         # キャプチャ — スクリーンショット、ウィンドウ・要素の検出
@@ -165,7 +176,6 @@ ctest --test-dir build\msvc -C Release --output-on-failure -E "_desktop$|_window
 │   ├── pyclipboard/         # クリップボード操作
 │   ├── ppocr_rust/          # PP-OCR (PaddleOCR) ONNX 認識エンジン
 │   ├── hdrcapture/          # HDR デスクトップキャプチャ
-│   ├── inputhub/            # グローバルなマウス・キーボードフック
 │   ├── updater/             # メイン EXE だけを置き換える独立した更新機能
 │   └── video_recorder/      # Media Foundation 録画と WASAPI システム音声の取得
 │
@@ -177,6 +187,35 @@ ctest --test-dir build\msvc -C Release --output-on-failure -E "_desktop$|_window
 ```
 
 ## モジュール詳細
+
+### annotation/ — 画面注釈モジュール
+
+操作中の画面に直接書き込みます。画面ごとに全画面の透明レイヤーを置き、GIF 録画の描画レイヤー（`GifDrawingView`）とキャプチャのツールバー（`Toolbar`、レイアウト `toolbar_layout::ANNOTATION`）を流用するため、ツール・設定パネル・元に戻すは同じものです。
+
+<details>
+<summary>ディレクトリ構造を表示</summary>
+
+```text
+annotation/
+├── screen_annotation.h/.cpp   # ScreenAnnotation — セッション：画面ごとのレイヤー、透過/描画/非表示、画面をまたぐ元に戻す、フォーカスの返却；ScreenAnnotationShortcutHandler — 描画中のキー
+├── annotation_view.h/.cpp     # AnnotationView — 1 画面分の描画レイヤー。キャンバスのホストとして共有ツールバーを CanvasView に渡す
+├── annotation_toolbar.h/.cpp  # AnnotationToolbar — 透過・消去・非表示・終了を備えたフローティングツールバー。フォーカスを奪わず、キャプチャと録画に写らない
+└── cursor_highlight.h/.cpp    # CursorHighlight と PointerLight — ポインターの周りの光とクリックの波紋
+```
+
+</details>
+
+**主な機能：**
+- 透過中のレイヤーは `WS_EX_TRANSPARENT` を持ち、マウスは下のウィンドウに届きます。ツールを選ぶとマウスを受け取り、透過に戻るとき元の前面ウィンドウにフォーカスを返します
+- 画面ごとにキャンバスと元に戻すスタックを持ち、セッションは各操作がどの画面を変えたかを記録するため、元に戻す/やり直しは描いた順に画面をまたいで働きます。消去は 1 回で元に戻せる操作です
+- 画面の抜き差しや解像度の変更に合わせてレイヤーを追加・削除・調整し、ツールバーは常に見える画面に残ります
+- キャプチャの前に透過へ戻り、そのフレームが画面に出るのを待ちます。キャプチャには描画が入り、ヒット判定用のレイヤーは入りません。ツールバーは `WDA_EXCLUDEFROMCAPTURE` でキャプチャと録画から除外します
+- レイヤーには描画の下にキャプチャ画像がないため、蛍光ペンは下の内容に乗算できません。代わりに不透明度 35% で重ね、一本の線は一度に描いて色むらを出さず、矩形の蛍光は縁と内側を一つの形で塗ります
+- 描いたばかりの図形は選択しないので、画面や録画にハンドルが映りません。図形はそのツールでクリックすれば選択できます
+- ホワイトボードは描画の下に敷く白一色の面で、クリックごとにオンとオフが切り替わります。透過に戻るとデスクトップが見え、次のツールでボードが戻ります
+- カーソルハイライトは入力フックのマウスイベントからポインターとボタンを受け取るので、透過中も働き、動かない間は何も動かず、クリックも取りこぼしません。描画中は円盤が線と同じ再描画で動き、スクリーンショットには入りません
+
+---
 
 ### barcode/ — バーコードモジュール
 
@@ -369,7 +408,9 @@ core/
 ├── i18n.h/.cpp                 # I18nManager / XmlTranslator / tr() — 国際化
 ├── shortcut_manager.h/.cpp     # HotkeySystem / ShortcutManager — グローバル＆アプリ内ホットキー
 ├── global_hotkey.h/.cpp        # グローバルホットキーのキー名表と登録方法の判定：システム登録・フック引き継ぎ・不可
-├── input_hub.h/.cpp            # プロセス共通のグローバル入力：ネイティブフック（j-input）は GUI スレッド外で動き、イベントを Qt シグナルで通知
+├── input_hub.h/.cpp            # プロセス共通のグローバル入力：フックは GUI スレッド外で動き、イベントを Qt シグナルで通知
+├── input_engine.h/.cpp         # 入力ステートマシン — ジェスチャー、ホットキー、ショートカット記録、監視
+├── input_hooks.h/.cpp          # 専用スレッド上の低レベルマウス・キーボードフックと前面ウィンドウフック
 ├── quick_capture_input.h/.cpp  # グローバルマウスショートカットのドラッグ入力（共通入力ハブを利用）
 ├── last_capture_region.h/.cpp  # 「前回の選択範囲を復元」用のプロセス内メモリ
 ├── save.h/.cpp                 # SaveService — ファイル保存サービス（高品質 PDF 出力対応）
@@ -698,12 +739,13 @@ translation/
 translations/
 ├── app_zh.xml / app_en.xml  # 中国語 / 英語ソースファイル
 ├── app_ja.xml / app_ko.xml  # 日本語 / 韓国語ソースファイル
+├── app_zh_TW.xml            # 繁体字中国語（台湾）ソースファイル
 └── app_*.qm                 # コンパイル済み Qt バイナリ（app_zh.qm 等）
 ```
 
 </details>
 
-`.xml` = 編集可能なソースファイル、`.qm` = Qt ランタイムで読み込むコンパイル済みファイル。UI テキストを追加・変更したら、4 つの `.xml` すべてに同じコンテキストのエントリを追加し（複数行の文言は実際の改行で書く）、`scripts/compile_translations.py` を実行して再コンパイルしてください。ログの文言は `resources/core/log_translations.json` を直接編集します。
+`.xml` = 編集可能なソースファイル、`.qm` = Qt ランタイムで読み込むコンパイル済みファイル。UI テキストを追加・変更したら、5 つの `.xml` すべてに同じコンテキストのエントリを追加し（複数行の文言は実際の改行で書く）、`scripts/compile_translations.py` を実行して再コンパイルしてください。ログの文言は `resources/core/log_translations.json` を直接編集します。
 
 ---
 

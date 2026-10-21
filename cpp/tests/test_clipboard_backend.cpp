@@ -1,8 +1,10 @@
 #include "clipboard_test_support.h"
+#include "save_dialog_answerer.h"
 #include "clipboard/controllers/clipboard_controller.h"
 #include "clipboard/ui/dialogs/manage_dialog.h"
 #include "clipboard/ui/windows/pin_window.h"
 #include "core/clipboard_utils.h"
+#include "core/native.h"
 #include "core/constants.h"
 #include "core/save.h"
 #include "clipboard/ui/widgets/reorder_list.h"
@@ -19,7 +21,9 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
+#include <cstring>
 #include <windows.h>
+#include <shellapi.h>
 #include <cstdlib>
 #include <memory>
 
@@ -50,6 +54,40 @@ QSize system_clipboard_image_size() {
     }
     CloseClipboard();
     return size;
+}
+
+// Writes text with the color picker's marker format, as the picker does through Qt.
+bool write_marked_color(const QString &text) {
+    if (!OpenClipboard(nullptr)) return false;
+    EmptyClipboard();
+    const std::wstring wide = text.toStdWString();
+    const auto put = [](UINT format, const void *data, size_t size) {
+        HGLOBAL handle = GlobalAlloc(GMEM_MOVEABLE, size);
+        std::memcpy(GlobalLock(handle), data, size);
+        GlobalUnlock(handle);
+        SetClipboardData(format, handle);
+    };
+    put(CF_UNICODETEXT, wide.c_str(), (wide.size() + 1) * sizeof(wchar_t));
+    put(RegisterClipboardFormatA(jb_clipboard_color_marker_format()), "1", 1);
+    CloseClipboard();
+    return true;
+}
+
+QStringList system_clipboard_files() {
+    QStringList files;
+    if (!OpenClipboard(nullptr)) return files;
+    if (HANDLE data = GetClipboardData(CF_HDROP)) {
+        auto *drop = static_cast<HDROP>(GlobalLock(data));
+        const UINT count = drop ? DragQueryFileW(drop, 0xFFFFFFFF, nullptr, 0) : 0;
+        for (UINT index = 0; index < count; ++index) {
+            wchar_t path[MAX_PATH] = {};
+            DragQueryFileW(drop, index, path, MAX_PATH);
+            files << QString::fromWCharArray(path);
+        }
+        if (drop) GlobalUnlock(data);
+    }
+    CloseClipboard();
+    return files;
 }
 }
 
@@ -185,33 +223,82 @@ private slots:
     }
 
     void groupTypesDecideWhatAGroupTakesAndBecomes() {
-        // A filter group stores nothing; its view is the history of its type.
-        const auto images = manager().create_group("Images", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILTER_IMAGE));
+        // A filter group stores nothing; its view is the history its rule selects.
+        const int filter_type = static_cast<int>(GroupType::FILTER);
+        QVERIFY(!manager().create_group("No rule", std::nullopt, std::nullopt, filter_type));
+        QVERIFY(!manager().create_group("Empty rule", std::nullopt, std::nullopt, filter_type, FilterRule{}));
+        QVERIFY(!manager().create_group("Unknown kind", std::nullopt, std::nullopt, filter_type, FilterRule::of_kind("email")));
+        const auto images = manager().create_group("Images", std::nullopt, std::nullopt, filter_type, FilterRule::of_kind("image"));
         QVERIFY(images);
         const auto filter = manager().get_groups().first();
         QVERIFY(filter.is_filter());
-        QCOMPARE(filter.filter_content_type(), std::optional<QString>("image"));
+        QCOMPARE(filter.filter_rule, std::optional(FilterRule::of_kind("image")));
         const auto text = add_texts({"text"}).first();
         const auto file = manager().add_item(file_payload({"C:\\a.txt"}), "file");
         QVERIFY(file);
         QVERIFY(!manager().move_to_group(text, *images));
         QVERIFY(!manager().move_to_group(*file, *images));
         QVERIFY(manager().get_by_group(*images).isEmpty());
-        QCOMPARE(ids_of(manager().get_history(0, 50, std::nullopt, filter.filter_content_type())), QList<qint64>{});
-        QCOMPARE(ids_of(manager().get_history(0, 50, std::nullopt, QString("text"))), QList<qint64>{text});
+        QCOMPARE(ids_of(manager().get_history(0, 50, std::nullopt, *filter.filter_rule)), QList<qint64>{});
+        QCOMPARE(ids_of(manager().get_history(0, 50, std::nullopt, FilterRule::of_kind("text"))), QList<qint64>{text});
 
         // A group with content cannot become a filter group; emptied, it can; a filter group changes type freely.
         const auto plain = manager().create_group("Plain");
         QVERIFY(plain);
         QVERIFY(manager().move_to_group(text, *plain));
-        QVERIFY(!manager().update_group(*plain, "Plain", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILTER_TEXT)));
+        QVERIFY(!manager().update_group(*plain, "Plain", std::nullopt, std::nullopt, filter_type, FilterRule::of_kind("text")));
         QCOMPARE(manager().get_groups().last().group_type, static_cast<int>(GroupType::NORMAL));
         // Quick launch with text inside is allowed: its clicks paste what they cannot open.
         QVERIFY(manager().update_group(*plain, "Plain", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILE)));
         QVERIFY(manager().move_to_group(text, std::nullopt));
-        for (const auto type : {GroupType::FILTER_TEXT, GroupType::FILTER_FILE, GroupType::NORMAL, GroupType::FILTER_IMAGE, GroupType::HIDDEN, GroupType::FILE})
-            QVERIFY(manager().update_group(*plain, "Plain", std::nullopt, std::nullopt, static_cast<int>(type)));
+        const std::pair<GroupType, std::optional<FilterRule>> changes[] = {
+            {GroupType::FILTER, FilterRule::of_kind("text")}, {GroupType::FILTER, FilterRule{std::nullopt, QString("chrome.exe")}}, {GroupType::NORMAL, std::nullopt},
+            {GroupType::FILTER, FilterRule::of_kind(SUB_KIND_URL)}, {GroupType::HIDDEN, std::nullopt}, {GroupType::FILE, std::nullopt}};
+        for (const auto &[type, rule] : changes) {
+            QVERIFY(manager().update_group(*plain, "Plain", std::nullopt, std::nullopt, static_cast<int>(type), rule));
+            QCOMPARE(manager().get_groups().last().filter_rule, rule);
+        }
         QVERIFY(!manager().create_group("Bad", std::nullopt, std::nullopt, 99));
+    }
+
+    void pathTextPastesAsTheFilesThatExist() {
+        const QString first = QDir::toNativeSeparators(env_.dir.filePath("one.txt"));
+        const QString second = QDir::toNativeSeparators(env_.dir.filePath("two.txt"));
+        for (const auto &path : {first, second}) {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        const auto ids = add_texts({"\"" + first + "\"\r\n" + QDir::toNativeSeparators(env_.dir.filePath("gone.txt")) + "\r\n" + second,
+                                    QDir::toNativeSeparators(env_.dir.filePath("gone.txt")), "plain"});
+        QVERIFY(manager().paste_as_files(ids[0]));
+        QCOMPARE(system_clipboard_files(), (QStringList{first, second}));
+        QCOMPARE(manager().get_item(ids[0])->paste_count, 1);
+        QVERIFY(!manager().paste_as_files(ids[1]));
+        QVERIFY(!manager().paste_as_files(ids[2]));
+        QCOMPARE(item_paths(*manager().get_item(ids[1])), QStringList{QDir::toNativeSeparators(env_.dir.filePath("gone.txt"))});
+        QVERIFY(item_paths(*manager().get_item(ids[2])).isEmpty());
+    }
+
+    void textSubKindsNarrowTheHistory() {
+        const auto ids = add_texts({"https://example.com", "#1a2b3c", "\"C:\\a.txt\"", "#123", "plain"});
+        QStringList kinds;
+        for (qint64 id : ids) kinds << manager().get_item(id)->sub_kind;
+        QCOMPARE(kinds, (QStringList{SUB_KIND_URL, SUB_KIND_COLOR, SUB_KIND_PATH, QString(), QString()}));
+        QCOMPARE(ids_of(manager().get_history(0, 50, std::nullopt, FilterRule::of_kind(SUB_KIND_URL))), QList<qint64>{ids[0]});
+        QCOMPARE(ids_of(manager().get_history(0, 50, std::nullopt, FilterRule::of_kind(SUB_KIND_COLOR))), QList<qint64>{ids[1]});
+        QCOMPARE(ids_of(manager().get_history(0, 50, std::nullopt, FilterRule::of_kind("text"))).size(), 5);
+        // Editing the text decides again.
+        QVERIFY(manager().update_item(ids[4], "www.example.com"));
+        QCOMPARE(manager().get_item(ids[4])->sub_kind, SUB_KIND_URL);
+        // Items added here carry no source app.
+        QVERIFY(manager().source_apps().isEmpty());
+        QVERIFY(manager().get_history(0, 50, std::nullopt, FilterRule{std::nullopt, OWN_SOURCE_APP}).isEmpty());
+        // Quick launch takes paths and links, but not colors.
+        const auto launch = manager().create_group("Launch", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILE));
+        QVERIFY(launch);
+        QVERIFY(manager().move_to_group(ids[2], *launch));
+        QVERIFY(manager().move_to_group(ids[0], *launch));
+        QVERIFY(!manager().move_to_group(ids[1], *launch));
     }
 
     void theHistoryLimitTrimsOldItems() {
@@ -237,6 +324,22 @@ private slots:
         const auto image = record_image(solid(QSize(40, 30), Qt::red));
         QVERIFY(image);
         QCOMPARE(image->display_text(), QString("40x30"));
+        // Our writes own the clipboard, so the history knows they came from this program.
+        QVERIFY2(image->source_app && image->source_app->startsWith("jietuba", Qt::CaseInsensitive), qPrintable(image->source_app.value_or("none")));
+        // The same from the background thread that delivers captures.
+        const auto delivery = deliver_image_async(solid(QSize(24, 12), Qt::yellow), true);
+        QVERIFY(delivery && delivery->join(10.0));
+        std::optional<ClipboardItem> delivered;
+        QVERIFY(QTest::qWaitFor([&] { return (delivered = find_item("image", [](const ClipboardItem &item) { return item.content == "[24x12]"; })).has_value(); }, 10000));
+        QVERIFY2(delivered->source_app && delivered->source_app->startsWith("jietuba", Qt::CaseInsensitive), qPrintable(delivered->source_app.value_or("none")));
+        QCOMPARE(ids_of(manager().get_history(0, 50, std::nullopt, FilterRule{QString("image"), OWN_SOURCE_APP})).size(), 2);
+
+        // Text with the color picker's marker is a color whatever it says.
+        QVERIFY(write_marked_color("255, 0, 0"));
+        std::optional<ClipboardItem> picked;
+        QVERIFY(QTest::qWaitFor([&] { return (picked = find_item("text", [](const ClipboardItem &item) { return item.content == "255, 0, 0"; })).has_value(); }, 10000));
+        QCOMPARE(picked->sub_kind, SUB_KIND_COLOR);
+        QCOMPARE(picked->color, std::optional(QColor(255, 0, 0)));
         const auto data = manager().get_image_data(*image->image_id);
         QVERIFY(data && !data->isEmpty());
         QCOMPARE(QImage::fromData(*data).size(), QSize(40, 30));
@@ -363,12 +466,20 @@ private slots:
         dialog->pin_image_item();
         QCOMPARE(PinManager::instance()->count(), 1);
         const QString saved = QDir::toNativeSeparators(env_.dir.filePath("saved_image"));
+        env_.config->set_app_setting("save_dialog_style", "classic");
         {
             FileDialogAnswerer answer(saved);
             dialog->save_image_item_as();
             QVERIFY(answer.answered);
         }
         QVERIFY(QFileInfo::exists(saved + ".png"));
+        env_.config->set_app_setting("save_dialog_style", "modern");
+        {
+            SaveDialogAnswerer answer(env_.dir.filePath("window_image.bmp"));
+            dialog->save_image_item_as();
+            QVERIFY(answer.answered);
+        }
+        QCOMPARE(QImage(env_.dir.filePath("window_image.bmp")).size(), QSize(33, 22));
 
         // The same image added again is already saved: moving it asks first. Records are told
         // apart by their creation second, so the second copy comes a second later.

@@ -169,4 +169,6 @@ Route route_of(int mods, int vk) {
     if ((mods & MOD_WIN) || vk == VK_SNAPSHOT) return Route::Hook;
     return Route::Register;
 }
+
+bool hook_can_bind(int mods, int vk) { return (mods & (MOD_ALT | MOD_CONTROL | MOD_SHIFT | MOD_WIN)) || vk == VK_SNAPSHOT; }
 }

@@ -59,8 +59,14 @@ const LayoutProfile PIN{
      "eraser",
      "undo", "redo"},
     {"spotlight", "watermark"}, {}, "pin_toolbar_layout"};
+const LayoutProfile ANNOTATION{
+    {"annotation_pointer",
+     "pen", "highlighter", "arrow", "number", "rect", "ellipse", "text", "eraser",
+     "annotation_board", "annotation_cursor",
+     "undo", "redo", "annotation_clear", "annotation_hide", "annotation_exit"},
+    {}, {"annotation_exit"}, "annotation_toolbar_layout"};
 const QStringList &setting_keys() {
-    static const QStringList keys{SCREENSHOT.setting_key, PIN.setting_key};
+    static const QStringList keys{SCREENSHOT.setting_key, PIN.setting_key, ANNOTATION.setting_key};
     return keys;
 }
 QJsonArray default_layout(const LayoutProfile &profile) {

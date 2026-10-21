@@ -1,6 +1,8 @@
 #pragma once
 #include <QString>
+#include <QStringList>
 #include <QtGlobal>
+#include <Qt>
 #include <functional>
 #include <optional>
 #include <utility>
@@ -31,10 +33,31 @@ std::optional<std::pair<quint64, QString>> get_process_identity(qint64 pid);
 // Does not check identity; callers must confirm it with get_process_identity first.
 bool terminate_process_by_pid(qint64 pid);
 
+// Files and folders copied into folder by Windows' own copy engine, the one the file manager uses: its progress
+// window can cancel, and a name already taken gets a new one. Sources that no longer exist are left out. Runs on a
+// worker thread, the existence checks too, since a path on a disconnected drive can take seconds to answer. done runs
+// on the main thread: whether everything that existed was copied, and the sources that were missing.
+void copy_into_folder(const QStringList &sources, const QString &folder, std::function<void(bool, const QStringList &)> done = {});
+// Replaces the copy engine, called on the worker thread; empty restores it.
+void set_copy_into_folder_for_test(std::function<bool(const QStringList &, const QString &)> copy);
+
+// Executables Windows' game bar has recognized as games, from HKCU\System\GameConfigStore. The key is
+// undocumented: missing or changed, the list is empty. children_key is the HKCU path of the entries,
+// for tests; empty is Windows' own.
+QStringList recognized_game_executables(const QString &children_key = {});
+// A game holds the foreground: a recognized game, windowed or not, or any program in exclusive full
+// screen. Full-screen video and browsers report the same "busy" state as borderless games, hence the list.
+bool is_game_in_foreground();
+
 // Capture exclusion (Windows 10 2004+): the window stays visible but is absent from screenshots.
 constexpr unsigned WDA_NONE = 0x00000000;
 constexpr unsigned WDA_EXCLUDEFROMCAPTURE = 0x00000011;
 bool set_window_exclude_from_capture(quintptr hwnd, bool exclude);
+
+// The thread's current cursor, which Windows paints the moment one of its windows next appears under
+// the mouse. It stays at the last cursor the thread set, so a new window flashes that one for a frame
+// (a tool's cursor from the capture before). Only arrow, cross and blank map to a system cursor.
+void set_thread_cursor(Qt::CursorShape shape);
 
 // Changes only the z-order band; toggling WindowStaysOnTopHint would make Qt
 // recreate the native window and lose its state.
@@ -51,6 +74,9 @@ constexpr int DWMWCP_DONOTROUND = 1;
 constexpr int DWMWCP_ROUND = 2;
 bool supports_window_corner_preference();
 bool set_window_rounded_corners(quintptr hwnd, bool rounded);
+// Turns off the border, rounded corners and shadow DWM adds to a frameless window. Windows 11 sets them
+// again on every show, so call it after the window is shown.
+void disable_native_frame(quintptr hwnd);
 
 long long get_last_error();
 // The HKCU Run entry starting this program at sign-in. Shared with the Python version, like

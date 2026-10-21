@@ -1,0 +1,100 @@
+name: Rust
+
+# rust_libs/ 的 Rust 单元测试、第三方许可声明复查和独立更新器编译。
+# 这些 crate 由 C++ 版经 cpp/native 静态链接，不再单独发布。
+on:
+  push:
+    branches: [master2, master]
+    paths:
+      - "rust_libs/**"
+      - ".github/workflows/rust.yml"
+  pull_request:
+    paths:
+      - "rust_libs/**"
+      - ".github/workflows/rust.yml"
+  workflow_dispatch:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: windows-latest
+            rust-target: x86_64-pc-windows-msvc
+          - arch: arm64
+            runner: windows-11-arm
+            rust-target: aarch64-pc-windows-msvc
+    runs-on: ${{ matrix.runner }}
+    env:
+      # 只跑测试，不需要发布级的链接期优化
+      CARGO_PROFILE_RELEASE_LTO: "false"
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Record toolchain versions
+        run: |
+          rustc -V
+          cargo -V
+          $hostLine = rustc -vV | Select-String '^host:'
+          if ($hostLine -notmatch '${{ matrix.rust-target }}') {
+            throw "Rust host does not match ${{ matrix.rust-target }}: $hostLine"
+          }
+
+      - name: Cache cargo registry and target
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust_libs
+          cache-on-failure: true
+
+      - name: Run Rust unit tests
+        run: cargo test --locked --workspace --release --target ${{ matrix.rust-target }} --manifest-path rust_libs/Cargo.toml
+
+      - name: Install cargo-about
+        if: matrix.arch == 'x64'
+        # 0.9 起二进制需要显式启用 cli feature 才会被安装；缓存里已有就不再编译
+        run: |
+          if (-not (Get-Command cargo-about -ErrorAction SilentlyContinue)) {
+            cargo install cargo-about --locked --features cli
+          }
+
+      - name: Check third-party notices are current
+        if: matrix.arch == 'x64'
+        # C++ 发布包静态链接这些 Rust 依赖，MIT/BSD/ISC 等都要求随分发附上版权声明与许可全文
+        # （cpp/scripts/build.ps1 把各 crate 的声明拷进包里）。声明文件提交在仓库里，依赖一变就会过期，
+        # 而本 workflow 恰好只在 rust_libs/** 改动时触发，正是该复查的时机。
+        #
+        # 比的是依赖清单而非文件字节：cargo about 的块顺序在不同机器上不稳定，
+        # 按字节比会误判。而 crates.io 上同一版本的内容不可变，所以
+        # 「哪个 crate 的哪个版本用哪个许可证」这份清单一致，就等价于声明未过期。
+        run: |
+          $stale = $false
+          foreach ($crate in "gifrecorder", "longstitch", "pyclipboard", "ppocr_rust", "hdrcapture", "updater", "video_recorder") {
+            $fresh = Join-Path $env:RUNNER_TEMP "$crate-notices.txt"
+            $template = if ($crate -in "updater", "video_recorder") { "rust_libs/$crate/notices.hbs" } else { "rust_libs/notices.hbs" }
+            cargo about generate --manifest-path rust_libs/$crate/Cargo.toml -o $fresh $template
+            if ($LASTEXITCODE -ne 0) { throw "$crate 的许可声明生成失败" }
+            $committed = (Select-String -Path "rust_libs/$crate/THIRD-PARTY-NOTICES.txt" -Pattern '^Applies to: ').Line | Sort-Object
+            $current = (Select-String -Path $fresh -Pattern '^Applies to: ').Line | Sort-Object
+            $diff = Compare-Object $committed $current
+            if ($diff) {
+              $stale = $true
+              Write-Host "::error::$crate 的第三方许可声明已过期"
+              $diff | ForEach-Object {
+                $where = if ($_.SideIndicator -eq "<=") { "已提交但依赖树中已无" } else { "依赖树中新增但未声明" }
+                Write-Host "    $where : $($_.InputObject)"
+              }
+            }
+          }
+          if ($stale) {
+            Write-Host "重新生成的方法见 rust_libs/NOTICES.md"
+            exit 1
+          }
+          Write-Host "全部包的第三方许可声明均为最新"
+
+      - name: Build independent updater
+        run: cargo rustc --locked --release --target ${{ matrix.rust-target }} --manifest-path rust_libs/Cargo.toml -p jietuba-updater --bin jietuba_updater -- -C target-feature=+crt-static

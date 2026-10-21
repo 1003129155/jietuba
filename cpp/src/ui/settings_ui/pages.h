@@ -14,6 +14,8 @@
 #include <tuple>
 #include <vector>
 
+class QVBoxLayout;
+
 // Settings page builders, by content stack index (see SettingsDialog).
 namespace jietuba {
 class HotkeyEdit;
@@ -30,9 +32,11 @@ QWidget *create_log_page(SettingsDialog *dialog);
 QWidget *create_misc_page(SettingsDialog *dialog);
 QWidget *create_developer_page(SettingsDialog *dialog);
 QWidget *create_about_page(SettingsDialog *dialog);
-QWidget *create_quick_actions_page(SettingsDialog *dialog);
+// The quick actions group, laid out on the screenshot page.
+void add_quick_actions_group(SettingsDialog *dialog, QWidget *view, QVBoxLayout *layout);
 QWidget *create_mouse_page(SettingsDialog *dialog);
 QWidget *create_pin_page(SettingsDialog *dialog);
+QWidget *create_screen_annotation_page(SettingsDialog *dialog);
 
 // page_capture: refills the PP-OCR model combo from models/ and selects `selected`; a selected
 // model that is not installed stays listed and marked instead of being swapped for another.
@@ -68,6 +72,8 @@ QString mouse_binding_conflict_message(SettingsDialog *dialog, const std::option
 
 // page_pin: settings the pin page saves through behavior_controls, restored by its reset.
 extern const std::set<QString> PIN_BEHAVIOR_KEYS;
+// page_screen_annotation: the same for the screen annotation page.
+extern const std::set<QString> SCREEN_ANNOTATION_BEHAVIOR_KEYS;
 
 // page_appearance: fills a swatch button with a colour.
 void update_color_btn(QWidget *btn, const QColor &color);

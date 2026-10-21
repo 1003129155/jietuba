@@ -1,8 +1,6 @@
-//! MP4 录制。默认带 pyo3 绑定（bindings.rs）；关掉默认 feature 即是纯 Rust 库。
+//! MP4 录制。
 
 pub mod audio;
-#[cfg(feature = "python")]
-mod bindings;
 pub mod capture;
 mod diagnostic;
 pub mod error;

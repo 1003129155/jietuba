@@ -25,6 +25,8 @@ const char *button_name(const QString &key) {
         {"watermark", "Watermark"}, {"arrow", "Arrow"}, {"number", "Number"}, {"rect", "Rectangle"},
         {"ellipse", "Ellipse"}, {"text", "Text"}, {"eraser", "Eraser"}, {"undo", "Undo"}, {"redo", "Redo"},
         {"cancel", "Cancel screenshot"}, {"pin", "Pin image"}, {"confirm", "Confirm"},
+        {"annotation_pointer", "Pass through"}, {"annotation_clear", "Clear all"}, {"annotation_hide", "Hide drawings"},
+        {"annotation_exit", "Exit annotation"}, {"annotation_board", "Board"}, {"annotation_cursor", "Cursor highlight"},
     };
     return names.value(key, "");
 }

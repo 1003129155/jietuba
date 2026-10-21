@@ -89,6 +89,7 @@ void HotkeyLineEdit::capture_key(QKeyEvent *event) {
     }
     // Modifiers without a main key yet show as "ctrl+".
     if (is_modifier_present && key_text.isEmpty()) {
+        if (!text().endsWith("+")) before_prefix_ = text();
         setText(parts.join("+").toLower() + "+");
         return;
     }
@@ -100,10 +101,10 @@ void HotkeyLineEdit::capture_key(QKeyEvent *event) {
 }
 
 void HotkeyLineEdit::keyReleaseEvent(QKeyEvent *event) {
-    // Releasing a modifier of an unfinished combination shows what is still held, or clears.
+    // Releasing a modifier of an unfinished combination shows what is still held, or the value before.
     if (is_modifier_key(event->key()) && text().endsWith("+")) {
         const auto parts = modifier_parts(event->modifiers());
-        setText(parts.isEmpty() ? QString() : parts.join("+").toLower() + "+");
+        setText(parts.isEmpty() ? before_prefix_ : parts.join("+").toLower() + "+");
     }
     KeyChipLineEdit::keyReleaseEvent(event);
 }
@@ -124,6 +125,7 @@ void HotkeyLineEdit::focusInEvent(QFocusEvent *event) {
 
 void HotkeyLineEdit::focusOutEvent(QFocusEvent *event) {
     release_capture();
+    if (text().endsWith("+")) setText(before_prefix_);
     KeyChipLineEdit::focusOutEvent(event);
 }
 
@@ -200,8 +202,15 @@ bool HotkeyEdit::check_availability_now() {
         const bool registrable = hotkey_system_.check_hotkey_availability(hotkey);
         taken_over_ = !registrable || global_hotkey::parse_hotkey(hotkey).second == global_hotkey::VK_SNAPSHOT;
         system_available_ = true;
+    } else if (route_ == global_hotkey::Route::Mouse) {
+        // A side button is taken by the hook; there is no keyboard key to parse and nothing for the system to hold.
+        system_available_ = true;
     } else {
-        system_available_ = hotkey_system_.check_hotkey_availability(hotkey);
+        // Held by another app: the hook takes it over while running, if it can bind the key.
+        const bool registrable = hotkey_system_.check_hotkey_availability(hotkey);
+        const auto [mods, vk] = global_hotkey::parse_hotkey(hotkey);
+        taken_over_ = !registrable && global_hotkey::hook_can_bind(mods, vk);
+        system_available_ = registrable || taken_over_;
     }
     render_status();
     return *system_available_;
@@ -213,8 +222,10 @@ void HotkeyEdit::render_status() {
     if (!validation_error_.isEmpty()) state = "error", tip = validation_error_;
     else if (hotkey.isEmpty()) state = "idle", tip = tr_text("Not set");
     else if (hotkey.endsWith("+") || !system_available_) state = "", tip = "";
-    else if (*system_available_ && taken_over_)
+    else if (*system_available_ && taken_over_ && route_ == global_hotkey::Route::Hook)
         state = "ok", tip = tr_text("Windows uses this shortcut too. This app takes it over while running; clear it to give it back.");
+    else if (*system_available_ && taken_over_)
+        state = "ok", tip = tr_text("Another app uses this shortcut too. This app takes it over while running; clear it to give it back.");
     else if (*system_available_) state = "ok", tip = tr_text("Available");
     else if (route_ == global_hotkey::Route::Reserved) state = "error", tip = tr_text("Reserved by Windows. No app can use it.");
     else if (route_ == global_hotkey::Route::Invalid) state = "error", tip = tr_text("This key can't be used as a global hotkey.");

@@ -110,7 +110,7 @@ void TranslationPage::retranslate() {
 }
 
 void TranslationPage::populate_lang_combo() {
-    static const QMap<QString, QString> default_map{{"zh", "ZH"}, {"en", "EN"}, {"ja", "JA"}};
+    static const QMap<QString, QString> default_map{{"zh", "ZH"}, {"zh_TW", "ZH-HANT"}, {"en", "EN"}, {"ja", "JA"}};
     QString saved = config_->get_app_setting("translation_target_lang", "").toString();
     if (saved.isEmpty()) saved = default_map.value(I18nManager::get_current_language(), "ZH");
     for (const auto &[code, name] : translation_languages()) lang_combo_->addItem(QString("%1 (%2)").arg(name, code), code);

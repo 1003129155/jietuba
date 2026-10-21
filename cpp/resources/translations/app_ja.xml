@@ -46,8 +46,8 @@
         <translation>ショートカット</translation>
     </message>
     <message>
-        <source>Capture Settings</source>
-        <translation>キャプチャー設定</translation>
+        <source>Screenshot</source>
+        <translation>スクリーンショット</translation>
     </message>
     <message>
         <source>Clipboard</source>
@@ -133,7 +133,7 @@
     </message>
     <message>
         <source>Re-run the initial setup guide.</source>
-        <translation>初期設定ウィザード画面を呼び出す</translation>
+        <translation>初期設定ウィザードをもう一度開きます。</translation>
     </message>
     <message>
         <source>Open Wizard</source>
@@ -219,35 +219,19 @@
     <!-- Buttons -->
     <message>
         <source>Reset This Page</source>
-        <translation>リセット</translation>
+        <translation>このページをリセット</translation>
     </message>
     <message>
         <source>Cancel</source>
         <translation>キャンセル</translation>
     </message>
     <message>
-        <source>Cancel / Close</source>
-        <translation>キャンセル</translation>
-    </message>
-    <message>
-        <source>Apply</source>
-        <translation>適用</translation>
-    </message>
-    <message>
-        <source>Unsaved Changes</source>
-        <translation>未保存の変更</translation>
-    </message>
-    <message>
-        <source>You have unsaved changes. Do you want to save before closing?</source>
-        <translation>未保存の変更があります。閉じる前に保存しますか？</translation>
+        <source>Restore the default settings of this page?</source>
+        <translation>このページの設定を既定値に戻しますか？</translation>
     </message>
     <message>
         <source>Save</source>
         <translation>保存</translation>
-    </message>
-    <message>
-        <source>Don't Save</source>
-        <translation>保存しない</translation>
     </message>
     <message>
         <source>Change</source>
@@ -285,7 +269,7 @@
     </message>
     <message>
         <source>Screenshot Shortcuts</source>
-        <translation>スクリーンショット</translation>
+        <translation>スクリーンショット操作</translation>
     </message>
     <message><source>Annotation Tools</source><translation>注釈ツール</translation></message>
     <message><source>Select / Cursor</source><translation>選択 / カーソル</translation></message>
@@ -300,11 +284,11 @@
     <message><source>Eraser</source><translation>消しゴム</translation></message>
     <message>
         <source>Pin Shortcuts</source>
-        <translation>ピン留め画像</translation>
+        <translation>ピン留め操作</translation>
     </message>
     <message>
         <source>Clipboard Shortcuts</source>
-        <translation>クリップボード</translation>
+        <translation>クリップボード操作</translation>
     </message>
     <message>
         <source>Quick Edit</source>
@@ -343,10 +327,6 @@
         <translation>ショートカット競合</translation>
     </message>
     <message>
-        <source>Some global hotkeys are duplicated or unavailable. Please fix them before applying.</source>
-        <translation>一部のグローバルショートカットが重複しているか、使用できません。修正してから適用してください。</translation>
-    </message>
-    <message>
         <source>Some in-app shortcuts conflict within the same group. Please fix them first.</source>
         <translation>同じグループ内にショートカットの重複があります。先に修正してください。</translation>
     </message>
@@ -355,8 +335,8 @@
         <translation>次のショートカットが競合しています：</translation>
     </message>
     <message>
-        <source>Change one shortcut in each row before applying.</source>
-        <translation>各行のいずれかのショートカットを変更してから適用してください。</translation>
+        <source>The new shortcut was not saved.</source>
+        <translation>新しいショートカットは保存されませんでした。</translation>
     </message>
     <message>
         <source>This is the same as a global hotkey — the system intercepts it first, so it won't work here.</source>
@@ -406,11 +386,11 @@ Replace it?</source>
     </message>
     <message>
         <source>Toggle Thumbnail</source>
-        <translation>サムネイルモード</translation>
+        <translation>サムネイル切替</translation>
     </message>
     <message>
         <source>Toggle Toolbar</source>
-        <translation>ツールバー表示</translation>
+        <translation>ツールバー切替</translation>
     </message>
     <message>
         <source>Magnifier Zoom In</source>
@@ -438,13 +418,13 @@ Replace it?</source>
     </message>
     <message>
         <source>💡 Hint: You can use modifier keys like Ctrl, Shift, Alt.</source>
-        <translation>💡 ヒント: Ctrl, Shift, Alt ＋アルファベットとF1-F12など使えます。</translation>
+        <translation>💡 ヒント: Ctrl・Shift・Alt などの修飾キーを組み合わせて使えます。</translation>
     </message>
     
     <!-- Long Screenshot Page -->
     <message>
         <source>Stitching Engine</source>
-        <translation>拼接エンジン</translation>
+        <translation>結合エンジン</translation>
     </message>
     <message>
         <source>Capture Engine</source>
@@ -507,8 +487,8 @@ Replace it?</source>
     
     <!-- Smart Selection Page -->
     <message>
-        <source>Detection Mode</source>
-        <translation>検出方式</translation>
+        <source>Detection Precision</source>
+        <translation>検出精度</translation>
     </message>
     <message>
         <source>Snap the selection to the window or control under the cursor. Control detection reads the accessibility tree and takes longer on large windows.</source>
@@ -624,19 +604,19 @@ Replace it?</source>
     <!-- OCR Page -->
     <message>
         <source>No OCR Version / OCR module not found</source>
-        <translation>無OCR版本 / OCRモジュールが見つかりません</translation>
+        <translation>OCR なし版 / OCR モジュールが見つかりません</translation>
     </message>
     <message>
         <source>This is a casual version without OCR.</source>
-        <translation>これは無OCRのカジュアルバージョン。</translation>
+        <translation>これは OCR を含まない簡易版です。</translation>
     </message>
     <message>
         <source>If you need OCR features, please download the full version,</source>
-        <translation>OCR機能が必要な場合は、フル版をダウンロードするか、</translation>
+        <translation>OCR 機能が必要な場合は、フル版をダウンロードするか、</translation>
     </message>
     <message>
         <source>or contact the developer:</source>
-        <translation>開発者に問い合わせしてください。:</translation>
+        <translation>開発者にお問い合わせください:</translation>
     </message>
     <message>
         <source>Automatically recognize text after pinning</source>
@@ -692,11 +672,11 @@ Replace it?</source>
     </message>
     <message>
         <source>OCR unavailable: install the Snipping Tool from the Microsoft Store, or download the full version</source>
-        <translation>OCR を利用できません：Microsoft Store から Snipping Tool をインストールするか、完全版をダウンロードしてください</translation>
+        <translation>OCR を利用できません：Microsoft Store から Snipping Tool をインストールするか、フル版をダウンロードしてください</translation>
     </message>
     <message>
         <source>Auto language detection: Supports Chinese, Japanese, English mixed recognition</source>
-        <translation>自動言語認識: 中国語・日本語・英語など混合認識に対応</translation>
+        <translation>自動言語検出: 中国語・日本語・英語の混在認識に対応</translation>
     </message>
     <message>
         <source>Grayscale Conversion</source>
@@ -828,7 +808,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Off: Show via right-click toolbar button.</source>
-        <translation>オフ: 右クリックでツールバーボタンで表示します。</translation>
+        <translation>オフ: 右クリックメニューのツールバーボタンから表示します。</translation>
     </message>
     <message>
         <source>Language</source>
@@ -887,44 +867,10 @@ Replace it?</source>
         <translation>このファイルは Jietuba の設定ファイルではないか、破損しています。</translation>
     </message>
     <message>
-        <source>Settings loaded. Click Apply to use them.</source>
-        <translation>設定を読み込みました。「適用」をクリックすると反映されます。</translation>
+        <source>Settings imported.</source>
+        <translation>設定をインポートしました。</translation>
     </message>
     
-    <!-- Info Page -->
-    <message>
-        <source>Jietuba - Screenshot Tool</source>
-        <translation>Jietuba</translation>
-    </message>
-    <message>
-        <source>Version: 1.0.0</source>
-        <translation>Version: 1.0.0</translation>
-    </message>
-    <message>
-        <source>High-performance screenshot tool developed based on PyQt6 framework.</source>
-        <translation>PyQt6に基づいて開発されたキャプチャーツール。</translation>
-    </message>
-    <message>
-        <source>Rich editing features, OCR text recognition, long screenshot, pin window,</source>
-        <translation>豊富な編集機能、OCR文字認識、長いスクリーンショット、ピン留めなど、</translation>
-    </message>
-    <message>
-        <source>and many other features.</source>
-        <translation>多彩な機能を備えています。</translation>
-    </message>
-    <message>
-        <source>📖 View Details</source>
-        <translation>詳細情報を表示</translation>
-    </message>
-    <message>
-        <source>👨‍💻 Developer: rijyaaru</source>
-        <translation>👨‍💻 開発者: rijyaaru</translation>
-    </message>
-    <message>
-    <source>🛠️ Tech: Python、Rust、PyQt6、Oneocr、DeepLAPI</source>
-    <translation>🛠️ 技術: Python、Rust、PyQt6、Oneocr、DeepLAPI</translation>
-    </message>
-
     <!-- Translation Settings Page -->
     <message>
         <source>Translation Engine</source>
@@ -1024,7 +970,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Target Language</source>
-        <translation>ターゲット言語</translation>
+        <translation>翻訳先の言語</translation>
     </message>
     <message>
         <source>Auto (System)</source>
@@ -1076,7 +1022,7 @@ Replace it?</source>
     </message>
     <message>
         <source>LLM translation: better with context and idioms, but slower, billed per token, and may refuse some content</source>
-        <translation>大規模言語モデル翻訳：文脈や慣用表現に強い一方、速度が遅く、トークン単位の課金で、内容によっては拒否されることがあります</translation>
+        <translation>LLM 翻訳：文脈や慣用表現に強い一方、遅く、トークン単位の課金で、内容によっては拒否されることがあります</translation>
     </message>
     <message><source>Color Formats</source><translation>カラー形式</translation></message>
     <message><source>Which formats Shift cycles through on the magnifier, for C to copy.</source><translation>拡大鏡で Shift を押して切り替える形式です。C で表示中の形式をコピーします。</translation></message>
@@ -1119,7 +1065,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Extra Body</source>
-        <translation>追加ボディ</translation>
+        <translation>追加リクエストボディ</translation>
     </message>
     <message>
         <source>JSON Mode</source>
@@ -1501,6 +1447,170 @@ Replace it?</source>
         <source>Manage</source>
         <translation>管理</translation>
     </message>
+    <message>
+        <source>Screen Annotation Hotkey</source>
+        <translation>画面注釈</translation>
+    </message>
+    <message>
+        <source>Keep Screen Annotations</source>
+        <translation>画面注釈を保持</translation>
+    </message>
+    <message>
+        <source>Ending the screen annotation keeps its drawings; they come back the next time it starts.</source>
+        <translation>画面注釈を終了しても描画を残し、次に開始したときに元に戻します。</translation>
+    </message>
+    <message>
+        <source>Screen Annotation</source>
+        <translation>画面注釈</translation>
+    </message>
+    <message>
+        <source>Screen Annotation Settings</source>
+        <translation>画面注釈の設定</translation>
+    </message>
+    <message>
+        <source>Start and End</source>
+        <translation>開始と終了</translation>
+    </message>
+    <message>
+        <source>Toolbar</source>
+        <translation>ツールバー</translation>
+    </message>
+    <message>
+        <source>Cursor Highlight</source>
+        <translation>カーソルハイライト</translation>
+    </message>
+    <message>
+        <source>Start With</source>
+        <translation>開始時の状態</translation>
+    </message>
+    <message>
+        <source>What screen annotation starts with. In pass-through the mouse keeps working the windows below until a tool is picked.</source>
+        <translation>画面注釈を開始したときの状態。透過中はツールを選ぶまでマウスで下のウィンドウをそのまま操作できます。</translation>
+    </message>
+    <message>
+        <source>Pass-Through</source>
+        <translation>透過</translation>
+    </message>
+    <message>
+        <source>Last Used Tool</source>
+        <translation>前回使ったツール</translation>
+    </message>
+    <message>
+        <source>Global Hotkey</source>
+        <translation>グローバルホットキー</translation>
+    </message>
+    <message>
+        <source>Not set. Screen annotation also starts from the tray menu.</source>
+        <translation>未設定。トレイメニューからも画面注釈を開始できます。</translation>
+    </message>
+    <message>
+        <source>Currently %1</source>
+        <translation>現在：%1</translation>
+    </message>
+    <message>
+        <source>Toolbar Position</source>
+        <translation>ツールバーの位置</translation>
+    </message>
+    <message>
+        <source>Where the toolbar appears when screen annotation starts.</source>
+        <translation>画面注釈を開始したときにツールバーを表示する場所。</translation>
+    </message>
+    <message>
+        <source>Bottom Center of the Screen</source>
+        <translation>画面の下中央</translation>
+    </message>
+    <message>
+        <source>Top Center of the Screen</source>
+        <translation>画面の上中央</translation>
+    </message>
+    <message>
+        <source>Toolbar Invisible to Screen Capture</source>
+        <translation>ツールバーを画面キャプチャから除外</translation>
+    </message>
+    <message>
+        <source>Keeps the toolbar and its panels out of recordings, screenshots, screen sharing, remote desktop and other screen capture; you still see them. Turn off to let them be captured, for example when recording a tutorial.</source>
+        <translation>ツールバーとパネルを録画、スクリーンショット、画面共有、リモート画面などのキャプチャに写さないようにします。自分には見えています。チュートリアルの録画などで写したいときはオフにします。</translation>
+    </message>
+    <message>
+        <source>Where It Was Last</source>
+        <translation>前回の位置</translation>
+    </message>
+    <message>
+        <source>Toolbar Buttons</source>
+        <translation>ツールバーのボタン</translation>
+    </message>
+    <message>
+        <source>Choose and order the buttons of the screen annotation toolbar. Saved at once.</source>
+        <translation>画面注釈ツールバーに表示するボタンと順序を選びます。すぐに保存されます。</translation>
+    </message>
+    <message>
+        <source>Adjust</source>
+        <translation>調整</translation>
+    </message>
+    <message>
+        <source>Cursor Highlight at Start</source>
+        <translation>開始時にカーソルハイライトをオン</translation>
+    </message>
+    <message>
+        <source>Starts with a light around the pointer. The toolbar button turns it on and off during a session, and that choice is kept.</source>
+        <translation>開始時からポインターの周りを光らせます。注釈中はツールバーのボタンでオン・オフでき、その状態は記憶されます。</translation>
+    </message>
+    <message>
+        <source>Highlight Size</source>
+        <translation>ハイライトの大きさ</translation>
+    </message>
+    <message>
+        <source>The size of the light around the pointer and of the click rings.</source>
+        <translation>ポインター周りの光とクリック時の波紋の大きさ。</translation>
+    </message>
+    <message>
+        <source>Click Rings</source>
+        <translation>クリックの波紋</translation>
+    </message>
+    <message>
+        <source>A ring spreads from every click: yellow for the left button, blue for the right.</source>
+        <translation>クリックするたびに波紋が広がります。左ボタンは黄色、右ボタンは青。</translation>
+    </message>
+    <message>
+        <source>Pin Clipboard Image</source>
+        <translation>クリップボード画像をピン留め</translation>
+    </message>
+    <message>
+        <source>Volcengine machine translation: about 2M free characters/month. Overuse is billed at pay-as-you-go rates, so a local quota guard (default on) prevents surprise charges.</source>
+        <translation>Volcano Engine 機械翻訳：月間約200万文字が無料。超過分は従量課金となるため、ローカルクォータ保護（既定でオン）が想定外の課金を防ぎます。</translation>
+    </message>
+    <message>
+        <source>Tencent Cloud TMT: about 5M free characters/month. The API rejects overuse itself; the local quota guard (default on) is extra protection.</source>
+        <translation>Tencent Cloud TMT：月間約500万文字が無料。API 自体が超過を拒否するため、ローカルクォータ保護（既定でオン）は追加の保険です。</translation>
+    </message>
+    <message>
+        <source>Volcengine Console</source>
+        <translation>Volcano Engine コンソール</translation>
+    </message>
+    <message>
+        <source>Clear Clipboard History</source>
+        <translation>クリップボード履歴をクリア</translation>
+    </message>
+    <message>
+        <source>Delete all clipboard history records</source>
+        <translation>すべてのクリップボード履歴を削除します</translation>
+    </message>
+    <message>
+        <source>Opacity</source>
+        <translation>不透明度</translation>
+    </message>
+    <message>
+        <source>OCR text recognition · Long screenshot · Pin window · Clipboard manager · DeepL translation</source>
+        <translation>OCR文字認識 · スクロールキャプチャ · ピン留め · クリップボード管理 · DeepL翻訳</translation>
+    </message>
+    <message>
+        <source>Long Screenshot</source>
+        <translation>スクロールキャプチャ</translation>
+    </message>
+    <message>
+        <source>Storage</source>
+        <translation>保存先</translation>
+    </message>
 </context>
 
 <context>
@@ -1576,17 +1686,13 @@ Replace it?</source>
     </message>
     <message>
         <source>Long screenshot (scroll)</source>
-        <translation>長スクリーンショット（スクロール）</translation>
+        <translation>スクロールキャプチャ（スクロール）</translation>
     </message>
     <message>
         <source>Save to file</source>
         <translation>ファイルに保存</translation>
     </message>
     
-    <message>
-        <source>GIF recording</source>
-        <translation>GIF</translation>
-    </message>
 
     <message>
         <source>Copy image</source>
@@ -1634,7 +1740,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Screenshot translate (OCR + Translate)</source>
-        <translation>スクショ翻訳（OCR + 翻訳）</translation>
+        <translation>スクリーンショット翻訳（OCR + 翻訳）</translation>
     </message>
     <message>
         <source>Recognize text (OCR)</source>
@@ -1706,7 +1812,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Long Screenshot</source>
-        <translation>長いスクリーンショット</translation>
+        <translation>スクロールキャプチャ</translation>
     </message>
     <message>
         <source>Record</source>
@@ -1719,6 +1825,30 @@ Replace it?</source>
     <message>
         <source>GIF / Video recording</source>
         <translation>GIF / 動画録画</translation>
+    </message>
+    <message>
+        <source>Pass through: the mouse works the windows below (Esc)</source>
+        <translation>透過：マウスで下のウィンドウを操作 (ESC)</translation>
+    </message>
+    <message>
+        <source>Clear all drawings</source>
+        <translation>すべての描画を消去</translation>
+    </message>
+    <message>
+        <source>Hide / show drawings</source>
+        <translation>描画の表示/非表示</translation>
+    </message>
+    <message>
+        <source>Exit screen annotation</source>
+        <translation>画面注釈を終了</translation>
+    </message>
+    <message>
+        <source>Whiteboard: click to cover the screen with white, click again to remove</source>
+        <translation>ホワイトボード：クリックで画面を白で覆い、もう一度クリックで解除</translation>
+    </message>
+    <message>
+        <source>Cursor highlight: a light around the pointer and a ring for every click</source>
+        <translation>カーソルハイライト：ポインターの周りを光らせ、クリックごとに波紋を表示</translation>
     </message>
 </context>
 
@@ -1739,7 +1869,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Always on top</source>
-        <translation>常に手前に表示</translation>
+        <translation>常に最前面に表示</translation>
     </message>
     <message>
         <source>Text selection</source>
@@ -1751,7 +1881,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Close</source>
-        <translation>閉じる(ESC)</translation>
+        <translation>閉じる</translation>
     </message>
     <message>
         <source>Close (ESC)</source>
@@ -1941,7 +2071,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Size of the long screenshot</source>
-        <translation>長いスクリーンショットのサイズ</translation>
+        <translation>スクロールキャプチャのサイズ</translation>
     </message>
     <message>
         <source>Switch scroll direction</source>
@@ -1974,11 +2104,15 @@ Replace it?</source>
     <name>SystemTray</name>
     <message>
         <source>jietuba - Click to screenshot</source>
-        <translation>jietuba</translation>
+        <translation>jietuba - クリックでスクリーンショット</translation>
     </message>
     <message>
         <source>Screenshot</source>
         <translation>スクリーンショット</translation>
+    </message>
+    <message>
+        <source>Delayed Screenshot</source>
+        <translation>遅延スクリーンショット</translation>
     </message>
     <message>
         <source>Clipboard</source>
@@ -1991,6 +2125,14 @@ Replace it?</source>
     <message>
         <source>Disable Global Hotkeys</source>
         <translation>ホットキーを無効化</translation>
+    </message>
+    <message>
+        <source>Pause Hotkeys While Gaming</source>
+        <translation>ゲーム中はホットキーを停止</translation>
+    </message>
+    <message>
+        <source>Record Clipboard</source>
+        <translation>クリップボードを記録</translation>
     </message>
     <message>
         <source>Settings</source>
@@ -2010,6 +2152,10 @@ Replace it?</source>
     <message><source>Choose folder to save pinned images</source><translation>ピン留め画像の保存先フォルダーを選択</translation></message>
     <message><source>Save Failed</source><translation>保存に失敗しました</translation></message>
     <message><source>Saved {saved} pinned images, failed {failed}.</source><translation>{saved} 個のピン留め画像を保存し、{failed} 個失敗しました。</translation></message>
+    <message>
+        <source>Screen Annotation</source>
+        <translation>画面注釈</translation>
+    </message>
 </context>
 
 <!-- ========== Main App (Tray Menu) ========== -->
@@ -2041,7 +2187,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Pin Clipboard Image</source>
-        <translation>ピン画像を作成</translation>
+        <translation>クリップボード画像をピン留め</translation>
     </message>
     <message>
         <source>Hotkey Registration Failed</source>
@@ -2091,6 +2237,10 @@ Replace it?</source>
         <source>Settings could not be saved. Update cancelled.</source>
         <translation>設定を保存できなかったため、更新をキャンセルしました。</translation>
     </message>
+    <message>
+        <source>Screen Annotation</source>
+        <translation>画面注釈</translation>
+    </message>
 </context>
 
 <!-- ========== Translation Dialog ========== -->
@@ -2113,24 +2263,8 @@ Replace it?</source>
         <translation>翻訳</translation>
     </message>
     <message>
-        <source>Original</source>
-        <translation>原文</translation>
-    </message>
-    <message>
         <source>Translation</source>
         <translation>訳文</translation>
-    </message>
-    <message>
-        <source>Translation Result</source>
-        <translation>翻訳結果</translation>
-    </message>
-    <message>
-        <source>Original:</source>
-        <translation>原文:</translation>
-    </message>
-    <message>
-        <source>Translation:</source>
-        <translation>訳文:</translation>
     </message>
     <message>
         <source>Copy Original</source>
@@ -2149,32 +2283,12 @@ Replace it?</source>
         <translation>閉じる</translation>
     </message>
     <message>
-        <source>Reverse</source>
-        <translation>逆翻訳</translation>
-    </message>
-    <message>
-        <source>Reverse Translate</source>
-        <translation>逆翻訳</translation>
-    </message>
-    <message>
-        <source>Swap source and target, translate back</source>
-        <translation>原文と訳文を入れ替えて逆翻訳</translation>
-    </message>
-    <message>
-        <source>Translate the result back to original language</source>
-        <translation>訳文を元の言語に翻訳し直す</translation>
-    </message>
-    <message>
         <source>Translating...</source>
         <translation>翻訳中...</translation>
     </message>
     <message>
         <source>Translation failed:</source>
         <translation>翻訳失敗:</translation>
-    </message>
-    <message>
-        <source>Translation failed: </source>
-        <translation>翻訳失敗: </translation>
     </message>
     <message>
         <source>Enter text to translate...</source>
@@ -2209,18 +2323,6 @@ Replace it?</source>
         <translation>テキストを翻訳</translation>
     </message>
     <message>
-        <source>Translate left to right</source>
-        <translation>左から右へ翻訳</translation>
-    </message>
-    <message>
-        <source>Translate right to left</source>
-        <translation>右から左へ翻訳</translation>
-    </message>
-    <message>
-        <source>Translate text</source>
-        <translation>テキストを翻訳</translation>
-    </message>
-    <message>
         <source>Pin</source>
         <translation>最前面</translation>
     </message>
@@ -2246,13 +2348,13 @@ Replace it?</source>
     </message>
     <message>
         <source>Engine not configured</source>
-        <translation>API未設定</translation>
+        <translation>エンジン未設定</translation>
     </message>
     <message>
         <source>API key not configured</source>
-        <translation>APIキーが未設定です。設定画面で入れてください。</translation>
+        <translation>API キーが設定されていません。設定で入力してください。</translation>
     </message>
-    <message><source>Open full window</source><translation>フル画面を開く</translation></message>
+    <message><source>Open full window</source><translation>ウィンドウで開く</translation></message>
     <message><source>No translation result</source><translation>翻訳結果がありません</translation></message>
     <message><source>Copied</source><translation>コピーしました</translation></message>
     <message>
@@ -2299,25 +2401,60 @@ Replace it?</source>
         <source>Recognition failed</source>
         <translation>認識失敗</translation>
     </message>
+    <message>
+        <source>Chinese</source>
+        <translation>中国語</translation>
+    </message>
+    <message>
+        <source>English</source>
+        <translation>英語</translation>
+    </message>
+    <message>
+        <source>Japanese</source>
+        <translation>日本語</translation>
+    </message>
+    <message>
+        <source>Korean</source>
+        <translation>韓国語</translation>
+    </message>
+    <message>
+        <source>German</source>
+        <translation>ドイツ語</translation>
+    </message>
+    <message>
+        <source>French</source>
+        <translation>フランス語</translation>
+    </message>
+    <message>
+        <source>Spanish</source>
+        <translation>スペイン語</translation>
+    </message>
+    <message>
+        <source>Italian</source>
+        <translation>イタリア語</translation>
+    </message>
+    <message>
+        <source>Portuguese</source>
+        <translation>ポルトガル語</translation>
+    </message>
+    <message>
+        <source>Russian</source>
+        <translation>ロシア語</translation>
+    </message>
+    <message>
+        <source>Polish</source>
+        <translation>ポーランド語</translation>
+    </message>
+    <message>
+        <source>Dutch</source>
+        <translation>オランダ語</translation>
+    </message>
 </context>
 
 <!-- ========== Translation Settings ========== -->
 <context>
     <name>SettingsDialog</name>
-    <message>
-        <source>Translation</source>
-        <translation>翻訳</translation>
-    </message>
     <message><source>Translation Hotkey</source><translation>翻訳ショートカット</translation></message>
-    <message><source>Pin Clipboard Image</source><translation>ピン画像を作成</translation></message>
-    <message>
-        <source>Translation Settings</source>
-        <translation>翻訳設定</translation>
-    </message>
-    <message>
-        <source>DeepL API Key</source>
-        <translation>DeepL APIキー</translation>
-    </message>
     <message>
         <source>Get your API key from DeepL website (free tier available)</source>
         <translation>DeepLウェブサイトからAPIキーを取得（無料版あり）</translation>
@@ -2331,32 +2468,8 @@ Replace it?</source>
         <translation>キーを隠す</translation>
     </message>
     <message>
-        <source>Show</source>
-        <translation>表示</translation>
-    </message>
-    <message>
-        <source>Hide</source>
-        <translation>隠す</translation>
-    </message>
-    <message>
-        <source>Use DeepL Pro API</source>
-        <translation>DeepL Pro APIを使用</translation>
-    </message>
-    <message>
-        <source>Enable if you have a paid DeepL subscription</source>
-        <translation>DeepLの有料プランをお持ちの場合は有効にしてください</translation>
-    </message>
-    <message>
-        <source>Target Language</source>
-        <translation>ターゲット言語</translation>
-    </message>
-    <message>
         <source>Leave empty to follow system language</source>
         <translation>空の場合はシステム言語に従います</translation>
-    </message>
-    <message>
-        <source>Auto (System)</source>
-        <translation>自動（システム）</translation>
     </message>
     <message>
         <source>Advanced Options</source>
@@ -2369,10 +2482,6 @@ Replace it?</source>
     <message>
         <source>Automatically split text into sentences for better translation</source>
         <translation>翻訳品質向上のためテキストを自動的に文に分割します</translation>
-    </message>
-    <message>
-        <source>Preserve Formatting</source>
-        <translation>書式を保持</translation>
     </message>
     <message>
         <source>Keep original text formatting in translation</source>
@@ -2409,18 +2518,6 @@ Replace it?</source>
     <message>
         <source>Stop translation once the monthly free quota is reached</source>
         <translation>月間無料クォータに達したら翻訳を停止する</translation>
-    </message>
-    <message>
-        <source>Volcengine machine translation: about 2M free characters/month. Overuse is billed at pay-as-you-go rates, so a local quota guard (default on) prevents surprise charges.</source>
-        <translation>火山の機械翻訳：月間約200万文字が無料。超過分は従量課金となるため、ローカルクォータ保護（デフォルトON）が想定外の課金を防ぎます。</translation>
-    </message>
-    <message>
-        <source>Tencent Cloud TMT: about 5M free characters/month. The API rejects overuse itself; the local quota guard (default on) is extra protection.</source>
-        <translation>Tencent Cloud TMT：月間約500万文字が無料。API自体が超過を拒否するため、ローカルクォータ保護（デフォルトON）は追加の保険です。</translation>
-    </message>
-    <message>
-        <source>Volcengine Console</source>
-        <translation>火山エンジンコンソール</translation>
     </message>
     <message>
         <source>Tencent Cloud Console</source>
@@ -2488,6 +2585,26 @@ Replace it?</source>
         <translation>ファイル</translation>
     </message>
     <message>
+        <source>Link</source>
+        <translation>リンク</translation>
+    </message>
+    <message>
+        <source>Color</source>
+        <translation>色</translation>
+    </message>
+    <message>
+        <source>Path</source>
+        <translation>パス</translation>
+    </message>
+    <message>
+        <source>Open in Browser</source>
+        <translation>ブラウザーで開く</translation>
+    </message>
+    <message>
+        <source>Paste as File</source>
+        <translation>ファイルとして貼り付け</translation>
+    </message>
+    <message>
         <source>Close</source>
         <translation>閉じる</translation>
     </message>
@@ -2497,7 +2614,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Filter Type</source>
-        <translation>フィルター</translation>
+        <translation>フィルターの種類</translation>
     </message>
     <message>
         <source>Start date</source>
@@ -2529,11 +2646,11 @@ Replace it?</source>
     </message>
     <message>
         <source>Paste with Format</source>
-        <translation>書式付きでコピペ</translation>
+        <translation>書式付きで貼り付け</translation>
     </message>
     <message>
         <source>Auto Paste After Selection</source>
-        <translation>選択後に自動コピペ</translation>
+        <translation>選択後に自動で貼り付け</translation>
     </message>
     <message>
         <source>Close After Paste</source>
@@ -2541,7 +2658,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Move to Top After Paste</source>
-        <translation>コピペ後に最上位へ</translation>
+        <translation>貼り付け後に先頭へ移動</translation>
     </message>
     <message>
         <source>Show Time and Source</source>
@@ -2601,11 +2718,11 @@ Replace it?</source>
     </message>
     <message>
         <source>Record Content</source>
-        <translation>内容記録</translation>
+        <translation>記録する内容</translation>
     </message>
     <message>
         <source>Window Opacity</source>
-        <translation>透明度</translation>
+        <translation>ウィンドウの不透明度</translation>
     </message>
     <message>
         <source>Opaque</source>
@@ -2653,7 +2770,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Max Display Lines</source>
-        <translation>行の高さ</translation>
+        <translation>最大表示行数</translation>
     </message>
     <message numerus="yes">
         <source>%n line(s)</source>
@@ -2663,7 +2780,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Add Content</source>
-        <translation>テキストを追加</translation>
+        <translation>内容を追加</translation>
     </message>
     <message>
         <source>Confirm Delete</source>
@@ -2701,7 +2818,7 @@ Items in the group will be moved back to clipboard history.</source>
     </message>
     <message>
         <source>Pin as Overlay</source>
-        <translation>ピン留生成</translation>
+        <translation>ピン留め画像を作成</translation>
     </message>
     <message>
         <source>Save as</source>
@@ -2741,7 +2858,7 @@ Items in the group will be moved back to clipboard history.</source>
     </message>
     <message>
         <source>Remove from Group</source>
-        <translation>グループから削除</translation>
+        <translation>グループから外す</translation>
     </message>
     <message>
         <source>Edit</source>
@@ -2781,7 +2898,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Paste Plain Text</source>
-        <translation>テキストスタイルを無くす</translation>
+        <translation>書式なしテキストで貼り付け</translation>
     </message>
     <message>
         <source>File Name</source>
@@ -2848,6 +2965,18 @@ This action cannot be undone.</source>
         <translation>Enter でまとめて貼り付け、Esc で選択を解除</translation>
     </message>
     <message>
+        <source>More actions</source>
+        <translation>その他の操作</translation>
+    </message>
+    <message>
+        <source>Exit multi-select</source>
+        <translation>複数選択を終了</translation>
+    </message>
+    <message>
+        <source>Multi-select</source>
+        <translation>複数選択</translation>
+    </message>
+    <message>
         <source>Images Too Large</source>
         <translation>画像が大きすぎます</translation>
     </message>
@@ -2861,11 +2990,11 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Paste Selected</source>
-        <translation>貼り付け</translation>
+        <translation>選択項目を貼り付け</translation>
     </message>
     <message>
         <source>Paste Selected as Plain Text</source>
-        <translation>書式なしで貼り付け</translation>
+        <translation>選択項目を書式なしで貼り付け</translation>
     </message>
     <message>
         <source>Stitch Vertically and Paste</source>
@@ -2881,7 +3010,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Delete Selected</source>
-        <translation>削除</translation>
+        <translation>選択項目を削除</translation>
     </message>
     <message>
         <source>Extract Digits</source>
@@ -2899,18 +3028,43 @@ This action cannot be undone.</source>
         <source>Fixed by this filter group</source>
         <translation>フィルターグループで固定</translation>
     </message>
+    <message>
+        <source>Choose a Folder to Save To</source>
+        <translation>保存先のフォルダーを選択</translation>
+    </message>
+    <message>
+        <source>Text Files (*.txt)</source>
+        <translation>テキスト ファイル (*.txt)</translation>
+    </message>
+    <message>
+        <source>Failed to save the file.</source>
+        <translation>ファイルの保存に失敗しました。</translation>
+    </message>
+    <message>
+        <source>These files are no longer where they were, so there is nothing to save.</source>
+        <translation>これらのファイルは元の場所にないため、保存できるものがありません。</translation>
+    </message>
+    <message>
+        <source>{count} files are no longer where they were and were skipped.</source>
+        <translation>{count} 個のファイルが元の場所になかったため、スキップしました。</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>保存</translation>
+    </message>
 </context>
 
 <!-- ========== Clipboard Management Dialog ========== -->
 <context>
     <name>ManageDialog</name>
+    <message><source>Please enter a valid link</source><translation>有効なリンクを入力してください</translation></message>
     <message>
         <source>Clipboard Management</source>
         <translation>クリップボード管理</translation>
     </message>
     <message>
         <source>Management</source>
-        <translation>定型文管理</translation>
+        <translation>管理</translation>
     </message>
     <message>
         <source>Group Management</source>
@@ -2918,7 +3072,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Content Manager</source>
-        <translation>テキスト管理</translation>
+        <translation>内容管理</translation>
     </message>
     <message>
         <source>Close</source>
@@ -2945,10 +3099,6 @@ This action cannot be undone.</source>
         <translation>コンテンツを追加</translation>
     </message>
     <message>
-        <source>New Group</source>
-        <translation>新しいグループ</translation>
-    </message>
-    <message>
         <source>Delete</source>
         <translation>削除</translation>
     </message>
@@ -2958,7 +3108,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Content List</source>
-        <translation>コンテンツリスト</translation>
+        <translation>内容リスト</translation>
     </message>
     <message>
         <source>Create</source>
@@ -2982,11 +3132,11 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>General Group</source>
-        <translation>通常</translation>
+        <translation>通常グループ</translation>
     </message>
     <message>
         <source>Group Type</source>
-        <translation>グループタイプ</translation>
+        <translation>グループの種類</translation>
     </message>
     <message>
         <source>New General Group</source>
@@ -3025,12 +3175,12 @@ This action cannot be undone.</source>
         <translation>任意の内容を追加できます。選択すると内容やファイルを貼り付けます</translation>
     </message>
     <message>
-        <source>Quick launch groups only allow file or folder paths; selecting an item opens them</source>
-        <translation>ファイルまたはフォルダーのパスのみ追加できます。選択すると直接開きます</translation>
+        <source>Quick launch groups accept files, folder paths and links; selecting an item opens them</source>
+        <translation>ファイル、フォルダーのパス、リンクを追加でき、選択すると直接開きます</translation>
     </message>
     <message>
-        <source>Quick launch groups only accept file items; left-click opens the file directly</source>
-        <translation>クイック起動グループはファイル項目のみ受け付けます。左クリックでファイルを直接開きます</translation>
+        <source>Quick launch groups accept files, paths and links; left-click opens them directly</source>
+        <translation>ファイル、パス、リンクを追加でき、左クリックで直接開きます</translation>
     </message>
     <message>
         <source>Enter or paste emoji...</source>
@@ -3046,15 +3196,11 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Group Content</source>
-        <translation>グループコンテンツ</translation>
+        <translation>グループの内容</translation>
     </message>
     <message>
         <source>(No content in group)</source>
-        <translation>（グループにコンテンツがありません）</translation>
-    </message>
-    <message>
-        <source>Add Content</source>
-        <translation>内容を追加</translation>
+        <translation>（グループに内容がありません）</translation>
     </message>
     <message>
         <source>Add</source>
@@ -3110,19 +3256,19 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Title</source>
-        <translation>タイトルを入力（例：再起動コマンド）...</translation>
+        <translation>タイトル</translation>
     </message>
     <message>
         <source>Content</source>
-        <translation>コンテンツ</translation>
+        <translation>内容</translation>
     </message>
     <message>
         <source>Enter text content to save...</source>
-        <translation>保存するテキストコンテンツを入力...</translation>
+        <translation>保存するテキストを入力...</translation>
     </message>
     <message>
         <source>Edit Content</source>
-        <translation>コンテンツを編集</translation>
+        <translation>内容を編集</translation>
     </message>
     <message>
         <source>Enter title...</source>
@@ -3162,7 +3308,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Please enter content</source>
-        <translation>コンテンツを入力してください</translation>
+        <translation>内容を入力してください</translation>
     </message>
     <message>
         <source>Failed to move to group</source>
@@ -3170,11 +3316,11 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Failed to add content</source>
-        <translation>コンテンツの追加に失敗しました</translation>
+        <translation>内容の追加に失敗しました</translation>
     </message>
     <message>
         <source>Failed to update content</source>
-        <translation>コンテンツの更新に失敗しました</translation>
+        <translation>内容の更新に失敗しました</translation>
     </message>
     <message>
         <source>Failed to delete group</source>
@@ -3209,11 +3355,11 @@ Items in the group will be moved back to clipboard history.</source>
     <!-- Import/Export -->
     <message>
         <source>📦 Import/Export</source>
-        <translation>インポート</translation>
+        <translation>📦 インポート/エクスポート</translation>
     </message>
     <message>
         <source>Import/Export</source>
-        <translation>インポート</translation>
+        <translation>インポート/エクスポート</translation>
     </message>
     <message>
         <source>Export</source>
@@ -3229,7 +3375,7 @@ Items in the group will be moved back to clipboard history.</source>
     </message>
     <message>
         <source>📤 Export to CSV</source>
-        <translation>CSVにエクスポート</translation>
+        <translation>📤 CSV にエクスポート</translation>
     </message>
     <message>
         <source>Import</source>
@@ -3241,7 +3387,7 @@ Items in the group will be moved back to clipboard history.</source>
     </message>
     <message>
         <source>📥 Import from CSV</source>
-        <translation>CSVからインポート</translation>
+        <translation>📥 CSV からインポート</translation>
     </message>
     <message>
         <source>CSV Format</source>
@@ -3333,7 +3479,7 @@ Items in the group will be moved back to clipboard history.</source>
     </message>
     <message>
         <source>General</source>
-        <translation>汎用</translation>
+        <translation>通常</translation>
     </message>
     <message>
         <source>Groups</source>
@@ -3380,8 +3526,8 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>パネルに表示しない</translation>
     </message>
     <message>
-        <source>Open files or folders</source>
-        <translation>ファイルやフォルダを開く</translation>
+        <source>Open files, folders or links</source>
+        <translation>ファイル、フォルダー、リンクを開く</translation>
     </message>
     <message>
         <source>Paste text or files</source>
@@ -3406,10 +3552,6 @@ Items in the group will be moved back to clipboard history.</source>
     <message>
         <source>Search title or content</source>
         <translation>タイトルや内容を検索</translation>
-    </message>
-    <message>
-        <source>Recommended</source>
-        <translation>おすすめ</translation>
     </message>
     <message>
         <source>Save the new group first, then add content to it</source>
@@ -3532,8 +3674,8 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>フィルター</translation>
     </message>
     <message>
-        <source>Show one type</source>
-        <translation>1種類だけ表示</translation>
+        <source>By type or source</source>
+        <translation>種類やコピー元で表示</translation>
     </message>
     <message>
         <source>Content Type</source>
@@ -3552,8 +3694,40 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>フィルターグループを編集</translation>
     </message>
     <message>
-        <source>Filter groups store no content; they show one type of your clipboard history</source>
-        <translation>フィルターグループは内容を保存せず、クリップボード履歴の特定の種類だけを表示します</translation>
+        <source>Filter groups store no content; they show the clipboard history that matches the chosen type and source app</source>
+        <translation>フィルターグループは内容を保存せず、クリップボード履歴のうち選んだ種類とコピー元に合うものだけを表示します</translation>
+    </message>
+    <message>
+        <source>Link</source>
+        <translation>リンク</translation>
+    </message>
+    <message>
+        <source>Color</source>
+        <translation>色</translation>
+    </message>
+    <message>
+        <source>Path</source>
+        <translation>パス</translation>
+    </message>
+    <message>
+        <source>All Types</source>
+        <translation>すべての種類</translation>
+    </message>
+    <message>
+        <source>Source App</source>
+        <translation>コピー元アプリ</translation>
+    </message>
+    <message>
+        <source>Any App</source>
+        <translation>すべてのアプリ</translation>
+    </message>
+    <message>
+        <source>Jietuba (this app)</source>
+        <translation>Jietuba（このアプリ）</translation>
+    </message>
+    <message>
+        <source>Choose a content type or a source app</source>
+        <translation>内容の種類かコピー元アプリを選んでください</translation>
     </message>
 </context>
 
@@ -3603,14 +3777,6 @@ Items in the group will be moved back to clipboard history.</source>
     <message>
         <source>Clipboard module not available</source>
         <translation>クリップボードモジュールが利用できません</translation>
-    </message>
-    <message>
-        <source>Clear Clipboard History</source>
-        <translation>保存の履歴をクリア</translation>
-    </message>
-    <message>
-        <source>Delete all clipboard history records</source>
-        <translation>すべての履歴を削除（全部初期化）</translation>
     </message>
     <message>
         <source>← Get storage size</source>
@@ -3780,7 +3946,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Mosaic Style</source>
-        <translation>モザイク種類</translation>
+        <translation>モザイクの種類</translation>
     </message>
     <message>
         <source>Strength: Subtle</source>
@@ -3948,7 +4114,7 @@ This action cannot be undone.</source>
     <!-- window / nav -->
     <message>
         <source>欢迎使用截图吧</source>
-        <translation>截图吧へようこそ</translation>
+        <translation>Jietuba へようこそ</translation>
     </message>
     <message>
         <source>← 上一步</source>
@@ -3981,7 +4147,7 @@ This action cannot be undone.</source>
     <!-- page1 -->
     <message>
         <source>欢迎使用截图吧 👋</source>
-        <translation>截图吧へようこそ 👋</translation>
+        <translation>Jietuba へようこそ 👋</translation>
     </message>
     <message>
         <source>一款轻量的截图与剪贴板管理工具。</source>
@@ -3997,11 +4163,11 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>🌐 界面语言</source>
-        <translation>🌐 言語</translation>
+        <translation>🌐 表示言語</translation>
     </message>
     <message>
         <source>选择后立即生效，欢迎界面将随之切换语言。</source>
-        <translation>選択後すぐに切り替わります。</translation>
+        <translation>選択後すぐに反映され、ウェルカム画面の言語も切り替わります。</translation>
     </message>
     <!-- page2 tool names & descriptions (illus carousel) -->
     <message>
@@ -4038,7 +4204,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>工具_长截图</source>
-        <translation>長いスクショ</translation>
+        <translation>スクロールキャプチャ</translation>
     </message>
     <message>
         <source>工具_录屏</source>
@@ -4119,7 +4285,7 @@ This action cannot be undone.</source>
     <!-- page2 -->
     <message>
         <source>📸 截图设置</source>
-        <translation>📸 キャプチャー設定</translation>
+        <translation>📸 スクリーンショット</translation>
     </message>
     <message>
         <source>截图保存位置</source>
@@ -4138,21 +4304,9 @@ This action cannot be undone.</source>
         <translation>保存先フォルダを選択</translation>
     </message>
     <!-- page3 -->
-    <message>
-        <source>请选择工具栏布局首选项</source>
-        <translation>ツールバーのレイアウトを選択してください</translation>
-    </message>
-    <message>
-        <source>工具栏在右侧</source>
-        <translation>ツールバーを右側に</translation>
-    </message>
-    <message>
-        <source>工具栏在顶部</source>
-        <translation>ツールバーを上部に</translation>
-    </message>
     <message><source>剪贴板</source><translation>クリップボード</translation></message>
     <message><source>历史记录</source><translation>履歴</translation></message>
-    <message><source>内容分组</source><translation>定型文グループ</translation></message>
+    <message><source>内容分组</source><translation>内容グループ</translation></message>
     <message><source>快速启动</source><translation>クイック起動</translation></message>
     <message><source>文字</source><translation>テキスト</translation></message>
     <message><source>图片</source><translation>画像</translation></message>
@@ -4249,12 +4403,12 @@ This action cannot be undone.</source>
     <message>
         <source>你已完成基础设置，截图工具已准备好为你服务。
 随时可以在设置面板调整更多选项。</source>
-        <translation>基本設定が完了しました。スクショツールが準備できました！
+        <translation>基本設定が完了しました。スクリーンショットツールの準備ができました！
 いつでも設定パネルで詳細を調整できます。</translation>
     </message>
     <message>
         <source>按下截图热键开始第一次截图</source>
-        <translation>スクショショートカットを押して最初のスクショを撮る</translation>
+        <translation>スクリーンショットのショートカットを押して最初の1枚を撮る</translation>
     </message>
     <message>
         <source>复制内容后打开剪贴板历史</source>
@@ -4270,7 +4424,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>开机后在检测更新后启动。</source>
-        <translation>PCを立ち上がり際に起動</translation>
+        <translation>PC の起動後、更新を確認してから起動します。</translation>
     </message>
     <message>
         <source>启动时显示主界面</source>
@@ -4286,12 +4440,12 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>完成向导时在桌面创建截图吧快捷方式。</source>
-        <translation>デスクトップへショートカットを作成</translation>
+        <translation>ウィザード完了時にデスクトップに Jietuba のショートカットを作成します。</translation>
     </message>
     <!-- illus strings -->
     <message>
-        <source>截图 · 标注 · 剪贴板 · 翻译，一站搞定</source>
-        <translation>スクショ・注釈・クリップボード・翻訳</translation>
+        <source>截图、文字识别、钉图、录屏、屏幕标注、剪贴板和翻译，一站搞定</source>
+        <translation>スクショ・文字認識・ピン留め・録画・画面注釈・クリップボード・翻訳をひとつに</translation>
     </message>
     <message>
         <source>会议纪要.docx</source>
@@ -4310,8 +4464,8 @@ This action cannot be undone.</source>
         <translation>ショートカット</translation>
     </message>
     <message>
-        <source>三个全局功能各可设置一个主快捷键和一个备用快捷键。</source>
-        <translation>3つのグローバル機能それぞれに、メインと予備のショートカットを設定できます。</translation>
+        <source>截图、剪贴板和翻译各可设置一个主快捷键和一个备用快捷键。</source>
+        <translation>スクリーンショット、クリップボード、翻訳それぞれに、メインと予備のショートカットを設定できます。</translation>
     </message>
     <message>
         <source>主快捷键</source>
@@ -4432,6 +4586,106 @@ This action cannot be undone.</source>
     <message>
         <source>Optional for local models</source>
         <translation>ローカルモデルでは省略可</translation>
+    </message>
+    <message>
+        <source>APPID</source>
+        <translation>APPID</translation>
+    </message>
+    <message>
+        <source>API Key</source>
+        <translation>API キー</translation>
+    </message>
+    <message>
+        <source>工具_马赛克</source>
+        <translation>モザイク</translation>
+    </message>
+    <message>
+        <source>工具_聚光灯</source>
+        <translation>スポットライト</translation>
+    </message>
+    <message>
+        <source>工具_水印</source>
+        <translation>透かし</translation>
+    </message>
+    <message>
+        <source>工具_文字识别</source>
+        <translation>文字認識</translation>
+    </message>
+    <message>
+        <source>工具_扫码</source>
+        <translation>コードスキャン</translation>
+    </message>
+    <message>
+        <source>工具描述_马赛克</source>
+        <translation>なぞって個人情報を隠す、ホイールで太さを調整</translation>
+    </message>
+    <message>
+        <source>工具描述_聚光灯</source>
+        <translation>枠の外を暗くして要点を強調</translation>
+    </message>
+    <message>
+        <source>工具描述_水印</source>
+        <translation>文字や日時の透かしを追加</translation>
+    </message>
+    <message>
+        <source>工具描述_文字识别</source>
+        <translation>選択範囲の文字を認識してワンクリックでコピー</translation>
+    </message>
+    <message>
+        <source>工具描述_扫码</source>
+        <translation>QR コードとバーコードを読み取り、リンクを直接開く</translation>
+    </message>
+    <message>
+        <source>工具栏上找不到的工具，到「…」里找找。</source>
+        <translation>ツールバーに見当たらないツールは「…」の中を確認してください。</translation>
+    </message>
+    <message>
+        <source>玩游戏时暂停热键</source>
+        <translation>ゲーム中はホットキーを停止</translation>
+    </message>
+    <message>
+        <source>游戏在前台时暂停全局快捷键和鼠标快捷键，离开游戏后恢复。托盘菜单里也能切换。</source>
+        <translation>ゲームが前面にある間はグローバルとマウスのショートカットを止め、離れると再開します。トレイメニューでも切り替えられます。</translation>
+    </message>
+    <message>
+        <source>鼠标快捷键</source>
+        <translation>マウスショートカット</translation>
+    </message>
+    <message>
+        <source>按住修饰键拖动鼠标框选，松开就直接完成动作，不用先按截图快捷键。</source>
+        <translation>修飾キーを押しながらドラッグで範囲を囲み、離すとそのまま実行されます。スクリーンショットのショートカットは不要です。</translation>
+    </message>
+    <message>
+        <source>按住修饰键拖出一个框，松开即可钉图、复制、识别文字或翻译。</source>
+        <translation>修飾キーを押しながら範囲をドラッグし、離すとピン留め・コピー・文字認識・翻訳ができます。</translation>
+    </message>
+    <message>
+        <source>截图、钉图和剪贴板窗口里的鼠标操作，可以在设置的「鼠标快捷键」页调整。</source>
+        <translation>スクリーンショット、ピン留め、クリップボードの各ウィンドウ内のマウス操作は、設定の「マウスショートカット」で変更できます。</translation>
+    </message>
+    <message>
+        <source>%1 用了同一个手势，重复的不会保存。</source>
+        <translation>%1 が同じ操作になっています。重複したものは保存されません。</translation>
+    </message>
+    <message>
+        <source>讲解、演示或共享屏幕时，直接在画面上圈重点。</source>
+        <translation>説明やプレゼン、画面共有の最中に、画面上で直接要点を囲めます。</translation>
+    </message>
+    <message>
+        <source>不用截图，直接在任何窗口上画画、写字，结束后画面恢复原样。</source>
+        <translation>スクリーンショットを撮らずに、どのウィンドウの上にも描いたり書いたりできます。終わると画面は元に戻ります。</translation>
+    </message>
+    <message>
+        <source>也可以从托盘菜单打开；再按一次快捷键结束标注。</source>
+        <translation>トレイメニューからも開始できます。もう一度ショートカットを押すと終了します。</translation>
+    </message>
+    <message>
+        <source>筛选分组</source>
+        <translation>フィルターグループ</translation>
+    </message>
+    <message>
+        <source>活动海报.png</source>
+        <translation>イベントポスター.png</translation>
     </message>
 </context>
 
@@ -4577,16 +4831,12 @@ This action cannot be undone.</source>
     <message><source>Select border color</source><translation>枠線の色を選択</translation></message>
     <message><source>Border</source><translation>枠線</translation></message>
     <message><source>Size</source><translation>サイズ</translation></message>
-    <message><source>Keep enabled for every screenshot</source><translation>いつも有効にする</translation></message>
+    <message><source>Keep enabled for every screenshot</source><translation>毎回有効にする</translation></message>
 </context>
 
 <!-- ========== Appearance Settings ========== -->
 <context>
     <name>SettingsDialog</name>
-    <message><source>Appearance</source><translation>外観</translation></message>
-    <message><source>Appearance Settings</source><translation>外観設定</translation></message>
-    <message><source>Screenshot</source><translation>スクリーンショット</translation></message>
-    <message><source>Clipboard</source><translation>クリップボード</translation></message>
     <message><source>Theme Color</source><translation>テーマカラー</translation></message>
     <message><source>Affects selection border, toolbar border, magnifier crosshair, etc. Restart recommended after change.</source><translation>選択枠、ツールバー枠線、拡大鏡の十字線などに影響します。変更後はアプリの再起動を推奨します。</translation></message>
     <message><source>Select Theme Color</source><translation>テーマカラーを選択</translation></message>
@@ -4601,7 +4851,6 @@ This action cannot be undone.</source>
     <!-- Clipboard Appearance -->
     <message><source>Theme</source><translation>配色</translation></message>
     <message><source>Font Size</source><translation>文字サイズ</translation></message>
-    <message><source>Opacity</source><translation>透明度</translation></message>
     <message><source>Opaque</source><translation>不透明</translation></message>
 </context>
 
@@ -4629,7 +4878,6 @@ This action cannot be undone.</source>
     <message><source>Operation</source><translation>操作</translation></message>
     <!-- 情報ページ -->
     <message><source>Features</source><translation>機能</translation></message>
-    <message><source>OCR text recognition · Long screenshot · Pin window · Clipboard manager · DeepL translation</source><translation>OCR文字認識 · 長スクショ · ピン留め · クリップボード管理 · DeepL翻訳</translation></message>
     <message><source>Licenses</source><translation>ライセンス</translation></message>
     <message><source>Details</source><translation>詳細</translation></message>
     <message><source>MIT License</source><translation>MIT License</translation></message>
@@ -4671,19 +4919,12 @@ SOFTWARE.</translation></message>
     <message><source>Update Check Failed</source><translation>更新の確認に失敗しました</translation></message>
     <message><source>Unable to check for updates. Please check your network connection and try again.</source><translation>更新を確認できません。ネットワーク接続を確認して再試行してください。</translation></message>
     <!-- 開発者ページ -->
-    <message><source>Long Screenshot</source><translation>長スクリーンショット</translation></message>
     <message><source>Tools</source><translation>ツール</translation></message>
     <!-- ログページ -->
-    <message><source>Storage</source><translation>ストレージ</translation></message>
     <!-- 翻訳ページ -->
-    <message><source>DeepL API</source><translation>DeepL API</translation></message>
-    <message><source>Translation Options</source><translation>翻訳オプション</translation></message>
-    <message><source>Ignore Line Breaks</source><translation>改行を無視</translation></message>
-    <message><source>Merge multi-line text for better translation</source><translation>複数行のテキストを結合してより良い翻訳を実現</translation></message>
     <!-- 変更された文字列（新バージョン）-->
     <message><source>Save Format</source><translation>保存形式</translation></message>
     <message><source>OCR</source><translation>OCR</translation></message>
-    <message><source>Keep original text formatting</source><translation>原文の書式を保持</translation></message>
 </context>
 
 <context>
@@ -4928,7 +5169,7 @@ Items in the group will be moved back to clipboard history.</source>
     </message>
     <message>
         <source>In more menu</source>
-        <translation>「その他」メニュー</translation>
+        <translation>「その他」メニュー内</translation>
     </message>
     <message>
         <source>Always hide</source>
@@ -4956,7 +5197,7 @@ Items in the group will be moved back to clipboard history.</source>
     </message>
     <message>
         <source>Long screenshot</source>
-        <translation>長スクリーンショット</translation>
+        <translation>スクロールキャプチャ</translation>
     </message>
     <message>
         <source>Save</source>
@@ -5042,6 +5283,30 @@ Items in the group will be moved back to clipboard history.</source>
         <source>Confirm</source>
         <translation>確定</translation>
     </message>
+    <message>
+        <source>Pass through</source>
+        <translation>透過</translation>
+    </message>
+    <message>
+        <source>Clear all</source>
+        <translation>すべて消去</translation>
+    </message>
+    <message>
+        <source>Hide drawings</source>
+        <translation>描画を隠す</translation>
+    </message>
+    <message>
+        <source>Exit annotation</source>
+        <translation>注釈を終了</translation>
+    </message>
+    <message>
+        <source>Board</source>
+        <translation>ホワイトボード</translation>
+    </message>
+    <message>
+        <source>Cursor highlight</source>
+        <translation>カーソルハイライト</translation>
+    </message>
 </context>
 <context>
     <name>BarcodeResultWindow</name>
@@ -5122,7 +5387,7 @@ Items in the group will be moved back to clipboard history.</source>
     </message>
     <message>
         <source>Layout</source>
-        <translation>書式</translation>
+        <translation>整形</translation>
     </message>
     <message>
         <source>Auto</source>
@@ -5220,6 +5485,10 @@ Items in the group will be moved back to clipboard history.</source>
     <message>
         <source>Windows uses this shortcut too. This app takes it over while running; clear it to give it back.</source>
         <translation>Windows もこのショートカットを使っています。このアプリの実行中はこちらが引き継ぎ、消去すると Windows に戻ります。</translation>
+    </message>
+    <message>
+        <source>Another app uses this shortcut too. This app takes it over while running; clear it to give it back.</source>
+        <translation>他のアプリもこのショートカットを使っています。このアプリの実行中はこちらが引き継ぎ、消去すると元のアプリに戻ります。</translation>
     </message>
     <message>
         <source>Reserved by Windows. No app can use it.</source>
@@ -5334,7 +5603,7 @@ Items in the group will be moved back to clipboard history.</source>
     </message>
     <message>
         <source>Long Screenshot</source>
-        <translation>長スクショ</translation>
+        <translation>スクロールキャプチャ</translation>
     </message>
     <message>
         <source>Vertical</source>
@@ -5346,7 +5615,7 @@ Items in the group will be moved back to clipboard history.</source>
     </message>
     <message>
         <source>Long screenshot - window position corrected</source>
-        <translation>長スクショ - ウィンドウ位置を補正しました</translation>
+        <translation>スクロールキャプチャ - ウィンドウ位置を補正しました</translation>
     </message>
 </context>
 <context>
@@ -5392,10 +5661,41 @@ gifrecorder が正しくインストールされているか確認してくだ�
     </message>
 </context>
 <context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Color Picker</source>
+        <translation>カラーピッカー</translation>
+    </message>
+    <message>
+        <source>Used when choosing a custom color.</source>
+        <translation>カスタムカラーを選ぶときに使用します。</translation>
+    </message>
+    <message>
+        <source>Modern</source>
+        <translation>モダン</translation>
+    </message>
+</context>
+<context>
     <name>ColorPickerDialog</name>
     <message>
         <source>Pick color from screen</source>
         <translation>画面から色を取得</translation>
+    </message>
+    <message>
+        <source>Click to pick; Esc to cancel</source>
+        <translation>クリックで取得、Esc でキャンセル</translation>
+    </message>
+    <message>
+        <source>Select Color</source>
+        <translation>色を選択</translation>
+    </message>
+    <message>
+        <source>Hue</source>
+        <translation>色相</translation>
+    </message>
+    <message>
+        <source>Opacity</source>
+        <translation>不透明度</translation>
     </message>
     <message>
         <source>OK</source>
@@ -6272,6 +6572,238 @@ gifrecorder が正しくインストールされているか確認してくだ�
     <message>
         <source>The deleted model was selected for OCR, so OCR now uses Auto.</source>
         <translation>削除したモデルは OCR で使用中だったため、「自動」に切り替えました。</translation>
+    </message>
+</context>
+
+<!-- ========== Save Image Dialog ========== -->
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Save Dialog</source>
+        <translation>保存ダイアログ</translation>
+    </message>
+    <message>
+        <source>Used when saving a screenshot, a pin or a clipboard image.</source>
+        <translation>スクリーンショット、ピン、クリップボードの画像を保存するときに使います。</translation>
+    </message>
+    <message>
+        <source>Modern (with preview)</source>
+        <translation>モダン（プレビュー付き）</translation>
+    </message>
+    <message>
+        <source>Classic (system dialog)</source>
+        <translation>クラシック（システムのダイアログ）</translation>
+    </message>
+</context>
+<context>
+    <name>SaveImageDialog</name>
+    <message>
+        <source>Save Image</source>
+        <translation>画像を保存</translation>
+    </message>
+    <message>
+        <source>Original Image</source>
+        <translation>元画像</translation>
+    </message>
+    <message>
+        <source>Adjusted</source>
+        <translation>調整後</translation>
+    </message>
+    <message>
+        <source>Compare</source>
+        <translation>比較</translation>
+    </message>
+    <message>
+        <source>Estimating...</source>
+        <translation>見積もり中...</translation>
+    </message>
+    <message>
+        <source>Save Path</source>
+        <translation>保存先</translation>
+    </message>
+    <message>
+        <source>Change</source>
+        <translation>変更</translation>
+    </message>
+    <message>
+        <source>Select Folder</source>
+        <translation>フォルダーを選択</translation>
+    </message>
+    <message>
+        <source>File Name</source>
+        <translation>ファイル名</translation>
+    </message>
+    <message>
+        <source>Resize</source>
+        <translation>サイズ変更</translation>
+    </message>
+    <message>
+        <source>Value</source>
+        <translation>数値</translation>
+    </message>
+    <message>
+        <source>Percentage</source>
+        <translation>パーセント</translation>
+    </message>
+    <message>
+        <source>Lock aspect ratio</source>
+        <translation>縦横比を固定</translation>
+    </message>
+    <message>
+        <source>Original size</source>
+        <translation>元のサイズ</translation>
+    </message>
+    <message>
+        <source>Quality</source>
+        <translation>画質</translation>
+    </message>
+    <message>
+        <source>Low</source>
+        <translation>低</translation>
+    </message>
+    <message>
+        <source>High</source>
+        <translation>高</translation>
+    </message>
+    <message>
+        <source>Estimated Size</source>
+        <translation>推定サイズ</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>保存</translation>
+    </message>
+    <message>
+        <source>Zoom: %1%</source>
+        <translation>表示倍率：%1%</translation>
+    </message>
+    <message>
+        <source>Original: %1 x %2</source>
+        <translation>元のサイズ：%1 x %2</translation>
+    </message>
+    <message>
+        <source>%1 format is lossless and does not support quality adjustment.</source>
+        <translation>%1 は可逆圧縮のため、画質は調整できません。</translation>
+    </message>
+    <message>
+        <source>PDF has no quality setting.</source>
+        <translation>PDF には画質の設定がありません。</translation>
+    </message>
+    <message>
+        <source>This format cannot hold an image of this size.</source>
+        <translation>この形式ではこのサイズの画像を保存できません。</translation>
+    </message>
+    <message>
+        <source>Enter a file name.</source>
+        <translation>ファイル名を入力してください。</translation>
+    </message>
+    <message>
+        <source>A file name cannot contain any of these characters: \ / : * ? &quot; &lt; &gt; |</source>
+        <translation>ファイル名に次の文字は使えません：\ / : * ? &quot; &lt; &gt; |</translation>
+    </message>
+    <message>
+        <source>A file name cannot end with a dot or a space.</source>
+        <translation>ファイル名の末尾にピリオドや空白は使えません。</translation>
+    </message>
+    <message>
+        <source>This name is reserved by Windows.</source>
+        <translation>Windows で予約されている名前です。</translation>
+    </message>
+    <message>
+        <source>Choose a full folder path.</source>
+        <translation>フォルダーの完全なパスを指定してください。</translation>
+    </message>
+    <message>
+        <source>Use Classic Dialog</source>
+        <translation>クラシックのダイアログを使う</translation>
+    </message>
+    <message>
+        <source>Use the system Save As dialog for this and every later image save? You can change this back in Settings &gt; Screenshot &gt; Save Dialog.</source>
+        <translation>今回と今後のすべての画像の保存で、システムの「名前を付けて保存」ダイアログを使いますか？「設定 &gt; スクリーンショット &gt; 保存ダイアログ」で元に戻せます。</translation>
+    </message>
+    <message>
+        <source>Use classic dialog</source>
+        <translation>クラシックのダイアログを使う</translation>
+    </message>
+    <message>
+        <source>Save Failed</source>
+        <translation>保存に失敗しました</translation>
+    </message>
+    <message>
+        <source>Cannot create the folder:
+%1</source>
+        <translation>フォルダーを作成できません：
+%1</translation>
+    </message>
+    <message>
+        <source>Replace File</source>
+        <translation>ファイルの置き換え</translation>
+    </message>
+    <message>
+        <source>%1 already exists.
+Replace it?</source>
+        <translation>%1 は既に存在します。
+置き換えますか？</translation>
+    </message>
+    <message>
+        <source>There is no image to save.</source>
+        <translation>保存する画像がありません。</translation>
+    </message>
+    <message>
+        <source>Desktop</source>
+        <translation>デスクトップ</translation>
+    </message>
+    <message>
+        <source>Add path tag</source>
+        <translation>パスタグを追加</translation>
+    </message>
+    <message>
+        <source>Edit</source>
+        <translation>編集</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>削除</translation>
+    </message>
+    <message>
+        <source>Tag Name</source>
+        <translation>タグ名</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
+    </message>
+    <message>
+        <source>Notice</source>
+        <translation>お知らせ</translation>
+    </message>
+    <message>
+        <source>This path already has this name</source>
+        <translation>このパスには既にこの名前が付いています</translation>
+    </message>
+    <message>
+        <source>Name Already Exists</source>
+        <translation>名前は既に存在します</translation>
+    </message>
+    <message>
+        <source>This name is already used by another path &quot;%1&quot;. Please choose a different name for the current path.</source>
+        <translation>この名前は別のパス「%1」で使われています。現在のパスには別の名前を付けてください。</translation>
+    </message>
+    <message>
+        <source>Path Already Exists</source>
+        <translation>パスは既に存在します</translation>
+    </message>
+    <message>
+        <source>This path already exists with the name &quot;%1&quot;. Do you want to change its name to &quot;%2&quot;?</source>
+        <translation>このパスは「%1」という名前で既に登録されています。名前を「%2」に変更しますか？</translation>
+    </message>
+    <message>
+        <source>The name &quot;%1&quot; is already used by path &quot;%2&quot;. Do you want to set a new name for the current path?</source>
+        <translation>名前「%1」はパス「%2」で使われています。現在のパスに新しい名前を付けますか？</translation>
     </message>
 </context>
 </TS>

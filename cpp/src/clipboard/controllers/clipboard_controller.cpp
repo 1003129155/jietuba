@@ -6,6 +6,7 @@
 #include "core/logger.h"
 #include "core/py_text.h"
 #include "core/ui_scale.h"
+#include "settings/color_formats.h"
 #include "settings/tool_settings.h"
 #include "ui/dialogs.h"
 #include <QCoreApplication>
@@ -132,25 +133,27 @@ void ClipboardController::load_more_if_needed() {
     load_more_items();
 }
 
-std::optional<QString> ClipboardController::current_filter_type() const {
+std::optional<FilterRule> ClipboardController::current_filter_rule() const {
     if (!current_group_id) return std::nullopt;
     for (const auto &group : manager.get_groups())
-        if (group.id == *current_group_id) return group.filter_content_type();
+        if (group.id == *current_group_id) return group.is_filter() ? std::optional(group.filter_rule.value_or(FilterRule{})) : std::nullopt;
     return std::nullopt;
 }
 
-bool ClipboardController::shows_history() const { return !current_group_id || current_filter_type().has_value(); }
+bool ClipboardController::shows_history() const { return !current_group_id || current_filter_rule().has_value(); }
 
 std::pair<QList<ClipboardItem>, int> ClipboardController::fetch_items_page(int limit, qint64 offset) {
-    const auto filter_type = current_filter_type();
-    if (!current_group_id || filter_type) {
+    const auto filter_rule = current_filter_rule();
+    if (!current_group_id || filter_rule) {
         std::optional<qint64> start_ts, end_ts;
         if (time_range_) {
             start_ts = time_range_->first.toSecsSinceEpoch();
             end_ts = time_range_->second.toSecsSinceEpoch();
         }
-        // A filter group's type is fixed; the type button does not apply there.
-        const auto items = manager.get_history(offset, limit, search_text_, filter_type ? filter_type : content_type_, start_ts, end_ts);
+        // A filter group's kind is fixed; the type button still narrows a group that only picks a source app.
+        FilterRule filter = filter_rule.value_or(FilterRule{});
+        if (!filter.kind) filter.kind = content_type_;
+        const auto items = manager.get_history(offset, limit, search_text_, filter, start_ts, end_ts);
         return {items, static_cast<int>(items.size())};
     }
     auto items = manager.get_by_group(current_group_id, offset, limit);
@@ -198,13 +201,9 @@ void ClipboardController::set_search_text(const QString &text) {
     }
 }
 
-void ClipboardController::set_content_type_filter(int filter_index) {
-    std::optional<QString> content_type;
-    if (filter_index == 1) content_type = "text";
-    else if (filter_index == 2) content_type = "image";
-    else if (filter_index == 3) content_type = "file";
-    if (content_type_ != content_type) {
-        content_type_ = content_type;
+void ClipboardController::set_content_type_filter(const std::optional<QString> &kind) {
+    if (content_type_ != kind) {
+        content_type_ = kind;
         load_history();
     }
 }
@@ -524,6 +523,40 @@ bool ClipboardController::paste_file_text(qint64 item_id, const QString &transfo
         return false;
     }
     log_info(T("文件特殊粘贴项 {item_id} ({transform_key})", {{"item_id", item_id}, {"transform_key", transform_key}}), "Clipboard");
+    if (on_close_callback) on_close_callback();
+    send_paste_keystroke(explicit_paste);
+    return true;
+}
+
+bool ClipboardController::paste_as_files(qint64 item_id, const CloseCallback &on_close_callback, bool explicit_paste) {
+    if (!manager.paste_as_files(item_id)) return false;
+    log_info(T("作为文件粘贴项 {item_id}", {{"item_id", item_id}}), "Clipboard");
+    if (on_close_callback) on_close_callback();
+    send_paste_keystroke(explicit_paste);
+    return true;
+}
+
+QStringList ClipboardController::color_conversions(const ClipboardItem &item) {
+    if (!item.color) return {};
+    const QString original = py_strip(item.content);
+    QStringList texts;
+    for (const auto &format : color_formats::enabled_formats(color_formats::load(get_tool_settings_manager()))) {
+        const QString text = format.render(*item.color);
+        if (!text.isEmpty() && text.compare(original, Qt::CaseInsensitive) != 0 && !texts.contains(text)) texts.append(text);
+    }
+    return texts;
+}
+
+bool ClipboardController::paste_color_conversion(qint64 item_id, int index, const CloseCallback &on_close_callback, bool explicit_paste) {
+    const auto clipboard_item = get_item(item_id);
+    const QStringList texts = clipboard_item ? color_conversions(*clipboard_item) : QStringList();
+    if (index < 0 || index >= texts.size()) return false;
+    QString error;
+    if (!ClipboardManager::set_clipboard_text(texts[index], &error)) {
+        log_exception("RuntimeError", error, T("设置剪贴板颜色文本失败"));
+        return false;
+    }
+    log_info(T("按颜色格式粘贴项 {item_id}", {{"item_id", item_id}}), "Clipboard");
     if (on_close_callback) on_close_callback();
     send_paste_keystroke(explicit_paste);
     return true;

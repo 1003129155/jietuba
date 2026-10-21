@@ -46,6 +46,7 @@ const QSet<QString> &LOCAL_KEYS() {
         "app/run_as_admin",
         // Absolute paths seldom exist on another computer.
         "app/screenshot_save_path",
+        "app/save_dialog_last_dir",
         "app/log_dir",
         "clipboard/db_path",
     };

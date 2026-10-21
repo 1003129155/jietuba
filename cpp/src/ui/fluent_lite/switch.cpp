@@ -1,4 +1,5 @@
 #include "ui/fluent_lite/switch.h"
+#include "core/ui_scale.h"
 #include "ui/fluent_lite/theme.h"
 #include <QKeyEvent>
 #include <QMouseEvent>
@@ -10,8 +11,13 @@ SwitchButton::SwitchButton(QWidget *parent) : QWidget(parent), animation_(new QP
     setFocusPolicy(Qt::StrongFocus);
     animation_->setDuration(145);
     animation_->setEasingCurve(QEasingCurve::OutCubic);
-    setFixedSize(46, 26);
+    _apply_theme();
     connect(get_ui_theme(), &UIThemeManager::theme_changed, this, [this] { update(); });
+}
+
+void SwitchButton::_apply_theme() {
+    setFixedSize(widget_scaled(this, 46), widget_scaled(this, 26));
+    update();
 }
 
 void SwitchButton::set_progress(double value) {
@@ -67,10 +73,12 @@ void SwitchButton::paintEvent(QPaintEvent *) {
     if (!isEnabled()) r = 205, g = 211, b = 207;
     painter.setPen(Qt::NoPen);
     painter.setBrush(QColor(r, g, b));
-    painter.drawRoundedRect(track, 13, 13);
-    constexpr double knob = 20.0;
-    const double x = 3.0 + (width() - knob - 6.0) * progress_;
+    painter.drawRoundedRect(track, track.height() / 2, track.height() / 2);
+    // Measured from the real height, so the knob stays centred at any size.
+    const double margin = height() * 3.0 / 26.0;
+    const double knob = height() - margin * 2;
+    const double x = margin + (width() - knob - margin * 2) * progress_;
     painter.setBrush(QColor("#FFFFFF"));
-    painter.drawEllipse(QRectF(x, 3.0, knob, knob));
+    painter.drawEllipse(QRectF(x, margin, knob, knob));
 }
 }

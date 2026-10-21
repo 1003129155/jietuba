@@ -58,6 +58,7 @@ public:
     explicit FrostedFramelessDialog(QWidget *parent = nullptr);
 protected:
     void paintEvent(QPaintEvent *event) override;
+    // Matches the corner DWM clips the window to on Windows 11; a larger radius leaves a dark rim.
     int frosted_corner_radius_ = 8;
 };
 

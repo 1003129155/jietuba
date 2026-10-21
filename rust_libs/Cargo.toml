@@ -5,7 +5,6 @@ members = [
     "gifrecorder",
     "ppocr_rust",
     "hdrcapture",
-    "inputhub",
     "updater",
     "video_recorder",
 ]

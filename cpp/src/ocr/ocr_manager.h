@@ -5,6 +5,7 @@
 #include <QSet>
 #include <QStringList>
 #include <atomic>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -124,6 +125,9 @@ QString get_ppocr_status();
 bool ppocr_runtime_supported(const QString &dll);
 // Tests hide or show the Snipping Tool OCR; nullopt goes back to detecting it.
 void set_oneocr_available_for_test(std::optional<bool> available);
+// Tests stand in for the engines with a function, which runs on the recognition thread; an empty
+// one goes back to the engines.
+void set_recognizer_for_test(std::function<OcrResult(const QImage &)> recognizer);
 bool is_ocr_available();
 QStringList get_available_engines();
 bool set_ocr_engine(const QString &engine_type);

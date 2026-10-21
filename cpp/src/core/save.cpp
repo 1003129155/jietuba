@@ -1,6 +1,7 @@
 #include "core/save.h"
 #include "core/logger.h"
 #include "settings/tool_settings.h"
+#include <QBuffer>
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
@@ -101,9 +102,9 @@ QImage SaveService::flatten_for_pdf(const QImage &image) {
     painter.end();
     return flattened;
 }
-bool SaveService::save_pdf(const QImage &image, const QString &path, int dpi) {
+bool SaveService::save_pdf(const QImage &image, QIODevice *device, int dpi) {
     const auto flattened = flatten_for_pdf(image);
-    QPdfWriter writer(path);
+    QPdfWriter writer(device);
     dpi = std::max(72, dpi);
     writer.setResolution(dpi);
     writer.setPageSize(QPageSize(QSizeF(flattened.width() * 72.0 / dpi, flattened.height() * 72.0 / dpi), QPageSize::Point, "Screenshot"));
@@ -115,17 +116,42 @@ bool SaveService::save_pdf(const QImage &image, const QString &path, int dpi) {
     painter.end();
     return true;
 }
-bool SaveService::save_qimage_to_path(const QImage &image, const QString &path, QString format, int dpi) {
+bool SaveService::save_qimage_to_path(const QImage &image, const QString &path, QString format, int dpi, int quality) {
     if (image.isNull()) return false;
     if (format.isEmpty()) {
         const auto dot = QFileInfo(path).fileName().lastIndexOf('.');
         format = dot < 0 ? "PNG" : QFileInfo(path).fileName().mid(dot);
     }
     format = normalize_format(format);
-    if (format == "PDF") return save_pdf(image, path, dpi);
-    const bool success = image.save(path, format.toLatin1().constData());
+    if (format == "PDF") {
+        QFile file(path);
+        const bool success = file.open(QIODevice::WriteOnly) && save_pdf(image, &file, dpi);
+        file.close();
+        if (!success) cleanup_failed_placeholder(path);
+        return success;
+    }
+    const bool success = image.save(path, format.toLatin1().constData(), format_has_quality(format) ? quality : -1);
     if (!success) cleanup_failed_placeholder(path);
     return success;
+}
+QByteArray SaveService::encode_image(const QImage &image, QString format, int quality, int dpi) {
+    if (image.isNull()) return {};
+    format = normalize_format(format);
+    QByteArray bytes;
+    QBuffer buffer(&bytes);
+    buffer.open(QIODevice::WriteOnly);
+    const bool success = format == "PDF" ? save_pdf(image, &buffer, dpi)
+                                         : image.save(&buffer, format.toLatin1().constData(), format_has_quality(format) ? quality : -1);
+    buffer.close();
+    return success ? bytes : QByteArray();
+}
+bool SaveService::format_has_quality(QString format) {
+    format = normalize_format(format);
+    return format == "JPG" || format == "WEBP";
+}
+QImage SaveService::scale_for_save(const QImage &image, const QSize &size) {
+    if (image.isNull() || size.isEmpty() || size == image.size()) return image;
+    return image.scaled(size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
 }
 std::pair<bool, std::optional<QString>> SaveService::save_qimage(const QImage &image, QString directory,
     QString prefix, QString suffix, QString format, int dpi, QString target) const {

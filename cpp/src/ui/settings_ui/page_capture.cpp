@@ -20,7 +20,7 @@
 
 namespace jietuba {
 namespace {
-// Opens the colour format manager; the result stays on the dialog until Apply.
+// Opens the colour format manager; the result is kept on the dialog and saved when it closes.
 void manage_color_formats(SettingsDialog *dialog) {
     ColorFormatDialog editor(*dialog->magnifier_color_formats, dialog);
     if (exec_dialog(&editor)) dialog->magnifier_color_formats = editor.entries();
@@ -31,8 +31,8 @@ const QString PPOCR_PREFIX = "ppocr_rust:";
 // The last item, which opens the model manager.
 const QString MANAGE_MODELS = "manage_models";
 
-// Deleting the model in use sets the engine to Auto at once rather than at Apply, so no setting
-// is left pointing at a deleted model; a model only picked in the combo puts the combo back on Auto.
+// Deleting the model in use sets the engine to Auto at once, so no setting is left pointing at a
+// deleted model; a model only picked in the combo puts the combo back on Auto.
 void on_model_removed(SettingsDialog *dialog, PpocrModelDialog *window, const QString &model_id) {
     auto *config = dialog->config_manager;
     auto *combo = dialog->attr<QComboBox>("ocr_engine_combo");
@@ -85,7 +85,7 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     set_own_style(view, "background: transparent;");
     auto *layout = new QVBoxLayout(view);
     layout->setContentsMargins(0, 0, dialog_scaled(10), 0);
-    layout->setSpacing(dialog_scaled(20));
+    layout->setSpacing(dialog_scaled(14));
 
     // ── Capture engine ──
     auto *grp_engine = new SettingsCardGroup(dialog->tr_text("Screenshot"), view, "capture");
@@ -107,7 +107,7 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     // Three levels in one combo rather than a master switch plus a drill-down switch: the
     // configuration has only off / window / element, and two switches would add the invalid
     // "master off, drill-down on" combination.
-    auto *mode_card = new SettingCard(FluentIcon::Camera, dialog->tr_text("Detection Mode"),
+    auto *mode_card = new SettingCard(FluentIcon::Camera, dialog->tr_text("Detection Precision"),
                                       dialog->tr_text("Snap the selection to the window or control under the cursor. "
                                                       "Control detection reads the accessibility tree and takes longer on large windows."),
                                       grp_smart);
@@ -121,6 +121,8 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     switch_card(dialog, grp_smart, FluentIcon::Sync, "Selection Switch Animation", "Slide the selection when it moves from one window or control to another.",
                 config->get_smart_selection_animation(), "smart_animation_toggle");
     layout->addWidget(grp_smart);
+
+    add_quick_actions_group(dialog, view, layout);
 
     // ── Saving ──
     auto *grp_save = new SettingsCardGroup(dialog->tr_text("Save Settings"), view, "capture");
@@ -169,6 +171,16 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     dialog->set_attr("screenshot_format_combo", format_combo);
     fmt_card->addControl(format_combo);
     grp_save->addSettingCard(fmt_card);
+    // The window behind Save in the capture toolbar, the pin menu and the clipboard.
+    auto *style_card = new SettingCard(FluentIcon::Save, dialog->tr_text("Save Dialog"),
+                                       dialog->tr_text("Used when saving a screenshot, a pin or a clipboard image."), grp_save);
+    auto *style_combo = new ComboBox(style_card);
+    style_combo->addItem(dialog->tr_text("Modern (with preview)"), QString("modern"));
+    style_combo->addItem(dialog->tr_text("Classic (system dialog)"), QString("classic"));
+    style_combo->setCurrentIndex(std::max(0, style_combo->findData(config->get_app_setting("save_dialog_style").toString())));
+    dialog->set_attr("save_dialog_style_combo", style_combo);
+    style_card->addControl(style_combo);
+    grp_save->addSettingCard(style_card);
     layout->addWidget(grp_save);
 
     // ── Watermark ── (text and style are edited in the capture toolbar's watermark panel)
@@ -190,7 +202,7 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
                 "Show the switch-format and copy-color shortcuts under the readings. Off makes the magnifier shorter.",
                 config->get_app_setting("magnifier_hint").toBool(), "magnifier_hint_toggle");
     // Formats can be checked several at a time and added, which a combo cannot hold, so they
-    // get their own window; the result stays on the dialog until Apply.
+    // get their own window; the result is kept on the dialog and saved when it closes.
     auto *formats_card = new SettingCard(FluentIcon::Palette, dialog->tr_text("Color Formats"),
                                          dialog->tr_text("Which formats Shift cycles through on the magnifier, for C to copy."), grp_magnifier);
     dialog->magnifier_color_formats = color_formats::load(config);

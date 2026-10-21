@@ -1,19 +1,29 @@
-**[中文](README_zh-CN.md)** | [English](README.md) | [日本語](README_JA.md)
+<div align="center">
 
-# 截图吧 — Windows 截图、OCR、钉图、翻译与剪贴板工具
+<img src="svg/%E6%89%98%E7%9B%98.svg" width="128" alt="截图吧 logo" />
+
+# 截图吧
+
+**Windows 截图、OCR、钉图、翻译与剪贴板工具**
 
 [![build](https://img.shields.io/github/actions/workflow/status/1003129155/jietuba/cpp.yml?branch=master2&label=build&style=flat-square)](https://github.com/1003129155/jietuba/actions/workflows/cpp.yml) [![license](https://img.shields.io/github/license/1003129155/jietuba?style=flat-square)](LICENSE) [![release](https://img.shields.io/github/v/release/1003129155/jietuba?style=flat-square)](https://github.com/1003129155/jietuba/releases/latest) ![platform](https://img.shields.io/badge/Windows-x64%20%7C%20ARM64-0078D4?style=flat-square)
 
 [下载 Windows 版](https://github.com/1003129155/jietuba/releases/latest) · [从源码构建](#source-setup) · [开发与测试](#development)
+
+**中文** | [English](README.md) | [日本語](README_JA.md)
+
+</div>
 
 <img width="1391" height="844" alt="21" src="https://github.com/user-attachments/assets/3f25de58-2780-4a28-931b-8430f764ee51" />
 
 
 ## 项目简介
 
-截图吧是一款免费开源的 Windows 截图工具：区域与窗口截图、滚动长截图拼接、标注、OCR 文字识别、翻译、钉图、GIF/MP4 录制、二维码/条形码识别、PDF 导出，以及完整的剪贴板历史管理。所有功能本地运行。
+截图吧是一款免费开源的 Windows 截图工具：区域与窗口截图、滚动长截图拼接、标注、OCR 文字识别、翻译、钉图、GIF/MP4 录制、屏幕实时标注、二维码/条形码识别、PDF 导出，以及完整的剪贴板历史管理。所有功能本地运行。
 
 MP4 区域录制支持自定义帧率和码率、暂停/继续、鼠标指针及系统声音；常见 5.1/7.1 播放设备的声音自动转成立体声，不包含麦克风。
+
+屏幕标注直接在正在操作的屏幕上画：用它的全局热键（设置 → 快捷键 → 屏幕标注，默认未设置）或托盘菜单「屏幕标注」开始。画笔、荧光笔、箭头、序号、矩形、椭圆、文字和橡皮擦与截图编辑是同一套工具和设置。选工具之前鼠标照常操作下方的窗口；按 Esc 或「穿透」按钮回到穿透，焦点还给原来的窗口，幻灯片放映可以接着翻页。每块屏幕各一层，撤销按绘制顺序跨屏进行；标注可以隐藏，也可以一键清空（可撤销）。截图和 GIF/MP4 录制会带上画出的内容，不带标注工具栏。屏幕上的荧光笔以固定的半透明上色，底下的字照样看得清。还有一键开关的白板，以及光标高亮（指针周围发光，每次点击出现涟漪）。在 设置 → 屏幕标注 里可以选择开始时的状态、工具栏出现的位置、退出时是否保留标注，以及光标高亮的大小和点击涟漪。
 
 截图吧由 C++（Qt6）实现，图像处理、剪贴板操作、PP-OCR 引擎等核心由 Rust 实现。支持 Windows x86_64 与 ARM64。早期的 Python（PySide6）实现已归档到 [`archive/python`](https://github.com/1003129155/jietuba/tree/archive/python) 分支，不再更新。
 
@@ -54,6 +64,8 @@ MP4 区域录制支持自定义帧率和码率、暂停/继续、鼠标指针及
 两个版本共用设置和剪贴板历史，可以互相换用，但不要同时运行（默认快捷键会冲突）。
 
 首次安装包含更新器的版本后，可在**关于 → 检查更新 → 一键更新并重启**中升级。更新器下载匹配架构的 GitHub Release ZIP，仅替换主 EXE 后重启；保留设置、剪贴板历史、模型和其他文件。录制、导出或后台保存未结束时保留下载结果，结束任务后重试。最近一次主程序备份保存在 `.jietuba-update/` 中，详见[更新器恢复说明](rust_libs/updater/README.md)。2.1.8 之前的 Python 版一键更新后会换成 C++ 实现，设置、剪贴板历史和模型照常保留。
+
+WinGet 发布接入已准备：发布流程会附带清单，公共源尚需提交审核。发布步骤及上架后的安装命令见 [WinGet 发布说明](docs/winget.md)。
 
 <a id="ppocr-pack"></a>
 
@@ -123,7 +135,7 @@ ctest --test-dir build\msvc -C Release --output-on-failure -E "_desktop$|_window
 
 测试程序都在临时沙盒里运行，不会读写本机的设置、剪贴板历史和日志。另有分析构建（`scripts\check.ps1`：AddressSanitizer、代码分析、泄漏检测）和覆盖率（`scripts\coverage.ps1`）。
 
-[C++ CI](.github/workflows/cpp.yml) 在每个 PR 上编译并运行不需要桌面的测试；改到 `rust_libs/` 时，[Rust CI](.github/workflows/rust-wheels.yml) 运行 Rust 单元测试并复查第三方许可。
+[C++ CI](.github/workflows/cpp.yml) 在每个 PR 上编译、运行测试并检查改动代码的行覆盖率；改到 `rust_libs/` 时，[Rust CI](.github/workflows/rust.yml) 运行 Rust 单元测试并复查第三方许可。
 
 发行由 [build.yml](.github/workflows/build.yml) 完成：标签必须是 `release-<VERSION 文件里的版本>`；[lite.yml](.github/workflows/lite.yml) 构建轻量版和完整版（x64 与 ARM64），签名后分别生成 `jietuba_lite-<tag>-<arch>.zip` 和 `jietuba_pp-<tag>-<arch>.zip`。
 
@@ -140,6 +152,7 @@ ctest --test-dir build\msvc -C Release --output-on-failure -E "_desktop$|_window
 │
 ├── cpp/                     # C++（Qt6）实现
 │   ├── src/                 # 源码，按 <包>/<模块> 组织
+│   │   ├── annotation/      # 屏幕实时标注 — 每屏一层、穿透切换、跨屏撤销
 │   │   ├── barcode/         # 二维码/条形码识别（zxing-cpp）
 │   │   ├── canvas/          # 画布 — 图形编辑核心、撤销、图层
 │   │   ├── capture/         # 截图捕获 — 屏幕截图、窗口与元素识别
@@ -166,7 +179,6 @@ ctest --test-dir build\msvc -C Release --output-on-failure -E "_desktop$|_window
 │   ├── pyclipboard/         # 剪贴板底层操作
 │   ├── ppocr_rust/          # PP-OCR (PaddleOCR) ONNX 识别引擎
 │   ├── hdrcapture/          # HDR 桌面截图
-│   ├── inputhub/            # 全局鼠标与键盘钩子
 │   ├── updater/             # 只替换主 EXE 的独立更新器
 │   └── video_recorder/      # Media Foundation 录制与 WASAPI 系统声音采集
 │
@@ -178,6 +190,35 @@ ctest --test-dir build\msvc -C Release --output-on-failure -E "_desktop$|_window
 ```
 
 ## 模块详细说明
+
+### annotation/ — 屏幕标注模块
+
+在正在操作的屏幕上直接画。每块屏幕一层整屏透明窗口，复用 GIF 录制的绘制层（`GifDrawingView`）和截图编辑的工具栏（`Toolbar`，布局配置 `toolbar_layout::ANNOTATION`），工具、设置面板和撤销都是同一套。
+
+<details>
+<summary>展开目录结构</summary>
+
+```text
+annotation/
+├── screen_annotation.h/.cpp   # ScreenAnnotation — 会话：每屏一层、穿透/绘制/隐藏三态、跨屏撤销、焦点归还；ScreenAnnotationShortcutHandler — 绘制时的按键
+├── annotation_view.h/.cpp     # AnnotationView — 一块屏幕的绘制层，作为画布宿主把共用工具栏交给 CanvasView
+├── annotation_toolbar.h/.cpp  # AnnotationToolbar — 浮动工具栏：穿透、清空、隐藏、退出；不抢焦点，不进截图和录屏
+└── cursor_highlight.h/.cpp    # CursorHighlight 与 PointerLight — 指针周围的光和点击涟漪
+```
+
+</details>
+
+**核心功能：**
+- 穿透态窗口带 `WS_EX_TRANSPARENT`，鼠标直达下方窗口；选了工具才接管鼠标，回到穿透时把焦点还给原来的前台窗口
+- 每块屏幕一个画布和撤销栈，会话记下每一步改了哪些屏，撤销和重做按绘制顺序跨屏进行；清空是一步可撤销的操作
+- 插拔屏幕、改分辨率时增删或调整对应的图层，工具栏总在可见屏幕内
+- 截图前先退回穿透并等这一帧上屏：截图带上画出的内容，不带命中层；工具栏用 `WDA_EXCLUDEFROMCAPTURE` 排除在截图和录屏之外
+- 图层里笔迹下面没有截图底图，荧光笔没法和下方内容正片叠底，改为 35% 不透明度覆盖；一笔一次画完，颜色均匀，矩形荧光的边框和内部作为一个形状一次填充
+- 刚画完的图形不自动选中，屏幕上和录屏里不会出现控制点；用对应工具点一下照样能选中修改
+- 白板是画在笔迹下面的纯白底，点一下开、再点一下关；回到穿透就露出桌面，选下一个工具时白板回来
+- 光标高亮从输入钩子的鼠标事件里取指针位置和按键，穿透时也有效，指针不动时什么都不跑，也不会漏掉点击；绘制时圆盘与笔画在同一次重绘里移动，截图时不带它
+
+---
 
 ### barcode/ — 扫码模块
 
@@ -371,7 +412,9 @@ core/
 ├── i18n.h/.cpp                 # I18nManager / XmlTranslator / tr() — 国际化管理，多语言支持
 ├── shortcut_manager.h/.cpp     # HotkeySystem / ShortcutManager — 全局热键和应用内快捷键管理
 ├── global_hotkey.h/.cpp        # 全局热键的键名表与注册方式判定：系统注册、钩子接管或不允许
-├── input_hub.h/.cpp            # 进程共用的全局输入：原生钩子（j-input）不占界面线程，事件转成 Qt 信号
+├── input_hub.h/.cpp            # 进程共用的全局输入：钩子不占界面线程，事件转成 Qt 信号
+├── input_engine.h/.cpp         # 输入状态机 — 手势、热键、快捷键录入、旁听订阅
+├── input_hooks.h/.cpp          # 独立线程上的低层鼠标键盘钩子与前台窗口钩子
 ├── quick_capture_input.h/.cpp  # 全局鼠标快捷键的拖动输入，接在共用输入中心上
 ├── last_capture_region.h/.cpp  # 进程内存的"上次截图区域"，供恢复选区快捷键使用
 ├── save.h/.cpp                 # SaveService — 文件保存服务（自动命名、路径管理、高质量 PDF 输出）
@@ -405,7 +448,7 @@ core/
 - 全局崩溃处理，自动捕获未处理异常
 - SVG/图片资源统一加载
 - 应用级亮色/暗色主题管理
-- XML 格式的多语言国际化系统（中/英/日/韩）
+- XML 格式的多语言国际化系统（中/英/日/韩/繁中）
 - 全局热键系统（基于 Windows API）和应用内快捷键管理
 - 文件保存/导出服务（含高质量 PDF 输出）
 - 以管理员身份运行：计划任务开机自启免 UAC，普通启动时转交给管理员实例
@@ -702,12 +745,13 @@ translation/
 translations/
 ├── app_zh.xml / app_en.xml  # 中文/英文翻译源文件
 ├── app_ja.xml / app_ko.xml  # 日文/韩文翻译源文件
+├── app_zh_TW.xml            # 繁体中文（台湾）翻译源文件
 └── app_*.qm                 # 编译后的 Qt 二进制文件（app_zh.qm 等）
 ```
 
 </details>
 
-**说明：** `.xml` 为可编辑的翻译源文件，`.qm` 为 Qt 运行时加载的编译文件。新增或修改界面文字时，四个 `.xml` 都要补上同一上下文的条目（多行文案写真换行），再运行 `scripts/compile_translations.py` 重新编译。日志文案直接改 `resources/core/log_translations.json`。
+**说明：** `.xml` 为可编辑的翻译源文件，`.qm` 为 Qt 运行时加载的编译文件。新增或修改界面文字时，五个 `.xml` 都要补上同一上下文的条目（多行文案写真换行），再运行 `scripts/compile_translations.py` 重新编译。日志文案直接改 `resources/core/log_translations.json`。
 
 ---
 

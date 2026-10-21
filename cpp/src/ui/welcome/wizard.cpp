@@ -38,6 +38,8 @@ StepItem::StepItem(int index, QWidget *parent) : QFrame(parent), index_(index) {
     text_ = new QLabel("", this);
     text_->setObjectName("StepText");
     text_->setWordWrap(false);
+    // Takes the width left beside the number rather than the full text's, so eliding has a real width.
+    text_->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     text_->setAttribute(Qt::WA_TransparentForMouseEvents);
     row->addWidget(number_);
     row->addWidget(text_, 1);
@@ -45,9 +47,21 @@ StepItem::StepItem(int index, QWidget *parent) : QFrame(parent), index_(index) {
 }
 
 void StepItem::set_text(const QString &text) {
-    text_->setText(text);
+    full_text_ = text;
+    elide_text();
     text_->setToolTip(text);
     setAccessibleName(text);
+}
+
+void StepItem::elide_text() {
+    // The weight changes with the state, so the stylesheet font is measured each time.
+    text_->ensurePolished();
+    text_->setText(text_->fontMetrics().elidedText(full_text_, Qt::ElideRight, text_->width()));
+}
+
+void StepItem::resizeEvent(QResizeEvent *event) {
+    QFrame::resizeEvent(event);
+    elide_text();
 }
 
 void StepItem::set_state(bool active, bool completed) {
@@ -107,8 +121,9 @@ void StepItem::apply_welcome_theme() {
                       .arg(s(12))
                       .arg(number_weight)
                       .arg(text_color)
-                      .arg(s(13))
+                      .arg(s(14))
                       .arg(text_weight));
+    elide_text();
 }
 
 void StepItem::enterEvent(QEnterEvent *event) {
@@ -175,11 +190,8 @@ void WelcomeWizard::setup_titlebar() {
     auto *title_bar = new FluentTitleBar(this);
     configure_dialog_control(*title_bar);
     setTitleBar(title_bar);
-    title_bar->iconLabel->hide();
     if (title_bar->maxBtn) title_bar->maxBtn->hide();
     if (title_bar->minBtn) title_bar->minBtn->hide();
-    // Without the icon the title would touch the left edge; the native title bar's margin stays.
-    title_bar->hBoxLayout->setContentsMargins(dialog_scaled(12), 0, 0, 0);
     title_bar->setDoubleClickEnabled(false);
 }
 
@@ -204,7 +216,7 @@ void WelcomeWizard::build_ui() {
     // Left: brand and step navigation.
     sidebar_ = new QFrame(shell_);
     sidebar_->setObjectName("WizardSidebar");
-    sidebar_->setFixedWidth(dialog_scaled(224));
+    sidebar_->setFixedWidth(dialog_scaled(260));
     auto *side_layout = new QVBoxLayout(sidebar_);
     side_layout->setContentsMargins(dialog_scaled(20), dialog_scaled(23), dialog_scaled(20), dialog_scaled(20));
     side_layout->setSpacing(dialog_scaled(4));
@@ -300,10 +312,16 @@ void WelcomeWizard::apply_welcome_theme() {
 }
 
 void WelcomeWizard::build_pages() {
+    auto *hotkeys = new HotkeyPage(config_);
+    auto *annotation = new ScreenAnnotationPage(config_);
+    // One real key bound twice fails silently, so every global hotkey editor is checked together.
+    hotkeys->join_conflict_group(annotation->hotkey_edits());
     pages_ = {
         new WelcomePage(config_, this),
-        new HotkeyPage(config_),
+        hotkeys,
+        new MouseShortcutPage(config_),
         new ScreenshotHotkeyPage(config_),
+        annotation,
         new ClipboardHotkeyPage(config_),
         new TranslationPage(config_),
         new FinishPage(config_),

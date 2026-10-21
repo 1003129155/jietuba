@@ -15,13 +15,27 @@ pub struct JbPpocr {
     inner: Mutex<Option<engine::Engine>>,
 }
 
+/// Where one character sits along the line's reading direction, the line's length being 1.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct JbOcrChar {
+    pub start: f32,
+    pub center: f32,
+    pub end: f32,
+}
+
 /// One recognized line: four corners (x, y) from top-left clockwise in source
-/// coordinates, the text (owned by the line array), and a 0..1 confidence.
+/// coordinates, the text and characters (owned by the line array), and a 0..1 confidence.
+/// Reading runs from the top-right corner down when `vertical`, else from the top-left
+/// corner right. `chars` has one entry per character (Unicode scalar) of `text`, or none.
 #[repr(C)]
 pub struct JbOcrLine {
     pub points: [f64; 8],
     pub text: *mut c_char,
     pub score: f64,
+    pub vertical: bool,
+    pub chars: *mut JbOcrChar,
+    pub char_count: usize,
 }
 
 /// Loads ONNX Runtime from an absolute path; required before jb_ppocr_open. Once loaded,
@@ -124,8 +138,16 @@ pub unsafe extern "C" fn jb_ppocr_recognize(
                             points[index * 2] = point[0] as f64;
                             points[index * 2 + 1] = point[1] as f64;
                         }
+                        // Removing NULs would shift the characters, so such a line keeps none.
+                        let chars: Vec<JbOcrChar> = if line.text.contains('\0') {
+                            Vec::new()
+                        } else {
+                            line.chars.iter().map(|c| JbOcrChar { start: c.start, center: c.center, end: c.end }).collect()
+                        };
                         let text = CString::new(line.text.replace('\0', "")).unwrap_or_default();
-                        JbOcrLine { points, text: text.into_raw(), score: line.score as f64 }
+                        let char_count = chars.len();
+                        let chars = if chars.is_empty() { std::ptr::null_mut() } else { Box::into_raw(chars.into_boxed_slice()) as *mut JbOcrChar };
+                        JbOcrLine { points, text: text.into_raw(), score: line.score as f64, vertical: line.vertical, chars, char_count }
                     })
                     .collect();
                 out.shrink_to_fit();
@@ -151,6 +173,9 @@ pub unsafe extern "C" fn jb_ppocr_lines_free(lines: *mut JbOcrLine, count: usize
         for line in slice.iter() {
             if !line.text.is_null() {
                 drop(CString::from_raw(line.text));
+            }
+            if !line.chars.is_null() {
+                drop(Box::from_raw(std::ptr::slice_from_raw_parts_mut(line.chars, line.char_count)));
             }
         }
     })

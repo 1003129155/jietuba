@@ -5,12 +5,14 @@
 #include "core/crash_handler.h"
 #include "core/logger.h"
 #include <QFileInfo>
+#include <QGuiApplication>
 #include <QTimer>
 #include <cmath>
 #include <thread>
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <dwmapi.h>
+#include <shellapi.h>
 #include <shellscalingapi.h>
 #include <shobjidl.h>
 #endif
@@ -20,6 +22,7 @@ namespace {
 QTimer *trim_timer = nullptr;
 std::function<bool()> trim_busy;
 std::function<void()> trim_override;
+std::function<bool(const QStringList &, const QString &)> copy_override;
 
 void trim_when_idle() {
     if (trim_busy && trim_busy()) {
@@ -53,6 +56,56 @@ void trim_working_set() {
 void set_trim_busy_check(std::function<bool()> predicate) { trim_busy = std::move(predicate); }
 
 void set_trim_for_test(std::function<void()> trim) { trim_override = std::move(trim); }
+
+namespace {
+#ifdef Q_OS_WIN
+bool shell_copy(const QStringList &sources, const QString &folder) {
+    const HRESULT init = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+    IFileOperation *operation = nullptr;
+    IShellItem *destination = nullptr;
+    HRESULT hr = CoCreateInstance(CLSID_FileOperation, nullptr, CLSCTX_ALL, IID_PPV_ARGS(&operation));
+    if (SUCCEEDED(hr)) hr = operation->SetOperationFlags(FOF_ALLOWUNDO | FOF_RENAMEONCOLLISION | FOF_NOCONFIRMMKDIR);
+    if (SUCCEEDED(hr))
+        hr = SHCreateItemFromParsingName(reinterpret_cast<LPCWSTR>(QDir::toNativeSeparators(folder).utf16()), nullptr, IID_PPV_ARGS(&destination));
+    for (const QString &source : sources) {
+        if (FAILED(hr)) break;
+        IShellItem *item = nullptr;
+        hr = SHCreateItemFromParsingName(reinterpret_cast<LPCWSTR>(QDir::toNativeSeparators(source).utf16()), nullptr, IID_PPV_ARGS(&item));
+        if (SUCCEEDED(hr)) hr = operation->CopyItem(item, destination, nullptr, nullptr);
+        if (item) item->Release();
+    }
+    BOOL aborted = FALSE;
+    if (SUCCEEDED(hr)) hr = operation->PerformOperations();
+    if (SUCCEEDED(hr)) operation->GetAnyOperationsAborted(&aborted);
+    if (destination) destination->Release();
+    if (operation) operation->Release();
+    if (SUCCEEDED(init)) CoUninitialize();
+    if (FAILED(hr)) log_exception("OSError", QString("IFileOperation failed: 0x%1").arg(static_cast<quint32>(hr), 8, 16, QChar('0')), T("复制到文件夹"));
+    return SUCCEEDED(hr) && !aborted;
+}
+#endif
+}
+
+void copy_into_folder(const QStringList &sources, const QString &folder, std::function<void(bool, const QStringList &)> done) {
+    std::function<bool(const QStringList &, const QString &)> copy = copy_override;
+#ifdef Q_OS_WIN
+    if (!copy) copy = &shell_copy;
+#endif
+    std::thread([sources, folder, copy = std::move(copy), done = std::move(done)]() mutable {
+#ifdef Q_OS_WIN
+        SetThreadDescription(GetCurrentThread(), L"CopyIntoFolder");
+#endif
+        QStringList present, missing;
+        for (const QString &source : sources) (QFileInfo::exists(source) ? present : missing).append(source);
+        bool ok = present.isEmpty();
+        if (!present.isEmpty()) run_thread_guarded("CopyIntoFolder", [&] { ok = copy && copy(present, folder); });
+        // done goes to the main thread whole, so what it holds is released there.
+        if (done && QCoreApplication::instance())
+            QMetaObject::invokeMethod(QCoreApplication::instance(), [done = std::move(done), ok, missing] { done(ok, missing); }, Qt::QueuedConnection);
+    }).detach();
+}
+
+void set_copy_into_folder_for_test(std::function<bool(const QStringList &, const QString &)> copy) { copy_override = std::move(copy); }
 
 void request_trim_working_set(int delay_ms) {
     if (!trim_timer) {
@@ -138,12 +191,72 @@ bool terminate_process_by_pid(qint64 pid) {
 #endif
 }
 
+QStringList recognized_game_executables(const QString &children_key) {
+    QStringList paths;
+#ifdef Q_OS_WIN
+    HKEY children = nullptr;
+    const std::wstring key = children_key.isEmpty() ? std::wstring(L"System\\GameConfigStore\\Children") : children_key.toStdWString();
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, key.c_str(), 0, KEY_READ, &children) != ERROR_SUCCESS) return paths;
+    std::wstring path(32768, L'\0');
+    for (DWORD index = 0;; ++index) {
+        wchar_t name[256];
+        DWORD name_size = static_cast<DWORD>(std::size(name));
+        const LONG status = RegEnumKeyExW(children, index, name, &name_size, nullptr, nullptr, nullptr, nullptr);
+        if (status == ERROR_NO_MORE_ITEMS) break;
+        if (status != ERROR_SUCCESS) continue;
+        DWORD bytes = static_cast<DWORD>(path.size() * sizeof(wchar_t));
+        if (RegGetValueW(children, name, L"MatchedExeFullPath", RRF_RT_REG_SZ, nullptr, path.data(), &bytes) == ERROR_SUCCESS && bytes > sizeof(wchar_t))
+            paths << QString::fromWCharArray(path.data(), static_cast<int>(bytes / sizeof(wchar_t)) - 1);
+    }
+    RegCloseKey(children);
+#endif
+    return paths;
+}
+
+bool is_game_in_foreground() {
+#ifdef Q_OS_WIN
+    QUERY_USER_NOTIFICATION_STATE state{};
+    if (SUCCEEDED(SHQueryUserNotificationState(&state)) && state == QUNS_RUNNING_D3D_FULL_SCREEN) return true;
+    // A recognized game counts in a window too: keys pressed in it are meant for the game.
+    DWORD pid = 0;
+    GetWindowThreadProcessId(GetForegroundWindow(), &pid);
+    if (!pid || pid == GetCurrentProcessId()) return false;
+    HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    if (!process) return false;
+    std::wstring buffer(32768, L'\0');
+    DWORD size = static_cast<DWORD>(buffer.size());
+    const bool named = QueryFullProcessImageNameW(process, 0, buffer.data(), &size);
+    CloseHandle(process);
+    if (!named) return false;
+    const QString exe = QDir::fromNativeSeparators(QString::fromWCharArray(buffer.data(), static_cast<int>(size)));
+    // Not cached: Windows lists a game only after it first runs, and checks follow foreground switches.
+    for (const auto &game : recognized_game_executables())
+        if (QDir::fromNativeSeparators(game).compare(exe, Qt::CaseInsensitive) == 0) return true;
+    return false;
+#else
+    return false;
+#endif
+}
+
 bool set_window_exclude_from_capture(quintptr hwnd, bool exclude) {
 #ifdef Q_OS_WIN
     return SetWindowDisplayAffinity(to_hwnd(hwnd), exclude ? WDA_EXCLUDEFROMCAPTURE : WDA_NONE) != FALSE;
 #else
     Q_UNUSED(hwnd); Q_UNUSED(exclude);
     return false;
+#endif
+}
+
+void set_thread_cursor(Qt::CursorShape shape) {
+#ifdef Q_OS_WIN
+    switch (shape) {
+    case Qt::ArrowCursor: SetCursor(LoadCursorW(nullptr, IDC_ARROW)); break;
+    case Qt::CrossCursor: SetCursor(LoadCursorW(nullptr, IDC_CROSS)); break;
+    case Qt::BlankCursor: SetCursor(nullptr); break;
+    default: break;
+    }
+#else
+    Q_UNUSED(shape);
 #endif
 }
 
@@ -196,6 +309,24 @@ bool set_window_rounded_corners(quintptr hwnd, bool rounded) {
 #else
     Q_UNUSED(hwnd); Q_UNUSED(rounded);
     return false;
+#endif
+}
+
+void disable_native_frame(quintptr hwnd) {
+#ifdef Q_OS_WIN
+    if (QGuiApplication::platformName() != "windows") return;
+    const std::pair<DWORD, DWORD> attributes[] = {
+        {2, 1},            // DWMWA_NCRENDERING_POLICY = DWMNCRP_DISABLED
+        {33, 1},           // DWMWA_WINDOW_CORNER_PREFERENCE = DWMWCP_DONOTROUND
+        {34, 0xFFFFFFFE},  // DWMWA_BORDER_COLOR = DWMWA_COLOR_NONE
+    };
+    for (const auto &[attribute, value] : attributes) {
+        DWORD native_value = value;
+        // Windows 10 rejects the last two; the first still applies.
+        DwmSetWindowAttribute(to_hwnd(hwnd), attribute, &native_value, sizeof native_value);
+    }
+#else
+    Q_UNUSED(hwnd);
 #endif
 }
 

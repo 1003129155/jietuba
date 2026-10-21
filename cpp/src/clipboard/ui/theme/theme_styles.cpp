@@ -155,12 +155,14 @@ QString ThemeStyleGenerator::generate_search_input_style(bool has_text) const {
             QLineEdit {
                 background: %1;
                 border: none;
+                border-radius: %5;
                 color: %2;
                 font-size: %3;
                 padding: %4;
             }
         )")
-        .arg(has_text ? c.bg_hover : "transparent", c.text_primary, px(13), px(4));
+        // The faint base when empty is all that marks it as a box: the field has no border.
+        .arg(has_text ? c.bg_hover : QString("rgba(%1, 0.07)").arg(hex_to_rgb(c.text_primary)), c.text_primary, px(13), px(4), px(4));
 }
 
 QString ThemeStyleGenerator::generate_clear_search_btn_style() const {

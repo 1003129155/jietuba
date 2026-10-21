@@ -8,6 +8,7 @@
 #include "core/platform_utils.h"
 #include "core/qt_utils.h"
 #include "core/quick_capture_input.h"
+#include "core/shortcut_manager.h"
 #include "main_app.h"
 #include "pin/pin_manager.h"
 #include "settings/tool_settings.h"
@@ -86,7 +87,7 @@ void QuickCaptureController::refresh() {
     cancel();
     auto *config = main_app->config_manager;
     actions_ = get_quick_capture_bindings(config);
-    enabled_ = !actions_.empty() && !closed_ && !config->get_app_setting("global_hotkeys_disabled", false).toBool();
+    enabled_ = !actions_.empty() && !closed_ && !ShortcutManager::instance()->global_hotkeys_suppressed();
     sync_input_availability();
     std::vector<std::pair<QStringList, QString>> bindings;
     QStringList gestures;

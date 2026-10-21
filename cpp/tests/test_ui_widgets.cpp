@@ -15,12 +15,16 @@
 #include "ui/arrow_settings_panel.h"
 #include "ui/paint_settings_panel.h"
 #include "ui/color_picker_button.h"
+#include "ui/color_picker_dialog.h"
+#include "caption_check.h"
+#include "ui/magnifier.h"
 #include "ui/number_settings_panel.h"
 #include "ui/text_settings_panel.h"
 #include "canvas/items/text_item.h"
 #include "ui/inapp_key_edit.h"
 #include "ui/key_chip.h"
 #include "ui/reorderable_rows.h"
+#include "ui/screenshot_countdown.h"
 #include "ui/settings_ui/color_format_dialog.h"
 #include "ui/toolbar.h"
 #include "ui/toolbar_layout.h"
@@ -29,7 +33,10 @@
 #include "ui/watermark_settings_panel.h"
 #include <QApplication>
 #include <QCheckBox>
+#include <QColorDialog>
 #include <QComboBox>
+#include <QFrame>
+#include <QFontDatabase>
 #include <QDialogButtonBox>
 #include <QJsonArray>
 #include <QKeyEvent>
@@ -38,16 +45,26 @@
 #include <QToolButton>
 #include <QAbstractItemView>
 #include <algorithm>
+#include <functional>
+#include <stdexcept>
 #include <QMouseEvent>
 #include <QPushButton>
+#include <QScopeGuard>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QSlider>
 #include <QTemporaryDir>
 #include <QFile>
+#include <QDir>
+#include <QHash>
+#include <QSet>
+#include <QXmlStreamReader>
 #include <QTest>
 #include <QTimer>
 #include <QToolButton>
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
 
 using namespace jietuba;
 namespace tl = jietuba::toolbar_layout;
@@ -132,6 +149,15 @@ void drag_grip(DraggableRow *row, int global_y) {
     QMouseEvent release(QEvent::MouseButtonRelease, QPointF(grip->mapFromGlobal(target)), QPointF(target), Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
     QApplication::sendEvent(grip, &release);
 }
+
+// A mouse event at local, sent straight to widget as a grabbing drag delivers it, inside or not.
+void send_mouse(QWidget *widget, QEvent::Type type, const QPointF &local, Qt::MouseButton button = Qt::LeftButton) {
+    const Qt::MouseButtons held = type == QEvent::MouseButtonRelease ? Qt::NoButton : Qt::MouseButtons(Qt::LeftButton);
+    QMouseEvent event(type, local, widget->mapToGlobal(local), type == QEvent::MouseMove ? Qt::NoButton : button, held, Qt::NoModifier);
+    QApplication::sendEvent(widget, &event);
+}
+
+bool close_to(double a, double b) { return std::abs(a - b) < 0.005; }
 
 }
 
@@ -854,6 +880,16 @@ private slots:
         QCOMPARE(edit.text(), QString("ctrl+alt+z"));
         press(Qt::Key_F7);
         QCOMPARE(edit.text(), QString("f7"));
+        // Letting go of a lone modifier puts back the value from before it, not an empty one.
+        press(Qt::Key_Alt, Qt::NoModifier);
+        QCOMPARE(edit.text(), QString("alt+"));
+        release(Qt::Key_Alt, Qt::AltModifier);
+        QCOMPARE(edit.text(), QString("f7"));
+        // So does leaving it unfinished.
+        press(Qt::Key_Control, Qt::NoModifier);
+        edit.clearFocus();
+        QCOMPARE(edit.text(), QString("f7"));
+        edit.setFocus();
         // Tab is recorded instead of moving the focus.
         press(Qt::Key_Tab);
         QCOMPARE(edit.text(), QString("tab"));
@@ -924,6 +960,45 @@ private slots:
         const auto tr = make_tr("First");
         QCOMPARE(tr("Not in any catalog"), QString("Not in any catalog"));
         QVERIFY(!I18nManager::load_language("xx-unsupported"));
+    }
+
+    void traditionalChineseIsAListedLanguage() {
+        const auto items = I18nManager::language_items();
+        QCOMPARE(items.size(), size_t(5));
+        QCOMPARE(items.back().first, QString("zh_TW"));
+        QCOMPARE(items.back().second, QString::fromUtf8("繁體中文"));
+        const auto previous = I18nManager::get_current_language();
+        QVERIFY(I18nManager::load_language("zh_TW"));
+        QCOMPARE(QCoreApplication::translate("SettingsDialog", "Language"), QString::fromUtf8("語言"));
+        QCOMPARE(QCoreApplication::translate("SaveImageDialog", "Save Image"), QString::fromUtf8("儲存圖片"));
+        I18nManager::load_language(previous);
+    }
+
+    // Every catalog carries the same sources, so a switch never drops a line back to English.
+    void catalogsCoverTheSameSources() {
+        const QDir dir(QStringLiteral(JIETUBA_TRANSLATIONS_DIR));
+        const auto names = dir.entryList({"app_*.xml"}, QDir::Files, QDir::Name);
+        QCOMPARE(names.size(), 5);
+        QHash<QString, QSet<QString>> sources;
+        for (const auto &name : names) {
+            QFile file(dir.filePath(name));
+            QVERIFY2(file.open(QIODevice::ReadOnly), qPrintable(name));
+            QXmlStreamReader xml(&file);
+            QSet<QString> set;
+            while (!xml.atEnd()) {
+                if (xml.readNext() == QXmlStreamReader::StartElement && xml.name() == QLatin1String("source"))
+                    set.insert(xml.readElementText());
+            }
+            QVERIFY2(!xml.hasError(), qPrintable(name));
+            sources.insert(name, set);
+        }
+        const auto reference = sources.value(names.first());
+        QVERIFY(reference.size() > 1000);
+        for (const auto &name : names) {
+            const auto difference = reference - sources.value(name);
+            QVERIFY2(difference.isEmpty(),
+                     qPrintable(QString("%1 misses: %2").arg(name, QStringList(difference.values()).join(", "))));
+        }
     }
 
     // The number panel steps the next number and picks a style from the popup over its preview.
@@ -1013,6 +1088,572 @@ private slots:
         QApplication::processEvents();
         QVERIFY(!panel.arrow_style_combo->view()->grab().isNull());
         panel.arrow_style_combo->hidePopup();
+    }
+
+    // ---- Colour dialog ----
+
+    // Black has no saturation and greys no hue; the field and the hue track keep theirs.
+    void colorDialogKeepsHueThroughBlackAndGrey() {
+        ColorPickerDialog dialog(QColor("#3366CC"));
+        dialog.show();
+        auto *square = dialog.square;
+        const double hue = 220.0 / 360;
+        QVERIFY(close_to(square->hue(), hue));
+        QVERIFY(close_to(dialog.hue_slider->value(), hue));
+        const QRectF field = square->field_rect();
+        // Dragged far past the bottom-right corner: clamped to full saturation and black.
+        send_mouse(square, QEvent::MouseButtonPress, QPointF(field.center().x(), field.bottom()));
+        send_mouse(square, QEvent::MouseMove, field.bottomRight() + QPointF(60, 60));
+        QCOMPARE(square->saturation(), 1.0);
+        QCOMPARE(square->value(), 0.0);
+        QCOMPARE(dialog.currentColor(), QColor(0, 0, 0));
+        QCOMPARE(dialog.value_edit->text(), QString("#000000"));
+        // Up past the top edge: the same hue again at full strength, not red.
+        send_mouse(square, QEvent::MouseMove, QPointF(field.right(), field.top() - 60));
+        send_mouse(square, QEvent::MouseButtonRelease, QPointF(field.right(), field.top() - 60));
+        QCOMPARE(square->value(), 1.0);
+        QVERIFY(close_to(dialog.currentColor().hsvHueF(), hue));
+        QCOMPARE(square->handle_center(), field.topRight());
+        // A grey typed in keeps the hue as well.
+        dialog.value_edit->selectAll();
+        QTest::keyClicks(dialog.value_edit, "#808080");
+        QCOMPARE(dialog.currentColor(), QColor("#808080"));
+        QVERIFY(close_to(square->hue(), hue));
+        QVERIFY(close_to(dialog.hue_slider->value(), hue));
+        QCOMPARE(square->saturation(), 0.0);
+        // Arrow keys nudge the handle; Shift by ten steps.
+        QTest::keyClick(square, Qt::Key_Right, Qt::ShiftModifier);
+        QVERIFY(close_to(square->saturation(), 0.1));
+        QTest::keyClick(square, Qt::Key_Down);
+        QTest::keyClick(square, Qt::Key_Left);
+        QTest::keyClick(square, Qt::Key_Up);
+        QVERIFY(close_to(square->saturation(), 0.09));
+        QVERIFY(close_to(square->hue(), hue));
+        // The hue track: a click jumps, the right end is red and stays at the right end.
+        auto *track = dialog.hue_slider;
+        send_mouse(track, QEvent::MouseButtonPress, QPointF(track->width() + 40, track->height() / 2.0));
+        send_mouse(track, QEvent::MouseButtonRelease, QPointF(track->width() + 40, track->height() / 2.0));
+        QCOMPARE(track->value(), 1.0);
+        QCOMPARE(track->thumb_x(), track->track_rect().right());
+        dialog.setCurrentColor(QColor(255, 0, 0));
+        QCOMPARE(track->value(), 1.0);
+        QTest::keyClick(track, Qt::Key_Home);
+        QCOMPARE(track->value(), 0.0);
+        QTest::keyClick(track, Qt::Key_Right);
+        QVERIFY(close_to(track->value(), 0.01));
+        QTest::keyClick(track, Qt::Key_End);
+        QTest::keyClick(track, Qt::Key_Left, Qt::ShiftModifier);
+        QVERIFY(close_to(track->value(), 0.9));
+        QVERIFY(!dialog.grab().isNull());
+    }
+
+    void colorTextParsesAndFormatsEachFormat() {
+        using D = ColorPickerDialog;
+        const QColor blue("#3366CC");
+        QCOMPARE(D::parse_color(D::HEX, "#3366cc")->color, blue);
+        QCOMPARE(D::parse_color(D::HEX, " 36c ")->color, blue);
+        const auto translucent = D::parse_color(D::HEX, "3366CC80");
+        QVERIFY(translucent && translucent->has_alpha);
+        QCOMPARE(translucent->color.alpha(), 128);
+        QVERIFY(!D::parse_color(D::HEX, "#3366C").has_value());
+        QVERIFY(!D::parse_color(D::HEX, "#GG0000").has_value());
+        QCOMPARE(D::parse_color(D::RGB, "51, 102, 204")->color, blue);
+        QCOMPARE(D::parse_color(D::RGB, "rgb(51 102 204)")->color, blue);
+        QVERIFY(!D::parse_color(D::RGB, "256, 0, 0").has_value());
+        QVERIFY(!D::parse_color(D::RGB, "51, 102").has_value());
+        QVERIFY(!D::parse_color(D::RGB, "51, -1, 204").has_value());
+        // hsl(220, 60%, 50%): chroma 0.6, so channels 0.2 / 0.4 / 0.8.
+        QCOMPARE(D::parse_color(D::HSL, "220, 60%, 50%")->color, blue);
+        QCOMPARE(D::parse_color(D::HSL, "hsl(220deg 60% 50%)")->color, blue);
+        QCOMPARE(D::parse_color(D::HSL, "360, 100%, 50%")->color, QColor(255, 0, 0));
+        QVERIFY(!D::parse_color(D::HSL, "220, 120%, 50%").has_value());
+        QCOMPARE(D::parse_color(D::HSV, "hsv(220deg 75% 80%)")->color, blue);
+        QCOMPARE(D::parse_color(D::HSV, "360, 100, 100")->color, QColor(255, 0, 0));
+        QVERIFY(!D::parse_color(D::HSV, "220, 101, 80").has_value());
+        QVERIFY(!D::parse_color(D::HSV, "361, 75, 80").has_value());
+        QCOMPARE(D::format_color(D::HEX, blue), QString("#3366CC"));
+        QCOMPARE(D::format_color(D::RGB, blue), QString("51, 102, 204"));
+        QCOMPARE(D::format_color(D::HSV, blue), QString("220, 75%, 80%"));
+        QCOMPARE(D::format_color(D::HSV, QColor(128, 128, 128), 0.5), QString("180, 0%, 50%"));
+        QCOMPARE(D::format_color(D::HSL, blue), QString("220, 60%, 50%"));
+        // A grey has no hue of its own and shows the one it is given.
+        QCOMPARE(D::format_color(D::HSL, QColor(128, 128, 128), 0.5), QString("180, 0%, 50%"));
+    }
+
+    void colorDialogFieldsFollowTheFormatAndRejectBadText() {
+        ColorPickerDialog dialog(QColor("#3366CC"));
+        dialog.show();
+        QSignalSpy changes(&dialog, &ColorPickerDialog::currentColorChanged);
+        dialog.format_combo->setCurrentIndex(dialog.format_combo->findData(ColorPickerDialog::RGB));
+        QVERIFY(dialog.value_edit->isHidden());
+        QCOMPARE(dialog.channel_edits[0]->text(), QString("51"));
+        QCOMPARE(dialog.channel_edits[1]->text(), QString("102"));
+        QCOMPARE(dialog.channel_edits[2]->text(), QString("204"));
+        auto *red = dialog.channel_edits[0];
+        red->selectAll();
+        QTest::keyClicks(red, "255");
+        QCOMPARE(dialog.currentColor(), QColor(255, 102, 204));
+        QCOMPARE(changes.size(), 3);
+        // Unreadable text changes nothing, and Enter puts the colour back instead of confirming.
+        red->selectAll();
+        QTest::keyClicks(red, "300");
+        QCOMPARE(dialog.currentColor(), QColor(30, 102, 204));
+        QTest::keyClick(red, Qt::Key_Return);
+        QVERIFY(dialog.isVisible());
+        QCOMPARE(red->text(), QString("30"));
+        dialog.setCurrentColor(QColor(255, 0, 0));
+        dialog.format_combo->setCurrentIndex(dialog.format_combo->findData(ColorPickerDialog::HSL));
+        QCOMPARE(dialog.channel_edits[0]->text(), QString("0"));
+        QCOMPARE(dialog.channel_edits[1]->text(), QString("100"));
+        QCOMPARE(dialog.channel_edits[2]->text(), QString("50"));
+        dialog.channel_edits[2]->selectAll();
+        QTest::keyClicks(dialog.channel_edits[2], "25");
+        QCOMPARE(dialog.currentColor(), QColor(128, 0, 0));
+        // The next dialog opens in the format last chosen.
+        ColorPickerDialog next(QColor("#3366CC"));
+        QCOMPARE(next.channel_edits[0]->text(), QString("220"));
+        QCOMPARE(next.channel_edits[1]->text(), QString("60"));
+        QCOMPARE(next.channel_edits[2]->text(), QString("50"));
+        next.format_combo->setCurrentIndex(next.format_combo->findData(ColorPickerDialog::HEX));
+        // Readable text and Enter confirm the dialog with that colour.
+        dialog.format_combo->setCurrentIndex(dialog.format_combo->findData(ColorPickerDialog::HEX));
+        dialog.value_edit->selectAll();
+        QTest::keyClicks(dialog.value_edit, "#00aa00");
+        QTest::keyClick(dialog.value_edit, Qt::Key_Return);
+        QCOMPARE(dialog.result(), static_cast<int>(QDialog::Accepted));
+        QCOMPARE(dialog.selectedColor(), QColor("#00AA00"));
+    }
+
+    void colorDialogHsvChannelsKeepHueAndSaturationAtBlack() {
+        using D = ColorPickerDialog;
+        D dialog(QColor(51, 102, 204, 128));
+        dialog.format_combo->setCurrentIndex(dialog.format_combo->findData(D::HSV));
+        dialog.show();
+        QCOMPARE(dialog.channel_edits[0]->text(), QString("220"));
+        QCOMPARE(dialog.channel_edits[1]->text(), QString("75"));
+        QCOMPARE(dialog.channel_edits[2]->text(), QString("80"));
+        dialog.channel_edits[2]->selectAll();
+        QTest::keyClicks(dialog.channel_edits[2], "0");
+        QCOMPARE(dialog.currentColor(), QColor(0, 0, 0, 128));
+        dialog.channel_edits[0]->selectAll();
+        QTest::keyClicks(dialog.channel_edits[0], "120");
+        QTest::keyClick(dialog.channel_edits[0], Qt::Key_Tab);
+        QCOMPARE(dialog.channel_edits[0]->text(), QString("120"));
+        QCOMPARE(dialog.channel_edits[1]->text(), QString("75"));
+        dialog.channel_edits[2]->selectAll();
+        QTest::keyClicks(dialog.channel_edits[2], "100");
+        QCOMPARE(dialog.currentColor(), QColor(64, 255, 64, 128));
+        dialog.format_combo->setCurrentIndex(dialog.format_combo->findData(D::HEX));
+        QVERIFY(!dialog.value_edit->isHidden());
+        for (auto *edit : dialog.channel_edits) QVERIFY(edit->isHidden());
+        dialog.value_edit->setFocus();
+        const QColor before_switch = dialog.currentColor();
+        dialog.format_combo->setCurrentIndex(dialog.format_combo->findData(D::HSV));
+        QCOMPARE(dialog.currentColor(), before_switch);
+        QTest::keyClick(dialog.channel_edits[0], Qt::Key_Return);
+        QCOMPARE(dialog.selectedColor(), before_switch);
+        dialog.format_combo->setCurrentIndex(dialog.format_combo->findData(D::HEX));
+    }
+
+    void colorDialogInputsFitWithoutHorizontalScrolling() {
+#ifdef Q_OS_WIN
+        // The offscreen platform needs a real font for text measurements.
+        const int font_id = QFontDatabase::addApplicationFont(qEnvironmentVariable("WINDIR") + "/Fonts/segoeui.ttf");
+        QVERIFY(font_id >= 0);
+        const auto remove_font = qScopeGuard([font_id] { QFontDatabase::removeApplicationFont(font_id); });
+#endif
+        const auto restore = qScopeGuard([] { get_dialog_scale().set_percent(100); });
+        using D = ColorPickerDialog;
+        for (int scale : {100, 125, 150, 200}) {
+            get_dialog_scale().set_percent(scale);
+            for (auto options : {D::ShowAlphaChannel, D::NoOption}) {
+                D dialog(QColor(Qt::white), options);
+                dialog.show();
+                for (auto format : {D::HEX, D::RGB, D::HSV, D::HSL}) {
+                    dialog.format_combo->setCurrentIndex(dialog.format_combo->findData(format));
+                    QApplication::processEvents();
+                    QList<LineEdit *> fields;
+                    if (format == D::HEX) fields.append(dialog.value_edit);
+                    else for (auto *edit : dialog.channel_edits) fields.append(edit);
+                    if (options == D::ShowAlphaChannel) fields.append(dialog.alpha_edit);
+                    for (auto *edit : fields) {
+                        QVERIFY(edit->isVisible());
+                        const QString longest = edit == dialog.value_edit ? "#FFFFFFFF" : edit == dialog.alpha_edit ? "100%" : "360";
+                        const int text_width = QFontMetrics(edit->font()).horizontalAdvance(longest);
+                        QVERIFY2(edit->contentsRect().width() - 2 * dialog_scaled(4) - 4 >= text_width,
+                                 qPrintable(QString("scale=%1 format=%2 text=%3 width=%4 textWidth=%5 font=%6")
+                                                .arg(scale).arg(format).arg(longest).arg(edit->width()).arg(text_width).arg(edit->font().toString())));
+                        QVERIFY(dialog.value_group->rect().contains(edit->geometry()));
+                    }
+                    QCOMPARE(dialog.format_combo->geometry().right() + 1, dialog.value_group->x());
+                }
+                dialog.format_combo->setCurrentIndex(dialog.format_combo->findData(D::HEX));
+            }
+        }
+    }
+
+    void colorDialogOpacityFromTrackFieldAndHex() {
+        ColorPickerDialog dialog(QColor(51, 102, 204));
+        dialog.show();
+        QCOMPARE(dialog.alpha_edit->text(), QString("100%"));
+        dialog.alpha_edit->selectAll();
+        QTest::keyClicks(dialog.alpha_edit, "50");
+        QCOMPARE(dialog.currentColor().alpha(), 128);
+        QVERIFY(close_to(dialog.alpha_slider->value(), 128 / 255.0));
+        // Each readable step applies; past 100 the last one stays and Enter shows it again.
+        dialog.alpha_edit->selectAll();
+        QTest::keyClicks(dialog.alpha_edit, "150");
+        QCOMPARE(dialog.currentColor().alpha(), 38);
+        QTest::keyClick(dialog.alpha_edit, Qt::Key_Return);
+        QCOMPARE(dialog.alpha_edit->text(), QString("15%"));
+        QVERIFY(dialog.isVisible());
+        // Dragged off the left end: transparent, the colour itself unchanged.
+        auto *track = dialog.alpha_slider;
+        send_mouse(track, QEvent::MouseButtonPress, QPointF(track->width() / 2.0, track->height() / 2.0));
+        send_mouse(track, QEvent::MouseMove, QPointF(-50, 0));
+        send_mouse(track, QEvent::MouseButtonRelease, QPointF(-50, 0));
+        QCOMPARE(dialog.currentColor(), QColor(51, 102, 204, 0));
+        QCOMPARE(dialog.alpha_edit->text(), QString("0%"));
+        // Eight hex digits carry the opacity; six keep it.
+        dialog.value_edit->selectAll();
+        QTest::keyClicks(dialog.value_edit, "#FF000040");
+        QCOMPARE(dialog.currentColor(), QColor(255, 0, 0, 64));
+        dialog.value_edit->selectAll();
+        QTest::keyClicks(dialog.value_edit, "#00FF00");
+        QCOMPARE(dialog.currentColor(), QColor(0, 255, 0, 64));
+        QVERIFY(!dialog.grab().isNull());
+
+        // Without the alpha channel the colour is opaque and the opacity controls are gone.
+        ColorPickerDialog opaque(QColor(255, 0, 0, 100), ColorPickerDialog::NoOption);
+        QVERIFY(opaque.options() == ColorPickerDialog::NoOption);
+        QCOMPARE(opaque.currentColor(), QColor(255, 0, 0));
+        QVERIFY(opaque.alpha_slider->isHidden());
+        QVERIFY(opaque.alpha_edit->isHidden());
+        opaque.value_edit->selectAll();
+        QTest::keyClicks(opaque.value_edit, "#0000FF80");
+        QCOMPARE(opaque.currentColor(), QColor(0, 0, 255));
+    }
+
+    // A window: it follows the window scale, not the toolbar and panel scale.
+    // Both buttons share a width that holds the label in the current language.
+    void colorDialogButtonsFitTheirLabels() {
+        ColorPickerDialog dialog(QColor("#3366CC"));
+        QCOMPARE(dialog.ok_button->width(), dialog.cancel_button->width());
+        QFont font = dialog.font();
+        font.setPixelSize(ColorPickerDialog::BASE_FONT);
+        for (auto *button : {dialog.ok_button, dialog.cancel_button})
+            QVERIFY(QFontMetrics(font).horizontalAdvance(button->text()) < button->width());
+    }
+
+    void colorDialogUsesTheStandardCaption() {
+        use_test_app_icon();
+        ColorPickerDialog dialog(QColor("#3366CC"));
+        VERIFY_STANDARD_CAPTION(dialog);
+    }
+
+    // The old per-window divergences, rebuilt on a plain bar: each one must fail the shared caption check.
+    void theCaptionCheckCatchesEachDivergence() {
+        use_test_app_icon();
+        const auto problem_after = [](const std::function<void(FluentTitleBar &)> &diverge) {
+            FrostedFramelessDialog dialog;
+            auto *bar = new FluentTitleBar(&dialog);
+            dialog.setTitleBar(bar);
+            dialog.setWindowTitle("Title");
+            diverge(*bar);
+            return caption_problem(dialog);
+        };
+        QVERIFY(problem_after([](FluentTitleBar &) {}).isEmpty());
+        QVERIFY(!problem_after([](FluentTitleBar &bar) { bar.iconLabel->hide(); }).isEmpty());
+        QVERIFY(!problem_after([](FluentTitleBar &bar) { bar.hBoxLayout->setContentsMargins(12, 0, 0, 0); }).isEmpty());
+        QVERIFY(!problem_after([](FluentTitleBar &bar) {
+            bar.hBoxLayout->removeWidget(bar.iconLabel);
+            bar.hBoxLayout->removeWidget(bar.titleLabel);
+            bar.iconLabel->move(200, 4);
+            bar.titleLabel->move(230, 4);
+        }).isEmpty());
+        QVERIFY(!problem_after([](FluentTitleBar &bar) { bar.setIcon(QIcon()); bar.iconLabel->clear(); }).isEmpty());
+    }
+
+    void colorDialogFollowsTheWindowScale() {
+        const auto restore = qScopeGuard([] {
+            get_dialog_scale().set_percent(100);
+            get_ui_scale().set_percent(100);
+        });
+        get_dialog_scale().set_percent(100);
+        ColorPickerDialog normal(QColor("#3366CC"));
+        QCOMPARE(normal.size(), QSize(260, 380));
+        QCOMPARE(normal.square->field_rect().size(), QSizeF(244, 199));
+        QCOMPARE(normal.format_combo->size(), QSize(61, 30));
+        QCOMPARE(normal.value_group->size(), QSize(181, 30));
+        QVERIFY(normal.ok_button->width() >= 60);
+        QCOMPARE(normal.ok_button->height(), 31);
+        QCOMPARE(normal.eyedropper_button->size(), QSize(32, 33));
+        // Track ends in line with the eyedropper's right side plus the gap, thumbs whole at both ends.
+        QCOMPARE(normal.hue_slider->track_rect().height(), 10.0);
+        get_dialog_scale().set_percent(150);
+        ColorPickerDialog large(QColor("#3366CC"));
+        // Rounded half to even: 298.5 -> 298, 91.5 -> 92, 46.5 -> 46.
+        QCOMPARE(large.width(), 390);
+        QCOMPARE(large.square->field_rect().size(), QSizeF(366, 298));
+        QCOMPARE(large.format_combo->size(), QSize(92, 45));
+        QVERIFY(large.ok_button->width() >= 90);
+        QCOMPARE(large.ok_button->height(), 46);
+        QCOMPARE(large.hue_slider->track_rect().height(), 15.0);
+        normal.value_edit->ensurePolished();
+        large.value_edit->ensurePolished();
+        QCOMPARE(normal.value_edit->font().pixelSize(), 14);
+        QCOMPARE(large.value_edit->font().pixelSize(), 21);
+        get_ui_scale().set_percent(200);
+        ColorPickerDialog panels_scaled(QColor("#3366CC"));
+        QCOMPARE(panels_scaled.size(), large.size());
+    }
+
+    // An overlay of the capture, so it follows the panel scale and ignores the window scale.
+    void screenshotCountdownFollowsThePanelScale() {
+        const auto restore = qScopeGuard([] {
+            get_dialog_scale().set_percent(100);
+            get_ui_scale().set_percent(100);
+        });
+        get_dialog_scale().set_percent(100);
+        get_ui_scale().set_percent(100);
+        ScreenshotCountdown normal(nullptr);
+        QCOMPARE(normal.size(), QSize(96, 96));
+        get_dialog_scale().set_percent(150);
+        ScreenshotCountdown window_scaled(nullptr);
+        QCOMPARE(window_scaled.size(), normal.size());
+        get_ui_scale().set_percent(150);
+        ScreenshotCountdown panel_scaled(nullptr);
+        QCOMPARE(panel_scaled.size(), QSize(144, 144));
+    }
+
+    // Every colour control goes through choose_color; the style setting picks the dialog.
+    void chooseColorFollowsTheStyleSetting() {
+        QVERIFY(!use_system_color_dialog(config_));
+        on_next_modal([](QWidget *modal) {
+            auto *dialog = qobject_cast<ColorPickerDialog *>(modal);
+            QVERIFY(dialog);
+            dialog->setCurrentColor(QColor("#00AA00"));
+            dialog->accept();
+        });
+        auto chosen = choose_color(QColor("#123456"));
+        QVERIFY(chosen.has_value());
+        QCOMPARE(*chosen, QColor("#00AA00"));
+
+        config_->set_app_setting("color_picker_style", "system");
+        QVERIFY(use_system_color_dialog(config_));
+        QList<QColor> seen;
+        const auto record = [&seen](const QColor &color) { seen.append(color); };
+        // Without the alpha channel the system dialog reports opaque colours too.
+        on_next_modal([](QWidget *modal) {
+            auto *dialog = qobject_cast<QColorDialog *>(modal);
+            QVERIFY(dialog);
+            QVERIFY(!dialog->testOption(QColorDialog::ShowAlphaChannel));
+            QCOMPARE(dialog->windowTitle(), QString("Mask"));
+            dialog->setCurrentColor(QColor(17, 34, 51, 90));
+            dialog->accept();
+        });
+        chosen = choose_color(QColor("#123456"), nullptr, "Mask", ColorPickerDialog::NoOption, record);
+        QVERIFY(chosen.has_value());
+        QCOMPARE(*chosen, QColor(17, 34, 51));
+        QVERIFY(!seen.isEmpty());
+        QCOMPARE(seen.last(), QColor(17, 34, 51));
+        // A cancel hands the initial colour back to the live callback.
+        seen.clear();
+        on_next_modal([](QWidget *modal) {
+            auto *dialog = qobject_cast<QColorDialog *>(modal);
+            QVERIFY(dialog);
+            QVERIFY(dialog->testOption(QColorDialog::ShowAlphaChannel));
+            QCOMPARE(dialog->windowTitle(), i18n_tr("Select Color", "ColorPickerDialog"));
+            dialog->setCurrentColor(QColor("#FF0000"));
+            dialog->reject();
+        });
+        QVERIFY(!choose_color(QColor("#123456"), nullptr, {}, ColorPickerDialog::ShowAlphaChannel, record).has_value());
+        QVERIFY(seen.contains(QColor("#FF0000")));
+        QCOMPARE(seen.last(), QColor("#123456"));
+        // The panels' colour button opens the same choice.
+        ColorPickerButton button(QColor("red"), true);
+        on_next_modal([](QWidget *modal) {
+            auto *dialog = qobject_cast<QColorDialog *>(modal);
+            QVERIFY(dialog);
+            dialog->setCurrentColor(QColor("#00AA00"));
+            dialog->accept();
+        });
+        button.click();
+        QCOMPARE(button.color(), QColor("#00AA00"));
+    }
+
+    // getColor: live changes reach the callback, a cancel hands back the initial colour.
+    void getColorFollowsLiveChangesAndRevertsOnCancel() {
+        QList<QColor> seen;
+        const auto record = [&seen](const QColor &color) { seen.append(color); };
+        on_next_modal([](QWidget *modal) {
+            auto *dialog = qobject_cast<ColorPickerDialog *>(modal);
+            QVERIFY(dialog);
+            QCOMPARE(dialog->windowTitle(), QString("Border"));
+            dialog->setCurrentColor(QColor("#00AA00"));
+            dialog->reject();
+        });
+        QVERIFY(!ColorPickerDialog::getColor(QColor("#123456"), nullptr, "Border", ColorPickerDialog::ShowAlphaChannel, record).has_value());
+        QCOMPARE(seen, (QList<QColor>{QColor("#00AA00"), QColor("#123456")}));
+        seen.clear();
+        on_next_modal([](QWidget *modal) {
+            auto *dialog = qobject_cast<ColorPickerDialog *>(modal);
+            QVERIFY(dialog);
+            QCOMPARE(dialog->windowTitle(), i18n_tr("Select Color", "ColorPickerDialog"));
+            dialog->setCurrentColor(QColor("#00AA00"));
+            dialog->accept();
+        });
+        const auto chosen = ColorPickerDialog::getColor(QColor("#123456"), nullptr, {}, ColorPickerDialog::ShowAlphaChannel, record);
+        QVERIFY(chosen.has_value());
+        QCOMPARE(*chosen, QColor("#00AA00"));
+        QCOMPARE(seen, (QList<QColor>{QColor("#00AA00")}));
+    }
+
+    // The colour button opens the dialog below itself and reports the accepted colour.
+    void colorButtonPicksWithTheDialog() {
+        // Near the top of the 800x600 offscreen screen, so the dialog fits below the button.
+        QWidget host;
+        host.setGeometry(100, 20, 200, 100);
+        auto *button = new ColorPickerButton(QColor("red"), false, 28, true, true, &host);
+        button->move(10, 10);
+        host.show();
+        QSignalSpy picked(button, &ColorPickerButton::color_changed);
+        QPoint dialog_pos;
+        on_next_modal([&dialog_pos](QWidget *modal) {
+            auto *dialog = qobject_cast<ColorPickerDialog *>(modal);
+            QVERIFY(dialog);
+            QVERIFY(dialog->alpha_edit->isHidden());
+            dialog_pos = dialog->pos();
+            dialog->setCurrentColor(QColor("#00AA00"));
+            dialog->accept();
+        });
+        button->click();
+        QCOMPARE(picked.size(), 1);
+        QCOMPARE(button->color(), QColor("#00AA00"));
+        QCOMPARE(dialog_pos.x(), button->mapToGlobal(QPoint(0, 0)).x());
+        QVERIFY(dialog_pos.y() > button->mapToGlobal(QPoint(0, 0)).y());
+    }
+
+    // The QColorDialog eyedropper: the dialog grabs mouse and keyboard with a cross cursor and
+    // previews the pixel under the pointer; a release picks there with the dialog's opacity,
+    // Esc restores the colour, hue included. Space toggles it, Enter picks and accepts.
+    void eyedropperPreviewsPicksAndRestores() {
+        // Red left of x = 50, blue from there.
+        ColorPickerDialog::set_screen_sampler_for_test([](const QPoint &pt) { return pt.x() < 50 ? QColor(255, 0, 0) : QColor(0, 0, 255); });
+        const auto reset_sampler = qScopeGuard([] { ColorPickerDialog::set_screen_sampler_for_test({}); });
+        const QColor start(0, 255, 0, 128);
+        ColorPickerDialog dialog(start);
+        dialog.show();
+        dialog.move(300, 200);
+        dialog.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&dialog));
+        const auto move_to = [&dialog](int x, int y) {
+            QMouseEvent move(QEvent::MouseMove, dialog.mapFromGlobal(QPointF(x, y)), QPointF(x, y), Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+            QApplication::sendEvent(&dialog, &move);
+        };
+        const auto release = [&dialog] {
+            const QPointF global = QCursor::pos();
+            QMouseEvent up(QEvent::MouseButtonRelease, dialog.mapFromGlobal(global), global, Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+            QApplication::sendEvent(&dialog, &up);
+        };
+
+        QCursor::setPos(10, 10);
+        dialog.eyedropper_button->click();
+        QVERIFY(dialog.picking_screen());
+        QVERIFY(dialog.eyedropper_button->isChecked());
+        QCOMPARE(dialog.eyedropper_button->grab().toImage().pixelColor(4, 4), QColor("#58748D"));
+        QCOMPARE(QWidget::mouseGrabber(), &dialog);
+        QCOMPARE(QWidget::keyboardGrabber(), &dialog);
+        QVERIFY(QApplication::overrideCursor());
+        QCOMPARE(QApplication::overrideCursor()->shape(), Qt::CrossCursor);
+        QVERIFY(dialog.pick_catcher()->isVisible());
+        QCOMPARE(dialog.currentColor(), QColor(255, 0, 0, 128));
+        move_to(80, 10);
+        QCOMPARE(dialog.currentColor(), QColor(0, 0, 255, 128));
+        // Outside the dialog the timer follows the pointer and keeps the catcher under it.
+        QCursor::setPos(20, 30);
+        QTRY_COMPARE(dialog.currentColor(), QColor(255, 0, 0, 128));
+        QCOMPARE(dialog.pick_catcher()->geometry(), QRect(18, 28, 5, 5));
+        QTest::keyClick(&dialog, Qt::Key_Escape);
+        QVERIFY(!dialog.picking_screen());
+        QVERIFY(dialog.isVisible());
+        QCOMPARE(dialog.currentColor(), start);
+        QVERIFY(close_to(dialog.square->hue(), 120.0 / 360));
+        QVERIFY(!dialog.eyedropper_button->isChecked());
+        QVERIFY(!QWidget::mouseGrabber());
+        QVERIFY(!QWidget::keyboardGrabber());
+        QVERIFY(!QApplication::overrideCursor());
+        QVERIFY(!dialog.pick_catcher()->isVisible());
+
+        // The release picks where the pointer is.
+        dialog.eyedropper_button->click();
+        move_to(10, 10);
+        QCursor::setPos(80, 10);
+        release();
+        QVERIFY(!dialog.picking_screen());
+        QCOMPARE(dialog.currentColor(), QColor(0, 0, 255, 128));
+
+        // Space starts and picks; Enter picks and accepts. Offscreen windows take the activation
+        // when shown, the catcher too, and the shortcut needs the dialog active.
+        dialog.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&dialog));
+        QCOMPARE(QApplication::focusWidget(), &dialog);
+        QCursor::setPos(10, 10);
+        QTest::keyClick(&dialog, Qt::Key_Space);
+        QVERIFY(dialog.picking_screen());
+        QTest::keyClick(&dialog, Qt::Key_Space);
+        QVERIFY(!dialog.picking_screen());
+        QCOMPARE(dialog.currentColor(), QColor(255, 0, 0, 128));
+        dialog.eyedropper_button->click();
+        QCursor::setPos(80, 10);
+        QTest::keyClick(&dialog, Qt::Key_Return);
+        QVERIFY(!dialog.picking_screen());
+        QCOMPARE(dialog.result(), int(QDialog::Accepted));
+        QCOMPARE(dialog.selectedColor(), QColor(0, 0, 255, 128));
+        QVERIFY(!QWidget::mouseGrabber());
+
+        // Closing the dialog ends it.
+        ColorPickerDialog closing(start);
+        closing.show();
+        closing.eyedropper_button->click();
+        QVERIFY(closing.picking_screen());
+        closing.reject();
+        QVERIFY(!closing.picking_screen());
+        QVERIFY(!QWidget::mouseGrabber());
+        QVERIFY(!QApplication::overrideCursor());
+    }
+
+    // On the real desktop the catcher sits under the pointer, so the click lands on it rather
+    // than on the window below, and the never-painted catcher stays out of the screen grab.
+    void eyedropperCatcherTakesTheClickOnTheDesktop() {
+        if (QGuiApplication::platformName() != "windows") QSKIP("needs -platform windows");
+#ifdef Q_OS_WIN
+        const QRect area = QGuiApplication::primaryScreen()->availableGeometry();
+        QWidget target;
+        target.setWindowFlags(Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+        target.setStyleSheet("background: #c81e3c;");
+        target.setGeometry(area.left() + 40, area.top() + 40, 80, 80);
+        target.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&target));
+        ColorPickerDialog dialog(QColor(0, 128, 0));
+        dialog.show();
+        dialog.move(area.left() + 200, area.top() + 40);
+        QVERIFY(QTest::qWaitForWindowExposed(&dialog));
+        const QPoint saved = QCursor::pos();
+        const auto restore_pointer = qScopeGuard([saved] { QCursor::setPos(saved); });
+        const QPoint over = target.geometry().center();
+        const auto top_at = [](const QPoint &pt) { return GetAncestor(WindowFromPoint(POINT{pt.x(), pt.y()}), GA_ROOT); };
+        dialog.eyedropper_button->click();
+        QVERIFY(dialog.picking_screen());
+        QCursor::setPos(over);
+        QTRY_COMPARE(dialog.currentColor(), QColor(0xc8, 0x1e, 0x3c));
+        QCOMPARE(top_at(over), reinterpret_cast<HWND>(dialog.pick_catcher()->winId()));
+        QCOMPARE(QWidget::mouseGrabber(), &dialog);
+        QTest::keyClick(&dialog, Qt::Key_Escape);
+        QVERIFY(!dialog.picking_screen());
+        QCOMPARE(dialog.currentColor(), QColor(0, 128, 0));
+        QCOMPARE(top_at(over), reinterpret_cast<HWND>(target.winId()));
+#endif
     }
 };
 

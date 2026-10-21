@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <optional>
 #include <QPoint>
 #include <vector>
@@ -192,9 +193,8 @@ public:
     QVariantMap get_translation_request_params() const;
     void set_clipboard_history_limit(int value) { qsettings.setValue("clipboard/history_limit", std::max(0, value)); }
     void set_clipboard_db_path(const QString &value) { qsettings.setValue("clipboard/db_path", value); }
-    // Deprecated 2026-01-17 in favour of the font size; kept for compatibility.
-    int get_clipboard_display_lines() const { return 1; }
-    void set_clipboard_display_lines(int) {}
+    int get_clipboard_display_lines() const;
+    void set_clipboard_display_lines(int value) { qsettings.setValue("clipboard/display_lines", std::clamp(value, 1, 5)); }
     QString get_clipboard_image_size() const;
     void set_clipboard_image_size(const QString &value);
     void set_clipboard_line_height_padding(int value) { qsettings.setValue("clipboard/line_height_padding", std::max(0, value)); }

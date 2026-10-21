@@ -38,8 +38,8 @@ void add_run_as_admin_card(SettingsDialog *dialog, SettingsCardGroup *group, Swi
 }
 
 void export_settings_to_file(SettingsDialog *dialog) {
-    // Export writes the saved settings, so unapplied edits are saved first.
-    if (dialog->has_unsaved_changes() && !dialog->apply_settings()) return;
+    // Export writes the saved settings, so edits still waiting to be saved go first.
+    dialog->apply_settings();
     const QString title = dialog->tr_text("Export Settings");
     const QString suggested = QDir(documents_dir()).filePath(QString("jietuba-settings-%1.json").arg(QDate::currentDate().toString("yyyyMMdd")));
     const QString path = get_save_file_name(dialog, title, suggested, dialog->tr_text("Settings File (*.json)")).first;
@@ -66,7 +66,7 @@ void import_settings_from_file(SettingsDialog *dialog) {
         return;
     }
     dialog->load_imported_settings(values);
-    show_info_dialog(dialog, title, dialog->tr_text("Settings loaded. Click Apply to use them."));
+    show_info_dialog(dialog, title, dialog->tr_text("Settings imported."));
 }
 }
 
@@ -79,7 +79,7 @@ QWidget *create_misc_page(SettingsDialog *dialog) {
     set_own_style(view, "background: transparent;");
     auto *layout = new QVBoxLayout(view);
     layout->setContentsMargins(0, 0, dialog_scaled(10), 0);
-    layout->setSpacing(dialog_scaled(20));
+    layout->setSpacing(dialog_scaled(14));
 
     // ════ Startup ════
     auto *grp_startup = new SettingsCardGroup(dialog->tr_text("Startup"), view);

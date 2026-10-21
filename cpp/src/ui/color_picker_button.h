@@ -6,7 +6,7 @@
 namespace jietuba {
 class ColorSwatch;
 
-// Button that opens QColorDialog and shows the current colour; round_style
+// Button that opens the colour picker (choose_color) and shows the current colour; round_style
 // draws a circle to sit in a row of round preset swatches.
 class ColorPickerButton : public QPushButton {
     Q_OBJECT

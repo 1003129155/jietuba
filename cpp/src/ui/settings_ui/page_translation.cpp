@@ -359,7 +359,7 @@ QWidget *create_translation_page(SettingsDialog *dialog) {
     set_own_style(page, "background: transparent;");
     auto *layout = new QVBoxLayout(page);
     layout->setContentsMargins(0, 0, dialog_scaled(10), 0);
-    layout->setSpacing(dialog_scaled(20));
+    layout->setSpacing(dialog_scaled(14));
 
     const auto service = create_default_translation_service();
     dialog->translation_registry = service->registry;

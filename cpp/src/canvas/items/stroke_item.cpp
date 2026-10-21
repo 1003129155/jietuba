@@ -89,7 +89,16 @@ void StrokeItem::extend_path(const QPainterPath &source, int dirty_from) {
     if (dirty.isEmpty()) return;
     if (!bounds_.contains(dirty)) {
         prepareGeometryChange();
-        bounds_ = bounds_.united(dirty).adjusted(-GROW_MARGIN, -GROW_MARGIN, GROW_MARGIN, GROW_MARGIN);
+        // A growth repaints the bounds with everything under them, so they stay close around the stroke
+        // in the directions it has not gone.
+        if (bounds_.isEmpty()) {
+            bounds_ = dirty.adjusted(-START_MARGIN, -START_MARGIN, START_MARGIN, START_MARGIN);
+        } else {
+            if (dirty.left() < bounds_.left()) bounds_.setLeft(dirty.left() - GROW_MARGIN);
+            if (dirty.top() < bounds_.top()) bounds_.setTop(dirty.top() - GROW_MARGIN);
+            if (dirty.right() > bounds_.right()) bounds_.setRight(dirty.right() + GROW_MARGIN);
+            if (dirty.bottom() > bounds_.bottom()) bounds_.setBottom(dirty.bottom() + GROW_MARGIN);
+        }
     }
     update(dirty);
 }
@@ -171,8 +180,7 @@ QPainterPath StrokeItem::shape() const {
 
 void StrokeItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *) {
     if (path_.elementCount() < 2) return;
-    // Highlighters multiply onto what lies under them.
-    if (is_highlighter) painter->setCompositionMode(QPainter::CompositionMode_Multiply);
+    if (is_highlighter) begin_highlighter_paint(painter, this);
     painter->setRenderHint(QPainter::Antialiasing);
     QRectF exposed = option ? option->exposedRect : QRectF();
     // Painting a preview with a fresh QStyleOptionGraphicsItem leaves the exposed area unset.

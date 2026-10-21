@@ -5,7 +5,9 @@
 #include <QHash>
 #include <QListWidget>
 #include <QPainter>
+#include <QPainterPath>
 #include <QPen>
+#include <QTextLayout>
 
 namespace jietuba::clipboard {
 namespace {
@@ -45,9 +47,9 @@ double image_row_span(const QString &image_size) {
     return 1;
 }
 
-ClipboardItemDelegate::ClipboardItemDelegate(QListWidget *parent, const Theme &theme, int display_lines, int window_opacity, bool show_metadata,
-                                             int line_height_padding, bool show_shortcuts, const QString &image_size)
-    : QStyledItemDelegate(parent), theme_(theme), display_lines_(display_lines), window_opacity_(window_opacity), show_metadata_(show_metadata),
+ClipboardItemDelegate::ClipboardItemDelegate(QListWidget *parent, const Theme &theme, int font_size, int window_opacity, bool show_metadata,
+                                             int line_height_padding, bool show_shortcuts, const QString &image_size, int display_lines)
+    : QStyledItemDelegate(parent), theme_(theme), display_lines_(std::clamp(display_lines, 1, 5)), font_size_(font_size), window_opacity_(window_opacity), show_metadata_(show_metadata),
       line_height_padding_(line_height_padding), show_shortcuts_(show_shortcuts), shortcut_labels_(labels_for("123456789abcdefghijklmnopqrstuvwxyz")),
       image_row_span_(image_row_span(image_size)) {
     rebuild_color_cache();
@@ -59,14 +61,91 @@ void ClipboardItemDelegate::set_theme(const Theme &theme) {
     rebuild_color_cache();
 }
 
-void ClipboardItemDelegate::set_display_lines(int lines) {
-    display_lines_ = lines;
+void ClipboardItemDelegate::set_font_size(int size) {
+    font_size_ = size;
     rebuild_font_cache();
 }
 
 int ClipboardItemDelegate::font_size() const {
     // The font size setting is in pixels at 100%, times the panel scale.
-    return scaled(display_lines_ >= 10 ? display_lines_ : 15);
+    return scaled(font_size_ >= 10 ? font_size_ : 15);
+}
+
+bool ClipboardItemDelegate::has_left_column(int row) const { return !marked_ids_.isEmpty() || (show_shortcuts_ && row < shortcut_labels_.size()); }
+
+int ClipboardItemDelegate::text_width(const ClipboardItem &item, int row, int width) const {
+    const int left = has_left_column(row) ? scaled(SHORTCUT_BADGE_WIDTH + 4) : scaled(12);
+    const int icon = item.color ? scaled(54) : !item.icon().isEmpty() && !(hide_file_icon_ && item.content_type == "file") ? scaled(24) : 0;
+    return std::max(1, width - 1 - scaled(5) - left - icon - (item.is_pinned ? scaled(24) : 0));
+}
+
+QRectF ClipboardItemDelegate::mark_circle_rect(const QRect &row_rect) const {
+    // Centred in the left column, where the shortcut label sits otherwise.
+    const double radius = scaled_f(7);
+    const QPointF centre(row_rect.left() + scaled(3) + scaled(SHORTCUT_BADGE_WIDTH) / 2.0, row_rect.top() + row_rect.height() / 2.0);
+    return QRectF(centre.x() - radius, centre.y() - radius, radius * 2, radius * 2);
+}
+
+void ClipboardItemDelegate::paint_mark_circle(QPainter *painter, const QRect &row_rect, bool marked) const {
+    const QRectF circle = mark_circle_rect(row_rect);
+    const double radius = circle.width() / 2;
+    painter->save();
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    if (!marked) {
+        painter->setPen(QPen(colors_.text_tertiary, scaled_f(1.4)));
+        painter->setBrush(Qt::NoBrush);
+        painter->drawEllipse(circle.adjusted(0.7, 0.7, -0.7, -0.7));
+        painter->restore();
+        return;
+    }
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(colors_.border_selected);
+    painter->drawEllipse(circle);
+    QPen tick(Qt::white, radius / 4.5);
+    tick.setCapStyle(Qt::RoundCap);
+    tick.setJoinStyle(Qt::RoundJoin);
+    painter->setPen(tick);
+    painter->setBrush(Qt::NoBrush);
+    const QPointF c = circle.center();
+    QPainterPath path(QPointF(c.x() - radius * 0.45, c.y() + radius * 0.02));
+    path.lineTo(c.x() - radius * 0.1, c.y() + radius * 0.35);
+    path.lineTo(c.x() + radius * 0.48, c.y() - radius * 0.33);
+    painter->drawPath(path);
+    painter->restore();
+}
+
+QStringList ClipboardItemDelegate::text_lines(const ClipboardItem &item, int width) const {
+    width = std::max(1, width);
+    if (display_lines_ == 1 || item.content_type == "image") return {content_fm_.elidedText(item.display_text(), Qt::ElideRight, width)};
+    const QString source = item.title && !item.title->isEmpty() ? *item.title : item.content_type == "text" ? item.content : item.display_text();
+    // Bound layout work even for very large clipboard records.
+    QString text = source.left(4096);
+    text.replace("\r\n", "\n");
+    text.replace(u'\r', u'\n');
+    const auto paragraphs = text.split(u'\n');
+    QStringList lines;
+    for (int paragraph = 0; paragraph < paragraphs.size(); ++paragraph) {
+        QTextLayout layout(paragraphs[paragraph], content_font_);
+        QTextOption option;
+        option.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+        layout.setTextOption(option);
+        layout.beginLayout();
+        do {
+            auto line = layout.createLine();
+            if (line.isValid()) line.setLineWidth(width);
+            lines.append(line.isValid() ? paragraphs[paragraph].mid(line.textStart(), line.textLength()) : QString());
+            if (lines.size() == display_lines_) {
+                const bool more = (line.isValid() && line.textStart() + line.textLength() < paragraphs[paragraph].size()) ||
+                                  paragraph + 1 < paragraphs.size() || source.size() > 4096;
+                if (more) lines.last() = content_fm_.elidedText(lines.last() + QChar(0x2026), Qt::ElideRight, width);
+                layout.endLayout();
+                return lines;
+            }
+            if (!line.isValid() || line.textStart() + line.textLength() >= paragraphs[paragraph].size()) break;
+        } while (true);
+        layout.endLayout();
+    }
+    return lines;
 }
 
 void ClipboardItemDelegate::set_window_opacity(int opacity) {
@@ -89,6 +168,9 @@ void ClipboardItemDelegate::rebuild_color_cache() {
     colors_.bg_even = hex_to_qcolor(c.bg_primary, alpha);
     colors_.bg_odd = hex_to_qcolor(c.bg_secondary, alpha);
     colors_.bg_selected = parse_rgba(c.bg_selected_highlight);
+    // Text colour over the row: lighter rows on dark themes, darker on light ones, and visible on a marked row too.
+    colors_.cursor_tint = hex_to_qcolor(c.text_primary, 36);
+    colors_.cursor_outline = hex_to_qcolor(c.text_primary, 110);
     colors_.border_bottom = hex_to_qcolor(c.border_primary, 128);
     colors_.border_selected = hex_to_qcolor(c.border_selected);
     colors_.text_primary = hex_to_qcolor(c.text_primary);
@@ -126,18 +208,15 @@ void ClipboardItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem 
         return;
     }
     const auto item_data = data.value<ClipboardItem>();
-    const bool is_selected = highlighted_id_ && item_id == *highlighted_id_;
+    const bool is_cursor = cursor_id_ && item_id == *cursor_id_;
     const bool is_marked = marked_ids_.contains(item_id);
     const auto &cc = colors_;
 
     // ---- Background ----
-    if (is_selected || is_marked) painter->fillRect(rect, cc.bg_selected);
-    else if (row % 2 == 0) painter->fillRect(rect, cc.bg_even);
-    else painter->fillRect(rect, cc.bg_odd);
-
-    // ---- Left bar (selection indicator) ----
-    // With a multiple selection the bar marks only selected rows; hovered and keyboard rows only change background, so the selection stands out.
-    if (is_marked || (is_selected && marked_ids_.isEmpty())) painter->fillRect(QRect(rect.left(), rect.top(), scaled(3), rect.height()), cc.border_selected);
+    // Marks are the accent fill and a checked circle; the cursor tints and outlines whatever the row shows,
+    // so a row reads as marked, under the cursor, or both.
+    painter->fillRect(rect, is_marked ? cc.bg_selected : row % 2 == 0 ? cc.bg_even : cc.bg_odd);
+    if (is_cursor) painter->fillRect(rect, cc.cursor_tint);
 
     // ---- Bottom separator ----
     QPen pen(cc.border_bottom);
@@ -145,29 +224,35 @@ void ClipboardItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem 
     painter->setPen(pen);
     painter->drawLine(rect.left(), rect.bottom(), rect.right(), rect.bottom());
 
-    // ---- Shortcut badge (the first rows a direct pick key reaches, fixed area on the left) ----
-    const int shortcut_badge_width = show_shortcuts_ ? scaled(SHORTCUT_BADGE_WIDTH) : 0;
-    const bool has_badge = show_shortcuts_ && row < shortcut_labels_.size();
-    if (has_badge) {
+    if (is_cursor) {
+        painter->setPen(QPen(cc.cursor_outline, 1));
+        painter->setBrush(Qt::NoBrush);
+        painter->drawRect(rect.adjusted(0, 0, -1, -1));
+    }
+
+    // ---- Left column ----
+    // While anything is marked every row shows a circle here; otherwise the first rows show their direct pick key.
+    const int column_width = scaled(SHORTCUT_BADGE_WIDTH);
+    if (!marked_ids_.isEmpty()) {
+        paint_mark_circle(painter, rect, is_marked);
+    } else if (has_left_column(row)) {
         const QString &label = shortcut_labels_[row];
         painter->setFont(shortcut_font_);
         painter->setPen(cc.shortcut_text);
-        // Centred in the area right of the selection bar (3px).
         const int text_w = shortcut_fm_.horizontalAdvance(label);
-        const int badge_area_left = rect.left() + scaled(3);
-        const int badge_x = badge_area_left + (shortcut_badge_width - text_w) / 2;
+        const int badge_x = rect.left() + scaled(3) + (column_width - text_w) / 2;
         const int badge_y = rect.top() + (rect.height() + shortcut_fm_.ascent() - shortcut_fm_.descent()) / 2;
         painter->drawText(badge_x, badge_y, label);
     }
 
     // ---- Content area ----
-    // With a badge: its width plus 4px; without: the standard 12px margin.
-    const int content_left = has_badge ? rect.left() + shortcut_badge_width + scaled(4) : rect.left() + scaled(12);
+    // With the left column: its width plus 4px; without: the standard 12px margin.
+    const int content_left = has_left_column(row) ? rect.left() + column_width + scaled(4) : rect.left() + scaled(12);
     const int content_right = rect.right() - scaled(5);
     const int content_top = rect.top() + 1;
     const int content_width = content_right - content_left;
     const int size = font_size();
-    const int line_height = static_cast<int>(size * 1.4);
+    const int line_height = std::max(static_cast<int>(size * 1.4), item_data.color ? scaled(32) : 0);
     int x_offset = content_left;
 
     // ---- Icon / thumbnail ----
@@ -184,7 +269,17 @@ void ClipboardItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem 
             x_offset += fitted.width() + scaled(6);
         }
     }
-    if (!drew_thumbnail && !item_data.icon().isEmpty() && !(hide_file_icon_ && item_data.content_type == "file")) {
+    if (item_data.color) {
+        const int swatch_width = scaled(44), swatch_height = scaled(28);
+        const QRectF swatch(x_offset + scaled(2), content_top + (line_height - swatch_height) / 2.0, swatch_width, swatch_height);
+        painter->setRenderHint(QPainter::Antialiasing, true);
+        QColor border = cc.text_primary;
+        border.setAlpha(110);
+        painter->setPen(QPen(border, 1));
+        painter->setBrush(*item_data.color);
+        painter->drawRoundedRect(swatch.adjusted(0.5, 0.5, -0.5, -0.5), scaled(3), scaled(3));
+        x_offset += swatch_width + scaled(10);
+    } else if (!drew_thumbnail && !item_data.icon().isEmpty() && !(hide_file_icon_ && item_data.content_type == "file")) {
         painter->setFont(icon_font_);
         painter->setPen(cc.text_primary);
         painter->drawText(QRect(x_offset, content_top, scaled(24), line_height), Qt::AlignVCenter, item_data.icon());
@@ -195,22 +290,15 @@ void ClipboardItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem 
     painter->setFont(content_font_);
     painter->setPen(cc.text_primary);
     const QRect text_rect(x_offset, content_top, content_right - x_offset, line_height);
-    // Room on the right for the pin mark and the selection check.
+    // Room on the right for the pin mark.
     const int pin_width = item_data.is_pinned ? scaled(24) : 0;
-    const int mark_width = is_marked ? scaled(20) : 0;
-    const QString elided_text = content_fm_.elidedText(item_data.display_text(), Qt::ElideRight, text_rect.width() - pin_width - mark_width);
-    painter->drawText(text_rect, Qt::AlignVCenter, elided_text);
+    const auto lines = text_lines(item_data, text_rect.width() - pin_width);
+    for (int line = 0; line < lines.size(); ++line)
+        painter->drawText(text_rect.translated(0, line * line_height), Qt::AlignVCenter, lines[line]);
 
     // ---- Pin mark ----
     if (item_data.is_pinned)
         painter->drawText(QRect(content_right - pin_width, content_top, pin_width, line_height), Qt::AlignVCenter | Qt::AlignRight, QString::fromUtf8("📌"));
-
-    // ---- Selection check ----
-    if (is_marked) {
-        painter->setPen(cc.border_selected);
-        painter->drawText(QRect(content_right - pin_width - mark_width, content_top, mark_width, line_height), Qt::AlignVCenter | Qt::AlignRight,
-                          QString::fromUtf8("✓"));
-    }
 
     // ---- Second line: metadata ----
     if (show_metadata_) {
@@ -219,7 +307,7 @@ void ClipboardItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem 
         QStringList meta_parts;
         if (item_data.source_app && !item_data.source_app->isEmpty()) meta_parts.append(*item_data.source_app);
         if (item_data.created_at.isValid()) meta_parts.append(item_data.created_at.toString("MM-dd HH:mm"));
-        const QRect meta_rect(content_left, content_top + line_height, content_width, scaled(16));
+        const QRect meta_rect(content_left, content_top + line_height * lines.size(), content_width, scaled(16));
         painter->drawText(meta_rect, Qt::AlignRight | Qt::AlignVCenter, meta_parts.join(QString::fromUtf8(" · ")));
     }
 
@@ -233,6 +321,12 @@ QSize ClipboardItemDelegate::sizeHint(const QStyleOptionViewItem &option, const 
     const QVariant data = index.data(ROLE_ITEM_DATA);
     if (data.canConvert<ClipboardItem>()) {
         const auto item_data = data.value<ClipboardItem>();
+        if (item_data.content_type != "image") {
+            const auto *list = qobject_cast<QListWidget *>(parent());
+            const int width = list && list->viewport()->width() > 0 ? list->viewport()->width() : option.rect.width();
+            const int lines = text_lines(item_data, text_width(item_data, index.row(), width > 0 ? width : 300)).size();
+            content_height = std::max(static_cast<int>(font_size() * 1.4), item_data.color ? scaled(32) : 0) * lines + 2 + (show_metadata_ ? scaled(16) : 0);
+        }
         if (item_data.content_type == "image" && item_data.thumbnail && !item_data.thumbnail->isEmpty())
             content_height = std::max(static_cast<int>(content_height * image_row_span_), scaled(MIN_IMAGE_ROW_HEIGHT));
     }

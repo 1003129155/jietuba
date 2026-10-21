@@ -1,95 +1,221 @@
 #include "core/input_hub.h"
+#include "core/input_hooks.h"
 #include "core/logger.h"
-#include "core/native.h"
 
 namespace jietuba {
 namespace {
-// The Rust hub from native/.
-class RustInputHub : public InputHubNative {
-public:
-    RustInputHub() {
-        char error[512] = {};
-        hub_ = jb_input_hub_new(error, sizeof error);
-        if (!hub_) throw std::runtime_error(error);
-    }
-    ~RustInputHub() override { jb_input_hub_free(hub_); }
-    std::optional<InputHubEvent> next_event() override {
-        JbInputEvent raw{};
-        if (!jb_input_hub_next_event(hub_, -1, &raw)) return std::nullopt;
-        InputHubEvent event;
-        event.kind = static_cast<InputHubEvent::Kind>(raw.kind);
-        event.text = QString::fromUtf8(raw.text);
-        event.id = raw.id;
-        event.x = raw.x;
-        event.y = raw.y;
-        event.value = raw.value;
-        event.flag = raw.flag;
-        event.hwnd = static_cast<quintptr>(raw.hwnd);
-        return event;
-    }
-    void close() override { jb_input_hub_close(hub_); }
-    bool configure_gestures(const std::vector<std::pair<QStringList, QString>> &bindings, bool enabled) override {
-        std::vector<QByteArray> storage;
-        std::vector<const char *> modifiers, buttons;
-        storage.reserve(bindings.size() * 2);
-        for (const auto &[mods, button] : bindings) {
-            storage.push_back(mods.join('+').toUtf8());
-            modifiers.push_back(storage.back().constData());
-            storage.push_back(button.toUtf8());
-            buttons.push_back(storage.back().constData());
+using input::Button;
+using input::Engine;
+using input::Event;
+using input::Events;
+using input::Modifiers;
+
+// Modifier names from the UI; each entry may itself be "+"-joined.
+std::vector<std::string> modifier_names(const QStringList &modifiers) {
+    std::vector<std::string> names;
+    for (const QString &entry : modifiers) {
+        for (const QString &part : entry.split('+')) {
+            const QString name = part.trimmed();
+            if (!name.isEmpty()) names.push_back(name.toStdString());
         }
-        return jb_input_hub_configure_gestures(hub_, modifiers.data(), buttons.data(), bindings.size(), enabled);
     }
-    void set_blocked(bool blocked) override { jb_input_hub_set_blocked(hub_, blocked); }
-    void cancel_gesture() override { jb_input_hub_cancel_gesture(hub_); }
+    return names;
+}
+
+QStringList to_qt(const std::vector<std::string> &names) {
+    QStringList list;
+    for (const auto &name : names) list << QString::fromStdString(name);
+    return list;
+}
+
+class NativeInputHub : public InputHubNative {
+public:
+    std::optional<InputHubEvent> next_event() override {
+        auto event = hooks_.next_event();
+        if (!event) return std::nullopt;
+        return to_hub_event(*event);
+    }
+    void close() override { hooks_.stop(); }
+    bool configure_gestures(const std::vector<std::pair<QStringList, QString>> &bindings, bool enabled) override {
+        std::vector<std::pair<Modifiers, Button>> parsed;
+        bool known = true;
+        for (const auto &[mods, button] : bindings) {
+            auto modifiers = Modifiers::parse(modifier_names(mods));
+            auto parsed_button = input::parse_button(button.toStdString());
+            if (!modifiers || !parsed_button) {
+                known = false;
+                break;
+            }
+            parsed.emplace_back(*modifiers, *parsed_button);
+        }
+        bool valid = false;
+        hooks_.with_engine([&](Engine &engine, Events &out) {
+            // An unknown name invalidates the whole configuration, like a wrong modifier count.
+            if (known) valid = engine.configure_gestures(std::move(parsed), enabled, out);
+            else engine.configure_gestures({}, false, out);
+        });
+        return valid;
+    }
+    void set_blocked(bool blocked) override {
+        hooks_.with_engine([&](Engine &engine, Events &out) { engine.set_blocked(blocked, out); });
+    }
+    void cancel_gesture() override {
+        hooks_.with_engine([](Engine &engine, Events &out) { engine.cancel(out); });
+    }
     std::optional<QPoint> take_position(quint64 gesture_id) override {
-        int32_t x = 0, y = 0;
-        if (!jb_input_hub_take_position(hub_, gesture_id, &x, &y)) return std::nullopt;
-        return QPoint(x, y);
+        std::optional<QPoint> position;
+        hooks_.with_engine([&](Engine &engine, Events &) {
+            if (auto p = engine.take_position(gesture_id)) position = QPoint(p->first, p->second);
+        });
+        return position;
     }
-    bool dragging() override { return jb_input_hub_dragging(hub_); }
-    bool accepts(quint64 gesture_id) override { return jb_input_hub_accepts(hub_, gesture_id); }
+    bool dragging() override {
+        bool dragging = false;
+        hooks_.with_engine([&](Engine &engine, Events &) { dragging = engine.dragging(); });
+        return dragging;
+    }
+    bool accepts(quint64 gesture_id) override {
+        bool accepts = false;
+        hooks_.with_engine([&](Engine &engine, Events &) { accepts = engine.accepts(gesture_id); });
+        return accepts;
+    }
     std::optional<std::pair<QStringList, QString>> gesture_binding(quint64 gesture_id) override {
-        char modifiers[128] = {}, button[64] = {};
-        if (!jb_input_hub_gesture_binding(hub_, gesture_id, modifiers, sizeof modifiers, button, sizeof button)) return std::nullopt;
-        return std::make_pair(QString::fromUtf8(modifiers).split('+', Qt::SkipEmptyParts), QString::fromUtf8(button));
+        std::optional<std::pair<Modifiers, Button>> binding;
+        hooks_.with_engine([&](Engine &engine, Events &) { binding = engine.gesture_binding(gesture_id); });
+        if (!binding) return std::nullopt;
+        return std::make_pair(to_qt(binding->first.names()), QString(input::button_name(binding->second)));
     }
     void configure_side_buttons(bool enabled, const QStringList &suppressed, bool capture_all) override {
-        std::vector<QByteArray> storage;
-        std::vector<const char *> names;
-        storage.reserve(suppressed.size());
-        for (const auto &name : suppressed) {
-            storage.push_back(name.toUtf8());
-            names.push_back(storage.back().constData());
+        std::vector<Button> buttons;
+        for (const QString &name : suppressed) {
+            const auto button = input::parse_button(name.toStdString());
+            if (button != Button::X1 && button != Button::X2)
+                throw std::invalid_argument(("not a side button: " + suppressed.join(", ")).toStdString());
+            buttons.push_back(*button);
         }
-        if (!jb_input_hub_configure_side_buttons(hub_, enabled, names.data(), names.size(), capture_all))
-            throw std::invalid_argument(("not a side button: " + suppressed.join(", ")).toStdString());
+        hooks_.with_engine([&](Engine &engine, Events &) { engine.configure_side_buttons(enabled, buttons, capture_all); });
     }
     bool bind_hotkey(const QString &name, const QStringList &modifiers, quint32 vk) override {
-        const int result = jb_input_hub_bind_hotkey(hub_, name.toUtf8().constData(), modifiers.join('+').toUtf8().constData(), vk);
-        if (result < 0) throw std::invalid_argument(("unknown modifier in " + modifiers.join(", ")).toStdString());
-        return result == 1;
+        const auto parsed = Modifiers::parse(modifier_names(modifiers));
+        if (!parsed) throw std::invalid_argument(("unknown modifier in " + modifiers.join(", ")).toStdString());
+        bool bound = false;
+        hooks_.with_engine([&](Engine &engine, Events &) { bound = engine.bind_hotkey(name.toStdString(), *parsed, vk); });
+        return bound;
     }
-    void unbind_hotkey(const QString &name) override { jb_input_hub_unbind_hotkey(hub_, name.toUtf8().constData()); }
-    void configure_key_capture(bool enabled) override { jb_input_hub_configure_key_capture(hub_, enabled); }
+    void unbind_hotkey(const QString &name) override {
+        hooks_.with_engine([&](Engine &engine, Events &) { engine.unbind_hotkey(name.toStdString()); });
+    }
+    void configure_key_capture(bool enabled) override {
+        hooks_.with_engine([&](Engine &engine, Events &) { engine.configure_key_capture(enabled); });
+    }
     void watch_wheel(const QString &watcher, const std::optional<InputHubRect> &rect) override {
-        if (rect) jb_input_hub_watch_wheel(hub_, watcher.toUtf8().constData(), true, rect->left, rect->top, rect->right, rect->bottom);
-        else jb_input_hub_watch_wheel(hub_, watcher.toUtf8().constData(), false, 0, 0, 0, 0);
+        std::optional<input::Rect> area;
+        if (rect) area = input::Rect{rect->left, rect->top, rect->right, rect->bottom};
+        hooks_.with_engine([&](Engine &engine, Events &) { engine.watch_wheel(watcher.toStdString(), area); });
     }
-    void unwatch_wheel(const QString &watcher) override { jb_input_hub_unwatch_wheel(hub_, watcher.toUtf8().constData()); }
+    void unwatch_wheel(const QString &watcher) override {
+        hooks_.with_engine([&](Engine &engine, Events &) { engine.unwatch_wheel(watcher.toStdString()); });
+    }
     void watch_keys(const QString &watcher, const std::vector<quint32> &keys) override {
-        jb_input_hub_watch_keys(hub_, watcher.toUtf8().constData(), keys.data(), keys.size());
+        std::vector<uint32_t> watched(keys.begin(), keys.end());
+        hooks_.with_engine([&](Engine &engine, Events &) { engine.watch_keys(watcher.toStdString(), std::move(watched)); });
     }
-    void unwatch_keys(const QString &watcher) override { jb_input_hub_unwatch_keys(hub_, watcher.toUtf8().constData()); }
-    void watch_foreground(const QString &watcher) override { jb_input_hub_watch_foreground(hub_, watcher.toUtf8().constData()); }
-    void unwatch_foreground(const QString &watcher) override { jb_input_hub_unwatch_foreground(hub_, watcher.toUtf8().constData()); }
-    bool hooks_installed() override { return jb_input_hub_hooks_installed(hub_); }
-    void set_test_marker(quintptr marker) override { jb_input_hub_set_test_marker(hub_, marker); }
+    void unwatch_keys(const QString &watcher) override {
+        hooks_.with_engine([&](Engine &engine, Events &) { engine.unwatch_keys(watcher.toStdString()); });
+    }
+    void watch_mouse(const QString &watcher) override {
+        hooks_.with_engine([&](Engine &engine, Events &) { engine.watch_mouse(watcher.toStdString()); });
+    }
+    void unwatch_mouse(const QString &watcher) override {
+        hooks_.with_engine([&](Engine &engine, Events &) { engine.unwatch_mouse(watcher.toStdString()); });
+    }
+    std::optional<QPoint> take_pointer(const QString &watcher) override {
+        std::optional<QPoint> position;
+        hooks_.with_engine([&](Engine &engine, Events &) {
+            if (auto p = engine.take_pointer(watcher.toStdString())) position = QPoint(p->first, p->second);
+        });
+        return position;
+    }
+    void watch_foreground(const QString &watcher) override {
+        hooks_.with_engine([&](Engine &engine, Events &) { engine.watch_foreground(watcher.toStdString()); });
+    }
+    void unwatch_foreground(const QString &watcher) override {
+        hooks_.with_engine([&](Engine &engine, Events &) { engine.unwatch_foreground(watcher.toStdString()); });
+    }
+    bool hooks_installed() override { return hooks_.hooks_installed(); }
+    void set_test_marker(quintptr marker) override { hooks_.set_test_marker(marker); }
 private:
-    JbInputHub *hub_ = nullptr;
+    input::InputHooks hooks_;
 };
 
 InputHub *hub_instance = nullptr;
+}
+
+InputHubEvent to_hub_event(const input::Event &event) {
+    InputHubEvent out;
+    switch (event.kind) {
+    case Event::Kind::GestureStart:
+    case Event::Kind::GestureFinish:
+    case Event::Kind::GestureCancel:
+        out.kind = InputHubEvent::Gesture;
+        out.text = event.kind == Event::Kind::GestureStart ? "start" : event.kind == Event::Kind::GestureFinish ? "finish" : "cancel";
+        out.id = event.id;
+        out.x = event.x;
+        out.y = event.y;
+        break;
+    case Event::Kind::GestureMoved:
+        out.kind = InputHubEvent::Moved;
+        out.id = event.id;
+        break;
+    case Event::Kind::SideButton:
+        out.kind = InputHubEvent::Side;
+        out.text = input::button_name(event.button);
+        break;
+    case Event::Kind::Hotkey:
+        out.kind = InputHubEvent::Hotkey;
+        out.text = QString::fromStdString(event.text);
+        break;
+    case Event::Kind::Captured:
+        out.kind = InputHubEvent::Captured;
+        out.text = to_qt(event.modifiers.names()).join('+');
+        out.value = static_cast<int>(event.vk);
+        break;
+    case Event::Kind::Wheel:
+        out.kind = InputHubEvent::Wheel;
+        out.text = QString::fromStdString(event.text);
+        out.x = event.x;
+        out.y = event.y;
+        out.value = event.delta;
+        out.flag = event.horizontal;
+        break;
+    case Event::Kind::Key:
+        out.kind = InputHubEvent::Key;
+        out.text = QString::fromStdString(event.text);
+        out.value = static_cast<int>(event.vk);
+        out.flag = event.pressed;
+        break;
+    case Event::Kind::MouseButton:
+        out.kind = InputHubEvent::MouseButton;
+        out.text = QString::fromStdString(event.text);
+        out.value = static_cast<int>(event.button);
+        out.flag = event.pressed;
+        out.x = event.x;
+        out.y = event.y;
+        break;
+    case Event::Kind::PointerMoved:
+        out.kind = InputHubEvent::Pointer;
+        out.text = QString::fromStdString(event.text);
+        break;
+    case Event::Kind::Foreground:
+        out.kind = InputHubEvent::Foreground;
+        out.hwnd = static_cast<quintptr>(event.hwnd);
+        break;
+    case Event::Kind::Failure:
+        out.kind = InputHubEvent::Failure;
+        out.text = QString::fromStdString(event.text);
+        break;
+    }
+    return out;
 }
 
 InputHub::InputHub(std::unique_ptr<InputHubNative> native, QObject *parent) : QObject(parent), native(std::move(native)) {}
@@ -118,6 +244,10 @@ void InputHub::dispatch(const InputHubEvent &event) {
     case InputHubEvent::Wheel: emit wheel(event.text, event.x, event.y, event.value, event.flag); break;
     case InputHubEvent::Key: emit key(event.text, event.value, event.flag); break;
     case InputHubEvent::Foreground: emit foreground(event.hwnd); break;
+    case InputHubEvent::MouseButton:
+        emit mouse_button(event.text, QString(input::button_name(static_cast<input::Button>(event.value))), event.flag, event.x, event.y);
+        break;
+    case InputHubEvent::Pointer: emit pointer_moved(event.text); break;
     case InputHubEvent::Failure: emit failure(event.text); break;
     case InputHubEvent::Captured: emit captured(event.text.split('+', Qt::SkipEmptyParts), event.value); break;
     }
@@ -132,7 +262,7 @@ void InputHub::close() {
 
 InputHub *input_hub() {
     if (!hub_instance) {
-        hub_instance = new InputHub(std::make_unique<RustInputHub>());
+        hub_instance = new InputHub(std::make_unique<NativeInputHub>());
         hub_instance->start();
     }
     return hub_instance;

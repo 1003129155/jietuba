@@ -196,6 +196,12 @@ void FinishPage::build_controls(QVBoxLayout *layout) {
     desktop_switch_->setChecked(true);
     std::tie(row, desktop_lbl_, desktop_desc_) = make_setting_row_with_refs(welcome_tr("快捷方式"), desktop_switch_, brand_text(welcome_tr("完成向导时在桌面创建截图吧快捷方式。")));
     layout->addWidget(row);
+    // Off unless chosen before; the tray menu has the same switch.
+    game_pause_switch_ = new WelcomeToggleSwitch;
+    game_pause_switch_->setChecked(config_->get_app_setting("pause_hotkeys_in_games", false).toBool());
+    std::tie(row, game_pause_lbl_, game_pause_desc_) =
+        make_setting_row_with_refs(welcome_tr("玩游戏时暂停热键"), game_pause_switch_, welcome_tr("游戏在前台时暂停全局快捷键和鼠标快捷键，离开游戏后恢复。托盘菜单里也能切换。"));
+    layout->addWidget(row);
 }
 
 void FinishPage::create_desktop_shortcut() {
@@ -231,11 +237,18 @@ void FinishPage::retranslate() {
     if (show_main_desc_) show_main_desc_->setText(welcome_tr("每次启动时自动打开设置面板。"));
     desktop_lbl_->setText(welcome_tr("快捷方式"));
     if (desktop_desc_) desktop_desc_->setText(brand_text(welcome_tr("完成向导时在桌面创建截图吧快捷方式。")));
+    game_pause_lbl_->setText(welcome_tr("玩游戏时暂停热键"));
+    if (game_pause_desc_) game_pause_desc_->setText(welcome_tr("游戏在前台时暂停全局快捷键和鼠标快捷键，离开游戏后恢复。托盘菜单里也能切换。"));
+}
+
+void FinishPage::save_preferences() {
+    config_->set_app_setting("welcome_wizard_done", "1");
+    config_->set_show_main_window(show_main_switch_->isChecked());
+    config_->set_app_setting("pause_hotkeys_in_games", game_pause_switch_->isChecked());
 }
 
 void FinishPage::save() {
-    config_->set_app_setting("welcome_wizard_done", "1");
-    config_->set_show_main_window(show_main_switch_->isChecked());
+    save_preferences();
     const bool desktop_on = desktop_switch_->isChecked();
     const bool run_as_admin = config_->get_app_setting("run_as_admin").toBool();
     // Without elevation the wizard cannot remove the administrator task, which keeps starting the

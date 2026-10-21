@@ -32,6 +32,7 @@ class ToolSettingsManager;
 namespace jietuba::clipboard {
 class ClipboardItemDelegate;
 class ClipboardMouseController;
+class SelectionBar;
 class ClipboardWindow;
 class GroupBar;
 class ManageDialog;
@@ -73,7 +74,7 @@ public:
     ToolSettingsManager *config = nullptr;
     Theme current_theme;
     int window_opacity = 0;
-    int display_lines = 0;
+    int font_size = 0;
     QString group_bar_position;
 
     QFrame *container = nullptr;
@@ -92,7 +93,6 @@ public:
     QStringList type_filter_labels;
     int type_filter_index = 0;
     QToolButton *type_filter_btn = nullptr;
-    QIcon type_filter_arrow_;
     QMenu *type_filter_menu = nullptr;
     QList<QAction *> type_filter_actions;
     QToolButton *clear_time_filter_btn = nullptr;
@@ -100,7 +100,7 @@ public:
     QToolButton *time_filter_toggle_btn = nullptr;
     LineEdit *search_input = nullptr;
     QPushButton *clear_search_btn = nullptr;
-    QLabel *mark_count_label = nullptr;
+    SelectionBar *selection_bar = nullptr;
     QPushButton *menu_btn = nullptr;
     GroupBar *group_bar = nullptr;
     QuickEditPopup *quick_edit_popup = nullptr;
@@ -124,6 +124,12 @@ public:
     void create_pin_window(qint64 item_id);
     void quick_edit_item(qint64 item_id);
     void show_item_context_menu(qint64 item_id, const QPoint &pos);
+    // Drags the row, or every marked row when it is marked, out of the window; copy only.
+    virtual void start_item_drag(qint64 item_id);
+    // Every marked row into a folder the user picks: text as .txt, images as their PNG, files and folders copied.
+    void save_marked_to_folder();
+    // One row: an image or text to a file named in the save dialog, a file row's files into a folder.
+    void save_item_as(qint64 item_id);
     void toggle_item_mark(qint64 item_id);
     void mark_items_to(qint64 item_id);
     // The quick edit key: text opens quick edit, other items in a group open the group editor.
@@ -172,6 +178,7 @@ private:
     void set_window_opacity_percent(int percent);
     void set_font_size(int size);
     void set_image_size(const QString &size);
+    void set_display_lines(int lines);
     void on_font_size_changed(int size);
     void on_opacity_changed(int percent);
     void refresh_list();
@@ -180,15 +187,12 @@ private:
     void append_items(const QList<ClipboardItem> &items);
     void on_scroll(int value);
     void on_search_changed();
-    void on_selection_changed();
-    void on_delegate_item_entered(QListWidgetItem *list_item);
-    void set_highlighted_item(std::optional<qint64> item_id);
+    // The mouse over the list: real movement moves the cursor and previews the row; nothing else does.
+    void on_pointer_moved(const QPoint &viewport_pos, const QPoint &global_pos);
     void update_search_background(const QString &text);
     void apply_search_input_style(bool has_text = false);
     void apply_clear_search_btn_style();
     void apply_menu_btn_style();
-    void apply_mark_count_style();
-    void update_mark_count();
     void on_marks_changed();
     void apply_time_filter_styles();
     void clear_search();
@@ -208,8 +212,13 @@ private:
     bool is_paste_picker_surface(Hwnd hwnd) const;
     ClipboardController::CloseCallback paste_close_callback();
     bool in_file_group();
-    bool is_file_item(qint64 item_id) const;
+    bool is_launch_item(qint64 item_id) const;
+    void open_launch_item(qint64 item_id);
+    void open_link(qint64 item_id);
     void paste_plain_text(qint64 item_id);
+    // False when the folder picker was cancelled.
+    bool save_items_to_folder(const QList<ClipboardItem> &items);
+    QString last_save_folder() const;
     void paste_marked(const QList<qint64> &item_ids, bool plain_text = false, const QString &layout = "vertical", bool explicit_paste = false);
     void show_context_menu(const QPoint &pos);
     void show_marked_context_menu(const QList<qint64> &item_ids, const QPoint &pos);
@@ -232,6 +241,8 @@ private:
     void position_at_cursor();
     bool owns_window(const QWidget *window) const;
     void check_and_hide();
+    // The row as it looks, at most 240 wide, with the number of dragged rows when there are several.
+    QPixmap drag_pixmap(qint64 item_id, int count, QPoint *hot_spot) const;
     bool is_draggable_area(QObject *widget) const;
     bool is_date_filter_widget(QObject *obj) const;
     void apply_list_item_data(QListWidgetItem *list_item, const ClipboardItem &item) const;
@@ -242,6 +253,11 @@ private:
     int auto_fill_max_pages_ = 3;
     int auto_fill_remaining_ = 3;
     bool offscreen_warmup_in_progress_ = false;
+    bool dragging_ = false;
+    // Where the mouse last was, to tell real movement from the list scrolling under a still mouse.
+    std::optional<QPoint> pointer_pos_;
+    // The row the mouse is over; -1 over blank space or outside the list.
+    int pointer_row_ = -1;
     inline static bool offscreen_warmup_done_ = false;
     FramelessMixin frameless_;
     std::unique_ptr<QSettings> qsettings_;
@@ -285,6 +301,8 @@ private:
     std::function<void(qint64)> marking(QMouseEvent *event, const QString &gesture, qint64 item_id) const;
     void run(const QString &action, qint64 item_id, const QPoint &position);
     void finish_click();
+    // A click while anything is marked: the left button adds the row (Shift a range, Ctrl toggles), the right removes it.
+    void select_by_click(Qt::MouseButton button, Qt::KeyboardModifiers modifiers, qint64 item_id);
 
     ClipboardWindow *window_;
     QListWidget *list_widget_;

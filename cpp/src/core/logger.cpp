@@ -3,6 +3,7 @@
 #include "core/i18n.h"
 #include "settings/tool_settings.h"
 #include <QDateTime>
+#include <QDebug>
 #include <QDir>
 #include <QFileInfo>
 #include <QHash>
@@ -15,6 +16,7 @@
 #include <cmath>
 #include <cstdio>
 #include <typeinfo>
+#include <windows.h>
 
 namespace jietuba {
 namespace {
@@ -85,10 +87,16 @@ bool format_field(const QVariant &value, const QString &spec, QString *out) {
     return false;
 }
 
-void write_stdout(const QString &text) {
+// A debugger console decodes the debuggee's stdout/stderr in the system code page, which garbles
+// UTF-8; under a debugger the text goes out as UTF-16 through OutputDebugStringW instead.
+void write_stream(std::FILE *stream, const QString &text) {
+    if (IsDebuggerPresent()) {
+        OutputDebugStringW(reinterpret_cast<const wchar_t *>(text.utf16()));
+        return;
+    }
     const auto bytes = text.toUtf8();
-    std::fwrite(bytes.constData(), 1, static_cast<size_t>(bytes.size()), stdout);
-    std::fflush(stdout);
+    std::fwrite(bytes.constData(), 1, static_cast<size_t>(bytes.size()), stream);
+    std::fflush(stream);
 }
 }
 
@@ -110,14 +118,19 @@ QString python_str(const QVariant &value) {
 }
 
 namespace {
-QString fixed6(double value) { return QString::number(value, 'f', 6); }
+template <typename T>
+QString debug_text(const T &value) {
+    QString text;
+    QDebug(&text).nospace() << value;
+    return text;
 }
-QString py_repr(const QPointF &v) { return QString("PySide6.QtCore.QPointF(%1, %2)").arg(fixed6(v.x()), fixed6(v.y())); }
-QString py_repr(const QPoint &v) { return QString("PySide6.QtCore.QPoint(%1, %2)").arg(v.x()).arg(v.y()); }
-QString py_repr(const QRectF &v) { return QString("PySide6.QtCore.QRectF(%1, %2, %3, %4)").arg(fixed6(v.x()), fixed6(v.y()), fixed6(v.width()), fixed6(v.height())); }
-QString py_repr(const QRect &v) { return QString("PySide6.QtCore.QRect(%1, %2, %3, %4)").arg(v.x()).arg(v.y()).arg(v.width()).arg(v.height()); }
-QString py_repr(const QSizeF &v) { return QString("PySide6.QtCore.QSizeF(%1, %2)").arg(fixed6(v.width()), fixed6(v.height())); }
-QString py_repr(const QSize &v) { return QString("PySide6.QtCore.QSize(%1, %2)").arg(v.width()).arg(v.height()); }
+}
+QString geometry_text(const QPointF &v) { return debug_text(v); }
+QString geometry_text(const QPoint &v) { return debug_text(v); }
+QString geometry_text(const QRectF &v) { return debug_text(v); }
+QString geometry_text(const QRect &v) { return debug_text(v); }
+QString geometry_text(const QSizeF &v) { return debug_text(v); }
+QString geometry_text(const QSize &v) { return debug_text(v); }
 
 bool python_format(const QString &format, const LogMsg::Args &args, QString *out) {
     QString result;
@@ -151,7 +164,9 @@ bool python_format(const QString &format, const LogMsg::Args &args, QString *out
 
 QString LogMsg::render() const {
     QString text = template_;
-    if (translatable_ && I18nManager::get_current_language() != "zh")
+    // Log templates are written in Chinese; both Chinese interfaces keep them as written.
+    const QString language = I18nManager::get_current_language();
+    if (translatable_ && language != "zh" && language != "zh_TW")
         text = log_translations().value(template_, template_);
     if (args_.empty()) return text;
     QString out;
@@ -177,7 +192,7 @@ Logger &Logger::instance() {
     return logger;
 }
 
-void Logger::write_console(const QString &text) { write_stdout(text); }
+void Logger::write_console(const QString &text) { write_stream(stdout, text); }
 
 void Logger::write_file(const QString &text, bool flush_now) {
     std::lock_guard lock(write_lock_);
@@ -195,8 +210,7 @@ void Logger::print(const QString &text) {
 void Logger::message_handler(QtMsgType, const QMessageLogContext &, const QString &message) {
     // Qt diagnostics go to stderr, which the original also tees into the log file.
     const auto line = message + "\n";
-    const auto bytes = line.toUtf8();
-    std::fwrite(bytes.constData(), 1, static_cast<size_t>(bytes.size()), stderr);
+    write_stream(stderr, line);
     instance().write_file(line, true);
 }
 

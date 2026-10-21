@@ -1,36 +1,48 @@
+#include "annotation/annotation_view.h"
+#include "annotation/screen_annotation.h"
 #include "canvas/scene.h"
+#include "capture/capture_service.h"
 #include "clipboard/core/manager.h"
 #include "clipboard/ui/windows/clipboard_window.h"
 #include "core/background_tasks.h"
 #include "core/constants.h"
+#include "core/game_mode_monitor.h"
 #include "capture/quick_capture_controller.h"
+#include "core/i18n.h"
 #include "core/input_hub.h"
 #include "core/logger.h"
 #include "core/shortcut_manager.h"
+#include "core/ui_scale.h"
 #include "main_app.h"
 #include "pin/pin_manager.h"
 #include "pin/pin_window.h"
 #include "settings/tool_settings.h"
 #include "translation/translation_manager.h"
+#include "ui/screenshot_countdown.h"
 #include "ui/screenshot_window.h"
 #include "ui/settings_ui/dialog.h"
 #include "ui/welcome/wizard.h"
 #include <QClipboard>
+#include <QCursor>
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QDialog>
+#include <QElapsedTimer>
 #include <QLabel>
 #include <QMenu>
+#include <QPushButton>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QSystemTrayIcon>
 #include <QTemporaryDir>
 #include <QScreen>
+#include <QScopeGuard>
 #include <QTest>
 #include <QTimer>
 #include <QThread>
 #include <atomic>
+#include <tuple>
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -74,6 +86,14 @@ QImage solid(const QSize &size) {
     QImage image(size, QImage::Format_RGB32);
     image.fill(Qt::darkCyan);
     return image;
+}
+
+// Whether another program could register the combination now.
+bool system_can_register(UINT mods, UINT vk) {
+    constexpr int PROBE_ID = 0x6F20;
+    if (!RegisterHotKey(nullptr, PROBE_ID, mods, vk)) return false;
+    UnregisterHotKey(nullptr, PROBE_ID);
+    return true;
 }
 }
 
@@ -123,6 +143,11 @@ private slots:
         auto *menu = main_app_->tray_icon->contextMenu();
         QVERIFY(menu);
         QVERIFY(action_texts(menu).size() >= 4);
+        const auto actions = menu->actions();
+        QVERIFY(actions.size() >= 3);
+        QCOMPARE(actions.at(actions.size() - 3)->text(), i18n_tr("Settings", "SystemTray"));
+        QVERIFY(actions.at(actions.size() - 2)->isSeparator());
+        QCOMPARE(actions.last()->text(), i18n_tr("Exit", "SystemTray"));
         // A new pin rebuilds the menu.
         PinManager::instance()->create_pin(solid(QSize(60, 40)), QPoint(100, 100), main_app_->config_manager);
         QVERIFY(main_app_->tray_icon->contextMenu() != menu);
@@ -154,6 +179,150 @@ private slots:
         QTRY_VERIFY(!ended);
         main_app_->start_screenshot();
         QTRY_VERIFY(main_app_->screenshot_window && main_app_->screenshot_window->session_active());
+    }
+
+    void theDelayedTrayScreenshotCountsDownWithoutBlockingTheDesktop_data() {
+        QTest::addColumn<QString>("engine");
+        QTest::newRow("auto") << QString("auto");
+        QTest::newRow("gdi") << QString("mss");
+    }
+
+    void theDelayedTrayScreenshotCountsDownWithoutBlockingTheDesktop() {
+        QFETCH(QString, engine);
+        const auto saved_engine = main_app_->config_manager->get_capture_engine();
+        main_app_->config_manager->set_capture_engine(engine);
+        const auto restore_engine = qScopeGuard([&] { main_app_->config_manager->set_capture_engine(saved_engine); });
+        auto *screen = QGuiApplication::screenAt(QCursor::pos());
+        if (!screen) screen = QGuiApplication::primaryScreen();
+        QVERIFY(screen);
+        QPushButton target(nullptr);
+        target.setWindowFlags(Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+        target.setFixedSize(scaled(200), scaled(200));
+        target.move(screen->geometry().center() - target.rect().center());
+        target.setStyleSheet("QPushButton { background: #dd5533; border: none; }");
+        target.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&target));
+        QSignalSpy clicked(&target, &QPushButton::clicked);
+        auto countdowns = [] {
+            QList<ScreenshotCountdown *> found;
+            for (auto *widget : QApplication::topLevelWidgets())
+                if (auto *countdown = qobject_cast<ScreenshotCountdown *>(widget)) found << countdown;
+            return found;
+        };
+        QVERIFY(countdowns().isEmpty());
+        QAction *delayed_action = nullptr;
+        for (auto *action : main_app_->tray_icon->contextMenu()->actions())
+            if (action->text() == i18n_tr("Delayed Screenshot", "SystemTray")) delayed_action = action;
+        QVERIFY(delayed_action);
+        QElapsedTimer elapsed;
+        elapsed.start();
+        delayed_action->trigger();
+        QVERIFY(main_app_->capture_busy());
+        QCOMPARE(countdowns().size(), 1);
+        QPointer<ScreenshotCountdown> countdown = countdowns().first();
+        const auto finish_pending = qScopeGuard([&] {
+            if (countdown && countdown->isVisible()) QTest::qWait(3100);
+        });
+        QVERIFY(countdown->isVisible());
+        QCOMPARE(countdown->text(), QString("3"));
+        QCOMPARE(countdown->geometry().center(), screen->geometry().center());
+        QCOMPARE(countdown->width(), scaled(96));
+        QVERIFY(GetForegroundWindow() != reinterpret_cast<HWND>(countdown->winId()));
+        delayed_action->trigger();
+        main_app_->start_screenshot();
+        QCOMPARE(countdowns().size(), 1);
+        QCOMPARE(countdowns().first(), countdown.data());
+        QVERIFY(!main_app_->screenshot_window || !main_app_->screenshot_window->session_active());
+        const auto centre = countdown->geometry().center();
+        QTRY_COMPARE(GetAncestor(WindowFromPoint(POINT{centre.x(), centre.y()}), GA_ROOT), reinterpret_cast<HWND>(target.winId()));
+        QTest::mouseClick(&target, Qt::LeftButton, Qt::NoModifier, target.rect().center());
+        QCOMPARE(clicked.count(), 1);
+        // Changes made during the delay, rather than the initial screen, must be captured.
+        target.setStyleSheet("QPushButton { background: #28b487; border: none; }");
+        QTRY_COMPARE(countdown->text(), QString("2"));
+        QVERIFY(!main_app_->screenshot_window || !main_app_->screenshot_window->session_active());
+        QTRY_COMPARE(countdown->text(), QString("1"));
+        QTRY_VERIFY(main_app_->screenshot_window && main_app_->screenshot_window->session_active());
+        QVERIFY(elapsed.elapsed() >= 3000);
+        QVERIFY(!countdown || !countdown->isVisible());
+        auto *window = main_app_->screenshot_window.data();
+        const QPoint sample = target.geometry().center() - QPoint(qRound(window->virtual_x), qRound(window->virtual_y));
+        QVERIFY(window->original_image.rect().contains(sample));
+        const auto pixel = window->original_image.pixelColor(sample);
+        QVERIFY(qAbs(pixel.red() - 40) <= 10 && qAbs(pixel.green() - 180) <= 10 && qAbs(pixel.blue() - 135) <= 10);
+        main_app_->start_delayed_screenshot();
+        QCOMPARE(main_app_->screenshot_window.data(), window);
+        QTRY_VERIFY(countdowns().isEmpty());
+    }
+
+    // The window is a square around a disc: whatever lies under the corners and just outside it must
+    // show through, with no system border, shadow or square background.
+    void theCountdownIsADiscWithoutASystemFrame() {
+        auto *screen = QGuiApplication::screenAt(QCursor::pos());
+        if (!screen) screen = QGuiApplication::primaryScreen();
+        QVERIFY(screen);
+        const QColor under("#dd5533");
+        QPushButton backdrop(nullptr);
+        backdrop.setWindowFlags(Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+        backdrop.setFixedSize(scaled(300), scaled(300));
+        backdrop.move(screen->geometry().center() - backdrop.rect().center());
+        backdrop.setStyleSheet("QPushButton { background: #dd5533; border: none; }");
+        backdrop.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&backdrop));
+        ScreenshotCountdown countdown(screen);
+        QVERIFY(QTest::qWaitForWindowExposed(&countdown));
+        const QRect area = countdown.geometry();
+        const int w = area.width(), h = area.height();
+        QImage image;
+        QRectF rect;
+        auto pixel = [&](const QPoint &global) { return image.pixelColor(global - rect.topLeft().toPoint()); };
+        // Inside the disc and clear of the digit: dark, so the capture does contain the window.
+        const QPoint inside = area.topLeft() + QPoint(w / 2, h / 8);
+        QElapsedTimer waited;
+        waited.start();
+        bool drawn = false;
+        while (!drawn && waited.elapsed() < 2000) {
+            std::tie(image, rect) = CaptureService("mss").capture_all_screens();
+            drawn = pixel(inside).red() < 120;
+            if (!drawn) QTest::qWait(50);
+        }
+        QVERIFY2(drawn, qPrintable(pixel(inside).name()));
+        const QPoint outside[] = {
+            // The corners of the square.
+            {area.left() + 2, area.top() + 2}, {area.right() - 2, area.top() + 2},
+            {area.left() + 2, area.bottom() - 2}, {area.right() - 2, area.bottom() - 2},
+            // On the window's edges, outside the disc.
+            {area.left(), area.top() + h / 4}, {area.right(), area.top() + h / 4},
+            {area.left(), area.bottom() - h / 4}, {area.right(), area.bottom() - h / 4},
+            {area.left() + w / 4, area.top()}, {area.right() - w / 4, area.top()},
+            {area.left() + w / 4, area.bottom()}, {area.right() - w / 4, area.bottom()},
+            // Just outside the window, where a shadow would fall.
+            {area.left() - 3, area.center().y()}, {area.right() + 3, area.center().y()},
+            {area.center().x(), area.top() - 3}, {area.center().x(), area.bottom() + 3},
+        };
+        for (const auto &point : outside) {
+            const auto color = pixel(point);
+            QVERIFY2(qAbs(color.red() - under.red()) <= 6 && qAbs(color.green() - under.green()) <= 6 && qAbs(color.blue() - under.blue()) <= 6,
+                     qPrintable(QString("(%1,%2) is %3").arg(point.x()).arg(point.y()).arg(color.name())));
+        }
+    }
+    void delayedScreenshotsRespectModalAndUpdateGuards() {
+        main_app_->update_preparing = true;
+        main_app_->start_delayed_screenshot();
+        const bool captured_during_update = main_app_->capture_busy();
+        main_app_->update_preparing = false;
+        QVERIFY(!captured_during_update);
+        bool captured_while_modal = true;
+        QTimer::singleShot(0, main_app_, [&] {
+            auto *dialog = QApplication::activeModalWidget();
+            main_app_->start_delayed_screenshot();
+            captured_while_modal = main_app_->capture_busy();
+            if (dialog) dialog->close();
+        });
+        QDialog modal;
+        modal.setModal(true);
+        modal.exec();
+        QVERIFY(!captured_while_modal);
     }
 
     void thePinHotkeyPinsTheSelectionDuringACapture() {
@@ -207,18 +376,25 @@ private slots:
         QCOMPARE(received.first().first().value<clipboard::ClipboardItem>().content_type, QString("text"));
     }
 
+    // The tray switch releases the registrations, so other programs get the keys, and brings them back.
     void hotkeysRegisterAndCanBeSuppressed() {
         auto *config = main_app_->config_manager;
         config->set_app_setting("global_hotkeys_disabled", false);
+        config->set_global_hotkeys("pin_clipboard", {"ctrl+alt+shift+f15", "", "", ""});
         main_app_->update_hotkey();
         QVERIFY(ShortcutManager::instance()->has_registered_hotkeys());
+        QVERIFY(!system_can_register(MOD_CONTROL | MOD_ALT | MOD_SHIFT, VK_F15));
         main_app_->set_global_hotkeys_disabled(true);
         QVERIFY(config->get_app_setting("global_hotkeys_disabled").toBool());
-        // Suppressed hotkeys stay registered; their callbacks are swallowed.
-        QVERIFY(ShortcutManager::instance()->has_registered_hotkeys());
         QVERIFY(ShortcutManager::instance()->global_hotkeys_suppressed());
+        QVERIFY(system_can_register(MOD_CONTROL | MOD_ALT | MOD_SHIFT, VK_F15));
+        // Kept to be applied again, so turning the switch off needs no re-registration.
+        QVERIFY(ShortcutManager::instance()->has_registered_hotkeys());
         main_app_->set_global_hotkeys_disabled(false);
         QVERIFY(!ShortcutManager::instance()->global_hotkeys_suppressed());
+        QVERIFY(!system_can_register(MOD_CONTROL | MOD_ALT | MOD_SHIFT, VK_F15));
+        config->set_global_hotkeys("pin_clipboard", {"", "", "", ""});
+        main_app_->update_hotkey();
     }
 
     void settingsArePreloadedOnceAndApplyingKeepsTheWindow() {
@@ -290,12 +466,14 @@ private slots:
     }
 
 
-    // A hotkey another program holds is listed in a warning with its slot; the others still register.
+    // A combination another program holds is taken over by the hook without a warning; a key bound
+    // alone cannot be, and is listed in a warning with its slot while the others still register.
     void occupiedHotkeysAreReported() {
         auto *config = main_app_->config_manager;
-        constexpr int OTHER_PROGRAM_ID = 0x6F00;
+        constexpr int OTHER_PROGRAM_ID = 0x6F00, OTHER_PROGRAM_BARE_ID = 0x6F02;
         QVERIFY(RegisterHotKey(nullptr, OTHER_PROGRAM_ID, MOD_CONTROL | MOD_ALT | MOD_SHIFT, VK_F11));
-        config->set_global_hotkeys("pin_clipboard", {"", "", "ctrl+alt+shift+f11", ""});
+        QVERIFY(RegisterHotKey(nullptr, OTHER_PROGRAM_BARE_ID, 0, VK_F14));
+        config->set_global_hotkeys("pin_clipboard", {"", "ctrl+alt+shift+f11", "f14", ""});
         QString message;
         QTimer::singleShot(0, main_app_, [&message] {
             if (auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget())) {
@@ -305,9 +483,126 @@ private slots:
         });
         main_app_->update_hotkey(true);
         UnregisterHotKey(nullptr, OTHER_PROGRAM_ID);
+        UnregisterHotKey(nullptr, OTHER_PROGRAM_BARE_ID);
         config->set_global_hotkeys("pin_clipboard", {"", "", "", ""});
-        QVERIFY2(message.contains("ctrl+alt+shift+f11") && message.contains("(3)"), qPrintable(message));
+        QVERIFY2(message.contains("f14") && message.contains("(3)"), qPrintable(message));
+        QVERIFY2(!message.contains("f11"), qPrintable(message));
         QVERIFY(ShortcutManager::instance()->has_registered_hotkeys());
+        main_app_->update_hotkey();
+    }
+
+    // The tray's game switch: a game in the foreground pauses every global input, the mouse shortcut's hook
+    // included, and its end brings them back; with the switch off nothing is checked.
+    void aGameInTheForegroundPausesHotkeysWhileTheSwitchIsOn() {
+        auto *config = main_app_->config_manager;
+        config->set_app_setting("quick_capture_pin", "ctrl+alt+dragleft");
+        config->set_global_hotkeys("pin_clipboard", {"ctrl+alt+shift+f13", "", "", ""});
+        main_app_->update_hotkey();
+        main_app_->setup_tray();
+        const auto tray_action = [this]() -> QAction * {
+            for (auto *action : main_app_->tray_icon->contextMenu()->actions())
+                if (action->text() == "Pause Hotkeys While Gaming") return action;
+            return nullptr;
+        };
+        QVERIFY(tray_action());
+        QVERIFY(!tray_action()->isChecked());
+        bool game = false;
+        auto *monitor = main_app_->game_mode_monitor;
+        monitor->set_probe([&game] { return game; });
+        tray_action()->trigger();
+        QVERIFY(config->get_app_setting("pause_hotkeys_in_games").toBool());
+        QVERIFY(monitor->running());
+        QVERIFY(!ShortcutManager::instance()->global_hotkeys_suppressed());
+        QTRY_VERIFY(input_hub()->native->hooks_installed());
+        game = true;
+        monitor->check();
+        QVERIFY(ShortcutManager::instance()->global_hotkeys_suppressed());
+        QVERIFY(system_can_register(MOD_CONTROL | MOD_ALT | MOD_SHIFT, VK_F13));
+        QTRY_VERIFY(!input_hub()->native->hooks_installed());
+        // The tray switch for all hotkeys shows only the user's own choice.
+        QVERIFY(!config->get_app_setting("global_hotkeys_disabled").toBool());
+        game = false;
+        monitor->check();
+        QVERIFY(!ShortcutManager::instance()->global_hotkeys_suppressed());
+        QVERIFY(!system_can_register(MOD_CONTROL | MOD_ALT | MOD_SHIFT, VK_F13));
+        QTRY_VERIFY(input_hub()->native->hooks_installed());
+        // Turned off during a game: everything comes back at once.
+        game = true;
+        monitor->check();
+        QVERIFY(tray_action()->isChecked());
+        tray_action()->trigger();
+        QVERIFY(!config->get_app_setting("pause_hotkeys_in_games").toBool());
+        QVERIFY(!monitor->running());
+        QVERIFY(!ShortcutManager::instance()->global_hotkeys_suppressed());
+        monitor->set_probe({});
+        config->set_global_hotkeys("pin_clipboard", {"", "", "", ""});
+        main_app_->update_hotkey();
+    }
+
+    // The tray lists a function's first hotkey beside its name and follows what the settings save.
+    void theTrayShowsEachFunctionsHotkeyBesideItsName() {
+        auto *config = main_app_->config_manager;
+        const auto screenshot = config->get_global_hotkeys("screenshot");
+        const auto translation = config->get_global_hotkeys("translation");
+        const auto entry = [this](const QString &name) {
+            for (const auto &text : action_texts(main_app_->tray_icon->contextMenu()))
+                if (text.section('\t', 0, 0) == name) return text;
+            return QString();
+        };
+        config->set_global_hotkeys("screenshot", {"", "ctrl+alt+shift+f12", "ctrl+alt+shift+f11", ""});
+        config->set_global_hotkeys("translation", {"", "", "", ""});
+        main_app_->update_hotkey();
+        QCOMPARE(entry("Screenshot"), QString("Screenshot\tCtrl+Alt+Shift+F12"));
+        QCOMPARE(entry("Translation"), QString("Translation"));
+        config->set_global_hotkeys("translation", {"ctrl+alt+shift+f10", "", "", ""});
+        main_app_->update_hotkey();
+        QCOMPARE(entry("Translation"), QString("Translation\tCtrl+Alt+Shift+F10"));
+        config->set_global_hotkeys("screenshot", screenshot);
+        config->set_global_hotkeys("translation", translation);
+        main_app_->update_hotkey();
+    }
+
+    // Rebuilding the menu takes its entries along: none stay behind.
+    void rebuildingTheTrayMenuLeavesNoActionsBehind() {
+        main_app_->setup_tray();
+        QPointer<QMenu> menu = main_app_->tray_icon->contextMenu();
+        QPointer<QAction> first = menu->actions().first();
+        main_app_->update_hotkey();
+        QVERIFY(main_app_->tray_icon->contextMenu() != menu);
+        QTRY_VERIFY(!menu);
+        QVERIFY(!first);
+    }
+
+    // The tray's clipboard switch stops the recording only: the hotkey and the history stay usable.
+    void turningClipboardMonitoringOffFromTheTrayKeepsTheHotkey() {
+        auto *config = main_app_->config_manager;
+        const auto saved = config->get_global_hotkeys("clipboard");
+        config->set_global_hotkeys("clipboard", {"ctrl+alt+shift+f14", "", "", ""});
+        main_app_->update_hotkey();
+        main_app_->setup_tray();
+        const auto monitor_action = [this]() -> QAction * {
+            for (auto *action : main_app_->tray_icon->contextMenu()->actions())
+                if (action->text() == "Record Clipboard") return action;
+            return nullptr;
+        };
+        QVERIFY(monitor_action());
+        QVERIFY(monitor_action()->isChecked());
+        QVERIFY(!system_can_register(MOD_CONTROL | MOD_ALT | MOD_SHIFT, VK_F14));
+        monitor_action()->trigger();
+        QVERIFY(!config->get_clipboard_enabled());
+        QVERIFY(!main_app_->clipboard_manager->is_monitoring());
+        // Registered again with monitoring off, as at the next start.
+        main_app_->update_hotkey();
+        QVERIFY(!system_can_register(MOD_CONTROL | MOD_ALT | MOD_SHIFT, VK_F14));
+        QVERIFY(!monitor_action()->isChecked());
+        main_app_->open_clipboard_window();
+        QTRY_VERIFY(main_app_->clipboard_window && main_app_->clipboard_window->isVisible());
+        main_app_->open_clipboard_window();
+        QVERIFY(!main_app_->clipboard_window->isVisible());
+        monitor_action()->trigger();
+        QVERIFY(config->get_clipboard_enabled());
+        QVERIFY(main_app_->clipboard_manager->is_monitoring());
+        config->set_global_hotkeys("clipboard", saved);
         main_app_->update_hotkey();
     }
 
@@ -394,6 +689,51 @@ private slots:
         QVERIFY(text.contains("thrown by a background task"));
     }
 
+    // The screen annotation: its hotkey registers, the tray entry starts and ends it and shows whether it
+    // runs, and a capture sends it back to pass-through under the capture window.
+    void screenAnnotationTogglesAndStepsAsideForACapture() {
+        auto *config = main_app_->config_manager;
+        config->set_global_hotkeys("screen_annotation", {"ctrl+alt+shift+f7", "", "", ""});
+        main_app_->update_hotkey();
+        constexpr int PROBE_ID = 0x6F01;
+        QVERIFY(!RegisterHotKey(nullptr, PROBE_ID, MOD_CONTROL | MOD_ALT | MOD_SHIFT, VK_F7));
+        main_app_->setup_tray();
+        const auto tray_action = [this]() -> QAction * {
+            for (auto *action : main_app_->tray_icon->contextMenu()->actions())
+                if (action->text().section('\t', 0, 0) == "Screen Annotation") return action;
+            return nullptr;
+        };
+        QVERIFY(tray_action());
+        QVERIFY(!tray_action()->isChecked());
+        QElapsedTimer clock;
+        clock.start();
+        tray_action()->trigger();
+        for (auto *view : main_app_->screen_annotation->views()) view->viewport()->repaint();
+        qInfo("first session on screen after %lld ms", static_cast<long long>(clock.elapsed()));
+        auto *annotation = main_app_->screen_annotation;
+        QVERIFY(annotation && annotation->active());
+        QVERIFY(tray_action()->isChecked());
+        annotation->select_tool("pen");
+        QCOMPARE(annotation->mode(), ScreenAnnotation::Mode::Drawing);
+        main_app_->start_screenshot();
+        QCOMPARE(annotation->mode(), ScreenAnnotation::Mode::PassThrough);
+        QTRY_VERIFY(main_app_->screenshot_window && main_app_->screenshot_window->session_active());
+        const auto centre = QGuiApplication::primaryScreen()->geometry().center();
+        const auto capture_hwnd = reinterpret_cast<HWND>(main_app_->screenshot_window->winId());
+        QTRY_COMPARE(GetAncestor(WindowFromPoint(POINT{centre.x(), centre.y()}), GA_ROOT), capture_hwnd);
+        // No session toggles under an open capture.
+        main_app_->toggle_screen_annotation();
+        QVERIFY(annotation->active());
+        main_app_->screenshot_window->cleanup_and_close();
+        main_app_->toggle_screen_annotation();
+        QVERIFY(!annotation->active());
+        QVERIFY(!tray_action()->isChecked());
+        main_app_->toggle_screen_annotation();
+        QVERIFY(annotation->active());
+        config->set_global_hotkeys("screen_annotation", {"", "", "", ""});
+        main_app_->update_hotkey();
+    }
+
     void quittingClosesEverythingOnce() {
         main_app_->start_screenshot();
         QTRY_VERIFY(main_app_->screenshot_window && main_app_->screenshot_window->session_active());
@@ -407,6 +747,7 @@ private slots:
         QVERIFY(!main_app_->screenshot_window);
         QVERIFY(!main_app_->settings_window);
         QVERIFY(!ShortcutManager::instance()->has_registered_hotkeys());
+        QVERIFY(!main_app_->screen_annotation || !main_app_->screen_annotation->active());
     }
 };
 

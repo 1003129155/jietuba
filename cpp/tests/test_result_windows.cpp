@@ -9,6 +9,7 @@
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/titlebar.h"
 #include "ui/fluent_lite/labels.h"
+#include "caption_check.h"
 #include <QApplication>
 #include <QClipboard>
 #include <QDir>
@@ -165,6 +166,7 @@ private slots:
         const std::vector<std::pair<QString, QString>> languages = {
             {"en", "ONNX Runtime, which PP-OCR needs, is not installed"},
             {"zh", QString::fromUtf8("没有安装 PP-OCR 所需的 ONNX Runtime")},
+            {"zh_TW", QString::fromUtf8("沒有安裝 PP-OCR 所需的 ONNX Runtime")},
             {"ja", QString::fromUtf8("PP-OCR に必要な ONNX Runtime がインストールされていません")},
             {"ko", QString::fromUtf8("PP-OCR에 필요한 ONNX Runtime이 설치되어 있지 않습니다")}};
         for (const auto &[language, expected] : languages) {
@@ -361,6 +363,17 @@ private slots:
         QVERIFY(window.cards[0]->open_button);
         QVERIFY(!window.cards[1]->open_button);
         QVERIFY(!window.cards[2]->open_button);
+    }
+
+    void theResultWindowsShareTheStandardCaption() {
+        use_test_app_icon();
+        DecodedCode code;
+        code.text = "example.com";
+        code.outline = QPolygonF(QRectF(10, 10, 50, 50));
+        BarcodeResultWindow barcode(codes_image_, {code});
+        VERIFY_STANDARD_CAPTION(barcode);
+        TextRecognitionWindow text(blank_image());
+        VERIFY_STANDARD_CAPTION(text);
     }
 };
 

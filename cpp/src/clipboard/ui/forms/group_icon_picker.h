@@ -1,17 +1,14 @@
 #pragma once
 #include <QLabel>
-#include <QList>
 #include <QString>
 #include <QWidget>
 
-class QPushButton;
-
-// The group icon picker: recommended icons, emoji input, category tabs and the preset grid.
+// The group icon picker: category tabs, emoji input and the preset grid.
 namespace jietuba::clipboard {
 class ManageDialog;
 
 void create_group_icon_picker(ManageDialog *dialog, const QString &current_icon = QString::fromUtf8("📁"));
-// The group type changed: the preview tile takes that type's colour and the recommended row that type's icons.
+// The group type changed: the preview tile takes that type's colour.
 void refresh_group_icon_kind(ManageDialog *dialog);
 QString emoji_tab_style(bool active, const QWidget *dialog = nullptr);
 QString emoji_btn_style(const QWidget *dialog = nullptr);
@@ -34,21 +31,5 @@ public:
 
 private:
     QString kind_;
-};
-
-// The recommended icons in one row: those that do not fit are hidden, so the row neither overlaps them nor
-// widens the form.
-class RecommendedRow : public QWidget {
-    Q_OBJECT
-public:
-    RecommendedRow();
-    void set_buttons(const QList<QPushButton *> &buttons);
-
-protected:
-    void resizeEvent(QResizeEvent *event) override;
-
-private:
-    void arrange();
-    QList<QPushButton *> buttons_;
 };
 }

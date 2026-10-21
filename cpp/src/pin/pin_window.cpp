@@ -20,6 +20,7 @@
 #include "tools/controller.h"
 #include "tools/cursor_manager.h"
 #include "ui/dialogs.h"
+#include "ui/save_image_dialog.h"
 #include "ui/arrow_settings_panel.h"
 #include "ui/mosaic_settings_panel.h"
 #include "ui/number_settings_panel.h"
@@ -385,7 +386,6 @@ void PinWindow::resizeEvent(QResizeEvent *event) {
         update_button_positions();
         if (toolbar && toolbar->isVisible()) toolbar->sync_with_pin_window();
     }
-    if (!thumbnail_mode() && ocr_mgr_) ocr_mgr_->update_geometry(content_rect().toRect());
     if (border_overlay) {
         border_overlay->setGeometry(0, 0, width(), height());
         border_overlay->raise();
@@ -545,10 +545,7 @@ bool PinWindow::handle_mouse_alternative_key(QInputEvent *event) {
 std::optional<QString> PinWindow::matching_mouse_action(QMouseEvent *event, const QString &gesture) {
     for (const auto &entry : PIN_MOUSE_ACTIONS()) {
         if (QString(entry.kind) != "wheel" && mouse_binding_matches(get_pin_mouse_binding(config_manager, entry.key), event, gesture)) {
-            if (QString(entry.key) == "copy_text") {
-                auto *layer = ocr_text_layer();
-                if (!layer || layer->get_selected_text().isEmpty()) continue;
-            }
+            if (QString(entry.key) == "copy_text" && !(text_selection() && text_selection()->has_selection())) continue;
             return QString(entry.key);
         }
     }
@@ -565,7 +562,7 @@ void PinWindow::run_mouse_action(const QString &action, const std::optional<QPoi
     if (action == "close") close_window();
     else if (action == "reset" && !thumbnail_mode()) reset_to_original_size();
     else if (action == "thumbnail") toggle_thumbnail_mode();
-    else if (action == "copy_text" && ocr_text_layer()) ocr_text_layer()->copy_selected_text();
+    else if (action == "copy_text" && text_selection()) text_selection()->copy_selected_text();
     else if (action == "context_menu" && position) show_context_menu(*position);
 }
 
@@ -700,14 +697,11 @@ void PinWindow::keyPressEvent(QKeyEvent *event) {
 }
 
 bool PinWindow::eventFilter(QObject *watched, QEvent *event) {
-    if (view && (watched == view->viewport() || watched == ocr_text_layer())) {
+    if (view && watched == view->viewport()) {
         if (handle_border_resize(watched, event)) return true;
         const auto type = event->type();
         if (type == QEvent::MouseButtonPress || type == QEvent::MouseButtonDblClick || type == QEvent::MouseMove || type == QEvent::MouseButtonRelease)
             if (handle_mouse_gesture(static_cast<QMouseEvent *>(event))) return true;
-    }
-    if (view && watched == view->viewport()) {
-        const auto type = event->type();
         if (type == QEvent::Enter || type == QEvent::HoverEnter || type == QEvent::MouseMove) hover_controls->set_pin_hovered(true);
         else if (type == QEvent::Leave || type == QEvent::HoverLeave) hover_controls->recheck_pin_hovered();
     }
@@ -742,7 +736,7 @@ void PinWindow::hide_toolbar() {
 void PinWindow::on_translate_clicked() {
     if (!translation_helper_) return;
     if (ocr_has_result()) {
-        if (ocr_text_layer()) translation_helper_->translate(ocr_text_layer());
+        if (text_selection()) translation_helper_->translate(text_selection()->layout());
     } else {
         if (!translation_helper_->begin_ocr_translation()) return;
         // Back to the event loop first so the translation window paints, then OCR (which
@@ -922,6 +916,13 @@ QImage PinWindow::get_current_image() {
     return img;
 }
 
+QTransform PinWindow::from_current_image(const QSize &size) const {
+    // Without rotation or flips the view transform is a plain scale.
+    const PinImageTransform none;
+    const auto &transform = image_transform_ ? *image_transform_ : none;
+    return transform.build_view_transform(size.width(), size.height(), orig_size_.width(), orig_size_.height()).inverted();
+}
+
 void PinWindow::with_edit_paused(const std::function<void()> &func) {
     const bool was_editing = canvas && canvas->is_editing();
     std::optional<QString> active_tool_id;
@@ -939,6 +940,18 @@ void PinWindow::with_edit_paused(const std::function<void()> &func) {
 }
 
 void PinWindow::save_image() {
+    if (use_modern_save_dialog(config_manager)) {
+        QImage image;
+        with_edit_paused([this, &image] { image = get_current_image(); });
+        const auto base_name = QString("pinned_%1").arg(QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss"));
+        const auto [outcome, path] = SaveImageDialog::run(this, image, base_name, config_manager);
+        if (outcome == SaveImageDialog::Outcome::SAVED) log_info(T("保存成功: {file_path}", {{"file_path", path}}), "PinWindow");
+        if (outcome != SaveImageDialog::Outcome::CLASSIC) return;
+    }
+    save_image_with_system_dialog();
+}
+
+void PinWindow::save_image_with_system_dialog() {
     const auto fmt = (config_manager ? config_manager->get_screenshot_format() : QString("PNG")).toLower();
     const auto default_name = QString("pinned_%1.%2").arg(QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss"), fmt);
     const SaveService save_service(config_manager ? *config_manager : *get_tool_settings_manager());
@@ -966,9 +979,8 @@ void PinWindow::copy_to_clipboard() {
 }
 
 void PinWindow::copy_all_text() {
-    auto *layer = ocr_text_layer();
-    if (ocr_has_result() && layer && layer->has_text()) {
-        copy_ocr_text(true, layer->get_all_text("\n"));
+    if (ocr_has_result() && text_selection() && text_selection()->has_text()) {
+        copy_ocr_text(true, text_selection()->layout().all_text("\n"));
         return;
     }
     if (!ocr_mgr_->recognize_then([this](bool success, const QString &result) { copy_ocr_text(success, result); }))

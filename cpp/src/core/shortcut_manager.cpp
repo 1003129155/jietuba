@@ -66,6 +66,8 @@ const QStringList &default_inapp_keys() {
 }
 
 LogMsg handler_context(ShortcutHandler *handler, const char *method) { return LogMsg(QString("ShortcutManager: %1.%2").arg(handler->handler_name(), method)); }
+
+QString hook_name(int hid) { return QString("hotkey-%1").arg(hid); }
 }
 
 QSet<std::pair<int, int>> ShortcutManager::registered_keys_global_;
@@ -162,12 +164,22 @@ void ShortcutManager::unregister_handler(ShortcutHandler *handler) {
     log_debug(T("注销 handler: {handler_name}", {{"handler_name", handler->handler_name()}}), "Shortcut");
 }
 
-void ShortcutManager::set_global_hotkeys_suppressed(bool suppressed) {
-    global_hotkeys_suppressed_ = suppressed;
-    sync_hook_hotkeys();
+void ShortcutManager::set_global_hotkeys_suppressed(bool suppressed) { set_paused(suppressed, game_paused_); }
+
+void ShortcutManager::set_game_mode_suppressed(bool suppressed) { set_paused(user_paused_, suppressed); }
+
+void ShortcutManager::set_paused(bool user, bool game) {
+    const bool was_paused = global_hotkeys_suppressed();
+    user_paused_ = user;
+    game_paused_ = game;
+    const bool paused = global_hotkeys_suppressed();
+    if (paused == was_paused) return;
+    apply_registrations();
+    sync_side_buttons();
+    emit global_hotkeys_paused_changed(paused);
 }
 
-bool ShortcutManager::has_registered_hotkeys() const { return !id_to_callback_.isEmpty() || !mouse_callbacks_.isEmpty() || !hook_hotkeys_.isEmpty(); }
+bool ShortcutManager::has_registered_hotkeys() const { return !registrations_.isEmpty() || !mouse_callbacks_.isEmpty(); }
 
 bool ShortcutManager::is_text_input_active(QInputEvent *event) const {
     // Structural and function keys go to shortcuts even inside text fields.
@@ -250,10 +262,12 @@ bool ShortcutManager::filter_key(QInputEvent *event) {
 }
 
 bool ShortcutManager::on_wm_hotkey(int hotkey_id) {
-    const auto callback = id_to_callback_.value(hotkey_id);
-    if (!callback) return false;
-    // While suppressed the handler chain gets no chance to intercept either.
-    if (global_hotkeys_suppressed_) {
+    const auto it = registrations_.constFind(hotkey_id);
+    if (it == registrations_.constEnd()) return false;
+    // A copy: the callback may re-register every hotkey.
+    const auto callback = it->callback;
+    // Messages posted before the pause still arrive; the handler chain gets no chance to intercept either.
+    if (global_hotkeys_suppressed()) {
         log_debug(T("系统热键已临时禁用，忽略回调 (id={hotkey_id})", {{"hotkey_id", hotkey_id}}), "Shortcut");
         return true;
     }
@@ -302,12 +316,14 @@ void ShortcutManager::on_side_button(const QString &name) {
 }
 
 void ShortcutManager::on_mouse_button_triggered(const QString &token) {
-    if (global_hotkeys_suppressed_) {
+    // Paused, a recording hotkey editor still gets the button, without its callback.
+    const bool paused = global_hotkeys_suppressed();
+    if (paused && mouse_capture_refs_ == 0) {
         log_debug(T("系统热键已临时禁用，忽略鼠标侧键回调 (token={token})", {{"token", token}}), "Shortcut");
         return;
     }
     // The chain runs before the callback lookup, so hotkey editors can record unbound buttons.
-    const auto callback = mouse_callbacks_.value(token);
+    const auto callback = paused ? std::function<void()>() : mouse_callbacks_.value(token);
     if (dispatch_mouse_hotkey(token, callback)) return;
     if (!callback) return;
     try {
@@ -322,26 +338,38 @@ bool ShortcutManager::register_hotkey(const QString &hotkey_str, std::function<v
     if (kind == global_hotkey::Route::Mouse) return register_mouse_hotkey(hotkey_str.trimmed().toLower(), std::move(callback));
     if (kind != global_hotkey::Route::Register && kind != global_hotkey::Route::Hook) return false;
     const auto [mods, vk] = parse_hotkey(hotkey_str);
+    // Refused here: with the hook as a fallback the system no longer refuses a repeat by itself,
+    // and both callbacks would fire.
+    if (registered_keys_global_.contains({mods, vk})) return false;
     const int hid = next_hotkey_id_++;
-    const bool registered = register_system_hotkey(hid, mods, vk, callback);
-    if (kind == global_hotkey::Route::Register) return registered;
-
-    // The hook swallows the key before the system sees it, so with both in place it fires
-    // once; the registration is a backstop for an elevated foreground window or a hook
-    // the system removed.
-    const QString name = QString("hotkey-%1").arg(hid);
-    id_to_metadata_[hid] = {mods, vk};
-    hook_hotkeys_[name] = {hid, mods, vk, std::move(callback)};
-    sync_hook_hotkeys();
-    return bound_hook_hotkeys_.contains(name) || global_hotkeys_suppressed_ || registered;
+    registered_keys_global_.insert({mods, vk});
+    registrations_.insert(hid, {mods, vk, kind, std::move(callback)});
+    apply_registrations();
+    if (global_hotkeys_suppressed()) return true;
+    return registrations_.value(hid).registered || bound_hook_hotkeys_.contains(hook_name(hid));
 }
 
-bool ShortcutManager::register_system_hotkey(int hid, int mods, int vk, const std::function<void()> &callback) {
-    if (!RegisterHotKey(nullptr, hid, static_cast<UINT>(mods), static_cast<UINT>(vk))) return false;
-    id_to_callback_[hid] = callback;
-    id_to_metadata_[hid] = {mods, vk};
-    registered_keys_global_.insert({mods, vk});
-    return true;
+void ShortcutManager::apply_registrations() {
+    const bool paused = global_hotkeys_suppressed();
+    for (auto it = registrations_.begin(); it != registrations_.end(); ++it) {
+        if (paused && it->registered) {
+            UnregisterHotKey(nullptr, it.key());
+            it->registered = false;
+        } else if (!paused && !it->registered) {
+            it->registered = RegisterHotKey(nullptr, it.key(), static_cast<UINT>(it->mods), static_cast<UINT>(it->vk));
+        }
+    }
+    sync_hook_hotkeys();
+    if (paused) return;
+    for (auto it = registrations_.begin(); it != registrations_.end(); ++it) {
+        if (it->route != global_hotkey::Route::Register) continue;
+        const bool hooked = !it->registered && bound_hook_hotkeys_.contains(hook_name(it.key()));
+        if (hooked && !it->hooked) {
+            const auto text = global_hotkey::format_hotkey(it->mods, it->vk).value_or(QString::number(it->vk));
+            log_warning(T("全局热键被其他程序占用，改由钩子接管: {hotkey}", {{"hotkey", text}}), "Hotkey");
+        }
+        it->hooked = hooked;
+    }
 }
 
 bool ShortcutManager::register_mouse_hotkey(const QString &token, std::function<void()> callback) {
@@ -365,7 +393,8 @@ void ShortcutManager::end_mouse_capture() {
 }
 
 void ShortcutManager::sync_side_buttons() {
-    const bool enabled = !mouse_callbacks_.isEmpty() || mouse_capture_refs_ > 0;
+    // A focused hotkey editor records in this program's own window, so a pause leaves it alone.
+    const bool enabled = (!mouse_callbacks_.isEmpty() && !global_hotkeys_suppressed()) || mouse_capture_refs_ > 0;
     try {
         // Nobody used side buttons yet: no hub is created just to disable them.
         auto *hub = enabled ? input_hub() : existing_input_hub();
@@ -383,7 +412,13 @@ void ShortcutManager::sync_side_buttons() {
 }
 
 void ShortcutManager::sync_hook_hotkeys() {
-    const auto wanted = global_hotkeys_suppressed_ ? QMap<QString, HookHotkey>() : hook_hotkeys_;
+    // The hook swallows a key before the system sees it, so with both in place it fires once; the
+    // registration of a hook-route key is a backstop for an elevated foreground window or a hook
+    // the system removed. A register-route key goes to the hook only while the system refuses it.
+    QMap<QString, std::pair<int, int>> wanted;
+    if (!global_hotkeys_suppressed())
+        for (auto it = registrations_.cbegin(); it != registrations_.cend(); ++it)
+            if (it->route == global_hotkey::Route::Hook || !it->registered) wanted[hook_name(it.key())] = {it->mods, it->vk};
     try {
         auto *hub = !wanted.isEmpty() ? input_hub() : existing_input_hub();
         if (!hub) return;
@@ -396,7 +431,7 @@ void ShortcutManager::sync_hook_hotkeys() {
             if (!wanted.contains(name)) hub->native->unbind_hotkey(name);
         QSet<QString> bound;
         for (auto it = wanted.begin(); it != wanted.end(); ++it)
-            if (hub->native->bind_hotkey(it.key(), global_hotkey::modifier_names(it.value().mods), static_cast<quint32>(it.value().vk)))
+            if (hub->native->bind_hotkey(it.key(), global_hotkey::modifier_names(it->first), static_cast<quint32>(it->second)))
                 bound.insert(it.key());
         bound_hook_hotkeys_ = bound;
     } catch (const std::exception &e) {
@@ -405,15 +440,18 @@ void ShortcutManager::sync_hook_hotkeys() {
 }
 
 void ShortcutManager::on_hook_hotkey(const QString &name) {
-    // Events queued before suppression still arrive.
-    if (global_hotkeys_suppressed_) return;
-    if (!hook_hotkeys_.contains(name)) return;
+    // Events queued before the pause still arrive.
+    if (global_hotkeys_suppressed()) return;
+    int hid = 0;
+    for (auto it = registrations_.cbegin(); it != registrations_.cend() && !hid; ++it)
+        if (hook_name(it.key()) == name) hid = it.key();
+    if (!hid) return;
     // A copy: the callback may re-register every hotkey.
-    const auto entry = hook_hotkeys_.value(name);
+    const auto callback = registrations_.value(hid).callback;
     // Through the handler chain like WM_HOTKEY (a pin intercepts the translation hotkey, for one).
-    if (dispatch_hotkey(entry.hid, entry.callback)) return;
+    if (dispatch_hotkey(hid, callback)) return;
     try {
-        entry.callback();
+        callback();
     } catch (const std::exception &e) {
         log_exception(e, T("系统组合键回调 name={name}", {{"name", name}}));
     }
@@ -484,17 +522,15 @@ bool ShortcutManager::check_hotkey_availability(const QString &hotkey_str) {
 }
 
 void ShortcutManager::unregister_all_hotkeys() {
-    for (auto it = id_to_callback_.begin(); it != id_to_callback_.end(); ++it) {
-        UnregisterHotKey(nullptr, it.key());
-        if (id_to_metadata_.contains(it.key())) registered_keys_global_.remove(id_to_metadata_[it.key()]);
+    for (auto it = registrations_.cbegin(); it != registrations_.cend(); ++it) {
+        if (it->registered) UnregisterHotKey(nullptr, it.key());
+        registered_keys_global_.remove({it->mods, it->vk});
     }
-    id_to_callback_.clear();
-    id_to_metadata_.clear();
+    registrations_.clear();
     for (auto it = mouse_callbacks_.begin(); it != mouse_callbacks_.end(); ++it) registered_mouse_buttons_global_.remove(it.key());
     mouse_callbacks_.clear();
     mouse_callback_order_.clear();
     sync_side_buttons();
-    hook_hotkeys_.clear();
     sync_hook_hotkeys();
 }
 

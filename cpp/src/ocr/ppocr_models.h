@@ -17,7 +17,11 @@ namespace ppocr_models {
 QString models_root();
 // Tests point models/ at a temporary folder; empty restores the default.
 void set_models_root_for_test(const QString &root);
-// models/onnxruntime.dll, which this build loads at run time.
+// Where the full package puts its embedded ONNX Runtime when models/ cannot be written:
+// %LOCALAPPDATA%/Jietuba/runtime/<arch>/onnxruntime.dll.
+QString fallback_runtime_path();
+// The ONNX Runtime this build loads: models/onnxruntime.dll, or the fallback copy when only that one
+// is usable. Downloads still go to models/, so with neither usable this is the models/ path.
 QString runtime_path();
 QJsonObject catalog();
 std::optional<QJsonObject> catalog_entry(const QString &catalog_id);

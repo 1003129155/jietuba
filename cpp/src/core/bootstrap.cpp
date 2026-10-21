@@ -1,4 +1,5 @@
 #include "core/bootstrap.h"
+#include "clipboard/ui/widgets/item_drag.h"
 #include "clipboard/ui/windows/clipboard_window.h"
 #include "core/shortcut_manager.h"
 #include "ui/dialogs.h"
@@ -180,6 +181,11 @@ void PreloadManager::build_and_start() {
     if (!bundled_runtime::data().isEmpty()) steps_.push_back([this] { return seed_bundled_runtime(); });
     // The engine preference is read here and handed to OCR, so recognition threads never read settings.
     steps_.push_back([this] { return apply_ocr_engine_setting(); });
+    // Files of drags from the last run that exited before removing them; nothing can be dragged yet.
+    steps_.push_back([] {
+        clipboard::ItemDragMimeData::remove_stale_folders(clipboard::ItemDragMimeData::default_temp_root(), 0);
+        return false;
+    });
     if (cfg->get_app_setting("preload_clipboard", true).toBool()) steps_.push_back([this] {
         init_clipboard_manager();
         return false;
@@ -246,9 +252,9 @@ bool PreloadManager::seed_bundled_runtime() {
     // A write of some 16 MB, only when models/ has no usable DLL (first start, or after an update
     // from a package that linked ONNX Runtime in); off the main thread.
     auto *thread = QThread::create([] {
-        QString error;
-        switch (bundled_runtime::seed_embedded(&error)) {
-        case bundled_runtime::SeedResult::Written: log_info(T("已把内置的 ONNX Runtime 放到 models/"), "OCR"); break;
+        QString written, error;
+        switch (bundled_runtime::seed_embedded(&written, &error)) {
+        case bundled_runtime::SeedResult::Written: log_info(T("已把内置的 ONNX Runtime 放到 {path}", {{"path", QDir::toNativeSeparators(written)}}), "OCR"); break;
         case bundled_runtime::SeedResult::Failed: log_warning(T("无法放置内置的 ONNX Runtime: {error}", {{"error", error}}), "OCR"); break;
         case bundled_runtime::SeedResult::Unneeded: break;
         }
@@ -312,6 +318,7 @@ bool PreloadManager::show_main_window_on_start() {
             app_->hotkey_system->unregister_all();
             WelcomeWizard wizard(config_);
             exec_dialog(&wizard);
+            app_->sync_game_mode_monitor();
             app_->update_hotkey();
             app_->setup_tray();
             app_->setup_pin_tray_updates();

@@ -118,7 +118,7 @@ QWidget *build_mouse_rows(SettingsDialog *dialog, const std::vector<MouseAction>
         auto *title = row_label(card, dialog->tr_text(action.label));
         title->setWordWrap(true);
         row->addWidget(title, 1);
-        auto *editor = new MouseBindingEditor(dialog, action.kind, card);
+        auto *editor = new MouseBindingEditor(action.kind, card);
         editor->setFixedWidth(dialog_scaled(320));
         editor->setBinding(binding_getter(dialog->config_manager, action.key));
         dialog->behavior_controls.emplace_back(key_prefix + action.key, editor);
@@ -198,18 +198,18 @@ QString mouse_binding_text(SettingsDialog *dialog, const QString &binding) {
 }
 }
 
-MouseBindingEditor::MouseBindingEditor(SettingsDialog *dialog, const QString &kind, QWidget *parent) : QWidget(parent), modifier_required_(kind == "global") {
+MouseBindingEditor::MouseBindingEditor(const QString &kind, QWidget *parent) : QWidget(parent), modifier_required_(kind == "global") {
     auto *layout = new QHBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(dialog_scaled(8));
     modifiers = new ComboBox(this);
     for (const auto &value : kind == "global" ? GLOBAL_MODIFIERS : INAPP_MODIFIERS) {
-        const QString label = !value.isEmpty() ? title_case(value) : (kind == "global" ? QString::fromUtf8("—") : dialog->tr_text("No Modifier"));
+        const QString label = !value.isEmpty() ? title_case(value) : (kind == "global" ? QString::fromUtf8("—") : settings_tr("No Modifier"));
         modifiers->addItem(label, value);
     }
     gesture = new ComboBox(this);
-    gesture->addItem(dialog->tr_text("No Action"), QString());
-    for (const auto &[value, label] : MOUSE_GESTURES().at(kind)) gesture->addItem(dialog->tr_text(label), value);
+    gesture->addItem(settings_tr("No Action"), QString());
+    for (const auto &[value, label] : MOUSE_GESTURES().at(kind)) gesture->addItem(settings_tr(label), value);
     auto *plus = new QLabel("+", this);
     plus->setAlignment(Qt::AlignCenter);
     apply_theme_text_style(plus, 14, false, {}, true);
@@ -261,7 +261,7 @@ QWidget *create_mouse_page(SettingsDialog *dialog) {
     set_own_style(view, "background: transparent;");
     auto *layout = new QVBoxLayout(view);
     layout->setContentsMargins(0, 0, dialog_scaled(10), 0);
-    layout->setSpacing(dialog_scaled(16));
+    layout->setSpacing(dialog_scaled(12));
     layout->addWidget(create_global_section(dialog, view));
     layout->addWidget(create_inapp_section(dialog, view));
     layout->addStretch();
@@ -323,7 +323,7 @@ QString mouse_binding_conflict_message(SettingsDialog *dialog, const std::option
     QStringList lines{dialog->tr_text("The following shortcuts conflict:"), ""};
     for (const auto &[context, binding, owners] : conflicts) lines.append(QString::fromUtf8("• %1 · %2: %3").arg(context, binding, owners.join(" / ")));
     lines.append("");
-    lines.append(dialog->tr_text("Change one shortcut in each row before applying."));
+    lines.append(dialog->tr_text("The new shortcut was not saved."));
     return lines.join("\n");
 }
 }

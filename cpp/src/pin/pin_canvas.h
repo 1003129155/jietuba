@@ -49,6 +49,8 @@ public:
     CanvasScene *scene = nullptr;
     CommandUndoStack *undo_stack = nullptr;
     ToolController *tool_controller = nullptr;
+    // An arrow's editable geometry and style, for EditItemCommand; the screen annotation uses it too.
+    static QVariantMap capture_arrow_state(QGraphicsItem *item);
 private:
     void sync_number_next(int number_next);
     QGraphicsItem *clone_graphics_item(QGraphicsItem *item);
@@ -65,7 +67,6 @@ private:
     void on_watermark_requested(PinToolbar *toolbar);
     void on_watermark_style_changed(const QString &key, const QVariant &value);
     void on_watermark_text_changed(const QString &template_text, PinToolbar *toolbar);
-    static QVariantMap capture_arrow_state(QGraphicsItem *item);
     bool is_editing_ = false;
     bool is_drawing_ = false;
 };

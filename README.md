@@ -1,19 +1,28 @@
-[中文](README_zh-CN.md) | **[English](README.md)** | [日本語](README_JA.md)
+<div align="center">
 
-# jietuba — Screenshot, OCR, Pin, Translation & Clipboard Tool for Windows
+<img src="svg/%E6%89%98%E7%9B%98.svg" width="128" alt="jietuba logo" />
+
+# jietuba
+
+**Screenshot, OCR, Pin, Translation & Clipboard Tool for Windows**
 
 [![build](https://img.shields.io/github/actions/workflow/status/1003129155/jietuba/cpp.yml?branch=master2&label=build&style=flat-square)](https://github.com/1003129155/jietuba/actions/workflows/cpp.yml) [![license](https://img.shields.io/github/license/1003129155/jietuba?style=flat-square)](LICENSE) [![release](https://img.shields.io/github/v/release/1003129155/jietuba?style=flat-square)](https://github.com/1003129155/jietuba/releases/latest) ![platform](https://img.shields.io/badge/Windows-x64%20%7C%20ARM64-0078D4?style=flat-square)
 
 [Download for Windows](https://github.com/1003129155/jietuba/releases/latest) · [Build from Source](#source-setup) · [Development and Tests](#development)
 
+[中文](README_zh-CN.md) | **English** | [日本語](README_JA.md)
+
+</div>
 
 <img width="1391" height="844" alt="21" src="https://github.com/user-attachments/assets/01770043-6dbe-4c9f-b1d9-5d9eb467c559" />
 
 ## Overview
 
-jietuba is a free, open-source screenshot tool for Windows: region and window capture, scrolling (long) screenshots, annotation, OCR text recognition, translation, image pinning, GIF/MP4 recording, QR code and barcode scanning, PDF export, and a full clipboard history manager. Everything runs locally.
+jietuba is a free, open-source screenshot tool for Windows: region and window capture, scrolling (long) screenshots, annotation, OCR text recognition, translation, image pinning, GIF/MP4 recording, live screen annotation, QR code and barcode scanning, PDF export, and a full clipboard history manager. Everything runs locally.
 
 MP4 region recording supports custom frame rates and bitrates, pause/resume, the mouse pointer, and system audio. Audio from common 5.1/7.1 playback devices is converted to stereo; microphone recording is not included.
+
+Screen annotation draws straight on the screen you are working on: start it with its global hotkey (Settings → Shortcuts → Screen Annotation, unset by default) or Screen Annotation in the tray menu. Pen, highlighter, arrow, number, rectangle, ellipse, text and eraser are the same tools and settings as in capture editing. Until a tool is picked the mouse keeps working the windows below; Esc or the pass-through button returns to pass-through and gives the focus back to the window you were using, so a slide show keeps its page keys. Every screen gets its own layer, and undo follows the drawing order across screens; drawings can be hidden or cleared in one go (undoable). Screenshots and GIF/MP4 recordings include the drawings but not the annotation toolbar. On the screen the highlighter tints at a fixed translucency, so the text under it stays readable. There is also a whiteboard, on and off with one click, and a cursor highlight with a ring for every click. Settings → Screen Annotation chooses what a session starts with, where the toolbar appears, whether drawings are kept, and the size and click rings of the cursor highlight.
 
 jietuba is written in C++ (Qt6); image processing, clipboard access, the PP-OCR engine and other core parts are implemented in Rust. Runs on Windows x86_64 and ARM64. The earlier Python (PySide6) implementation is archived on the [`archive/python`](https://github.com/1003129155/jietuba/tree/archive/python) branch and no longer updated.
 
@@ -122,7 +131,7 @@ ctest --test-dir build\msvc -C Release --output-on-failure -E "_desktop$|_window
 
 The test programs run in a temporary sandbox and never read or write your own settings, clipboard history or logs. There are also analysis builds (`scripts\check.ps1`: AddressSanitizer, code analysis, leak detection) and coverage (`scripts\coverage.ps1`).
 
-[C++ CI](.github/workflows/cpp.yml) builds every pull request and runs the tests that need no desktop; when `rust_libs/` changes, [Rust CI](.github/workflows/rust-wheels.yml) runs the Rust unit tests and rechecks third-party notices.
+[C++ CI](.github/workflows/cpp.yml) builds every pull request, runs the tests and checks the line coverage of the changed code; when `rust_libs/` changes, [Rust CI](.github/workflows/rust.yml) runs the Rust unit tests and rechecks third-party notices.
 
 Releases are made by [build.yml](.github/workflows/build.yml): the tag must be `release-<version in the VERSION file>`; [lite.yml](.github/workflows/lite.yml) builds the Lite and Full packages for x64 and ARM64, which are signed and published as `jietuba_lite-<tag>-<arch>.zip` and `jietuba_pp-<tag>-<arch>.zip`.
 
@@ -139,6 +148,7 @@ Releases are made by [build.yml](.github/workflows/build.yml): the tag must be `
 │
 ├── cpp/                     # C++ (Qt6) implementation
 │   ├── src/                 # Source, organized as <package>/<module>
+│   │   ├── annotation/      # Live screen annotation — one layer per screen, pass-through, cross-screen undo
 │   │   ├── barcode/         # QR code and barcode recognition (zxing-cpp)
 │   │   ├── canvas/          # Canvas — editing core, undo, layers
 │   │   ├── capture/         # Capture — screenshots, window and element detection
@@ -165,7 +175,6 @@ Releases are made by [build.yml](.github/workflows/build.yml): the tag must be `
 │   ├── pyclipboard/         # Low-level clipboard operations
 │   ├── ppocr_rust/          # PP-OCR (PaddleOCR) ONNX recognition engine
 │   ├── hdrcapture/          # HDR desktop capture
-│   ├── inputhub/            # Global mouse and keyboard hooks
 │   ├── updater/             # Standalone updater that replaces only the application EXE
 │   └── video_recorder/      # Media Foundation recording and WASAPI system audio capture
 │
@@ -177,6 +186,35 @@ Releases are made by [build.yml](.github/workflows/build.yml): the tag must be `
 ```
 
 ## Module Details
+
+### annotation/ — Screen Annotation Module
+
+Draws straight on the screen being used. Every screen gets a full-screen transparent layer that reuses the GIF recording's drawing layer (`GifDrawingView`) and the capture toolbar (`Toolbar`, layout profile `toolbar_layout::ANNOTATION`), so tools, settings panels and undo are the same ones.
+
+<details>
+<summary>Show directory structure</summary>
+
+```text
+annotation/
+├── screen_annotation.h/.cpp   # ScreenAnnotation — the session: a layer per screen, pass-through/drawing/hidden, cross-screen undo, focus hand-back; ScreenAnnotationShortcutHandler — keys while drawing
+├── annotation_view.h/.cpp     # AnnotationView — one screen's drawing layer; as the canvas host it hands the shared toolbar to CanvasView
+├── annotation_toolbar.h/.cpp  # AnnotationToolbar — floating toolbar with pass-through, clear, hide and exit; never takes the focus, kept out of captures and recordings
+└── cursor_highlight.h/.cpp    # CursorHighlight and PointerLight — the light around the pointer and the click rings
+```
+
+</details>
+
+**Key features:**
+- In pass-through the layers carry `WS_EX_TRANSPARENT`, so the mouse reaches the windows below; picking a tool takes the mouse, and returning to pass-through gives the focus back to the previous foreground window
+- One canvas and undo stack per screen; the session records which screens each step changed, so undo and redo follow the drawing order across screens, and clearing is one undoable step
+- Layers are added, removed or resized as screens are plugged in or change resolution, and the toolbar always stays on a visible screen
+- Before a capture the session returns to pass-through and waits for that frame to reach the screen: captures include the drawings but not the hit layer, and the toolbar is kept out of captures and recordings with `WDA_EXCLUDEFROMCAPTURE`
+- The layers have no captured image under the drawings, so the highlighter cannot multiply onto what it covers; it is laid on at 35% opacity instead, each stroke in one pass so it keeps one tint, and a rectangle highlight fills its border and inside as one shape
+- A shape just drawn is not selected, so no handles show on the screen or in recordings; clicking a drawing with its tool still selects it
+- The whiteboard is a solid white item under the drawings, on and off with one click; pass-through shows the desktop again and the next tool brings the board back
+- The cursor highlight takes the pointer and the buttons from the input hub's mouse events (the system hook), so it works in pass-through too, runs nothing while the pointer rests and misses no click; while drawing, its disc moves in the same repaint as the stroke, and a screenshot leaves it out
+
+---
 
 ### barcode/ — Barcode Module
 
@@ -369,7 +407,9 @@ core/
 ├── i18n.h/.cpp                 # I18nManager / XmlTranslator / tr() — internationalization
 ├── shortcut_manager.h/.cpp     # HotkeySystem / ShortcutManager — global & in-app hotkeys
 ├── global_hotkey.h/.cpp        # Global hotkey key names and routing: system registration, hook takeover, or rejected
-├── input_hub.h/.cpp            # Shared global input: native hooks (j-input) off the GUI thread, events as Qt signals
+├── input_hub.h/.cpp            # Shared global input: hooks off the GUI thread, events as Qt signals
+├── input_engine.h/.cpp         # Input state machine — gestures, hotkeys, shortcut recording, watchers
+├── input_hooks.h/.cpp          # Low-level mouse/keyboard and foreground hooks on their own thread
 ├── quick_capture_input.h/.cpp  # Global mouse shortcut drag input on the shared input hub
 ├── last_capture_region.h/.cpp  # In-memory "last capture region" for the restore-region hotkey
 ├── save.h/.cpp                 # SaveService — file save service (auto naming, high-quality PDF output)
@@ -403,7 +443,7 @@ core/
 - Global crash handling that captures unhandled exceptions
 - Unified loading of SVG and image resources
 - Application-wide light/dark theme management
-- XML-based i18n system (Chinese / English / Japanese / Korean)
+- XML-based i18n system (Chinese / English / Japanese / Korean / Traditional Chinese)
 - Global hotkey system (Windows API) and in-app shortcut management
 - File save/export services (including high-quality PDF output)
 - Run as administrator: a scheduled task starts it at sign-in without a UAC prompt, and a normal launch hands over to the elevated instance
@@ -698,12 +738,13 @@ The interface texts in several languages, in `cpp/resources/translations/`.
 translations/
 ├── app_zh.xml / app_en.xml  # Chinese / English source files
 ├── app_ja.xml / app_ko.xml  # Japanese / Korean source files
+├── app_zh_TW.xml            # Traditional Chinese (Taiwan) source file
 └── app_*.qm                 # compiled Qt binaries (e.g. app_zh.qm)
 ```
 
 </details>
 
-`.xml` = editable source files, `.qm` = compiled Qt runtime files. When adding or changing UI text, add an entry with the same context to all four `.xml` files (use real line breaks in multi-line text), then run `scripts/compile_translations.py`. Log texts are edited directly in `resources/core/log_translations.json`.
+`.xml` = editable source files, `.qm` = compiled Qt runtime files. When adding or changing UI text, add an entry with the same context to all five `.xml` files (use real line breaks in multi-line text), then run `scripts/compile_translations.py`. Log texts are edited directly in `resources/core/log_translations.json`.
 
 ---
 

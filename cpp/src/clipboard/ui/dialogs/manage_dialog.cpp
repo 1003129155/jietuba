@@ -21,7 +21,6 @@
 #include "core/logger.h"
 #include "core/platform_utils.h"
 #include "core/py_text.h"
-#include "core/resource_manager.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
 #include "ui/dialogs.h"
@@ -35,11 +34,12 @@
 #include <QClipboard>
 #include <QCloseEvent>
 #include <QCursor>
-#include <QFileInfo>
 #include <QHBoxLayout>
 #include <QListWidgetItem>
 #include <QMenu>
 #include <QScreen>
+#include <QUrl>
+#include <algorithm>
 #include <chrono>
 
 namespace jietuba::clipboard {
@@ -62,7 +62,7 @@ QString short_time(const QDateTime &moment) {
     return moment.toString("yyyy-MM-dd");
 }
 
-QString display_icon(const Group &group) { return get_group_display_icon(group.icon, group.group_type); }
+QString display_icon(const Group &group) { return get_group_display_icon(group.icon, group.group_type, group.filter_rule); }
 
 QAction *add_menu_action(QMenu *menu, const QString &text, const std::function<void()> &handler) {
     QAction *action = menu->addAction(text);
@@ -105,8 +105,6 @@ ManageDialog::ManageDialog(ClipboardManager *manager, QWidget *parent) : Frosted
     setWindowFlags(windowFlags() | Qt::Window | Qt::WindowCloseButtonHint | Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint);
     // setWindowFlags recreates the native window, dropping the frameless WS_THICKFRAME and shadow, so the edges no longer resize; add them back.
     helper_.install();
-    const QString icon_path = ResourceManager::get_resource_path(QString::fromUtf8("svg/托盘.svg"));
-    if (QFileInfo::exists(icon_path)) setWindowIcon(QIcon(icon_path));
     setAttribute(Qt::WA_DeleteOnClose, false);
 
     setup_ui();
@@ -129,7 +127,6 @@ void ManageDialog::setup_titlebar() {
     configure_dialog_control(*title_bar);
     setTitleBar(title_bar);
     title_bar->setDoubleClickEnabled(true);
-    title_bar->center_title();
 }
 
 void ManageDialog::fit_to_screen() {
@@ -616,7 +613,7 @@ void ManageDialog::on_group_row_changed(QListWidgetItem *current) {
 }
 
 void ManageDialog::on_group_selected(std::optional<qint64> group_id) {
-    // Switching group: the middle column refreshes and the right one shows the group's new item form.
+    // Filter groups open their settings; stored-content groups open the new item form.
     selected_group_id = group_id;
     leave_creating_group(false);
     if (!search_input->text().isEmpty()) {
@@ -684,6 +681,8 @@ void ManageDialog::refresh_content_list() {
     const auto group = get_selected_group();
     const bool stores_content = group.has_value() && !group->is_filter();
     edit_group_btn->setVisible(group.has_value());
+    add_item_btn->setVisible(!group || !group->is_filter());
+    search_input->setVisible(!group || !group->is_filter());
     add_item_btn->setEnabled(stores_content);
     search_input->setEnabled(stores_content);
 
@@ -700,7 +699,7 @@ void ManageDialog::refresh_content_list() {
     if (group->is_filter()) {
         list_count->setText("");
         item_types_.clear();
-        show_list_empty(tr_text("Filter groups store no content; they show one type of your clipboard history"));
+        show_list_empty(tr_text("Filter groups store no content; they show the clipboard history that matches the chosen type and source app"));
         item_list->blockSignals(false);
         return;
     }
@@ -708,7 +707,7 @@ void ManageDialog::refresh_content_list() {
     list_count->setText(tr_text("{count} items").replace("{count}", QString::number(items.size())));
     item_types_.clear();
     for (const auto &item : items) {
-        item_types_.insert(item.id, item.content_type);
+        item_types_.insert(item.id, {item.content_type, item.sub_kind});
         item_list->addItem(item_row(item));
     }
     const int row = item_list->row_of_id(editing_item_id);
@@ -720,6 +719,8 @@ void ManageDialog::refresh_content_list() {
 void ManageDialog::show_new_group_placeholder() {
     // The new group is not saved yet: nothing to list and nothing can be added.
     edit_group_btn->setVisible(false);
+    add_item_btn->setVisible(true);
+    search_input->setVisible(true);
     add_item_btn->setEnabled(false);
     search_input->setEnabled(false);
     item_list->blockSignals(true);
@@ -806,7 +807,8 @@ void ManageDialog::on_content_drag(bool dragging) { group_list->set_awaiting_for
 bool ManageDialog::can_move_item_to_group(qint64 item_id, std::optional<qint64> group_id) const {
     if (!group_id || group_id == selected_group_id) return false;
     // What each group type takes is decided by the Rust core (move_to_group refuses the rest too); this only greys the target out.
-    return group_accepts(group_types_.value(*group_id, static_cast<int>(GroupType::NORMAL)), item_types_.value(item_id, "text"));
+    const auto [content_type, sub_kind] = item_types_.value(item_id, {"text", {}});
+    return group_accepts(group_types_.value(*group_id, static_cast<int>(GroupType::NORMAL)), content_type, sub_kind);
 }
 
 void ManageDialog::move_item_to_group(qint64 item_id, qint64 group_id) {
@@ -897,7 +899,7 @@ void ManageDialog::open_item_editor(qint64 item_id, std::optional<qint64> group_
 void ManageDialog::clear_detail_layout() {
     detail_form_token += 1;
     const QList<QWidget *> stale{group_name_input, icon_input, icon_preview, radio_normal, radio_file, radio_hidden, radio_filter, filter_kind_box,
-                                 filter_kind_switch, emoji_scroll, recommended_row, image_preview, content_kind_switch, image_drop_zone, paste_image_btn};
+                                 filter_kind_combo, filter_app_combo, emoji_scroll, image_preview, content_kind_switch, image_drop_zone, paste_image_btn};
     for (QWidget *widget : stale)
         if (widget) widget->blockSignals(true);
     if (group_type_btn_group) group_type_btn_group->blockSignals(true);
@@ -909,10 +911,10 @@ void ManageDialog::clear_detail_layout() {
     radio_hidden = nullptr;
     radio_filter = nullptr;
     filter_kind_box = nullptr;
-    filter_kind_switch = nullptr;
+    filter_kind_combo = nullptr;
+    filter_app_combo = nullptr;
     group_type_btn_group = nullptr;
     emoji_scroll = nullptr;
-    recommended_row = nullptr;
     image_preview = nullptr;
     content_kind_switch = nullptr;
     editing_image_size.reset();
@@ -963,6 +965,8 @@ void ManageDialog::set_detail_header(const QString &title, const QString &subtit
 
 void ManageDialog::set_footer(const std::optional<QString> &save_text, bool deletable) {
     save_btn->setVisible(save_text.has_value());
+    save_btn->setEnabled(true);
+    save_btn->setToolTip({});
     if (save_text) save_btn->setText(*save_text);
     delete_btn->setVisible(deletable);
 }
@@ -999,8 +1003,13 @@ void ManageDialog::on_group_type_toggled(bool checked, std::optional<int> form_t
     if (!is_current_detail_form_token(form_token)) return;
     if (!icon_input) return;
     if (!checked) return;
-    icon_input->setText(get_toggled_default_group_icon(icon_input->text(), selected_group_type()));
+    icon_input->setText(get_toggled_default_group_icon(icon_input->text(), selected_group_type(), selected_filter_rule()));
     if (filter_kind_box && radio_filter) filter_kind_box->setVisible(radio_filter->isChecked());
+    // A filter on neither a type nor an app would be the whole history: it cannot be saved.
+    const auto rule = selected_filter_rule();
+    const bool empty_filter = rule && !rule->kind && !rule->app;
+    save_btn->setEnabled(!empty_filter);
+    save_btn->setToolTip(empty_filter ? tr_text("Choose a content type or a source app") : QString());
     refresh_group_icon_kind(this);
     update_group_form_header();
 }
@@ -1013,10 +1022,17 @@ void ManageDialog::on_filter_kind_changed(const QString &, std::optional<int> fo
 int ManageDialog::selected_group_type() const {
     if (radio_hidden && radio_hidden->isChecked()) return static_cast<int>(GroupType::HIDDEN);
     if (radio_file && radio_file->isChecked()) return static_cast<int>(GroupType::FILE);
-    if (radio_filter && radio_filter->isChecked() && filter_kind_switch) {
-        if (const auto type = filter_group_type(filter_kind_switch->currentItem())) return static_cast<int>(*type);
-    }
+    if (radio_filter && radio_filter->isChecked()) return static_cast<int>(GroupType::FILTER);
     return static_cast<int>(GroupType::NORMAL);
+}
+
+std::optional<FilterRule> ManageDialog::selected_filter_rule() const {
+    if (selected_group_type() != GroupType::FILTER || !filter_kind_combo || !filter_app_combo) return std::nullopt;
+    const auto value = [](const ComboBox *combo) {
+        const QString data = combo->currentData().toString();
+        return data.isEmpty() ? std::nullopt : std::optional(data);
+    };
+    return FilterRule{value(filter_kind_combo), value(filter_app_combo)};
 }
 
 void ManageDialog::update_group_form_header() {
@@ -1025,13 +1041,13 @@ void ManageDialog::update_group_form_header() {
     QString title, subtitle;
     if (radio_filter && radio_filter->isChecked()) {
         title = is_new ? tr_text("New Filter Group") : tr_text("Edit Filter Group");
-        subtitle = tr_text("Filter groups store no content; they show one type of your clipboard history");
+        subtitle = tr_text("Filter groups store no content; they show the clipboard history that matches the chosen type and source app");
     } else if (radio_hidden && radio_hidden->isChecked()) {
         title = is_new ? tr_text("New Hidden Group") : tr_text("Edit Hidden Group");
         subtitle = tr_text("Hidden groups are not displayed on the clipboard panel; changing to normal group restores visibility");
     } else if (radio_file->isChecked()) {
         title = is_new ? tr_text("New Quick Launch Group") : tr_text("Edit Quick Launch Group");
-        subtitle = tr_text("Quick launch groups only allow file or folder paths; selecting an item opens them");
+        subtitle = tr_text("Quick launch groups accept files, folder paths and links; selecting an item opens them");
     } else {
         title = is_new ? tr_text("New General Group") : tr_text("Edit General Group");
         subtitle = tr_text("General groups allow any content; selecting an item pastes content or files to the target");
@@ -1067,17 +1083,21 @@ bool ManageDialog::is_file_content_mode() {
     }
     const auto selected_group = get_selected_group();
     if (!selected_group) return false;
-    if (selected_group->group_type == GroupType::FILE) return true;
+    if (selected_group->group_type == GroupType::FILE) return new_content_kind_ != "link";
     return new_content_kind_ == "file";
 }
 
 void ManageDialog::show_new_content_form() {
     leave_creating_group();
+    editing_item_id.reset();
+    const auto group = get_selected_group();
+    if (group && group->is_filter()) {
+        show_edit_group_form(group->id);
+        return;
+    }
     current_mode = "content";
     clear_detail_layout();
-    editing_item_id.reset();
 
-    const auto group = get_selected_group();
     if (!group) {
         set_detail_header(tr_text("Add Content"));
         set_footer(std::nullopt, false);
@@ -1088,18 +1108,19 @@ void ManageDialog::show_new_content_form() {
         finish_detail_form_setup();
         return;
     }
-    if (group->is_filter()) {
-        set_detail_header(tr_text("Filter Group"), tr_text("Filter groups store no content; they show one type of your clipboard history"));
-        set_footer(std::nullopt, false);
-        detail_layout->addStretch();
-        finish_detail_form_setup();
-        return;
-    }
     set_detail_header(tr_text("Add Content"), tr_text("Saved to \"{group}\"").replace("{group}", group->name));
     set_footer(tr_text("Add"), false);
     if (group->group_type == GroupType::FILE) {
-        build_file_content_form(this);
+        if (new_content_kind_ != "link") new_content_kind_ = "file";
+        add_content_kind_switch();
+        if (new_content_kind_ == "file") build_file_content_form(this);
+        else {
+            build_text_content_form(this);
+            title_input->setPlaceholderText(tr_text("Enter title..."));
+            content_edit->setPlaceholderText("https://example.com");
+        }
     } else {
+        if (new_content_kind_ == "link") new_content_kind_ = "text";
         add_content_kind_switch();
         if (new_content_kind_ == "file") build_file_content_form(this);
         else if (new_content_kind_ == "image") build_new_image_form();
@@ -1110,8 +1131,13 @@ void ManageDialog::show_new_content_form() {
 
 void ManageDialog::add_content_kind_switch() {
     auto *kind_switch = new SegmentedWidget;
-    kind_switch->addItem("text", tr_text("Text"));
-    kind_switch->addItem("image", tr_text("Image"));
+    const auto group = get_selected_group();
+    if (group && group->group_type == GroupType::FILE) {
+        kind_switch->addItem("link", tr_text("Link"));
+    } else {
+        kind_switch->addItem("text", tr_text("Text"));
+        kind_switch->addItem("image", tr_text("Image"));
+    }
     kind_switch->addItem("file", tr_text("File"));
     kind_switch->setCurrentItem(new_content_kind_);
     connect(kind_switch, &SegmentedWidget::currentItemChanged, this, [this](const QString &kind) { set_new_content_kind(kind); });
@@ -1256,7 +1282,7 @@ void ManageDialog::save_group() {
     const QString icon = get_selected_icon();
     const int group_type = selected_group_type();
 
-    const auto result = clipboard::save_group(*manager, editing_group_id, name, icon, group_type);
+    const auto result = clipboard::save_group(*manager, editing_group_id, name, icon, group_type, selected_filter_rule());
     if (!result.success) {
         show_warning_dialog(this, tr_text("Failed"), result.error == "create_group_failed" ? tr_text("Failed to create group") : tr_text("Failed to update group"));
         return;
@@ -1338,7 +1364,7 @@ void ManageDialog::poll_captured_image() {
 std::optional<ClipboardItem> ManageDialog::find_captured_image(const ImageRequest &request) {
     // The new or de-duplicated record has updated_at no earlier than the write; the size is checked too so another image is not taken.
     // History sorts pinned items first; without the size filter, many pinned images would push the new record out of the first 30.
-    for (const auto &item : manager->get_history(0, 30, request.content, QString("image")))
+    for (const auto &item : manager->get_history(0, 30, request.content, FilterRule::of_kind("image")))
         if (item.content == request.content && item.updated_at.isValid() && item.updated_at.toSecsSinceEpoch() >= request.since) return item;
     return std::nullopt;
 }
@@ -1446,6 +1472,16 @@ void ManageDialog::save_text_content() {
     if (content.isEmpty()) {
         show_warning_dialog(this, tr_text("Hint"), tr_text("Please enter content"));
         return;
+    }
+    if (!editing_item_id && new_content_kind_ == "link") {
+        const QUrl url(content.startsWith("www.", Qt::CaseInsensitive) ? "https://" + content : content);
+        const QString scheme = url.scheme().toLower();
+        if (!url.isValid() || url.isRelative() || url.authority().isEmpty() ||
+            !QStringList{"http", "https", "ftp", "file"}.contains(scheme) ||
+            std::any_of(content.cbegin(), content.cend(), [](QChar ch) { return ch.isSpace(); })) {
+            show_warning_dialog(this, tr_text("Hint"), tr_text("Please enter a valid link"));
+            return;
+        }
     }
     const auto title = title_input ? stripped_or_none(title_input->text()) : std::nullopt;
     const auto result = clipboard::save_text_content(*manager, editing_item_id, selected_group_id.value_or(0), content, title);

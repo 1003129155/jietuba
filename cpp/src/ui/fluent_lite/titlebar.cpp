@@ -123,6 +123,8 @@ FluentTitleBar::FluentTitleBar(QWidget *parent) : TitleBar(parent) {
     iconLabel->setFixedSize(22, 22);
     iconLabel->setAlignment(Qt::AlignCenter);
     titleLabel = new QLabel(parent->windowTitle(), this);
+    // The window's own icon, else the application's; windows do not set it just for the caption.
+    icon_ = parent->windowIcon();
     _apply_theme();
     connect(get_ui_theme(), &UIThemeManager::theme_changed, this, [this] { _apply_theme(); });
     hBoxLayout->insertWidget(0, iconLabel);
@@ -140,7 +142,13 @@ void FluentTitleBar::_apply_theme() {
     for (auto *button : {minBtn, maxBtn, closeBtn}) button->setFixedSize(widget_scaled(this, 46), widget_scaled(this, 32));
     set_own_style(titleLabel, QString("color: %1; font: %2px %3; background: transparent;").arg(tokens.text).arg(widget_scaled(this, 12)).arg(FONT_FAMILY));
     apply_caption_colors();
-    place_centered_title();
+    apply_layout_metrics();
+    refresh_icon();
+}
+
+void FluentTitleBar::apply_layout_metrics() {
+    hBoxLayout->setContentsMargins(widget_scaled(this, 8), 0, 0, 0);
+    titleLabel->setIndent(widget_scaled(this, 5));
 }
 
 void FluentTitleBar::apply_caption_colors() {
@@ -157,38 +165,18 @@ void FluentTitleBar::apply_caption_colors() {
     closeBtn->setHoverBackgroundColor(QColor("#C42B1C"));
 }
 
-void FluentTitleBar::setTitle(const QString &title) {
-    titleLabel->setText(title);
-    place_centered_title();
-}
+void FluentTitleBar::setTitle(const QString &title) { titleLabel->setText(title); }
 
 void FluentTitleBar::setIcon(const QIcon &icon) {
+    icon_ = icon;
+    refresh_icon();
+}
+
+// Re-rendered on every scale change; a bar without an icon keeps whatever the label already shows.
+void FluentTitleBar::refresh_icon() {
+    if (icon_.isNull()) return;
     const int side = widget_scaled(this, 16);
-    iconLabel->setPixmap(icon.pixmap(side, side));
-    place_centered_title();
-}
-
-void FluentTitleBar::center_title() {
-    hBoxLayout->removeWidget(iconLabel);
-    hBoxLayout->removeWidget(titleLabel);
-    title_centered_ = true;
-    place_centered_title();
-}
-
-void FluentTitleBar::place_centered_title() {
-    if (!title_centered_) return;
-    titleLabel->adjustSize();
-    const int gap = widget_scaled(this, 6);
-    const auto pixmap = iconLabel->pixmap();
-    const int icon_w = !pixmap.isNull() ? iconLabel->width() + gap : 0;
-    const int left = (width() - icon_w - titleLabel->width()) / 2;
-    if (icon_w) iconLabel->move(left, (height() - iconLabel->height()) / 2);
-    titleLabel->move(left + icon_w, (height() - titleLabel->height()) / 2);
-}
-
-void FluentTitleBar::resizeEvent(QResizeEvent *event) {
-    TitleBar::resizeEvent(event);
-    place_centered_title();
+    iconLabel->setPixmap(icon_.pixmap(QSize(side, side), devicePixelRatioF()));
 }
 
 void FluentTitleBar::update_max_state() {

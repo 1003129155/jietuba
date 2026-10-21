@@ -45,8 +45,8 @@
         <translation>Shortcuts</translation>
     </message>
     <message>
-        <source>Capture Settings</source>
-        <translation>Capture Settings</translation>
+        <source>Screenshot</source>
+        <translation>Screenshot</translation>
     </message>
     <message>
         <source>Clipboard</source>
@@ -224,28 +224,12 @@
         <translation>Cancel</translation>
     </message>
     <message>
-        <source>Cancel / Close</source>
-        <translation>Cancel</translation>
-    </message>
-    <message>
-        <source>Apply</source>
-        <translation>Apply</translation>
-    </message>
-    <message>
-        <source>Unsaved Changes</source>
-        <translation>Unsaved Changes</translation>
-    </message>
-    <message>
-        <source>You have unsaved changes. Do you want to save before closing?</source>
-        <translation>You have unsaved changes. Do you want to save before closing?</translation>
+        <source>Restore the default settings of this page?</source>
+        <translation>Restore the default settings of this page?</translation>
     </message>
     <message>
         <source>Save</source>
         <translation>Save</translation>
-    </message>
-    <message>
-        <source>Don't Save</source>
-        <translation>Don't Save</translation>
     </message>
     <message>
         <source>Change</source>
@@ -337,10 +321,6 @@
         <translation>Shortcut Conflict</translation>
     </message>
     <message>
-        <source>Some global hotkeys are duplicated or unavailable. Please fix them before applying.</source>
-        <translation>Some global hotkeys are duplicated or unavailable. Please fix them before applying.</translation>
-    </message>
-    <message>
         <source>Some in-app shortcuts conflict within the same group. Please fix them first.</source>
         <translation>Some in-app shortcuts conflict within the same group. Please fix them first.</translation>
     </message>
@@ -349,8 +329,8 @@
         <translation>The following shortcuts conflict:</translation>
     </message>
     <message>
-        <source>Change one shortcut in each row before applying.</source>
-        <translation>Change one shortcut in each row before applying.</translation>
+        <source>The new shortcut was not saved.</source>
+        <translation>The new shortcut was not saved.</translation>
     </message>
     <message>
         <source>This is the same as a global hotkey — the system intercepts it first, so it won't work here.</source>
@@ -501,8 +481,8 @@ Replace it?</translation>
     
     <!-- Smart Selection Page -->
     <message>
-        <source>Detection Mode</source>
-        <translation>Detection Mode</translation>
+        <source>Detection Precision</source>
+        <translation>Detection Precision</translation>
     </message>
     <message>
         <source>Snap the selection to the window or control under the cursor. Control detection reads the accessibility tree and takes longer on large windows.</source>
@@ -881,44 +861,10 @@ Replace it?</translation>
         <translation>This file is not a Jietuba settings file, or it is damaged.</translation>
     </message>
     <message>
-        <source>Settings loaded. Click Apply to use them.</source>
-        <translation>Settings loaded. Click Apply to use them.</translation>
+        <source>Settings imported.</source>
+        <translation>Settings imported.</translation>
     </message>
     
-    <!-- Info Page -->
-    <message>
-        <source>Jietuba - Screenshot Tool</source>
-        <translation>Jietuba - Screenshot Tool</translation>
-    </message>
-    <message>
-        <source>Version: 1.0.0</source>
-        <translation>Version: 1.0.0</translation>
-    </message>
-    <message>
-        <source>High-performance screenshot tool developed based on PyQt6 framework.</source>
-        <translation>High-performance screenshot tool developed based on PyQt6 framework.</translation>
-    </message>
-    <message>
-        <source>Rich editing features, OCR text recognition, long screenshot, pin window,</source>
-        <translation>Rich editing features, OCR text recognition, long screenshot, pin window,</translation>
-    </message>
-    <message>
-        <source>and many other features.</source>
-        <translation>and many other features.</translation>
-    </message>
-    <message>
-        <source>📖 View Details</source>
-        <translation>📖 View Details</translation>
-    </message>
-    <message>
-        <source>👨‍💻 Developer: rijyaaru</source>
-        <translation>👨‍💻 Developer: rijyaaru</translation>
-    </message>
-    <message>
-    <source>🛠️ Tech: Python、Rust、PyQt6、Oneocr、DeepLAPI</source>
-    <translation>🛠️ Tech: Python、Rust、PyQt6、Oneocr、DeepLAPI</translation>
-    </message>
-
     <!-- Translation Settings Page -->
     <message>
         <source>Translation Engine</source>
@@ -1379,6 +1325,226 @@ Replace it?</translation>
         <source>Manage</source>
         <translation>Manage</translation>
     </message>
+    <message>
+        <source>Screen Annotation Hotkey</source>
+        <translation>Screen Annotation</translation>
+    </message>
+    <message>
+        <source>Keep Screen Annotations</source>
+        <translation>Keep Screen Annotations</translation>
+    </message>
+    <message>
+        <source>Ending the screen annotation keeps its drawings; they come back the next time it starts.</source>
+        <translation>Ending the screen annotation keeps its drawings; they come back the next time it starts.</translation>
+    </message>
+    <message>
+        <source>Screen Annotation</source>
+        <translation>Screen Annotation</translation>
+    </message>
+    <message>
+        <source>Screen Annotation Settings</source>
+        <translation>Screen Annotation Settings</translation>
+    </message>
+    <message>
+        <source>Start and End</source>
+        <translation>Start and End</translation>
+    </message>
+    <message>
+        <source>Toolbar</source>
+        <translation>Toolbar</translation>
+    </message>
+    <message>
+        <source>Cursor Highlight</source>
+        <translation>Cursor Highlight</translation>
+    </message>
+    <message>
+        <source>Start With</source>
+        <translation>Start With</translation>
+    </message>
+    <message>
+        <source>What screen annotation starts with. In pass-through the mouse keeps working the windows below until a tool is picked.</source>
+        <translation>What screen annotation starts with. In pass-through the mouse keeps working the windows below until a tool is picked.</translation>
+    </message>
+    <message>
+        <source>Pass-Through</source>
+        <translation>Pass-Through</translation>
+    </message>
+    <message>
+        <source>Last Used Tool</source>
+        <translation>Last Used Tool</translation>
+    </message>
+    <message>
+        <source>Global Hotkey</source>
+        <translation>Global Hotkey</translation>
+    </message>
+    <message>
+        <source>Not set. Screen annotation also starts from the tray menu.</source>
+        <translation>Not set. Screen annotation also starts from the tray menu.</translation>
+    </message>
+    <message>
+        <source>Currently %1</source>
+        <translation>Currently %1</translation>
+    </message>
+    <message>
+        <source>Toolbar Position</source>
+        <translation>Toolbar Position</translation>
+    </message>
+    <message>
+        <source>Where the toolbar appears when screen annotation starts.</source>
+        <translation>Where the toolbar appears when screen annotation starts.</translation>
+    </message>
+    <message>
+        <source>Bottom Center of the Screen</source>
+        <translation>Bottom Center of the Screen</translation>
+    </message>
+    <message>
+        <source>Top Center of the Screen</source>
+        <translation>Top Center of the Screen</translation>
+    </message>
+    <message>
+        <source>Toolbar Invisible to Screen Capture</source>
+        <translation>Toolbar Invisible to Screen Capture</translation>
+    </message>
+    <message>
+        <source>Keeps the toolbar and its panels out of recordings, screenshots, screen sharing, remote desktop and other screen capture; you still see them. Turn off to let them be captured, for example when recording a tutorial.</source>
+        <translation>Keeps the toolbar and its panels out of recordings, screenshots, screen sharing, remote desktop and other screen capture; you still see them. Turn off to let them be captured, for example when recording a tutorial.</translation>
+    </message>
+    <message>
+        <source>Where It Was Last</source>
+        <translation>Where It Was Last</translation>
+    </message>
+    <message>
+        <source>Toolbar Buttons</source>
+        <translation>Toolbar Buttons</translation>
+    </message>
+    <message>
+        <source>Choose and order the buttons of the screen annotation toolbar. Saved at once.</source>
+        <translation>Choose and order the buttons of the screen annotation toolbar. Saved at once.</translation>
+    </message>
+    <message>
+        <source>Adjust</source>
+        <translation>Adjust</translation>
+    </message>
+    <message>
+        <source>Cursor Highlight at Start</source>
+        <translation>Cursor Highlight at Start</translation>
+    </message>
+    <message>
+        <source>Starts with a light around the pointer. The toolbar button turns it on and off during a session, and that choice is kept.</source>
+        <translation>Starts with a light around the pointer. The toolbar button turns it on and off during a session, and that choice is kept.</translation>
+    </message>
+    <message>
+        <source>Highlight Size</source>
+        <translation>Highlight Size</translation>
+    </message>
+    <message>
+        <source>The size of the light around the pointer and of the click rings.</source>
+        <translation>The size of the light around the pointer and of the click rings.</translation>
+    </message>
+    <message>
+        <source>Click Rings</source>
+        <translation>Click Rings</translation>
+    </message>
+    <message>
+        <source>A ring spreads from every click: yellow for the left button, blue for the right.</source>
+        <translation>A ring spreads from every click: yellow for the left button, blue for the right.</translation>
+    </message>
+    <message>
+        <source>Model</source>
+        <translation>Model</translation>
+    </message>
+    <message>
+        <source>Extra Body</source>
+        <translation>Extra Body</translation>
+    </message>
+    <message>
+        <source>JSON Mode</source>
+        <translation>JSON Mode</translation>
+    </message>
+    <message>
+        <source>Paired with APPID in the Baidu console</source>
+        <translation>Paired with APPID in the Baidu console</translation>
+    </message>
+    <message>
+        <source>DeepSeek API Key</source>
+        <translation>DeepSeek API Key</translation>
+    </message>
+    <message>
+        <source>LLM translation: better with context and idioms, but slower, billed per token, and may refuse some content</source>
+        <translation>LLM translation: better with context and idioms, but slower, billed per token, and may refuse some content</translation>
+    </message>
+    <message>
+        <source>Timeout (s)</source>
+        <translation>Timeout (s)</translation>
+    </message>
+    <message>
+        <source>Temperature</source>
+        <translation>Temperature</translation>
+    </message>
+    <message>
+        <source>Optional for local models</source>
+        <translation>Optional for local models</translation>
+    </message>
+    <message>
+        <source>Any OpenAI-compatible service. Ollama: http://localhost:11434/v1, LM Studio: http://localhost:1234/v1</source>
+        <translation>Any OpenAI-compatible service. Ollama: http://localhost:11434/v1, LM Studio: http://localhost:1234/v1</translation>
+    </message>
+    <message>
+        <source>Shown in the translation window</source>
+        <translation>Shown in the translation window</translation>
+    </message>
+    <message>
+        <source>Custom LLM-1</source>
+        <translation>Custom LLM-1</translation>
+    </message>
+    <message>
+        <source>Display Name</source>
+        <translation>Display Name</translation>
+    </message>
+    <message>
+        <source>Baidu APPID</source>
+        <translation>Baidu APPID</translation>
+    </message>
+    <message>
+        <source>Server default</source>
+        <translation>Server default</translation>
+    </message>
+    <message>
+        <source>Instructions</source>
+        <translation>Instructions</translation>
+    </message>
+    <message>
+        <source>Baidu Secret Key</source>
+        <translation>Baidu Secret Key</translation>
+    </message>
+    <message>
+        <source>API Base URL</source>
+        <translation>API Base URL</translation>
+    </message>
+    <message>
+        <source>Ask for JSON replies. If the service rejects it, the request is retried without; turn it off to skip that retry</source>
+        <translation>Ask for JSON replies. If the service rejects it, the request is retried without; turn it off to skip that retry</translation>
+    </message>
+    <message>
+        <source>e.g. Keep product names untranslated</source>
+        <translation>e.g. Keep product names untranslated</translation>
+    </message>
+    <message>
+        <source>Custom LLM-3</source>
+        <translation>Custom LLM-3</translation>
+    </message>
+    <message>
+        <source>Baidu Translate Open Platform</source>
+        <translation>Baidu Translate Open Platform</translation>
+    </message>
+    <message>
+        <source>API Key</source>
+        <translation>API Key</translation>
+    </message>
+    <message>
+        <source>Custom LLM-2</source>
+        <translation>Custom LLM-2</translation>
+    </message>
 </context>
 
 <context>
@@ -1591,6 +1757,30 @@ Replace it?</translation>
     <message>
         <source>GIF / Video recording</source>
         <translation>GIF / Video recording</translation>
+    </message>
+    <message>
+        <source>Pass through: the mouse works the windows below (Esc)</source>
+        <translation>Pass through: the mouse works the windows below (Esc)</translation>
+    </message>
+    <message>
+        <source>Clear all drawings</source>
+        <translation>Clear all drawings</translation>
+    </message>
+    <message>
+        <source>Hide / show drawings</source>
+        <translation>Hide / show drawings</translation>
+    </message>
+    <message>
+        <source>Exit screen annotation</source>
+        <translation>Exit screen annotation</translation>
+    </message>
+    <message>
+        <source>Whiteboard: click to cover the screen with white, click again to remove</source>
+        <translation>Whiteboard: click to cover the screen with white, click again to remove</translation>
+    </message>
+    <message>
+        <source>Cursor highlight: a light around the pointer and a ring for every click</source>
+        <translation>Cursor highlight: a light around the pointer and a ring for every click</translation>
     </message>
 </context>
 
@@ -1853,6 +2043,10 @@ Replace it?</translation>
         <translation>Screenshot</translation>
     </message>
     <message>
+        <source>Delayed Screenshot</source>
+        <translation>Delayed Screenshot</translation>
+    </message>
+    <message>
         <source>Clipboard</source>
         <translation>Clipboard</translation>
     </message>
@@ -1863,6 +2057,14 @@ Replace it?</translation>
     <message>
         <source>Disable Global Hotkeys</source>
         <translation>Disable Hotkeys</translation>
+    </message>
+    <message>
+        <source>Pause Hotkeys While Gaming</source>
+        <translation>Pause Hotkeys While Gaming</translation>
+    </message>
+    <message>
+        <source>Record Clipboard</source>
+        <translation>Record Clipboard</translation>
     </message>
     <message>
         <source>Settings</source>
@@ -1882,6 +2084,10 @@ Replace it?</translation>
     <message><source>Choose folder to save pinned images</source><translation>Choose folder to save pinned images</translation></message>
     <message><source>Save Failed</source><translation>Save Failed</translation></message>
     <message><source>Saved {saved} pinned images, failed {failed}.</source><translation>Saved {saved} pinned images, failed {failed}.</translation></message>
+    <message>
+        <source>Screen Annotation</source>
+        <translation>Screen Annotation</translation>
+    </message>
 </context>
 
 <!-- ========== Main App (Tray Menu) ========== -->
@@ -1943,6 +2149,10 @@ Replace it?</translation>
         <source>Settings could not be saved. Update cancelled.</source>
         <translation>Settings could not be saved. Update cancelled.</translation>
     </message>
+    <message>
+        <source>Screen Annotation</source>
+        <translation>Screen Annotation</translation>
+    </message>
 </context>
 
 <!-- ========== Translation Dialog ========== -->
@@ -1951,18 +2161,6 @@ Replace it?</translation>
     <message>
         <source>Translator</source>
         <translation>Translator</translation>
-    </message>
-    <message>
-        <source>Translation Result</source>
-        <translation>Translation Result</translation>
-    </message>
-    <message>
-        <source>Original:</source>
-        <translation>Original:</translation>
-    </message>
-    <message>
-        <source>Translation:</source>
-        <translation>Translation:</translation>
     </message>
     <message>
         <source>Clipboard</source>
@@ -1987,14 +2185,6 @@ Replace it?</translation>
     <message>
         <source>Translation failed:</source>
         <translation>Translation failed:</translation>
-    </message>
-    <message>
-        <source>Reverse Translate</source>
-        <translation>Reverse Translate</translation>
-    </message>
-    <message>
-        <source>Translate the result back to original language</source>
-        <translation>Translate the result back to original language</translation>
     </message>
     <message>
         <source>Toggle always on top</source>
@@ -2115,25 +2305,45 @@ Replace it?</translation>
         <source>Recognition failed</source>
         <translation>Recognition failed</translation>
     </message>
+    <message>
+        <source>Dutch</source>
+        <translation>Dutch</translation>
+    </message>
+    <message>
+        <source>Polish</source>
+        <translation>Polish</translation>
+    </message>
+    <message>
+        <source>Portuguese</source>
+        <translation>Portuguese</translation>
+    </message>
+    <message>
+        <source>German</source>
+        <translation>German</translation>
+    </message>
+    <message>
+        <source>Russian</source>
+        <translation>Russian</translation>
+    </message>
+    <message>
+        <source>Italian</source>
+        <translation>Italian</translation>
+    </message>
+    <message>
+        <source>French</source>
+        <translation>French</translation>
+    </message>
+    <message>
+        <source>Spanish</source>
+        <translation>Spanish</translation>
+    </message>
 </context>
 
 <!-- ========== Translation Settings ========== -->
 <context>
     <name>SettingsDialog</name>
-    <message>
-        <source>Translation</source>
-        <translation>Translation</translation>
-    </message>
     <message><source>Translation Hotkey</source><translation>Translation Hotkey</translation></message>
     <message><source>Pin Clipboard Image</source><translation>Create Pin Image</translation></message>
-    <message>
-        <source>Translation Settings</source>
-        <translation>Translation Settings</translation>
-    </message>
-    <message>
-        <source>DeepL API Key</source>
-        <translation>DeepL API Key</translation>
-    </message>
     <message>
         <source>Get your API key from DeepL website (free tier available)</source>
         <translation>Get your API key from DeepL website (free tier available)</translation>
@@ -2147,24 +2357,8 @@ Replace it?</translation>
         <translation>Hide Key</translation>
     </message>
     <message>
-        <source>Use DeepL Pro API</source>
-        <translation>Use DeepL Pro API</translation>
-    </message>
-    <message>
-        <source>Enable if you have a paid DeepL subscription</source>
-        <translation>Enable if you have a paid DeepL subscription</translation>
-    </message>
-    <message>
-        <source>Target Language</source>
-        <translation>Target Language</translation>
-    </message>
-    <message>
         <source>Leave empty to follow system language</source>
         <translation>Leave empty to follow system language</translation>
-    </message>
-    <message>
-        <source>Auto (System)</source>
-        <translation>Auto (System)</translation>
     </message>
     <message>
         <source>Advanced Options</source>
@@ -2177,10 +2371,6 @@ Replace it?</translation>
     <message>
         <source>Automatically split text into sentences for better translation</source>
         <translation>Automatically split text into sentences for better translation</translation>
-    </message>
-    <message>
-        <source>Preserve Formatting</source>
-        <translation>Preserve Formatting</translation>
     </message>
     <message>
         <source>Keep original text formatting in translation</source>
@@ -2293,6 +2483,26 @@ Replace it?</translation>
     <message>
         <source>File</source>
         <translation>File</translation>
+    </message>
+    <message>
+        <source>Link</source>
+        <translation>Link</translation>
+    </message>
+    <message>
+        <source>Color</source>
+        <translation>Color</translation>
+    </message>
+    <message>
+        <source>Path</source>
+        <translation>Path</translation>
+    </message>
+    <message>
+        <source>Open in Browser</source>
+        <translation>Open in Browser</translation>
+    </message>
+    <message>
+        <source>Paste as File</source>
+        <translation>Paste as File</translation>
     </message>
     <message>
         <source>Close</source>
@@ -2656,6 +2866,18 @@ This action cannot be undone.</translation>
         <translation>Enter pastes them together, Esc clears the selection</translation>
     </message>
     <message>
+        <source>More actions</source>
+        <translation>More actions</translation>
+    </message>
+    <message>
+        <source>Exit multi-select</source>
+        <translation>Exit multi-select</translation>
+    </message>
+    <message>
+        <source>Multi-select</source>
+        <translation>Multi-select</translation>
+    </message>
+    <message>
         <source>Images Too Large</source>
         <translation>Images Too Large</translation>
     </message>
@@ -2707,11 +2929,36 @@ This action cannot be undone.</translation>
         <source>Fixed by this filter group</source>
         <translation>Fixed by this filter group</translation>
     </message>
+    <message>
+        <source>Choose a Folder to Save To</source>
+        <translation>Choose a Folder to Save To</translation>
+    </message>
+    <message>
+        <source>Text Files (*.txt)</source>
+        <translation>Text Files (*.txt)</translation>
+    </message>
+    <message>
+        <source>Failed to save the file.</source>
+        <translation>Failed to save the file.</translation>
+    </message>
+    <message>
+        <source>These files are no longer where they were, so there is nothing to save.</source>
+        <translation>These files are no longer where they were, so there is nothing to save.</translation>
+    </message>
+    <message>
+        <source>{count} files are no longer where they were and were skipped.</source>
+        <translation>{count} files are no longer where they were and were skipped.</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>Save as</translation>
+    </message>
 </context>
 
 <!-- ========== Clipboard Management Dialog ========== -->
 <context>
     <name>ManageDialog</name>
+    <message><source>Please enter a valid link</source><translation>Please enter a valid link</translation></message>
     <message>
         <source>Clipboard Management</source>
         <translation>Clipboard Management</translation>
@@ -2751,10 +2998,6 @@ This action cannot be undone.</translation>
     <message>
         <source>Add Content</source>
         <translation>Add Content</translation>
-    </message>
-    <message>
-        <source>New Group</source>
-        <translation>New Group</translation>
     </message>
     <message>
         <source>Delete</source>
@@ -2833,12 +3076,12 @@ This action cannot be undone.</translation>
         <translation>Allow any content; selecting an item pastes content or files to the target</translation>
     </message>
     <message>
-        <source>Quick launch groups only allow file or folder paths; selecting an item opens them</source>
-        <translation>Quick launch groups only allow file or folder paths; selecting an item opens them</translation>
+        <source>Quick launch groups accept files, folder paths and links; selecting an item opens them</source>
+        <translation>Quick launch groups accept files, folder paths and links; selecting an item opens them</translation>
     </message>
     <message>
-        <source>Quick launch groups only accept file items; left-click opens the file directly</source>
-        <translation>Quick launch groups only accept file items; left-click opens the file directly</translation>
+        <source>Quick launch groups accept files, paths and links; left-click opens them directly</source>
+        <translation>Quick launch groups accept files, paths and links; left-click opens them directly</translation>
     </message>
     <message>
         <source>Enter or paste emoji...</source>
@@ -2859,10 +3102,6 @@ This action cannot be undone.</translation>
     <message>
         <source>(No content in group)</source>
         <translation>(No content in group)</translation>
-    </message>
-    <message>
-        <source>Add Content</source>
-        <translation>Add Content</translation>
     </message>
     <message>
         <source>Add</source>
@@ -3188,8 +3427,8 @@ Items in the group will be moved back to clipboard history.</translation>
         <translation>Not shown on the panel</translation>
     </message>
     <message>
-        <source>Open files or folders</source>
-        <translation>Open files or folders</translation>
+        <source>Open files, folders or links</source>
+        <translation>Open files, folders or links</translation>
     </message>
     <message>
         <source>Paste text or files</source>
@@ -3214,10 +3453,6 @@ Items in the group will be moved back to clipboard history.</translation>
     <message>
         <source>Search title or content</source>
         <translation>Search title or content</translation>
-    </message>
-    <message>
-        <source>Recommended</source>
-        <translation>Recommended</translation>
     </message>
     <message>
         <source>Save the new group first, then add content to it</source>
@@ -3340,8 +3575,8 @@ Items in the group will be moved back to clipboard history.</translation>
         <translation>Filter</translation>
     </message>
     <message>
-        <source>Show one type</source>
-        <translation>Show one type</translation>
+        <source>By type or source</source>
+        <translation>By type or source</translation>
     </message>
     <message>
         <source>Content Type</source>
@@ -3360,8 +3595,40 @@ Items in the group will be moved back to clipboard history.</translation>
         <translation>Edit Filter Group</translation>
     </message>
     <message>
-        <source>Filter groups store no content; they show one type of your clipboard history</source>
-        <translation>Filter groups store no content; they show one type of your clipboard history</translation>
+        <source>Filter groups store no content; they show the clipboard history that matches the chosen type and source app</source>
+        <translation>Filter groups store no content; they show the clipboard history that matches the chosen type and source app</translation>
+    </message>
+    <message>
+        <source>Link</source>
+        <translation>Link</translation>
+    </message>
+    <message>
+        <source>Color</source>
+        <translation>Color</translation>
+    </message>
+    <message>
+        <source>Path</source>
+        <translation>Path</translation>
+    </message>
+    <message>
+        <source>All Types</source>
+        <translation>All Types</translation>
+    </message>
+    <message>
+        <source>Source App</source>
+        <translation>Source App</translation>
+    </message>
+    <message>
+        <source>Any App</source>
+        <translation>Any App</translation>
+    </message>
+    <message>
+        <source>Jietuba (this app)</source>
+        <translation>Jietuba (this app)</translation>
+    </message>
+    <message>
+        <source>Choose a content type or a source app</source>
+        <translation>Choose a content type or a source app</translation>
     </message>
 </context>
 
@@ -3946,18 +4213,6 @@ This action cannot be undone.</translation>
         <translation>Select Save Folder</translation>
     </message>
     <!-- page3 -->
-    <message>
-        <source>请选择工具栏布局首选项</source>
-        <translation>Choose your toolbar layout preference</translation>
-    </message>
-    <message>
-        <source>工具栏在右侧</source>
-        <translation>Toolbar on the right</translation>
-    </message>
-    <message>
-        <source>工具栏在顶部</source>
-        <translation>Toolbar at the top</translation>
-    </message>
     <message><source>剪贴板</source><translation>Clipboard</translation></message>
     <message><source>历史记录</source><translation>History</translation></message>
     <message><source>内容分组</source><translation>Content Groups</translation></message>
@@ -4098,8 +4353,8 @@ You can tweak more options in Settings anytime.</translation>
     </message>
     <!-- illus strings -->
     <message>
-        <source>截图 · 标注 · 剪贴板 · 翻译，一站搞定</source>
-        <translation>Screenshot · Annotate · Clipboard · Translate</translation>
+        <source>截图、文字识别、钉图、录屏、屏幕标注、剪贴板和翻译，一站搞定</source>
+        <translation>Screenshot · OCR · Pin · Record · Screen Annotation · Clipboard · Translate</translation>
     </message>
     <message>
         <source>会议纪要.docx</source>
@@ -4118,8 +4373,8 @@ You can tweak more options in Settings anytime.</translation>
         <translation>Shortcuts</translation>
     </message>
     <message>
-        <source>三个全局功能各可设置一个主快捷键和一个备用快捷键。</source>
-        <translation>Each of the three global features can have a primary and a backup shortcut.</translation>
+        <source>截图、剪贴板和翻译各可设置一个主快捷键和一个备用快捷键。</source>
+        <translation>Screenshot, clipboard and translation can each have a primary and a backup shortcut.</translation>
     </message>
     <message>
         <source>主快捷键</source>
@@ -4196,6 +4451,150 @@ You can tweak more options in Settings anytime.</translation>
     <message>
         <source>当前按下</source>
         <translation>Currently pressed</translation>
+    </message>
+    <message>
+        <source>工具_马赛克</source>
+        <translation>Mosaic</translation>
+    </message>
+    <message>
+        <source>工具_聚光灯</source>
+        <translation>Spotlight</translation>
+    </message>
+    <message>
+        <source>工具_水印</source>
+        <translation>Watermark</translation>
+    </message>
+    <message>
+        <source>工具_文字识别</source>
+        <translation>Text Recognition</translation>
+    </message>
+    <message>
+        <source>工具_扫码</source>
+        <translation>Scan Code</translation>
+    </message>
+    <message>
+        <source>工具描述_马赛克</source>
+        <translation>Brush over private details; scroll to resize</translation>
+    </message>
+    <message>
+        <source>工具描述_聚光灯</source>
+        <translation>Dim outside the box to bring out the key part</translation>
+    </message>
+    <message>
+        <source>工具描述_水印</source>
+        <translation>Add a text or timestamp watermark</translation>
+    </message>
+    <message>
+        <source>工具描述_文字识别</source>
+        <translation>Recognize text in the selection, copy in one click</translation>
+    </message>
+    <message>
+        <source>工具描述_扫码</source>
+        <translation>Read QR codes and barcodes; open links directly</translation>
+    </message>
+    <message>
+        <source>工具栏上找不到的工具，到「…」里找找。</source>
+        <translation>Can’t find a tool on the toolbar? Look in its “…” menu.</translation>
+    </message>
+    <message>
+        <source>玩游戏时暂停热键</source>
+        <translation>Pause Hotkeys While Gaming</translation>
+    </message>
+    <message>
+        <source>游戏在前台时暂停全局快捷键和鼠标快捷键，离开游戏后恢复。托盘菜单里也能切换。</source>
+        <translation>Global and mouse shortcuts pause while a game is in front and resume when you leave it. Also in the tray menu.</translation>
+    </message>
+    <message>
+        <source>鼠标快捷键</source>
+        <translation>Mouse Shortcuts</translation>
+    </message>
+    <message>
+        <source>按住修饰键拖动鼠标框选，松开就直接完成动作，不用先按截图快捷键。</source>
+        <translation>Hold modifier keys and drag a box; let go and the action is done, no screenshot hotkey needed.</translation>
+    </message>
+    <message>
+        <source>按住修饰键拖出一个框，松开即可钉图、复制、识别文字或翻译。</source>
+        <translation>Hold modifier keys and drag a box; let go to pin, copy, recognize text or translate.</translation>
+    </message>
+    <message>
+        <source>截图、钉图和剪贴板窗口里的鼠标操作，可以在设置的「鼠标快捷键」页调整。</source>
+        <translation>Mouse actions inside the screenshot, pin and clipboard windows are on the Mouse Shortcuts page in Settings.</translation>
+    </message>
+    <message>
+        <source>%1 用了同一个手势，重复的不会保存。</source>
+        <translation>%1 use the same gesture; the duplicates won’t be saved.</translation>
+    </message>
+    <message>
+        <source>讲解、演示或共享屏幕时，直接在画面上圈重点。</source>
+        <translation>Circle the key points right on screen while explaining, presenting or sharing your screen.</translation>
+    </message>
+    <message>
+        <source>不用截图，直接在任何窗口上画画、写字，结束后画面恢复原样。</source>
+        <translation>Draw and write over any window without a screenshot; the screen returns to normal afterwards.</translation>
+    </message>
+    <message>
+        <source>也可以从托盘菜单打开；再按一次快捷键结束标注。</source>
+        <translation>Can also be started from the tray menu. Press the hotkey again to finish.</translation>
+    </message>
+    <message>
+        <source>筛选分组</source>
+        <translation>Filter Groups</translation>
+    </message>
+    <message>
+        <source>活动海报.png</source>
+        <translation>Event Poster.png</translation>
+    </message>
+    <message>
+        <source>Model</source>
+        <translation>Model</translation>
+    </message>
+    <message>
+        <source>APPID</source>
+        <translation>APPID</translation>
+    </message>
+    <message>
+        <source>Paired with APPID in the Baidu console</source>
+        <translation>Paired with APPID in the Baidu console</translation>
+    </message>
+    <message>
+        <source>DeepSeek API Key</source>
+        <translation>DeepSeek API Key</translation>
+    </message>
+    <message>
+        <source>Optional for local models</source>
+        <translation>Optional for local models</translation>
+    </message>
+    <message>
+        <source>Custom LLM-1</source>
+        <translation>Custom LLM-1</translation>
+    </message>
+    <message>
+        <source>Baidu APPID</source>
+        <translation>Baidu APPID</translation>
+    </message>
+    <message>
+        <source>Baidu Secret Key</source>
+        <translation>Baidu Secret Key</translation>
+    </message>
+    <message>
+        <source>API Base URL</source>
+        <translation>API Base URL</translation>
+    </message>
+    <message>
+        <source>Custom LLM-3</source>
+        <translation>Custom LLM-3</translation>
+    </message>
+    <message>
+        <source>Baidu Translate Open Platform</source>
+        <translation>Baidu Translate Open Platform</translation>
+    </message>
+    <message>
+        <source>API Key</source>
+        <translation>API Key</translation>
+    </message>
+    <message>
+        <source>Custom LLM-2</source>
+        <translation>Custom LLM-2</translation>
     </message>
 </context>
 
@@ -4347,10 +4746,6 @@ You can tweak more options in Settings anytime.</translation>
 <!-- ========== Appearance Settings ========== -->
 <context>
     <name>SettingsDialog</name>
-    <message><source>Appearance</source><translation>Appearance</translation></message>
-    <message><source>Appearance Settings</source><translation>Appearance Settings</translation></message>
-    <message><source>Screenshot</source><translation>Screenshot</translation></message>
-    <message><source>Clipboard</source><translation>Clipboard</translation></message>
     <message><source>Theme Color</source><translation>Theme Color</translation></message>
     <message><source>Affects selection border, toolbar border, magnifier crosshair, etc. Restart recommended after change.</source><translation>Affects selection border, toolbar border, magnifier crosshair, etc. Restart recommended after change.</translation></message>
     <message><source>Select Theme Color</source><translation>Select Theme Color</translation></message>
@@ -4440,18 +4835,11 @@ SOFTWARE.</translation></message>
     <!-- Log page -->
     <message><source>Storage</source><translation>Storage</translation></message>
     <!-- Translation page -->
-    <message><source>DeepL API</source><translation>DeepL API</translation></message>
-    <message><source>Translation Options</source><translation>Translation Options</translation></message>
-    <message><source>Ignore Line Breaks</source><translation>Ignore Line Breaks</translation></message>
-    <message><source>Merge multi-line text for better translation</source><translation>Merge multi-line text for better translation</translation></message>
     <!-- Missing from EN only -->
     <message><source>Clipboard Hotkey</source><translation>Clipboard</translation></message>
-    <message><source>Show</source><translation>Show</translation></message>
-    <message><source>Hide</source><translation>Hide</translation></message>
     <!-- Changed strings (new code versions) -->
     <message><source>Save Format</source><translation>Save Format</translation></message>
     <message><source>OCR</source><translation>OCR</translation></message>
-    <message><source>Keep original text formatting</source><translation>Keep original text formatting</translation></message>
 </context>
 
 <context>
@@ -4810,6 +5198,30 @@ Items in the group will be moved back to clipboard history.</translation>
         <source>Confirm</source>
         <translation>Confirm</translation>
     </message>
+    <message>
+        <source>Pass through</source>
+        <translation>Pass through</translation>
+    </message>
+    <message>
+        <source>Clear all</source>
+        <translation>Clear all</translation>
+    </message>
+    <message>
+        <source>Hide drawings</source>
+        <translation>Hide drawings</translation>
+    </message>
+    <message>
+        <source>Exit annotation</source>
+        <translation>Exit annotation</translation>
+    </message>
+    <message>
+        <source>Board</source>
+        <translation>Board</translation>
+    </message>
+    <message>
+        <source>Cursor highlight</source>
+        <translation>Cursor highlight</translation>
+    </message>
 </context>
 <context>
     <name>BarcodeResultWindow</name>
@@ -4983,6 +5395,10 @@ Items in the group will be moved back to clipboard history.</translation>
         <translation>Windows uses this shortcut too. This app takes it over while running; clear it to give it back.</translation>
     </message>
     <message>
+        <source>Another app uses this shortcut too. This app takes it over while running; clear it to give it back.</source>
+        <translation>Another app uses this shortcut too. This app takes it over while running; clear it to give it back.</translation>
+    </message>
+    <message>
         <source>Reserved by Windows. No app can use it.</source>
         <translation>Reserved by Windows. No app can use it.</translation>
     </message>
@@ -5153,10 +5569,41 @@ Make sure gifrecorder is installed correctly.</translation>
     </message>
 </context>
 <context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Color Picker</source>
+        <translation>Color Picker</translation>
+    </message>
+    <message>
+        <source>Used when choosing a custom color.</source>
+        <translation>Used when choosing a custom color.</translation>
+    </message>
+    <message>
+        <source>Modern</source>
+        <translation>Modern</translation>
+    </message>
+</context>
+<context>
     <name>ColorPickerDialog</name>
     <message>
         <source>Pick color from screen</source>
         <translation>Pick color from screen</translation>
+    </message>
+    <message>
+        <source>Click to pick; Esc to cancel</source>
+        <translation>Click to pick; Esc to cancel</translation>
+    </message>
+    <message>
+        <source>Select Color</source>
+        <translation>Select Color</translation>
+    </message>
+    <message>
+        <source>Hue</source>
+        <translation>Hue</translation>
+    </message>
+    <message>
+        <source>Opacity</source>
+        <translation>Opacity</translation>
     </message>
     <message>
         <source>OK</source>
@@ -6060,6 +6507,238 @@ Make sure gifrecorder is installed correctly.</translation>
     <message>
         <source>The deleted model was selected for OCR, so OCR now uses Auto.</source>
         <translation>The deleted model was selected for OCR, so OCR now uses Auto.</translation>
+    </message>
+</context>
+
+<!-- ========== Save Image Dialog ========== -->
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Save Dialog</source>
+        <translation>Save Dialog</translation>
+    </message>
+    <message>
+        <source>Used when saving a screenshot, a pin or a clipboard image.</source>
+        <translation>Used when saving a screenshot, a pin or a clipboard image.</translation>
+    </message>
+    <message>
+        <source>Modern (with preview)</source>
+        <translation>Modern (with preview)</translation>
+    </message>
+    <message>
+        <source>Classic (system dialog)</source>
+        <translation>Classic (system dialog)</translation>
+    </message>
+</context>
+<context>
+    <name>SaveImageDialog</name>
+    <message>
+        <source>Save Image</source>
+        <translation>Save Image</translation>
+    </message>
+    <message>
+        <source>Original Image</source>
+        <translation>Original</translation>
+    </message>
+    <message>
+        <source>Adjusted</source>
+        <translation>Adjusted</translation>
+    </message>
+    <message>
+        <source>Compare</source>
+        <translation>Compare</translation>
+    </message>
+    <message>
+        <source>Estimating...</source>
+        <translation>Estimating...</translation>
+    </message>
+    <message>
+        <source>Save Path</source>
+        <translation>Save Path</translation>
+    </message>
+    <message>
+        <source>Change</source>
+        <translation>Change</translation>
+    </message>
+    <message>
+        <source>Select Folder</source>
+        <translation>Select Folder</translation>
+    </message>
+    <message>
+        <source>File Name</source>
+        <translation>File Name</translation>
+    </message>
+    <message>
+        <source>Resize</source>
+        <translation>Resize</translation>
+    </message>
+    <message>
+        <source>Value</source>
+        <translation>Value</translation>
+    </message>
+    <message>
+        <source>Percentage</source>
+        <translation>Percentage</translation>
+    </message>
+    <message>
+        <source>Lock aspect ratio</source>
+        <translation>Lock aspect ratio</translation>
+    </message>
+    <message>
+        <source>Original size</source>
+        <translation>Original size</translation>
+    </message>
+    <message>
+        <source>Quality</source>
+        <translation>Quality</translation>
+    </message>
+    <message>
+        <source>Low</source>
+        <translation>Low</translation>
+    </message>
+    <message>
+        <source>High</source>
+        <translation>High</translation>
+    </message>
+    <message>
+        <source>Estimated Size</source>
+        <translation>Estimated Size</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>Save</translation>
+    </message>
+    <message>
+        <source>Zoom: %1%</source>
+        <translation>Zoom: %1%</translation>
+    </message>
+    <message>
+        <source>Original: %1 x %2</source>
+        <translation>Original: %1 x %2</translation>
+    </message>
+    <message>
+        <source>%1 format is lossless and does not support quality adjustment.</source>
+        <translation>%1 format is lossless and does not support quality adjustment.</translation>
+    </message>
+    <message>
+        <source>PDF has no quality setting.</source>
+        <translation>PDF has no quality setting.</translation>
+    </message>
+    <message>
+        <source>This format cannot hold an image of this size.</source>
+        <translation>This format cannot hold an image of this size.</translation>
+    </message>
+    <message>
+        <source>Enter a file name.</source>
+        <translation>Enter a file name.</translation>
+    </message>
+    <message>
+        <source>A file name cannot contain any of these characters: \ / : * ? &quot; &lt; &gt; |</source>
+        <translation>A file name cannot contain any of these characters: \ / : * ? &quot; &lt; &gt; |</translation>
+    </message>
+    <message>
+        <source>A file name cannot end with a dot or a space.</source>
+        <translation>A file name cannot end with a dot or a space.</translation>
+    </message>
+    <message>
+        <source>This name is reserved by Windows.</source>
+        <translation>This name is reserved by Windows.</translation>
+    </message>
+    <message>
+        <source>Choose a full folder path.</source>
+        <translation>Choose a full folder path.</translation>
+    </message>
+    <message>
+        <source>Use Classic Dialog</source>
+        <translation>Use Classic Dialog</translation>
+    </message>
+    <message>
+        <source>Use the system Save As dialog for this and every later image save? You can change this back in Settings &gt; Screenshot &gt; Save Dialog.</source>
+        <translation>Use the system Save As dialog for this and every later image save? You can change this back in Settings &gt; Screenshot &gt; Save Dialog.</translation>
+    </message>
+    <message>
+        <source>Use classic dialog</source>
+        <translation>Use classic dialog</translation>
+    </message>
+    <message>
+        <source>Save Failed</source>
+        <translation>Save Failed</translation>
+    </message>
+    <message>
+        <source>Cannot create the folder:
+%1</source>
+        <translation>Cannot create the folder:
+%1</translation>
+    </message>
+    <message>
+        <source>Replace File</source>
+        <translation>Replace File</translation>
+    </message>
+    <message>
+        <source>%1 already exists.
+Replace it?</source>
+        <translation>%1 already exists.
+Replace it?</translation>
+    </message>
+    <message>
+        <source>There is no image to save.</source>
+        <translation>There is no image to save.</translation>
+    </message>
+    <message>
+        <source>Desktop</source>
+        <translation>Desktop</translation>
+    </message>
+    <message>
+        <source>Add path tag</source>
+        <translation>Add path tag</translation>
+    </message>
+    <message>
+        <source>Edit</source>
+        <translation>Edit</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>Delete</translation>
+    </message>
+    <message>
+        <source>Tag Name</source>
+        <translation>Tag Name</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
+    </message>
+    <message>
+        <source>Notice</source>
+        <translation>Notice</translation>
+    </message>
+    <message>
+        <source>This path already has this name</source>
+        <translation>This path already has this name</translation>
+    </message>
+    <message>
+        <source>Name Already Exists</source>
+        <translation>Name Already Exists</translation>
+    </message>
+    <message>
+        <source>This name is already used by another path &quot;%1&quot;. Please choose a different name for the current path.</source>
+        <translation>This name is already used by another path &quot;%1&quot;. Please choose a different name for the current path.</translation>
+    </message>
+    <message>
+        <source>Path Already Exists</source>
+        <translation>Path Already Exists</translation>
+    </message>
+    <message>
+        <source>This path already exists with the name &quot;%1&quot;. Do you want to change its name to &quot;%2&quot;?</source>
+        <translation>This path already exists with the name &quot;%1&quot;. Do you want to change its name to &quot;%2&quot;?</translation>
+    </message>
+    <message>
+        <source>The name &quot;%1&quot; is already used by path &quot;%2&quot;. Do you want to set a new name for the current path?</source>
+        <translation>The name &quot;%1&quot; is already used by path &quot;%2&quot;. Do you want to set a new name for the current path?</translation>
     </message>
 </context>
 </TS>

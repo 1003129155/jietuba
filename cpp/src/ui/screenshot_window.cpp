@@ -44,6 +44,7 @@
 #include <QMouseEvent>
 #include <QScreen>
 #include <QTimer>
+#include <QWindow>
 
 namespace jietuba {
 namespace {
@@ -286,7 +287,8 @@ ScreenshotWindow::ScreenshotWindow(ToolSettingsManager *config, const QImage &pr
     selection_overlay = new SelectionOverlayWidget(this, scene->selection_item, scene->selection_model);
     selection_overlay->setGeometry(0, 0, static_cast<int>(virtual_width), static_cast<int>(virtual_height));
     selection_overlay->raise();
-    view->set_fullscreen_crosshair(config_manager->get_app_setting("capture_fullscreen_crosshair", false).toBool(), mask_overlay);
+    fullscreen_crosshair_ = config_manager->get_app_setting("capture_fullscreen_crosshair", false).toBool();
+    view->set_fullscreen_crosshair(fullscreen_crosshair_, mask_overlay);
     const double t4 = clock.nsecsElapsed() / 1e6;
     timings.append(timing_entry("Action+Mask", t4 - t3));
 
@@ -332,7 +334,12 @@ void ScreenshotWindow::begin_session_ui() {
 
 void ScreenshotWindow::show_prepared_session(CanvasView *prepared_view) {
     if (is_closing || !session_active_ || view != prepared_view) return;
+    // Two cursors would otherwise show before the first mouse event: the thread's last one, painted when the
+    // window appears, then the arrow Qt answers the first cursor request with while the window has none.
+    const auto initial_cursor = fullscreen_crosshair_ ? Qt::BlankCursor : Qt::CrossCursor;
+    set_thread_cursor(initial_cursor);
     show();
+    if (auto *handle = windowHandle()) handle->setCursor(initial_cursor);
     activateWindow();
     raise();
     setFocus();
@@ -575,7 +582,7 @@ void ScreenshotWindow::init_smart_selection_at_cursor() {
     scene->selection_model->activate();
     // The first appearance has nothing to tween from.
     view->apply_smart_selection_rect(smart_rect, false);
-    log_debug(T("智能选区初始化: 鼠标位置({x}, {y}) -> 选区{rect}", {{"x", cursor_pos.x()}, {"y", cursor_pos.y()}, {"rect", py_repr(smart_rect)}}), "ScreenshotWindow");
+    log_debug(T("智能选区初始化: 鼠标位置({x}, {y}) -> 选区{rect}", {{"x", cursor_pos.x()}, {"y", cursor_pos.y()}, {"rect", geometry_text(smart_rect)}}), "ScreenshotWindow");
 }
 
 void ScreenshotWindow::init_magnifier_at_cursor() {

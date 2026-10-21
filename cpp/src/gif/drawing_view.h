@@ -17,6 +17,10 @@ class QGraphicsRectItem;
 namespace jietuba {
 class GifDrawingView;
 
+// Set on an item the drawing layer shows but does not count as an annotation: it is neither cleared
+// nor kept.
+constexpr int TRANSIENT_ITEM_DATA = 0x7a11;
+
 class GifDrawingScene : public CanvasScene {
     Q_OBJECT
 public:
@@ -51,8 +55,9 @@ private:
 class GifDrawingView : public CanvasView {
     Q_OBJECT
 public:
-    // Owns its scene.
-    explicit GifDrawingView(const QRect &rect);
+    // Owns its scene. Without own_shortcuts the owner handles the keys, as the screen annotation
+    // does across its per-screen layers.
+    explicit GifDrawingView(const QRect &rect, bool own_shortcuts = true);
     ~GifDrawingView() override;
     GifDrawingScene *scene_obj() const { return gif_scene_; }
     CommandUndoStack *undo_stack() const;

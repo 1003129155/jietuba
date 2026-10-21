@@ -88,7 +88,7 @@ void manage_special_paste(SettingsDialog *dialog) {
     SpecialPasteDialog editor(dialog->clipboard_special_paste_entries.value_or(special_paste::load(dialog->config_manager)), dialog);
     if (exec_dialog(&editor) == QDialog::Accepted) {
         dialog->clipboard_special_paste_entries = editor.entries();
-        dialog->update_action_buttons();
+        dialog->schedule_save();
     }
 }
 
@@ -425,7 +425,7 @@ QWidget *create_clipboard_page(SettingsDialog *dialog) {
     set_own_style(view, "background: transparent;");
     auto *layout = new QVBoxLayout(view);
     layout->setContentsMargins(0, 0, dialog_scaled(10), 0);
-    layout->setSpacing(dialog_scaled(20));
+    layout->setSpacing(dialog_scaled(14));
 
     // ════ Basic settings ════
     auto *grp_basic = new SettingsCardGroup(dialog->tr_text("Basic Settings"), view, "clipboard");
