@@ -13,6 +13,7 @@
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <oleacc.h>
+#include <uiautomation.h>
 #include <wrl/client.h>
 #endif
 
@@ -78,7 +79,10 @@ public:
     MSAABackend() {
         if (FAILED(CoInitializeEx(nullptr, COINIT_MULTITHREADED))) throw std::runtime_error("CoInitializeEx failed");
     }
-    ~MSAABackend() { CoUninitialize(); }
+    ~MSAABackend() {
+        automation_.Reset();
+        CoUninitialize();
+    }
     Elements query(const MSAARequest &request) {
         auto session = request.session;
         const auto hwnd = reinterpret_cast<HWND>(request.hwnd);
@@ -131,8 +135,11 @@ public:
                     rect = location(hit_node.node.Get(), hit_node.child);
                 }
             }
+            // The leaf must be the first level of the parent chain, or a refresh that drops a
+            // location-less hit (an inactive Chromium tree) replaces the chain and the frame flickers.
             if (request.parents) result = parents(root_node.Get(), hit_node, request.x, request.y);
             else if (rect && contains(*rect, request.x, request.y)) result.push_back({*rect, 0});
+            else result = parents(root_node.Get(), hit_node, request.x, request.y, 1);
         } catch (const std::exception &) {
             result = native_chain(hwnd, request.x, request.y);
         }
@@ -172,7 +179,7 @@ private:
         }
         return result;
     }
-    static Elements parents(IAccessible *root_node, Hit node, int x, int y) {
+    static Elements parents(IAccessible *root_node, Hit node, int x, int y, size_t limit = SIZE_MAX) {
         const auto root_rect = location(root_node);
         const auto deadline = Clock::now() + std::chrono::milliseconds(40);
         Elements result;
@@ -180,7 +187,7 @@ private:
         // Holding every node visited keeps a released node's address from being taken by a later one.
         std::vector<ComPtr<IAccessible>> visited;
         for (int depth = 0; depth < MAX_DEPTH; ++depth) {
-            if (!result.empty() && Clock::now() > deadline) break;
+            if (result.size() >= limit || (!result.empty() && Clock::now() > deadline)) break;
             if (!seen.emplace(node.node.Get(), node.child).second) break;
             visited.push_back(node.node);
             const auto rect = location(node.node.Get(), node.child);
@@ -216,12 +223,15 @@ private:
         for (int i = 0; i < static_cast<int>(result.size()); ++i) result[i].order = i;
         return result;
     }
-    static std::optional<std::pair<ComPtr<IAccessible>, Hit>> renderer_hit(HWND hwnd, const Rect &coarse, long child_id, int x, int y) {
-        if (child_id) return std::nullopt;
-        RECT client{};
-        POINT origin{};
-        if (!GetClientRect(hwnd, &client) || !ClientToScreen(hwnd, &origin)
-            || coarse != Rect{origin.x, origin.y, origin.x + client.right, origin.y + client.bottom}) return std::nullopt;
+    static bool is_renderer(HWND hwnd, const Rect &coarse) {
+        wchar_t name[256]{};
+        GetClassNameW(hwnd, name, 256);
+        RECT rect{};
+        return QString::fromWCharArray(name) == "Chrome_RenderWidgetHostHWND" && GetWindowRect(hwnd, &rect)
+            && coarse == Rect{rect.left, rect.top, rect.right, rect.bottom};
+    }
+    static HWND find_renderer(HWND hwnd, const Rect &coarse, int x, int y) {
+        const HWND top = hwnd;
         std::set<HWND> seen;
         for (int depth = 0; depth < MAX_DEPTH; ++depth) {
             if (!seen.insert(hwnd).second) break;
@@ -231,24 +241,68 @@ private:
             const auto child = ChildWindowFromPointEx(hwnd, point, CWP_SKIPINVISIBLE);
             if (!child || child == hwnd) break;
             hwnd = child;
-            wchar_t name[256]{};
-            GetClassNameW(hwnd, name, 256);
-            if (QString::fromWCharArray(name) != "Chrome_RenderWidgetHostHWND") continue;
-            RECT rect{};
-            if (!GetWindowRect(hwnd, &rect) || coarse != Rect{rect.left, rect.top, rect.right, rect.bottom}) break;
-            auto renderer = root(hwnd);
-            if (!renderer) break;
+            if (is_renderer(hwnd, coarse)) return hwnd;
+        }
+        // Some Electron builds keep the renderer window hidden; it still serves the tree.
+        // Only an unambiguous match is used, since hidden browser tabs share the same bounds.
+        struct Search { const Rect *coarse; std::vector<HWND> found; } search{&coarse, {}};
+        EnumChildWindows(top, [](HWND child, LPARAM param) -> BOOL {
+            auto *s = reinterpret_cast<Search *>(param);
+            if (is_renderer(child, *s->coarse)) s->found.push_back(child);
+            return TRUE;
+        }, reinterpret_cast<LPARAM>(&search));
+        return search.found.size() == 1 ? search.found.front() : nullptr;
+    }
+    // Chromium builds its web tree only after a UI Automation client asks for content;
+    // MSAA calls alone leave the document without a location.
+    bool wake_renderer(HWND renderer) {
+        if (!woken_.insert(renderer).second) return false;
+        if (!automation_ && FAILED(CoCreateInstance(__uuidof(CUIAutomation), nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&automation_))))
+            return false;
+        ComPtr<IUIAutomationElement> element;
+        ComPtr<IUIAutomationCondition> condition;
+        ComPtr<IUIAutomationElementArray> children;
+        return SUCCEEDED(automation_->ElementFromHandle(renderer, &element)) && element
+            && SUCCEEDED(automation_->CreateTrueCondition(&condition))
+            && SUCCEEDED(element->FindAll(TreeScope_Children, condition.Get(), &children));
+    }
+    std::optional<std::pair<ComPtr<IAccessible>, Hit>> renderer_hit(HWND hwnd, const Rect &coarse, long child_id, int x, int y) {
+        if (child_id) return std::nullopt;
+        RECT client{};
+        POINT origin{};
+        if (!GetClientRect(hwnd, &client) || !ClientToScreen(hwnd, &origin)
+            || coarse != Rect{origin.x, origin.y, origin.x + client.right, origin.y + client.bottom}) return std::nullopt;
+        const HWND renderer_hwnd = find_renderer(hwnd, coarse, x, y);
+        if (!renderer_hwnd) return std::nullopt;
+        auto renderer = root(renderer_hwnd);
+        if (!renderer) return std::nullopt;
+        bool inactive = false;
+        const auto attempt = [&]() -> std::optional<Hit> {
             try {
                 auto candidate = hit(renderer.Get(), x, y);
                 const auto bounds = location(candidate.node.Get(), candidate.child);
+                inactive = !bounds;
                 if (bounds && contains(*bounds, x, y) && coarse[0] <= (*bounds)[0] && coarse[1] <= (*bounds)[1]
                     && (*bounds)[2] <= coarse[2] && (*bounds)[3] <= coarse[3])
-                    return std::make_pair(std::move(renderer), std::move(candidate));
+                    return candidate;
             } catch (const std::exception &) {}
-            break;
+            return std::nullopt;
+        };
+        auto found = attempt();
+        if (!found && inactive && wake_renderer(renderer_hwnd)) {
+            // The tree arrives about 50 ms later; waiting here lets the first frame use it.
+            const auto deadline = Clock::now() + std::chrono::milliseconds(150);
+            const auto settled = [&] { return found && location(found->node.Get(), found->child) != coarse; };
+            while (!settled() && Clock::now() < deadline) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                found = attempt();
+            }
         }
-        return std::nullopt;
+        if (!found) return std::nullopt;
+        return std::make_pair(std::move(renderer), std::move(*found));
     }
+    ComPtr<IUIAutomation> automation_;
+    std::set<HWND> woken_;
 };
 #endif
 
