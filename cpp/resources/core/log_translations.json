@@ -134,6 +134,7 @@
 "cursor工具，传递给Scene": "Cursor tool, passing to Scene",
 "export_gif 失败: {e}": "export_gif failed: {e}",
 "get_frame_image 失败 idx={index}: {e}": "get_frame_image failed idx={index}: {e}",
+"播放帧大小不符 {w}x{h}: {len} 字节": "Playback frame size mismatch {w}x{h}: {len} bytes",
 "gifrecorder 不可用，无法录制": "gifrecorder unavailable, cannot record",
 "longstitch 模块未安装，无法使用 Rust 拼接": "longstitch module not installed, Rust stitching unavailable",
 "longstitch 模块未安装，无法使用自动方向检测": "longstitch module not installed, automatic direction detection unavailable",

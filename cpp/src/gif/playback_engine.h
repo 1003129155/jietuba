@@ -69,6 +69,8 @@ private:
     int trim_end_ = 0;
     int display_w_ = 0;
     int display_h_ = 0;
+    int decoder_w_ = 0;
+    int decoder_h_ = 0;
     PlayState state_ = PlayState::IDLE;
     std::unique_ptr<gifrecorder::FrameDecoder> decoder_;
     QTimer timer_;
