@@ -827,40 +827,28 @@ Replace it?</source>
         <translation>設定備份</translation>
     </message>
     <message>
-        <source>Export Settings</source>
-        <translation>匯出設定</translation>
+        <source>Settings File</source>
+        <translation>設定檔案</translation>
     </message>
     <message>
-        <source>Save settings to a file, including translation API keys. Folder locations are not included.</source>
-        <translation>把設定儲存到檔案，包含翻譯服務的 API 金鑰；不包含各類資料夾位置。</translation>
-    </message>
-    <message>
-        <source>Export</source>
-        <translation>匯出</translation>
+        <source>Copy this file to back up your settings or use them on another computer.</source>
+        <translation>複製這個檔案即可備份設定，或帶到別的電腦上使用。</translation>
     </message>
     <message>
         <source>Import Settings</source>
         <translation>匯入設定</translation>
     </message>
     <message>
-        <source>Load settings from an exported file. Folder locations stay unchanged.</source>
-        <translation>從匯出的檔案載入設定；各類資料夾位置保持不變。</translation>
+        <source>Load settings from another settings.ini or a file exported by an earlier version. Folder locations stay unchanged.</source>
+        <translation>從另一份 settings.ini 或舊版本匯出的檔案載入設定；各類資料夾位置保持不變。</translation>
     </message>
     <message>
         <source>Import</source>
         <translation>匯入</translation>
     </message>
     <message>
-        <source>Settings File (*.json)</source>
-        <translation>設定檔案 (*.json)</translation>
-    </message>
-    <message>
-        <source>Could not write the file: %1</source>
-        <translation>無法寫入檔案：%1</translation>
-    </message>
-    <message>
-        <source>Settings exported to %1</source>
-        <translation>設定已匯出到 %1</translation>
+        <source>Settings File (*.ini *.json)</source>
+        <translation>設定檔案 (*.ini *.json)</translation>
     </message>
     <message>
         <source>This file is not a Jietuba settings file, or it is damaged.</source>

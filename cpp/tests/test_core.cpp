@@ -364,8 +364,8 @@ private slots:
         }
     }
 
-    // Not from the reference: settings and data are shared with the Python version, so the
-    // test executables' defaults must land in the sandbox (tests/test_sandbox.cpp).
+    // Not from the reference: the test executables' defaults must land in the sandbox
+    // (tests/test_sandbox.cpp), never in the user's data folder.
     void testDefaultsStayInTheSandbox() {
         const QString sandbox = QDir::toNativeSeparators(test_sandbox_dir());
         QVERIFY(!sandbox.isEmpty());
@@ -374,31 +374,6 @@ private slots:
         auto &store = get_tool_settings_manager()->qsettings.settings();
         QCOMPARE(store.format(), QSettings::IniFormat);
         QVERIFY(QDir::toNativeSeparators(store.fileName()).startsWith(sandbox));
-    }
-    // The registry is shared with the Python version, which writes its ints as REG_DWORD.
-    void integersAreStoredLikePythonInts() {
-        const QString path = QString("Software\\JietubaCppTest\\Store%1").arg(QCoreApplication::applicationPid());
-        {
-            QSettings native("HKEY_CURRENT_USER\\" + path, QSettings::NativeFormat);
-            SettingsStore store(native);
-            store.setValue("small", QVariant::fromValue(qint64(139)));
-            store.setValue("negative", QVariant::fromValue(qint64(-5)));
-            store.setValue("large", QVariant::fromValue(qint64(1) << 40));
-            store.setValue("text", QString("12"));
-            native.sync();
-        }
-        const auto type_of = [&path](const wchar_t *name) {
-            DWORD type = 0;
-            RegGetValueW(HKEY_CURRENT_USER, reinterpret_cast<LPCWSTR>(path.utf16()), name, RRF_RT_ANY, &type, nullptr, nullptr);
-            return type;
-        };
-        const DWORD small_type = type_of(L"small"), negative_type = type_of(L"negative"), large_type = type_of(L"large"),
-                    text_type = type_of(L"text");
-        RegDeleteTreeW(HKEY_CURRENT_USER, L"Software\\JietubaCppTest");
-        QCOMPARE(small_type, DWORD(REG_DWORD));
-        QCOMPARE(negative_type, DWORD(REG_DWORD));
-        QCOMPARE(large_type, DWORD(REG_QWORD));
-        QCOMPARE(text_type, DWORD(REG_SZ));
     }
 private:
     static void set_language(const QString &language) {

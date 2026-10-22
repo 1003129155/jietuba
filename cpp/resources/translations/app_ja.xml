@@ -827,40 +827,28 @@ Replace it?</source>
         <translation>設定のバックアップ</translation>
     </message>
     <message>
-        <source>Export Settings</source>
-        <translation>設定をエクスポート</translation>
+        <source>Settings File</source>
+        <translation>設定ファイル</translation>
     </message>
     <message>
-        <source>Save settings to a file, including translation API keys. Folder locations are not included.</source>
-        <translation>設定をファイルに保存します。翻訳サービスの API キーを含み、フォルダーの場所は含みません。</translation>
-    </message>
-    <message>
-        <source>Export</source>
-        <translation>エクスポート</translation>
+        <source>Copy this file to back up your settings or use them on another computer.</source>
+        <translation>このファイルをコピーすれば、設定のバックアップや別のパソコンでの利用ができます。</translation>
     </message>
     <message>
         <source>Import Settings</source>
         <translation>設定をインポート</translation>
     </message>
     <message>
-        <source>Load settings from an exported file. Folder locations stay unchanged.</source>
-        <translation>エクスポートしたファイルから設定を読み込みます。フォルダーの場所は変わりません。</translation>
+        <source>Load settings from another settings.ini or a file exported by an earlier version. Folder locations stay unchanged.</source>
+        <translation>別の settings.ini や旧バージョンでエクスポートしたファイルから設定を読み込みます。フォルダーの場所は変わりません。</translation>
     </message>
     <message>
         <source>Import</source>
         <translation>インポート</translation>
     </message>
     <message>
-        <source>Settings File (*.json)</source>
-        <translation>設定ファイル (*.json)</translation>
-    </message>
-    <message>
-        <source>Could not write the file: %1</source>
-        <translation>ファイルを書き込めませんでした: %1</translation>
-    </message>
-    <message>
-        <source>Settings exported to %1</source>
-        <translation>設定を %1 にエクスポートしました。</translation>
+        <source>Settings File (*.ini *.json)</source>
+        <translation>設定ファイル (*.ini *.json)</translation>
     </message>
     <message>
         <source>This file is not a Jietuba settings file, or it is damaged.</source>

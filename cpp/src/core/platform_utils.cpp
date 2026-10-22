@@ -346,6 +346,17 @@ bool get_autostart() {
     return found;
 }
 
+std::optional<QString> get_autostart_program() {
+    const auto *name = reinterpret_cast<LPCWSTR>(AUTOSTART_APP_NAME.utf16());
+    DWORD size = 0;
+    if (RegGetValueW(HKEY_CURRENT_USER, AUTOSTART_REG_KEY, name, RRF_RT_REG_SZ, nullptr, nullptr, &size) != ERROR_SUCCESS) return std::nullopt;
+    std::wstring data(size / sizeof(wchar_t), L'\0');
+    if (RegGetValueW(HKEY_CURRENT_USER, AUTOSTART_REG_KEY, name, RRF_RT_REG_SZ, nullptr, data.data(), &size) != ERROR_SUCCESS) return std::nullopt;
+    // Of a quoted command line with arguments only the program counts.
+    const QString command = QString::fromWCharArray(data.c_str()).trimmed();
+    return command.startsWith('"') ? command.mid(1, command.indexOf('"', 1) - 1) : command;
+}
+
 void set_autostart(bool enabled) {
     // The Run entry is shared with the Python version; tests never write it.
     if (!test_sandbox_dir().isEmpty()) return;

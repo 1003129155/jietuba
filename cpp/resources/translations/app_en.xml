@@ -821,40 +821,28 @@ Replace it?</translation>
         <translation>Settings Backup</translation>
     </message>
     <message>
-        <source>Export Settings</source>
-        <translation>Export Settings</translation>
+        <source>Settings File</source>
+        <translation>Settings File</translation>
     </message>
     <message>
-        <source>Save settings to a file, including translation API keys. Folder locations are not included.</source>
-        <translation>Save settings to a file, including translation API keys. Folder locations are not included.</translation>
-    </message>
-    <message>
-        <source>Export</source>
-        <translation>Export</translation>
+        <source>Copy this file to back up your settings or use them on another computer.</source>
+        <translation>Copy this file to back up your settings or use them on another computer.</translation>
     </message>
     <message>
         <source>Import Settings</source>
         <translation>Import Settings</translation>
     </message>
     <message>
-        <source>Load settings from an exported file. Folder locations stay unchanged.</source>
-        <translation>Load settings from an exported file. Folder locations stay unchanged.</translation>
+        <source>Load settings from another settings.ini or a file exported by an earlier version. Folder locations stay unchanged.</source>
+        <translation>Load settings from another settings.ini or a file exported by an earlier version. Folder locations stay unchanged.</translation>
     </message>
     <message>
         <source>Import</source>
         <translation>Import</translation>
     </message>
     <message>
-        <source>Settings File (*.json)</source>
-        <translation>Settings File (*.json)</translation>
-    </message>
-    <message>
-        <source>Could not write the file: %1</source>
-        <translation>Could not write the file: %1</translation>
-    </message>
-    <message>
-        <source>Settings exported to %1</source>
-        <translation>Settings exported to %1</translation>
+        <source>Settings File (*.ini *.json)</source>
+        <translation>Settings File (*.ini *.json)</translation>
     </message>
     <message>
         <source>This file is not a Jietuba settings file, or it is damaged.</source>

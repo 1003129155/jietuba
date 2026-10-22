@@ -29,6 +29,7 @@
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
 #include "pin/pin_manager.h"
+#include "settings/data_folder.h"
 #include "settings/tool_settings.h"
 #include "text_recognition/recognizer.h"
 #include "translation/smart_translation_controller.h"
@@ -94,6 +95,7 @@ MainApp::MainApp(int &argc, char **argv) : app(std::make_unique<QApplication>(ar
     // The reference also installs a main-thread Python garbage collector here; C++ has none.
 
     config_manager = get_tool_settings_manager();
+    data_folder::align_startup(*config_manager, QCoreApplication::applicationFilePath());
 
     // The UI theme must exist before any window; the capture accent colour is managed
     // separately by core/theme.
@@ -101,6 +103,7 @@ MainApp::MainApp(int &argc, char **argv) : app(std::make_unique<QApplication>(ar
     connect(ui_theme_manager, &UIThemeManager::theme_changed, this, &MainApp::on_ui_theme_changed);
 
     setup_logger(config_manager);
+    data_folder::write_deferred_log();
     connect(app.get(), &QCoreApplication::aboutToQuit, this, &MainApp::on_about_to_quit);
 
     // Windows without an icon of their own use it in the title bar and on the taskbar. Without it

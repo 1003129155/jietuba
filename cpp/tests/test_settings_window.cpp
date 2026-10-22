@@ -1,3 +1,4 @@
+#include "core/data_location.h"
 #include "core/elevation.h"
 #include "core/i18n.h"
 #include "core/resource_manager.h"
@@ -426,7 +427,7 @@ private slots:
         const auto restore = qScopeGuard([this] { config_->set_app_setting("color_picker_style", "modern"); });
         config_->set_app_setting("color_picker_style", "system");
         SettingsDialog dialog(config_, config_->get_hotkey());
-        QVERIFY(settings_transfer::EXPORTED_KEYS().contains("app/color_picker_style"));
+        QVERIFY(settings_transfer::IMPORTED_KEYS().contains("app/color_picker_style"));
         dialog.show();
         dialog.on_nav_changed(3, "appearance");
         auto *combo = dialog.attr<QComboBox>("_color_picker_style_combo");
@@ -734,42 +735,87 @@ private slots:
         window.hide();
     }
 
-    // Export writes the settings the pages show; import fills the controls and saves them.
-    void exportAndImportRoundTrip() {
+    // Import takes the settings the pages show from another settings.ini, fills the controls and saves them.
+    void importFromAnotherSettingsIni() {
         config_->set_log_level("ERROR");
         config_->set_screenshot_save_path(dir_.path());
+        const QString save_path = config_->get_screenshot_save_path();
         SettingsDialog dialog(config_, config_->get_hotkey());
-        const auto &keys = settings_transfer::EXPORTED_KEYS();
+        const auto &keys = settings_transfer::IMPORTED_KEYS();
         QVERIFY(keys.contains("app/hotkey"));
         QVERIFY(keys.contains("app/screenshot_toolbar_layout"));
         QVERIFY(keys.contains("pin/toolbar_layout"));
-        // Settings no page shows stay out, as in the reference: they could be exported but never imported.
+        // Settings no page shows stay out: the window could never show what was imported.
         for (const char *key : {"clipboard/show_metadata", "clipboard/preserve_search", "gif/fps", "app/screenshot_quality"})
             QVERIFY2(!keys.contains(key), key);
-        for (const auto &key : settings_transfer::LOCAL_KEYS()) QVERIFY2(!keys.contains(key), qPrintable(key));
-        // A control a page edits by name has its setting exported.
+        for (const auto &key : LOCAL_SETTING_PATHS()) QVERIFY2(!keys.contains(key), qPrintable(key));
+        // A control a page edits by name has its setting imported.
         dialog.build_all_pages();
         QVERIFY(!dialog.behavior_controls.empty());
         for (const auto &entry : dialog.behavior_controls)
             QVERIFY2(keys.contains(ToolSettingsManager::app_setting_path(entry.first)), qPrintable(entry.first));
-        const QString path = dir_.filePath("export.json");
-        settings_transfer::export_settings(config_, path, "test");
-        auto values = settings_transfer::read_settings_file(path);
-        QCOMPARE(values.value("app/log_level").toString(), QString("ERROR"));
-        // Machine-local keys are never exported.
-        QVERIFY(!values.contains("app/screenshot_save_path"));
-        values["app/log_level"] = "DEBUG";
+
+        const QString other_dir = dir_.filePath("other");
+        QVERIFY(QDir().mkpath(other_dir));
+        const QString path = QDir(other_dir).filePath("settings.ini");
+        {
+            QSettings other(path, QSettings::IniFormat);
+            other.setValue("app/log_level", "DEBUG");
+            other.setValue("app/screenshot_save_path", other_dir);
+            other.setValue("app/program_path", QDir(other_dir).filePath("jietuba.exe"));
+            other.setValue("clipboard/show_metadata", true);
+        }
+        const auto values = settings_transfer::read_settings_file(path);
+        QCOMPARE(values.value("app/log_level").toString(), QString("DEBUG"));
+        for (const char *key : {"app/screenshot_save_path", "app/program_path", "clipboard/show_metadata"}) QVERIFY2(!values.contains(key), key);
         dialog.load_imported_settings(values);
         QCOMPARE(dialog.attr<QComboBox>("log_level_combo")->currentText(), QString("DEBUG"));
         QVERIFY(!dialog.has_unsaved_changes());
         QCOMPARE(config_->get_log_level(), QString("DEBUG"));
+        QCOMPARE(config_->get_screenshot_save_path(), save_path);
         config_->set_log_level("ERROR");
+    }
+
+    // Files exported by earlier versions still import; machine-local keys in them are skipped.
+    void importReadsEarlierJsonExports() {
+        const QString path = dir_.filePath("export.json");
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write(R"({"format": "jietuba-settings", "version": 1, "app_version": "2.1.7",
+                      "settings": {"app/log_level": "WARNING", "app/screenshot_save_path": "D:\\captures"}})");
+        file.close();
+        const auto values = settings_transfer::read_settings_file(path);
+        QCOMPARE(values.value("app/log_level").toString(), QString("WARNING"));
+        QVERIFY(!values.contains("app/screenshot_save_path"));
 
         QFile broken(dir_.filePath("broken.json"));
         QVERIFY(broken.open(QIODevice::WriteOnly));
         broken.write("{\"format\": \"other\"}");
         broken.close();
         QVERIFY_THROWS_EXCEPTION(settings_transfer::SettingsFileError, settings_transfer::read_settings_file(broken.fileName()));
+        // Text without any setting the window shows is not a settings file either.
+        QFile unrelated(dir_.filePath("notes.ini"));
+        QVERIFY(unrelated.open(QIODevice::WriteOnly));
+        unrelated.write("[general]\nname=value\n");
+        unrelated.close();
+        QVERIFY_THROWS_EXCEPTION(settings_transfer::SettingsFileError, settings_transfer::read_settings_file(unrelated.fileName()));
+    }
+
+    // The page names the settings file in use instead of offering an export.
+    void miscPageShowsTheSettingsFile() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.build_all_pages();
+        QVERIFY(dialog.attr<QPushButton>("import_settings_button"));
+        const QString shown = QDir::toNativeSeparators(data_location().settings_file());
+        bool found = false;
+        for (auto *label : dialog.findChildren<QLabel *>()) found = found || label->text().contains(shown);
+        QVERIFY2(found, qPrintable(shown));
+        UrlCatcher catcher;
+        QDesktopServices::setUrlHandler("file", &catcher, "open");
+        const auto unset = qScopeGuard([] { QDesktopServices::unsetUrlHandler("file"); });
+        dialog.attr<QPushButton>("open_settings_folder_button")->click();
+        QTRY_COMPARE(catcher.urls.size(), 1);
+        QCOMPARE(QDir::cleanPath(catcher.urls[0].toLocalFile()), QDir::cleanPath(data_location().dir));
     }
 
     // No page has a control for the toolbar layouts; imported ones are written each to its own key.

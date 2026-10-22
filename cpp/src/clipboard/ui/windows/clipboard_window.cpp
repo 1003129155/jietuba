@@ -11,6 +11,7 @@
 #include "clipboard/ui/widgets/selection_bar.h"
 #include "clipboard/ui/windows/pin_window.h"
 #include "core/constants.h"
+#include "core/data_location.h"
 #include "core/logger.h"
 #include "core/platform_utils.h"
 #include "core/ui_scale.h"
@@ -138,12 +139,11 @@ QString &geometry_file_for_test() {
     return path;
 }
 
-// Shared with the Python version.
 std::unique_ptr<QSettings> geometry_settings() {
-    QString ini = geometry_file_for_test();
-    if (ini.isEmpty() && !test_sandbox_dir().isEmpty()) ini = QDir(test_sandbox_dir()).filePath("clipboard_window.ini");
-    if (ini.isEmpty()) return std::make_unique<QSettings>("Jietuba", "ClipboardWindow");
-    return std::make_unique<QSettings>(ini, QSettings::IniFormat);
+    if (!geometry_file_for_test().isEmpty()) return std::make_unique<QSettings>(geometry_file_for_test(), QSettings::IniFormat);
+    auto settings = std::make_unique<QSettings>(data_location().settings_file(), QSettings::IniFormat);
+    settings->beginGroup(CLIPBOARD_WINDOW_SETTINGS_GROUP);
+    return settings;
 }
 }
 

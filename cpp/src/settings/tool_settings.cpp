@@ -1,6 +1,7 @@
 #include "settings/tool_settings.h"
 #include <algorithm>
 #include "core/constants.h"
+#include "core/data_location.h"
 #include "core/global_hotkey.h"
 #include "core/logger.h"
 #include "core/i18n.h"
@@ -87,6 +88,28 @@ const std::vector<AppSetting> &APP_SETTINGS() {
     return settings;
 }
 
+const QSet<QString> &LOCAL_SETTING_PATHS() {
+    static const QSet<QString> paths = [] {
+        QSet<QString> result;
+        for (const auto &setting : APP_SETTINGS())
+            if (setting.scope == SettingScope::Local) result.insert(setting.path);
+        return result;
+    }();
+    return paths;
+}
+
+QSettings &SettingsStore::store(const QString &key) const { return LOCAL_SETTING_PATHS().contains(key) ? *local_ : *settings_; }
+
+void SettingsStore::sync() const {
+    settings_->sync();
+    if (local_ != settings_) local_->sync();
+}
+
+std::unique_ptr<QSettings> open_local_settings() {
+    if (!test_sandbox_dir().isEmpty()) return std::make_unique<QSettings>(data_location().settings_file(), QSettings::IniFormat);
+    return std::make_unique<QSettings>(LOCAL_SETTINGS_KEY, QSettings::NativeFormat);
+}
+
 QVariant ToolSettings::get(const QString &key, const QVariant &fallback) const {
     return current_.value(key, fallback.isValid() && !fallback.isNull() ? fallback : defaults.value(key));
 }
@@ -97,16 +120,8 @@ void ToolSettings::from_dict(const QVariantMap &values) {
     update(values);
 }
 
-QVariant SettingsStore::stored_int(const QVariant &value) {
-    const int type = value.metaType().id();
-    if (type != QMetaType::LongLong && type != QMetaType::ULongLong && type != QMetaType::UInt) return value;
-    bool ok = false;
-    const qint64 number = value.toLongLong(&ok);
-    if (!ok || number < std::numeric_limits<int>::min() || number > std::numeric_limits<int>::max()) return value;
-    return int(number);
-}
-
-ToolSettingsManager::ToolSettingsManager(QSettings &settings, QObject *parent) : QObject(parent), qsettings(settings) {
+ToolSettingsManager::ToolSettingsManager(QSettings &settings, QSettings *local_settings, QObject *parent)
+    : QObject(parent), qsettings(settings, local_settings) {
     initializeDefaultsResource();
     QFile file(":/settings/defaults.json");
     if (!file.open(QIODevice::ReadOnly)) throw std::runtime_error("Missing verified Python default registry");
@@ -330,12 +345,12 @@ void ToolSettingsManager::set_screenshot_save_path(const QString &value) {
 ToolSettingsManager *get_tool_settings_manager(QSettings *qsettings) {
     static ToolSettingsManager *manager = nullptr;
     if (!manager) {
+        QSettings *local = nullptr;
         if (!qsettings) {
-            const auto sandbox = test_sandbox_dir();
-            qsettings = sandbox.isEmpty() ? new QSettings(TOOL_SETTINGS_ORGANIZATION, TOOL_SETTINGS_APPLICATION)
-                                          : new QSettings(QDir(sandbox).filePath("settings.ini"), QSettings::IniFormat);
+            qsettings = new QSettings(data_location().settings_file(), QSettings::IniFormat);
+            if (test_sandbox_dir().isEmpty()) local = open_local_settings().release();
         }
-        manager = new ToolSettingsManager(*qsettings);
+        manager = new ToolSettingsManager(*qsettings, local);
     }
     return manager;
 }

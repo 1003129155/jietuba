@@ -1,5 +1,6 @@
 #pragma once
 #include <algorithm>
+#include <memory>
 #include <optional>
 #include <QPoint>
 #include <vector>
@@ -28,24 +29,37 @@ private:
     QVariantMap current_;
 };
 
-// The QSettings a manager reads and writes.
+// The QSettings a manager reads and writes. Settings app_settings.inc marks Local live in local,
+// the registry key older versions kept every setting in, so folders and startup choices stay with
+// this computer while the rest travels with the settings file. That INI file (data_location) keeps
+// every value as text and so reads numbers and booleans back as strings; the accessors convert them
+// by the default's type. The width of an integer is not kept either, so int and qint64 are stored alike.
 class SettingsStore {
 public:
-    explicit SettingsStore(QSettings &settings) : settings_(&settings) {}
-    QVariant value(const QString &key, const QVariant &fallback = {}) const { return settings_->value(key, fallback); }
-    bool contains(const QString &key) const { return settings_->contains(key); }
-    void setValue(const QString &key, const QVariant &value) const { settings_->setValue(key, stored_int(value)); }
-    void sync() const { settings_->sync(); }
-    // Python ints reach QSettings as int when they fit 32 bits, which the registry stores as REG_DWORD; integers
-    // held as qint64 here would become REG_QWORD in the settings both versions share.
-    static QVariant stored_int(const QVariant &value);
+    // Without local, every setting is in settings.
+    SettingsStore(QSettings &settings, QSettings *local) : settings_(&settings), local_(local ? local : &settings) {}
+    QVariant value(const QString &key, const QVariant &fallback = {}) const { return store(key).value(key, fallback); }
+    bool contains(const QString &key) const { return store(key).contains(key); }
+    void setValue(const QString &key, const QVariant &value) const { store(key).setValue(key, value); }
+    void remove(const QString &key) const { store(key).remove(key); }
+    void sync() const;
+    // The settings file.
     QSettings &settings() const { return *settings_; }
 private:
+    QSettings &store(const QString &key) const;
     QSettings *settings_;
+    QSettings *local_;
 };
 
-// Whether settings export carries a setting; see app_settings.inc.
-enum class SettingScope { Export, Local, Internal };
+// Where settings app_settings.inc marks Local live.
+inline const QString LOCAL_SETTINGS_KEY = "HKEY_CURRENT_USER\\Software\\Jietuba\\ToolSettings";
+// LOCAL_SETTINGS_KEY; inside the test sandbox, which must not touch the registry, the settings file.
+std::unique_ptr<QSettings> open_local_settings();
+// QSettings keys of the settings app_settings.inc marks Local.
+const QSet<QString> &LOCAL_SETTING_PATHS();
+
+// Whether a settings import carries a setting; see app_settings.inc.
+enum class SettingScope { Import, Local, Internal };
 struct AppSetting {
     const char *name;
     const char *path;
@@ -64,11 +78,12 @@ template <> inline QStringList cast<QStringList>(const QVariant &value) { return
 template <> inline QVariantList cast<QVariantList>(const QVariant &value) { return value.toList(); }
 }
 
-// Explicit QSettings injection avoids reading/writing Python's live registry.
+// Tests hand in a QSettings of their own so they never touch the user's settings file; without
+// local_settings the Local settings are kept there too.
 class ToolSettingsManager : public QObject {
     Q_OBJECT
 public:
-    explicit ToolSettingsManager(QSettings &settings, QObject *parent = nullptr);
+    explicit ToolSettingsManager(QSettings &settings, QSettings *local_settings = nullptr, QObject *parent = nullptr);
     SettingsStore qsettings;
     const QVariantMap &app_defaults() const { return app_defaults_; }
     const QVariantMap &tool_defaults() const { return tool_defaults_; }
@@ -241,10 +256,7 @@ const std::vector<GlobalHotkeyFunction> &GLOBAL_HOTKEY_FUNCTIONS();
 constexpr int WIN_V_CLIPBOARD_SLOT = 2;
 QString global_hotkey_slot_suffix(int slot);
 
-// Organisation/application of the default QSettings store, shared with the Python version.
-inline const char *TOOL_SETTINGS_ORGANIZATION = "Jietuba";
-inline const char *TOOL_SETTINGS_APPLICATION = "ToolSettings";
-// Global manager; qsettings (for isolated tests) only applies on first creation.
+// Global manager over data_location()'s settings file; qsettings (for isolated tests) only applies on first creation.
 ToolSettingsManager *get_tool_settings_manager(QSettings *qsettings = nullptr);
 
 // The smart selection levels in settings-page order. "off" is the master switch and

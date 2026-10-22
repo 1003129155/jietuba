@@ -84,6 +84,8 @@ long long get_last_error();
 inline const QString AUTOSTART_APP_NAME = "Jietuba";
 inline constexpr wchar_t AUTOSTART_REG_KEY[] = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
 bool get_autostart();
+// The program the Run entry starts; nullopt without one.
+std::optional<QString> get_autostart_program();
 // Writes or removes the Run entry; failures are logged.
 void set_autostart(bool enabled);
 }

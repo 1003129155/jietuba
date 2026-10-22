@@ -14,6 +14,7 @@
 #include "ocr/bundled_runtime.h"
 #include "ocr/ocr_manager.h"
 #include "ocr/ppocr_models.h"
+#include "settings/data_folder.h"
 #include "settings/tool_settings.h"
 #include "ui/toolbar.h"
 #include <QCoreApplication>
@@ -364,12 +365,14 @@ int run(int argc, char **argv) {
     // 2./3. Module paths and pinning onefile resources do not apply to a native build.
     // 4. The taskbar identity, before QApplication exists.
     set_app_user_model_id("jietuba.app");
-    // 5. In admin mode the elevated instance started by the scheduled task runs instead.
-    if (QSettings(TOOL_SETTINGS_ORGANIZATION, TOOL_SETTINGS_APPLICATION).value("app/run_as_admin", false).toBool() && hand_off_to_admin_task())
+    // 5. On the first start with a data folder, what older versions stored elsewhere, before anything reads it.
+    data_folder::migrate(data_location(), data_folder::default_sources(data_location()));
+    // 6. In admin mode the elevated instance started by the scheduled task runs instead.
+    if (open_local_settings()->value("app/run_as_admin", false).toBool() && hand_off_to_admin_task())
         return 0;
-    // 6. Single instance.
+    // 7. Single instance.
     ensure_single_instance();
-    // 7. The application.
+    // 8. The application.
     MainApp main(argc, argv);
     return main.run();
 }
