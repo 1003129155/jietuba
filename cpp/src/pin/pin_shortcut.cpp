@@ -3,6 +3,7 @@
 #include "pin/pin_canvas.h"
 #include "pin/pin_canvas_view.h"
 #include "pin/pin_manager.h"
+#include "pin/pin_text_mode.h"
 #include "pin/pin_toolbar.h"
 #include "pin/pin_window.h"
 #include "canvas/smart_edit_controller.h"
@@ -13,7 +14,8 @@ namespace jietuba {
 namespace {
 const QStringList PIN_KEYS = {
     "inapp_copy_pin", "inapp_copy_pin_text", "inapp_pin_reset_size",
-    "inapp_thumbnail", "inapp_toggle_toolbar", "inapp_delete", "inapp_pin_lock",
+    "inapp_thumbnail", "inapp_toggle_toolbar", "inapp_delete", "inapp_pin_lock", "inapp_pin_text_mode",
+    "inapp_pin_text_selection",
 };
 
 // Esc clears a text selection before it leaves a tool or closes the pin.
@@ -29,7 +31,9 @@ void PinHandlerBase::reload_bindings() {
     mouse_bindings_.remove("inapp_pin_reset_size");
 }
 
-PinWindow *PinHandlerBase::find_pin_under_cursor() const { return controller_->find_pin_under_cursor(); }
+PinWindow *PinHandlerBase::find_target_pin(QInputEvent *event) const { return controller_->find_target_pin(event); }
+
+bool PinHandlerBase::is_active() { return controller_->focused_pin() || controller_->find_pin_under_cursor(); }
 
 bool PinHandlerBase::typing_in_dialog(QInputEvent *event) {
     if (event->type() != QEvent::KeyPress) return false;
@@ -66,7 +70,7 @@ bool PinHandlerBase::handle_shared(PinWindow *pin, QInputEvent *event) {
 }
 
 QString PinHandlerBase::selected_ocr_text() const {
-    auto *pin = find_pin_under_cursor();
+    auto *pin = find_target_pin(nullptr);
     if (!pin || !pin->text_selection()) return {};
     return pin->text_selection()->selected_text().trimmed();
 }
@@ -90,25 +94,16 @@ bool PinHandlerBase::intercept_translation_hotkey(const std::function<void()> &c
     return true;
 }
 
-bool PinEditShortcutHandler::is_active() {
-    auto *pin = find_pin_under_cursor();
-    return pin && pin->canvas && pin->canvas->is_editing();
-}
-
 bool PinEditShortcutHandler::handle_key(QInputEvent *event) {
     if (typing_in_dialog(event) || menu_open(event)) return false;
-    auto *pin = find_pin_under_cursor();
+    auto *pin = find_target_pin(event);
     if (!pin || !(pin->canvas && pin->canvas->is_editing())) return false;
     const int key = event_key(event);
     // Copy, copy text, toolbar (closing it also leaves editing), reset size.
     if (handle_shared(pin, event)) return true;
     if (key == Qt::Key_Escape) {
         if (clear_text_selection(pin)) return true;
-        pin->canvas->deactivate_tool();
-        if (pin->toolbar && pin->toolbar->current_tool) {
-            for (auto *button : pin->toolbar->tool_buttons) button->setChecked(false);
-            pin->toolbar->current_tool.reset();
-        }
+        pin->stop_drawing();
         return true;
     }
     if (match(event, "inapp_delete")) {
@@ -119,16 +114,18 @@ bool PinEditShortcutHandler::handle_key(QInputEvent *event) {
     return false;
 }
 
-bool PinNormalShortcutHandler::is_active() {
-    auto *pin = find_pin_under_cursor();
-    return pin && !(pin->canvas && pin->canvas->is_editing());
-}
-
 bool PinNormalShortcutHandler::handle_key(QInputEvent *event) {
     if (typing_in_dialog(event) || menu_open(event)) return false;
-    auto *pin = find_pin_under_cursor();
+    auto *pin = find_target_pin(event);
     if (!pin || (pin->canvas && pin->canvas->is_editing())) return false;
     const int key = event_key(event);
+    // Esc while typing in a pin's text leaves that pin's text mode, not the pin under the pointer.
+    if (key == Qt::Key_Escape) {
+        if (auto *editor = qobject_cast<PinTextEdit *>(QApplication::focusWidget())) {
+            editor->pin()->leave_text_mode();
+            return true;
+        }
+    }
     if (handle_shared(pin, event)) return true;
     if (pin->handle_mouse_alternative_key(event)) return true;
     // While editing L may be typed text, so only here.
@@ -141,8 +138,18 @@ bool PinNormalShortcutHandler::handle_key(QInputEvent *event) {
         else pin->toggle_thumbnail_mode();
         return true;
     }
+    // A thumbnail shows no text, so the key goes on.
+    if (match(event, "inapp_pin_text_mode") && !pin->thumbnail_mode()) {
+        pin->toggle_text_mode();
+        return true;
+    }
+    if (match(event, "inapp_pin_text_selection") && !pin->thumbnail_mode() && !pin->text_mode()) {
+        pin->toggle_text_selection();
+        return true;
+    }
     if (key == Qt::Key_Escape) {
-        if (!clear_text_selection(pin)) pin->close_unless_locked();
+        if (pin->text_mode()) pin->leave_text_mode();
+        else if (!clear_text_selection(pin)) pin->close_unless_locked();
         return true;
     }
     return false;
@@ -178,6 +185,8 @@ void PinShortcutController::register_pin(PinWindow *pin_window) {
 
 void PinShortcutController::unregister_pin(PinWindow *pin_window) { pin_windows_.removeAll(pin_window); }
 
+bool PinShortcutController::matches(QInputEvent *event, const QString &cfg_key) const { return normal_handler_->match(event, cfg_key); }
+
 PinWindow *PinShortcutController::find_pin_under_cursor() {
     // During a capture pins sit below the capture layer. Keys the capture window does
     // not take (such as copy before confirming) keep going down and must not reach an invisible pin.
@@ -195,5 +204,19 @@ PinWindow *PinShortcutController::find_pin_under_cursor() {
         if (pin->geometry().contains(cursor_pos) && !pin->click_through()) return pin;
     }
     return nullptr;
+}
+
+PinWindow *PinShortcutController::focused_pin() {
+    if (PinManager::instance()->topmost_suppressed()) return nullptr;
+    for (const auto &pin : pin_windows_)
+        if (pin && pin->has_keyboard_focus() && !pin->click_through()) return pin;
+    return nullptr;
+}
+
+PinWindow *PinShortcutController::find_target_pin(QInputEvent *event) {
+    // With the pointer moved off after selecting text, Ctrl+C must still copy that pin's text.
+    if (!(event && is_mouse_shortcut_event(event)))
+        if (auto *pin = focused_pin()) return pin;
+    return find_pin_under_cursor();
 }
 }

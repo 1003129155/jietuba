@@ -1269,6 +1269,14 @@ Replace it?</source>
         <translation>고정 이미지 잠금/해제</translation>
     </message>
     <message>
+        <source>Toggle Text Mode</source>
+        <translation>텍스트 모드 전환</translation>
+    </message>
+    <message>
+        <source>Toggle Text Selection</source>
+        <translation>텍스트 선택 전환</translation>
+    </message>
+    <message>
         <source>Behavior</source>
         <translation>동작</translation>
     </message>
@@ -1845,6 +1853,22 @@ Replace it?</source>
     <message>
         <source>Text selection</source>
         <translation>텍스트 선택</translation>
+    </message>
+    <message>
+        <source>Text mode</source>
+        <translation>텍스트 모드</translation>
+    </message>
+    <message>
+        <source>Recognizing...</source>
+        <translation>인식 중...</translation>
+    </message>
+    <message>
+        <source>Text selection on</source>
+        <translation>텍스트 선택 켜짐</translation>
+    </message>
+    <message>
+        <source>Text selection off</source>
+        <translation>텍스트 선택 꺼짐</translation>
     </message>
     <message>
         <source>Border</source>

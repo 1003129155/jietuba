@@ -1154,6 +1154,14 @@ Replace it?</translation>
         <translation>Lock / Unlock Pin</translation>
     </message>
     <message>
+        <source>Toggle Text Mode</source>
+        <translation>Toggle Text Mode</translation>
+    </message>
+    <message>
+        <source>Toggle Text Selection</source>
+        <translation>Toggle Text Selection</translation>
+    </message>
+    <message>
         <source>Behavior</source>
         <translation>Behavior</translation>
     </message>
@@ -1806,6 +1814,22 @@ Replace it?</translation>
     <message>
         <source>Text selection</source>
         <translation>Text selection</translation>
+    </message>
+    <message>
+        <source>Text mode</source>
+        <translation>Text mode</translation>
+    </message>
+    <message>
+        <source>Recognizing...</source>
+        <translation>Recognizing...</translation>
+    </message>
+    <message>
+        <source>Text selection on</source>
+        <translation>Text selection on</translation>
+    </message>
+    <message>
+        <source>Text selection off</source>
+        <translation>Text selection off</translation>
     </message>
     <message>
         <source>Border</source>

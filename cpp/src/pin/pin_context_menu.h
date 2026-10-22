@@ -16,6 +16,7 @@ struct PinMenuState {
     bool border_enabled = true;
     bool text_selection_enabled = true;
     bool thumbnail_mode = false;
+    bool text_mode = false;
     // Whether Esc can close the pin right now.
     bool close_shortcut_enabled = true;
 };

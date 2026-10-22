@@ -72,7 +72,6 @@ QString PinContextMenu::menu_style() {
 }
 
 void PinContextMenu::add_menu_items(QMenu *menu, const PinMenuState &state) {
-    const auto toggle_text = [](const QString &label, bool enabled) { return label + "\t" + (enabled ? QString::fromUtf8("●") : QString::fromUtf8("○")); };
     const auto shortcut_text = [](const QString &label, const QString &cfg_key) {
         const auto key = pin_shortcut_display(cfg_key);
         return key.isEmpty() ? label : QString("%1 (%2)").arg(label, key);
@@ -82,14 +81,23 @@ void PinContextMenu::add_menu_items(QMenu *menu, const PinMenuState &state) {
         auto *action = new QAction(text, menu);
         QObject::connect(action, &QAction::triggered, menu, [slot](bool) { slot(); });
         target->addAction(action);
+        return action;
     };
-    const bool is_thumbnail = state.thumbnail_mode;
+    // Switches show their state as a check mark, as in the tray menu.
+    const auto add_switch = [&add](QMenu *target, const QString &text, bool on, std::function<void()> slot) {
+        auto *action = add(target, text, std::move(slot));
+        action->setCheckable(true);
+        action->setChecked(on);
+    };
+    const bool is_thumbnail = state.thumbnail_mode, is_text = state.text_mode;
+    // In text mode Copy takes the selected text, or all of it.
     add(menu, shortcut_text(pin_tr("Copy"), "inapp_copy_pin"), [win] { win->copy_to_clipboard(); });
     add(menu, pin_tr("Save as"), [win] { win->save_image(); });
-    // Hidden in thumbnail mode.
-    if (!is_thumbnail) {
-        // Always available; without a result the OCR manager recognizes on demand.
-        add(menu, pin_tr("Translate (Text Recognition)"), [win] { win->on_translate_clicked(); });
+    // Always available; without a result the OCR manager recognizes on demand. In text mode it
+    // translates the text as edited.
+    if (!is_thumbnail) add(menu, pin_tr("Translate (Text Recognition)"), [win] { win->on_translate_clicked(); });
+    // The image's own items are hidden in thumbnail and text mode.
+    if (!is_thumbnail && !is_text) {
         add(menu, shortcut_text(pin_tr("Reset size"), "inapp_pin_reset_size"), [win] { win->reset_to_original_size(); });
         auto *transform_menu = new QMenu(pin_tr("Image transform"), menu);
         transform_menu->setStyleSheet(menu_style());
@@ -103,16 +111,17 @@ void PinContextMenu::add_menu_items(QMenu *menu, const PinMenuState &state) {
         menu->addMenu(transform_menu);
     }
     menu->addSeparator();
-    if (!is_thumbnail) add(menu, toggle_text(shortcut_text(pin_tr("Toolbar"), "inapp_toggle_toolbar"), state.toolbar_visible), [win] { win->toggle_toolbar(); });
+    if (!is_thumbnail && !is_text) add_switch(menu, shortcut_text(pin_tr("Toolbar"), "inapp_toggle_toolbar"), state.toolbar_visible, [win] { win->toggle_toolbar(); });
     // Available in every mode.
-    add(menu, toggle_text(pin_tr("Always on top"), state.stay_on_top), [win] { win->toggle_stay_on_top(); });
-    add(menu, toggle_text(pin_tr("Mouse click-through"), state.click_through), [win] { win->toggle_click_through(); });
-    add(menu, toggle_text(shortcut_text(pin_tr("Lock"), "inapp_pin_lock"), state.locked), [win] { win->toggle_lock(); });
+    add_switch(menu, pin_tr("Always on top"), state.stay_on_top, [win] { win->toggle_stay_on_top(); });
+    add_switch(menu, pin_tr("Mouse click-through"), state.click_through, [win] { win->toggle_click_through(); });
+    add_switch(menu, shortcut_text(pin_tr("Lock"), "inapp_pin_lock"), state.locked, [win] { win->toggle_lock(); });
     if (!is_thumbnail) {
-        add(menu, toggle_text(pin_tr("Border"), state.border_enabled), [win] { win->toggle_border_effect(); });
-        add(menu, toggle_text(pin_tr("Text selection"), state.text_selection_enabled), [win] { win->toggle_text_selection(); });
+        add_switch(menu, pin_tr("Border"), state.border_enabled, [win] { win->toggle_border_effect(); });
+        if (!is_text) add_switch(menu, shortcut_text(pin_tr("Text selection"), "inapp_pin_text_selection"), state.text_selection_enabled, [win] { win->toggle_text_selection(); });
+        add_switch(menu, shortcut_text(pin_tr("Text mode"), "inapp_pin_text_mode"), is_text, [win] { win->toggle_text_mode(); });
     }
-    add(menu, toggle_text(shortcut_text(pin_tr("Thumbnail mode"), "inapp_thumbnail"), state.thumbnail_mode), [win] { win->toggle_thumbnail_mode(); });
+    add_switch(menu, shortcut_text(pin_tr("Thumbnail mode"), "inapp_thumbnail"), state.thumbnail_mode, [win] { win->toggle_thumbnail_mode(); });
     menu->addSeparator();
     auto close_label = pin_tr("Close");
     if (state.close_shortcut_enabled) close_label += " (ESC)";

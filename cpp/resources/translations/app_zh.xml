@@ -1274,6 +1274,14 @@ Replace it?</source>
         <translation>锁定/解锁钉图</translation>
     </message>
     <message>
+        <source>Toggle Text Mode</source>
+        <translation>切换文字模式</translation>
+    </message>
+    <message>
+        <source>Toggle Text Selection</source>
+        <translation>切换文字选择</translation>
+    </message>
+    <message>
         <source>Behavior</source>
         <translation>行为</translation>
     </message>
@@ -1831,6 +1839,22 @@ Replace it?</source>
     <message>
         <source>Text selection</source>
         <translation>文字选择</translation>
+    </message>
+    <message>
+        <source>Text mode</source>
+        <translation>文字模式</translation>
+    </message>
+    <message>
+        <source>Recognizing...</source>
+        <translation>识别中...</translation>
+    </message>
+    <message>
+        <source>Text selection on</source>
+        <translation>文字选择已开启</translation>
+    </message>
+    <message>
+        <source>Text selection off</source>
+        <translation>文字选择已关闭</translation>
     </message>
     <message>
         <source>Border</source>

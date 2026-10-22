@@ -25,6 +25,7 @@ class PinBorderOverlay;
 class PinCanvas;
 class PinCanvasView;
 class PinClickThroughBar;
+class PinTextMode;
 class PinToolbar;
 class ToolSettingsManager;
 
@@ -56,10 +57,17 @@ public:
     bool ocr_has_result() const { return ocr_mgr_ && ocr_mgr_->has_result(); }
     bool text_selection_enabled() const { return ocr_mgr_ && ocr_mgr_->text_selection_enabled(); }
     bool thumbnail_mode() const { return thumbnail_ && thumbnail_->active(); }
+    // Shown as editable text instead of the image.
+    bool text_mode() const;
+    PinTextMode *text_mode_controller() const { return text_mode_.get(); }
     bool is_closed() const { return is_closed_; }
     bool is_dragging() const { return is_dragging_; }
     bool click_through() const { return click_through_; }
     bool locked() const { return locked_; }
+    // The pin or its toolbar is the active window: keyboard shortcuts go to this pin.
+    bool has_keyboard_focus() const;
+    // Lock colour, else the theme colour with keyboard focus and grey without.
+    QColor frame_color() const;
     QSize orig_size() const { return orig_size_; }
     const QPixmap &base_pixmap() const { return base_pixmap_; }
     PinControlButtons *control_buttons() const { return control_buttons_.get(); }
@@ -82,6 +90,12 @@ public:
     // +, = and - adjust what the mouse wheel bindings would, for keyboards.
     bool handle_mouse_alternative_key(QInputEvent *event);
     void toggle_thumbnail_mode();
+    void toggle_text_mode();
+    void leave_text_mode();
+    // Leaves the drawing tool, unchecking it on the toolbar.
+    void stop_drawing();
+    // Top-left hint shared by zoom, opacity and other short messages.
+    void show_hint_label(const QString &text);
     void toggle_toolbar();
     // Only PinHoverControls::sync calls these two.
     void show_toolbar();
@@ -191,8 +205,6 @@ private:
     bool handle_mouse_gesture(QMouseEvent *event);
     void apply_smooth_scaling();
     void show_zoom_percent();
-    // Top-left hint shared by zoom and opacity percentages.
-    void show_hint_label(const QString &text);
     void start_ocr_for_translation();
     void on_ocr_translation_finished(bool success, const QString &result);
     void copy_ocr_text(bool success, const QString &result);
@@ -239,6 +251,7 @@ private:
     std::unique_ptr<PinTranslationHelper> translation_helper_;
     std::unique_ptr<PinOCRManager> ocr_mgr_;
     std::unique_ptr<PinThumbnailMode> thumbnail_;
+    std::unique_ptr<PinTextMode> text_mode_;
     std::unique_ptr<PinImageTransform> image_transform_;
 };
 }

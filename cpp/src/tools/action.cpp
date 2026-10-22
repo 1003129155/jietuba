@@ -106,8 +106,12 @@ void ActionTools::handle_pin(bool close_after) {
     log_debug(T("底图: {width}x{height}", {{"width", base_image.width()}, {"height", base_image.height()}}), "PinAction");
     log_debug(T("继承绘制项目: {count} 个", {{"count", static_cast<int>(drawing_items.size())}}), "PinAction");
     const auto result_image = export_service.export_image(selection_rect);
-    // The image is in hand, so the capture window can go early.
-    if (parent_window && close_after) parent_window->hide();
+    // The image is in hand, so the capture window can go early. The pin takes the focus first, so it
+    // never falls back to the previous window in between.
+    if (parent_window && close_after) {
+        pin_window->activateWindow();
+        parent_window->hide();
+    }
     const auto original = has_annotations(drawing_items) ? base_image : QImage();
     deliver_screenshot(result_image, config_manager, true, "pin", {}, original, save_service);
     log_debug(T("已交给后台复制到剪贴板"), "PinAction");

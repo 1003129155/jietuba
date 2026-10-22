@@ -456,9 +456,10 @@ if(BUILD_TESTING)
     add_test(NAME pin_window COMMAND jietuba_pin_tests -o ${JIETUBA_TEST_REPORTS}/pin_window.txt,txt)
     set_tests_properties(pin_window PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     if(WIN32)
-        # Window styles only exist on real windows; the translation window needs a real screen's width beside the pin.
+        # Window styles only exist on real windows; the translation window needs a real screen's width beside the pin;
+        # only Windows shows a pin without activating it.
         add_test(NAME pin_window_desktop COMMAND jietuba_pin_tests -o ${JIETUBA_TEST_REPORTS}/pin_window_desktop.txt,txt -platform windows clickThroughStyleSurvivesStayOnTopToggles topmostSuppressionUsesTheRealWindowStyle
-            translatingAPinRecognizesThenTranslates)
+            translatingAPinRecognizesThenTranslates aNewPinTakesKeyboardFocus)
         set_tests_properties(pin_window_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
     endif()
     # The offscreen run has two screens and changes them at run time through the offscreen platform's

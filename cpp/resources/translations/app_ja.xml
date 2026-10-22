@@ -1276,6 +1276,14 @@ Replace it?</source>
         <translation>ピン画像のロック/解除</translation>
     </message>
     <message>
+        <source>Toggle Text Mode</source>
+        <translation>テキストモード切替</translation>
+    </message>
+    <message>
+        <source>Toggle Text Selection</source>
+        <translation>テキスト選択切替</translation>
+    </message>
+    <message>
         <source>Behavior</source>
         <translation>動作</translation>
     </message>
@@ -1874,6 +1882,22 @@ Replace it?</source>
     <message>
         <source>Text selection</source>
         <translation>テキスト選択</translation>
+    </message>
+    <message>
+        <source>Text mode</source>
+        <translation>テキストモード</translation>
+    </message>
+    <message>
+        <source>Recognizing...</source>
+        <translation>認識中...</translation>
+    </message>
+    <message>
+        <source>Text selection on</source>
+        <translation>テキスト選択オン</translation>
+    </message>
+    <message>
+        <source>Text selection off</source>
+        <translation>テキスト選択オフ</translation>
     </message>
     <message>
         <source>Border</source>

@@ -23,13 +23,21 @@ bool PinTranslationHelper::translate(const OcrTextLayout &layout) {
             log_warning(T("没有可翻译的文字"), "Translate");
             return false;
         }
-        const auto all_text = layout.all_text("\n");
-        if (all_text.trimmed().isEmpty()) {
+        return translate_text(layout.all_text("\n"));
+    } catch (const std::exception &e) {
+        log_error(T("翻译启动失败: {e}", {{"e", QString::fromUtf8(e.what())}}), "Translate");
+        return false;
+    }
+}
+
+bool PinTranslationHelper::translate_text(const QString &text) {
+    try {
+        if (text.trimmed().isEmpty()) {
             log_warning(T("OCR 文字为空"), "Translate");
             return false;
         }
-        log_info(T("准备翻译 {count} 个字符", {{"count", static_cast<int>(all_text.toUcs4().size())}}), "Translate");
-        TranslationManager::instance()->translate(all_text, calculate_window_position(), request_params(config_manager));
+        log_info(T("准备翻译 {count} 个字符", {{"count", static_cast<int>(text.toUcs4().size())}}), "Translate");
+        TranslationManager::instance()->translate(text, calculate_window_position(), request_params(config_manager));
         return true;
     } catch (const std::exception &e) {
         log_error(T("翻译启动失败: {e}", {{"e", QString::fromUtf8(e.what())}}), "Translate");
