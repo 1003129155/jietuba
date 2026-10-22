@@ -47,7 +47,7 @@ void QuickCaptureOverlay::show_selection(const QPoint &start, const QPoint &end,
     const bool new_session = !session_active_;
     if (new_session) {
         session_active_ = true;
-        hide_info_ = config_manager->get_app_setting("screenshot_info_hide_on_drag", false).toBool();
+        hide_info_ = config_manager->get_screenshot_info_hide_on_drag();
         info_panel->set_confirmed(false);
         info_panel->apply_scale();
         model->activate();

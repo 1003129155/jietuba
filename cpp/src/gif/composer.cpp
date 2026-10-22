@@ -57,7 +57,8 @@ ComposeResult ComposeWorker::compose() {
     }
     const bool ok = do_compose(out_path);
     if (!ok || cancel_) {
-        if (need_bytes && !QFile::remove(out_path)) log_exception("OSError", out_path, T("GIF 取消后删除临时文件"));
+        QFile temp(out_path);
+        if (need_bytes && !temp.remove()) log_exception(temp.errorString() + ": " + out_path, T("GIF 取消后删除临时文件"));
         return {};
     }
     if (!need_bytes) return out_path;
@@ -65,7 +66,7 @@ ComposeResult ComposeWorker::compose() {
     QByteArray bytes;
     if (file.open(QIODevice::ReadOnly)) bytes = file.readAll();
     file.close();
-    if (!QFile::remove(out_path)) log_exception("OSError", out_path, T("GIF 读取后删除临时文件"));
+    if (!file.remove()) log_exception(file.errorString() + ": " + out_path, T("GIF 读取后删除临时文件"));
     return bytes;
 }
 

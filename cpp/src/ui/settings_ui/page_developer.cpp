@@ -80,7 +80,7 @@ QWidget *create_developer_page(SettingsDialog *dialog) {
     // ════ Selection info panel ════
     auto *grp_panel = new SettingsCardGroup(dialog->tr_text("Selection Info Panel"), view);
     auto *hide_card = new SwitchSettingCard(FluentIcon::Hide, dialog->tr_text("Hide Panel on Drag"), dialog->tr_text("Hide the info panel while dragging the selection area"), grp_panel);
-    hide_card->setChecked(config->get_app_setting("screenshot_info_hide_on_drag").toBool());
+    hide_card->setChecked(config->get_screenshot_info_hide_on_drag());
     dialog->set_attr("info_hide_on_drag_toggle", hide_card);
     grp_panel->addSettingCard(hide_card);
     layout->addWidget(grp_panel);

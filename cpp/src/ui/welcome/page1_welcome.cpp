@@ -238,7 +238,7 @@ void WelcomePage::on_lang_changed() {
     const QString code = lang_combo_->currentData().toString();
     if (code.isEmpty()) return;
     I18nManager::load_language(code);
-    config_->set_app_setting("language", code);
+    config_->set_language(code);
     if (wizard_) wizard_->retranslate_ui();
 }
 
@@ -259,7 +259,7 @@ void WelcomePage::on_theme_changed() {
     if (mode.isEmpty()) return;
     try {
         // This page holds the real configuration; the theme manager only applies and signals.
-        config_->set_app_setting("ui_theme_mode", mode);
+        config_->set_ui_theme_mode(mode);
         get_ui_theme()->set_mode(mode, false);
     } catch (const std::exception &e) {
         log_exception(e, T("切换界面主题"));

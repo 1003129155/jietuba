@@ -1,6 +1,6 @@
 #include "clipboard/services/import_export_service.h"
 #include "clipboard/core/manager.h"
-#include "core/py_text.h"
+#include <QDir>
 #include <QFile>
 #include <QHash>
 #include <QStringDecoder>
@@ -17,17 +17,10 @@ namespace jietuba::clipboard {
 namespace {
 constexpr qsizetype FIELD_LIMIT = 131072;
 
-// repr() of a path as it appears in OSError messages.
-QString path_repr(const QString &path) {
-    QString escaped = path;
-    escaped.replace("\\", "\\\\").replace("'", "\\'");
-    return "'" + escaped + "'";
-}
-
 [[noreturn]] void raise_os_error(int error_number, const QString &path) {
     char message[256] = {};
     strerror_s(message, sizeof(message), error_number);
-    throw CsvError(QString("[Errno %1] %2: %3").arg(error_number).arg(QString::fromLocal8Bit(message), path_repr(path)).toStdString());
+    throw CsvError((QString::fromLocal8Bit(message) + ": " + QDir::toNativeSeparators(path)).toStdString());
 }
 
 // shift_jis, gbk and the others go through the Windows code pages Excel reads and writes.
@@ -213,7 +206,7 @@ private:
                 state_ = State::START_RECORD;
                 return;
             }
-            throw CsvError("new-line character seen in unquoted field - do you need to open the file with newline=''?");
+            throw CsvError("new-line character seen in unquoted field");
         }
     }
 
@@ -308,9 +301,9 @@ QList<ImportRow> read_import_rows(const QString &file_path) {
     if (!records.isEmpty()) records.removeFirst();
     for (const auto &row : records) {
         if (row.size() < 2) continue;
-        const QString group_name = py_strip(row[0]);
+        const QString group_name = row[0].trimmed();
         const QString item_content = row[1];
-        const QString title = row.size() > 2 ? py_strip(row[2]) : QString();
+        const QString title = row.size() > 2 ? row[2].trimmed() : QString();
         if (!group_name.isEmpty() && !item_content.isEmpty()) rows.append({group_name, item_content, title});
     }
     return rows;

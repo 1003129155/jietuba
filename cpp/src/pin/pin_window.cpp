@@ -15,6 +15,7 @@
 #include "pin/pin_canvas_view.h"
 #include "pin/pin_click_through_bar.h"
 #include "pin/pin_shortcut.h"
+#include "pin/pin_text_mode.h"
 #include "pin/pin_toolbar.h"
 #include "settings/tool_settings.h"
 #include "tools/controller.h"
@@ -70,15 +71,15 @@ std::optional<QString> locked_mouse_action(const QString &action) {
     return std::nullopt;
 }
 
-// Python round(value, 4).
-double round4(double value) { return python_fixed(value, 4).toDouble(); }
+// Keeps repeated steps from drifting off the four-decimal grid.
+double round4(double value) { return std::round(value * 10000) / 10000; }
 }
 
 PinWindow::PinWindow(const QImage &image, const QPoint &position, ToolSettingsManager *config_manager, const QList<QGraphicsItem *> &items,
                      const std::optional<QPoint> &offset, std::optional<int> number_next)
     : QWidget(nullptr), config_manager(config_manager), drawing_items(items), selection_offset(offset.value_or(QPoint(0, 0))) {
     // Border style.
-    border_enabled = config_manager ? config_manager->get_app_setting("pin_auto_border").toBool() : true;
+    border_enabled = config_manager ? config_manager->get_pin_auto_border() : true;
     border_color = get_theme().theme_color();
     border_color.setAlpha(200);
     mouse_click_timer_ = new QTimer(this);
@@ -131,12 +132,16 @@ PinWindow::PinWindow(const QImage &image, const QPoint &position, ToolSettingsMa
     hover_controls = std::make_unique<PinHoverControls>(this);
     ocr_mgr_ = std::make_unique<PinOCRManager>(this, config_manager);
     thumbnail_ = std::make_unique<PinThumbnailMode>(this);
+    text_mode_ = std::make_unique<PinTextMode>(this);
     // One theme-colour outline, no shadow.
     if (border_enabled) {
-        border_overlay = new PinBorderOverlay(this, corner, border_color);
+        border_overlay = new PinBorderOverlay(this, corner, frame_color());
         border_overlay->setGeometry(0, 0, width(), height());
         border_overlay->raise();
     }
+    connect(qApp, &QGuiApplication::focusWindowChanged, this, [this] {
+        if (border_overlay) border_overlay->set_border_color(frame_color());
+    });
     show();
     update_button_positions();
     PinShortcutController::instance()->register_pin(this);
@@ -198,7 +203,7 @@ QRect PinWindow::initial_geometry(const QPoint &position, const QSize &size) {
 }
 
 void PinWindow::apply_window_corners() {
-    const bool rounded = config_manager && config_manager->get_app_setting("pin_rounded_corners").toBool();
+    const bool rounded = config_manager && config_manager->get_pin_rounded_corners();
     // Without ever squaring the corners the system setting stays untouched (Windows default).
     if (rounded && !square_corners_) return;
     set_window_rounded_corners(static_cast<quintptr>(winId()), rounded);
@@ -386,6 +391,7 @@ void PinWindow::resizeEvent(QResizeEvent *event) {
         update_button_positions();
         if (toolbar && toolbar->isVisible()) toolbar->sync_with_pin_window();
     }
+    if (text_mode_) text_mode_->sync_geometry();
     if (border_overlay) {
         border_overlay->setGeometry(0, 0, width(), height());
         border_overlay->raise();
@@ -708,7 +714,39 @@ bool PinWindow::eventFilter(QObject *watched, QEvent *event) {
     return QWidget::eventFilter(watched, event);
 }
 
-void PinWindow::toggle_thumbnail_mode() { thumbnail_->toggle(); }
+void PinWindow::toggle_thumbnail_mode() {
+    leave_text_mode();
+    thumbnail_->toggle();
+}
+
+bool PinWindow::text_mode() const { return text_mode_ && text_mode_->active(); }
+
+bool PinWindow::has_keyboard_focus() const {
+    const QWidget *active = QApplication::activeWindow();
+    return active && !is_closed_ && (active == this || (toolbar && active == toolbar));
+}
+
+QColor PinWindow::frame_color() const {
+    if (locked_) return LOCKED_BORDER_COLOR;
+    return has_keyboard_focus() ? border_color : UNFOCUSED_BORDER_COLOR;
+}
+
+void PinWindow::toggle_text_mode() {
+    if (text_mode_) text_mode_->toggle();
+}
+
+void PinWindow::leave_text_mode() {
+    if (text_mode_) text_mode_->exit();
+}
+
+void PinWindow::stop_drawing() {
+    if (!(canvas && canvas->is_editing())) return;
+    canvas->deactivate_tool();
+    if (toolbar && toolbar->current_tool) {
+        for (auto *button : toolbar->tool_buttons) button->setChecked(false);
+        toolbar->current_tool.reset();
+    }
+}
 
 void PinWindow::toggle_toolbar() { hover_controls->toggle_toolbar(); }
 
@@ -735,6 +773,10 @@ void PinWindow::hide_toolbar() {
 
 void PinWindow::on_translate_clicked() {
     if (!translation_helper_) return;
+    if (text_mode()) {
+        translation_helper_->translate_text(text_mode_->text());
+        return;
+    }
     if (ocr_has_result()) {
         if (text_selection()) translation_helper_->translate(text_selection()->layout());
     } else {
@@ -769,7 +811,8 @@ void PinWindow::show_context_menu(const QPoint &global_pos) {
     state.border_enabled = border_enabled;
     state.text_selection_enabled = text_selection_enabled();
     state.thumbnail_mode = thumbnail_mode();
-    state.close_shortcut_enabled = !(canvas && canvas->is_editing()) && !lock_blocks("key_close") && !click_through_;
+    state.text_mode = text_mode();
+    state.close_shortcut_enabled = !(canvas && canvas->is_editing()) && !lock_blocks("key_close") && !click_through_ && !text_mode();
     // An open menu counts as hover, so the toolbar is not hidden behind it and its switches stay accurate.
     hover_controls->set_menu_open(true);
     const QPointer<PinWindow> alive(this);
@@ -817,6 +860,8 @@ void PinWindow::toggle_click_through() { set_click_through(!click_through_); }
 
 void PinWindow::set_click_through(bool enabled) {
     if (is_closed_ || enabled == click_through_) return;
+    // Clicks would pass through the text box too.
+    if (enabled) leave_text_mode();
     click_through_ = enabled;
     end_window_drag();
     if (enabled) {
@@ -854,7 +899,9 @@ void PinWindow::toggle_border_effect() {
 }
 
 void PinWindow::toggle_text_selection() {
-    if (ocr_mgr_) ocr_mgr_->toggle_text_selection();
+    if (!ocr_mgr_) return;
+    // Nothing on the pin changes until the pointer reaches text.
+    show_hint_label(ocr_mgr_->toggle_text_selection() ? pin_tr("Text selection on") : pin_tr("Text selection off"));
 }
 
 void PinWindow::reset_to_original_size() {
@@ -975,10 +1022,18 @@ void PinWindow::save_image_with_system_dialog() {
 }
 
 void PinWindow::copy_to_clipboard() {
+    if (text_mode()) {
+        copy_ocr_text(true, text_mode_->text_to_copy());
+        return;
+    }
     with_edit_paused([this] { deliver_image_async(get_current_image()); });
 }
 
 void PinWindow::copy_all_text() {
+    if (text_mode()) {
+        copy_ocr_text(true, text_mode_->text());
+        return;
+    }
     if (ocr_has_result() && text_selection() && text_selection()->has_text()) {
         copy_ocr_text(true, text_selection()->layout().all_text("\n"));
         return;

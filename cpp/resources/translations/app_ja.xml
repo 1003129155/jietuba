@@ -827,40 +827,28 @@ Replace it?</source>
         <translation>設定のバックアップ</translation>
     </message>
     <message>
-        <source>Export Settings</source>
-        <translation>設定をエクスポート</translation>
+        <source>Settings File</source>
+        <translation>設定ファイル</translation>
     </message>
     <message>
-        <source>Save settings to a file, including translation API keys. Folder locations are not included.</source>
-        <translation>設定をファイルに保存します。翻訳サービスの API キーを含み、フォルダーの場所は含みません。</translation>
-    </message>
-    <message>
-        <source>Export</source>
-        <translation>エクスポート</translation>
+        <source>Copy this file to back up your settings or use them on another computer.</source>
+        <translation>このファイルをコピーすれば、設定のバックアップや別のパソコンでの利用ができます。</translation>
     </message>
     <message>
         <source>Import Settings</source>
         <translation>設定をインポート</translation>
     </message>
     <message>
-        <source>Load settings from an exported file. Folder locations stay unchanged.</source>
-        <translation>エクスポートしたファイルから設定を読み込みます。フォルダーの場所は変わりません。</translation>
+        <source>Load settings from another settings.ini or a file exported by an earlier version. Folder locations stay unchanged.</source>
+        <translation>別の settings.ini や旧バージョンでエクスポートしたファイルから設定を読み込みます。フォルダーの場所は変わりません。</translation>
     </message>
     <message>
         <source>Import</source>
         <translation>インポート</translation>
     </message>
     <message>
-        <source>Settings File (*.json)</source>
-        <translation>設定ファイル (*.json)</translation>
-    </message>
-    <message>
-        <source>Could not write the file: %1</source>
-        <translation>ファイルを書き込めませんでした: %1</translation>
-    </message>
-    <message>
-        <source>Settings exported to %1</source>
-        <translation>設定を %1 にエクスポートしました。</translation>
+        <source>Settings File (*.ini *.json)</source>
+        <translation>設定ファイル (*.ini *.json)</translation>
     </message>
     <message>
         <source>This file is not a Jietuba settings file, or it is damaged.</source>
@@ -1274,6 +1262,14 @@ Replace it?</source>
     <message>
         <source>Lock / Unlock Pin</source>
         <translation>ピン画像のロック/解除</translation>
+    </message>
+    <message>
+        <source>Toggle Text Mode</source>
+        <translation>テキストモード切替</translation>
+    </message>
+    <message>
+        <source>Toggle Text Selection</source>
+        <translation>テキスト選択切替</translation>
     </message>
     <message>
         <source>Behavior</source>
@@ -1874,6 +1870,22 @@ Replace it?</source>
     <message>
         <source>Text selection</source>
         <translation>テキスト選択</translation>
+    </message>
+    <message>
+        <source>Text mode</source>
+        <translation>テキストモード</translation>
+    </message>
+    <message>
+        <source>Recognizing...</source>
+        <translation>認識中...</translation>
+    </message>
+    <message>
+        <source>Text selection on</source>
+        <translation>テキスト選択オン</translation>
+    </message>
+    <message>
+        <source>Text selection off</source>
+        <translation>テキスト選択オフ</translation>
     </message>
     <message>
         <source>Border</source>
@@ -5017,8 +5029,15 @@ Items in the group will be moved back to clipboard history.</source>
     <message><source>Info</source><translation>情報</translation></message>
     <message><source>The selected folder is already the current location.</source><translation>選択したフォルダーは現在の場所です。</translation></message>
     <message><source>Please choose a folder outside the current clipboard images folder.</source><translation>現在のクリップボード画像フォルダーの外側を選択してください。</translation></message>
-    <message><source>Replace Existing Data</source><translation>既存データを置換</translation></message>
-    <message><source>The selected folder already contains clipboard data. Replace it with the current data?</source><translation>選択したフォルダーには既にクリップボードデータがあります。現在のデータで置き換えますか？</translation></message>
+    <message><source>Existing Clipboard Data</source><translation>既存のクリップボードデータ</translation></message>
+    <message><source>The selected folder already contains clipboard data.
+Use That Data: switch to it and leave the current data where it is.
+Replace: move the current data there; the data already in that folder will be deleted.</source><translation>選択したフォルダーには既にクリップボードデータがあります。
+「そのデータを使用」：そのフォルダーのデータに切り替え、現在のデータは元の場所に残します。
+「置換」：現在のデータを移動し、そのフォルダーにある既存のデータは削除されます。</translation></message>
+    <message><source>Use That Data</source><translation>そのデータを使用</translation></message>
+    <message><source>Replace</source><translation>置換</translation></message>
+    <message><source>Cannot open the clipboard data in the selected folder. The current data is still in use.</source><translation>選択したフォルダーのクリップボードデータを開けません。現在のデータを引き続き使用します。</translation></message>
     <message><source>Failed to close the current clipboard database.</source><translation>現在のクリップボードデータベースを閉じられませんでした。</translation></message>
     <message><source>Preparing migration...</source><translation>移行を準備しています...</translation></message>
     <message><source>Moving Clipboard Data</source><translation>クリップボードデータを移動中</translation></message>

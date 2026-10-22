@@ -1,6 +1,5 @@
 #include "translation/worker.h"
 #include "core/logger.h"
-#include "core/py_text.h"
 #include <stdexcept>
 
 namespace jietuba {
@@ -33,7 +32,7 @@ void TranslationWorker::run() {
         else if (quota_error_) result = *quota_error_;
         else {
             result = provider_->translate(request_);
-            if (result.success) emit usage_signal(py_len(request_.text));
+            if (result.success) emit usage_signal(request_.text.toUcs4().size());
         }
     } catch (const std::exception &e) {
         log_error(T("翻译线程异常: {exc}", {{"exc", QString::fromUtf8(e.what())}}), "Translation");

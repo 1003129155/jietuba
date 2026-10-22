@@ -1,5 +1,6 @@
 #include "pin/pin_border_overlay.h"
 #include <QPainter>
+#include <cmath>
 
 namespace jietuba {
 PinBorderOverlay::PinBorderOverlay(QWidget *parent, double corner_radius, const QColor &border_color)
@@ -29,7 +30,10 @@ void PinBorderOverlay::set_corner_radius(double radius) {
 }
 
 void PinBorderOverlay::set_border_color(const QColor &color) {
+    if (color == border_color) return;
     border_color = color;
-    update();
+    // The 3px stroke plus antialiasing; at a corner the arc bends in by up to 0.3 of the radius.
+    const int inset = 4 + static_cast<int>(std::ceil(corner_radius * 0.3));
+    update(QRegion(rect()).subtracted(QRegion(rect().adjusted(inset, inset, -inset, -inset))));
 }
 }

@@ -29,6 +29,7 @@
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
 #include "pin/pin_manager.h"
+#include "settings/data_folder.h"
 #include "settings/tool_settings.h"
 #include "text_recognition/recognizer.h"
 #include "translation/smart_translation_controller.h"
@@ -94,6 +95,7 @@ MainApp::MainApp(int &argc, char **argv) : app(std::make_unique<QApplication>(ar
     // The reference also installs a main-thread Python garbage collector here; C++ has none.
 
     config_manager = get_tool_settings_manager();
+    data_folder::align_startup(*config_manager, QCoreApplication::applicationFilePath());
 
     // The UI theme must exist before any window; the capture accent colour is managed
     // separately by core/theme.
@@ -101,6 +103,7 @@ MainApp::MainApp(int &argc, char **argv) : app(std::make_unique<QApplication>(ar
     connect(ui_theme_manager, &UIThemeManager::theme_changed, this, &MainApp::on_ui_theme_changed);
 
     setup_logger(config_manager);
+    data_folder::write_deferred_log();
     connect(app.get(), &QCoreApplication::aboutToQuit, this, &MainApp::on_about_to_quit);
 
     // Windows without an icon of their own use it in the title bar and on the taskbar. Without it
@@ -114,10 +117,10 @@ MainApp::MainApp(int &argc, char **argv) : app(std::make_unique<QApplication>(ar
         log_info(T("首次启动，系统推荐界面比例: {percent}%", {{"percent", *recommended_scale}}), "DPI");
 
     // Translations: the saved language, or the system language on first start.
-    auto saved_lang = config_manager->get_app_setting("language", "__NOT_SET__").toString();
+    auto saved_lang = config_manager->get_language("__NOT_SET__");
     if (saved_lang == "__NOT_SET__") {
         saved_lang = I18nManager::get_system_language();
-        config_manager->set_app_setting("language", saved_lang);
+        config_manager->set_language(saved_lang);
         log_info(T("首次启动，检测到系统语言: {saved_lang}", {{"saved_lang", saved_lang}}), "I18n");
     }
     I18nManager::load_language(saved_lang);
@@ -132,14 +135,14 @@ MainApp::MainApp(int &argc, char **argv) : app(std::make_unique<QApplication>(ar
     get_dialog_scale().init(config_manager);
 
     if (auto *primary_screen = QGuiApplication::primaryScreen()) {
-        log_debug(QString("Device Pixel Ratio: %1").arg(python_str(primary_screen->devicePixelRatio())), "DPI");
-        log_debug(QString("Logical DPI: %1").arg(python_str(primary_screen->logicalDotsPerInch())), "DPI");
-        log_debug(QString("Physical DPI: %1").arg(python_str(primary_screen->physicalDotsPerInch())), "DPI");
+        log_debug(QString("Device Pixel Ratio: %1").arg(primary_screen->devicePixelRatio()), "DPI");
+        log_debug(QString("Logical DPI: %1").arg(primary_screen->logicalDotsPerInch()), "DPI");
+        log_debug(QString("Physical DPI: %1").arg(primary_screen->physicalDotsPerInch()), "DPI");
     }
 
     // The hotkey system exists now; an early start-up step registers the hotkeys.
     hotkey_system = std::make_unique<HotkeySystem>();
-    hotkey_system->set_suppressed(config_manager->get_app_setting("global_hotkeys_disabled", false).toBool());
+    hotkey_system->set_suppressed(config_manager->get_global_hotkeys_disabled());
 
     quick_capture = new QuickCaptureController(this);
     connect(ShortcutManager::instance(), &ShortcutManager::global_hotkeys_paused_changed, quick_capture, &QuickCaptureController::refresh);
@@ -259,7 +262,7 @@ void MainApp::update_tray_menu() {
 
 void MainApp::update_hotkey(bool show_error) {
     hotkey_system->unregister_all();
-    hotkey_system->set_suppressed(config_manager->get_app_setting("global_hotkeys_disabled", false).toBool());
+    hotkey_system->set_suppressed(config_manager->get_global_hotkeys_disabled());
     std::vector<std::tuple<QString, QString, std::function<void()>>> functions = {
         {"screenshot", tr_text("Screenshot"), [this] { start_screenshot(); }},
         // A selection opens the compact popup, otherwise the input window.
@@ -295,7 +298,7 @@ void MainApp::update_hotkey(bool show_error) {
 }
 
 void MainApp::set_global_hotkeys_disabled(bool disabled) {
-    config_manager->set_app_setting("global_hotkeys_disabled", disabled);
+    config_manager->set_global_hotkeys_disabled(disabled);
     hotkey_system->set_suppressed(disabled);
     if (disabled) {
         log_info(T("全局热键已临时禁用（已释放注册）"), "Hotkey");
@@ -306,13 +309,13 @@ void MainApp::set_global_hotkeys_disabled(bool disabled) {
 }
 
 void MainApp::set_pause_hotkeys_in_games(bool enabled) {
-    config_manager->set_app_setting("pause_hotkeys_in_games", enabled);
+    config_manager->set_pause_hotkeys_in_games(enabled);
     log_info(enabled ? T("已开启玩游戏时暂停热键") : T("已关闭玩游戏时暂停热键"), "Hotkey");
     sync_game_mode_monitor();
 }
 
 void MainApp::sync_game_mode_monitor() {
-    if (config_manager->get_app_setting("pause_hotkeys_in_games", false).toBool()) game_mode_monitor->start();
+    if (config_manager->get_pause_hotkeys_in_games()) game_mode_monitor->start();
     else game_mode_monitor->stop();
 }
 
@@ -435,7 +438,7 @@ void MainApp::request_screenshot(bool delayed) {
 
 void MainApp::capture_and_prepare_window() {
     if (!capture_pending_) return;
-    const bool include_cursor = config_manager->get_app_setting("capture_include_cursor", false).toBool();
+    const bool include_cursor = config_manager->get_capture_include_cursor();
     std::shared_ptr<SystemCursor> cursor;
     QImage image;
     QRectF rect;

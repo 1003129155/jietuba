@@ -6,8 +6,6 @@
 namespace jietuba {
 class ToolSettingsManager;
 namespace color_formats {
-inline constexpr auto SETTING_KEY = "magnifier_color_formats";
-inline constexpr auto LEGACY_SETTING_KEY = "magnifier_color_copy_format";
 struct ColorFormat {
     QString name, template_string;
     bool enabled = false;

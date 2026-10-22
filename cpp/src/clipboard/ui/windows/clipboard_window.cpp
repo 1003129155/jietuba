@@ -11,9 +11,9 @@
 #include "clipboard/ui/widgets/selection_bar.h"
 #include "clipboard/ui/windows/pin_window.h"
 #include "core/constants.h"
+#include "core/data_location.h"
 #include "core/logger.h"
 #include "core/platform_utils.h"
-#include "core/py_text.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
 #include "settings/tool_settings.h"
@@ -139,12 +139,11 @@ QString &geometry_file_for_test() {
     return path;
 }
 
-// Shared with the Python version.
 std::unique_ptr<QSettings> geometry_settings() {
-    QString ini = geometry_file_for_test();
-    if (ini.isEmpty() && !test_sandbox_dir().isEmpty()) ini = QDir(test_sandbox_dir()).filePath("clipboard_window.ini");
-    if (ini.isEmpty()) return std::make_unique<QSettings>("Jietuba", "ClipboardWindow");
-    return std::make_unique<QSettings>(ini, QSettings::IniFormat);
+    if (!geometry_file_for_test().isEmpty()) return std::make_unique<QSettings>(geometry_file_for_test(), QSettings::IniFormat);
+    auto settings = std::make_unique<QSettings>(data_location().settings_file(), QSettings::IniFormat);
+    settings->beginGroup(CLIPBOARD_WINDOW_SETTINGS_GROUP);
+    return settings;
 }
 }
 
@@ -306,7 +305,7 @@ void ClipboardWindow::apply_theme() {
     apply_opacity();
     group_bar->set_theme(current_theme);
     if (search_input) {
-        apply_search_input_style(!py_strip(search_input->text()).isEmpty());
+        apply_search_input_style(!search_input->text().trimmed().isEmpty());
         apply_clear_search_btn_style();
         apply_menu_btn_style();
         apply_time_filter_styles();
@@ -372,8 +371,8 @@ void ClipboardWindow::apply_opacity() {
 }
 
 void ClipboardWindow::load_window_geometry() {
-    const int default_width = config->get_app_setting("clipboard_window_width", 450).toInt();
-    const int default_height = config->get_app_setting("clipboard_window_height", 600).toInt();
+    const int default_width = config->get_clipboard_window_width();
+    const int default_height = config->get_clipboard_window_height(600);
     const QVariant x = qsettings_->value("window/x"), y = qsettings_->value("window/y");
     if (x.isValid()) saved_x_ = x.toInt();
     if (y.isValid()) saved_y_ = y.toInt();
@@ -824,7 +823,7 @@ void ClipboardWindow::on_pointer_moved(const QPoint &viewport_pos, const QPoint 
 }
 
 void ClipboardWindow::update_search_background(const QString &text) {
-    const bool has_text = !py_strip(text).isEmpty();
+    const bool has_text = !text.trimmed().isEmpty();
     apply_search_input_style(has_text);
     clear_search_btn->setVisible(has_text);
 }
@@ -1256,7 +1255,7 @@ void ClipboardWindow::start_item_drag(qint64 item_id) {
 
 QString ClipboardWindow::last_save_folder() const {
     // Shared with the save image window: the last folder anything was saved to.
-    const QString folder = config->get_app_setting("save_dialog_last_dir").toString();
+    const QString folder = config->get_save_dialog_last_dir();
     return !folder.isEmpty() && QFileInfo(folder).isDir() ? folder : QStandardPaths::writableLocation(QStandardPaths::DesktopLocation);
 }
 
@@ -1266,7 +1265,7 @@ bool ClipboardWindow::save_items_to_folder(const QList<ClipboardItem> &items) {
     const QString start = last_save_folder();
     const QString folder = get_existing_directory(this, tr_text("Choose a Folder to Save To"), start);
     if (folder.isEmpty()) return false;
-    config->set_app_setting("save_dialog_last_dir", QDir::toNativeSeparators(folder));
+    config->set_save_dialog_last_dir(QDir::toNativeSeparators(folder));
     // Text and images become files the way a drag makes them; they stay until the copy that reads them is done.
     auto staged = std::make_shared<ItemDragMimeData>(items, manager.get_images_dir().value_or(QString()), ItemDragMimeData::default_temp_root());
     const QStringList sources = staged->file_paths();
@@ -1308,7 +1307,7 @@ void ClipboardWindow::save_item_as(qint64 item_id) {
     QString path = get_save_file_name(this, tr_text("Save as"), suggested, tr_text("Text Files (*.txt)")).first;
     if (path.isEmpty()) return;
     if (QFileInfo(path).suffix().isEmpty()) path += ".txt";
-    config->set_app_setting("save_dialog_last_dir", QDir::toNativeSeparators(QFileInfo(path).absolutePath()));
+    config->set_save_dialog_last_dir(QDir::toNativeSeparators(QFileInfo(path).absolutePath()));
     QSaveFile file(path);
     const QByteArray bytes = item->content.toUtf8();
     if (!file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size() || !file.commit()) {
@@ -1370,7 +1369,7 @@ void ClipboardWindow::open_file_item(qint64 item_id) {
     }
     const QStringList files = item_paths(*clipboard_item);
     if (files.isEmpty()) return;
-    const QString file_path = py_normpath(files.front());
+    const QString file_path = QDir::toNativeSeparators(QDir::cleanPath(files.front()));
     if (QFileInfo::exists(file_path)) {
         QTimer::singleShot(0, this, [file_path] { QDesktopServices::openUrl(QUrl::fromLocalFile(file_path)); });
         QTimer::singleShot(50, this, [this] { hide(); });
@@ -1395,13 +1394,13 @@ void ClipboardWindow::open_file_location(qint64 item_id) {
     }
     const QStringList files = item_paths(*clipboard_item);
     if (files.isEmpty()) return;
-    const QString file_path = py_normpath(files.front());
+    const QString file_path = QDir::toNativeSeparators(QDir::cleanPath(files.front()));
     const QFileInfo info(file_path);
     if (info.isDir()) {
         QTimer::singleShot(0, this, [file_path] { QProcess::startDetached("explorer", {file_path}); });
     } else if (info.exists()) {
         QTimer::singleShot(0, this, [file_path] { QProcess::startDetached("explorer", {"/select,", file_path}); });
-    } else if (const QString parent = py_dirname(file_path); QFileInfo::exists(parent)) {
+    } else if (const QString parent = QDir::toNativeSeparators(info.path()); QFileInfo::exists(parent)) {
         QTimer::singleShot(0, this, [parent] { QProcess::startDetached("explorer", {parent}); });
     }
 }
@@ -1409,7 +1408,7 @@ void ClipboardWindow::open_file_location(qint64 item_id) {
 void ClipboardWindow::open_link(qint64 item_id) {
     const auto clipboard_item = controller->get_item(item_id);
     if (!clipboard_item || clipboard_item->sub_kind != SUB_KIND_URL) return;
-    QString text = py_strip(clipboard_item->content);
+    QString text = clipboard_item->content.trimmed();
     if (text.startsWith("www.", Qt::CaseInsensitive)) text.prepend("https://");
     const QUrl url(text);
     if (!url.isValid()) return;

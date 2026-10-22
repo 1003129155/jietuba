@@ -591,6 +591,8 @@ private slots:
         const auto pins = PinManager::instance()->get_all_pins();
         QCOMPARE(pins.size(), 1);
         auto *pin = pins.first();
+        // The keyboard focus goes from the closing capture to the pin.
+        QVERIFY(QTest::qWaitForWindowActive(pin));
         QCOMPARE(pin->geometry(), QRect(50, 40, 200, 150));
         // The background is the plain capture; the rectangle comes along as vector data.
         QCOMPARE(pin->orig_size(), QSize(200, 150));

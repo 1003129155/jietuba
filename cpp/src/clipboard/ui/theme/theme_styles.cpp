@@ -10,7 +10,7 @@ QString px(int base) { return QString::number(scaled(base)) + "px"; }
 
 QString ThemeStyleGenerator::alpha_text(int opacity) {
     const int alpha = 255 - static_cast<int>(opacity * 2.55);
-    return python_str(QVariant(alpha / 255.0));
+    return QString::number(alpha / 255.0);
 }
 
 QString ThemeStyleGenerator::hex_to_rgb(const QString &hex_color) {

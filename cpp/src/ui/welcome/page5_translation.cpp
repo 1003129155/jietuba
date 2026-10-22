@@ -111,7 +111,7 @@ void TranslationPage::retranslate() {
 
 void TranslationPage::populate_lang_combo() {
     static const QMap<QString, QString> default_map{{"zh", "ZH"}, {"zh_TW", "ZH-HANT"}, {"en", "EN"}, {"ja", "JA"}};
-    QString saved = config_->get_app_setting("translation_target_lang", "").toString();
+    QString saved = config_->get_saved_translation_target_lang();
     if (saved.isEmpty()) saved = default_map.value(I18nManager::get_current_language(), "ZH");
     for (const auto &[code, name] : translation_languages()) lang_combo_->addItem(QString("%1 (%2)").arg(name, code), code);
     if (const int idx = lang_combo_->findData(saved); idx >= 0) lang_combo_->setCurrentIndex(idx);
@@ -170,6 +170,6 @@ void TranslationPage::save() {
     // The same reads and writes as the settings page.
     provider_fields::save_from(config_, provider_fields::all_fields(*registry_), credential_edits_);
     const QString lang = lang_combo_->currentData().toString();
-    if (!lang.isEmpty()) config_->set_app_setting("translation_target_lang", lang);
+    if (!lang.isEmpty()) config_->set_translation_target_lang(lang);
 }
 }

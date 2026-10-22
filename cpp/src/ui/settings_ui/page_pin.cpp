@@ -122,21 +122,21 @@ void build_appearance_section(SettingsDialog *dialog, SettingsCardGroup *grp) {
                                                    dialog->tr_text("Windows 11 rounds the corners of pinned images and adds a shadow. "
                                                                    "Turn off to show the whole image with square corners and no shadow."),
                                                    grp);
-        corners_card->setChecked(config->get_app_setting("pin_rounded_corners").toBool());
+        corners_card->setChecked(config->get_pin_rounded_corners());
         dialog->behavior_controls.emplace_back("pin_rounded_corners", corners_card);
         grp->addSettingCard(corners_card);
     }
     auto *border_card = new SwitchSettingCard(FluentIcon::Palette, dialog->tr_text("Auto Border"),
                                               dialog->tr_text("New pinned images get a theme-colored border. Each image can still toggle it from the right-click menu."),
                                               grp);
-    border_card->setChecked(config->get_app_setting("pin_auto_border").toBool());
+    border_card->setChecked(config->get_pin_auto_border());
     dialog->behavior_controls.emplace_back("pin_auto_border", border_card);
     grp->addSettingCard(border_card);
     auto *buttons_card = new SwitchSettingCard(FluentIcon::Close, dialog->tr_text("Hover Buttons"),
                                                dialog->tr_text("Show the close and toolbar buttons in the top-right corner when the mouse "
                                                                "is over a pinned image. When off, use the right-click menu or shortcuts."),
                                                grp);
-    buttons_card->setChecked(config->get_app_setting("pin_hover_buttons").toBool());
+    buttons_card->setChecked(config->get_pin_hover_buttons());
     dialog->behavior_controls.emplace_back("pin_hover_buttons", buttons_card);
     grp->addSettingCard(buttons_card);
 }

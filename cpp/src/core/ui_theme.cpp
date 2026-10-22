@@ -104,7 +104,7 @@ UIThemeManager::UIThemeManager(QObject *parent) : QObject(parent) {}
 UIThemeManager *UIThemeManager::init(ToolSettingsManager *config_manager, QApplication *application) {
     config_ = config_manager;
     application_ = application ? application : qobject_cast<QApplication *>(QCoreApplication::instance());
-    const auto saved = config_manager ? config_manager->get_app_setting("ui_theme_mode", "system") : QVariant("system");
+    const auto saved = config_manager ? QVariant(config_manager->get_ui_theme_mode()) : QVariant("system");
     mode_ = coerce_ui_theme_mode(saved);
     connect_system_theme();
     apply(true);
@@ -115,7 +115,7 @@ void UIThemeManager::set_mode(const QVariant &mode, bool persist) {
     const auto normalized = coerce_ui_theme_mode(mode);
     const bool changed = normalized != mode_;
     mode_ = normalized;
-    if (persist && config_) config_->set_app_setting("ui_theme_mode", ui_theme_mode_value(normalized));
+    if (persist && config_) config_->set_ui_theme_mode(ui_theme_mode_value(normalized));
     apply(changed);
     if (changed) emit mode_changed(ui_theme_mode_value(normalized));
 }

@@ -279,14 +279,29 @@ private slots:
         window->toolbar->cancel_btn->click();
     }
 
+    // Switching direction starts a new long image from the current view; horizontally its
+    // preview is scaled to the panel's height, in a strip a screen wide.
     void theDirectionButtonSwitchesToHorizontal() {
         auto *window = open();
         QVERIFY(window);
+        auto *panel = window->preview_panel.data();
+        const QRect screen = window->screen()->geometry();
+        const int side = panel->panel_size().width();
+        QVERIFY(scroll_in_steps({100, 200}));
+        QTRY_VERIFY(window->toolbar->size_label->text().contains(QString::number(VIEW_H + 200)));
         QCOMPARE(window->scroll_direction, QString("vertical"));
         window->toolbar->direction_btn->click();
         QCOMPARE(window->scroll_direction, QString("horizontal"));
+        QTRY_VERIFY(std::abs(panel->panel_size().width() - PAGE_W * side / VIEW_H) <= 1);
+        QCOMPARE(panel->panel_size().height(), side);
+        QCOMPARE(panel->geometry().left(), screen.left());
+        QCOMPARE(panel->geometry().width(), screen.width());
+        QCOMPARE(window->toolbar->size_label->text(), QString::fromUtf8("%1 × %2").arg(PAGE_W).arg(VIEW_H));
         window->toolbar->direction_btn->click();
         QCOMPARE(window->scroll_direction, QString("vertical"));
+        QTRY_COMPARE(panel->geometry().height(), screen.height());
+        QCOMPARE(panel->panel_size().width(), side);
+        QCOMPARE(window->toolbar->size_label->text(), QString::fromUtf8("%1 × %2").arg(PAGE_W).arg(VIEW_H));
         window->toolbar->cancel_btn->click();
     }
 
@@ -306,6 +321,48 @@ private slots:
         QCOMPARE(panel.warning_label->text(), QString("Couldn't join"));
         panel.clear_warning();
         QVERIFY(!panel.warning_label->isVisible());
+    }
+
+    // The preview grows inside a strip a screen long that stays put, its bottom on the region's.
+    void thePreviewGrowsWithoutMovingItsWindow() {
+        auto *window = open();
+        QVERIFY(window);
+        auto *panel = window->preview_panel.data();
+        const QRect screen = window->screen()->geometry();
+        const QRect strip = panel->geometry();
+        QCOMPARE(strip.top(), screen.top());
+        QCOMPARE(strip.height(), screen.height());
+        const int before = panel->panel_size().height();
+        QVERIFY(scroll_in_steps({100, 200, 300, 400, 500}));
+        QTRY_VERIFY_WITH_TIMEOUT(panel->panel_size().height() > before, 5000);
+        QCOMPARE(panel->geometry(), strip);
+        QCOMPARE(panel->panel_geometry().bottom(), window->geometry().bottom());
+        window->toolbar->cancel_btn->click();
+    }
+
+    // The strip covers whatever lies beside the panel, such as the toolbar; real clicks go through it.
+    void clicksGoThroughThePreviewStrip() {
+        QPushButton button("Under the strip");
+        button.setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
+        button.setGeometry(area_.left(), area_.top(), 160, 40);
+        button.show();
+        PreviewPanel panel;
+        panel.place(area_.topLeft() + QPoint(0, 200), QGuiApplication::primaryScreen()->geometry());
+        panel.show();
+        panel.raise();
+        QVERIFY(QTest::qWaitForWindowExposed(&panel));
+        const QPoint target = button.geometry().center();
+        QVERIFY(panel.geometry().contains(target) && !panel.panel_geometry().contains(target));
+        QSignalSpy clicked(&button, &QPushButton::clicked);
+        const QPoint restore = QCursor::pos();
+        QCursor::setPos(target);
+        INPUT clicks[2] = {};
+        clicks[0].type = clicks[1].type = INPUT_MOUSE;
+        clicks[0].mi.dwFlags = MOUSEEVENTF_LEFTDOWN;
+        clicks[1].mi.dwFlags = MOUSEEVENTF_LEFTUP;
+        SendInput(2, clicks, sizeof(INPUT));
+        QTRY_COMPARE_WITH_TIMEOUT(clicked.count(), 1, 3000);
+        QCursor::setPos(restore);
     }
 
     // ---- Automatic scrolling ----

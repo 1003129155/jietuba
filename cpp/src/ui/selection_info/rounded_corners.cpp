@@ -124,8 +124,8 @@ RoundedCornersLogic::RoundedCornersLogic(QWidget *parent_widget, QPushButton *bt
     : QObject(parent_widget), btn_(btn_rounded), item_(selection_item), mask_(mask_overlay), export_(export_service), model_(selection_model), config_(config_manager) {
     // Last state from settings.
     if (config_) {
-        enabled_ = config_->get_app_setting("screenshot_rounded_enabled", false).toBool();
-        radius_ = config_->get_app_setting("screenshot_rounded_radius", 16).toInt();
+        enabled_ = config_->get_screenshot_rounded_enabled();
+        radius_ = config_->get_screenshot_rounded_radius();
     }
     popup_ = new RoundedSliderPopup(parent_widget);
     popup_->set_value(radius_);
@@ -148,7 +148,7 @@ RoundedCornersLogic::RoundedCornersLogic(QWidget *parent_widget, QPushButton *bt
 void RoundedCornersLogic::set_enabled(bool enabled) {
     enabled_ = enabled;
     log_debug(T("圆角截图: {state}  r={radius}", {{"state", QString(enabled ? "ON" : "OFF")}, {"radius", radius_}}), "RoundedCorners");
-    if (config_) config_->set_app_setting("screenshot_rounded_enabled", enabled);
+    if (config_) config_->set_screenshot_rounded_enabled(enabled);
     if (enabled) {
         // The pointer is already on the button, so no Enter will follow: open now.
         popup_->cancel_hide();
@@ -177,7 +177,7 @@ bool RoundedCornersLogic::eventFilter(QObject *watched, QEvent *event) {
 void RoundedCornersLogic::on_radius_changed(int value) {
     radius_ = value;
     log_debug(T("圆角半径: {value}", {{"value", value}}), "RoundedCorners");
-    if (config_) config_->set_app_setting("screenshot_rounded_radius", value);
+    if (config_) config_->set_screenshot_rounded_radius(value);
     item_->request_repaint();
     mask_->update();
 }

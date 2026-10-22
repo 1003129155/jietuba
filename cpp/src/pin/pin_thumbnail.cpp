@@ -51,14 +51,7 @@ void PinThumbnailMode::enter(const std::optional<QRectF> &region) {
     entry_pos_ = win->geometry().topLeft();
     update_view();
     win->ocr_manager()->set_enabled(false);
-    // Leave drawing and editing.
-    if (win->canvas && win->canvas->is_editing()) {
-        win->canvas->deactivate_tool();
-        if (win->toolbar && win->toolbar->current_tool) {
-            for (auto *button : win->toolbar->tool_buttons) button->setChecked(false);
-            win->toolbar->current_tool.reset();
-        }
-    }
+    win->stop_drawing();
     active_ = true;
     win->hover_controls->sync();
     log_debug(T("进入缩略图模式，场景中心: ({scene_x:.1f}, {scene_y:.1f})", {{"scene_x", scene_x}, {"scene_y", scene_y}}), "PinWindow");

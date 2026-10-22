@@ -243,12 +243,8 @@ void ScreenAnnotationPage::retranslate() {
 }
 
 void ScreenAnnotationPage::save() {
-    const QString setters[] = {"screen_annotation_hotkey", "screen_annotation_hotkey_2"};
-    const HotkeyEdit *edits[] = {hotkey_edit_, hotkey_edit_2_};
-    for (int slot = 0; slot < 2; ++slot) {
-        if (!edits[slot]->validation_error().isEmpty()) continue;
-        config_->set_app_setting(setters[slot], edits[slot]->text().trimmed());
-    }
+    if (hotkey_edit_->validation_error().isEmpty()) config_->set_screen_annotation_hotkey(hotkey_edit_->text().trimmed());
+    if (hotkey_edit_2_->validation_error().isEmpty()) config_->set_screen_annotation_hotkey_2(hotkey_edit_2_->text().trimmed());
 }
 
 void ScreenAnnotationPage::set_animation_time(int elapsed_ms) {

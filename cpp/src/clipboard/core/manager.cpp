@@ -2,7 +2,7 @@
 #include "core/constants.h"
 #include "core/logger.h"
 #include "core/native.h"
-#include "core/py_text.h"
+#include "core/text_utils.h"
 #include "settings/tool_settings.h"
 #include <QDir>
 #include <QJsonArray>
@@ -46,8 +46,8 @@ QList<ClipboardItem> items_from(char *json) {
 
 QString format_bytes(qint64 n) {
     if (n < 1024) return QString("%1 B").arg(n);
-    if (n < 1024 * 1024) return python_fixed(static_cast<double>(n) / 1024, 1) + " KB";
-    return python_fixed(static_cast<double>(n) / 1024 / 1024, 2) + " MB";
+    if (n < 1024 * 1024) return QString::number(static_cast<double>(n) / 1024, 'f', 1) + " KB";
+    return QString::number(static_cast<double>(n) / 1024 / 1024, 'f', 2) + " MB";
 }
 
 // Closed when the last user lets go.
@@ -122,7 +122,7 @@ bool ClipboardManager::reset_storage(const QString &db_path) {
     char error[ERROR_LEN] = {};
     auto backend = open_backend(resolve_db_path(db_path), error);
     if (!backend) {
-        log_exception("RuntimeError", QString::fromUtf8(error), T("重新打开剪贴板数据库"));
+        log_exception(QString::fromUtf8(error), T("重新打开剪贴板数据库"));
         return false;
     }
     set_backend(std::move(backend));
@@ -179,9 +179,9 @@ void ClipboardManager::on_native_item(const char *item_json, void *user) {
 
 void ClipboardManager::on_item(const ClipboardItem &item, qint64 encoded) {
     // Line breaks removed so the log line stays whole.
-    QString preview = py_slice(item.display_text(), 0, 50);
+    QString preview = left_chars(item.display_text(), 50);
     preview.replace("\r\n", " ").replace(u'\n', u' ').replace(u'\r', u' ');
-    preview = py_strip(preview);
+    preview = preview.trimmed();
     // char_count encodes the format byte counts: raw * 10_000_000 + compressed.
     if (encoded > 0) {
         const qint64 raw_bytes = encoded / 10'000'000;
@@ -189,7 +189,7 @@ void ClipboardManager::on_item(const ClipboardItem &item, qint64 encoded) {
         QString size_info;
         if (raw_bytes != comp_bytes && raw_bytes > 0) {
             const double ratio = comp_bytes > 0 ? static_cast<double>(raw_bytes) / static_cast<double>(comp_bytes) : 0;
-            size_info = QString("%1 → %2 (%3x)").arg(format_bytes(raw_bytes), format_bytes(comp_bytes), python_fixed(ratio, 1));
+            size_info = QString("%1 → %2 (%3x)").arg(format_bytes(raw_bytes), format_bytes(comp_bytes), QString::number(ratio, 'f', 1));
         } else {
             size_info = format_bytes(raw_bytes);
         }
@@ -300,7 +300,7 @@ qint64 ClipboardManager::get_total_count() {
     qint64 count = 0;
     char error[ERROR_LEN] = {};
     if (!jb_clipboard_get_count(backend.get(), &count, error, ERROR_LEN)) {
-        log_exception("RuntimeError", QString::fromUtf8(error), T("获取总记录数"));
+        log_exception(QString::fromUtf8(error), T("获取总记录数"));
         return 0;
     }
     return count;

@@ -80,15 +80,30 @@ OcrTextLayout::OcrTextLayout(const OcrResult &result, const QTransform &to_image
     selected_.assign(lines_.size(), {0, 0});
 }
 
-std::optional<int> OcrTextLayout::line_at(const QPointF &point, double slack) const {
-    if (!bounds_.adjusted(-slack, -slack, slack, slack).contains(point)) return std::nullopt;
+std::optional<int> OcrTextLayout::nearest_line(const QPointF &point, double slack, bool within_length) const {
+    // Recognized paragraph lines sit a few pixels apart, closer than the slack, so the slack of
+    // neighbours overlaps: the line nearest across its direction owns the point, then the nearest
+    // along it, then for overlapping boxes the one whose middle is closer.
+    std::optional<int> best;
+    std::tuple<double, double, double> best_key;
     for (int index = 0; index < static_cast<int>(lines_.size()); ++index) {
         const auto &line = lines_[index];
-        if (!line.bounds.adjusted(-slack, -slack, slack, slack).contains(point)) continue;
         const auto local = line.to_line.map(point);
-        if (local.x() >= -slack && local.x() <= line.frame.length + slack && local.y() >= -slack && local.y() <= line.frame.thickness + slack) return index;
+        const double across = std::max({0.0, -local.y(), local.y() - line.frame.thickness});
+        const double along = std::max({0.0, -local.x(), local.x() - line.frame.length});
+        if (across > slack || (within_length && along > slack)) continue;
+        const std::tuple key{across, along, std::abs(local.y() - line.frame.thickness / 2)};
+        if (!best || key < best_key) {
+            best = index;
+            best_key = key;
+        }
     }
-    return std::nullopt;
+    return best;
+}
+
+std::optional<int> OcrTextLayout::line_at(const QPointF &point, double slack) const {
+    if (!bounds_.adjusted(-slack, -slack, slack, slack).contains(point)) return std::nullopt;
+    return nearest_line(point, slack, true);
 }
 
 void OcrTextLayout::select_between(const QPointF &from, const QPointF &to, double slack) {
@@ -101,25 +116,27 @@ void OcrTextLayout::select_between(const QPointF &from, const QPointF &to, doubl
         const auto &frame = lines_[*end].frame;
         reach << frame.to_source().map(QPointF(0, 0)) << frame.to_source().map(QPointF(frame.length, 0));
     }
-    for (size_t index = 0; index < lines_.size(); ++index) {
+    // Each end belongs to one line at most, also past that line's ends.
+    const auto from_line = nearest_line(from, slack, false), to_line = nearest_line(to, slack, false);
+    for (int index = 0; index < static_cast<int>(lines_.size()); ++index) {
         const auto &line = lines_[index];
         const double length = line.frame.length, thickness = line.frame.thickness;
-        auto a = line.to_line.map(from), b = line.to_line.map(to);
+        struct End { QPointF at; bool beside; };
+        End a{line.to_line.map(from), from_line == index}, b{line.to_line.map(to), to_line == index};
         // a comes before b across the line: above it for horizontal text.
-        if (b.y() < a.y()) std::swap(a, b);
-        const auto beside = [&](const QPointF &p) { return p.y() >= -slack && p.y() <= thickness + slack; };
-        const auto on = [&](const QPointF &p) { return beside(p) && p.x() >= -slack && p.x() <= length + slack; };
+        if (b.at.y() < a.at.y()) std::swap(a, b);
+        const auto on = [&](const End &end) { return end.beside && end.at.x() >= -slack && end.at.x() <= length + slack; };
         double low = 0, high = 0;
-        if (beside(a) && beside(b)) {
-            low = std::min(a.x(), b.x());
-            high = std::max(a.x(), b.x());
+        if (a.beside && b.beside) {
+            low = std::min(a.at.x(), b.at.x());
+            high = std::max(a.at.x(), b.at.x());
         } else if (on(a)) {
-            low = a.x();
+            low = a.at.x();
             high = infinity;
         } else if (on(b)) {
             low = -infinity;
-            high = b.x();
-        } else if (a.y() < 0 && b.y() > thickness) {
+            high = b.at.x();
+        } else if (a.at.y() < 0 && b.at.y() > thickness) {
             double first = infinity, last = -infinity;
             for (const auto &point : reach) {
                 const double x = line.to_line.map(point).x();

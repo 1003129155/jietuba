@@ -14,6 +14,7 @@
 #include "ocr/bundled_runtime.h"
 #include "ocr/ocr_manager.h"
 #include "ocr/ppocr_models.h"
+#include "settings/data_folder.h"
 #include "settings/tool_settings.h"
 #include "ui/toolbar.h"
 #include <QCoreApplication>
@@ -117,7 +118,7 @@ void ensure_single_instance() {
         if (my_create_time) content += QByteArray::number(*my_create_time) + "\n";
         file.write(content);
     } else {
-        log_exception("OSError", file.errorString(), T("写入实例记录"));
+        log_exception(file.errorString(), T("写入实例记录"));
     }
     // Removed on normal exit; a killed or crashed process leaves it to the check above.
     std::atexit([] {
@@ -165,7 +166,7 @@ PreloadManager::PreloadManager(MainApp *app) : app_(app), config_(app->config_ma
 
 void PreloadManager::build_and_start() {
     auto *cfg = config_;
-    if (cfg->get_app_setting("preload_screenshot", true).toBool() && cfg->get_smart_selection_mode() == "element")
+    if (cfg->get_preload_screenshot() && cfg->get_smart_selection_mode() == "element")
         prepare_point_detection();
     // Entry points come first and preloading follows: a capture during preloading costs
     // nothing extra here. The reference registers hotkeys last, because there preloading
@@ -173,7 +174,7 @@ void PreloadManager::build_and_start() {
     // and the PNG encoder) have nothing to warm in a native build and are left out.
     // An elevated instance points a task left on a program that is gone at itself; schtasks runs
     // on a worker so start-up is not held.
-    if (cfg->get_app_setting("run_as_admin").toBool()) steps_.push_back([] {
+    if (cfg->get_run_as_admin()) steps_.push_back([] {
         std::thread([] { run_thread_guarded("AdminTask", [] { elevation::repair_task(); }); }).detach();
         return false;
     });
@@ -186,16 +187,16 @@ void PreloadManager::build_and_start() {
         clipboard::ItemDragMimeData::remove_stale_folders(clipboard::ItemDragMimeData::default_temp_root(), 0);
         return false;
     });
-    if (cfg->get_app_setting("preload_clipboard", true).toBool()) steps_.push_back([this] {
+    if (cfg->get_preload_clipboard()) steps_.push_back([this] {
         init_clipboard_manager();
         return false;
     });
     steps_.push_back([this] { return register_entry_points(); });
-    if (cfg->get_app_setting("preload_screenshot", true).toBool() && cfg->get_capture_engine() != "mss")
+    if (cfg->get_preload_screenshot() && cfg->get_capture_engine() != "mss")
         steps_.push_back([this] { return preload_hdr_session(); });
-    if (cfg->get_app_setting("preload_toolbar", true).toBool()) steps_.push_back([this] { return preload_toolbar_assets(); });
-    if (cfg->get_app_setting("preload_ocr", true).toBool()) steps_.push_back([this] { return preload_ocr_engine(); });
-    if (cfg->get_app_setting("preload_settings", true).toBool()) steps_.push_back([this] {
+    if (cfg->get_preload_toolbar()) steps_.push_back([this] { return preload_toolbar_assets(); });
+    if (cfg->get_preload_ocr()) steps_.push_back([this] { return preload_ocr_engine(); });
+    if (cfg->get_preload_settings()) steps_.push_back([this] {
         preload_settings();
         return false;
     });
@@ -364,12 +365,14 @@ int run(int argc, char **argv) {
     // 2./3. Module paths and pinning onefile resources do not apply to a native build.
     // 4. The taskbar identity, before QApplication exists.
     set_app_user_model_id("jietuba.app");
-    // 5. In admin mode the elevated instance started by the scheduled task runs instead.
-    if (QSettings(TOOL_SETTINGS_ORGANIZATION, TOOL_SETTINGS_APPLICATION).value("app/run_as_admin", false).toBool() && hand_off_to_admin_task())
+    // 5. On the first start with a data folder, what older versions stored elsewhere, before anything reads it.
+    data_folder::migrate(data_location(), data_folder::default_sources(data_location()));
+    // 6. In admin mode the elevated instance started by the scheduled task runs instead.
+    if (open_local_settings()->value("app/run_as_admin", false).toBool() && hand_off_to_admin_task())
         return 0;
-    // 6. Single instance.
+    // 7. Single instance.
     ensure_single_instance();
-    // 7. The application.
+    // 8. The application.
     MainApp main(argc, argv);
     return main.run();
 }

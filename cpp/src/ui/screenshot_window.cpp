@@ -51,7 +51,7 @@ namespace {
 QString window_tr(const char *text) { return i18n_tr(text, "ScreenshotWindow"); }
 
 // Milliseconds since the timer started, as a "{:.1f}ms" timing entry.
-QString timing_entry(const QString &name, double ms) { return QString("%1=%2ms").arg(name, python_fixed(ms, 1)); }
+QString timing_entry(const QString &name, double ms) { return QString("%1=%2ms").arg(name, QString::number(ms, 'f', 1)); }
 }
 
 ScreenshotShortcutHandler::ScreenshotShortcutHandler(ScreenshotWindow *window) : window(window) {
@@ -242,7 +242,7 @@ ScreenshotWindow::ScreenshotWindow(ToolSettingsManager *config, const QImage &pr
         timings.append(timing_entry(QString::fromUtf8("截屏"), 0.0));
     } else {
         CaptureService capture_service;
-        capture_cursor_ = config_manager->get_app_setting("capture_include_cursor", false).toBool() ? SystemCursor::grab() : nullptr;
+        capture_cursor_ = config_manager->get_capture_include_cursor() ? SystemCursor::grab() : nullptr;
         std::tie(original_image, rect) = capture_service.capture_all_screens(capture_cursor_);
         timings.append(timing_entry(QString::fromUtf8("截屏"), clock.nsecsElapsed() / 1e6));
     }
@@ -287,7 +287,7 @@ ScreenshotWindow::ScreenshotWindow(ToolSettingsManager *config, const QImage &pr
     selection_overlay = new SelectionOverlayWidget(this, scene->selection_item, scene->selection_model);
     selection_overlay->setGeometry(0, 0, static_cast<int>(virtual_width), static_cast<int>(virtual_height));
     selection_overlay->raise();
-    fullscreen_crosshair_ = config_manager->get_app_setting("capture_fullscreen_crosshair", false).toBool();
+    fullscreen_crosshair_ = config_manager->get_capture_fullscreen_crosshair();
     view->set_fullscreen_crosshair(fullscreen_crosshair_, mask_overlay);
     const double t4 = clock.nsecsElapsed() / 1e6;
     timings.append(timing_entry("Action+Mask", t4 - t3));

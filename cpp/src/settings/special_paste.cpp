@@ -76,7 +76,7 @@ QList<Entry> normalize(const QList<Entry> &entries) {
 }
 
 QList<Entry> load(const ToolSettingsManager *config_manager) {
-    const QString raw = config_manager ? config_manager->get_app_setting(SETTING_KEY, "").toString() : QString();
+    const QString raw = config_manager ? config_manager->get_clipboard_special_paste() : QString();
     if (raw.isEmpty()) return normalize(QJsonValue());
     const auto document = QJsonDocument::fromJson(raw.toUtf8());
     return normalize(document.isArray() ? QJsonValue(document.array()) : QJsonValue());
@@ -88,5 +88,5 @@ QString dumps(const QList<Entry> &entries) {
     return "[" + parts.join(", ") + "]";
 }
 
-void save(ToolSettingsManager *config_manager, const QList<Entry> &entries) { config_manager->set_app_setting(SETTING_KEY, dumps(normalize(entries))); }
+void save(ToolSettingsManager *config_manager, const QList<Entry> &entries) { config_manager->set_clipboard_special_paste(dumps(normalize(entries))); }
 }

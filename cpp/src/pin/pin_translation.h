@@ -13,6 +13,7 @@ public:
     PinTranslationHelper(PinWindow *parent, ToolSettingsManager *config_manager) : parent(parent), config_manager(config_manager) {}
     // Whether translation started.
     bool translate(const OcrTextLayout &layout);
+    bool translate_text(const QString &text);
     // Shows the recognizing state at once; the OCR manager fills in the result later.
     bool begin_ocr_translation();
     // Hands the pin's OCR result to the shared OCR translation completion.

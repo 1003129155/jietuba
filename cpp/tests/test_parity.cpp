@@ -181,14 +181,12 @@ private slots:
         QVERIFY(!qs.contains("app/pin_auto_toolbar"));
         model.set_inapp_shortcut("inapp_confirm", "ctrl+enter");
         QCOMPARE(qs.value("inapp/inapp_confirm").toString(), QString("ctrl+enter"));
-        model.reset_app_settings();
-        QCOMPARE(model.get_inapp_shortcut("inapp_confirm"), QString("ctrl+c"));
-        QCOMPARE(model.get_hotkey(), QString("ctrl+1"));
-        // reset_app_settings uses app/clipboard_hotkey; the dedicated accessor
-        // uses clipboard/hotkey in the reference. Preserve both namespaces.
-        qs.setValue("clipboard/hotkey", "alt+2");
-        model.reset_app_settings();
-        QCOMPARE(model.get_clipboard_hotkey(), QString("alt+2"));
+        // By name, a setting goes where its typed accessor reads it.
+        model.set_app_setting("clipboard_enabled", false);
+        QVERIFY(qs.contains("clipboard/enabled"));
+        QVERIFY(!model.get_clipboard_enabled());
+        QCOMPARE(ToolSettingsManager::app_setting_path("pin_zoom_step"), QString("pin/zoom_step"));
+        QCOMPARE(ToolSettingsManager::app_setting_path("not_in_the_table"), QString("app/not_in_the_table"));
         model.import_settings({{"pen", QVariantMap{{"stroke_width", 8}, {"unknown", 99}}}});
         QCOMPARE(model.get_stroke_width("pen"), 8.0);
         QCOMPARE(model.get_setting("pen", "unknown").toInt(), 99);
@@ -200,18 +198,25 @@ private slots:
         QTemporaryDir temp;
         QSettings qs(temp.filePath("accessors.ini"), QSettings::IniFormat);
         ToolSettingsManager config(qs);
-        auto actual = QJsonObject::fromVariantMap(config.generated_accessor_values());
-        auto expected = fixtures_["accessor_reads"].toObject();
-        // The fixture holds a placeholder for the log folder; the real one depends on the machine.
-        QCOMPARE(actual.take("get_log_dir").toString(), QDir::toNativeSeparators(get_log_dir()));
-        expected.remove("get_log_dir");
-        QCOMPARE(actual, expected);
+        // The fixture names the reference's methods: get_<accessor> and set_<accessor>.
+        const auto expected = fixtures_["accessor_reads"].toObject();
+        QVERIFY(!expected.isEmpty());
+        for (auto it = expected.begin(); it != expected.end(); ++it) {
+            const auto actual = config.accessor_value(it.key().mid(4));
+            QVERIFY2(actual, qPrintable(it.key()));
+            // The fixture holds a placeholder for the log folder; the real one depends on the machine.
+            if (it.key() == "get_log_dir") QCOMPARE(actual->toString(), QDir::toNativeSeparators(get_log_dir()));
+            else QVERIFY2(QJsonValue::fromVariant(*actual) == it.value(), qPrintable(it.key()));
+        }
         for (const auto &v : fixtures_["accessor_setters"].toArray()) {
             const auto row = v.toObject();
-            QVERIFY(config.apply_generated_setter(row["name"].toString(), row["input"].toVariant()));
+            QVERIFY(config.set_accessor_value(row["name"].toString().mid(4), row["input"].toVariant()));
             QCOMPARE(QJsonValue::fromVariant(qs.value(row["path"].toString())), row["stored"]);
         }
-        QVERIFY(!config.apply_generated_setter("not-a-source-method", true));
+        QVERIFY(!config.set_accessor_value("not-a-source-method", true));
+        QVERIFY(!config.accessor_value("not-a-source-method"));
+        // Options are defaults only.
+        QVERIFY(!config.set_accessor_value("gif_fps_options", QVariantList{1}));
     }
     void firstRunAndIndependentScales() {
         QTemporaryDir temp;
@@ -292,15 +297,15 @@ private slots:
             const auto row = v.toObject();
             QSettings qs(temp.filePath(QString("color%1.ini").arg(index++)), QSettings::IniFormat);
             ToolSettingsManager config(qs);
-            config.set_app_setting(color_formats::SETTING_KEY, row["raw"].toString());
-            config.set_app_setting(color_formats::LEGACY_SETTING_KEY, row["legacy"].toString());
+            config.set_magnifier_color_formats(row["raw"].toString());
+            config.set_magnifier_color_copy_format(row["legacy"].toString());
             const auto result = color_formats::load(&config);
             QJsonArray actual;
             for (const auto &format : result) actual.append(QJsonObject{{"name", format.name},
                 {"template", format.template_string}, {"enabled", format.enabled}});
             QCOMPARE(actual, row["expected"].toArray());
             color_formats::save(&config, result);
-            QCOMPARE(config.get_app_setting(color_formats::SETTING_KEY).toString(), row["saved"].toString());
+            QCOMPARE(config.get_magnifier_color_formats(), row["saved"].toString());
         }
     }
     void saveFormatLimitsAndPdfPixels() {

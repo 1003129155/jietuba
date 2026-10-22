@@ -12,7 +12,6 @@
 #include <QRegularExpression>
 #include <QStringDecoder>
 #include <algorithm>
-#include <charconv>
 #include <cmath>
 #include <cstdio>
 #include <typeinfo>
@@ -34,42 +33,14 @@ const QHash<QString, QString> &log_translations() {
     return table;
 }
 
-QString python_float_repr(double value) {
-    if (std::isnan(value)) return "nan";
-    if (std::isinf(value)) return value > 0 ? "inf" : "-inf";
-    if (value == 0) return std::signbit(value) ? "-0.0" : "0.0";
-    // Shortest round-trip digits, laid out like Python's repr: fixed notation
-    // for exponents in [-4, 16), scientific otherwise.
-    char buffer[64];
-    const auto result = std::to_chars(buffer, buffer + sizeof buffer, value, std::chars_format::scientific);
-    QString sci = QString::fromLatin1(buffer, static_cast<int>(result.ptr - buffer));
-    const auto e_pos = sci.indexOf('e');
-    const int exponent = sci.mid(e_pos + 1).toInt();
-    QString mantissa = sci.left(e_pos);
-    const bool negative = mantissa.startsWith('-');
-    if (negative) mantissa.remove(0, 1);
-    QString digits = mantissa; digits.remove('.');
-    if (exponent >= -4 && exponent < 16) {
-        QString out;
-        if (exponent < 0) out = "0." + QString(-exponent - 1, '0') + digits;
-        else if (digits.size() > exponent + 1) out = digits.left(exponent + 1) + "." + digits.mid(exponent + 1);
-        else out = digits + QString(exponent + 1 - digits.size(), '0') + ".0";
-        return negative ? "-" + out : out;
-    }
-    QString out = digits.left(1);
-    if (digits.size() > 1) out += "." + digits.mid(1);
-    out += QString("e%1%2").arg(exponent < 0 ? '-' : '+').arg(std::abs(exponent), 2, 10, QChar('0'));
-    return negative ? "-" + out : out;
-}
-
 bool format_field(const QVariant &value, const QString &spec, QString *out) {
-    if (spec.isEmpty()) { *out = python_str(value); return true; }
+    if (spec.isEmpty()) { *out = value.toString(); return true; }
     static const QRegularExpression fixed(R"(^\.(\d+)f$)");
     if (const auto match = fixed.match(spec); match.hasMatch()) {
         bool ok = false; const double number = value.toDouble(&ok);
         if (!ok) return false;
-        *out = python_fixed(number, match.captured(1).toInt());
-        return !out->isEmpty();
+        *out = QString::number(number, 'f', match.captured(1).toInt());
+        return true;
     }
     if (spec == "d") {
         bool ok = false; const auto number = value.toLongLong(&ok);
@@ -100,23 +71,6 @@ void write_stream(std::FILE *stream, const QString &text) {
 }
 }
 
-QString python_fixed(double value, int precision) {
-    // to_chars rounds the exact binary value (ties to even) like Python; QString::number does not.
-    char buffer[400];
-    const auto result = std::to_chars(buffer, buffer + sizeof buffer, value, std::chars_format::fixed, precision);
-    if (result.ec != std::errc()) return {};
-    return QString::fromLatin1(buffer, static_cast<int>(result.ptr - buffer));
-}
-
-QString python_str(const QVariant &value) {
-    switch (value.metaType().id()) {
-    case QMetaType::UnknownType: return "None";
-    case QMetaType::Bool: return value.toBool() ? "True" : "False";
-    case QMetaType::Double: case QMetaType::Float: return python_float_repr(value.toDouble());
-    default: return value.toString();
-    }
-}
-
 namespace {
 template <typename T>
 QString debug_text(const T &value) {
@@ -132,7 +86,9 @@ QString geometry_text(const QRect &v) { return debug_text(v); }
 QString geometry_text(const QSizeF &v) { return debug_text(v); }
 QString geometry_text(const QSize &v) { return debug_text(v); }
 
-bool python_format(const QString &format, const LogMsg::Args &args, QString *out) {
+namespace {
+// False (leaving *out untouched) when a field is missing or malformed.
+bool format_template(const QString &format, const LogMsg::Args &args, QString *out) {
     QString result;
     result.reserve(format.size());
     for (qsizetype i = 0; i < format.size(); ++i) {
@@ -161,6 +117,7 @@ bool python_format(const QString &format, const LogMsg::Args &args, QString *out
     *out = result;
     return true;
 }
+}
 
 QString LogMsg::render() const {
     QString text = template_;
@@ -170,9 +127,9 @@ QString LogMsg::render() const {
         text = log_translations().value(template_, template_);
     if (args_.empty()) return text;
     QString out;
-    if (python_format(text, args_, &out)) return out;
+    if (format_template(text, args_, &out)) return out;
     // A translated template whose placeholders differ falls back to the Chinese one.
-    if (python_format(template_, args_, &out)) return out;
+    if (format_template(template_, args_, &out)) return out;
     return template_;
 }
 
@@ -267,11 +224,10 @@ void Logger::set_level(int level) {
     info(T("日志级别已设置为: {level_name}", {{"level_name", LogLevel::name(level)}}), "Logger");
 }
 
-void Logger::exception(const QString &exc_type, const QString &exc_msg, const LogMsg &context, bool silent) {
+void Logger::exception(const QString &reason, const LogMsg &context, bool silent) {
     if (!enabled) return;
     const auto rendered = context.render();
-    const auto log_msg = rendered.isEmpty() ? QString("[静默异常] %1: %2").arg(exc_type, exc_msg)
-                                            : QString("[静默异常] %1: %2: %3").arg(rendered, exc_type, exc_msg);
+    const auto log_msg = rendered.isEmpty() ? QString("[静默异常] %1").arg(reason) : QString("[静默异常] %1: %2").arg(rendered, reason);
     if (silent && log_file_.isOpen() && ready_) {
         write_file(QString("[%1] [SILENT] %2\n").arg(QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss"), log_msg), true);
     } else {
@@ -279,12 +235,11 @@ void Logger::exception(const QString &exc_type, const QString &exc_msg, const Lo
     }
 }
 
-void Logger::exception_with_traceback(const QString &exc_type, const QString &exc_msg, const LogMsg &context) {
+void Logger::exception_with_traceback(const QString &reason, const LogMsg &context) {
     if (!enabled) return;
     const auto rendered = context.render();
-    // No interpreter traceback exists; the exception text is all that is available.
-    const auto log_msg = rendered.isEmpty() ? QString("[异常] %1: %2\n").arg(exc_type, exc_msg)
-                                            : QString("[异常] %1: %2: %3\n").arg(rendered, exc_type, exc_msg);
+    // No traceback is available; the exception text is all there is.
+    const auto log_msg = rendered.isEmpty() ? QString("[异常] %1\n").arg(reason) : QString("[异常] %1: %2\n").arg(rendered, reason);
     log(LogLevel::Error, log_msg, {});
 }
 
@@ -387,15 +342,14 @@ QString exception_text(const std::exception &e) {
     return utf8.hasError() ? QString::fromLocal8Bit(e.what()) : text;
 }
 
-void log_exception(const std::exception &e, const LogMsg &context, bool silent) {
-    get_logger().exception(QString::fromLatin1(typeid(e).name()), exception_text(e), context, silent);
+namespace {
+// The C++ exception type stays in front of the text: it tells which layer threw.
+QString exception_reason(const std::exception &e) { return QString::fromLatin1(typeid(e).name()) + ": " + exception_text(e); }
 }
-void log_exception(const QString &exc_type, const QString &exc_msg, const LogMsg &context, bool silent) {
-    get_logger().exception(exc_type, exc_msg, context, silent);
-}
-void log_exception_full(const std::exception &e, const LogMsg &context) {
-    get_logger().exception_with_traceback(QString::fromLatin1(typeid(e).name()), exception_text(e), context);
-}
+
+void log_exception(const std::exception &e, const LogMsg &context, bool silent) { get_logger().exception(exception_reason(e), context, silent); }
+void log_exception(const QString &reason, const LogMsg &context, bool silent) { get_logger().exception(reason, context, silent); }
+void log_exception_full(const std::exception &e, const LogMsg &context) { get_logger().exception_with_traceback(exception_reason(e), context); }
 void log_debug(const LogMsg &message, const QString &module) {
     auto &logger = get_logger();
     if (logger.min_level <= LogLevel::Debug) logger.debug(message, module);

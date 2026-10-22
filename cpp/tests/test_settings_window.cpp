@@ -1,3 +1,4 @@
+#include "core/data_location.h"
 #include "core/elevation.h"
 #include "core/i18n.h"
 #include "core/resource_manager.h"
@@ -426,7 +427,7 @@ private slots:
         const auto restore = qScopeGuard([this] { config_->set_app_setting("color_picker_style", "modern"); });
         config_->set_app_setting("color_picker_style", "system");
         SettingsDialog dialog(config_, config_->get_hotkey());
-        QVERIFY(dialog.settings_keys().count("app/color_picker_style"));
+        QVERIFY(settings_transfer::IMPORTED_KEYS().contains("app/color_picker_style"));
         dialog.show();
         dialog.on_nav_changed(3, "appearance");
         auto *combo = dialog.attr<QComboBox>("_color_picker_style_combo");
@@ -734,42 +735,87 @@ private slots:
         window.hide();
     }
 
-    // Export writes what the pages read; import fills the controls and saves them.
-    void exportAndImportRoundTrip() {
+    // Import takes the settings the pages show from another settings.ini, fills the controls and saves them.
+    void importFromAnotherSettingsIni() {
         config_->set_log_level("ERROR");
         config_->set_screenshot_save_path(dir_.path());
+        const QString save_path = config_->get_screenshot_save_path();
         SettingsDialog dialog(config_, config_->get_hotkey());
-        const auto keys = dialog.settings_keys();
-        QVERIFY(keys.count("app/hotkey"));
-        QVERIFY(keys.count("app/screenshot_toolbar_layout"));
-        QVERIFY(keys.count("pin/toolbar_layout"));
-        // Settings no page shows stay out, as in the reference: they could be exported but never imported.
+        const auto &keys = settings_transfer::IMPORTED_KEYS();
+        QVERIFY(keys.contains("app/hotkey"));
+        QVERIFY(keys.contains("app/screenshot_toolbar_layout"));
+        QVERIFY(keys.contains("pin/toolbar_layout"));
+        // Settings no page shows stay out: the window could never show what was imported.
         for (const char *key : {"clipboard/show_metadata", "clipboard/preserve_search", "gif/fps", "app/screenshot_quality"})
-            QVERIFY2(!keys.count(key), key);
+            QVERIFY2(!keys.contains(key), key);
+        for (const auto &key : LOCAL_SETTING_PATHS()) QVERIFY2(!keys.contains(key), qPrintable(key));
+        // A control a page edits by name has its setting imported.
+        dialog.build_all_pages();
+        QVERIFY(!dialog.behavior_controls.empty());
+        for (const auto &entry : dialog.behavior_controls)
+            QVERIFY2(keys.contains(ToolSettingsManager::app_setting_path(entry.first)), qPrintable(entry.first));
+
+        const QString other_dir = dir_.filePath("other");
+        QVERIFY(QDir().mkpath(other_dir));
+        const QString path = QDir(other_dir).filePath("settings.ini");
         {
-            // A provider field reads its own setting only.
-            settings_transfer::RecordingReads recording(config_);
-            QVERIFY(config_->get_provider_field("deepl_api_key"));
-            QCOMPARE(recording.keys.size(), 1);
+            QSettings other(path, QSettings::IniFormat);
+            other.setValue("app/log_level", "DEBUG");
+            other.setValue("app/screenshot_save_path", other_dir);
+            other.setValue("app/program_path", QDir(other_dir).filePath("jietuba.exe"));
+            other.setValue("clipboard/show_metadata", true);
         }
-        const QString path = dir_.filePath("export.json");
-        settings_transfer::export_settings(config_, QSet<QString>(keys.begin(), keys.end()), path, "test");
-        auto values = settings_transfer::read_settings_file(path);
-        QCOMPARE(values.value("app/log_level").toString(), QString("ERROR"));
-        // Machine-local keys are never exported.
-        QVERIFY(!values.contains("app/screenshot_save_path"));
-        values["app/log_level"] = "DEBUG";
+        const auto values = settings_transfer::read_settings_file(path);
+        QCOMPARE(values.value("app/log_level").toString(), QString("DEBUG"));
+        for (const char *key : {"app/screenshot_save_path", "app/program_path", "clipboard/show_metadata"}) QVERIFY2(!values.contains(key), key);
         dialog.load_imported_settings(values);
         QCOMPARE(dialog.attr<QComboBox>("log_level_combo")->currentText(), QString("DEBUG"));
         QVERIFY(!dialog.has_unsaved_changes());
         QCOMPARE(config_->get_log_level(), QString("DEBUG"));
+        QCOMPARE(config_->get_screenshot_save_path(), save_path);
         config_->set_log_level("ERROR");
+    }
+
+    // Files exported by earlier versions still import; machine-local keys in them are skipped.
+    void importReadsEarlierJsonExports() {
+        const QString path = dir_.filePath("export.json");
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write(R"({"format": "jietuba-settings", "version": 1, "app_version": "2.1.7",
+                      "settings": {"app/log_level": "WARNING", "app/screenshot_save_path": "D:\\captures"}})");
+        file.close();
+        const auto values = settings_transfer::read_settings_file(path);
+        QCOMPARE(values.value("app/log_level").toString(), QString("WARNING"));
+        QVERIFY(!values.contains("app/screenshot_save_path"));
 
         QFile broken(dir_.filePath("broken.json"));
         QVERIFY(broken.open(QIODevice::WriteOnly));
         broken.write("{\"format\": \"other\"}");
         broken.close();
         QVERIFY_THROWS_EXCEPTION(settings_transfer::SettingsFileError, settings_transfer::read_settings_file(broken.fileName()));
+        // Text without any setting the window shows is not a settings file either.
+        QFile unrelated(dir_.filePath("notes.ini"));
+        QVERIFY(unrelated.open(QIODevice::WriteOnly));
+        unrelated.write("[general]\nname=value\n");
+        unrelated.close();
+        QVERIFY_THROWS_EXCEPTION(settings_transfer::SettingsFileError, settings_transfer::read_settings_file(unrelated.fileName()));
+    }
+
+    // The page names the settings file in use instead of offering an export.
+    void miscPageShowsTheSettingsFile() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.build_all_pages();
+        QVERIFY(dialog.attr<QPushButton>("import_settings_button"));
+        const QString shown = QDir::toNativeSeparators(data_location().settings_file());
+        bool found = false;
+        for (auto *label : dialog.findChildren<QLabel *>()) found = found || label->text().contains(shown);
+        QVERIFY2(found, qPrintable(shown));
+        UrlCatcher catcher;
+        QDesktopServices::setUrlHandler("file", &catcher, "open");
+        const auto unset = qScopeGuard([] { QDesktopServices::unsetUrlHandler("file"); });
+        dialog.attr<QPushButton>("open_settings_folder_button")->click();
+        QTRY_COMPARE(catcher.urls.size(), 1);
+        QCOMPARE(QDir::cleanPath(catcher.urls[0].toLocalFile()), QDir::cleanPath(data_location().dir));
     }
 
     // No page has a control for the toolbar layouts; imported ones are written each to its own key.
@@ -800,9 +846,9 @@ private slots:
         QCOMPARE(pending->get_translation_provider_config("deepl").value("api_key").toString(), QString("unsaved-key"));
         QVERIFY(config_->get_deepl_api_key() != "unsaved-key");
         // Custom service slots resolve by name too.
-        QVERIFY(config_->set_provider_field("custom_llm_2_model", "m2"));
-        QCOMPARE(config_->get_provider_field("custom_llm_2_model")->toString(), QString("m2"));
-        QVERIFY(!config_->get_provider_field("not_a_field"));
+        QVERIFY(config_->set_accessor_value("custom_llm_2_model", "m2"));
+        QCOMPARE(config_->accessor_value("custom_llm_2_model")->toString(), QString("m2"));
+        QVERIFY(!config_->accessor_value("not_a_field"));
     }
 
     // The monthly quota of a pending test is the saved one: checked against it and counted into it.
@@ -824,20 +870,20 @@ private slots:
     }
 
     void quotaFieldsResolveByName() {
-        QVERIFY(config_->set_provider_field("volcengine_translate_quota_enabled", false));
-        QCOMPARE(config_->get_provider_field("volcengine_translate_quota_enabled")->toBool(), false);
-        QVERIFY(config_->set_provider_field("tencent_translate_quota_limit", " 77 "));
-        QCOMPARE(config_->get_provider_field("tencent_translate_quota_limit")->toString(), QString("77"));
-        QVERIFY(config_->set_provider_field("tencent_translate_secret_id", " id "));
-        QCOMPARE(config_->get_provider_field("tencent_translate_secret_id")->toString(), QString("id"));
+        QVERIFY(config_->set_accessor_value("volcengine_translate_quota_enabled", false));
+        QCOMPARE(config_->accessor_value("volcengine_translate_quota_enabled")->toBool(), false);
+        QVERIFY(config_->set_accessor_value("tencent_translate_quota_limit", " 77 "));
+        QCOMPARE(config_->accessor_value("tencent_translate_quota_limit")->toString(), QString("77"));
+        QVERIFY(config_->set_accessor_value("tencent_translate_secret_id", " id "));
+        QCOMPARE(config_->accessor_value("tencent_translate_secret_id")->toString(), QString("id"));
         config_->settings().remove("translation/providers/volcengine");
         config_->settings().remove("translation/providers/tencent");
     }
 
     void youdaoCredentialsReachTheProvider() {
-        QVERIFY(config_->set_provider_field("youdao_translate_app_key", " app "));
-        QVERIFY(config_->set_provider_field("youdao_translate_app_secret", " secret "));
-        QCOMPARE(config_->get_provider_field("youdao_translate_app_key")->toString(), QString("app"));
+        QVERIFY(config_->set_accessor_value("youdao_translate_app_key", " app "));
+        QVERIFY(config_->set_accessor_value("youdao_translate_app_secret", " secret "));
+        QCOMPARE(config_->accessor_value("youdao_translate_app_key")->toString(), QString("app"));
         QCOMPARE(config_->get_translation_provider_config("youdao"), (QVariantMap{{"app_key", "app"}, {"app_secret", "secret"}}));
         config_->settings().remove("translation/providers/youdao");
         QCOMPARE(config_->get_translation_provider_config("youdao"), (QVariantMap{{"app_key", ""}, {"app_secret", ""}}));
@@ -1503,11 +1549,11 @@ private slots:
 
     // Each provider's configuration as the translation service reads it.
     void providerConfigsCarryTheirOwnFields() {
-        config_->set_provider_field("amazon_translate_region", "eu-west-1");
-        config_->set_provider_field("azure_translate_endpoint", "https://example.test");
-        config_->set_provider_field("baidu_translate_appid", "app");
-        config_->set_provider_field("deepseek_model", "deepseek-chat");
-        config_->set_provider_field("custom_llm_2_model", "local");
+        config_->set_accessor_value("amazon_translate_region", "eu-west-1");
+        config_->set_accessor_value("azure_translate_endpoint", "https://example.test");
+        config_->set_accessor_value("baidu_translate_appid", "app");
+        config_->set_accessor_value("deepseek_model", "deepseek-chat");
+        config_->set_accessor_value("custom_llm_2_model", "local");
         QCOMPARE(config_->get_translation_provider_config("amazon").value("region").toString(), QString("eu-west-1"));
         QCOMPARE(config_->get_translation_provider_config("azure").value("endpoint").toString(), QString("https://example.test"));
         QCOMPARE(config_->get_translation_provider_config("baidu").value("appid").toString(), QString("app"));
@@ -1517,7 +1563,7 @@ private slots:
         QCOMPARE(custom.value("model").toString(), QString("local"));
         QVERIFY(custom.contains("json_mode"));
         QVERIFY(config_->get_translation_provider_config("unknown").isEmpty());
-        QVERIFY(!config_->set_provider_field("custom_llm_2_unknown_key", "x"));
+        QVERIFY(!config_->set_accessor_value("custom_llm_2_unknown_key", "x"));
         QVERIFY(config_->get_translation_params().contains("target_lang"));
         const auto exported = config_->export_settings();
         QVERIFY(exported.contains("pen"));
@@ -1562,7 +1608,7 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(custom_status->text().startsWith(QString::fromUtf8("✗")), 15000);
         QVERIFY(fetch->isEnabled());
         // Like any edit, the address is saved once typing pauses.
-        QTRY_COMPARE(config_->get_provider_field("custom_llm_base_url")->toString(), QString("http://127.0.0.1:9/v1"));
+        QTRY_COMPARE(config_->accessor_value("custom_llm_base_url")->toString(), QString("http://127.0.0.1:9/v1"));
     }
     // Saves each page as PNG for visual review when JIETUBA_SETTINGS_SHOTS names a folder;
     // needs -platform windows for real fonts.

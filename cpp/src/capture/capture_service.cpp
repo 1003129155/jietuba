@@ -104,7 +104,7 @@ public:
             capture_ = jb_hdr_capture_new(HDR_TIMEOUT_MS, message, sizeof message, &kind);
             if (!capture_) {
                 if (remember_failure) failed_ = true;
-                log_exception("CaptureError", QString::fromUtf8(message), T("建立 HDR 捕获会话失败"));
+                log_exception(QString::fromUtf8(message), T("建立 HDR 捕获会话失败"));
                 return false;
             }
             log_debug(T("HDR 捕获会话已建立"), "CaptureService");
@@ -267,7 +267,7 @@ private:
 void log_tone_map_peaks(const HdrFrame &frame) {
     for (const auto &info : frame.infos)
         if (info.has_peak)
-            log_debug(T("HDR 自适应色调映射: 显示器 {index} 峰值 {peak} 倍 SDR 白", {{"index", static_cast<qint64>(info.index)}, {"peak", python_fixed(info.tone_map_peak, 2)}}),
+            log_debug(T("HDR 自适应色调映射: 显示器 {index} 峰值 {peak} 倍 SDR 白", {{"index", static_cast<qint64>(info.index)}, {"peak", QString::number(info.tone_map_peak, 'f', 2)}}),
                       "CaptureService");
 }
 

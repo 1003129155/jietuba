@@ -4,12 +4,13 @@
 #include "clipboard/ui/dialogs/manage_dialog.h"
 #include "core/crash_handler.h"
 #include "core/logger.h"
-#include "core/py_text.h"
 #include "core/ui_scale.h"
 #include "settings/color_formats.h"
 #include "settings/tool_settings.h"
 #include "ui/dialogs.h"
 #include <QCoreApplication>
+#include <QDir>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -69,7 +70,7 @@ ClipboardController::ClipboardController(ClipboardManager &manager, QObject *par
 void ClipboardController::load_settings() {
     auto *config = get_tool_settings_manager();
     auto_paste_enabled = config->get_clipboard_auto_paste();
-    paste_with_html = config->get_app_setting("clipboard_paste_with_html", true).toBool();
+    paste_with_html = config->get_clipboard_paste_with_html();
 }
 
 void ClipboardController::set_auto_paste(bool enabled) {
@@ -80,7 +81,7 @@ void ClipboardController::set_auto_paste(bool enabled) {
 
 void ClipboardController::set_paste_with_html(bool enabled) {
     paste_with_html = enabled;
-    get_tool_settings_manager()->set_app_setting("clipboard_paste_with_html", enabled);
+    get_tool_settings_manager()->set_clipboard_paste_with_html(enabled);
 }
 
 void ClipboardController::set_move_to_top_on_paste(bool enabled) { get_tool_settings_manager()->set_clipboard_move_to_top_on_paste(enabled); }
@@ -159,10 +160,9 @@ std::pair<QList<ClipboardItem>, int> ClipboardController::fetch_items_page(int l
     auto items = manager.get_by_group(current_group_id, offset, limit);
     const int raw_count = static_cast<int>(items.size());
     if (search_text_) {
-        const QString search_lower = py_lower(*search_text_);
         QList<ClipboardItem> matched;
         for (const auto &item : items)
-            if (py_lower(item.content).contains(search_lower) || (item.title && !item.title->isEmpty() && py_lower(*item.title).contains(search_lower)))
+            if (item.content.contains(*search_text_, Qt::CaseInsensitive) || (item.title && item.title->contains(*search_text_, Qt::CaseInsensitive)))
                 matched.append(item);
         items = matched;
     }
@@ -193,7 +193,7 @@ void ClipboardController::check_scroll_load(int scroll_value, int scroll_max) {
 // ==================== Search and filters ====================
 
 void ClipboardController::set_search_text(const QString &text) {
-    const QString stripped = py_strip(text);
+    const QString stripped = text.trimmed();
     const std::optional<QString> search = stripped.isEmpty() ? std::nullopt : std::optional<QString>(stripped);
     if (search_text_ != search) {
         search_text_ = search;
@@ -210,7 +210,7 @@ void ClipboardController::set_content_type_filter(const std::optional<QString> &
 
 bool ClipboardController::set_time_range_text(const QString &range_text) {
     const auto parsed_range = parse_time_range_text(range_text);
-    if (!parsed_range && !py_strip(range_text).isEmpty()) return false;
+    if (!parsed_range && !range_text.trimmed().isEmpty()) return false;
     if (time_range_ != parsed_range) {
         time_range_ = parsed_range;
         load_history();
@@ -227,7 +227,7 @@ void ClipboardController::clear_time_and_type_filters() {
 }
 
 std::optional<std::pair<QDateTime, QDateTime>> ClipboardController::parse_time_range_text(const QString &range_text) {
-    const QString text = py_strip(range_text);
+    const QString text = range_text.trimmed();
     if (text.isEmpty()) return std::nullopt;
     static const QRegularExpression pattern(QString::fromUtf8(R"(^\s*(\d{4})[\/.-](\d{1,2})[\/.-](\d{1,2})\s*(?:-|~|至|到)\s*(\d{4})[\/.-](\d{1,2})[\/.-](\d{1,2})\s*$)"),
                                             QRegularExpression::UseUnicodePropertiesOption);
@@ -444,7 +444,7 @@ bool ClipboardController::paste_transformed_text(qint64 item_id, const QString &
         }
         QString error;
         if (!ClipboardManager::set_clipboard_text(clipboard_item->content, &error)) {
-            log_exception("RuntimeError", error, T("设置剪贴板纯文本失败"));
+            log_exception(error, T("设置剪贴板纯文本失败"));
             return false;
         }
         log_info(T("粘贴纯文本项 {item_id}", {{"item_id", item_id}}), "Clipboard");
@@ -474,7 +474,7 @@ bool ClipboardController::paste_transformed_text(qint64 item_id, const QString &
     // To the system clipboard as plain text, without formatting.
     QString error;
     if (!ClipboardManager::set_clipboard_text(transformed, &error)) {
-        log_exception("RuntimeError", error, T("设置剪贴板文本失败"));
+        log_exception(error, T("设置剪贴板文本失败"));
         return false;
     }
     log_info(T("特殊粘贴项 {item_id} ({transform_key})", {{"item_id", item_id}, {"transform_key", transform_key}}), "Clipboard");
@@ -492,14 +492,14 @@ bool ClipboardController::paste_file_text(qint64 item_id, const QString &transfo
     QJsonParseError parse_error;
     const auto document = QJsonDocument::fromJson(clipboard_item->content.toUtf8(), &parse_error);
     if (parse_error.error != QJsonParseError::NoError) {
-        log_exception("JSONDecodeError", parse_error.errorString(), T("解析文件项内容失败"));
+        log_exception(parse_error.errorString(), T("解析文件项内容失败"));
         return false;
     }
     QStringList files;
     if (document.isObject()) {
         for (const auto &value : document.object().value("files").toArray()) {
             const QString file_path = value.toString();
-            if (!file_path.isEmpty()) files.append(py_normpath(file_path));
+            if (!file_path.isEmpty()) files.append(QDir::toNativeSeparators(QDir::cleanPath(file_path)));
         }
     }
     if (files.isEmpty()) {
@@ -509,7 +509,7 @@ bool ClipboardController::paste_file_text(qint64 item_id, const QString &transfo
     QString text;
     if (transform_key == "file_paste_names") {
         QStringList names;
-        for (const auto &file_path : files) names.append(py_basename(file_path));
+        for (const auto &file_path : files) names.append(QFileInfo(file_path).fileName());
         text = names.join("\n");
     } else if (transform_key == "file_paste_links") {
         text = files.join("\n");
@@ -519,7 +519,7 @@ bool ClipboardController::paste_file_text(qint64 item_id, const QString &transfo
     }
     QString error;
     if (!ClipboardManager::set_clipboard_text(text, &error)) {
-        log_exception("RuntimeError", error, T("设置剪贴板文件文本失败"));
+        log_exception(error, T("设置剪贴板文件文本失败"));
         return false;
     }
     log_info(T("文件特殊粘贴项 {item_id} ({transform_key})", {{"item_id", item_id}, {"transform_key", transform_key}}), "Clipboard");
@@ -538,7 +538,7 @@ bool ClipboardController::paste_as_files(qint64 item_id, const CloseCallback &on
 
 QStringList ClipboardController::color_conversions(const ClipboardItem &item) {
     if (!item.color) return {};
-    const QString original = py_strip(item.content);
+    const QString original = item.content.trimmed();
     QStringList texts;
     for (const auto &format : color_formats::enabled_formats(color_formats::load(get_tool_settings_manager()))) {
         const QString text = format.render(*item.color);
@@ -553,7 +553,7 @@ bool ClipboardController::paste_color_conversion(qint64 item_id, int index, cons
     if (index < 0 || index >= texts.size()) return false;
     QString error;
     if (!ClipboardManager::set_clipboard_text(texts[index], &error)) {
-        log_exception("RuntimeError", error, T("设置剪贴板颜色文本失败"));
+        log_exception(error, T("设置剪贴板颜色文本失败"));
         return false;
     }
     log_info(T("按颜色格式粘贴项 {item_id}", {{"item_id", item_id}}), "Clipboard");

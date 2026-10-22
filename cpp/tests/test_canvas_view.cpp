@@ -23,6 +23,7 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPointer>
+#include <QScopeGuard>
 #include <QSettings>
 #include <QTemporaryDir>
 #include <QTest>
@@ -648,6 +649,45 @@ private slots:
         QVERIFY(item->get_corner_radius() > 0);
         scene->undo_stack->undo();
         QCOMPARE(item->get_corner_radius(), 0.0);
+    }
+
+    // The radius last dragged on a rectangle is where the next one starts.
+    void theDraggedCornerRadiusCarriesToTheNextRect() {
+        const auto restore = qScopeGuard([this] { config_->reset_tool("rect"); });
+        auto [scene, view] = canvas("rect");
+        auto *item = put_rect(scene);
+        view->smart_edit_controller->select_item(item);
+        auto *editor = view->smart_edit_controller->layer_editor.get();
+        const auto radius_point = handle_point(view, *handle_of(*editor, HandleType::CORNER_RADIUS));
+        gesture(view, radius_point, radius_point + QPointF(20, 20), 3);
+        const double dragged = item->get_corner_radius();
+        QVERIFY(dragged > 0);
+        QCOMPARE(config_->get_setting("rect", "corner_radius").toLongLong(), std::llround(dragged));
+
+        // The next capture's rectangle starts rounded.
+        auto [next_scene, next_view] = canvas("rect");
+        gesture(next_view, QPointF(60, 60), QPointF(220, 170), 5);
+        RectItem *drawn = nullptr;
+        for (auto *candidate : next_scene->items())
+            if (auto *rect = dynamic_cast<RectItem *>(candidate)) drawn = rect;
+        QVERIFY(drawn);
+        QCOMPARE(drawn->get_corner_radius(), double(std::llround(dragged)));
+    }
+
+    // Highlighter rectangles share the item class but not the rectangle tool's setting.
+    void aHighlighterRectKeepsTheRectRadius() {
+        const auto restore = qScopeGuard([this] { config_->reset_tool("rect"); });
+        auto [scene, view] = canvas("rect");
+        auto *item = put_rect(scene);
+        item->is_highlighter_rect = true;
+        view->smart_edit_controller->select_item(item);
+        auto *editor = view->smart_edit_controller->layer_editor.get();
+        const auto radius = handle_of(*editor, HandleType::CORNER_RADIUS);
+        QVERIFY(radius);
+        const auto radius_point = handle_point(view, *radius);
+        gesture(view, radius_point, radius_point + QPointF(20, 20), 3);
+        QVERIFY(item->get_corner_radius() > 0);
+        QCOMPARE(config_->get_setting("rect", "corner_radius").toLongLong(), 0);
     }
 
     void arrowEndpointsAndControlPointDrag() {

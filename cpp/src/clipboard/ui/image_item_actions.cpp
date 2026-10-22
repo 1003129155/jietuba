@@ -1,6 +1,5 @@
 #include "clipboard/ui/image_item_actions.h"
 #include "clipboard/core/manager.h"
-#include "core/py_text.h"
 #include "core/save.h"
 #include "ui/dialogs.h"
 #include "ui/save_image_dialog.h"
@@ -13,9 +12,9 @@ namespace {
 // The texts belong to the ClipboardWindow translation context.
 QString tr_window(const char *text) { return QCoreApplication::translate("ClipboardWindow", text); }
 
-// os.path.splitext(path)[1].
+// The file name's last extension with its dot.
 QString extension_of(const QString &path) {
-    const QString name = py_basename(path);
+    const QString name = QFileInfo(path).fileName();
     qsizetype dot = name.lastIndexOf(u'.');
     // Leading dots do not start an extension.
     qsizetype first = 0;

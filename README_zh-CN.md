@@ -14,54 +14,91 @@
 
 </div>
 
-<img width="1391" height="844" alt="21" src="https://github.com/user-attachments/assets/3f25de58-2780-4a28-931b-8430f764ee51" />
-
-
 ## 项目简介
 
-截图吧是一款免费开源的 Windows 截图工具：区域与窗口截图、滚动长截图拼接、标注、OCR 文字识别、翻译、钉图、GIF/MP4 录制、屏幕实时标注、二维码/条形码识别、PDF 导出，以及完整的剪贴板历史管理。所有功能本地运行。
+截图吧是一款免费开源的 Windows 截图工具，截图、标注、OCR、翻译、钉图、录屏和剪贴板历史都在一个程序里，所有功能本地运行。
 
-MP4 区域录制支持自定义帧率和码率、暂停/继续、鼠标指针及系统声音；常见 5.1/7.1 播放设备的声音自动转成立体声，不包含麦克风。
+由 C++（Qt6）实现，图像处理、剪贴板、PP-OCR 引擎等核心由 Rust 实现，支持 Windows x86_64 与 ARM64。早期的 Python（PySide6）实现已归档到 [`archive/python`](https://github.com/1003129155/jietuba/tree/archive/python) 分支，不再更新。
 
-屏幕标注直接在正在操作的屏幕上画：用它的全局热键（设置 → 快捷键 → 屏幕标注，默认未设置）或托盘菜单「屏幕标注」开始。画笔、荧光笔、箭头、序号、矩形、椭圆、文字和橡皮擦与截图编辑是同一套工具和设置。选工具之前鼠标照常操作下方的窗口；按 Esc 或「穿透」按钮回到穿透，焦点还给原来的窗口，幻灯片放映可以接着翻页。每块屏幕各一层，撤销按绘制顺序跨屏进行；标注可以隐藏，也可以一键清空（可撤销）。截图和 GIF/MP4 录制会带上画出的内容，不带标注工具栏。屏幕上的荧光笔以固定的半透明上色，底下的字照样看得清。还有一键开关的白板，以及光标高亮（指针周围发光，每次点击出现涟漪）。在 设置 → 屏幕标注 里可以选择开始时的状态、工具栏出现的位置、退出时是否保留标注，以及光标高亮的大小和点击涟漪。
+## 功能一览
 
-截图吧由 C++（Qt6）实现，图像处理、剪贴板操作、PP-OCR 引擎等核心由 Rust 实现。支持 Windows x86_64 与 ARM64。早期的 Python（PySide6）实现已归档到 [`archive/python`](https://github.com/1003129155/jietuba/tree/archive/python) 分支，不再更新。
+<table>
+<tr>
+<td width="50%" valign="top">
+<img width="100%" alt="截图与标注" src="https://github.com/user-attachments/assets/5318b991-b0de-46a2-9c0e-d75eeae2a827" />
+<p><b>截图与标注</b><br>智能识别窗口和控件，画笔、箭头、序号、马赛克、聚光灯、水印等十余种标注，随时撤销重做。</p>
+</td>
+<td width="50%" valign="top">
+<img width="100%" alt="剪贴板历史" src="https://github.com/user-attachments/assets/b0a116e8-d944-43c9-b895-e6fc10d8c08a" />
+<p><b>剪贴板历史</b><br>复制过的文本、图片、文件自动入史，分组永久保存；Win+V 直接打开，多选、拖出、一键钉到屏幕。</p>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<img width="100%" alt="滚动长截图" src="https://github.com/user-attachments/assets/a9720f08-5128-447d-b425-6d0640272e6a" />
+<p><b>滚动长截图</b><br>上下左右四个方向自动拼接，可自动滚动；往回滚只定位不截短，一键裁掉多余部分。</p>
+</td>
+<td width="50%" valign="top">
+<img width="100%" alt="OCR 文字识别" src="https://github.com/user-attachments/assets/60a16100-5edc-4543-9a35-daf05b1e244e" />
+<p><b>OCR 文字识别</b><br>Windows 11 截图工具 OCR 与 PP-OCR 双引擎，离线识别，自动合并折行、整理标点。</p>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<img width="100%" alt="钉图" src="https://github.com/user-attachments/assets/827b912c-11ac-4692-b3f6-826561957615" />
+<p><b>钉图</b><br>截图置顶在屏幕上，可缩放、旋转、继续标注；直接选中图里的文字复制或翻译，也能切成可编辑的文字。</p>
+</td>
+<td width="50%" valign="top">
+<img width="100%" alt="GIF 与 MP4 录制" src="https://github.com/user-attachments/assets/8653fffb-b419-4584-ab4b-9fe95bb9f246" />
+<p><b>GIF / MP4 录制</b><br>录制中可标注，GIF 可回放剪辑；MP4 可调帧率码率，可录系统声音和鼠标指针，不录麦克风。</p>
+</td>
+</tr>
+</table>
 
-提供可直接运行的 Windows 发行包，也可以从源码构建。
+还有：
 
----
+- **屏幕实时标注**：直接在正在操作的屏幕上画，没选工具时鼠标照常操作下方窗口，适合演示和讲课；带白板和光标高亮（指针发光、点击涟漪）。从托盘菜单「屏幕标注」或 设置 → 快捷键 → 屏幕标注 的热键开始。
+- **翻译**：选中文字一键翻译，支持 DeepL、Google、Azure、Amazon、百度、火山引擎、腾讯云、有道、DeepSeek 和 OpenAI 兼容接口，结果可朗读。
+- **扫码**：识别选区里的二维码和条形码，一次多个。
+- **全局鼠标快捷键**：按住修饰键拖动，直接截图、钉图、识别文字或翻译。
+- **其他**：PDF 导出、截图水印、延时截图、五种界面语言（简中、繁中、英、日、韩）。
 
 ## 核心亮点
 
-"截图 ⇄ 剪贴板 ⇄ 钉图"三向互通的顺滑体验
+「截图 ⇄ 剪贴板 ⇄ 钉图」三向互通的顺滑体验
 
-- **任意来源自动入史**：不只是自己截的图，复制的任何文本/图片/文件/html，都会自动进入同一份剪贴板历史，可分组永久保存一键导出多设备共享
-
-- **历史 → 钉图 → 继续工作**：历史记录里的任何一张图，都能一键“钉”回屏幕最前端。随时拿来对照、缩放、继续标注、重新 OCR。
-
-- **功能打磨到细节**：滚动截图支持上下左右全方向毫秒级精准拼接，多屏幕、多 DPI感知无缝截图，导出各种编码图片。各功能都比肩付费软件甚至更好。
-
-
-- **内存占用**：有严格的运行内存设计，连续复杂使用场景下常驻内存也占用可以被压到非常低水平（往往仅在十几 MB 甚至几 MB 级别）
-
-- **流畅 UI**：优化各种吃配置的场景，减少cpu占用让低配电脑也可以流畅使用
-
-- **数据安全**：功能完全本地运行，无数据收集、无偷偷联网，数据全部保存在本地；翻译是唯一需要联网的功能，仅在你主动使用时调用你自己选择的第三方翻译 API
+- **任意来源自动入史**：不只是自己截的图，复制的任何文本、图片、文件、HTML 都会进入同一份剪贴板历史，可分组永久保存，一键导出到其他设备。
+- **历史 → 钉图 → 继续工作**：历史记录里的任何一张图都能一键「钉」回屏幕最前端，随时拿来对照、缩放、继续标注、重新 OCR。
+- **功能打磨到细节**：滚动截图支持上下左右全方向毫秒级精准拼接，多屏幕、多 DPI 感知无缝截图，导出多种图片编码。各功能都比肩付费软件甚至更好。
+- **内存占用低**：严格控制运行内存，连续复杂使用后常驻内存也能压到很低（往往只有十几 MB 甚至几 MB）。
+- **流畅 UI**：优化各种吃配置的场景，降低 CPU 占用，低配电脑也能流畅使用。
+- **数据安全**：完全本地运行，不收集数据、不偷偷联网，数据全部保存在本地；翻译是唯一需要联网的功能，只在你主动使用时调用你自己选择的翻译 API。
 
 ---
 
 ## 下载与使用
 
-普通用户可以直接使用对应架构的 Windows x86_64 或 ARM64 发行包，无需安装运行环境或配置开发环境。
+1. 打开 [Releases 下载页](https://github.com/1003129155/jietuba/releases/latest)，按设备下载以 `-x64.zip` 或 `-arm64.zip` 结尾的程序包，无需安装运行环境。
+2. 完整解压后双击其中的 exe 启动。
 
-1. 打开 [Releases 下载页](https://github.com/1003129155/jietuba/releases/latest)，根据设备下载以 `-x64.zip` 或 `-arm64.zip` 结尾的程序包。
-2. 程序包分两种，完整解压后双击其中的 exe 启动：
-   - **完整版** `jietuba_pp-…zip`：带 PP-OCR 引擎和模型，任何 Windows 都能使用 OCR。保留 `jietuba_pp.exe` 和同级的 `models/` 目录。
-   - **轻量版** `jietuba_lite-…zip`：单个 exe，不带 PP-OCR，体积更小。默认只使用 Windows 11 截图工具自带的 OCR；没有截图工具、或截图工具低于 11.2308（没有「文本操作」）的电脑上 OCR 不可用，请更新截图工具或改用完整版。在 exe 旁放上 PP-OCR 组件包也能使用 PP-OCR，见 [PP-OCR 组件包](#ppocr-pack)。
-3. 两个版本默认都优先使用截图工具的 OCR（更快、支持的语言更多），可在设置的「OCR 设置」中切换引擎。
-4. 程序尚未进行数字签名，通过浏览器下载后，Windows 可能显示运行警告。出现提示时，点击“更多信息”，再选择“仍要运行”即可启动。
+|  | 完整版 `jietuba_pp-…zip` | 轻量版 `jietuba_lite-…zip` |
+|---|---|---|
+| 包内文件 | `jietuba_pp.exe` 和同级的 `models/` 目录（都要保留） | 单个 `jietuba_lite.exe` |
+| OCR 引擎 | 截图工具 OCR + 自带 PP-OCR，任何 Windows 都能识别 | 默认只用 Windows 11 截图工具的 OCR，可在设置里下载 [PP-OCR 组件包](#ppocr-pack) |
+| 适合 | Windows 10，或想要 OCR 开箱即用 | Windows 11，想要体积小 |
 
-两个版本共用设置和剪贴板历史，可以互相换用，但不要同时运行（默认快捷键会冲突）。
+两个版本默认都优先使用截图工具的 OCR（更快、支持的语言更多），可在设置的「OCR 设置」中切换引擎。截图工具低于 11.2308（没有「文本操作」）或没有截图工具的电脑上，轻量版要先更新截图工具或下载 PP-OCR 组件包才能识别文字。
+
+> [!NOTE]
+> 通过浏览器下载后，Windows 可能显示运行警告。出现提示时，点击「更多信息」，再选择「仍要运行」即可启动。
+
+> [!WARNING]
+> 两个版本共用设置和剪贴板历史，可以互相换用，但不要同时运行，默认快捷键会冲突。
+
+> [!TIP]
+> 设置默认保存在 `%APPDATA%\Jietuba\settings.ini`。在 exe 旁放一个 `settings.ini`（空文件也可以），程序就改用它，复制程序文件夹即可带走设置。截图保存目录、剪贴板历史位置、开机自启这类只对本机有意义的项仍留在注册表；剪贴板历史默认在 `%APPDATA%\pyclipboard`，可在设置的「剪贴板」页更换位置。
+
+### 更新
 
 首次安装包含更新器的版本后，可在**关于 → 检查更新 → 一键更新并重启**中升级。更新器下载匹配架构的 GitHub Release ZIP，仅替换主 EXE 后重启；保留设置、剪贴板历史、模型和其他文件。录制、导出或后台保存未结束时保留下载结果，结束任务后重试。最近一次主程序备份保存在 `.jietuba-update/` 中，详见[更新器恢复说明](rust_libs/updater/README.md)。2.1.8 之前的 Python 版一键更新后会换成 C++ 实现，设置、剪贴板历史和模型照常保留。
 
@@ -246,7 +283,6 @@ barcode/
 ### canvas/ — 画布模块
 
 图形编辑画布系统，提供场景管理、视图渲染、图形项选择和撤销/重做功能。
-![jietuba_gif_20260404_000903](https://github.com/user-attachments/assets/5318b991-b0de-46a2-9c0e-d75eeae2a827)
 
 <details>
 <summary>展开目录结构</summary>
@@ -318,7 +354,6 @@ capture/
 
 剪贴板历史管理系统，分为 controllers、core、services、ui 四层结构，支持文本、图片、HTML、文件等类型。
 不仅能保存截图历史，还提供独立的三栏管理窗口用于维护分组与内容，并可从历史记录生成钉图。
-![jietuba_gif_20260404_001128](https://github.com/user-attachments/assets/b0a116e8-d944-43c9-b895-e6fc10d8c08a)
 
 <details>
 <summary>展开目录结构</summary>
@@ -369,6 +404,8 @@ clipboard/
     ├── widgets/
     │   ├── group_bar.h/.cpp
     │   ├── item_delegate.h/.cpp
+    │   ├── item_drag.h/.cpp            # 拖出历史条目：文本、HTML、图片和文件，目标要文件时才写出
+    │   ├── selection_bar.h/.cpp        # 多选时列表下方的操作栏：数量、粘贴、保存与其他操作
     │   ├── preview_popup.h/.cpp
     │   ├── quick_edit_popup.h/.cpp
     │   ├── manage_rows.h/.cpp
@@ -388,6 +425,8 @@ clipboard/
 - 文本条目支持 CSV 导入/导出
 - 多主题 UI（亮色/暗色等）
 - 快捷键快速粘贴历史内容
+- 多选后批量粘贴、保存或执行其他操作；条目可直接拖进编辑器、聊天框或资源管理器
+- 数据位置可在设置里更换：把当前数据迁移过去，或直接改用目标文件夹里已有的数据
 - 默认用 Win+V 打开本软件的剪贴板，代替系统剪贴板历史（剪贴板热键的第 3 个槽）；清空这一槽即交还给系统
 - 预览弹窗支持大图/长文查看
 
@@ -403,6 +442,8 @@ clipboard/
 ```text
 core/
 ├── bootstrap.h/.cpp            # PreloadManager — 启动引导，环境初始化、DPI感知、单实例控制、链式预加载
+├── data_location.h/.cpp        # 设置文件的位置：exe 旁有 settings.ini 就用它，否则用 %APPDATA%\Jietuba
+├── game_mode_monitor.h/.cpp    # GameModeMonitor — 跟随前台切换判断游戏是否在前台，供「玩游戏时暂停热键」使用
 ├── elevation.h/.cpp            # 以管理员身份运行 — 提权状态判断、开机自启用的计划任务
 ├── logger.h/.cpp               # Logger — 文件+控制台日志系统，支持多级别 (debug/info/warning/error/exception)
 ├── crash_handler.h/.cpp        # install_crash_hooks() — 全局异常和线程异常捕获
@@ -436,8 +477,7 @@ core/
 ├── html_unescape.h/.cpp        # html_unescape — 解码 HTML 命名与数字字符引用
 ├── http_client.h/.cpp          # http_request — 经系统 WinHTTP 的一次阻塞式请求，沿用系统代理，区分 HTTP 错误、超时与网络失败，可取消
 ├── native.h                    # Rust 库 C 接口（cpp/native）的声明
-├── py_case_tables.inc          # 大小写映射表（脚本生成）
-├── py_text.h/.cpp              # 按码点计长度、切片、判断空白与 strip 的文本函数（Qt 的 UTF-16 语义不适用的地方）
+├── text_utils.h/.cpp           # left_chars — 按字符数截断，不切开代理对
 └── serial_executor.h           # SerialExecutor — 在一条专用线程上按提交顺序逐个执行任务
 ```
 
@@ -449,7 +489,7 @@ core/
 - SVG/图片资源统一加载
 - 应用级亮色/暗色主题管理
 - XML 格式的多语言国际化系统（中/英/日/韩/繁中）
-- 全局热键系统（基于 Windows API）和应用内快捷键管理
+- 全局热键系统（基于 Windows API）和应用内快捷键管理；托盘菜单开启「玩游戏时暂停热键」后，游戏在前台时全局热键暂停
 - 文件保存/导出服务（含高质量 PDF 输出）
 - 以管理员身份运行：计划任务开机自启免 UAC，普通启动时转交给管理员实例
 - 系统 HTTP 请求（WinHTTP，沿用系统代理）和 Rust 库的 C 接口声明
@@ -462,8 +502,8 @@ core/
 
 在录制工具栏选择 **MP4** 即可直接录制 H.264 视频，支持自定义 1–60 fps、0.5–50 Mbps 目标码率、系统声音和鼠标指针开关。可用时优先使用硬件编码，否则回退到 Windows 软件编码。录制由独立的子进程完成（同一个 exe 带 `--video-recorder-worker` 启动），逐帧流式写入视频，界面进程不保存视频帧历史；停止后完成 MP4 封装才报告保存成功。MP4 直接保存，不进入 GIF 编辑和回放流程。画面输出为 SDR，HDR 显示器上经 DXGI 抓取后映射为 SDR，不提供 HDR 视频；系统声音取默认播放设备（最多 8 声道，多声道降混为立体声），不包含麦克风。
 
-系统需要可用的 Media Foundation、H.264/AAC 组件；Windows N 版本可能需要 Media Feature Pack。发行包不附加 FFmpeg 或其他编解码器包。
-<img width="766" height="630" alt="image" src="https://github.com/user-attachments/assets/8653fffb-b419-4584-ab4b-9fe95bb9f246" />
+> [!NOTE]
+> 系统需要可用的 Media Foundation、H.264/AAC 组件；Windows N 版本可能需要 Media Feature Pack。发行包不附加 FFmpeg 或其他编解码器包。
 
 <details>
 <summary>展开目录结构</summary>
@@ -500,7 +540,6 @@ gif/
 ### ocr/ — OCR 文字识别模块
 
 文字识别管理，支持 Windows 截图工具自带的 OCR 和 PP-OCR 两个引擎。
-<img width="580" height="505" alt="image" src="https://github.com/user-attachments/assets/60a16100-5edc-4543-9a35-daf05b1e244e" />
 
 <details>
 <summary>展开目录结构</summary>
@@ -508,6 +547,7 @@ gif/
 ```text
 ocr/
 ├── ocr_manager.h/.cpp        # OCRManager — 引擎选择、加载、释放与统一识别接口
+├── ocr_line_geometry.h/.cpp  # 识别行的阅读框与逐字位置，引擎没给出时按字宽估算
 ├── ppocr_models.h/.cpp       # PP-OCR 模型：models/ 目录、内置清单、添加、删除，经更新器下载
 ├── snipping_tool_ocr.h/.cpp  # SnippingToolOcr — 查找截图工具、复制 OCR 文件、补边识别
 └── bundled_runtime.h/.cpp    # bundled_runtime — 完整版 exe 内嵌的 onnxruntime.dll：启动时 models/ 里缺失或不可用就写入
@@ -529,7 +569,6 @@ ocr/
 ### pin/ — 钉图模块
 
 将截图固定在屏幕上，支持编辑、缩放、OCR识别、翻译等。
-<img width="737" height="657" alt="image" src="https://github.com/user-attachments/assets/827b912c-11ac-4692-b3f6-826561957615" />
 
 <details>
 <summary>展开目录结构</summary>
@@ -551,7 +590,9 @@ pin/
 ├── pin_thumbnail.h/.cpp          # PinThumbnailMode — 缩略图模式
 ├── pin_translation.h/.cpp        # PinTranslationHelper — 翻译助手
 ├── pin_image_transform.h/.cpp    # PinImageTransform — 图像变换（旋转、翻转等）
-└── ocr_text_layer.h/.cpp         # OCRTextLayer / OCRTextItem — OCR文字层显示
+├── ocr_text_layout.h/.cpp        # OcrTextLayout — 钉图上识别出的文字与选区，以图像像素记录
+├── pin_text_selection.h/.cpp     # PinTextSelection — 在钉图上拖选、双击、Ctrl+A 选中文字并高亮
+└── pin_text_mode.h/.cpp          # PinTextPanel / PinTextEdit — 文字模式：把钉图换成可编辑的识别文字
 ```
 
 </details>
@@ -559,7 +600,8 @@ pin/
 **核心功能：**
 - 截图结果钉在屏幕最前端，支持拖拽移动和滚轮缩放
 - 钉图上可直接进行绘制编辑
-- 集成 OCR 识别，显示可选中文字层
+- 集成 OCR 识别，可在钉图上直接选中文字并复制，缩放、旋转后照样能选
+- 文字模式：把钉图换成可编辑的识别文字，切回图片再切回来，编辑内容和撤销记录都在
 - 集成翻译功能，可直接翻译钉图中的文字
 - 快捷键支持普通模式和编辑模式
 
@@ -574,26 +616,27 @@ pin/
 
 ```text
 settings/
-├── color_formats.h/.cpp      # 放大镜颜色格式模板：渲染、读取、保存
-├── settings_transfer.h/.cpp  # 设置界面选项（含工具栏排布）导出/导入为 JSON 文件
-├── special_paste.h/.cpp      # 特殊粘贴菜单的预置选项、顺序与启用状态
+├── app_settings.inc          # 设置表：每项设置一行（键、类型、默认值、作用域），生成类型化访问器、默认值和导入清单
 ├── tool_settings.h/.cpp      # ToolSettingsManager / ToolSettings — 管理工具颜色、大小、热键等配置
-└── settings_accessors.inc    # QSettings 单行访问器（手写，新增时同步到末尾的三个查找函数）
+├── data_folder.h/.cpp        # 启动时迁入旧版存在注册表里的设置，并让开机自启项与开关一致
+├── settings_transfer.h/.cpp  # 从另一份 settings.ini 或旧版导出的 JSON 导入设置
+├── color_formats.h/.cpp      # 放大镜颜色格式模板：渲染、读取、保存
+└── special_paste.h/.cpp      # 特殊粘贴菜单的预置选项、顺序与启用状态
 ```
 
 </details>
 
 **核心功能：**
-- 单例模式的配置管理器
+- 单例模式的配置管理器，所有设置登记在一张表里
 - 管理各绘图工具的颜色、线宽、字体大小等参数
-- 持久化存储到 QSettings
+- 设置存进 `settings.ini`（exe 旁或 `%APPDATA%\Jietuba`），只对本机有意义的项留在注册表
+- 首次启动时把旧版注册表里的设置复制进 `settings.ini`，只复制不删除，退回旧版照常可用
 
 ---
 
 ### stitch/ — 长截图拼接模块
 
 滚动截图和自动拼接功能。
-![jietuba_gif_20260404_001930](https://github.com/user-attachments/assets/a9720f08-5128-447d-b425-6d0640272e6a)
 
 <details>
 <summary>展开目录结构</summary>
@@ -777,6 +820,9 @@ ui/
 ├── submenu_position.h/.cpp          # 级联子菜单的展开方向与贴边定位
 ├── magnifier.h/.cpp                 # MagnifierOverlay — 放大镜覆盖层（像素级取色）
 ├── color_picker_button.h/.cpp       # ColorPickerButton — 颜色选择按钮
+├── color_picker_dialog.h/.cpp       # 取色器窗口：饱和度/明度方块、色相与不透明度滑条、吸管
+├── save_image_dialog.h/.cpp         # SaveImageDialog — 保存图片对话框：常用文件夹标签、格式与质量
+├── screenshot_countdown.h/.cpp      # ScreenshotCountdown — 延时截图的倒计时
 ├── hotkey_edit.h/.cpp               # HotkeyEdit — 全局快捷键编辑框
 ├── inapp_key_edit.h/.cpp            # InAppKeyEdit — 应用内快捷键编辑框
 ├── key_chip.h/.cpp                  # KeyChipLineEdit / StatusIcon — 快捷键按键块与状态图标
@@ -821,6 +867,7 @@ ui/
 │   ├── page_hotkey.cpp              # 快捷键设置页
 │   ├── page_mouse.cpp               # 鼠标快捷键设置页
 │   ├── page_pin.cpp                 # 钉图设置页（行为、外观、鼠标穿透）
+│   ├── page_screen_annotation.cpp   # 屏幕标注设置页
 │   ├── page_translation.cpp         # 翻译设置页
 │   ├── provider_fields.cpp          # 服务商字段的读写（按声明）
 │   ├── page_log.cpp                 # 日志设置页
@@ -839,6 +886,8 @@ ui/
 │   ├── page5_translation.cpp        # 翻译功能说明页
 │   ├── page6_finish.cpp             # 完成页
 │   ├── page_hotkeys.cpp             # 全局快捷键页 — 六个键同属一个冲突域，集中设置并统一判重
+│   ├── page_mouse_shortcuts.cpp     # 全局鼠标快捷键页 — 按住修饰键拖动直接截图或执行动作
+│   ├── page_screen_annotation.cpp   # 屏幕标注页 — 功能演示与热键
 │   └── pages.h                      # 欢迎向导各页的声明
 │
 └── selection_info/                  # 选区信息UI
@@ -854,10 +903,10 @@ ui/
 **核心功能：**
 - 可拖动工具栏基类，所有工具栏继承自此
 - 全屏截图窗口，处理选区绘制和交互
-- 放大镜、颜色选择器等精细UI组件
+- 放大镜、取色器窗口、保存图片对话框等精细UI组件
 - Fluent 风格轻量组件库（按钮、卡片、导航、分段、开关等）
-- 完整的应用设置对话框（外观/截图/热键/翻译等多个页面）
-- 首次启动欢迎向导（6页引导流程）
+- 完整的应用设置对话框（外观/截图/热键/翻译/屏幕标注等多个页面）
+- 首次启动欢迎向导（8页引导流程）
 - 选区信息面板（尺寸显示、宽高比锁定、圆角等）
 
 ---
@@ -901,16 +950,21 @@ tests/
 ├── test_clipboard.cpp             # 剪贴板纯逻辑与右键菜单
 ├── test_clipboard_backend.cpp     # 剪贴板后端：数据库与系统剪贴板监听
 ├── test_clipboard_controller.cpp  # 剪贴板窗口控制器：分页、筛选、分组、粘贴
+├── test_clipboard_drag.cpp        # 剪贴板条目拖出：各类目标拿到的格式与按需写出的文件
 ├── test_clipboard_manage.cpp      # 剪贴板管理窗口
 ├── test_clipboard_selection.cpp   # 剪贴板列表的键盘与鼠标选择
 ├── test_clipboard_ui.cpp          # 剪贴板后端、窗口与设置的联动
 ├── test_clipboard_widgets.cpp     # 剪贴板小部件：行绘制、预览弹窗、齿轮菜单、主题
 ├── test_clipboard_window.cpp      # 剪贴板窗口的点击、按键与菜单
 ├── test_core.cpp                  # 核心：全局热键、日志文案、管理员计划任务、单实例交接
+├── test_data_folder.cpp           # 设置文件位置、注册表与 INI 的分工、旧版设置迁移、开机自启项
 ├── test_freehand.cpp              # 画笔笔迹的平滑、吸附与分块重绘
 ├── test_gif.cpp                   # GIF/MP4 录制、回放与导出
+├── test_gif_playback.cpp          # GIF 回放：解码与按显示尺寸播放
 ├── test_hdr_capture.cpp           # HDR 截图（桌面测试）
 ├── test_http_providers.cpp        # HTTP 客户端与可配置地址的翻译提供商
+├── test_input_engine.cpp          # 输入状态机：手势、热键、快捷键录入
+├── test_input_hooks.cpp           # 真实桌面上的输入钩子线程，注入键鼠驱动（桌面测试）
 ├── test_logger.cpp                # 日志
 ├── test_main_app.cpp              # 主程序：托盘、快捷键、截图流程与全局输入（桌面测试）
 ├── test_msaa_element_finder.cpp   # 按点识别与首帧选区
@@ -921,11 +975,14 @@ tests/
 ├── test_ppocr_models.cpp          # PP-OCR 模型的下载、添加与清单
 ├── test_result_windows.cpp        # OCR 与扫码结果窗口
 ├── test_sandbox.cpp               # 链接进每个测试程序：把设置、数据与日志指到临时目录
+├── test_save_image_dialog.cpp     # 保存图片对话框：文件夹标签、格式与质量
+├── test_screen_annotation.cpp     # 屏幕标注：每屏图层、穿透与焦点、跨屏撤销、插拔屏幕
 ├── test_screenshot_window.cpp     # 截图窗口
 ├── test_scroll_capture.cpp        # 滚动截图
 ├── test_settings_window.cpp       # 设置窗口
 ├── test_shortcut_manager.cpp      # 快捷键管理与全局钩子
 ├── test_smart_selection.cpp       # 真实窗口上的智能选区（桌面测试）
+├── test_snipping_tool_ocr.cpp     # 截图工具 OCR 的接入（对着假 oneocr.dll）
 ├── test_stitch.cpp                # 长截图拼接
 ├── test_text_recognition.cpp      # 文字识别：版面整理与窗口摆放
 ├── test_translation.cpp           # 翻译提供商、注册表与服务
@@ -934,6 +991,9 @@ tests/
 ├── test_ui_widgets.cpp            # 通用界面部件：工具栏、设置面板、快捷键编辑框等
 ├── test_update.cpp                # 检查更新与一键更新（对着假更新器）
 ├── clipboard_test_support.h       # 剪贴板测试公用的准备代码
+├── caption_check.h                # 检查自绘窗口的标题栏都按同一布局（图标在左、标题随后）
+├── save_dialog_answerer.h         # 测试里自动应答保存图片对话框
+├── fake_oneocr.cpp                # 测试里代替截图工具 oneocr.dll 的假库（含缺函数的变体）
 ├── fake_updater.cpp               # 测试里代替更新器的假程序
 ├── leak_check.h/.cpp              # 泄漏检测模式：同一批测试跑三遍，用调试堆找泄漏
 └── fixtures/                      # 预期结果数据（已提交，不再重新生成）

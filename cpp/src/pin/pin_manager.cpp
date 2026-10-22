@@ -32,6 +32,10 @@ PinWindow *PinManager::create_pin(const QImage &image, const QPoint &position, T
     if (topmost_suppressed_) {
         SetWindowPos(reinterpret_cast<HWND>(pin_window->winId()), HWND_NOTOPMOST, 0, 0, 0, 0, SWP_FLAGS);
         suppressed_pins_.append(pin_window);
+    } else {
+        // The next keys are usually meant for the new pin. Under a capture they are still the capture's;
+        // a capture that closes after pinning hands the focus over itself.
+        pin_window->activateWindow();
     }
     emit pin_created(pin_window);
     log_debug(T("钉图已创建 (共 {count} 个)", {{"count", count()}}), "PinManager");

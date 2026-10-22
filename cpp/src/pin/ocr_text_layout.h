@@ -41,7 +41,7 @@ public:
     explicit OcrTextLayout(const OcrResult &result, const QTransform &to_image = {});
     bool empty() const { return lines_.empty(); }
     const std::vector<OcrLayoutLine> &lines() const { return lines_; }
-    // The first line in reading order within slack image pixels of the point.
+    // The nearest line within slack image pixels of the point.
     std::optional<int> line_at(const QPointF &point, double slack = 0) const;
     // What a drag from `from` to `to` covers, judged in each line's own frame: a line holding
     // both ends gives the run between them; a line holding one end, the run from it towards the
@@ -66,6 +66,8 @@ public:
     // What the text covers in image pixels.
     QRectF bounds() const { return bounds_; }
 private:
+    // The line owning the point within slack across lines; within_length also bounds it along them.
+    std::optional<int> nearest_line(const QPointF &point, double slack, bool within_length) const;
     std::vector<OcrLayoutLine> lines_;
     // Per line [first, last); first == last when nothing is selected there.
     std::vector<std::pair<int, int>> selected_;

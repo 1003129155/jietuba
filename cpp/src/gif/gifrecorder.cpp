@@ -112,6 +112,7 @@ void FrameStore::clear() const { jb_frame_store_clear(handle_); }
 FrameDecoder::~FrameDecoder() { jb_frame_decoder_free(handle_); }
 
 namespace {
+// Callers read the outputs only after the call returns: argument evaluation order is unspecified.
 std::optional<std::pair<QByteArray, int>> deliver(int32_t outcome, uint8_t *data, size_t len, uint32_t elapsed) {
     if (outcome < 0) throw std::runtime_error("decoder already stopped");
     if (outcome == 0) return std::nullopt;
@@ -123,14 +124,16 @@ std::optional<std::pair<QByteArray, int>> FrameDecoder::next_frame() {
     uint8_t *data = nullptr;
     size_t len = 0;
     uint32_t elapsed = 0;
-    return deliver(jb_frame_decoder_next_frame(handle_, &data, &len, &elapsed), data, len, elapsed);
+    const int32_t outcome = jb_frame_decoder_next_frame(handle_, &data, &len, &elapsed);
+    return deliver(outcome, data, len, elapsed);
 }
 
 std::optional<std::pair<QByteArray, int>> FrameDecoder::try_next_frame() {
     uint8_t *data = nullptr;
     size_t len = 0;
     uint32_t elapsed = 0;
-    return deliver(jb_frame_decoder_try_next_frame(handle_, &data, &len, &elapsed), data, len, elapsed);
+    const int32_t outcome = jb_frame_decoder_try_next_frame(handle_, &data, &len, &elapsed);
+    return deliver(outcome, data, len, elapsed);
 }
 
 int FrameDecoder::buffered_count() const { return static_cast<int>(jb_frame_decoder_buffered_count(handle_)); }

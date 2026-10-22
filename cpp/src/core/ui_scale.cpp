@@ -86,7 +86,7 @@ std::optional<int> apply_first_run_scale_defaults(ToolSettingsManager &config, Q
     if (!config.is_first_run()) return std::nullopt;
     const auto recommended = recommended_scale_percent(dpi);
     for (const auto &key : {QString("ui_scale_percent"), QString("dialog_scale_percent")}) {
-        if (!config.qsettings.contains("app/" + key)) config.set_app_setting(key, recommended);
+        if (!config.qsettings.contains(ToolSettingsManager::app_setting_path(key))) config.set_app_setting(key, recommended);
     }
     return recommended;
 }

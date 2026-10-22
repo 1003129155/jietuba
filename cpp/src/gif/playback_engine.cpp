@@ -106,6 +106,8 @@ void PlaybackEngine::restart_decoder_from(int index) {
     if (w <= 0 || h <= 0) return;
     // Each frame is its own JPEG, so decoding starts right at the target.
     decoder_ = store_->start_decoder(w, h, 6, index);
+    decoder_w_ = w;
+    decoder_h_ = h;
     current_ = index;
 }
 
@@ -123,9 +125,14 @@ void PlaybackEngine::advance() {
         return;
     }
     const auto &rgb_data = result->first;
-    const int w = display_w_, h = display_h_;
-    const auto image = QImage(reinterpret_cast<const uchar *>(rgb_data.constData()), w, h, w * 3, QImage::Format_RGB888).copy();
-    emit frame_ready(image, current_);
+    // The display size may change while paused without restarting the decoder, so frames keep the size it was started with.
+    const int w = decoder_w_, h = decoder_h_;
+    if (rgb_data.size() == static_cast<qsizetype>(w) * h * 3) {
+        const auto image = QImage(reinterpret_cast<const uchar *>(rgb_data.constData()), w, h, w * 3, QImage::Format_RGB888).copy();
+        emit frame_ready(image, current_);
+    } else {
+        log_warning(T("播放帧大小不符 {w}x{h}: {len} 字节", {{"w", w}, {"h", h}, {"len", static_cast<qlonglong>(rgb_data.size())}}), "PlaybackEngine");
+    }
     emit frame_changed(current_);
     const int next = current_ + 1;
     if (next > trim_end_) {

@@ -2,7 +2,6 @@
 #include "core/i18n.h"
 #include "core/logger.h"
 #include "core/platform_utils.h"
-#include "core/py_text.h"
 #include "core/resource_manager.h"
 #include "core/ui_scale.h"
 #include "settings/tool_settings.h"
@@ -349,7 +348,7 @@ TranslationDialog::TranslationDialog(const QString &original_text, const QString
                                      const QString &source_lang, const QString &target_lang)
     : FramelessWindow(parent), original_text(original_text), translated_text(translated_text), source_lang(source_lang.isEmpty() ? "auto" : source_lang) {
     auto *config = get_tool_settings_manager();
-    const auto saved_target_lang = config->get_app_setting("translation_target_lang", "").toString();
+    const auto saved_target_lang = config->get_saved_translation_target_lang();
     this->target_lang = !saved_target_lang.isEmpty() ? saved_target_lang : !target_lang.isEmpty() ? target_lang : QString("ZH");
     is_on_top_ = config->get_translation_on_top();
 
@@ -474,7 +473,7 @@ void TranslationDialog::build_ui() {
     clear_source_button = tool_button("trash", tr_text("Clear Original"));
     connect(clear_source_button, &QAbstractButton::clicked, source_edit, &QTextEdit::clear);
     speak_source_button = tool_button("speak", tr_text("Read Aloud"));
-    source_speech_ = new SpeechButton(speak_source_button, [this] { return py_strip(source_edit->toPlainText()); }, [this] { return source_text_lang(); });
+    source_speech_ = new SpeechButton(speak_source_button, [this] { return source_edit->toPlainText().trimmed(); }, [this] { return source_text_lang(); });
     // Editing the text being read stops it; the button's state follows the text.
     connect(source_edit, &QTextEdit::textChanged, source_speech_, [this] {
         source_speech_->stop();
@@ -633,7 +632,7 @@ void TranslationDialog::retranslate_ui() {
 void TranslationDialog::on_target_lang_changed(int) {
     const auto lang = get_target_lang();
     if (!lang.isEmpty()) {
-        get_tool_settings_manager()->set_app_setting("translation_target_lang", lang);
+        get_tool_settings_manager()->set_translation_target_lang(lang);
         target_lang = lang;
         log_debug("Target language saved: " + lang, "Translation");
     }
@@ -676,7 +675,7 @@ void TranslationDialog::copy_target() {
 
 QString TranslationDialog::speakable_text() const {
     if (target_edit->property("loading").toBool() || target_edit->property("error").toBool()) return {};
-    return py_strip(target_edit->toPlainText());
+    return target_edit->toPlainText().trimmed();
 }
 
 QString TranslationDialog::source_text_lang() const {

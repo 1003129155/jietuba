@@ -191,7 +191,7 @@ void QuickCaptureController::capture(const QRect &region) {
     const auto action = active_action_;
     auto *worker = new QuickCaptureWorker(region, action, this);
     // Recognition and translation want the text; a drawn pointer would only cover it.
-    worker->include_cursor = !is_text_action(action) && main_app->config_manager->get_app_setting("capture_include_cursor", false).toBool();
+    worker->include_cursor = !is_text_action(action) && main_app->config_manager->get_capture_include_cursor();
     worker_ = worker;
     connect(worker, &QuickCaptureWorker::captured, this, &QuickCaptureController::deliver, Qt::QueuedConnection);
     connect(worker, &QuickCaptureWorker::failed, this, &QuickCaptureController::on_failure, Qt::QueuedConnection);

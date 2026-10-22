@@ -69,7 +69,7 @@ void PinImageTransform::apply_to_window(PinWindow *pin_window) const {
 
 void PinImageTransform::refresh_border(PinWindow *pin_window) const {
     const bool locked = pin_window->locked();
-    const auto color = locked ? LOCKED_BORDER_COLOR : pin_window->border_color;
+    const auto color = pin_window->frame_color();
     if (pin_window->border_enabled || locked) {
         if (!pin_window->border_overlay) pin_window->border_overlay = new PinBorderOverlay(pin_window, pin_window->corner, color);
         else pin_window->border_overlay->set_border_color(color);

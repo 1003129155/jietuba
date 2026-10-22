@@ -821,40 +821,28 @@ Replace it?</translation>
         <translation>Settings Backup</translation>
     </message>
     <message>
-        <source>Export Settings</source>
-        <translation>Export Settings</translation>
+        <source>Settings File</source>
+        <translation>Settings File</translation>
     </message>
     <message>
-        <source>Save settings to a file, including translation API keys. Folder locations are not included.</source>
-        <translation>Save settings to a file, including translation API keys. Folder locations are not included.</translation>
-    </message>
-    <message>
-        <source>Export</source>
-        <translation>Export</translation>
+        <source>Copy this file to back up your settings or use them on another computer.</source>
+        <translation>Copy this file to back up your settings or use them on another computer.</translation>
     </message>
     <message>
         <source>Import Settings</source>
         <translation>Import Settings</translation>
     </message>
     <message>
-        <source>Load settings from an exported file. Folder locations stay unchanged.</source>
-        <translation>Load settings from an exported file. Folder locations stay unchanged.</translation>
+        <source>Load settings from another settings.ini or a file exported by an earlier version. Folder locations stay unchanged.</source>
+        <translation>Load settings from another settings.ini or a file exported by an earlier version. Folder locations stay unchanged.</translation>
     </message>
     <message>
         <source>Import</source>
         <translation>Import</translation>
     </message>
     <message>
-        <source>Settings File (*.json)</source>
-        <translation>Settings File (*.json)</translation>
-    </message>
-    <message>
-        <source>Could not write the file: %1</source>
-        <translation>Could not write the file: %1</translation>
-    </message>
-    <message>
-        <source>Settings exported to %1</source>
-        <translation>Settings exported to %1</translation>
+        <source>Settings File (*.ini *.json)</source>
+        <translation>Settings File (*.ini *.json)</translation>
     </message>
     <message>
         <source>This file is not a Jietuba settings file, or it is damaged.</source>
@@ -1152,6 +1140,14 @@ Replace it?</translation>
     <message>
         <source>Lock / Unlock Pin</source>
         <translation>Lock / Unlock Pin</translation>
+    </message>
+    <message>
+        <source>Toggle Text Mode</source>
+        <translation>Toggle Text Mode</translation>
+    </message>
+    <message>
+        <source>Toggle Text Selection</source>
+        <translation>Toggle Text Selection</translation>
     </message>
     <message>
         <source>Behavior</source>
@@ -1806,6 +1802,22 @@ Replace it?</translation>
     <message>
         <source>Text selection</source>
         <translation>Text selection</translation>
+    </message>
+    <message>
+        <source>Text mode</source>
+        <translation>Text mode</translation>
+    </message>
+    <message>
+        <source>Recognizing...</source>
+        <translation>Recognizing...</translation>
+    </message>
+    <message>
+        <source>Text selection on</source>
+        <translation>Text selection on</translation>
+    </message>
+    <message>
+        <source>Text selection off</source>
+        <translation>Text selection off</translation>
     </message>
     <message>
         <source>Border</source>
@@ -4932,8 +4944,15 @@ Items in the group will be moved back to clipboard history.</translation>
     <message><source>Info</source><translation>Info</translation></message>
     <message><source>The selected folder is already the current location.</source><translation>The selected folder is already the current location.</translation></message>
     <message><source>Please choose a folder outside the current clipboard images folder.</source><translation>Please choose a folder outside the current clipboard images folder.</translation></message>
-    <message><source>Replace Existing Data</source><translation>Replace Existing Data</translation></message>
-    <message><source>The selected folder already contains clipboard data. Replace it with the current data?</source><translation>The selected folder already contains clipboard data. Replace it with the current data?</translation></message>
+    <message><source>Existing Clipboard Data</source><translation>Existing Clipboard Data</translation></message>
+    <message><source>The selected folder already contains clipboard data.
+Use That Data: switch to it and leave the current data where it is.
+Replace: move the current data there; the data already in that folder will be deleted.</source><translation>The selected folder already contains clipboard data.
+Use That Data: switch to it and leave the current data where it is.
+Replace: move the current data there; the data already in that folder will be deleted.</translation></message>
+    <message><source>Use That Data</source><translation>Use That Data</translation></message>
+    <message><source>Replace</source><translation>Replace</translation></message>
+    <message><source>Cannot open the clipboard data in the selected folder. The current data is still in use.</source><translation>Cannot open the clipboard data in the selected folder. The current data is still in use.</translation></message>
     <message><source>Failed to close the current clipboard database.</source><translation>Failed to close the current clipboard database.</translation></message>
     <message><source>Preparing migration...</source><translation>Preparing migration...</translation></message>
     <message><source>Moving Clipboard Data</source><translation>Moving Clipboard Data</translation></message>

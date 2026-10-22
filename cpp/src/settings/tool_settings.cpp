@@ -1,10 +1,10 @@
 #include "settings/tool_settings.h"
 #include <algorithm>
 #include "core/constants.h"
+#include "core/data_location.h"
 #include "core/global_hotkey.h"
 #include "core/logger.h"
 #include "core/i18n.h"
-#include "core/py_text.h"
 #include <QDate>
 #include <QDir>
 #include <QFile>
@@ -67,6 +67,47 @@ QVariant restore_type(const QJsonValue &value, const QString &type) {
     if (type == "float") return value.toDouble();
     return value.toVariant();
 }
+// Integers are held as qint64, as tool defaults are.
+template <typename T> QVariant default_value(const T &value) { return QVariant::fromValue(value); }
+template <> QVariant default_value<int>(const int &value) { return QVariant::fromValue(qint64(value)); }
+template <> QVariant default_value<QVariantList>(const QVariantList &values) {
+    QVariantList result;
+    for (const auto &value : values) result.append(value.typeId() == QMetaType::Int ? default_value(value.toInt()) : value);
+    return result;
+}
+}
+
+const std::vector<AppSetting> &APP_SETTINGS() {
+    static const std::vector<AppSetting> settings = {
+#define SETTING_AS(accessor, name, path, Type, initial, scope, getter, setter) {#name, path, SettingScope::scope},
+#define SETTING(name, path, Type, initial, scope, getter, setter) SETTING_AS(name, name, path, Type, initial, scope, getter, setter)
+#include "settings/app_settings.inc"
+#undef SETTING
+#undef SETTING_AS
+    };
+    return settings;
+}
+
+const QSet<QString> &LOCAL_SETTING_PATHS() {
+    static const QSet<QString> paths = [] {
+        QSet<QString> result;
+        for (const auto &setting : APP_SETTINGS())
+            if (setting.scope == SettingScope::Local) result.insert(setting.path);
+        return result;
+    }();
+    return paths;
+}
+
+QSettings &SettingsStore::store(const QString &key) const { return LOCAL_SETTING_PATHS().contains(key) ? *local_ : *settings_; }
+
+void SettingsStore::sync() const {
+    settings_->sync();
+    if (local_ != settings_) local_->sync();
+}
+
+std::unique_ptr<QSettings> open_local_settings() {
+    if (!test_sandbox_dir().isEmpty()) return std::make_unique<QSettings>(data_location().settings_file(), QSettings::IniFormat);
+    return std::make_unique<QSettings>(LOCAL_SETTINGS_KEY, QSettings::NativeFormat);
 }
 
 QVariant ToolSettings::get(const QString &key, const QVariant &fallback) const {
@@ -79,26 +120,18 @@ void ToolSettings::from_dict(const QVariantMap &values) {
     update(values);
 }
 
-QVariant SettingsStore::stored_int(const QVariant &value) {
-    const int type = value.metaType().id();
-    if (type != QMetaType::LongLong && type != QMetaType::ULongLong && type != QMetaType::UInt) return value;
-    bool ok = false;
-    const qint64 number = value.toLongLong(&ok);
-    if (!ok || number < std::numeric_limits<int>::min() || number > std::numeric_limits<int>::max()) return value;
-    return int(number);
-}
-
-ToolSettingsManager::ToolSettingsManager(QSettings &settings, QObject *parent) : QObject(parent), qsettings(settings) {
+ToolSettingsManager::ToolSettingsManager(QSettings &settings, QSettings *local_settings, QObject *parent)
+    : QObject(parent), qsettings(settings, local_settings) {
     initializeDefaultsResource();
     QFile file(":/settings/defaults.json");
     if (!file.open(QIODevice::ReadOnly)) throw std::runtime_error("Missing verified Python default registry");
     const auto data = QJsonDocument::fromJson(file.readAll()).object();
     for (const auto &tool : data["tool_order"].toArray()) tool_order_.append(tool.toString());
-    const auto apps = data["app"].toObject(), app_types = data["app_types"].toObject();
-    for (auto it = apps.begin(); it != apps.end(); ++it) app_defaults_[it.key()] = restore_type(it.value(), app_types[it.key()].toString());
-    app_defaults_["screenshot_save_path"] = QDir::toNativeSeparators(QDir::homePath() + "/Pictures/jietuba_photos");
-    // The registry holds the generating machine's expanded path; it is rebuilt for this user.
-    app_defaults_["log_dir"] = QDir::toNativeSeparators(::jietuba::get_log_dir());
+#define SETTING_AS(accessor, name, path, Type, initial, scope, getter, setter) app_defaults_.insert(QStringLiteral(#name), default_value<Type>(initial));
+#define SETTING(name, path, Type, initial, scope, getter, setter) SETTING_AS(name, name, path, Type, initial, scope, getter, setter)
+#include "settings/app_settings.inc"
+#undef SETTING
+#undef SETTING_AS
     const auto tools = data["tools"].toObject(), tool_types = data["tool_types"].toObject();
     for (auto it = tools.begin(); it != tools.end(); ++it) {
         QVariantMap defaults;
@@ -151,13 +184,6 @@ void ToolSettingsManager::reset_tool(const QString &tool, bool save) {
     }
 }
 void ToolSettingsManager::reset_all() { for (const auto &id : tool_order_) reset_tool(id); }
-void ToolSettingsManager::reset_app_settings() {
-    for (auto it = app_defaults_.begin(); it != app_defaults_.end(); ++it) {
-        const auto &key = it.key();
-        const auto path = key.startsWith("inapp_") ? "inapp/" + key : key.startsWith("pin_") ? "pin/" + key.mid(4) : "app/" + key;
-        qsettings.setValue(path, it.value());
-    }
-}
 QVariant ToolSettingsManager::typed_value(const QString &path, const QVariant &fallback) const {
     const auto raw = qsettings.value(path, fallback);
     if (!fallback.isValid() || fallback.isNull()) return raw;
@@ -168,6 +194,12 @@ QVariant ToolSettingsManager::typed_value(const QString &path, const QVariant &f
     return raw.toString();
 }
 QString ToolSettingsManager::app_setting_path(const QString &key) {
+    static const QHash<QString, QString> paths = [] {
+        QHash<QString, QString> result;
+        for (const auto &setting : APP_SETTINGS()) result.insert(setting.name, setting.path);
+        return result;
+    }();
+    if (const auto it = paths.constFind(key); it != paths.constEnd()) return *it;
     return key.startsWith("pin_") ? "pin/" + key.mid(4) : "app/" + key;
 }
 QVariant ToolSettingsManager::get_app_setting(const QString &key, QVariant fallback) const {
@@ -181,8 +213,34 @@ QString ToolSettingsManager::get_inapp_shortcut(const QString &key) const {
     return qsettings.value("inapp/" + key, app_defaults_.value(key, "")).toString();
 }
 void ToolSettingsManager::set_inapp_shortcut(const QString &key, const QString &value) { qsettings.setValue("inapp/" + key, value); }
-QString ToolSettingsManager::get_hotkey() const { return qsettings.value("app/hotkey", app_defaults_["hotkey"]).toString(); }
-QString ToolSettingsManager::get_clipboard_hotkey() const { return qsettings.value("clipboard/hotkey", app_defaults_["clipboard_hotkey"]).toString(); }
+
+std::optional<QVariant> ToolSettingsManager::accessor_value(const QString &name) const {
+#define SETTING_AS(accessor, key, path, Type, initial, scope, getter, setter) \
+    if (name == QLatin1String(#accessor)) return QVariant(get_##accessor());
+#define SETTING(key, path, Type, initial, scope, getter, setter) SETTING_AS(key, key, path, Type, initial, scope, getter, setter)
+#include "settings/app_settings.inc"
+#undef SETTING
+#undef SETTING_AS
+    return std::nullopt;
+}
+
+bool ToolSettingsManager::set_accessor_value(const QString &name, const QVariant &value) {
+#define JIETUBA_SET_BY_NAME_Gen(accessor, path, Type) qsettings.setValue(QStringLiteral(path), value); return true;
+#define JIETUBA_SET_BY_NAME_Trim(accessor, path, Type) set_##accessor(value.toString()); return true;
+#define JIETUBA_SET_BY_NAME_Own(accessor, path, Type) set_##accessor(setting_detail::cast<Type>(value)); return true;
+#define JIETUBA_SET_BY_NAME_None(accessor, path, Type) return false;
+#define SETTING_AS(accessor, key, path, Type, initial, scope, getter, setter) \
+    if (name == QLatin1String(#accessor)) { JIETUBA_SET_BY_NAME_##setter(accessor, path, Type) }
+#define SETTING(key, path, Type, initial, scope, getter, setter) SETTING_AS(key, key, path, Type, initial, scope, getter, setter)
+#include "settings/app_settings.inc"
+#undef SETTING
+#undef SETTING_AS
+#undef JIETUBA_SET_BY_NAME_Gen
+#undef JIETUBA_SET_BY_NAME_Trim
+#undef JIETUBA_SET_BY_NAME_Own
+#undef JIETUBA_SET_BY_NAME_None
+    return false;
+}
 
 const std::vector<GlobalHotkeyFunction> &GLOBAL_HOTKEY_FUNCTIONS() {
     static const std::vector<GlobalHotkeyFunction> functions = {
@@ -228,7 +286,7 @@ void ToolSettingsManager::migrate_win_v_slot(QStringList &values) const {
     const QString path = QString("clipboard/hotkey") + global_hotkey_slot_suffix(WIN_V_CLIPBOARD_SLOT);
     if (qsettings.contains(path)) return;
     values[WIN_V_CLIPBOARD_SLOT] = "";
-    if (!get_app_setting("clipboard_take_over_win_v").toBool()) return;
+    if (!get_clipboard_take_over_win_v()) return;
     // Not again when another slot already holds Win+V (the kind old versions could not register).
     for (const auto &entry : GLOBAL_HOTKEY_FUNCTIONS()) {
         for (int slot = 0; slot < GLOBAL_HOTKEY_SLOTS; ++slot) {
@@ -246,7 +304,7 @@ void ToolSettingsManager::set_global_hotkeys(const QString &function, const QStr
     const auto &entry = global_hotkey_function(function);
     for (int slot = 0; slot < GLOBAL_HOTKEY_SLOTS; ++slot) qsettings.setValue(entry.path + global_hotkey_slot_suffix(slot), values[slot]);
     // Versions that know only two slots take over Win+V through the old switch.
-    if (function == "clipboard") set_app_setting("clipboard_take_over_win_v", std::any_of(values.begin(), values.end(), is_win_v));
+    if (function == "clipboard") set_clipboard_take_over_win_v(std::any_of(values.begin(), values.end(), is_win_v));
 }
 QVariantMap ToolSettingsManager::export_settings() const {
     QVariantMap result;
@@ -259,8 +317,10 @@ void ToolSettingsManager::import_settings(const QVariantMap &values) {
         _save_tool_settings(*tool);
     }
 }
-bool ToolSettingsManager::is_first_run() const { return !qsettings.value("app/has_run_before", false).toBool(); }
-void ToolSettingsManager::mark_as_run() { qsettings.setValue("app/has_run_before", true); qsettings.sync(); }
+void ToolSettingsManager::mark_as_run() {
+    set_has_run_before(true);
+    qsettings.sync();
+}
 bool ToolSettingsManager::is_absolute_save_path(const QString &value) {
 #ifdef Q_OS_WIN
     // ntpath.isabs in Python 3.11 accepts rooted paths as well.
@@ -271,47 +331,53 @@ bool ToolSettingsManager::is_absolute_save_path(const QString &value) {
 #endif
 }
 QString ToolSettingsManager::get_screenshot_save_path() const {
-    const auto fallback = app_defaults_.value("screenshot_save_path").toString();
-    auto path = qsettings.value("app/screenshot_save_path", fallback).toString();
+    auto path = stored_screenshot_save_path().toString();
     if (path.isEmpty() || !is_absolute_save_path(path)) {
-        path = fallback;
-        qsettings.setValue("app/screenshot_save_path", path);
+        path = default_screenshot_save_path().toString();
+        store_screenshot_save_path(path);
     }
     return path;
 }
 void ToolSettingsManager::set_screenshot_save_path(const QString &value) {
-    if (!value.isEmpty() && is_absolute_save_path(value)) qsettings.setValue("app/screenshot_save_path", value);
+    if (!value.isEmpty() && is_absolute_save_path(value)) store_screenshot_save_path(value);
 }
 
 ToolSettingsManager *get_tool_settings_manager(QSettings *qsettings) {
     static ToolSettingsManager *manager = nullptr;
     if (!manager) {
+        QSettings *local = nullptr;
         if (!qsettings) {
-            const auto sandbox = test_sandbox_dir();
-            qsettings = sandbox.isEmpty() ? new QSettings(TOOL_SETTINGS_ORGANIZATION, TOOL_SETTINGS_APPLICATION)
-                                          : new QSettings(QDir(sandbox).filePath("settings.ini"), QSettings::IniFormat);
+            qsettings = new QSettings(data_location().settings_file(), QSettings::IniFormat);
+            if (test_sandbox_dir().isEmpty()) local = open_local_settings().release();
         }
-        manager = new ToolSettingsManager(*qsettings);
+        manager = new ToolSettingsManager(*qsettings, local);
     }
     return manager;
 }
 QString ToolSettingsManager::get_screenshot_watermark_time_format() const {
-    const auto fallback = app_defaults_.value("screenshot_watermark_time_format").toString();
-    const auto value = qsettings.value("app/screenshot_watermark_time_format", fallback).toString();
-    return value.isEmpty() ? fallback : value;
+    const auto value = stored_screenshot_watermark_time_format().toString();
+    return value.isEmpty() ? default_screenshot_watermark_time_format().toString() : value;
 }
 
+namespace {
+// A text setting restricted to choices, compared in lower case; anything else reads as fallback.
+QString choice_value(const QVariant &stored, const QVariant &fallback, const QStringList &choices) {
+    const auto value = stored.toString().toLower();
+    return choices.contains(value) ? value : fallback.toString();
+}
+// What a choice setter stores: the choice in lower case, anything else the default.
+QString choice_or_default(const QString &value, const QVariant &fallback, const QStringList &choices) {
+    const auto choice = value.toLower();
+    return choices.contains(choice) ? choice : fallback.toString();
+}
+}
 
 QString ToolSettingsManager::get_capture_engine() const {
-    const auto fallback = app_defaults_.value("capture_engine").toString();
-    const auto engine = qsettings.value("app/capture_engine", fallback).toString().toLower();
-    return CAPTURE_ENGINE_CHOICES.contains(engine) ? engine : fallback;
+    return choice_value(stored_capture_engine(), default_capture_engine(), CAPTURE_ENGINE_CHOICES);
 }
 
 void ToolSettingsManager::set_capture_engine(const QString &value) {
-    auto engine = value.toLower();
-    if (!CAPTURE_ENGINE_CHOICES.contains(engine)) engine = app_defaults_.value("capture_engine").toString();
-    qsettings.setValue("app/capture_engine", engine);
+    store_capture_engine(choice_or_default(value, default_capture_engine(), CAPTURE_ENGINE_CHOICES));
 }
 
 const std::vector<MouseAction> &CAPTURE_MOUSE_ACTIONS() {
@@ -441,55 +507,38 @@ QString clipboard_pick_keys(const QString &mode) {
     return keys.value(mode, keys.value("both"));
 }
 
-namespace {
-// A string setting restricted to choices; anything else reads as the default.
-QString choice_value(const SettingsStore &qsettings, const QString &key, const QString &fallback, const QStringList &choices) {
-    const auto value = qsettings.value(key, fallback).toString().toLower();
-    return choices.contains(value) ? value : fallback;
-}
-}
-
-void ToolSettingsManager::set_trimmed(const QString &key, const QString &value) { qsettings.setValue(key, value.trimmed()); }
-
 QString ToolSettingsManager::get_smart_selection_mode() const {
     if (!get_smart_selection()) return "off";
-    return choice_value(qsettings, "app/smart_selection_mode", app_defaults_.value("smart_selection_mode").toString(), STORED_SMART_SELECTION_MODES);
+    return choice_value(stored_smart_selection_mode(), default_smart_selection_mode(), STORED_SMART_SELECTION_MODES);
 }
 
 void ToolSettingsManager::set_smart_selection_mode(const QString &value) {
-    auto mode = (value.isEmpty() ? QString("off") : value).toLower();
-    if (!SMART_SELECTION_MODES.contains(mode)) mode = app_defaults_.value("smart_selection_mode").toString();
-    if (mode != "off") qsettings.setValue("app/smart_selection_mode", mode);
-    qsettings.setValue("app/smart_selection", mode != "off");
+    const auto mode = choice_or_default(value.isEmpty() ? QString("off") : value, default_smart_selection_mode(), SMART_SELECTION_MODES);
+    if (mode != "off") store_smart_selection_mode(mode);
+    set_smart_selection(mode != "off");
 }
 
-QString ToolSettingsManager::get_ocr_engine() const { return choice_value(qsettings, "app/ocr_engine", app_defaults_.value("ocr_engine").toString(), OCR_ENGINES); }
+QString ToolSettingsManager::get_ocr_engine() const { return choice_value(stored_ocr_engine(), default_ocr_engine(), OCR_ENGINES); }
 
-void ToolSettingsManager::set_ocr_engine(const QString &value) {
-    auto engine = value.toLower();
-    if (!OCR_ENGINES.contains(engine)) engine = app_defaults_.value("ocr_engine").toString();
-    qsettings.setValue("app/ocr_engine", engine);
-}
+void ToolSettingsManager::set_ocr_engine(const QString &value) { store_ocr_engine(choice_or_default(value, default_ocr_engine(), OCR_ENGINES)); }
 
 int ToolSettingsManager::get_shift_line_angle() const {
-    const int fallback = app_defaults_.value("shift_line_angle").toInt();
+    const int fallback = default_shift_line_angle().toInt();
     bool ok = false;
-    const int angle = qsettings.value("app/shift_line_angle", fallback).toString().toInt(&ok);
+    const int angle = stored_shift_line_angle().toString().toInt(&ok);
     return ok && SHIFT_LINE_ANGLES.contains(angle) ? angle : fallback;
 }
 
 void ToolSettingsManager::set_shift_line_angle(int value) {
-    qsettings.setValue("app/shift_line_angle", SHIFT_LINE_ANGLES.contains(value) ? value : app_defaults_.value("shift_line_angle").toInt());
+    store_shift_line_angle(SHIFT_LINE_ANGLES.contains(value) ? value : default_shift_line_angle().toInt());
 }
 
 QString ToolSettingsManager::get_ocr_result_position() const {
-    return choice_value(qsettings, "app/ocr_result_position", app_defaults_.value("ocr_result_position").toString(), OCR_RESULT_POSITIONS);
+    return choice_value(stored_ocr_result_position(), default_ocr_result_position(), OCR_RESULT_POSITIONS);
 }
 
 void ToolSettingsManager::set_ocr_result_position(const QString &value) {
-    auto position = value.toLower();
-    if (!OCR_RESULT_POSITIONS.contains(position)) position = app_defaults_.value("ocr_result_position").toString();
-    qsettings.setValue("app/ocr_result_position", position);
+    store_ocr_result_position(choice_or_default(value, default_ocr_result_position(), OCR_RESULT_POSITIONS));
 }
 
 std::optional<QPoint> ToolSettingsManager::get_ocr_result_last_center() const {
@@ -502,27 +551,23 @@ std::optional<QPoint> ToolSettingsManager::get_ocr_result_last_center() const {
 }
 
 QString ToolSettingsManager::get_ocr_layout_mode() const {
-    return choice_value(qsettings, "app/ocr_layout_mode", app_defaults_.value("ocr_layout_mode").toString(), OCR_LAYOUT_MODES);
+    return choice_value(stored_ocr_layout_mode(), default_ocr_layout_mode(), OCR_LAYOUT_MODES);
 }
 
 void ToolSettingsManager::set_ocr_layout_mode(const QString &value) {
-    auto mode = value.toLower();
-    if (!OCR_LAYOUT_MODES.contains(mode)) mode = app_defaults_.value("ocr_layout_mode").toString();
-    qsettings.setValue("app/ocr_layout_mode", mode);
+    store_ocr_layout_mode(choice_or_default(value, default_ocr_layout_mode(), OCR_LAYOUT_MODES));
 }
 
 QString ToolSettingsManager::get_ocr_punctuation() const {
-    return choice_value(qsettings, "app/ocr_punctuation", app_defaults_.value("ocr_punctuation").toString(), OCR_PUNCTUATION_MODES);
+    return choice_value(stored_ocr_punctuation(), default_ocr_punctuation(), OCR_PUNCTUATION_MODES);
 }
 
 void ToolSettingsManager::set_ocr_punctuation(const QString &value) {
-    auto mode = value.toLower();
-    if (!OCR_PUNCTUATION_MODES.contains(mode)) mode = app_defaults_.value("ocr_punctuation").toString();
-    qsettings.setValue("app/ocr_punctuation", mode);
+    store_ocr_punctuation(choice_or_default(value, default_ocr_punctuation(), OCR_PUNCTUATION_MODES));
 }
 
 void ToolSettingsManager::set_translation_provider(const QString &provider_id) {
-    qsettings.setValue("translation/active_provider", (provider_id.isEmpty() ? QString("deepl") : provider_id).trimmed().toLower());
+    store_translation_provider((provider_id.isEmpty() ? QString("deepl") : provider_id).trimmed().toLower());
 }
 
 QVariantMap ToolSettingsManager::get_translation_provider_config(const QString &requested) const {
@@ -541,24 +586,17 @@ QVariantMap ToolSettingsManager::get_translation_provider_config(const QString &
     if (provider_id == "youdao") return {{"app_key", get_youdao_translate_app_key()}, {"app_secret", get_youdao_translate_app_secret()}};
     if (provider_id == "deepseek") return {{"api_key", get_deepseek_api_key()}, {"model", get_deepseek_model()}, {"base_url", get_deepseek_base_url()}};
     if (CUSTOM_LLM_PROVIDER_IDS.contains(provider_id)) {
+        // Each slot's settings are named <slot>_<key>.
         QVariantMap config;
-        for (const auto &key : CUSTOM_LLM_TEXT_KEYS) config[key] = get_custom_llm_text(provider_id, key);
-        config["json_mode"] = get_custom_llm_json_mode(provider_id);
+        for (const auto &key : CUSTOM_LLM_TEXT_KEYS) config[key] = get_app_setting(provider_id + "_" + key).toString();
+        config["json_mode"] = get_app_setting(provider_id + "_json_mode").toBool();
         return config;
     }
     return {};
 }
 
 void ToolSettingsManager::set_amazon_translate_region(const QString &value) {
-    qsettings.setValue("translation/providers/amazon/region", (value.isEmpty() ? QString("us-west-2") : value).trimmed());
-}
-
-QString ToolSettingsManager::get_volcengine_translate_quota_limit() const {
-    return qsettings.value("translation/providers/volcengine/quota_limit", app_defaults_.value("volcengine_translate_quota_limit")).toString().trimmed();
-}
-
-QString ToolSettingsManager::get_tencent_translate_quota_limit() const {
-    return qsettings.value("translation/providers/tencent/quota_limit", app_defaults_.value("tencent_translate_quota_limit")).toString().trimmed();
+    store_amazon_translate_region((value.isEmpty() ? QString("us-west-2") : value).trimmed());
 }
 
 bool ToolSettingsManager::get_translation_quota_enabled(const QString &requested) const {
@@ -574,7 +612,8 @@ qint64 ToolSettingsManager::get_translation_quota_limit(const QString &requested
     if (provider_id == "volcengine") limit = get_volcengine_translate_quota_limit();
     else if (provider_id == "tencent") limit = get_tencent_translate_quota_limit();
     if (limit.isEmpty()) return 0;
-    return py_int(limit).value_or(0);
+    // NFKC turns full-width digits and signs typed through an IME into ASCII ones.
+    return limit.normalized(QString::NormalizationForm_KC).toLongLong();
 }
 
 namespace {
@@ -592,97 +631,17 @@ void ToolSettingsManager::add_translation_usage_chars(const QString &provider_id
     qsettings.setValue(key, qsettings.value(key, 0).toLongLong() + chars);
 }
 
-namespace {
-// (slot, key) of a custom service field such as "custom_llm_2_api_key"; longer slots first,
-// since "custom_llm" is a prefix of the others.
-std::optional<std::pair<QString, QString>> custom_llm_field(const QString &config_key) {
-    QStringList slot_ids = CUSTOM_LLM_PROVIDER_IDS;
-    std::sort(slot_ids.begin(), slot_ids.end(), [](const QString &a, const QString &b) { return a.size() > b.size(); });
-    for (const auto &slot_id : slot_ids) {
-        if (!config_key.startsWith(slot_id + "_")) continue;
-        const QString key = config_key.mid(slot_id.size() + 1);
-        if (key == "json_mode" || CUSTOM_LLM_TEXT_KEYS.contains(key)) return std::make_pair(slot_id, key);
-        return std::nullopt;
-    }
-    return std::nullopt;
-}
-}
-
-std::optional<QVariant> ToolSettingsManager::get_provider_field(const QString &config_key) const {
-    if (const auto field = custom_llm_field(config_key))
-        return field->second == "json_mode" ? QVariant(get_custom_llm_json_mode(field->first)) : QVariant(get_custom_llm_text(field->first, field->second));
-    static const QMap<QString, QString (ToolSettingsManager::*)() const> text_getters{
-        {"volcengine_translate_quota_limit", &ToolSettingsManager::get_volcengine_translate_quota_limit},
-        {"tencent_translate_quota_limit", &ToolSettingsManager::get_tencent_translate_quota_limit},
-    };
-    if (const auto getter = text_getters.value(config_key)) return (this->*getter)();
-    return generated_accessor_value("get_" + config_key);
-}
-
-bool ToolSettingsManager::set_provider_field(const QString &config_key, const QVariant &value) {
-    if (const auto field = custom_llm_field(config_key)) {
-        if (field->second == "json_mode") set_custom_llm_json_mode(field->first, value.toBool());
-        else set_custom_llm_text(field->first, field->second, value.toString());
-        return true;
-    }
-    if (apply_generated_setter("set_" + config_key, value)) return true;
-    static const QMap<QString, void (ToolSettingsManager::*)(const QString &)> text_setters{
-        {"amazon_translate_region", &ToolSettingsManager::set_amazon_translate_region},
-        {"amazon_translate_access_key_id", &ToolSettingsManager::set_amazon_translate_access_key_id},
-        {"amazon_translate_secret_access_key", &ToolSettingsManager::set_amazon_translate_secret_access_key},
-        {"amazon_translate_session_token", &ToolSettingsManager::set_amazon_translate_session_token},
-        {"google_translate_api_key", &ToolSettingsManager::set_google_translate_api_key},
-        {"azure_translate_api_key", &ToolSettingsManager::set_azure_translate_api_key},
-        {"azure_translate_region", &ToolSettingsManager::set_azure_translate_region},
-        {"azure_translate_endpoint", &ToolSettingsManager::set_azure_translate_endpoint},
-        {"baidu_translate_appid", &ToolSettingsManager::set_baidu_translate_appid},
-        {"baidu_translate_secret_key", &ToolSettingsManager::set_baidu_translate_secret_key},
-        {"volcengine_translate_access_key", &ToolSettingsManager::set_volcengine_translate_access_key},
-        {"volcengine_translate_secret_key", &ToolSettingsManager::set_volcengine_translate_secret_key},
-        {"volcengine_translate_quota_limit", &ToolSettingsManager::set_volcengine_translate_quota_limit},
-        {"tencent_translate_secret_id", &ToolSettingsManager::set_tencent_translate_secret_id},
-        {"tencent_translate_secret_key", &ToolSettingsManager::set_tencent_translate_secret_key},
-        {"tencent_translate_quota_limit", &ToolSettingsManager::set_tencent_translate_quota_limit},
-        {"youdao_translate_app_key", &ToolSettingsManager::set_youdao_translate_app_key},
-        {"youdao_translate_app_secret", &ToolSettingsManager::set_youdao_translate_app_secret},
-        {"deepseek_api_key", &ToolSettingsManager::set_deepseek_api_key},
-        {"deepseek_model", &ToolSettingsManager::set_deepseek_model},
-        {"deepseek_base_url", &ToolSettingsManager::set_deepseek_base_url},
-    };
-    static const QMap<QString, void (ToolSettingsManager::*)(bool)> bool_setters{
-        {"volcengine_translate_quota_enabled", &ToolSettingsManager::set_volcengine_translate_quota_enabled},
-        {"tencent_translate_quota_enabled", &ToolSettingsManager::set_tencent_translate_quota_enabled},
-    };
-    if (const auto setter = bool_setters.value(config_key)) {
-        (this->*setter)(value.toBool());
-        return true;
-    }
-    const auto setter = text_setters.value(config_key);
-    if (!setter) return false;
-    (this->*setter)(value.toString());
-    return true;
-}
-
-QString ToolSettingsManager::get_custom_llm_text(const QString &slot, const QString &key) const {
-    return qsettings.value("translation/providers/" + slot + "/" + key, app_defaults_.value(slot + "_" + key)).toString();
-}
-
-bool ToolSettingsManager::get_custom_llm_json_mode(const QString &slot) const {
-    return qsettings.value("translation/providers/" + slot + "/json_mode", app_defaults_.value(slot + "_json_mode")).toBool();
-}
-
 QString ToolSettingsManager::get_translation_target_lang() const {
-    const auto saved = qsettings.value("app/translation_target_lang", "").toString();
+    const auto saved = stored_translation_target_lang().toString();
     if (!saved.isEmpty()) return saved;
     static const QMap<QString, QString> lang_map = {{"zh", "ZH"}, {"zh_TW", "ZH-HANT"}, {"ja", "JA"}, {"en", "EN"}};
     return lang_map.value(I18nManager::get_system_language(), "EN");
 }
 
 QVariantMap ToolSettingsManager::get_translation_params() const {
-    const auto saved_target_lang = get_app_setting("translation_target_lang", "").toString();
     return {
         {"api_key", get_deepl_api_key()},
-        {"target_lang", !saved_target_lang.isEmpty() ? saved_target_lang : get_translation_target_lang()},
+        {"target_lang", get_translation_target_lang()},
         {"use_pro", get_deepl_use_pro()},
         {"split_sentences", get_translation_split_sentences() ? "nonewlines" : "0"},
         {"preserve_formatting", get_translation_preserve_formatting()},
@@ -690,51 +649,40 @@ QVariantMap ToolSettingsManager::get_translation_params() const {
 }
 
 QVariantMap ToolSettingsManager::get_translation_request_params() const {
-    const auto saved_target_lang = get_app_setting("translation_target_lang", "").toString();
     return {
-        {"target_lang", !saved_target_lang.isEmpty() ? saved_target_lang : get_translation_target_lang()},
+        {"target_lang", get_translation_target_lang()},
         {"split_sentences", get_translation_split_sentences() ? "nonewlines" : "0"},
         {"preserve_formatting", get_translation_preserve_formatting()},
     };
 }
 
 QString ToolSettingsManager::get_clipboard_image_size() const {
-    const auto fallback = app_defaults_.value("clipboard_image_size").toString();
-    const auto value = qsettings.value("clipboard/image_size", fallback).toString();
-    return CLIPBOARD_IMAGE_SIZES.contains(value) ? value : fallback;
-}
-
-int ToolSettingsManager::get_clipboard_display_lines() const {
-    return std::clamp(qsettings.value("clipboard/display_lines", app_defaults_.value("clipboard_display_lines")).toInt(), 1, 5);
+    const auto value = stored_clipboard_image_size().toString();
+    return CLIPBOARD_IMAGE_SIZES.contains(value) ? value : default_clipboard_image_size().toString();
 }
 
 void ToolSettingsManager::set_clipboard_image_size(const QString &value) {
-    if (CLIPBOARD_IMAGE_SIZES.contains(value)) qsettings.setValue("clipboard/image_size", value);
-}
-
-QString ToolSettingsManager::get_clipboard_multi_paste_separator() const {
-    return qsettings.value("clipboard/multi_paste_separator", app_defaults_.value("clipboard_multi_paste_separator")).toString();
+    if (CLIPBOARD_IMAGE_SIZES.contains(value)) store_clipboard_image_size(value);
 }
 
 QString ToolSettingsManager::get_clipboard_multi_paste_order() const {
-    const auto fallback = app_defaults_.value("clipboard_multi_paste_order").toString();
-    const auto value = qsettings.value("clipboard/multi_paste_order", fallback).toString();
-    return CLIPBOARD_MULTI_PASTE_ORDERS.contains(value) ? value : fallback;
+    const auto value = stored_clipboard_multi_paste_order().toString();
+    return CLIPBOARD_MULTI_PASTE_ORDERS.contains(value) ? value : default_clipboard_multi_paste_order().toString();
 }
 
 void ToolSettingsManager::set_clipboard_multi_paste_order(const QString &value) {
-    if (CLIPBOARD_MULTI_PASTE_ORDERS.contains(value)) qsettings.setValue("clipboard/multi_paste_order", value);
+    if (CLIPBOARD_MULTI_PASTE_ORDERS.contains(value)) store_clipboard_multi_paste_order(value);
 }
 
 QString ToolSettingsManager::get_clipboard_group_bar_position() const {
     static const QStringList positions = {"right", "left", "top"};
-    const auto value = qsettings.value("clipboard/group_bar_position", app_defaults_.value("clipboard_group_bar_position")).toString();
+    const auto value = stored_clipboard_group_bar_position().toString();
     return positions.contains(value) ? value : "right";
 }
 
 void ToolSettingsManager::set_clipboard_group_bar_position(const QString &value) {
     static const QStringList positions = {"right", "left", "top"};
-    if (positions.contains(value)) qsettings.setValue("clipboard/group_bar_position", value);
+    if (positions.contains(value)) store_clipboard_group_bar_position(value);
 }
 
 bool ToolSettingsManager::should_show_main_window_on_start() {

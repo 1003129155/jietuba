@@ -36,6 +36,9 @@ const std::vector<InAppKey> PIN_KEYS = {
     {"inapp_thumbnail", "Toggle Thumbnail", "r"},
     {"inapp_toggle_toolbar", "Toggle Toolbar", "space"},
     {"inapp_pin_lock", "Lock / Unlock Pin", "l"},
+    // Inside the text a plain key is typed; Esc leaves text mode there.
+    {"inapp_pin_text_mode", "Toggle Text Mode", "t"},
+    {"inapp_pin_text_selection", "Toggle Text Selection", "p"},
 };
 
 const std::vector<InAppKey> &TOOL_KEYS() {
@@ -353,6 +356,8 @@ IconSource inapp_icon(const QString &cfg_key) {
         {"inapp_thumbnail", QString::fromUtf8("缩略图.svg")},
         {"inapp_toggle_toolbar", QString::fromUtf8("切换工具栏.svg")},
         {"inapp_pin_lock", FluentIcon::Pin},
+        {"inapp_pin_text_mode", QString::fromUtf8("文字.svg")},
+        {"inapp_pin_text_selection", QString::fromUtf8("选择.svg")},
         {"inapp_clipboard_quick_edit", FluentIcon::Edit},
         {"inapp_clipboard_edit_save", FluentIcon::Save},
         {"inapp_clipboard_edit_save_paste", FluentIcon::Send},

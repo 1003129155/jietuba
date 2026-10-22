@@ -11,41 +11,31 @@ void RecordingOptions::validate() const {
 RecordingOptions RecordingOptions::from_config(const ToolSettingsManager *config) {
     const RecordingOptions defaults;
     RecordingOptions values;
-    // QVariant::Int / Bool keep the reference's strict type check: a value of the wrong
-    // type falls back to its default.
-    const auto read_int = [config](const QString &name, int fallback, int low, int high) {
-        const auto value = config->get_app_setting("video_record_" + name, fallback);
-        bool ok = false;
-        const int number = value.toInt(&ok);
-        return ok && value.typeId() != QMetaType::Bool && number >= low && number <= high ? number : fallback;
-    };
-    const auto read_bool = [config](const QString &name, bool fallback) {
-        const auto value = config->get_app_setting("video_record_" + name, fallback);
-        return value.typeId() == QMetaType::Bool ? value.toBool() : fallback;
-    };
-    values.fps = read_int("fps", defaults.fps, 1, 60);
-    values.bitrate = read_int("bitrate", defaults.bitrate, 500000, 50000000);
-    values.system_audio = read_bool("system_audio", defaults.system_audio);
-    values.hardware = read_bool("hardware", defaults.hardware);
-    values.cursor = read_bool("cursor", defaults.cursor);
+    // Out of range, unreadable text included (it reads as 0), falls back to the default.
+    const auto in_range = [](int value, int fallback, int low, int high) { return value >= low && value <= high ? value : fallback; };
+    values.fps = in_range(config->get_video_record_fps(defaults.fps), defaults.fps, 1, 60);
+    values.bitrate = in_range(config->get_video_record_bitrate(defaults.bitrate), defaults.bitrate, 500000, 50000000);
+    values.system_audio = config->get_video_record_system_audio(defaults.system_audio);
+    values.hardware = config->get_video_record_hardware(defaults.hardware);
+    values.cursor = config->get_video_record_cursor(defaults.cursor);
     return values;
 }
 
 void RecordingOptions::save_to_config(ToolSettingsManager *config) const {
-    config->set_app_setting("video_record_fps", fps);
-    config->set_app_setting("video_record_bitrate", bitrate);
-    config->set_app_setting("video_record_system_audio", system_audio);
-    config->set_app_setting("video_record_hardware", hardware);
-    config->set_app_setting("video_record_cursor", cursor);
+    config->set_video_record_fps(fps);
+    config->set_video_record_bitrate(bitrate);
+    config->set_video_record_system_audio(system_audio);
+    config->set_video_record_hardware(hardware);
+    config->set_video_record_cursor(cursor);
 }
 
 QString get_recording_mode(const ToolSettingsManager *config) {
-    const auto mode = config->get_app_setting("recording_format", "gif").toString();
+    const auto mode = config->get_recording_format();
     return mode == "gif" || mode == "mp4" ? mode : QString("gif");
 }
 
 void set_recording_mode(ToolSettingsManager *config, const QString &mode) {
     if (mode != "gif" && mode != "mp4") throw std::invalid_argument("Recording format must be gif or mp4");
-    config->set_app_setting("recording_format", mode);
+    config->set_recording_format(mode);
 }
 }

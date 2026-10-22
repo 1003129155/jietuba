@@ -1,13 +1,20 @@
 #include "clipboard/core/text_transform.h"
-#include "core/py_text.h"
-#include <QList>
 #include <QStringList>
 
 namespace jietuba::clipboard {
 namespace {
-bool is_sentence_end(char32_t c) { return c == U'.' || c == U'!' || c == U'?'; }
+bool is_sentence_end(QChar c) { return c == u'.' || c == u'!' || c == u'?'; }
 
 QString one(char32_t c) { return QString::fromUcs4(&c, 1); }
+
+bool is_cased(char32_t c) { return QChar::isUpper(c) || QChar::isLower(c) || QChar::isTitleCase(c); }
+
+bool is_apostrophe(char32_t c) { return c == U'\'' || c == 0x2019; }
+
+QString upper_first(const QString &text) {
+    const qsizetype n = text.size() > 1 && text[0].isHighSurrogate() && text[1].isLowSurrogate() ? 2 : 1;
+    return text.left(n).toUpper() + text.mid(n);
+}
 
 QString quote_sql_value(const QString &value) {
     QString escaped = value;
@@ -18,12 +25,12 @@ QString quote_sql_value(const QString &value) {
 QStringList parse_sql_values(const QString &text) {
     QStringList values;
     QString current;
-    for (char32_t c : text.toUcs4()) {
-        if (py_isspace(c) || c == U',' || c == U';') {
+    for (QChar c : text) {
+        if (c.isSpace() || c == u',' || c == u';') {
             if (!current.isEmpty()) values.append(current);
             current.clear();
         } else {
-            current += one(c);
+            current += c;
         }
     }
     if (!current.isEmpty()) values.append(current);
@@ -40,7 +47,7 @@ QString format_sql_values(const QStringList &values, int max_line_length) {
         const QString quoted = quote_sql_value(values[index]);
         const QString token = is_last ? quoted : quoted + ",";
         const QString candidate = current_line + (current_line.isEmpty() ? "" : " ") + token;
-        if (py_len(candidate) <= max_line_length || current_line.isEmpty()) {
+        if (candidate.size() <= max_line_length || current_line.isEmpty()) {
             current_line = candidate;
             continue;
         }
@@ -52,40 +59,53 @@ QString format_sql_values(const QStringList &values, int max_line_length) {
 }
 }
 
-QString to_uppercase(const QString &text) { return py_upper(text); }
+QString to_uppercase(const QString &text) { return text.toUpper(); }
 
-QString to_lowercase(const QString &text) { return py_lower(text); }
+QString to_lowercase(const QString &text) { return text.toLower(); }
 
-QString capitalize_words(const QString &text) { return py_title(text); }
-
-QString capitalize_sentences(const QString &text) {
-    const auto points = code_points_of(text);
+QString capitalize_words(const QString &text) {
     QString result;
-    QList<char32_t> segment;
-    auto flush_segment = [&] {
-        if (!segment.isEmpty()) {
-            result += py_upper(one(segment.front()));
-            if (segment.size() > 1) result += QString::fromUcs4(segment.constData() + 1, segment.size() - 1);
-        }
-        segment.clear();
-    };
-    qsizetype i = 0;
-    while (i < points.size()) {
-        if (!is_sentence_end(points[i])) {
-            segment.append(points[i++]);
+    result.reserve(text.size());
+    // Whether the previous character belongs to a word, so a letter here is not its first one.
+    bool in_word = false;
+    for (char32_t c : text.toUcs4()) {
+        if (is_cased(c)) {
+            result += in_word ? one(c).toLower() : one(QChar::toTitleCase(c));
+            in_word = true;
             continue;
         }
-        flush_segment();
-        const qsizetype start = i;
-        while (i < points.size() && is_sentence_end(points[i])) ++i;
-        while (i < points.size() && py_isspace(points[i])) ++i;
-        result += QString::fromUcs4(points.constData() + start, i - start);
+        result += one(c);
+        if (QChar::isNumber(c)) in_word = true;
+        else if (!QChar::isMark(c) && !is_apostrophe(c)) in_word = false;
     }
-    flush_segment();
     return result;
 }
 
-QString toggle_case(const QString &text) { return py_swapcase(text); }
+QString capitalize_sentences(const QString &text) {
+    QString result;
+    qsizetype i = 0;
+    while (i < text.size()) {
+        const qsizetype start = i;
+        while (i < text.size() && !is_sentence_end(text[i])) ++i;
+        if (i > start) result += upper_first(text.mid(start, i - start));
+        const qsizetype end_start = i;
+        while (i < text.size() && is_sentence_end(text[i])) ++i;
+        while (i < text.size() && text[i].isSpace()) ++i;
+        result += text.mid(end_start, i - end_start);
+    }
+    return result;
+}
+
+QString toggle_case(const QString &text) {
+    QString result;
+    result.reserve(text.size());
+    for (char32_t c : text.toUcs4()) {
+        if (QChar::isUpper(c)) result += one(c).toLower();
+        else if (QChar::isLower(c)) result += one(c).toUpper();
+        else result += one(c);
+    }
+    return result;
+}
 
 QString to_sql_in_clause(const QString &text, int max_line_length) { return format_sql_values(parse_sql_values(text), max_line_length); }
 
@@ -106,8 +126,8 @@ QString remove_line_breaks(const QString &text) {
 
 QString remove_all_whitespace(const QString &text) {
     QString result;
-    for (char32_t c : text.toUcs4())
-        if (!py_isspace(c)) result += one(c);
+    for (QChar c : text)
+        if (!c.isSpace()) result += c;
     return result;
 }
 

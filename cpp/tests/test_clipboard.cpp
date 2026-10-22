@@ -9,7 +9,7 @@
 #include "clipboard/ui/image_item_actions.h"
 #include "clipboard/ui/layout_scale.h"
 #include "clipboard/ui/panels/setting_panel.h"
-#include "core/py_text.h"
+#include "core/text_utils.h"
 #include "core/ui_scale.h"
 #include "settings/special_paste.h"
 #include "settings/tool_settings.h"
@@ -77,44 +77,6 @@ private slots:
         fixture_ = load_fixture();
     }
 
-    void pythonStringAndPathSemanticsMatch() {
-        const auto py = fixture_["py_text"].toObject();
-        for (const auto &value : py["strings"].toArray()) {
-            const auto c = value.toObject();
-            const QString text = c["text"].toString();
-            const auto check = [&](const QString &actual, const char *key) {
-                QVERIFY2(actual == c[key].toString(), qPrintable(QString(key) + ": " + describe(text) + " -> " + describe(actual) + " != " + describe(c[key])));
-            };
-            QCOMPARE(py_len(text), c["len"].toInteger());
-            check(py_strip(text), "strip");
-            check(py_lstrip(text), "lstrip");
-            check(py_rstrip(text), "rstrip");
-            check(py_strip_chars(text, "x"), "strip_x");
-            check(py_upper(text), "upper");
-            check(py_lower(text), "lower");
-            check(py_title(text), "title");
-            check(py_swapcase(text), "swapcase");
-            check(py_casefold(text), "casefold");
-            check(py_slice(text, 2, 5), "slice_2_5");
-            check(py_slice(text, -3), "slice_neg");
-            check(py_slice(text, 0, -2), "slice_neg_end");
-        }
-        for (const auto &value : py["isspace"].toArray())
-            QVERIFY2(py_isspace(static_cast<char32_t>(value.toArray()[0].toInt())) == value.toArray()[1].toBool(), qPrintable(QString::number(value.toArray()[0].toInt(), 16)));
-        for (const auto &value : py["paths"].toArray()) {
-            const auto c = value.toObject();
-            const QString path = c["path"].toString();
-            QCOMPARE(py_basename(path), c["basename"].toString());
-            QCOMPARE(py_dirname(path), c["dirname"].toString());
-            QCOMPARE(py_normpath(path), c["normpath"].toString());
-            QCOMPARE(py_normcase(path), c["normcase"].toString());
-        }
-        for (const auto &value : py["joins"].toArray()) {
-            const auto c = value.toObject();
-            QCOMPARE(py_path_join(c["a"].toString(), c["b"].toString()), c["expected"].toString());
-        }
-    }
-
     void textTransformsMatchTheReference() {
         for (const auto &value : fixture_["transforms"].toArray()) {
             const auto c = value.toObject();
@@ -131,6 +93,33 @@ private slots:
             const auto c = value.toObject();
             QCOMPARE(append_current_time(c["input"].toString(), now), c["expected"].toString());
         }
+    }
+
+    // Expected values are hand-written: the reference's str.title() started a new word after
+    // every apostrophe and digit.
+    void capitalizeWordsKeepsApostrophesInsideWords() {
+        QCOMPARE(capitalize_words("they're bill's friends from the UK"), QString("They're Bill's Friends From The Uk"));
+        QCOMPARE(capitalize_words(QString::fromUtf8("it\u2019s o'neil's 1st café")), QString::fromUtf8("It\u2019s O'neil's 1st Café"));
+        QCOMPARE(capitalize_words("'quoted' x'y rock'n'roll"), QString("'Quoted' X'y Rock'n'roll"));
+        QCOMPARE(capitalize_words("123abc456DEF a-b c_d e.f"), QString("123abc456def A-B C_D E.F"));
+        QCOMPARE(capitalize_words(QString::fromUtf8("中文abc 第2版 ÉCOLE élève")), QString::fromUtf8("中文Abc 第2版 École Élève"));
+        // A combining accent stays part of its word.
+        QCOMPARE(capitalize_words(QString::fromUtf8("cafe\u0301s ok")), QString::fromUtf8("Cafe\u0301s Ok"));
+        QCOMPARE(capitalize_words(QString::fromUtf8("\U0001F642 emoji  \tline1\nline2")), QString::fromUtf8("\U0001F642 Emoji  \tLine1\nLine2"));
+        QCOMPARE(capitalize_words(""), QString());
+    }
+
+    void leftCharsNeverSplitsASurrogatePair() {
+        const QString text = QString::fromUtf8("a\U0001F642b\U0001F600");
+        QCOMPARE(left_chars(text, 0), QString());
+        QCOMPARE(left_chars(text, 1), QString("a"));
+        QCOMPARE(left_chars(text, 2), QString::fromUtf8("a\U0001F642"));
+        QCOMPARE(left_chars(text, 3), QString::fromUtf8("a\U0001F642b"));
+        QCOMPARE(left_chars(text, 4), text);
+        QCOMPARE(left_chars(text, 100), text);
+        // A lone surrogate counts as one character.
+        const QString lone = QString(QChar(0xD83D)) + "x";
+        QCOMPARE(left_chars(lone, 1), QString(QChar(0xD83D)));
     }
 
     void filterGroupIconsFollowTheirRule() {
@@ -226,13 +215,13 @@ private slots:
         for (const auto &value : s["normalize"].toArray())
             QVERIFY2(entries_json(special_paste::normalize(value.toObject()["input"])) == value.toObject()["expected"].toArray(), qPrintable(describe(value.toObject()["input"])));
         for (const auto &value : s["load"].toArray()) {
-            config_->set_app_setting(special_paste::SETTING_KEY, value.toObject()["raw"].toString());
+            config_->set_clipboard_special_paste(value.toObject()["raw"].toString());
             QVERIFY2(entries_json(special_paste::load(config_)) == value.toObject()["expected"].toArray(), qPrintable(value.toObject()["raw"].toString()));
         }
         // What save() stores is the reference's json.dumps text.
         special_paste::save(config_, entries_from(QJsonDocument::fromJson(s["saved"].toString().toUtf8()).array()));
-        QCOMPARE(config_->get_app_setting(special_paste::SETTING_KEY).toString(), s["saved"].toString());
-        config_->set_app_setting(special_paste::SETTING_KEY, "");
+        QCOMPARE(config_->get_clipboard_special_paste(), s["saved"].toString());
+        config_->set_clipboard_special_paste("");
     }
 
     void separatorsTimeRangesAndFiltersMatchTheReference() {
@@ -336,6 +325,40 @@ private slots:
         }
     }
 
+    // Hand-written: the system's reason and the path as Windows writes it.
+    void csvErrorsNameTheReason() {
+        const QString missing = dir_.filePath("no such folder/missing.csv");
+        try {
+            read_import_rows(missing);
+            QFAIL("reading a missing file did not throw");
+        } catch (const CsvError &e) {
+            QCOMPARE(QString::fromUtf8(e.what()), "No such file or directory: " + QDir::toNativeSeparators(missing));
+        }
+        const QString broken = dir_.filePath("bare_carriage_return.csv");
+        QFile file(broken);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("h1,h2\na\rb,c\n");
+        file.close();
+        try {
+            read_import_rows(broken);
+            QFAIL("a bare carriage return inside a field did not throw");
+        } catch (const CsvError &e) {
+            QCOMPARE(QString::fromUtf8(e.what()), QString("new-line character seen in unquoted field"));
+        }
+    }
+
+    void damagedFileItemsShowAsAFile() {
+        const QString file_text = QCoreApplication::translate("ClipboardWindow", "File");
+        ClipboardItem item;
+        item.content_type = "file";
+        for (const char *content : {"not json", "[1]", "{\"files\": [1]}", "{\"files\": []}"}) {
+            item.content = content;
+            QCOMPARE(item.display_text(), file_text);
+        }
+        item.content = "{\"files\": [\"C:\\\\a\\\\one.txt\", \"D:/b/two.png\"]}";
+        QCOMPARE(item.display_text(), QString("one.txt, two.png"));
+    }
+
     // The same records as the generator, in the same order, so ids match a fresh database.
     void contextMenusMatchTheReference() {
         const auto menus = fixture_["menus"].toObject();
@@ -418,7 +441,7 @@ private slots:
                 QVERIFY2(actual == query["expected"], qPrintable(describe(query) + "\nactual: " + describe(actual)));
             }
         }
-        config_->set_app_setting(special_paste::SETTING_KEY, "");
+        config_->set_clipboard_special_paste("");
     }
 };
 
