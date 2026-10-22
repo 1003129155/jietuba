@@ -7,6 +7,7 @@
 #include "canvas/items/text_item.h"
 #include "canvas/scene.h"
 #include "canvas/undo.h"
+#include "settings/tool_settings.h"
 #include "ui/arrow_settings_panel.h"
 #include "ui/text_settings_panel.h"
 #include "ui/toolbar.h"
@@ -336,9 +337,15 @@ bool SmartEditController::handle_edit_release(const QPointF &scene_pos, Qt::Mous
     }
     if (mode != SelectionMode::DRAGGING_HANDLE || !layer_editor) return false;
     auto *canvas = dynamic_cast<CanvasScene *>(scene);
+    const bool radius_drag = layer_editor->dragging_handle && layer_editor->dragging_handle->handle_type == HandleType::CORNER_RADIUS;
     layer_editor->end_drag(canvas ? canvas->undo_stack : nullptr);
     mode = SelectionMode::SELECTED;
     keep_ratio = false;
+    // The next rectangle starts with the radius just dragged; highlighter and spotlight
+    // rects share the item class but not the setting.
+    if (radius_drag && !is_cross_tool_selection())
+        if (auto *rect = dynamic_cast<RectItem *>(selected_item()); rect && get_item_tool_id(rect) == "rect")
+            get_tool_settings_manager()->update_settings("rect", {{"corner_radius", qint64(std::llround(rect->get_corner_radius()))}});
     scene->update();
     repaint_handles();
     // Dragging the text scale handle keeps the selection, so the panel needs an explicit refresh.
