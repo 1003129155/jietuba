@@ -226,13 +226,13 @@ private slots:
         for (const auto &value : s["normalize"].toArray())
             QVERIFY2(entries_json(special_paste::normalize(value.toObject()["input"])) == value.toObject()["expected"].toArray(), qPrintable(describe(value.toObject()["input"])));
         for (const auto &value : s["load"].toArray()) {
-            config_->set_app_setting(special_paste::SETTING_KEY, value.toObject()["raw"].toString());
+            config_->set_clipboard_special_paste(value.toObject()["raw"].toString());
             QVERIFY2(entries_json(special_paste::load(config_)) == value.toObject()["expected"].toArray(), qPrintable(value.toObject()["raw"].toString()));
         }
         // What save() stores is the reference's json.dumps text.
         special_paste::save(config_, entries_from(QJsonDocument::fromJson(s["saved"].toString().toUtf8()).array()));
-        QCOMPARE(config_->get_app_setting(special_paste::SETTING_KEY).toString(), s["saved"].toString());
-        config_->set_app_setting(special_paste::SETTING_KEY, "");
+        QCOMPARE(config_->get_clipboard_special_paste(), s["saved"].toString());
+        config_->set_clipboard_special_paste("");
     }
 
     void separatorsTimeRangesAndFiltersMatchTheReference() {
@@ -418,7 +418,7 @@ private slots:
                 QVERIFY2(actual == query["expected"], qPrintable(describe(query) + "\nactual: " + describe(actual)));
             }
         }
-        config_->set_app_setting(special_paste::SETTING_KEY, "");
+        config_->set_clipboard_special_paste("");
     }
 };
 

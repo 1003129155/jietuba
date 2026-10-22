@@ -30,7 +30,7 @@ void add_run_as_admin_card(SettingsDialog *dialog, SettingsCardGroup *group, Swi
     if (state == elevation::CAN_ELEVATE)
         description += "\n" + dialog->tr_text("Changing it asks for administrator permission. Turning it on restarts the program as administrator.");
     auto *card = new SubSwitchSettingCard(dialog->tr_text("Run as Administrator"), description, group);
-    card->setChecked(dialog->config_manager->get_app_setting("run_as_admin").toBool());
+    card->setChecked(dialog->config_manager->get_run_as_admin());
     dialog->set_attr("run_as_admin_toggle", card);
     group->addSettingCard(card);
     QObject::connect(autostart_card, &SwitchSettingCard::checkedChanged, group, [group, card](bool checked) { group->setCardVisible(card, checked); });
@@ -45,8 +45,7 @@ void export_settings_to_file(SettingsDialog *dialog) {
     const QString path = get_save_file_name(dialog, title, suggested, dialog->tr_text("Settings File (*.json)")).first;
     if (path.isEmpty()) return;
     try {
-        const auto keys = dialog->settings_keys();
-        settings_transfer::export_settings(dialog->config_manager, QSet<QString>(keys.begin(), keys.end()), path, APP_VERSION);
+        settings_transfer::export_settings(dialog->config_manager, path, APP_VERSION);
     } catch (const std::runtime_error &e) {
         show_error_dialog(dialog, title, dialog->tr_text("Could not write the file: %1").replace("%1", QString::fromUtf8(e.what())));
         return;
@@ -84,7 +83,7 @@ QWidget *create_misc_page(SettingsDialog *dialog) {
     // ════ Startup ════
     auto *grp_startup = new SettingsCardGroup(dialog->tr_text("Startup"), view);
     auto *autostart_card = new SwitchSettingCard(FluentIcon::PowerButton, dialog->tr_text("Launch on Startup"), dialog->tr_text("Register in Windows startup via registry."), grp_startup);
-    autostart_card->setChecked(config->get_app_setting("autostart_enabled").toBool());
+    autostart_card->setChecked(config->get_autostart_enabled());
     dialog->set_attr("autostart_toggle", autostart_card);
     grp_startup->addSettingCard(autostart_card);
     add_run_as_admin_card(dialog, grp_startup, autostart_card);
@@ -99,7 +98,7 @@ QWidget *create_misc_page(SettingsDialog *dialog) {
     auto *lang_card = new SettingCard(FluentIcon::Language, dialog->tr_text("Language"), dialog->tr_text("Select display language. Restart required after change."), grp_ops);
     auto *language_combo = new ComboBox(lang_card);
     for (const auto &[code, name] : I18nManager::language_items()) language_combo->addItem(name, code);
-    if (const int index = language_combo->findData(config->get_app_setting("language", "ja")); index >= 0) language_combo->setCurrentIndex(index);
+    if (const int index = language_combo->findData(config->get_language("ja")); index >= 0) language_combo->setCurrentIndex(index);
     dialog->set_attr("language_combo", language_combo);
     lang_card->addControl(language_combo);
     grp_ops->addSettingCard(lang_card);

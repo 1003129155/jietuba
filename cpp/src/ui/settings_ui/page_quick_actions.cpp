@@ -22,10 +22,10 @@ void add_quick_actions_group(SettingsDialog *dialog, QWidget *view, QVBoxLayout 
     };
     dialog->behavior_controls.emplace_back("capture_fullscreen_crosshair",
                                            add(FluentIcon::Layout, "Fullscreen Crosshair", "Show horizontal and vertical guide lines across the screen while capturing.",
-                                               config->get_app_setting("capture_fullscreen_crosshair", false).toBool()));
+                                               config->get_capture_fullscreen_crosshair()));
     dialog->behavior_controls.emplace_back("capture_include_cursor",
                                            add(FluentIcon::Camera, "Include Mouse Pointer", "Draw the mouse pointer into the screenshot where it was when capturing started.",
-                                               config->get_app_setting("capture_include_cursor", false).toBool()));
+                                               config->get_capture_include_cursor()));
     dialog->set_attr("cross_tool_selection_toggle", add(FluentIcon::Edit, "Enable Ctrl Cross-Tool Selection",
                                                         "Hold Ctrl and click any editable annotation to adjust it without switching tools.",
                                                         config->get_cross_tool_selection_enabled()));

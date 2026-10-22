@@ -54,11 +54,6 @@ const DrawTool DRAW_TOOLS[] = {
     {"eraser", "橡皮.svg", "橡皮擦"},
 };
 
-bool is_int_variant(const QVariant &value) {
-    const auto type = value.typeId();
-    return type == QMetaType::Int || type == QMetaType::LongLong || type == QMetaType::UInt || type == QMetaType::ULongLong;
-}
-
 template <class Panel>
 void prepare_panel(Panel *panel) {
     panel->setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
@@ -74,9 +69,9 @@ RecordToolbar::RecordToolbar(QWidget *parent) : QWidget(parent), config_(get_too
 
     mode_ = jietuba::get_recording_mode(config_);
     video_options_ = RecordingOptions::from_config(config_);
-    const auto delay = config_->get_app_setting("recording_delay", 0);
-    const std::set<qint64> delays{0, 1, 2, 3, 5, 10};
-    start_delay_ = is_int_variant(delay) && delays.count(delay.toLongLong()) ? delay.toInt() : 0;
+    const int delay = config_->get_recording_delay();
+    const std::set<int> delays{0, 1, 2, 3, 5, 10};
+    start_delay_ = delays.count(delay) ? delay : 0;
 
     build_ui();
     init_settings_panels();
@@ -609,7 +604,7 @@ void RecordToolbar::show_delay_menu() {
 
 void RecordToolbar::set_start_delay(int seconds) {
     start_delay_ = seconds;
-    config_->set_app_setting("recording_delay", seconds);
+    config_->set_recording_delay(seconds);
     time_label_->setToolTip(tr_text("录制延迟") + ": " + seconds_text(seconds));
 }
 

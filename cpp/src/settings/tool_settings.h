@@ -28,29 +28,41 @@ private:
     QVariantMap current_;
 };
 
-// The QSettings a manager reads and writes. While recorder is set, every key read through
-// it is recorded: settings export lists the keys the settings pages read.
+// The QSettings a manager reads and writes.
 class SettingsStore {
 public:
     explicit SettingsStore(QSettings &settings) : settings_(&settings) {}
-    QVariant value(const QString &key, const QVariant &fallback = {}) const {
-        if (recorder) recorder->insert(key);
-        return settings_->value(key, fallback);
-    }
-    bool contains(const QString &key) const {
-        if (recorder) recorder->insert(key);
-        return settings_->contains(key);
-    }
+    QVariant value(const QString &key, const QVariant &fallback = {}) const { return settings_->value(key, fallback); }
+    bool contains(const QString &key) const { return settings_->contains(key); }
     void setValue(const QString &key, const QVariant &value) const { settings_->setValue(key, stored_int(value)); }
     void sync() const { settings_->sync(); }
     // Python ints reach QSettings as int when they fit 32 bits, which the registry stores as REG_DWORD; integers
     // held as qint64 here would become REG_QWORD in the settings both versions share.
     static QVariant stored_int(const QVariant &value);
     QSettings &settings() const { return *settings_; }
-    QSet<QString> *recorder = nullptr;
 private:
     QSettings *settings_;
 };
+
+// Whether settings export carries a setting; see app_settings.inc.
+enum class SettingScope { Export, Local, Internal };
+struct AppSetting {
+    const char *name;
+    const char *path;
+    SettingScope scope;
+};
+// The rows of app_settings.inc, in table order.
+const std::vector<AppSetting> &APP_SETTINGS();
+
+namespace setting_detail {
+template <typename T> T cast(const QVariant &value);
+template <> inline QString cast<QString>(const QVariant &value) { return value.toString(); }
+template <> inline bool cast<bool>(const QVariant &value) { return value.toBool(); }
+template <> inline int cast<int>(const QVariant &value) { return value.toInt(); }
+template <> inline double cast<double>(const QVariant &value) { return value.toDouble(); }
+template <> inline QStringList cast<QStringList>(const QVariant &value) { return value.toStringList(); }
+template <> inline QVariantList cast<QVariantList>(const QVariant &value) { return value.toList(); }
+}
 
 // Explicit QSettings injection avoids reading/writing Python's live registry.
 class ToolSettingsManager : public QObject {
@@ -67,17 +79,20 @@ public:
     void save_all();
     void reset_tool(const QString &tool, bool save_immediately = true);
     void reset_all();
-    void reset_app_settings();
-    void reset_all_settings() { reset_all(); reset_app_settings(); }
-    // Full QSettings key of an app setting: pin_ keys live under pin/, the rest under app/.
+    // QSettings key of an app setting: its path in app_settings.inc. A name outside the table
+    // takes pin/ for a pin_ prefix, else app/.
     static QString app_setting_path(const QString &key);
+    // By name, for settings picked at run time (a toolbar profile, a mouse action); fixed
+    // settings use their typed accessors.
     QVariant get_app_setting(const QString &key, QVariant fallback = {}) const;
     void set_app_setting(const QString &key, const QVariant &value);
+    // get_<name>() / set_<name>(value) of the table, looked up by accessor name for the fields
+    // translation providers declare by name; nullopt / false when there is none. A generated
+    // setter stores the value as given.
+    std::optional<QVariant> accessor_value(const QString &name) const;
+    bool set_accessor_value(const QString &name, const QVariant &value);
     QString get_inapp_shortcut(const QString &key) const;
     void set_inapp_shortcut(const QString &key, const QString &value);
-    QString get_hotkey() const;
-    void set_hotkey(const QString &value) { qsettings.setValue("app/hotkey", value); }
-    QString get_clipboard_hotkey() const;
     // Every slot of a global hotkey function (see GLOBAL_HOTKEY_FUNCTIONS); empty means unset.
     QStringList get_global_hotkeys(const QString &function) const;
     // Saves every slot of a function; throws std::invalid_argument unless there are GLOBAL_HOTKEY_SLOTS values.
@@ -93,77 +108,97 @@ public:
     void set_font_size(const QString &tool, int value, bool save = true) { set_setting(tool, "font_size", value, save); }
     QVariantMap export_settings() const;
     void import_settings(const QVariantMap &values);
-    bool is_first_run() const;
+    bool is_first_run() const { return !get_has_run_before(); }
     void mark_as_run();
+    static bool is_absolute_save_path(const QString &value);
+    QSettings &settings() { return qsettings.settings(); }
+
+    // The accessors of app_settings.inc. A generated getter converts the stored value to the
+    // row's type, falling back to the default or to the value given. Hand-written (Own) ones
+    // get stored_<name>() and default_<name>() for a getter, store_<name>() for a setter.
+#define JIETUBA_GETTER_Gen(accessor, name, path, Type) \
+    Type get_##accessor() const { return setting_detail::cast<Type>(qsettings.value(QStringLiteral(path), app_defaults_.value(QStringLiteral(name)))); } \
+    Type get_##accessor(const Type &fallback) const { return setting_detail::cast<Type>(qsettings.value(QStringLiteral(path), QVariant::fromValue(fallback))); }
+#define JIETUBA_GETTER_Own(accessor, name, path, Type) \
+private: \
+    QVariant stored_##accessor() const { return qsettings.value(QStringLiteral(path), app_defaults_.value(QStringLiteral(name))); } \
+    QVariant default_##accessor() const { return app_defaults_.value(QStringLiteral(name)); } \
+public:
+#define JIETUBA_SETTER_Gen(accessor, path, Type) \
+    void set_##accessor(const Type &value) { qsettings.setValue(QStringLiteral(path), QVariant::fromValue(value)); }
+#define JIETUBA_SETTER_Trim(accessor, path, Type) \
+    void set_##accessor(const QString &value) { qsettings.setValue(QStringLiteral(path), value.trimmed()); }
+#define JIETUBA_SETTER_Own(accessor, path, Type) \
+private: \
+    void store_##accessor(const QVariant &value) const { qsettings.setValue(QStringLiteral(path), value); } \
+public:
+#define JIETUBA_SETTER_None(accessor, path, Type)
+#define SETTING_AS(accessor, name, path, Type, initial, scope, getter, setter) \
+    JIETUBA_GETTER_##getter(accessor, #name, path, Type) JIETUBA_SETTER_##setter(accessor, path, Type)
+#define SETTING(name, path, Type, initial, scope, getter, setter) SETTING_AS(name, name, path, Type, initial, scope, getter, setter)
+#include "settings/app_settings.inc"
+#undef SETTING
+#undef SETTING_AS
+#undef JIETUBA_GETTER_Gen
+#undef JIETUBA_GETTER_Own
+#undef JIETUBA_SETTER_Gen
+#undef JIETUBA_SETTER_Trim
+#undef JIETUBA_SETTER_Own
+#undef JIETUBA_SETTER_None
+
+    // The Own accessors of the table.
+    // Repaired to the default when not an absolute path.
     QString get_screenshot_save_path() const;
     void set_screenshot_save_path(const QString &value);
-    static bool is_absolute_save_path(const QString &value);
-#include "settings/settings_accessors.inc"
-    // Accessors whose bodies are more than a typed read/write, translated by hand.
-    QString get_screenshot_watermark_text() const { return qsettings.value("app/screenshot_watermark_text", app_defaults_.value("screenshot_watermark_text")).toString(); }
-    void set_screenshot_watermark_text(const QString &value) { qsettings.setValue("app/screenshot_watermark_text", value.trimmed()); }
     QString get_screenshot_watermark_time_format() const;
-    void set_screenshot_watermark_time_format(const QString &value) { qsettings.setValue("app/screenshot_watermark_time_format", value); }
-    void set_screenshot_watermark_auto(bool value) { qsettings.setValue("app/screenshot_watermark_auto", value); }
-    void set_screenshot_watermark_last_on(bool value) { qsettings.setValue("app/screenshot_watermark_last_on", value); }
     // auto / mss / hdr; anything else reads as the default.
     QString get_capture_engine() const;
     void set_capture_engine(const QString &value);
-    QSettings &settings() { return qsettings.settings(); }
     // "off" when smart selection is switched off, else the stored level.
     QString get_smart_selection_mode() const;
     void set_smart_selection_mode(const QString &mode);
-    void set_smart_selection(bool value) { qsettings.setValue("app/smart_selection", value); }
-    void set_screenshot_format(const QString &value) { qsettings.setValue("app/screenshot_format", value.toUpper()); }
-    void set_screenshot_quality(int value) { qsettings.setValue("app/screenshot_quality", std::max(1, std::min(100, value))); }
+    void set_screenshot_format(const QString &value) { store_screenshot_format(value.toUpper()); }
+    void set_screenshot_quality(int value) { store_screenshot_quality(std::max(1, std::min(100, value))); }
     QString get_ocr_engine() const;
     void set_ocr_engine(const QString &value);
-    // The PP-OCR model: a subfolder name under models/, empty for the default model in models/ itself.
-    QString get_ppocr_model() const { return qsettings.value("app/ppocr_model", app_defaults_.value("ppocr_model")).toString(); }
-    void set_ppocr_model(const QString &value) { qsettings.setValue("app/ppocr_model", value); }
     // One of SHIFT_LINE_ANGLES; anything else reads as the default.
     int get_shift_line_angle() const;
     void set_shift_line_angle(int value);
     QString get_ocr_result_position() const;
     void set_ocr_result_position(const QString &value);
+    QString get_ocr_layout_mode() const;
+    void set_ocr_layout_mode(const QString &value);
+    QString get_ocr_punctuation() const;
+    void set_ocr_punctuation(const QString &value);
+    void set_pin_default_opacity(double opacity) { store_pin_default_opacity(std::max(0.1, std::min(1.0, opacity))); }
+    void set_translation_provider(const QString &provider_id);
+    void set_amazon_translate_region(const QString &value);
+    QString get_volcengine_translate_quota_limit() const { return stored_volcengine_translate_quota_limit().toString().trimmed(); }
+    QString get_tencent_translate_quota_limit() const { return stored_tencent_translate_quota_limit().toString().trimmed(); }
+    // The saved target language, else the system language's.
+    QString get_translation_target_lang() const;
+    // The saved target language; empty for the automatic choice.
+    QString get_saved_translation_target_lang() const { return stored_translation_target_lang().toString(); }
+    void set_clipboard_history_limit(int value) { store_clipboard_history_limit(std::max(0, value)); }
+    int get_clipboard_display_lines() const { return std::clamp(stored_clipboard_display_lines().toInt(), 1, 5); }
+    void set_clipboard_display_lines(int value) { store_clipboard_display_lines(std::clamp(value, 1, 5)); }
+    QString get_clipboard_image_size() const;
+    void set_clipboard_image_size(const QString &value);
+    void set_clipboard_line_height_padding(int value) { store_clipboard_line_height_padding(std::max(0, value)); }
+    QString get_clipboard_multi_paste_order() const;
+    void set_clipboard_multi_paste_order(const QString &value);
+    QString get_clipboard_group_bar_position() const;
+    void set_clipboard_group_bar_position(const QString &value);
+    // Choices offered by the settings pages; never stored.
+    QVariant get_gif_fps_options() const { return default_gif_fps_options(); }
+    QVariant get_clipboard_window_opacity_options() const { return default_clipboard_window_opacity_options(); }
+    QVariant get_clipboard_font_size_options() const { return default_clipboard_font_size_options(); }
+
     // Centre where the result window was last closed; nullopt without a valid record.
     std::optional<QPoint> get_ocr_result_last_center() const;
     void set_ocr_result_last_center(int x, int y) { qsettings.setValue("app/ocr_result_last_center", QString("%1,%2").arg(x).arg(y)); }
-    void set_translation_on_top(bool value) { qsettings.setValue("app/translation_on_top", value); }
-    void set_ocr_result_on_top(bool value) { qsettings.setValue("app/ocr_result_on_top", value); }
-    QString get_ocr_layout_mode() const;
-    void set_ocr_layout_mode(const QString &value);
-    void set_ocr_remove_spaces(bool value) { qsettings.setValue("app/ocr_remove_spaces", value); }
-    QString get_ocr_punctuation() const;
-    void set_ocr_punctuation(const QString &value);
-    void set_ocr_copy_on_close(bool value) { qsettings.setValue("app/ocr_copy_on_close", value); }
-    void set_pin_default_opacity(double opacity) { qsettings.setValue("pin/default_opacity", std::max(0.1, std::min(1.0, opacity))); }
-    void set_translation_provider(const QString &provider_id);
     // Settings of one translation provider; empty for an unknown provider.
     QVariantMap get_translation_provider_config(const QString &provider_id) const;
-    void set_amazon_translate_region(const QString &value);
-    void set_amazon_translate_access_key_id(const QString &value) { set_trimmed("translation/providers/amazon/access_key_id", value); }
-    void set_amazon_translate_secret_access_key(const QString &value) { set_trimmed("translation/providers/amazon/secret_access_key", value); }
-    void set_amazon_translate_session_token(const QString &value) { set_trimmed("translation/providers/amazon/session_token", value); }
-    void set_google_translate_api_key(const QString &value) { set_trimmed("translation/providers/google/api_key", value); }
-    void set_azure_translate_api_key(const QString &value) { set_trimmed("translation/providers/azure/api_key", value); }
-    void set_azure_translate_region(const QString &value) { set_trimmed("translation/providers/azure/region", value); }
-    void set_azure_translate_endpoint(const QString &value) { set_trimmed("translation/providers/azure/endpoint", value); }
-    void set_baidu_translate_appid(const QString &value) { set_trimmed("translation/providers/baidu/appid", value); }
-    void set_baidu_translate_secret_key(const QString &value) { set_trimmed("translation/providers/baidu/secret_key", value); }
-    void set_volcengine_translate_access_key(const QString &value) { set_trimmed("translation/providers/volcengine/access_key_id", value); }
-    void set_volcengine_translate_secret_key(const QString &value) { set_trimmed("translation/providers/volcengine/secret_access_key", value); }
-    void set_tencent_translate_secret_id(const QString &value) { set_trimmed("translation/providers/tencent/secret_id", value); }
-    void set_tencent_translate_secret_key(const QString &value) { set_trimmed("translation/providers/tencent/secret_key", value); }
-    void set_youdao_translate_app_key(const QString &value) { set_trimmed("translation/providers/youdao/app_key", value); }
-    void set_youdao_translate_app_secret(const QString &value) { set_trimmed("translation/providers/youdao/app_secret", value); }
-    // The monthly quota guard, offered by the providers that declare a free quota.
-    void set_volcengine_translate_quota_enabled(bool value) { qsettings.setValue("translation/providers/volcengine/quota_enabled", value); }
-    QString get_volcengine_translate_quota_limit() const;
-    void set_volcengine_translate_quota_limit(const QString &value) { set_trimmed("translation/providers/volcengine/quota_limit", value); }
-    void set_tencent_translate_quota_enabled(bool value) { qsettings.setValue("translation/providers/tencent/quota_enabled", value); }
-    QString get_tencent_translate_quota_limit() const;
-    void set_tencent_translate_quota_limit(const QString &value) { set_trimmed("translation/providers/tencent/quota_limit", value); }
     // Whether the provider's guard is on; true for a provider without one, which the
     // service never asks.
     bool get_translation_quota_enabled(const QString &provider_id) const;
@@ -172,39 +207,10 @@ public:
     // Characters used in the current calendar month; a new month starts again from 0.
     qint64 get_translation_usage_chars(const QString &provider_id) const;
     void add_translation_usage_chars(const QString &provider_id, qint64 chars);
-    void set_deepseek_api_key(const QString &value) { set_trimmed("translation/providers/deepseek/api_key", value); }
-    void set_deepseek_model(const QString &value) { set_trimmed("translation/providers/deepseek/model", value); }
-    void set_deepseek_base_url(const QString &value) { set_trimmed("translation/providers/deepseek/base_url", value); }
-    // The get_/set_<slot>_<key> accessors of each custom service slot (slot from
-    // CUSTOM_LLM_PROVIDER_IDS, key from CUSTOM_LLM_TEXT_KEYS), looked up by name in the reference.
-    QString get_custom_llm_text(const QString &slot, const QString &key) const;
-    void set_custom_llm_text(const QString &slot, const QString &key, const QString &value) { set_trimmed("translation/providers/" + slot + "/" + key, value); }
-    bool get_custom_llm_json_mode(const QString &slot) const;
-    void set_custom_llm_json_mode(const QString &slot, bool value) { qsettings.setValue("translation/providers/" + slot + "/json_mode", value); }
-    // get_<config_key> / set_<config_key> of a translation provider field, looked up by name
-    // in the reference; nullopt / false when there is no such accessor.
-    std::optional<QVariant> get_provider_field(const QString &config_key) const;
-    bool set_provider_field(const QString &config_key, const QVariant &value);
-    // The saved target language, else the system language's.
-    QString get_translation_target_lang() const;
     // All translation parameters in one place.
     QVariantMap get_translation_params() const;
     // Parameters independent of the provider.
     QVariantMap get_translation_request_params() const;
-    void set_clipboard_history_limit(int value) { qsettings.setValue("clipboard/history_limit", std::max(0, value)); }
-    void set_clipboard_db_path(const QString &value) { qsettings.setValue("clipboard/db_path", value); }
-    int get_clipboard_display_lines() const;
-    void set_clipboard_display_lines(int value) { qsettings.setValue("clipboard/display_lines", std::clamp(value, 1, 5)); }
-    QString get_clipboard_image_size() const;
-    void set_clipboard_image_size(const QString &value);
-    void set_clipboard_line_height_padding(int value) { qsettings.setValue("clipboard/line_height_padding", std::max(0, value)); }
-    QString get_clipboard_multi_paste_separator() const;
-    void set_clipboard_multi_paste_separator(const QString &value) { qsettings.setValue("clipboard/multi_paste_separator", value); }
-    QString get_clipboard_multi_paste_order() const;
-    void set_clipboard_multi_paste_order(const QString &value);
-    void set_clipboard_multi_paste_keep_merged(bool value) { qsettings.setValue("clipboard/multi_paste_keep_merged", value); }
-    QString get_clipboard_group_bar_position() const;
-    void set_clipboard_group_bar_position(const QString &value);
     // First run always shows the settings window; afterwards the user's setting decides.
     bool should_show_main_window_on_start();
     inline static const QStringList CLIPBOARD_IMAGE_SIZES = {"small", "medium", "large"};
@@ -217,7 +223,6 @@ private:
     QVariant typed_value(const QString &path, const QVariant &fallback) const;
     // Until the third clipboard slot is saved it follows the old switch; nothing is written.
     void migrate_win_v_slot(QStringList &values) const;
-    void set_trimmed(const QString &key, const QString &value);
     QVariantMap app_defaults_, tool_defaults_;
     QStringList tool_order_;
     QMap<QString, ToolSettings> tools_;

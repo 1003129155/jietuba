@@ -155,8 +155,8 @@ void CursorHighlight::set_enabled(bool enabled) {
     enabled_ = enabled;
     if (enabled) {
         auto *config = get_tool_settings_manager();
-        size_ = size_factor(config->get_app_setting("screen_annotation_highlight_size").toString());
-        ripples_ = config->get_app_setting("screen_annotation_click_ripples", true).toBool();
+        size_ = size_factor(config->get_screen_annotation_highlight_size());
+        ripples_ = config->get_screen_annotation_click_ripples();
         auto *source = hub();
         // Queued: the events come from the hub's event thread.
         moved_connection_ = connect(source, &InputHub::pointer_moved, this, [this](const QString &watcher) {

@@ -58,7 +58,7 @@ QVector<ColorFormat> enabled_formats(const QVector<ColorFormat> &formats) {
 QVector<ColorFormat> migrate_from_legacy(const ToolSettingsManager &config) {
     static const QMap<QString, QString> names{{"rgb", "RGB"}, {"rgb_css", "CSS rgb()"},
         {"hex", "HEX"}, {"hex_bare", "HEX without #"}, {"hsl_css", "CSS hsl()"}};
-    const auto wanted = names.value(config.get_app_setting(LEGACY_SETTING_KEY, "").toString());
+    const auto wanted = names.value(config.get_magnifier_color_copy_format());
     if (wanted.isEmpty()) return default_formats();
     auto formats = builtins;
     for (auto &format : formats) format.enabled = format.name == wanted;
@@ -66,7 +66,7 @@ QVector<ColorFormat> migrate_from_legacy(const ToolSettingsManager &config) {
 }
 QVector<ColorFormat> load(const ToolSettingsManager *config) {
     if (!config) return default_formats();
-    const auto raw = config->get_app_setting(SETTING_KEY, "").toString();
+    const auto raw = config->get_magnifier_color_formats();
     if (!raw.isEmpty()) {
         const auto items = QJsonDocument::fromJson(raw.toUtf8()).array();
         QVector<ColorFormat> formats;
@@ -90,6 +90,6 @@ void save(ToolSettingsManager *config, const QVector<ColorFormat> &formats) {
         rows.append("{\"name\": " + QString::fromUtf8(quoted.mid(1, quoted.size() - 2)) +
                     ", \"enabled\": " + (item["enabled"].toBool() ? "true" : "false") + "}");
     }
-    config->set_app_setting(SETTING_KEY, "[" + rows.join(", ") + "]");
+    config->set_magnifier_color_formats("[" + rows.join(", ") + "]");
 }
 }

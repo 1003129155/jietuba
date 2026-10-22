@@ -56,10 +56,10 @@ void AnnotationToolbar::place_at_top() {
 
 void AnnotationToolbar::place_at_start() {
     auto *config = get_tool_settings_manager();
-    const QStringList saved = config->get_app_setting("screen_annotation_toolbar_pos").toString().split(',');
+    const QStringList saved = config->get_screen_annotation_toolbar_pos().split(',');
     bool ok_x = false, ok_y = false;
     const QPoint pos = saved.size() == 2 ? QPoint(saved[0].toInt(&ok_x), saved[1].toInt(&ok_y)) : QPoint();
-    const QString where = config->get_app_setting("screen_annotation_toolbar_position").toString();
+    const QString where = config->get_screen_annotation_toolbar_position();
     if (where == "top") {
         place_at_top();
         return;
@@ -74,7 +74,7 @@ void AnnotationToolbar::place_at_start() {
 }
 
 void AnnotationToolbar::remember_position() const {
-    get_tool_settings_manager()->set_app_setting("screen_annotation_toolbar_pos", QString("%1,%2").arg(x()).arg(y()));
+    get_tool_settings_manager()->set_screen_annotation_toolbar_pos(QString("%1,%2").arg(x()).arg(y()));
 }
 
 void AnnotationToolbar::edit_layout(QWidget *parent) {
@@ -117,7 +117,7 @@ QList<QWidget *> AnnotationToolbar::floating_windows() const {
 void AnnotationToolbar::prepare_floating_windows() {
     auto windows = floating_windows();
     windows.prepend(this);
-    const bool hidden = get_tool_settings_manager()->get_app_setting("screen_annotation_hide_toolbar_in_captures", true).toBool();
+    const bool hidden = get_tool_settings_manager()->get_screen_annotation_hide_toolbar_in_captures();
     for (auto *window : windows) {
         // Qt shows tooltips only for the active window otherwise.
         window->setAttribute(Qt::WA_AlwaysShowToolTips);

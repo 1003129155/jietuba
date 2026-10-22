@@ -43,7 +43,7 @@ void build_application_section(SettingsDialog *dialog, SettingsCardGroup *grp) {
     // Read by choose_color, the one entry every colour control opens the picker through.
     add_combo_card(dialog, grp, FluentIcon::Palette, "Color Picker", "Used when choosing a custom color.", "_color_picker_style_combo",
                    {{dialog->tr_text("Modern"), "modern"}, {dialog->tr_text("Classic (system dialog)"), "system"}},
-                   dialog->config_manager->get_app_setting("color_picker_style"));
+                   dialog->config_manager->get_color_picker_style());
 }
 
 // Picks a colour into one of the dialog's appearance colours and its swatch; both are opaque.

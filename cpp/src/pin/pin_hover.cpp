@@ -109,6 +109,6 @@ bool PinHoverControls::toolbar_visible() const { return win_->toolbar && win_->t
 bool PinHoverControls::auto_toolbar() const { return win_->config_manager ? win_->config_manager->get_pin_auto_toolbar() : true; }
 
 bool PinHoverControls::hover_buttons_enabled() const {
-    return win_->config_manager && win_->config_manager->get_app_setting("pin_hover_buttons").toBool();
+    return win_->config_manager && win_->config_manager->get_pin_hover_buttons();
 }
 }

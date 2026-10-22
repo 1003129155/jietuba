@@ -349,7 +349,7 @@ TranslationDialog::TranslationDialog(const QString &original_text, const QString
                                      const QString &source_lang, const QString &target_lang)
     : FramelessWindow(parent), original_text(original_text), translated_text(translated_text), source_lang(source_lang.isEmpty() ? "auto" : source_lang) {
     auto *config = get_tool_settings_manager();
-    const auto saved_target_lang = config->get_app_setting("translation_target_lang", "").toString();
+    const auto saved_target_lang = config->get_saved_translation_target_lang();
     this->target_lang = !saved_target_lang.isEmpty() ? saved_target_lang : !target_lang.isEmpty() ? target_lang : QString("ZH");
     is_on_top_ = config->get_translation_on_top();
 
@@ -633,7 +633,7 @@ void TranslationDialog::retranslate_ui() {
 void TranslationDialog::on_target_lang_changed(int) {
     const auto lang = get_target_lang();
     if (!lang.isEmpty()) {
-        get_tool_settings_manager()->set_app_setting("translation_target_lang", lang);
+        get_tool_settings_manager()->set_translation_target_lang(lang);
         target_lang = lang;
         log_debug("Target language saved: " + lang, "Translation");
     }

@@ -960,7 +960,7 @@ std::optional<QColor> ColorPickerDialog::getColor(const QColor &initial, QWidget
 
 bool use_system_color_dialog(ToolSettingsManager *config) {
     if (!config) config = get_tool_settings_manager();
-    return config->get_app_setting("color_picker_style").toString() == "system";
+    return config->get_color_picker_style() == "system";
 }
 
 std::optional<QColor> choose_color(const QColor &initial, QWidget *anchor, const QString &title, ColorPickerDialog::Options options,

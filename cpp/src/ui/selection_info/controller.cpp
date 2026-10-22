@@ -63,7 +63,7 @@ void SelectionInfoController::on_rect_changed(const QRectF &rect) {
 void SelectionInfoController::on_dragging_changed(bool is_dragging) {
     if (is_dragging) {
         // Hiding while dragging is a setting; otherwise the panel follows the selection.
-        if (config_->get_app_setting("screenshot_info_hide_on_drag", false).toBool()) {
+        if (config_->get_screenshot_info_hide_on_drag()) {
             panel->hide();
         } else if (!model->rect().isEmpty()) {
             panel->update_info_text(model->rect());

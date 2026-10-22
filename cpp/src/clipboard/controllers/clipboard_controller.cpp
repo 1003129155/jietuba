@@ -69,7 +69,7 @@ ClipboardController::ClipboardController(ClipboardManager &manager, QObject *par
 void ClipboardController::load_settings() {
     auto *config = get_tool_settings_manager();
     auto_paste_enabled = config->get_clipboard_auto_paste();
-    paste_with_html = config->get_app_setting("clipboard_paste_with_html", true).toBool();
+    paste_with_html = config->get_clipboard_paste_with_html();
 }
 
 void ClipboardController::set_auto_paste(bool enabled) {
@@ -80,7 +80,7 @@ void ClipboardController::set_auto_paste(bool enabled) {
 
 void ClipboardController::set_paste_with_html(bool enabled) {
     paste_with_html = enabled;
-    get_tool_settings_manager()->set_app_setting("clipboard_paste_with_html", enabled);
+    get_tool_settings_manager()->set_clipboard_paste_with_html(enabled);
 }
 
 void ClipboardController::set_move_to_top_on_paste(bool enabled) { get_tool_settings_manager()->set_clipboard_move_to_top_on_paste(enabled); }

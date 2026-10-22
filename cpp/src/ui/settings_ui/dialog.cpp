@@ -491,9 +491,9 @@ void SettingsDialog::schedule_save() {
 void SettingsDialog::apply_startup() {
     auto *autostart_toggle = attr_widget("autostart_toggle");
     const bool autostart = checked_of(autostart_toggle);
-    const bool was_admin = config_manager->get_app_setting("run_as_admin").toBool();
+    const bool was_admin = config_manager->get_run_as_admin();
     auto *admin_toggle = attr_widget("run_as_admin_toggle");
-    config_manager->set_app_setting("autostart_enabled", autostart);
+    config_manager->set_autostart_enabled(autostart);
     if (!admin_toggle) {
         // Without the card (an account that cannot elevate) admin mode is left as it is.
         elevation::apply_startup(autostart, was_admin, was_admin);
@@ -506,13 +506,13 @@ void SettingsDialog::apply_startup() {
         if (admin) {
             // The task stayed, so it still starts at sign-in.
             set_checked(autostart_toggle, true);
-            config_manager->set_app_setting("autostart_enabled", true);
+            config_manager->set_autostart_enabled(true);
         }
         show_warning_dialog(this, tr_text("Run as Administrator"),
                             admin ? tr_text("Run as administrator could not be turned off. It still starts as administrator at sign-in.")
                                   : tr_text("Run as administrator was not turned on."));
     }
-    config_manager->set_app_setting("run_as_admin", admin);
+    config_manager->set_run_as_admin(admin);
     // After this apply finishes.
     if (admin && !was_admin && elevation::elevation_state() != elevation::ELEVATED)
         QTimer::singleShot(0, this, &SettingsDialog::admin_mode_enabled);
@@ -840,7 +840,7 @@ void SettingsDialog::save_changes(QSet<QString> changed) {
     if (auto *toggle = attr_widget("watermark_auto_toggle"); toggle && has("watermark_auto_toggle")) config_manager->set_screenshot_watermark_auto(checked_of(toggle));
     if (auto *label = attr_widget("save_path_lbl"); label && has("save_path_lbl")) config_manager->set_screenshot_save_path(text_of(label));
     if (auto *combo = attr<QComboBox>("screenshot_format_combo"); combo && has("screenshot_format_combo")) config_manager->set_screenshot_format(combo->currentData().toString());
-    if (auto *combo = attr<QComboBox>("save_dialog_style_combo"); combo && has("save_dialog_style_combo")) config_manager->set_app_setting("save_dialog_style", combo->currentData());
+    if (auto *combo = attr<QComboBox>("save_dialog_style_combo"); combo && has("save_dialog_style_combo")) config_manager->set_save_dialog_style(combo->currentData().toString());
 
     // 3.5 Magnifier.
     for (const auto &[attr_name, key] : {std::make_pair("magnifier_enabled_toggle", "magnifier_enabled"), std::make_pair("magnifier_grid_toggle", "magnifier_grid"),
@@ -889,8 +889,8 @@ void SettingsDialog::save_changes(QSet<QString> changed) {
     // Interface language.
     if (auto *combo = attr<QComboBox>("language_combo"); combo && has("language_combo")) {
         const QString new_lang = combo->currentData().toString();
-        const QString old_lang = config_manager->get_app_setting("language", "ja").toString();
-        config_manager->qsettings.setValue("app/language", new_lang);
+        const QString old_lang = config_manager->get_language("ja");
+        config_manager->set_language(new_lang);
         if (new_lang != old_lang) {
             language_changed_ = true;
             I18nManager::load_language(new_lang);
@@ -936,7 +936,7 @@ void SettingsDialog::save_changes(QSet<QString> changed) {
 
     // 10. Selection info panel behaviour.
     if (auto *toggle = attr_widget("info_hide_on_drag_toggle"); toggle && has("info_hide_on_drag_toggle"))
-        config_manager->set_app_setting("screenshot_info_hide_on_drag", checked_of(toggle));
+        config_manager->set_screenshot_info_hide_on_drag(checked_of(toggle));
 
     // 10.5 Clipboard appearance.
     if (has_any({"_clip_theme_name", "_clip_font_combo", "_clip_opacity_combo"})) apply_clipboard_appearance();
@@ -955,7 +955,7 @@ void SettingsDialog::save_changes(QSet<QString> changed) {
     if (auto *combo = attr<QComboBox>("_selection_handle_combo"); combo && has("_selection_handle_combo")) theme.set_selection_handle_style(combo->currentData().toString());
     if (auto *combo = attr<QComboBox>("_selection_handle_size_combo"); combo && has("_selection_handle_size_combo"))
         theme.set_selection_handle_size(combo->currentData().toString());
-    if (auto *combo = attr<QComboBox>("_color_picker_style_combo"); combo && has("_color_picker_style_combo")) config_manager->set_app_setting("color_picker_style", combo->currentData());
+    if (auto *combo = attr<QComboBox>("_color_picker_style_combo"); combo && has("_color_picker_style_combo")) config_manager->set_color_picker_style(combo->currentData().toString());
 
     saved_keys_ = changed;
     if (changed.isEmpty()) return;
@@ -1276,7 +1276,7 @@ void SettingsDialog::refresh_settings() {
     if (auto *label = attr_widget("save_path_lbl")) set_text(label, config_manager->get_screenshot_save_path());
     if (auto *combo = attr<QComboBox>("screenshot_format_combo"))
         combo->setCurrentIndex(std::max<int>(0, QStringList{"PNG", "JPG", "BMP", "WEBP", "PDF"}.indexOf(config_manager->get_screenshot_format().toUpper())));
-    select_data(attr<QComboBox>("save_dialog_style_combo"), config_manager->get_app_setting("save_dialog_style"));
+    select_data(attr<QComboBox>("save_dialog_style_combo"), config_manager->get_save_dialog_style());
     for (const auto &[attr_name, key] : {std::make_pair("magnifier_enabled_toggle", "magnifier_enabled"), std::make_pair("magnifier_grid_toggle", "magnifier_grid"),
                                          std::make_pair("magnifier_hint_toggle", "magnifier_hint")})
         if (auto *toggle = attr_widget(attr_name)) set_checked(toggle, config_manager->get_app_setting(key).toBool());
@@ -1288,7 +1288,7 @@ void SettingsDialog::refresh_settings() {
     select_data(attr<QComboBox>("translation_provider_combo"), config_manager->get_translation_provider());
     // Every provider's credentials and switches reload from the declarations.
     if (provider_field_widgets) provider_fields::load_into(config_manager, provider_fields::all_fields(*translation_registry), *provider_field_widgets);
-    select_data(attr<QComboBox>("translation_target_combo"), config_manager->get_app_setting("translation_target_lang", ""));
+    select_data(attr<QComboBox>("translation_target_combo"), config_manager->get_saved_translation_target_lang());
     if (auto *toggle = attr_widget("split_sentences_toggle")) set_checked(toggle, config_manager->get_translation_split_sentences());
     if (auto *toggle = attr_widget("preserve_formatting_toggle")) set_checked(toggle, config_manager->get_translation_preserve_formatting());
 
@@ -1306,16 +1306,16 @@ void SettingsDialog::refresh_settings() {
     if (auto *spin = attr<QSpinBox>("clipboard_history_limit_spin")) spin->setValue(static_cast<int>(config_manager->get_clipboard_history_limit()));
     if (clipboard_special_paste_entries) clipboard_special_paste_entries = special_paste::load(config_manager);
 
-    if (auto *toggle = attr_widget("autostart_toggle")) set_checked(toggle, config_manager->get_app_setting("autostart_enabled").toBool());
-    if (auto *toggle = attr_widget("run_as_admin_toggle")) set_checked(toggle, config_manager->get_app_setting("run_as_admin").toBool());
+    if (auto *toggle = attr_widget("autostart_toggle")) set_checked(toggle, config_manager->get_autostart_enabled());
+    if (auto *toggle = attr_widget("run_as_admin_toggle")) set_checked(toggle, config_manager->get_run_as_admin());
     if (auto *toggle = attr_widget("show_main_window_toggle")) set_checked(toggle, config_manager->get_show_main_window());
     if (auto *toggle = attr_widget("pin_auto_toolbar_toggle")) set_checked(toggle, config_manager->get_pin_auto_toolbar());
-    select_data(attr<QComboBox>("language_combo"), config_manager->get_app_setting("language", "ja"));
+    select_data(attr<QComboBox>("language_combo"), config_manager->get_language("ja"));
 
     // Preload switches (defaults from the app defaults).
     for (const char *key : {"preload_screenshot", "preload_toolbar", "preload_ocr", "preload_settings", "preload_clipboard"})
         if (auto *toggle = attr_widget(QString(key) + "_toggle")) set_checked(toggle, config_manager->get_app_setting(key).toBool());
-    if (auto *toggle = attr_widget("info_hide_on_drag_toggle")) set_checked(toggle, config_manager->get_app_setting("screenshot_info_hide_on_drag").toBool());
+    if (auto *toggle = attr_widget("info_hide_on_drag_toggle")) set_checked(toggle, config_manager->get_screenshot_info_hide_on_drag());
 
     // Clipboard appearance: also shows what was changed in the clipboard window itself.
     if (auto *button = attr_widget("_clip_theme_btn")) {
@@ -1326,7 +1326,7 @@ void SettingsDialog::refresh_settings() {
         combo->setCurrentIndex(combo->findData(config_manager->get_clipboard_font_size()));
     if (auto *combo = attr<QComboBox>("_clip_opacity_combo"); combo && combo->findData(config_manager->get_clipboard_window_opacity()) >= 0)
         combo->setCurrentIndex(combo->findData(config_manager->get_clipboard_window_opacity()));
-    select_data(attr<QComboBox>("_color_picker_style_combo"), config_manager->get_app_setting("color_picker_style"));
+    select_data(attr<QComboBox>("_color_picker_style_combo"), config_manager->get_color_picker_style());
 
     refresh_appearance_controls(&SettingsDialog::runtime_appearance);
 }
@@ -1346,14 +1346,14 @@ QVariant SettingsDialog::runtime_appearance(const QString &key) {
 
 std::function<QVariant(const QString &)> SettingsDialog::configured_appearance(ToolSettingsManager *config) {
     return [config](const QString &key) -> QVariant {
-        if (key == "ui_theme_mode") return ui_theme_mode_value(coerce_ui_theme_mode(config->get_app_setting(key, "system")));
+        if (key == "ui_theme_mode") return ui_theme_mode_value(coerce_ui_theme_mode(config->get_ui_theme_mode()));
         if (key == "ui_scale_percent" || key == "dialog_scale_percent") return UIScaleManager::normalize_percent(config->get_app_setting(key));
         if (key == "theme_color") {
             const QColor color(config->get_app_setting(key).toString());
             return color.isValid() ? color : QColor(config->app_defaults().value(key).toString());
         }
         if (key == "mask_color")
-            return QColor(config->get_app_setting("mask_color_r").toInt(), config->get_app_setting("mask_color_g").toInt(), config->get_app_setting("mask_color_b").toInt());
+            return QColor(config->get_mask_color_r(), config->get_mask_color_g(), config->get_mask_color_b());
         if (key == "selection_border_width") return ThemeManager::clamp_border_width(config->get_app_setting(key));
         return config->get_app_setting(key);
     };
@@ -1426,21 +1426,4 @@ void SettingsDialog::load_imported_settings(const QVariantMap &values) {
     apply_settings();
 }
 
-std::set<QString> SettingsDialog::settings_keys() {
-    // Unbuilt pages read none of their keys, and export would miss them.
-    build_all_pages();
-    QSet<QString> keys;
-    {
-        settings_transfer::RecordingReads recording(config_manager);
-        refresh_settings();
-        // Appearance values normally come from their managers, not the configuration; refreshing
-        // them from the configuration once reads their keys too.
-        refresh_appearance_controls(configured_appearance(config_manager));
-        keys = recording.keys;
-    }
-    std::set<QString> result(keys.begin(), keys.end());
-    // The toolbar layout is edited in the toolbar's own dialog and no page reads it, yet it is a customisation worth carrying.
-    for (const auto &key : toolbar_layout::setting_keys()) result.insert(ToolSettingsManager::app_setting_path(key));
-    return result;
-}
 }

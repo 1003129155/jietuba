@@ -125,14 +125,14 @@ int confirm(QWidget *parent, const QString &title, const QString &message) {
 
 bool use_modern_save_dialog(ToolSettingsManager *config) {
     if (!config) config = get_tool_settings_manager();
-    return config->get_app_setting("save_dialog_style").toString() != "classic";
+    return config->get_save_dialog_style() != "classic";
 }
 
 bool same_folder(const QString &a, const QString &b) { return normalized_folder(a).compare(normalized_folder(b), Qt::CaseInsensitive) == 0; }
 
 std::vector<PathTag> load_path_tags(ToolSettingsManager *config) {
     std::vector<PathTag> tags;
-    for (const auto &entry : config->get_app_setting("save_dialog_path_tags").toStringList()) {
+    for (const auto &entry : config->get_save_dialog_path_tags()) {
         // Folder paths cannot hold '|', so the last one separates the name.
         const int bar = entry.lastIndexOf('|');
         if (bar > 0 && bar < entry.size() - 1) tags.push_back({entry.left(bar), entry.mid(bar + 1)});
@@ -144,7 +144,7 @@ std::vector<PathTag> load_path_tags(ToolSettingsManager *config) {
 void save_path_tags(ToolSettingsManager *config, const std::vector<PathTag> &tags) {
     QStringList entries;
     for (const auto &tag : tags) entries << tag.name + "|" + tag.path;
-    config->set_app_setting("save_dialog_path_tags", entries);
+    config->set_save_dialog_path_tags(entries);
 }
 
 PathTagNameDialog::PathTagNameDialog(const QString &initial, QWidget *parent) : FrostedFramelessDialog(parent) {
@@ -669,7 +669,7 @@ SaveImageDialog::SaveImageDialog(const QImage &image, const QString &base_name, 
     directory_row->setSpacing(dialog_scaled(8));
     directory_edit = new LineEdit(panel_, false);
     directory_edit->setObjectName("field");
-    QString directory = config_->get_app_setting("save_dialog_last_dir").toString();
+    QString directory = config_->get_save_dialog_last_dir();
     if (directory.isEmpty() || !ToolSettingsManager::is_absolute_save_path(directory) || !QFileInfo(directory).isDir())
         directory = config_->get_screenshot_save_path();
     directory_edit->setText(QDir::toNativeSeparators(directory));
@@ -696,7 +696,7 @@ SaveImageDialog::SaveImageDialog(const QImage &image, const QString &base_name, 
     format_combo = new ComboBox(panel_);
     format_combo->setFixedWidth(dialog_scaled(94));
     for (const auto &[value, label] : FORMATS()) format_combo->addItem(label, value);
-    QString format = config_->get_app_setting("save_dialog_format").toString();
+    QString format = config_->get_save_dialog_format();
     if (format.isEmpty()) format = config_->get_screenshot_format();
     format_combo->setCurrentIndex(std::max(0, format_combo->findData(SaveService::normalize_format(format))));
     name_row->addWidget(name_edit, 1);
@@ -758,9 +758,9 @@ SaveImageDialog::SaveImageDialog(const QImage &image, const QString &base_name, 
     lock_button->setFixedSize(dialog_scaled(16), dialog_scaled(16));
     lock_button->setIconSize(QSize(dialog_scaled(16), dialog_scaled(16)));
     lock_button->setToolTip(tr_text("Lock aspect ratio"));
-    lock_button->setChecked(config_->get_app_setting("save_dialog_aspect_locked").toBool());
+    lock_button->setChecked(config_->get_save_dialog_aspect_locked());
     connect(lock_button, &QToolButton::toggled, this, [this](bool locked) {
-        config_->set_app_setting("save_dialog_aspect_locked", locked);
+        config_->set_save_dialog_aspect_locked(locked);
         apply_theme();
         if (locked) on_size_typed(true);
     });
@@ -1074,7 +1074,7 @@ void SaveImageDialog::switch_to_classic() {
                              tr_text("Use the system Save As dialog for this and every later image save? "
                                      "You can change this back in Settings > Screenshot > Save Dialog.")))
         return;
-    config_->set_app_setting("save_dialog_style", "classic");
+    config_->set_save_dialog_style("classic");
     classic_ = true;
     reject();
 }
@@ -1096,8 +1096,8 @@ void SaveImageDialog::accept_save() {
         show_warning_dialog(this, tr_text("Save Failed"), QDir::toNativeSeparators(path));
         return;
     }
-    config_->set_app_setting("save_dialog_last_dir", QDir::toNativeSeparators(directory));
-    config_->set_app_setting("save_dialog_format", current_format());
+    config_->set_save_dialog_last_dir(QDir::toNativeSeparators(directory));
+    config_->set_save_dialog_format(current_format());
     config_->set_screenshot_quality(current_quality());
     saved_path_ = QDir::toNativeSeparators(path);
     accept();

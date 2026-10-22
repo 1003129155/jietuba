@@ -49,7 +49,7 @@ private:
 QVariant read_config(ToolSettingsManager *config, const ProviderField &field) {
     std::optional<QVariant> value;
     try {
-        value = config->get_provider_field(field.config_key);
+        value = config->accessor_value(field.config_key);
     } catch (const std::exception &e) {
         log_exception(e, T("读取翻译设置 {config_key}", {{"config_key", field.config_key}}));
         return empty_value(field);
@@ -61,7 +61,7 @@ QVariant read_config(ToolSettingsManager *config, const ProviderField &field) {
 
 void write_config(ToolSettingsManager *config, const ProviderField &field, const QVariant &value) {
     try {
-        config->set_provider_field(field.config_key, value);
+        config->set_accessor_value(field.config_key, value);
     } catch (const std::exception &e) {
         log_exception(e, T("保存翻译设置 {config_key}", {{"config_key", field.config_key}}));
     }

@@ -10,8 +10,6 @@ namespace jietuba {
 class ToolSettingsManager;
 
 namespace special_paste {
-inline const QString SETTING_KEY = "clipboard_special_paste";
-
 struct PasteOption {
     QString key;
     const char *label;

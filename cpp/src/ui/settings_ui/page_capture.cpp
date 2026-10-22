@@ -177,7 +177,7 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     auto *style_combo = new ComboBox(style_card);
     style_combo->addItem(dialog->tr_text("Modern (with preview)"), QString("modern"));
     style_combo->addItem(dialog->tr_text("Classic (system dialog)"), QString("classic"));
-    style_combo->setCurrentIndex(std::max(0, style_combo->findData(config->get_app_setting("save_dialog_style").toString())));
+    style_combo->setCurrentIndex(std::max(0, style_combo->findData(config->get_save_dialog_style())));
     dialog->set_attr("save_dialog_style_combo", style_combo);
     style_card->addControl(style_combo);
     grp_save->addSettingCard(style_card);
@@ -194,13 +194,13 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     // ── Magnifier ──
     auto *grp_magnifier = new SettingsCardGroup(dialog->tr_text("Magnifier"), view, "capture");
     switch_card(dialog, grp_magnifier, FluentIcon::Search, "Show Magnifier", "Follows the cursor while selecting, and picks the color under it.",
-                config->get_app_setting("magnifier_enabled").toBool(), "magnifier_enabled_toggle");
+                config->get_magnifier_enabled(), "magnifier_enabled_toggle");
     switch_card(dialog, grp_magnifier, FluentIcon::Layout, "Pixel Grid",
                 "Outline each pixel in the magnified view. Hidden at low zoom, where the lines would cover the pixels.",
-                config->get_app_setting("magnifier_grid").toBool(), "magnifier_grid_toggle");
+                config->get_magnifier_grid(), "magnifier_grid_toggle");
     switch_card(dialog, grp_magnifier, FluentIcon::Info, "Shortcut Hint",
                 "Show the switch-format and copy-color shortcuts under the readings. Off makes the magnifier shorter.",
-                config->get_app_setting("magnifier_hint").toBool(), "magnifier_hint_toggle");
+                config->get_magnifier_hint(), "magnifier_hint_toggle");
     // Formats can be checked several at a time and added, which a combo cannot hold, so they
     // get their own window; the result is kept on the dialog and saved when it closes.
     auto *formats_card = new SettingCard(FluentIcon::Palette, dialog->tr_text("Color Formats"),

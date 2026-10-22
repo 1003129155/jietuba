@@ -165,7 +165,7 @@ PreloadManager::PreloadManager(MainApp *app) : app_(app), config_(app->config_ma
 
 void PreloadManager::build_and_start() {
     auto *cfg = config_;
-    if (cfg->get_app_setting("preload_screenshot", true).toBool() && cfg->get_smart_selection_mode() == "element")
+    if (cfg->get_preload_screenshot() && cfg->get_smart_selection_mode() == "element")
         prepare_point_detection();
     // Entry points come first and preloading follows: a capture during preloading costs
     // nothing extra here. The reference registers hotkeys last, because there preloading
@@ -173,7 +173,7 @@ void PreloadManager::build_and_start() {
     // and the PNG encoder) have nothing to warm in a native build and are left out.
     // An elevated instance points a task left on a program that is gone at itself; schtasks runs
     // on a worker so start-up is not held.
-    if (cfg->get_app_setting("run_as_admin").toBool()) steps_.push_back([] {
+    if (cfg->get_run_as_admin()) steps_.push_back([] {
         std::thread([] { run_thread_guarded("AdminTask", [] { elevation::repair_task(); }); }).detach();
         return false;
     });
@@ -186,16 +186,16 @@ void PreloadManager::build_and_start() {
         clipboard::ItemDragMimeData::remove_stale_folders(clipboard::ItemDragMimeData::default_temp_root(), 0);
         return false;
     });
-    if (cfg->get_app_setting("preload_clipboard", true).toBool()) steps_.push_back([this] {
+    if (cfg->get_preload_clipboard()) steps_.push_back([this] {
         init_clipboard_manager();
         return false;
     });
     steps_.push_back([this] { return register_entry_points(); });
-    if (cfg->get_app_setting("preload_screenshot", true).toBool() && cfg->get_capture_engine() != "mss")
+    if (cfg->get_preload_screenshot() && cfg->get_capture_engine() != "mss")
         steps_.push_back([this] { return preload_hdr_session(); });
-    if (cfg->get_app_setting("preload_toolbar", true).toBool()) steps_.push_back([this] { return preload_toolbar_assets(); });
-    if (cfg->get_app_setting("preload_ocr", true).toBool()) steps_.push_back([this] { return preload_ocr_engine(); });
-    if (cfg->get_app_setting("preload_settings", true).toBool()) steps_.push_back([this] {
+    if (cfg->get_preload_toolbar()) steps_.push_back([this] { return preload_toolbar_assets(); });
+    if (cfg->get_preload_ocr()) steps_.push_back([this] { return preload_ocr_engine(); });
+    if (cfg->get_preload_settings()) steps_.push_back([this] {
         preload_settings();
         return false;
     });

@@ -414,7 +414,7 @@ QWidget *create_translation_page(SettingsDialog *dialog) {
     auto *target_combo = new ComboBox(lang_card);
     std::vector<std::pair<QString, QString>> lang_options{{"", dialog->tr_text("Auto (System)")}};
     lang_options.insert(lang_options.end(), translation_languages().begin(), translation_languages().end());
-    const QString current_lang = config->get_app_setting("translation_target_lang", "").toString();
+    const QString current_lang = config->get_saved_translation_target_lang();
     int current_index = 0;
     for (int i = 0; i < static_cast<int>(lang_options.size()); ++i) {
         target_combo->addItem(lang_options[i].second, lang_options[i].first);

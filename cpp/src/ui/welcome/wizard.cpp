@@ -196,7 +196,7 @@ void WelcomeWizard::setup_titlebar() {
 }
 
 void WelcomeWizard::init_language() {
-    const QString saved = config_->get_app_setting("language", "").toString();
+    const QString saved = config_->get_language("");
     const QString init_lang = !saved.isEmpty() && I18nManager::LANGUAGES().contains(saved) ? saved : I18nManager::get_system_language();
     if (I18nManager::get_current_language() != init_lang) I18nManager::load_language(init_lang);
 }

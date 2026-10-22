@@ -261,12 +261,12 @@ BorderShadowLogic::BorderShadowLogic(QWidget *parent_widget, QPushButton *btn_bo
     : QObject(parent_widget), btn_(btn_border), mask_(mask_overlay), export_(export_service), model_(selection_model), config_(config_manager),
       rounded_logic_(rounded_corners_logic) {
     if (config_) {
-        enabled_ = config_->get_app_setting("screenshot_border_enabled", false).toBool();
-        mode_ = config_->get_app_setting("screenshot_border_mode", "border").toString();
-        size_ = config_->get_app_setting("screenshot_border_size", 21).toInt();
-        shadow_color_ = config_->get_app_setting("screenshot_shadow_color", "#0078FF").toString();
-        border_color_ = config_->get_app_setting("screenshot_border_color", "#FF0000").toString();
-        persist_ = config_->get_app_setting("screenshot_border_persist", false).toBool();
+        enabled_ = config_->get_screenshot_border_enabled();
+        mode_ = config_->get_screenshot_border_mode("border");
+        size_ = config_->get_screenshot_border_size();
+        shadow_color_ = config_->get_screenshot_shadow_color();
+        border_color_ = config_->get_screenshot_border_color();
+        persist_ = config_->get_screenshot_border_persist();
     }
     // Without "keep enabled" every capture starts with the effect off.
     if (!persist_) enabled_ = false;
@@ -312,7 +312,7 @@ QString BorderShadowLogic::active_color() const { return mode_ == "border" ? bor
 void BorderShadowLogic::set_enabled(bool enabled) {
     enabled_ = enabled;
     log_debug(T("描边/阴影: {state}  mode={mode} size={size}", {{"state", QString(enabled ? "ON" : "OFF")}, {"mode", mode_}, {"size", size_}}), "BorderShadow");
-    if (config_) config_->set_app_setting("screenshot_border_enabled", enabled);
+    if (config_) config_->set_screenshot_border_enabled(enabled);
     if (enabled) {
         popup_->cancel_hide();
         popup_->show_near(btn_);
@@ -340,31 +340,31 @@ bool BorderShadowLogic::eventFilter(QObject *watched, QEvent *event) {
 void BorderShadowLogic::on_mode_changed(const QString &mode) {
     mode_ = mode;
     log_debug(T("模式切换: {mode}", {{"mode", mode}}), "BorderShadow");
-    if (config_) config_->set_app_setting("screenshot_border_mode", mode);
+    if (config_) config_->set_screenshot_border_mode(mode);
     if (preview_visible_) mask_->update();
 }
 
 void BorderShadowLogic::on_size_changed(int value) {
     size_ = value;
-    if (config_) config_->set_app_setting("screenshot_border_size", value);
+    if (config_) config_->set_screenshot_border_size(value);
     if (preview_visible_) mask_->update();
 }
 
 void BorderShadowLogic::on_shadow_color_changed(const QString &color_hex) {
     shadow_color_ = color_hex;
-    if (config_) config_->set_app_setting("screenshot_shadow_color", color_hex);
+    if (config_) config_->set_screenshot_shadow_color(color_hex);
     if (preview_visible_ && mode_ == "shadow") mask_->update();
 }
 
 void BorderShadowLogic::on_border_color_changed(const QString &color_hex) {
     border_color_ = color_hex;
-    if (config_) config_->set_app_setting("screenshot_border_color", color_hex);
+    if (config_) config_->set_screenshot_border_color(color_hex);
     if (preview_visible_ && mode_ == "border") mask_->update();
 }
 
 void BorderShadowLogic::on_persist_changed(bool checked) {
     persist_ = checked;
-    if (config_) config_->set_app_setting("screenshot_border_persist", checked);
+    if (config_) config_->set_screenshot_border_persist(checked);
 }
 
 void BorderShadowLogic::on_popup_visibility_changed(bool visible) {

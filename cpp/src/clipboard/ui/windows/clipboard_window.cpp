@@ -372,8 +372,8 @@ void ClipboardWindow::apply_opacity() {
 }
 
 void ClipboardWindow::load_window_geometry() {
-    const int default_width = config->get_app_setting("clipboard_window_width", 450).toInt();
-    const int default_height = config->get_app_setting("clipboard_window_height", 600).toInt();
+    const int default_width = config->get_clipboard_window_width();
+    const int default_height = config->get_clipboard_window_height(600);
     const QVariant x = qsettings_->value("window/x"), y = qsettings_->value("window/y");
     if (x.isValid()) saved_x_ = x.toInt();
     if (y.isValid()) saved_y_ = y.toInt();
@@ -1256,7 +1256,7 @@ void ClipboardWindow::start_item_drag(qint64 item_id) {
 
 QString ClipboardWindow::last_save_folder() const {
     // Shared with the save image window: the last folder anything was saved to.
-    const QString folder = config->get_app_setting("save_dialog_last_dir").toString();
+    const QString folder = config->get_save_dialog_last_dir();
     return !folder.isEmpty() && QFileInfo(folder).isDir() ? folder : QStandardPaths::writableLocation(QStandardPaths::DesktopLocation);
 }
 
@@ -1266,7 +1266,7 @@ bool ClipboardWindow::save_items_to_folder(const QList<ClipboardItem> &items) {
     const QString start = last_save_folder();
     const QString folder = get_existing_directory(this, tr_text("Choose a Folder to Save To"), start);
     if (folder.isEmpty()) return false;
-    config->set_app_setting("save_dialog_last_dir", QDir::toNativeSeparators(folder));
+    config->set_save_dialog_last_dir(QDir::toNativeSeparators(folder));
     // Text and images become files the way a drag makes them; they stay until the copy that reads them is done.
     auto staged = std::make_shared<ItemDragMimeData>(items, manager.get_images_dir().value_or(QString()), ItemDragMimeData::default_temp_root());
     const QStringList sources = staged->file_paths();
@@ -1308,7 +1308,7 @@ void ClipboardWindow::save_item_as(qint64 item_id) {
     QString path = get_save_file_name(this, tr_text("Save as"), suggested, tr_text("Text Files (*.txt)")).first;
     if (path.isEmpty()) return;
     if (QFileInfo(path).suffix().isEmpty()) path += ".txt";
-    config->set_app_setting("save_dialog_last_dir", QDir::toNativeSeparators(QFileInfo(path).absolutePath()));
+    config->set_save_dialog_last_dir(QDir::toNativeSeparators(QFileInfo(path).absolutePath()));
     QSaveFile file(path);
     const QByteArray bytes = item->content.toUtf8();
     if (!file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size() || !file.commit()) {

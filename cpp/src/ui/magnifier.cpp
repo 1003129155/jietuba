@@ -36,7 +36,7 @@ MagnifierOverlay::MagnifierOverlay(QWidget *parent, CanvasScene *scene, CanvasVi
     zoom_min_ = defaults.value("magnifier_zoom_min").toDouble();
     zoom_max_ = defaults.value("magnifier_zoom_max").toDouble();
     if (config_manager) {
-        zoom_factor_ = config_manager->qsettings.value("app/magnifier_zoom", default_zoom).toDouble();
+        zoom_factor_ = config_manager->get_magnifier_zoom();
         zoom_factor_ = std::max(zoom_min_, std::min(zoom_max_, zoom_factor_));
     } else {
         zoom_factor_ = default_zoom;
@@ -78,9 +78,9 @@ void MagnifierOverlay::refresh_display_options() {
         format_index_ = 0;
         return;
     }
-    enabled_ = config_manager->get_app_setting("magnifier_enabled").toBool();
-    show_grid_ = config_manager->get_app_setting("magnifier_grid").toBool();
-    show_hint_ = config_manager->get_app_setting("magnifier_hint").toBool();
+    enabled_ = config_manager->get_magnifier_enabled();
+    show_grid_ = config_manager->get_magnifier_grid();
+    show_hint_ = config_manager->get_magnifier_hint();
     formats_ = color_formats::enabled_formats(color_formats::load(config_manager));
     // The enabled list may have changed, so cycling restarts at the first format.
     format_index_ = 0;
@@ -200,7 +200,7 @@ bool MagnifierOverlay::copy_color_info() {
 void MagnifierOverlay::adjust_zoom(int delta) {
     zoom_factor_ += delta * 0.25;
     zoom_factor_ = std::max(zoom_min_, std::min(zoom_max_, zoom_factor_));
-    if (config_manager) config_manager->qsettings.setValue("app/magnifier_zoom", zoom_factor_);
+    if (config_manager) config_manager->set_magnifier_zoom(zoom_factor_);
     log_debug(T("调整倍数: {zoom_factor:.2f}x", {{"zoom_factor", zoom_factor_}}), "Magnifier");
     // The zoom changed, so the cached sample is stale.
     clear_sample_cache();

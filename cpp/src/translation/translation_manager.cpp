@@ -251,7 +251,7 @@ void TranslationManager::on_popup_translate_requested(const QString &raw_text) {
 
 void TranslationManager::on_popup_target_lang_changed(const QString &new_lang) {
     target_lang_ = new_lang;
-    get_tool_settings_manager()->set_app_setting("translation_target_lang", new_lang);
+    get_tool_settings_manager()->set_translation_target_lang(new_lang);
     log_debug(T("小窗目标语言已更新: {new_lang}", {{"new_lang", new_lang}}), "Translation");
 }
 

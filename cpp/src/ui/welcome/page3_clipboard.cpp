@@ -682,14 +682,14 @@ void ClipboardHotkeyPage::populate_opacity_combo() {
 void ClipboardHotkeyPage::on_font_size_picked(int index) {
     const QVariant size = font_combo_->itemData(index);
     if (!size.isValid()) return;
-    config_->set_clipboard_font_size(size);
+    config_->set_clipboard_font_size(size.toInt());
     clipboard::get_theme_manager()->notify_font_size_changed(size.toInt());
 }
 
 void ClipboardHotkeyPage::on_opacity_picked(int index) {
     const QVariant percent = opacity_combo_->itemData(index);
     if (!percent.isValid()) return;
-    config_->set_clipboard_window_opacity(percent);
+    config_->set_clipboard_window_opacity(percent.toInt());
     clipboard::get_theme_manager()->notify_opacity_changed(percent.toInt());
 }
 

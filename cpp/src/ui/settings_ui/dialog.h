@@ -64,12 +64,10 @@ public:
     void update_hotkey(const QString &new_hotkey);
     // Rereads every setting from the configuration into the controls.
     void refresh_settings();
-    // Import and export go through every page's controls, so all pages are built first.
+    // Import goes through every page's controls, so all pages are built first.
     void build_all_pages();
     // Fills the controls with imported values and saves them like manual edits.
     void load_imported_settings(const QVariantMap &values);
-    // The configuration keys the settings pages read, for export.
-    std::set<QString> settings_keys();
     // Edits made but not saved yet: the save waits for edits to pause.
     bool has_unsaved_changes() const;
     // Restarts the delay after which the pending edits are saved.

@@ -137,7 +137,7 @@ void ScreenAnnotation::start() {
     shortcuts_ = std::make_unique<ScreenAnnotationShortcutHandler>(this);
     ShortcutManager::instance()->register_handler(shortcuts_.get());
     set_mode(Mode::PassThrough);
-    set_cursor_highlight(get_tool_settings_manager()->get_app_setting("screen_annotation_cursor_highlight", false).toBool(), false);
+    set_cursor_highlight(get_tool_settings_manager()->get_screen_annotation_cursor_highlight(), false);
     sync_effect_buttons();
     for_each_view([](AnnotationView *view) { view->show(); });
     toolbar_->place_at_start();
@@ -145,9 +145,9 @@ void ScreenAnnotation::start() {
     raise_toolbar();
     // Pass-through, the pen, or the tool the last session used (screen_annotation_start_tool).
     auto *config = get_tool_settings_manager();
-    const QString start_tool = config->get_app_setting("screen_annotation_start_tool").toString();
+    const QString start_tool = config->get_screen_annotation_start_tool();
     if (start_tool == "pen") select_tool("pen");
-    else if (start_tool == "last") select_tool(config->get_app_setting("screen_annotation_last_tool").toString());
+    else if (start_tool == "last") select_tool(config->get_screen_annotation_last_tool());
 }
 
 void ScreenAnnotation::stop() {
@@ -174,7 +174,7 @@ void ScreenAnnotation::stop() {
     request_trim_working_set();
 }
 
-bool ScreenAnnotation::keep_drawings() const { return get_tool_settings_manager()->get_app_setting("screen_annotation_keep_drawings").toBool(); }
+bool ScreenAnnotation::keep_drawings() const { return get_tool_settings_manager()->get_screen_annotation_keep_drawings(); }
 
 void ScreenAnnotation::discard_views() {
     // deleteLater: the exit button and Esc run inside these windows' own event handlers.
@@ -326,7 +326,7 @@ void ScreenAnnotation::on_tool_changed(const QString &tool_id) {
         enter_pass_through(true);
     } else {
         enter_drawing(tool_id);
-        get_tool_settings_manager()->set_app_setting("screen_annotation_last_tool", tool_id);
+        get_tool_settings_manager()->set_screen_annotation_last_tool(tool_id);
     }
     toolbar_->prepare_floating_windows();
 }
@@ -361,7 +361,7 @@ void ScreenAnnotation::enter_pass_through(bool restore_focus) {
 
 void ScreenAnnotation::set_cursor_highlight(bool enabled, bool remember) {
     if (!active()) return;
-    if (remember) get_tool_settings_manager()->set_app_setting("screen_annotation_cursor_highlight", enabled);
+    if (remember) get_tool_settings_manager()->set_screen_annotation_cursor_highlight(enabled);
     highlight_->set_views(views_);
     highlight_->set_enabled(enabled);
     sync_effect_buttons();

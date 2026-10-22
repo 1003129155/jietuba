@@ -35,36 +35,35 @@ QJsonValue plain(const QVariant &value) {
         return value.toString();
     }
 }
+
+QStringList paths_in(SettingScope scope) {
+    QStringList paths;
+    for (const auto &setting : APP_SETTINGS())
+        if (setting.scope == scope) paths.append(setting.path);
+    std::sort(paths.begin(), paths.end());
+    return paths;
+}
 }
 
 const QSet<QString> &LOCAL_KEYS() {
-    static const QSet<QString> keys{
-        "app/has_run_before",
-        "app/welcome_wizard_done",
-        // Autostart is decided by the system Run entry and scheduled task; these values alone would disagree with them.
-        "app/autostart_enabled",
-        "app/run_as_admin",
-        // Absolute paths seldom exist on another computer.
-        "app/screenshot_save_path",
-        "app/save_dialog_last_dir",
-        "app/log_dir",
-        "clipboard/db_path",
-    };
+    static const QSet<QString> keys = [] {
+        const auto paths = paths_in(SettingScope::Local);
+        return QSet<QString>(paths.begin(), paths.end());
+    }();
     return keys;
 }
 
-RecordingReads::RecordingReads(ToolSettingsManager *config) : config_(config), previous_(config->qsettings.recorder) { config_->qsettings.recorder = &keys; }
+const QStringList &EXPORTED_KEYS() {
+    static const QStringList keys = paths_in(SettingScope::Export);
+    return keys;
+}
 
-RecordingReads::~RecordingReads() { config_->qsettings.recorder = previous_; }
-
-int export_settings(ToolSettingsManager *config, const QSet<QString> &keys, const QString &path, const QString &app_version) {
+int export_settings(ToolSettingsManager *config, const QString &path, const QString &app_version) {
     auto &qsettings = config->qsettings;
     qsettings.sync();
-    QStringList sorted = keys.values();
-    std::sort(sorted.begin(), sorted.end());
     QJsonObject values;
-    for (const auto &key : sorted)
-        if (!LOCAL_KEYS().contains(key) && qsettings.contains(key)) values[key] = plain(qsettings.value(key));
+    for (const auto &key : EXPORTED_KEYS())
+        if (qsettings.contains(key)) values[key] = plain(qsettings.value(key));
     const QJsonObject payload{{"format", FILE_TAG}, {"version", FORMAT_VERSION}, {"app_version", app_version}, {"settings", values}};
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) throw std::runtime_error(file.errorString().toStdString());

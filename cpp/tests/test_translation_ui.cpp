@@ -548,7 +548,7 @@ private slots:
     // so nothing goes to the network.
     void theSelectionProbeOpensThePopupWithTheCopiedText() {
         get_tool_settings_manager()->set_translation_provider("deepl");
-        get_tool_settings_manager()->set_provider_field("deepl_api_key", "");
+        get_tool_settings_manager()->set_accessor_value("deepl_api_key", "");
         const auto visible_popup = []() -> TranslationPopup * {
             for (auto *widget : QApplication::topLevelWidgets())
                 if (auto *found = qobject_cast<TranslationPopup *>(widget); found && found->isVisible()) return found;

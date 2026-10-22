@@ -182,7 +182,7 @@ IllustrationArea *FinishPage::create_illustration() { return new FinishIllus(thi
 void FinishPage::build_controls(QVBoxLayout *layout) {
     // Launch at sign-in.
     autostart_switch_ = new WelcomeToggleSwitch;
-    autostart_switch_->setChecked(config_->get_app_setting("autostart_enabled").toBool());
+    autostart_switch_->setChecked(config_->get_autostart_enabled());
     QWidget *row = nullptr;
     std::tie(row, autostart_lbl_, autostart_desc_) = make_setting_row_with_refs(welcome_tr("开机自启"), autostart_switch_, welcome_tr("开机后在检测更新后启动。"));
     layout->addWidget(row);
@@ -198,7 +198,7 @@ void FinishPage::build_controls(QVBoxLayout *layout) {
     layout->addWidget(row);
     // Off unless chosen before; the tray menu has the same switch.
     game_pause_switch_ = new WelcomeToggleSwitch;
-    game_pause_switch_->setChecked(config_->get_app_setting("pause_hotkeys_in_games", false).toBool());
+    game_pause_switch_->setChecked(config_->get_pause_hotkeys_in_games());
     std::tie(row, game_pause_lbl_, game_pause_desc_) =
         make_setting_row_with_refs(welcome_tr("玩游戏时暂停热键"), game_pause_switch_, welcome_tr("游戏在前台时暂停全局快捷键和鼠标快捷键，离开游戏后恢复。托盘菜单里也能切换。"));
     layout->addWidget(row);
@@ -242,19 +242,19 @@ void FinishPage::retranslate() {
 }
 
 void FinishPage::save_preferences() {
-    config_->set_app_setting("welcome_wizard_done", "1");
+    config_->set_welcome_wizard_done("1");
     config_->set_show_main_window(show_main_switch_->isChecked());
-    config_->set_app_setting("pause_hotkeys_in_games", game_pause_switch_->isChecked());
+    config_->set_pause_hotkeys_in_games(game_pause_switch_->isChecked());
 }
 
 void FinishPage::save() {
     save_preferences();
     const bool desktop_on = desktop_switch_->isChecked();
-    const bool run_as_admin = config_->get_app_setting("run_as_admin").toBool();
+    const bool run_as_admin = config_->get_run_as_admin();
     // Without elevation the wizard cannot remove the administrator task, which keeps starting the
     // program at sign-in, so autostart stays on instead of being stored as off.
     const bool autostart_on = autostart_switch_->isChecked() || (run_as_admin && elevation::elevation_state() != elevation::ELEVATED);
-    config_->set_app_setting("autostart_enabled", autostart_on);
+    config_->set_autostart_enabled(autostart_on);
     // File and network path work runs in the background so UNC probing never blocks the UI thread.
     std::thread([autostart_on, desktop_on, run_as_admin] {
         run_thread_guarded("WelcomeFinish", [&] {

@@ -79,7 +79,7 @@ PinWindow::PinWindow(const QImage &image, const QPoint &position, ToolSettingsMa
                      const std::optional<QPoint> &offset, std::optional<int> number_next)
     : QWidget(nullptr), config_manager(config_manager), drawing_items(items), selection_offset(offset.value_or(QPoint(0, 0))) {
     // Border style.
-    border_enabled = config_manager ? config_manager->get_app_setting("pin_auto_border").toBool() : true;
+    border_enabled = config_manager ? config_manager->get_pin_auto_border() : true;
     border_color = get_theme().theme_color();
     border_color.setAlpha(200);
     mouse_click_timer_ = new QTimer(this);
@@ -203,7 +203,7 @@ QRect PinWindow::initial_geometry(const QPoint &position, const QSize &size) {
 }
 
 void PinWindow::apply_window_corners() {
-    const bool rounded = config_manager && config_manager->get_app_setting("pin_rounded_corners").toBool();
+    const bool rounded = config_manager && config_manager->get_pin_rounded_corners();
     // Without ever squaring the corners the system setting stays untouched (Windows default).
     if (rounded && !square_corners_) return;
     set_window_rounded_corners(static_cast<quintptr>(winId()), rounded);
