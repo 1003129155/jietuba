@@ -52,6 +52,9 @@ struct FrameResult {
     std::optional<std::pair<int, int>> box;
     int shift = 0;
     std::optional<std::pair<int, int>> size;
+    // The direction the preview was made for: the stitch's, or the first frame's until
+    // the second frame fixes it.
+    QString scroll_direction;
 };
 
 // Stitches long-screenshot frames in order in the background. frame_done and crop_done
@@ -66,6 +69,9 @@ public:
     // it, "bottom" the content below. Runs after the frames already submitted and
     // reports through crop_done; with only the first frame there is nothing to crop.
     void crop(const QString &side);
+    // Drops and frees the long image so far, after the frames already submitted; the
+    // next frame starts a new one in its own direction.
+    void restart();
     // Waits for submitted frames, then returns the whole long image with orientation
     // restored; null before any frame.
     QImage export_image();

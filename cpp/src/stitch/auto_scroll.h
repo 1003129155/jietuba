@@ -68,6 +68,8 @@ public:
     // A frame's stitch result. Frames not captured by auto scrolling go in too, to track
     // the newest frame's position and movement direction.
     void on_frame(const FrameResult &result);
+    // Forgets the frames seen so far, for a new long image.
+    void reset();
 signals:
     // "end" reached the end, "mouse" the mouse moved, "failed" capture or stitch failed, "user" stopped.
     void stopped(const QString &reason);

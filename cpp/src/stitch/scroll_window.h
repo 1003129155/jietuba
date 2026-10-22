@@ -36,6 +36,11 @@ struct GrabbedFrame {
 // and the newest frame is outlined. When the thumbnail does not fit only a section
 // shows, moving only when the newest frame's box nears the viewport's edge; clipped
 // sides fade out with an arrow.
+//
+// The window is a strip one screen long in the growth direction and the panel is drawn
+// inside it, so growing never resizes the window: a translucent window shows one
+// composited frame between a resize and its repaint, with the old picture in the new
+// rectangle, and the content jumps.
 class PreviewPanel : public QWidget {
     Q_OBJECT
 public:
@@ -43,6 +48,12 @@ public:
     // image is the stitched thumbnail (orientation restored); box the newest frame's
     // [start, end) pixels along its long side.
     void update_preview(const QImage &image, const QString &scroll_direction, const std::optional<std::pair<int, int>> &box = std::nullopt);
+    QSize panel_size() const { return panel_rect_.size(); }
+    // The panel in screen coordinates.
+    QRect panel_geometry() const { return panel_rect_.translated(geometry().topLeft()); }
+    // Puts the panel's top-left corner at top_left (screen coordinates). The window
+    // only moves when the strip through that point on screen changes.
+    void place(const QPoint &top_left, const QRect &screen);
     // Excludes the panel from capture when it overlaps the capture region.
     void set_capture_excluded(bool exclude);
     void show_warning(const QString &message);
@@ -65,6 +76,8 @@ private:
     void paint_clipped_edge(QPainter &painter, bool at_start);
 
     int fixed_side_;
+    // In window coordinates.
+    QRect panel_rect_;
     QImage image_;
     std::optional<std::pair<int, int>> box_;
     bool vertical_ = true;
@@ -192,6 +205,9 @@ private:
 
     QImage latest_preview_;
     std::optional<std::pair<int, int>> latest_box_;
+    // The panel follows the preview's own direction, not scroll_direction: results already
+    // in flight when the direction switches were stitched the old way.
+    QString preview_direction_ = "vertical";
     std::optional<QString> pending_warning_;
     QTimer warning_timer_;
     // One log line per run of failures.

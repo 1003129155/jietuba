@@ -80,6 +80,11 @@ void AutoScroller::cancel() {
     stop();
 }
 
+void AutoScroller::reset() {
+    last_top_.reset();
+    forward_ = true;
+}
+
 void AutoScroller::on_frame(const FrameResult &result) {
     std::optional<int> moved;
     if (result.ok) {

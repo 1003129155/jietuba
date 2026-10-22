@@ -104,7 +104,8 @@ PreviewPanel::PreviewPanel(QWidget *parent) : QWidget(parent) {
     setAttribute(Qt::WA_TranslucentBackground);
     fixed_side_ = scaled(PREVIEW_SIDE);
     // A square placeholder at first.
-    setFixedSize(fixed_side_, fixed_side_);
+    panel_rect_ = QRect(0, 0, fixed_side_, fixed_side_);
+    resize(fixed_side_, fixed_side_);
     build_ui();
     setup_mouse_transparent();
 }
@@ -131,9 +132,9 @@ void PreviewPanel::build_ui() {
 
 void PreviewPanel::place_warning() {
     const int margin = scaled(8);
-    warning_label->setFixedWidth(std::max(scaled(60), width() - 2 * margin));
+    warning_label->setFixedWidth(std::max(scaled(60), panel_rect_.width() - 2 * margin));
     warning_label->adjustSize();
-    warning_label->move(margin, margin);
+    warning_label->move(panel_rect_.topLeft() + QPoint(margin, margin));
 }
 
 void PreviewPanel::set_capture_excluded(bool exclude) {
@@ -148,24 +149,33 @@ void PreviewPanel::closeEvent(QCloseEvent *event) {
 }
 
 void PreviewPanel::update_preview(const QImage &image, const QString &scroll_direction, const std::optional<std::pair<int, int>> &box) {
+    vertical_ = scroll_direction != "horizontal";
     if (image.isNull()) {
         image_ = QImage();
         box_.reset();
         offset_ = 0;
-        update();
+        update(panel_rect_);
         return;
     }
     image_ = image;
-    vertical_ = scroll_direction != "horizontal";
     if (box) box_ = box;
     const int side = fixed_side_;
     const int total = vertical_ ? image.height() : image.width();
     const int length = std::min(std::max(total, side), max_length());
-    const QSize target = vertical_ ? QSize(side, length) : QSize(length, side);
-    if (size() != target) setFixedSize(target);
+    const QRect old = panel_rect_;
+    panel_rect_.setSize(vertical_ ? QSize(side, length) : QSize(length, side));
     offset_ = follow(total, length);
     place_warning();
-    update();
+    update(old.united(panel_rect_));
+}
+
+void PreviewPanel::place(const QPoint &top_left, const QRect &screen) {
+    const QRect strip = vertical_ ? QRect(top_left.x(), screen.top(), fixed_side_, screen.height()) : QRect(screen.left(), top_left.y(), screen.width(), fixed_side_);
+    if (geometry() != strip) setGeometry(strip);
+    const QRect old = panel_rect_;
+    panel_rect_.moveTopLeft(top_left - strip.topLeft());
+    place_warning();
+    update(old.united(panel_rect_));
 }
 
 int PreviewPanel::max_length() const {
@@ -191,9 +201,10 @@ int PreviewPanel::follow(int total, int length) const {
 void PreviewPanel::paintEvent(QPaintEvent *) {
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
+    painter.translate(panel_rect_.topLeft());
     const int radius = scaled(8);
     QPainterPath outline;
-    outline.addRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), radius, radius);
+    outline.addRoundedRect(QRectF(QPointF(), QSizeF(panel_rect_.size())).adjusted(0.5, 0.5, -0.5, -0.5), radius, radius);
     painter.fillPath(outline, QColor(0, 0, 0, 64));
     if (!image_.isNull()) {
         painter.setClipPath(outline);
@@ -211,7 +222,8 @@ void PreviewPanel::paint_content(QPainter &painter) {
     const bool vertical = vertical_;
     const int offset = offset_;
     const int total = vertical ? image.height() : image.width();
-    const int length = vertical ? height() : width();
+    const int w = panel_rect_.width(), h = panel_rect_.height();
+    const int length = vertical ? h : w;
     const int visible = std::min(total, length);
     // Centred when the thumbnail is shorter than the panel.
     const int lead = python_floordiv(length - visible, 2);
@@ -224,15 +236,15 @@ void PreviewPanel::paint_content(QPainter &painter) {
         const int start = box_->first - offset + lead, end = box_->second - offset + lead;
         painter.setPen(QPen(BOX_COLOR, pen_width));
         painter.setBrush(Qt::NoBrush);
-        if (vertical) painter.drawRect(QRectF(inset, start + inset, width() - pen_width, end - start - pen_width));
-        else painter.drawRect(QRectF(start + inset, inset, end - start - pen_width, height() - pen_width));
+        if (vertical) painter.drawRect(QRectF(inset, start + inset, w - pen_width, end - start - pen_width));
+        else painter.drawRect(QRectF(start + inset, inset, end - start - pen_width, h - pen_width));
     }
     if (offset > 0) paint_clipped_edge(painter, true);
     if (offset + length < total) paint_clipped_edge(painter, false);
 }
 
 void PreviewPanel::paint_clipped_edge(QPainter &painter, bool at_start) {
-    const int w = width(), h = height(), fade = scaled(BASE_FADE);
+    const int w = panel_rect_.width(), h = panel_rect_.height(), fade = scaled(BASE_FADE);
     const double arm = scaled(6), gap = scaled(10);
     QLinearGradient gradient;
     QRectF area;
@@ -398,61 +410,63 @@ void ScrollCaptureWindow::position_preview_panel() {
     // The toolbar's position, to stay clear of it.
     std::optional<QRect> toolbar_rect;
     if (toolbar) toolbar_rect = QRect(toolbar->x(), toolbar->y(), toolbar->width(), toolbar->height());
-    const auto overlaps_toolbar = [&](int px, int py) { return toolbar_rect && toolbar_rect->intersects(QRect(px, py, panel->width(), panel->height())); };
+    const QSize size = panel->panel_size();
+    const auto overlaps_toolbar = [&](int px, int py) { return toolbar_rect && toolbar_rect->intersects(QRect(px, py, size.width(), size.height())); };
+    const auto put = [&](int px, int py) { panel->place(QPoint(px, py), screen_geometry); };
 
-    if (scroll_direction == "vertical") {
+    if (preview_direction_ == "vertical") {
         // Vertical capture: left or right first, bottom edges aligned.
         // 1: right, bottom aligned.
         const int x_right = capture_right + margin;
-        if (x_right + panel->width() <= screen_right - margin) {
-            int py = capture_bottom - panel->height();
-            py = std::max(screen_top + margin, std::min(py, screen_bottom - panel->height() - margin));
+        if (x_right + size.width() <= screen_right - margin) {
+            int py = capture_bottom - size.height();
+            py = std::max(screen_top + margin, std::min(py, screen_bottom - size.height() - margin));
             if (!overlaps_toolbar(x_right, py)) {
-                panel->move(x_right, py);
+                put(x_right, py);
                 return;
             }
         }
         // 2: left, bottom aligned.
-        const int x_left = capture_left - panel->width() - margin;
+        const int x_left = capture_left - size.width() - margin;
         if (x_left >= screen_left + margin) {
-            int py = capture_bottom - panel->height();
-            py = std::max(screen_top + margin, std::min(py, screen_bottom - panel->height() - margin));
+            int py = capture_bottom - size.height();
+            py = std::max(screen_top + margin, std::min(py, screen_bottom - size.height() - margin));
             if (!overlaps_toolbar(x_left, py)) {
-                panel->move(x_left, py);
+                put(x_left, py);
                 return;
             }
         }
         // 3: above, centred.
-        int y_top = capture_top - panel->height() - margin;
-        if (toolbar_rect && toolbar_rect->bottom() >= y_top - margin) y_top = toolbar_rect->y() - panel->height() - margin;
+        int y_top = capture_top - size.height() - margin;
+        if (toolbar_rect && toolbar_rect->bottom() >= y_top - margin) y_top = toolbar_rect->y() - size.height() - margin;
         if (y_top >= screen_top + margin) {
-            int px = capture_left + python_floordiv(width() - panel->width(), 2);
-            px = std::max(screen_left + margin, std::min(px, screen_right - panel->width() - margin));
+            int px = capture_left + python_floordiv(width() - size.width(), 2);
+            px = std::max(screen_left + margin, std::min(px, screen_right - size.width() - margin));
             if (!overlaps_toolbar(px, y_top)) {
-                panel->move(px, y_top);
+                put(px, y_top);
                 return;
             }
         }
         // 4: below, centred.
         int y_bottom = capture_bottom + margin;
-        if (toolbar_rect && toolbar_rect->top() <= y_bottom + panel->height() + margin) y_bottom = toolbar_rect->bottom() + margin;
-        if (y_bottom + panel->height() <= screen_bottom - margin) {
-            int px = capture_left + python_floordiv(width() - panel->width(), 2);
-            px = std::max(screen_left + margin, std::min(px, screen_right - panel->width() - margin));
+        if (toolbar_rect && toolbar_rect->top() <= y_bottom + size.height() + margin) y_bottom = toolbar_rect->bottom() + margin;
+        if (y_bottom + size.height() <= screen_bottom - margin) {
+            int px = capture_left + python_floordiv(width() - size.width(), 2);
+            px = std::max(screen_left + margin, std::min(px, screen_right - size.width() - margin));
             if (!overlaps_toolbar(px, y_bottom)) {
-                panel->move(px, y_bottom);
+                put(px, y_bottom);
                 return;
             }
         }
     } else {
         // Horizontal capture: above or below first, right edges aligned.
         // 1: above.
-        const int y_top = capture_top - panel->height() - margin;
+        const int y_top = capture_top - size.height() - margin;
         if (y_top >= screen_top + margin) {
-            int px = capture_right - panel->width();
-            px = std::max(screen_left + margin, std::min(px, screen_right - panel->width() - margin));
+            int px = capture_right - size.width();
+            px = std::max(screen_left + margin, std::min(px, screen_right - size.width() - margin));
             if (!overlaps_toolbar(px, y_top)) {
-                panel->move(px, y_top);
+                put(px, y_top);
                 return;
             }
         }
@@ -463,49 +477,49 @@ void ScrollCaptureWindow::position_preview_panel() {
             // The toolbar is below the region: the panel goes under it.
             if (toolbar_rect->y() >= capture_bottom) y_bottom = std::max(y_bottom, tb_bottom + margin);
         }
-        if (y_bottom + panel->height() <= screen_bottom - margin) {
-            int px = capture_right - panel->width();
-            px = std::max(screen_left + margin, std::min(px, screen_right - panel->width() - margin));
-            panel->move(px, y_bottom);
+        if (y_bottom + size.height() <= screen_bottom - margin) {
+            int px = capture_right - size.width();
+            px = std::max(screen_left + margin, std::min(px, screen_right - size.width() - margin));
+            put(px, y_bottom);
             return;
         }
         // 3: right.
         const int x_right = capture_right + margin;
-        if (x_right + panel->width() <= screen_right - margin) {
-            int py = capture_top + python_floordiv(height() - panel->height(), 2);
-            py = std::max(screen_top + margin, std::min(py, screen_bottom - panel->height() - margin));
+        if (x_right + size.width() <= screen_right - margin) {
+            int py = capture_top + python_floordiv(height() - size.height(), 2);
+            py = std::max(screen_top + margin, std::min(py, screen_bottom - size.height() - margin));
             if (!overlaps_toolbar(x_right, py)) {
-                panel->move(x_right, py);
+                put(x_right, py);
                 return;
             }
         }
         // 4: left.
-        const int x_left = capture_left - panel->width() - margin;
+        const int x_left = capture_left - size.width() - margin;
         if (x_left >= screen_left + margin) {
-            int py = capture_top + python_floordiv(height() - panel->height(), 2);
-            py = std::max(screen_top + margin, std::min(py, screen_bottom - panel->height() - margin));
+            int py = capture_top + python_floordiv(height() - size.height(), 2);
+            py = std::max(screen_top + margin, std::min(py, screen_bottom - size.height() - margin));
             if (!overlaps_toolbar(x_left, py)) {
-                panel->move(x_left, py);
+                put(x_left, py);
                 return;
             }
         }
     }
     // Fallback: the screen's top-right corner, clear of the region and the toolbar.
-    int px = screen_right - panel->width() - margin;
+    int px = screen_right - size.width() - margin;
     int py = screen_top + margin;
     if (overlaps_toolbar(px, py) && toolbar_rect) {
         py = toolbar_rect->bottom() + margin;
-        if (py + panel->height() > screen_bottom - margin) {
+        if (py + size.height() > screen_bottom - margin) {
             px = screen_left + margin;
             py = screen_top + margin;
         }
     }
-    panel->move(px, py);
+    put(px, py);
 }
 
 void ScrollCaptureWindow::refresh_preview_panel() {
     if (!preview_panel) return;
-    preview_panel->update_preview(latest_preview_, scroll_direction, latest_box_);
+    preview_panel->update_preview(latest_preview_, preview_direction_, latest_box_);
     // The panel may have resized; place it clear of the region again.
     position_preview_panel();
 }
@@ -600,6 +614,11 @@ void ScrollCaptureWindow::toggle_direction() {
         log_stitch(T("🔄 切换到竖向截图模式"));
     }
     reconfigure_stitch_engine();
+    // A long image is stitched in one direction: switching starts a new one from the current view.
+    stitcher_->restart();
+    auto_scroller_->reset();
+    screenshots = 0;
+    do_capture();
     refresh_preview_panel();
     if (scroll_direction == "horizontal") start_keyboard_listener();
     else stop_keyboard_listener();
@@ -764,11 +783,13 @@ void ScrollCaptureWindow::capture_initial_screenshot() {
 }
 
 void ScrollCaptureWindow::exclude_overlapping_ui(bool exclude) {
-    for (QWidget *widget : {static_cast<QWidget *>(toolbar), static_cast<QWidget *>(preview_panel.data())}) {
-        if (!widget || !widget->isVisible()) continue;
-        const QRect widget_rect(widget->x(), widget->y(), widget->width(), widget->height());
-        if (widget_rect.intersects(capture_rect)) set_window_exclude_from_capture(static_cast<quintptr>(widget->winId()), exclude);
-    }
+    // Only the panel counts: the rest of the preview strip is transparent and never shows in a capture.
+    const std::pair<QWidget *, QRect> windows[] = {
+        {toolbar, toolbar ? toolbar->geometry() : QRect()},
+        {preview_panel.data(), preview_panel ? preview_panel->panel_geometry() : QRect()},
+    };
+    for (const auto &[widget, rect] : windows)
+        if (widget && widget->isVisible() && rect.intersects(capture_rect)) set_window_exclude_from_capture(static_cast<quintptr>(widget->winId()), exclude);
 }
 
 QImage ScrollCaptureWindow::grab_capture_rect() {
@@ -900,6 +921,7 @@ void ScrollCaptureWindow::on_frame_stitched(const FrameResult &result) {
     if (!result.preview.isNull()) {
         latest_preview_ = result.preview;
         latest_box_ = result.box;
+        preview_direction_ = result.scroll_direction;
     }
     refresh_preview_panel();
     auto_scroller_->on_frame(result);
@@ -922,6 +944,7 @@ void ScrollCaptureWindow::on_cropped(const FrameResult &result) {
     toolbar->set_result_size(result.size->first, result.size->second);
     latest_preview_ = result.preview;
     latest_box_ = result.box;
+    preview_direction_ = result.scroll_direction;
     refresh_preview_panel();
     auto_scroller_->on_frame(result);
 }

@@ -77,6 +77,14 @@ void IncrementalStitcher::crop(const QString &side) {
     executor_.submit([this, side] { crop_task(side); });
 }
 
+void IncrementalStitcher::restart() {
+    executor_.submit([this] {
+        release_session();
+        first_.reset();
+        thumb_.clear();
+    });
+}
+
 QImage IncrementalStitcher::export_image() {
     auto future = executor_.submit([this] { return export_task(); });
     if (!future.valid()) return {};
@@ -141,6 +149,7 @@ FrameResult IncrementalStitcher::apply_crop(const QString &side) {
     result.box = box(top_);
     result.shift = shift;
     result.size = size();
+    result.scroll_direction = direction_;
     return result;
 }
 
@@ -152,6 +161,7 @@ FrameResult IncrementalStitcher::push(const StitchFrame &frame) {
         FrameResult result{true, true, frame.index, frame.width, frame.height, preview};
         result.box = std::make_pair(0, long_side);
         result.size = std::make_pair(frame.width, frame.height);
+        result.scroll_direction = frame.scroll_direction;
         return result;
     }
     if (!session_) return start(frame);
@@ -274,6 +284,7 @@ FrameResult IncrementalStitcher::success(const StitchFrame &frame, const JbPushR
     result.box = box(top_);
     result.shift = static_cast<int>(step.head_rows) - static_cast<int>(step.head_cut);
     result.size = size();
+    result.scroll_direction = direction_;
     return result;
 }
 

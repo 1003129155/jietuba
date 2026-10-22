@@ -7,6 +7,7 @@
 //! 帧正好停在结果一头时，那一头对不上的行换成这一帧的（停下后才加载出来的内容）。
 //! 每行算两种哈希，先按逐像素指纹找位置，找不到再按平均色哈希找（见 `RowHashes`）；
 //! 位置要有能单独定位的行支撑，只零星对上一小段时视为不重叠，不硬接。
+//! 都找不到、或找到的位置整帧一比对不上时，在上一帧附近按像素相近再找（见 `locate_similar`）。
 //! 输入输出用 BGRA（Windows 截屏的原生布局），内部按 RGBA 存放以复用行哈希。
 
 use std::collections::HashMap;
@@ -39,12 +40,16 @@ pub struct PushOutcome {
     pub top: usize,
 }
 
-/// 一次推入要找的位置：新帧的行哈希和取舍条件。
+/// 一次推入要找的位置：新帧的像素、行哈希和取舍条件。
 #[derive(Clone, Copy)]
 struct Query<'a> {
+    frame: &'a [u8],
     frame_rows: &'a RowHashes,
     /// 这一帧顶部、底部固定栏的行数，不参与定位。
     bars: (usize, usize),
+    /// 与上一帧同一位置完全相同的顶部、底部行数，按像素比较时不看：大片空白里的固定栏会被 `bars` 漏掉，
+    /// 而整帧一比，没动的固定栏总是在「没滚动」的位置最像。
+    unchanged: (usize, usize),
     heading: Option<Heading>,
     ignore_img1_top_ratio: f32,
     ignore_img1_bottom_ratio: f32,
@@ -87,11 +92,81 @@ const EDGE_DISTINCT_ROWS: usize = 4;
 /// 滑块一动指纹就对不上，平均色也会跟着变，在几乎一样的条目里凑出假的「只出现一次」的行。
 const IGNORE_RIGHT_DIVISOR: u32 = 10;
 
+/// 按像素相近找位置时，每行按这么宽一段求亮度和来比，帧里最多取这么多行。
+const SIMILAR_BIN: usize = 8;
+const SIMILAR_SAMPLE_ROWS: usize = 256;
+/// 一行平均每像素每通道差不超过这么多就算对上：同一内容换了抗锯齿只差零点几，错开一行就差好几。
+const SIMILAR_ROW_DIFF: f32 = 2.0;
+/// 一行亮度分段的起伏不超过这么多（每像素每通道）就是空白行，哪里都对得上，不算数。
+const SIMILAR_FLAT: u32 = 2;
+/// 按像素找到的位置至少要有这么多行对上。
+const SIMILAR_MIN_ROWS: usize = 8;
+
 fn distinct_rows(hashes: &[u64]) -> usize {
     let mut sorted = hashes.to_vec();
     sorted.sort_unstable();
     sorted.dedup();
     sorted.len()
+}
+
+/// 一行 RGBA 像素从左起每 `SIMILAR_BIN` 个像素的 R+G+B 之和，共 `bins` 段。
+fn brightness_profile(row: &[u8], bins: usize) -> Vec<u32> {
+    row.chunks_exact(SIMILAR_BIN * 4)
+        .take(bins)
+        .map(|bin| bin.chunks_exact(4).map(|p| p[0] as u32 + p[1] as u32 + p[2] as u32).sum())
+        .collect()
+}
+
+/// 一处位置上重叠部分的比较：比了多少行（只算取样的、有内容的行），其中多少行对上，平均差多少。
+#[derive(Clone, Copy, Debug)]
+struct Similarity {
+    matched: usize,
+    compared: usize,
+    mean: f32,
+}
+
+impl Similarity {
+    /// 四分之三以上的行对上算像。
+    fn alike(&self) -> bool {
+        self.matched * 4 >= self.compared * 3
+    }
+}
+
+/// 帧里参与比较的行 [start, end) 的亮度分段（按行号减 `start` 存放），以及其中均匀取样、不是空白的行号。
+struct SampledFrame {
+    profiles: Vec<Vec<u32>>,
+    rows: Vec<usize>,
+    bins: usize,
+    start: usize,
+    end: usize,
+}
+
+impl SampledFrame {
+    /// 逐行比较：局部的差别（悬停高亮、随滚动错位的元素）只让那几行对不上，不拖垮整帧。
+    fn tally<'a>(&self, pairs: impl Iterator<Item = (&'a Vec<u32>, &'a Vec<u32>)>) -> Similarity {
+        let per_row = (self.bins * SIMILAR_BIN * 3) as f32;
+        let (mut matched, mut compared, mut sum) = (0, 0, 0.0);
+        for (a, b) in pairs {
+            let difference = a.iter().zip(b).map(|(a, b)| a.abs_diff(*b) as u64).sum::<u64>() as f32 / per_row;
+            compared += 1;
+            sum += difference;
+            if difference <= SIMILAR_ROW_DIFF {
+                matched += 1;
+            }
+        }
+        Similarity { matched, compared, mean: if compared > 0 { sum / compared as f32 } else { 0.0 } }
+    }
+
+    /// 帧放在 `top` 时与结果 [lo, hi) 行（亮度分段为 `result`）的重叠部分；重叠不足 `min_overlap` 行时为 None。
+    fn similarity(&self, result: &[Vec<u32>], lo: isize, hi: isize, top: isize, min_overlap: isize) -> Option<Similarity> {
+        let first = (self.start as isize).max(lo - top);
+        let last = (self.end as isize).min(hi - top);
+        if last - first < min_overlap {
+            return None;
+        }
+        let rows = self.rows.iter().map(|&j| j as isize).filter(|j| (first..last).contains(j));
+        Some(self.tally(rows.map(|j| (&self.profiles[j as usize - self.start], &result[(top + j - lo) as usize]))))
+    }
 }
 
 fn occurrences(hashes: &[u64]) -> HashMap<u64, u32> {
@@ -106,6 +181,8 @@ fn occurrences(hashes: &[u64]) -> HashMap<u64, u32> {
 enum HashKind {
     Exact,
     Coarse,
+    /// 位置按像素相近找到；接缝仍按逐像素指纹判断。
+    Similar,
 }
 
 /// 每行的两种哈希。`exact` 是逐像素指纹，只差几个字的行（文件列表、表格）也分得开，但渲染上的细微差别也会让它对不上；
@@ -123,7 +200,7 @@ impl RowHashes {
 
     fn of(&self, kind: HashKind) -> &[u64] {
         match kind {
-            HashKind::Exact => &self.exact,
+            HashKind::Exact | HashKind::Similar => &self.exact,
             HashKind::Coarse => &self.coarse,
         }
     }
@@ -241,8 +318,10 @@ impl StitchSession {
         }
 
         let query = Query {
+            frame: &frame,
             frame_rows: &frame_rows,
             bars: self.fixed_bars(&frame_rows.exact),
+            unchanged: self.unchanged_edges(&frame_rows.exact),
             heading: heading.or(self.last_move),
             ignore_img1_top_ratio,
             ignore_img1_bottom_ratio,
@@ -257,6 +336,21 @@ impl StitchSession {
                 located = self.locate(&Query { bars, ..query }).map(|found| (found, bars));
             }
         }
+        // 行哈希没找到，或找到的位置整帧一比对不上：按像素相近再找，找到可信的才用。
+        // 行哈希说没滚动时不复核：与上一帧相同的行是没动的内容，剩下能比的只有原地变了的那几行
+        let alike = match &located {
+            Ok(((placement, _), bars)) => {
+                placement.top() == self.position as isize || self.looks_alike(&Query { bars: *bars, ..query }, placement.top())
+            }
+            Err(_) => false,
+        };
+        if !alike {
+            if let Some(placement) = self.locate_similar(&query) {
+                if located.as_ref().map_or(true, |((found, _), _)| found.top() != placement.top()) {
+                    located = Ok(((placement, HashKind::Similar), query.bars));
+                }
+            }
+        }
         self.last_frame = frame_rows.exact.clone();
         let ((placement, kind), bars) = located?;
         if placement.top() != self.position as isize {
@@ -269,15 +363,21 @@ impl StitchSession {
     /// 它们和结果两头的固定栏总对得上，拿来定位会把一帧摆到结果的开头或末尾。
     /// 两帧完全一样（没滚动），或两头加起来占了一半以上（剩下的太少）时不算。
     fn fixed_bars(&self, frame: &[u64]) -> (usize, usize) {
+        let (top, bottom) = self.unchanged_edges(frame);
+        if (top + bottom) * 2 >= frame.len() {
+            return (0, 0);
+        }
+        (top, bottom)
+    }
+
+    /// 与上一帧同一位置完全相同的顶部、底部连续行数，不论多少；两帧完全一样时为 0。
+    fn unchanged_edges(&self, frame: &[u64]) -> (usize, usize) {
         let last = &self.last_frame;
         if last.len() != frame.len() || last.as_slice() == frame {
             return (0, 0);
         }
         let top = frame.iter().zip(last).take_while(|(a, b)| a == b).count();
         let bottom = frame.iter().rev().zip(last.iter().rev()).take_while(|(a, b)| a == b).count();
-        if (top + bottom) * 2 >= frame.len() {
-            return (0, 0);
-        }
         (top, bottom)
     }
 
@@ -337,8 +437,19 @@ impl StitchSession {
         self.settled_bars = None;
     }
 
+    /// 行右侧不参与定位的宽度。
+    fn ignored_right(&self) -> u32 {
+        self.ignore_right_pixels.max(self.width / IGNORE_RIGHT_DIVISOR)
+    }
+
+    /// 帧里参与定位的行 [start, end)：避开顶部忽略区和固定栏。
+    fn frame_range(&self, bars: (usize, usize)) -> (usize, usize) {
+        let start = (self.ignore_top_pixels as usize).max(bars.0).min(self.frame_height as usize);
+        (start, (self.frame_height as usize - bars.1).max(start))
+    }
+
     fn row_hashes(&self, frame: &[u8]) -> RowHashes {
-        let ignore = self.ignore_right_pixels.max(self.width / IGNORE_RIGHT_DIVISOR);
+        let ignore = self.ignored_right();
         RowHashes {
             exact: compute_row_fingerprints_raw(frame, self.width, 0, self.frame_height, ignore),
             coarse: compute_row_hashes_raw(frame, self.width, 0, self.frame_height, ignore),
@@ -386,8 +497,7 @@ impl StitchSession {
     fn locate_by(&self, kind: HashKind, query: &Query) -> Option<Placement> {
         let exact = kind == HashKind::Exact;
         let result = self.rows.of(kind);
-        let hash_start = (self.ignore_top_pixels as usize).max(query.bars.0).min(self.frame_height as usize);
-        let hash_end = (self.frame_height as usize - query.bars.1).max(hash_start);
+        let (hash_start, hash_end) = self.frame_range(query.bars);
         let img2_hashes = &query.frame_rows.of(kind)[hash_start..hash_end];
         let img1_len = result.len();
         let frame_counts = occurrences(img2_hashes);
@@ -460,6 +570,97 @@ impl StitchSession {
         });
         preferred.extend(rest);
         preferred
+    }
+
+    /// 帧里参与按像素比较的行：参与定位的行再去掉与上一帧相同的两头；没有可比的行时为 None。
+    fn sample_frame(&self, query: &Query) -> Option<SampledFrame> {
+        let bins = (self.width - self.ignored_right().min(self.width)) as usize / SIMILAR_BIN;
+        let (start, end) = self.frame_range((query.bars.0.max(query.unchanged.0), query.bars.1.max(query.unchanged.1)));
+        if bins == 0 || start == end {
+            return None;
+        }
+        let stride = self.stride();
+        let profiles: Vec<Vec<u32>> =
+            (start..end).into_par_iter().map(|j| brightness_profile(&query.frame[j * stride..(j + 1) * stride], bins)).collect();
+        let flat = SIMILAR_FLAT * SIMILAR_BIN as u32 * 3;
+        let rows = (start..end)
+            .step_by((end - start).div_ceil(SIMILAR_SAMPLE_ROWS))
+            .filter(|&j| {
+                let profile = &profiles[j - start];
+                profile.iter().max().unwrap_or(&0) - profile.iter().min().unwrap_or(&0) > flat
+            })
+            .collect();
+        Some(SampledFrame { profiles, rows, bins, start, end })
+    }
+
+    /// 结果第 [start, end) 行的亮度分段。
+    fn result_profiles(&self, start: usize, end: usize, bins: usize) -> Vec<Vec<u32>> {
+        self.result_rows(start, end).par_iter().map(|row| brightness_profile(row, bins)).collect()
+    }
+
+    /// 帧放在 `top` 时，重叠部分大都对得上：行哈希凑出的位置可能只靠一小段对上（随滚动错位的元素、大片空白），
+    /// 整帧一比就露馅。没有可比的行时照旧信行哈希。
+    fn looks_alike(&self, query: &Query, top: isize) -> bool {
+        let Some(frame) = self.sample_frame(query) else {
+            return true;
+        };
+        let lo = (top + frame.start as isize).clamp(0, self.height() as isize);
+        let hi = (top + frame.end as isize).clamp(lo, self.height() as isize);
+        let result = self.result_profiles(lo as usize, hi as usize, frame.bins);
+        let similarity = frame.similarity(&result, lo, hi, top, 1);
+        if query.debug {
+            println!("  🔍 top={top} 与整个重叠部分比较 {similarity:?}");
+        }
+        similarity.is_none_or(|s| s.alike())
+    }
+
+    /// 行哈希要求逐行完全相同或平均色相同，同一内容换了渲染时都找不到：浏览器滚动途中会把部分文字从彩色抗锯齿
+    /// 换成灰度，横向截图时一行是原图一整列，穿过每行文字，一处变了整行就对不上，而各列平均色又几乎一样。
+    /// 这时在上一帧附近按行亮度逐段比较，取对上的行最多的位置；只接受大半行都对上、且两行以外别处都不像的。
+    fn locate_similar(&self, query: &Query) -> Option<Placement> {
+        let len = self.height();
+        let frame = self.sample_frame(query)?;
+        let min_overlap = ((frame.end - frame.start) / 4).max(1) as isize;
+        // 搜索窗口与行哈希的相同
+        let (hash_start, hash_end) = self.frame_range(query.bars);
+        let (lo, hi) = window_around(self.position, self.frame_height as usize, hash_end - hash_start, len);
+        let result = self.result_profiles(lo, hi, frame.bins);
+        let (lo, hi) = (lo as isize, hi as isize);
+        let (first_top, last_top) = (lo - frame.end as isize + min_overlap, hi - frame.start as isize - min_overlap);
+        let scores: Vec<(isize, Similarity)> = (first_top..=last_top)
+            .into_par_iter()
+            .filter_map(|top| frame.similarity(&result, lo, hi, top, min_overlap).map(|s| (top, s)))
+            .collect();
+        let &(top, best) = scores.iter().max_by(|a, b| a.1.matched.cmp(&b.1.matched).then(b.1.mean.total_cmp(&a.1.mean)))?;
+        // 另一处也像（哪怕只重叠一小段）就说明像它的不止一处：重复的条目、周期比一帧还长的重复内容
+        let rival = scores
+            .iter()
+            .filter(|s| (s.0 - top).abs() > 2)
+            .any(|s| s.1.matched * 2 > best.matched || s.1.compared >= SIMILAR_MIN_ROWS && s.1.alike());
+        // 贴着搜索范围边上的，真正的位置可能就在范围外（重叠太少没比），这里只是范围内最接近的
+        let inside = top - first_top > 2 && last_top - top > 2;
+        let accepted = best.matched >= SIMILAR_MIN_ROWS && best.matched * 2 >= best.compared && inside && !rival;
+        if query.debug {
+            println!("  🔍 Similar: 在结果 [{lo}:{hi}) 里找，最好 top={top} {best:?}，在范围内 {inside}，另有相像处 {rival}，接受 {accepted}");
+        }
+        if !accepted {
+            return None;
+        }
+        // 与整个结果的重叠，接缝由 commit 判断
+        let first = (frame.start as isize).max(-top);
+        let last = (frame.end as isize).min(len as isize - top);
+        Some(Placement { start_i: (top + first) as usize, start_j: first as usize, len: (last - first).max(0) as usize })
+    }
+
+    /// 结果第 [start, end) 行的像素。
+    fn result_rows(&self, start: usize, end: usize) -> Vec<&[u8]> {
+        let stride = self.stride();
+        self.segments
+            .iter()
+            .flat_map(|segment| segment.chunks_exact(stride))
+            .skip(start)
+            .take(end.saturating_sub(start))
+            .collect()
     }
 
     /// 帧伸出结果开头或末尾，就在那一头接上，顺带替换掉新帧也覆盖到的旧标题栏、旧底栏。
@@ -962,6 +1163,159 @@ mod tests {
             assert_eq!(outcome.map(|o| o.top), Ok(t as usize), "frame at {t}");
         }
         assert_eq!(s.height(), (250 + H) as usize);
+    }
+
+    /// 每行墨点一样多、只是位置不同的页面，像横向截图里一列列文字：整行平均色几乎都一样。
+    /// `smooth` 时换一种抗锯齿渲染，墨点和右侧的半透明边换成灰色，亮度相近、像素值处处不同。
+    fn even_ink_page(height: u32, smooth: bool) -> RgbaImage {
+        let ink_at = |y: u32| {
+            let mut xs: Vec<u32> = (0..W - 20).collect();
+            xs.sort_by_key(|&x| mix(y, x));
+            xs.truncate(25);
+            xs
+        };
+        let rows: Vec<Vec<u32>> = (0..height).map(ink_at).collect();
+        RgbaImage::from_fn(W, height, |x, y| {
+            let ink = |x: u32| rows[y as usize].contains(&x);
+            match (ink(x), x > 0 && ink(x - 1), smooth) {
+                (true, _, false) => Rgba([30, 50, 90, 255]),
+                (true, _, true) => Rgba([55, 55, 55, 255]),
+                (false, true, false) => Rgba([240, 225, 210, 255]),
+                (false, true, true) => Rgba([228, 228, 228, 255]),
+                _ => Rgba([250, 250, 250, 255]),
+            }
+        })
+    }
+
+    #[test]
+    fn a_change_of_antialiasing_keeps_joining() {
+        // 浏览器滚动途中把文字换成灰度抗锯齿：之后的帧与已拼内容逐像素指纹处处对不上，平均色哈希也定不了位置，
+        // 按像素相近仍要接对，往回滚也能定位；一下滚过头、不再重叠的帧照样报接不上
+        let (sharp, smooth) = (even_ink_page(450, false), even_ink_page(450, true));
+        let tops = [0u32, 30, 60, 90, 120, 150, 180, 150, 210];
+        let mut s = session();
+        for (k, &t) in tops.iter().enumerate() {
+            let f = frame(if k < 3 { &sharp } else { &smooth }, t);
+            let outcome = s.push_bgra(&to_bgra(&f), None, 0.0, 0.0, false);
+            assert_eq!(outcome.map(|o| o.top), Ok(t as usize), "frame at {t}");
+        }
+        let gap = s.push_bgra(&to_bgra(&frame(&smooth, 340)), None, 0.0, 0.0, false);
+        assert_eq!(gap, Err(StitchError::NoOverlap));
+        let result = exported(&s);
+        assert_eq!(result.height(), 210 + H);
+        for y in 0..result.height() {
+            let row = region(&result, y, y + 1);
+            assert!(row == region(&sharp, y, y + 1) || row == region(&smooth, y, y + 1), "row {y}");
+        }
+    }
+
+    #[test]
+    fn a_change_of_antialiasing_does_not_join_a_lookalike() {
+        // 每 120 行重复一次的内容，换了抗锯齿后行哈希找不到：新帧只与结果末尾重叠 30 行，往前 120 行处整帧都像它。
+        // 接到真位置或报接不上都行，不能接到那个像的地方
+        let block = |smooth| even_ink_page(120, smooth);
+        let repeating = |smooth: bool| {
+            let b = block(smooth);
+            RgbaImage::from_fn(W, 600, move |x, y| *b.get_pixel(x, y % 120))
+        };
+        let (sharp, smooth) = (repeating(false), repeating(true));
+        let mut s = session();
+        for t in [0u32, 40, 80, 110] {
+            s.push_bgra(&to_bgra(&frame(&sharp, t)), None, 0.0, 0.0, false).unwrap();
+        }
+        let outcome = s.push_bgra(&to_bgra(&frame(&smooth, 170)), None, 0.0, 0.0, false).map(|o| o.top);
+        assert!(matches!(outcome, Ok(170) | Err(StitchError::NoOverlap)), "{outcome:?}");
+    }
+
+    #[test]
+    fn a_change_of_antialiasing_between_sparse_lines_keeps_joining() {
+        // 文字行之间大片空白：空白行处处对得上，要是也算数，每隔一个行距都「像」，换了抗锯齿后就定不了位置
+        let spaced = |smooth| {
+            let ink = even_ink_page(450, smooth);
+            RgbaImage::from_fn(W, 450, move |x, y| if y % 30 < 7 { *ink.get_pixel(x, y) } else { Rgba([250, 250, 250, 255]) })
+        };
+        let (sharp, smooth) = (spaced(false), spaced(true));
+        let mut s = session();
+        for (k, t) in [0u32, 30, 60, 90, 120, 150].into_iter().enumerate() {
+            let f = frame(if k < 2 { &sharp } else { &smooth }, t);
+            assert_eq!(s.push_bgra(&to_bgra(&f), None, 0.0, 0.0, false).map(|o| o.top), Ok(t as usize), "frame at {t}");
+        }
+    }
+
+    #[test]
+    fn a_frame_overlapping_too_little_is_not_moved_to_the_nearest_spot() {
+        // 换了抗锯齿后一下滚了大半屏，与结果只重叠 19 行，少于按像素找时要求的重叠，真正的位置不在比较之列；
+        // 每 8 行相同（竖笔画），错开 3 行还有一大半对得上。贴着比较范围边上的这个位置不能当成找到了
+        let banded = |smooth| {
+            let ink = even_ink_page(80, smooth);
+            RgbaImage::from_fn(W, 600, move |x, y| *ink.get_pixel(x, y / 8))
+        };
+        let (sharp, smooth) = (banded(false), banded(true));
+        let mut s = session();
+        for t in [0u32, 30, 60] {
+            s.push_bgra(&to_bgra(&frame(&sharp, t)), None, 0.0, 0.0, false).unwrap();
+        }
+        let outcome = s.push_bgra(&to_bgra(&frame(&smooth, 131)), None, 0.0, 0.0, false).map(|o| o.top);
+        assert!(matches!(outcome, Ok(131) | Err(StitchError::NoOverlap)), "{outcome:?}");
+    }
+
+    #[test]
+    fn a_lagging_part_does_not_pull_the_frame_off() {
+        // 换了抗锯齿后整帧只剩一段还没重绘、又落后了 3 行（页面自己挪位的侧栏），行哈希只能靠它对上，位置差 3 行；
+        // 整帧一比对不上，按像素找回真正的位置。往回滚到结果里面和往前伸出末尾都一样
+        let (sharp, smooth) = (even_ink_page(450, false), even_ink_page(450, true));
+        let lagging = |t: u32| {
+            let mut f = frame(&smooth, t);
+            for y in 30..50 {
+                for x in 0..W {
+                    f.put_pixel(x, y, *sharp.get_pixel(x, t + y - 3));
+                }
+            }
+            f
+        };
+        let mut s = session();
+        for t in [0u32, 30, 60, 90, 120] {
+            s.push_bgra(&to_bgra(&frame(&sharp, t)), None, 0.0, 0.0, false).unwrap();
+        }
+        for t in [60u32, 140] {
+            assert_eq!(s.push_bgra(&to_bgra(&lagging(t)), None, 0.0, 0.0, false).map(|o| o.top), Ok(t as usize), "frame at {t}");
+        }
+    }
+
+    #[test]
+    fn a_still_frame_with_a_local_change_keeps_its_place() {
+        // 停着不动、只有一大块原地变了（悬停高亮）：与上一帧相同的行是没动的内容，不能只拿变了的那块去找位置
+        let p = page(600);
+        let mut s = session();
+        for t in [0u32, 30, 60] {
+            s.push_bgra(&to_bgra(&frame(&p, t)), None, 0.15, 0.0, false).unwrap();
+        }
+        let mut hovered = frame(&p, 60);
+        for y in 30..70 {
+            for x in 0..W {
+                let px = hovered.get_pixel_mut(x, y);
+                px.0[0] = px.0[0].saturating_sub(40);
+                px.0[1] = px.0[1].saturating_sub(20);
+            }
+        }
+        assert_eq!(s.push_bgra(&to_bgra(&hovered), None, 0.15, 0.0, false).map(|o| o.top), Ok(60));
+    }
+
+    #[test]
+    fn a_fixed_header_over_sparse_content_moves_with_the_content() {
+        // 大片空白里零星几块内容，顶上一条每行图案都不同的固定标题栏：与上一帧相同的行超过一半，固定栏认不出来。
+        // 按像素比较时标题栏的行比内容还多，它总在「没滚动」的位置最像，不能因此把滚动过的帧、或停着不动的帧拉回开头
+        let content = distinct_rows_page(900);
+        let p = RgbaImage::from_fn(W, 900, |x, y| if y % 70 < 8 { *content.get_pixel(x, y) } else { Rgba([250, 250, 250, 255]) });
+        let title = |f: &mut RgbaImage| {
+            for y in 0..20 {
+                for x in 0..W {
+                    let on = (x / 7 + y / 5) % 5 == 0 || y == 19;
+                    f.put_pixel(x, y, if on { Rgba([60, 90, 200, 255]) } else { Rgba([245, 247, 252, 255]) });
+                }
+            }
+        };
+        push_and_track_with(&p, &[200, 220, 240, 240, 260, 280, 280, 300, 320, 320], title);
     }
 
     #[test]
