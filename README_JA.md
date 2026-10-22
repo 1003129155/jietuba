@@ -14,53 +14,91 @@
 
 </div>
 
-<img width="1391" height="844" alt="21" src="https://github.com/user-attachments/assets/5eb5e82a-7a5f-4c60-a877-679d1b29cf0c" />
-
-
 ## 概要
 
-jietuba は Windows 向けの無料・オープンソースのスクリーンショットツールです。領域/ウィンドウキャプチャ、スクロール（長い）スクリーンショット、注釈、OCR 文字認識、翻訳、画像のピン留め、GIF/MP4 録画、画面への直接注釈、QR コード/バーコード読み取り、PDF エクスポート、そして完全なクリップボード履歴管理を備えています。すべてローカルで動作します。
+jietuba は Windows 向けの無料・オープンソースのスクリーンショットツールです。キャプチャ、注釈、OCR、翻訳、ピン留め、画面録画、クリップボード履歴を 1 つのプログラムにまとめ、すべてローカルで動作します。
 
-MP4 領域録画はフレームレートとビットレートの指定、一時停止/再開、マウスポインター、システム音声に対応しています。一般的な 5.1/7.1 再生デバイスの音声はステレオに変換します。マイク録音は含まれません。
+C++（Qt6）で実装し、画像処理・クリップボード・PP-OCR エンジンなどのコアは Rust で実装しています。Windows x86_64 および ARM64 に対応。以前の Python（PySide6）実装は [`archive/python`](https://github.com/1003129155/jietuba/tree/archive/python) ブランチにアーカイブ済みで、今後は更新しません。
 
-画面注釈では、操作中の画面に直接書き込めます。専用のグローバルホットキー（設定 → ショートカット → 画面注釈、既定は未設定）またはトレイメニューの「画面注釈」から開始します。ペン、蛍光ペン、矢印、番号、矩形、楕円、テキスト、消しゴムは、キャプチャ編集と同じツール・同じ設定です。ツールを選ぶまでマウスは下のウィンドウをそのまま操作でき、Esc または「透過」ボタンで透過に戻ると、元のウィンドウにフォーカスが戻ります（スライドショーのページ送りもそのまま使えます）。画面ごとにレイヤーを持ち、元に戻すは描いた順に画面をまたいで働きます。描画は非表示にしたり、まとめて消去（元に戻せます）したりできます。スクリーンショットと GIF/MP4 録画には描画が入り、注釈ツールバーは入りません。画面上の蛍光ペンは一定の半透明で色を付けるので、下の文字はそのまま読めます。ワンクリックで切り替わるホワイトボード、ポインターを光らせクリックごとに波紋を出すカーソルハイライトも使えます。設定 → 画面注釈 で、開始時の状態、ツールバーの位置、終了時に描画を残すか、カーソルハイライトの大きさとクリックの波紋を選べます。
+## 機能一覧
 
-jietuba は C++（Qt6）で実装され、画像処理・クリップボード操作・PP-OCR エンジンなどのコアは Rust で実装しています。Windows x86_64 および ARM64 に対応。以前の Python（PySide6）実装は [`archive/python`](https://github.com/1003129155/jietuba/tree/archive/python) ブランチにアーカイブ済みで、今後は更新しません。
+<table>
+<tr>
+<td width="50%" valign="top">
+<img width="100%" alt="キャプチャと注釈" src="https://github.com/user-attachments/assets/5318b991-b0de-46a2-9c0e-d75eeae2a827" />
+<p><b>キャプチャと注釈</b><br>ウィンドウやコントロールを自動認識。ペン、矢印、番号、モザイク、スポットライト、透かしなど十数種の注釈をいつでも元に戻せます。</p>
+</td>
+<td width="50%" valign="top">
+<img width="100%" alt="クリップボード履歴" src="https://github.com/user-attachments/assets/b0a116e8-d944-43c9-b895-e6fc10d8c08a" />
+<p><b>クリップボード履歴</b><br>コピーしたテキスト・画像・ファイルを自動で記録し、グループで永久保存。Win+V で開き、複数選択、ドラッグで取り出し、ワンクリックでピン留め。</p>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<img width="100%" alt="スクロールキャプチャ" src="https://github.com/user-attachments/assets/a9720f08-5128-447d-b425-6d0640272e6a" />
+<p><b>スクロールキャプチャ</b><br>上下左右の 4 方向を自動結合し、自動スクロールにも対応。戻しても位置合わせだけで短くならず、余分な部分はワンクリックで切り取れます。</p>
+</td>
+<td width="50%" valign="top">
+<img width="100%" alt="OCR 文字認識" src="https://github.com/user-attachments/assets/60a16100-5edc-4543-9a35-daf05b1e244e" />
+<p><b>OCR 文字認識</b><br>Windows 11 Snipping Tool の OCR と PP-OCR の 2 エンジン、オフライン認識。折り返しの結合や句読点も自動で整えます。</p>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<img width="100%" alt="ピン留め" src="https://github.com/user-attachments/assets/827b912c-11ac-4692-b3f6-826561957615" />
+<p><b>ピン留め</b><br>スクリーンショットを最前面に固定し、拡大縮小・回転・注釈。画像内の文字を選んでコピーや翻訳、編集できるテキストへの切り替えも可能です。</p>
+</td>
+<td width="50%" valign="top">
+<img width="100%" alt="GIF と MP4 の録画" src="https://github.com/user-attachments/assets/8653fffb-b419-4584-ab4b-9fe95bb9f246" />
+<p><b>GIF / MP4 録画</b><br>録画中に注釈でき、GIF は再生しながら編集。MP4 はフレームレートとビットレートを指定でき、システム音声とマウスポインターを録画（マイクは非対応）。</p>
+</td>
+</tr>
+</table>
 
-すぐに使える Windows 版の配布パッケージと、ソースからのビルド方法を用意しています。
+ほかにも：
 
----
+- **画面への直接注釈**：操作中の画面にそのまま書き込めます。ツールを選ぶまでマウスは下のウィンドウを操作でき、デモや授業に向いています。ホワイトボードとカーソルハイライト（ポインターの光とクリックの波紋）付き。トレイメニューの「画面注釈」か、設定 → ショートカット → 画面注釈 のホットキーで開始します。
+- **翻訳**：選択した文字をワンキーで翻訳。DeepL、Google、Azure、Amazon、Baidu、Volcengine、Tencent Cloud、Youdao、DeepSeek、OpenAI 互換 API に対応し、結果の読み上げもできます。
+- **コード読み取り**：選択範囲内の QR コードとバーコードを一度に複数読み取ります。
+- **グローバルマウスショートカット**：修飾キーを押したままドラッグして、すぐにキャプチャ・ピン留め・文字認識・翻訳。
+- **その他**：PDF エクスポート、透かし、遅延キャプチャ、5 つの表示言語（簡体字中国語、繁体字中国語、英語、日本語、韓国語）。
 
 ## 主な特長
 
 「スクリーンショット ⇄ クリップボード ⇄ ピン留め」がなめらかにつながる三方向連携。
 
-- **コピー元を問わず自動で履歴に**：自分で撮ったスクリーンショットだけでなく、コピーしたテキスト・画像・ファイル・HTMLはすべて同じクリップボード履歴に自動で入ります。グループ分けして永久保存でき、ワンクリックでエクスポート、複数デバイス間で共有できます
-
-- **履歴 → ピン留め → 作業を継続**：履歴内のどの画像もワンクリックで画面最前面にピン留めできます。いつでも見比べたり、拡大縮小したり、注釈を続けたり、再OCRもできます
-
-- **細部まで磨き込まれた機能**：スクロールキャプチャは上下左右全方向をミリ秒単位で正確に結合。マルチモニター・マルチDPI環境でもシームレスにキャプチャし、さまざまなエンコードの画像をエクスポートできます。各機能は有料ソフトに匹敵するか、それ以上です
-
-- **メモリ使用量**：厳格なメモリ設計により、連続した複雑な操作でも常駐メモリを非常に低いレベルに抑えられます（多くの場合、わずか十数MB、場合によっては数MBレベル）
-
-- **快適なUI**：負荷の高いシーンを最適化し、CPU使用率も低減。低スペックPCでも快適に動作します
-
-- **データの安全性**：すべての機能が端末上だけで完結し、データ収集も裏でのネット通信もありません。データはすべてローカルに保存されます。唯一ネット接続が必要なのは翻訳機能で、これもユーザーが自分で選んだ翻訳APIを能動的に使ったときだけ通信します
+- **コピー元を問わず自動で履歴に**：自分で撮ったスクリーンショットだけでなく、コピーしたテキスト・画像・ファイル・HTML はすべて同じクリップボード履歴に入ります。グループ分けして永久保存でき、ワンクリックでほかのデバイスへエクスポートできます。
+- **履歴 → ピン留め → 作業を継続**：履歴内のどの画像もワンクリックで画面最前面にピン留めでき、見比べ、拡大縮小、注釈の続き、再 OCR にすぐ使えます。
+- **細部まで磨き込まれた機能**：スクロールキャプチャは上下左右全方向をミリ秒単位で正確に結合。マルチモニター・マルチ DPI 環境でもシームレスにキャプチャし、さまざまなエンコードの画像をエクスポートできます。各機能は有料ソフトに匹敵するか、それ以上です。
+- **少ないメモリ**：厳格なメモリ設計により、長時間の複雑な操作の後でも常駐メモリをとても低く抑えます（多くの場合わずか十数 MB、ときには数 MB）。
+- **快適な UI**：負荷の高いシーンを最適化し、CPU 使用率も低減。低スペック PC でも快適に動作します。
+- **データの安全性**：すべて端末上で完結し、データ収集も裏での通信もありません。ネット接続が必要なのは翻訳だけで、それも自分で選んだ翻訳 API を使ったときだけです。
 
 ---
 
 ## ダウンロードと起動
 
-Windows x86_64 版および ARM64 版の配布パッケージは、そのまま実行できます。ランタイムや開発環境のインストールは不要です。
+1. [Releases ページ](https://github.com/1003129155/jietuba/releases/latest)を開き、端末に合わせて `-x64.zip` または `-arm64.zip` で終わるファイルをダウンロードします。ランタイムのインストールは不要です。
+2. ZIP 全体を展開し、中の exe をダブルクリックして起動します。
 
-1. [Releases ページ](https://github.com/1003129155/jietuba/releases/latest)を開き、端末に合わせて `-x64.zip` または `-arm64.zip` で終わるファイルをダウンロードします。
-2. パッケージは 2 種類あります。ZIP 全体を展開し、中の exe をダブルクリックして起動します。
-   - **完全版** `jietuba_pp-…zip`：PP-OCR エンジンとモデルを同梱し、どの Windows でも OCR が使えます。`jietuba_pp.exe` と `models/` フォルダを同じ階層に置いてください。
-   - **軽量版** `jietuba_lite-…zip`：PP-OCR を含まない単一 exe で、サイズが小さくなります。既定では Windows 11 の Snipping Tool に内蔵された OCR だけを使います。Snipping Tool がない PC や、11.2308 より古く「テキスト アクション」がない PC では OCR を使えません。Snipping Tool を更新するか、フル版をお使いください。exe の横に PP-OCR コンポーネントを置くと PP-OCR も使えます。[PP-OCR コンポーネント](#ppocr-pack)を参照してください。
-3. どちらも既定では Snipping Tool の OCR（高速で対応言語が多い）を優先します。エンジンは設定の「OCR設定」で切り替えられます。
-4. アプリにはデジタル署名がないため、ブラウザーからダウンロードすると Windows の警告が表示される場合があります。表示された場合は「詳細情報」をクリックし、「実行」を選択すると起動できます。
+|  | 完全版 `jietuba_pp-…zip` | 軽量版 `jietuba_lite-…zip` |
+|---|---|---|
+| 中身 | `jietuba_pp.exe` と同じ階層の `models/` フォルダー（両方必要） | 単一の `jietuba_lite.exe` |
+| OCR エンジン | Snipping Tool の OCR + 同梱の PP-OCR、どの Windows でも認識可能 | 既定では Windows 11 Snipping Tool の OCR のみ。設定から [PP-OCR コンポーネント](#ppocr-pack)をダウンロード可能 |
+| おすすめ | Windows 10、またはすぐに OCR を使いたい場合 | Windows 11 で、サイズを小さくしたい場合 |
 
-2 つの版は設定とクリップボード履歴を共有するので切り替えて使えますが、同時に起動しないでください（既定のホットキーが競合します）。
+どちらも既定では Snipping Tool の OCR（高速で対応言語が多い）を優先し、設定の「OCR設定」でエンジンを切り替えられます。Snipping Tool がない PC や、11.2308 より古く「テキスト アクション」がない PC では、軽量版は Snipping Tool を更新するか PP-OCR コンポーネントを入れるまで文字を認識できません。
+
+> [!NOTE]
+> ブラウザーからダウンロードすると Windows の警告が表示される場合があります。表示されたら「詳細情報」をクリックし、「実行」を選択すると起動できます。
+
+> [!WARNING]
+> 2 つの版は設定とクリップボード履歴を共有するので切り替えて使えますが、同時に起動しないでください。既定のホットキーが競合します。
+
+> [!TIP]
+> 設定は既定で `%APPDATA%\Jietuba\settings.ini` に保存されます。exe の隣に `settings.ini`（空のファイルでも可）を置くとそちらを使うので、プログラムのフォルダーをコピーすれば設定も持ち運べます。スクリーンショットの保存先、クリップボード履歴の場所、自動起動など、このパソコンでしか意味のない項目は引き続きレジストリに残ります。クリップボード履歴は既定で `%APPDATA%\pyclipboard` にあり、設定の「クリップボード」ページで場所を変えられます。
+
+### 更新
 
 更新機能を含む最初のリリースをインストールした後、**バージョン情報 → 更新を確認 → 更新して再起動**で更新できます。対応する GitHub Release ZIP をダウンロードし、メイン EXE のみを置換して再起動します。設定、クリップボード履歴、モデルなどのファイルは保持されます。録画、書き出し、保存を終了してからインストールしてください。直前の EXE は `.jietuba-update/` に保存されます。[復元手順](rust_libs/updater/README.md)を参照してください。2.1.8 より前の Python 版はワンクリック更新で C++ 版に置き換わり、設定・クリップボード履歴・モデルはそのまま保持されます。
 
@@ -242,7 +280,6 @@ barcode/
 ### canvas/ — キャンバスモジュール
 
 シーン管理、ビューレンダリング、アイテム選択、アンドゥ/リドゥ機能を備えたグラフィックス編集キャンバスシステム。
-![jietuba_gif_20260404_000903](https://github.com/user-attachments/assets/5318b991-b0de-46a2-9c0e-d75eeae2a827)
 
 <details>
 <summary>ディレクトリ構造を表示</summary>
@@ -314,7 +351,6 @@ capture/
 
 クリップボード履歴マネージャーで、controllers・core・services・ui の4層構成です。
 テキスト、画像、HTML、ファイルに対応し、グループと内容を管理する独立した3ペイン管理ウィンドウも備えています。
-![jietuba_gif_20260404_001128](https://github.com/user-attachments/assets/b0a116e8-d944-43c9-b895-e6fc10d8c08a)
 
 <details>
 <summary>ディレクトリ構造を表示</summary>
@@ -365,6 +401,8 @@ clipboard/
     ├── widgets/
     │   ├── group_bar.h/.cpp
     │   ├── item_delegate.h/.cpp
+    │   ├── item_drag.h/.cpp            # 履歴項目のドラッグ：テキスト・HTML・画像・ファイル。ファイルは相手が求めたときだけ書き出す
+    │   ├── selection_bar.h/.cpp        # 複数選択中にリストの下に出るバー：件数、貼り付け、保存、その他の操作
     │   ├── preview_popup.h/.cpp
     │   ├── quick_edit_popup.h/.cpp
     │   ├── manage_rows.h/.cpp
@@ -384,6 +422,8 @@ clipboard/
 - テキスト項目の CSV インポート/エクスポートに対応
 - 複数のテーマ（ライト/ダークなど）に対応
 - ショートカットで履歴をすばやく貼り付け
+- 複数選択してまとめて貼り付け・保存・その他の操作；項目をエディター、チャット欄、エクスプローラーへ直接ドラッグ
+- 設定でデータの場所を変更：現在のデータを移すか、移動先フォルダーに既にあるデータに切り替える
 - 大きな画像や長文のプレビューポップアップに対応
 - 既定で Win+V が Windows のクリップボード履歴の代わりにこのクリップボードを開く（クリップボードのホットキー 3 枠目。空にすると Windows に戻る）
 
@@ -399,6 +439,8 @@ clipboard/
 ```text
 core/
 ├── bootstrap.h/.cpp            # PreloadManager — 起動ブートストラップ、環境初期化、DPI、シングルインスタンス
+├── data_location.h/.cpp        # 設定ファイルの場所：exe の隣に settings.ini があればそれ、なければ %APPDATA%\Jietuba
+├── game_mode_monitor.h/.cpp    # GameModeMonitor — 前面の切り替えを追ってゲームが前面にあるかを判定（「ゲーム中はホットキーを停止」用）
 ├── elevation.h/.cpp            # 管理者として実行 — 権限昇格の状態判定、スタートアップ用タスク
 ├── logger.h/.cpp               # Logger — ファイル＋コンソールログ（debug/info/warning/error/exception）
 ├── crash_handler.h/.cpp        # install_crash_hooks() — グローバル例外キャッチ
@@ -443,8 +485,8 @@ core/
 - 未処理の例外を自動で捕捉するグローバルクラッシュ処理
 - SVG・画像リソースの統一ロード
 - アプリ全体のライト/ダークテーマ管理
-- XML 形式の多言語国際化システム（中・英・日・韓）
-- グローバルホットキー（Windows API）とアプリ内ショートカットの管理
+- XML 形式の多言語国際化システム（中・英・日・韓・繁体字中国語）
+- グローバルホットキー（Windows API）とアプリ内ショートカットの管理。トレイメニューで「ゲーム中はホットキーを停止」をオンにすると、ゲームが前面にある間はグローバルホットキーを止める
 - ファイル保存・エクスポートサービス（高品質 PDF 出力を含む）
 - 管理者として実行：タスク スケジューラのタスクで UAC なしにサインイン時に起動し、通常起動は管理者インスタンスに引き継ぐ
 - システム HTTP リクエスト（WinHTTP、システムのプロキシを使用）と Rust ライブラリの C インターフェース宣言
@@ -457,8 +499,8 @@ core/
 
 録画ツールバーで **MP4** を選択すると、H.264 動画を直接保存できます。1–60 fps、0.5–50 Mbps の目標ビットレート、システム音声とマウスポインターを設定できます。利用可能ならハードウェアを優先し、Windows のソフトウェアエンコーダーにフォールバックします。録画は独立したワーカープロセス（同じ exe を `--video-recorder-worker` 付きで起動）が担当し、フレームを逐次保存します。GUI 側のプロセスには動画フレームを蓄積しません。停止後は MP4 の処理完了を待ちます。MP4 は GIF の編集・再生に進まず直接保存されます。映像は SDR で出力され（HDR ディスプレイでは DXGI で取得して SDR に変換するため、HDR 動画にはなりません）、システム音声は既定の再生デバイス（最大 8 チャンネル、ステレオにダウンミックス）から取得し、マイクは含みません。
 
-Media Foundation と H.264/AAC が必要で、Windows N では Media Feature Pack が必要な場合があります。FFmpeg や追加コーデックは同梱しません。
-<img width="766" height="630" alt="image" src="https://github.com/user-attachments/assets/8653fffb-b419-4584-ab4b-9fe95bb9f246" />
+> [!NOTE]
+> Media Foundation と H.264/AAC が必要で、Windows N では Media Feature Pack が必要な場合があります。FFmpeg や追加コーデックは同梱しません。
 
 <details>
 <summary>ディレクトリ構造を表示</summary>
@@ -496,7 +538,6 @@ gif/
 
 文字認識管理。Windows の Snipping Tool に内蔵された OCR と PP-OCR の 2 つのエンジンに対応。
 
-<img width="580" height="505" alt="image" src="https://github.com/user-attachments/assets/60a16100-5edc-4543-9a35-daf05b1e244e" />
 
 <details>
 <summary>ディレクトリ構造を表示</summary>
@@ -504,6 +545,7 @@ gif/
 ```text
 ocr/
 ├── ocr_manager.h/.cpp        # OCRManager — エンジン選択・読み込み・解放、統一認識インターフェース
+├── ocr_line_geometry.h/.cpp  # 認識した行の読み取り枠と文字ごとの位置。エンジンが返さないときは文字幅から推定
 ├── ppocr_models.h/.cpp       # PP-OCR モデル：models/ フォルダー、内蔵カタログ、追加、削除、アップデーター経由のダウンロード
 ├── snipping_tool_ocr.h/.cpp  # SnippingToolOcr — Snipping Tool の検出、OCR ファイルのコピー、余白追加と認識
 └── bundled_runtime.h/.cpp    # bundled_runtime — 完全版 exe に内蔵した onnxruntime.dll。起動時に models/ にない、または使えない場合に書き出す
@@ -525,7 +567,6 @@ ocr/
 
 スクリーンショットを画面にピン留め。編集、ズーム、OCR、翻訳対応。
 
-<img width="737" height="657" alt="image" src="https://github.com/user-attachments/assets/827b912c-11ac-4692-b3f6-826561957615" />
 
 <details>
 <summary>ディレクトリ構造を表示</summary>
@@ -547,7 +588,9 @@ pin/
 ├── pin_thumbnail.h/.cpp          # PinThumbnailMode — サムネイルモード
 ├── pin_translation.h/.cpp        # PinTranslationHelper — 翻訳ヘルパー
 ├── pin_image_transform.h/.cpp    # PinImageTransform — 回転、反転等
-└── ocr_text_layer.h/.cpp         # OCRTextLayer / OCRTextItem — OCRテキストレイヤー表示
+├── ocr_text_layout.h/.cpp        # OcrTextLayout — ピン画像上の認識文字と選択範囲（画像ピクセル単位）
+├── pin_text_selection.h/.cpp     # PinTextSelection — ピン画像上でドラッグ・ダブルクリック・Ctrl+A による文字選択とハイライト
+└── pin_text_mode.h/.cpp          # PinTextPanel / PinTextEdit — テキストモード：ピン画像を編集できる認識文字に切り替え
 ```
 
 </details>
@@ -555,7 +598,8 @@ pin/
 **主な機能:**
 - スクリーンショットを最前面にピン留めし、ドラッグ移動とホイールでの拡大縮小に対応
 - ピン上で直接描画・編集
-- OCR を統合し、選択できる文字レイヤーを表示
+- OCR を統合し、ピン画像上で直接文字を選択してコピー（拡大・回転後も選択可能）
+- テキストモード：ピン画像を編集できる認識文字に切り替え。画像に戻して再び切り替えても、編集内容と元に戻す履歴は残る
 - 翻訳を統合し、ピン内の文字を直接翻訳
 - 通常モードと編集モードのショートカットに対応
 
@@ -570,24 +614,25 @@ pin/
 
 ```text
 settings/
-├── color_formats.h/.cpp      # 拡大鏡のカラー形式テンプレート：描画・読み込み・保存
-├── settings_transfer.h/.cpp  # 設定画面の項目（ツールバーの並びを含む）を JSON ファイルへエクスポート／インポート
-├── special_paste.h/.cpp      # 特殊貼り付けメニューの既定項目・順序・有効状態
+├── app_settings.inc          # 設定表：1 項目 1 行（キー、型、既定値、スコープ）。型付きアクセサー・既定値・インポート対象を生成
 ├── tool_settings.h/.cpp      # ToolSettingsManager / ToolSettings — ツールの色、サイズ、ホットキー設定
-└── settings_accessors.inc    # QSettings の 1 行アクセサー（手書き。追加時は末尾の 3 つの検索関数にも登録）
+├── data_folder.h/.cpp        # 起動時に旧版がレジストリに保存していた設定を取り込み、自動起動の登録をスイッチに合わせる
+├── settings_transfer.h/.cpp  # 別の settings.ini または旧版でエクスポートした JSON から設定をインポート
+├── color_formats.h/.cpp      # 拡大鏡のカラー形式テンプレート：描画・読み込み・保存
+└── special_paste.h/.cpp      # 特殊貼り付けメニューの既定項目・順序・有効状態
 ```
 
 </details>
 
 **主な機能:**
-- シングルトンの設定マネージャー
+- シングルトンの設定マネージャー。すべての設定を 1 つの表に登録
 - 各描画ツールの色、線幅、フォントサイズなどのパラメーターを管理
-- QSettings に永続化
+- 設定は `settings.ini`（exe の隣または `%APPDATA%\Jietuba`）に保存し、このパソコンでしか意味のない項目はレジストリに残す
+- 初回起動時に旧版のレジストリの設定を `settings.ini` にコピー。削除はしないので旧版に戻しても使える
 
 ---
 
 ### stitch/ — 長いスクリーンショット結合モジュール
-![jietuba_gif_20260404_001930](https://github.com/user-attachments/assets/a9720f08-5128-447d-b425-6d0640272e6a)
 
 <details>
 <summary>ディレクトリ構造を表示</summary>
@@ -770,6 +815,9 @@ ui/
 ├── submenu_position.h/.cpp          # カスケードサブメニューの展開方向と親項目への吸着
 ├── magnifier.h/.cpp                 # MagnifierOverlay — ピクセルレベル拡大鏡
 ├── color_picker_button.h/.cpp       # ColorPickerButton — カラー選択ボタン
+├── color_picker_dialog.h/.cpp       # カラーピッカーウィンドウ：彩度/明度の四角、色相と不透明度のスライダー、スポイト
+├── save_image_dialog.h/.cpp         # SaveImageDialog — 画像保存ダイアログ：よく使うフォルダーのタグ、形式と品質
+├── screenshot_countdown.h/.cpp      # ScreenshotCountdown — 遅延スクリーンショットのカウントダウン
 ├── hotkey_edit.h/.cpp               # HotkeyEdit — グローバルホットキーエディター
 ├── inapp_key_edit.h/.cpp            # InAppKeyEdit — アプリ内ショートカットエディター
 ├── key_chip.h/.cpp                  # KeyChipLineEdit / StatusIcon — ショートカットのキー表示と状態アイコン
@@ -814,6 +862,7 @@ ui/
 │   ├── page_hotkey.cpp              # ホットキー設定
 │   ├── page_mouse.cpp               # マウスショートカット設定
 │   ├── page_pin.cpp                 # ピン画像設定（動作、外観、マウス透過）
+│   ├── page_screen_annotation.cpp   # 画面注釈設定
 │   ├── page_translation.cpp         # 翻訳設定
 │   ├── provider_fields.cpp          # 翻訳サービスの設定項目の読み書き（宣言ベース）
 │   ├── page_log.cpp                 # ログ設定
@@ -823,7 +872,7 @@ ui/
 │   ├── mouse_binding_editor.h       # MouseBindingEditor — マウスショートカットの修飾キーとジェスチャーの選択
 │   └── pages.h                      # 各設定ページの構築関数の宣言
 │
-├── welcome/                         # 初回起動ウェルカムウィザード（6ページガイド）
+├── welcome/                         # 初回起動ウェルカムウィザード（8ページガイド）
 │   ├── wizard.h/.cpp                # WelcomeWizard — ウィザードメインウィンドウ
 │   ├── base_page.h/.cpp             # BasePage — ウィザードページ基底クラス
 │   ├── page1_welcome.cpp            # ウェルカムページ
@@ -832,6 +881,8 @@ ui/
 │   ├── page5_translation.cpp        # 翻訳機能説明ページ
 │   ├── page6_finish.cpp             # 完了ページ
 │   ├── page_hotkeys.cpp             # グローバルホットキーページ — 6 つのキーは同一の衝突領域、まとめて設定・重複判定
+│   ├── page_mouse_shortcuts.cpp     # グローバルマウスショートカットページ — 修飾キーを押したままドラッグして即キャプチャ・操作
+│   ├── page_screen_annotation.cpp   # 画面注釈ページ — デモとホットキー
 │   └── pages.h                      # ウィザード各ページの宣言
 │
 └── selection_info/                  # 選択情報UI
@@ -847,10 +898,10 @@ ui/
 **主な機能:**
 - ドラッグ可能なツールバー基底クラス（すべてのツールバーが継承）
 - 範囲選択の描画と操作を処理する全画面スクリーンショットウィンドウ
-- 拡大鏡やカラーピッカーなどの細かな UI 部品
+- 拡大鏡、カラーピッカーウィンドウ、画像保存ダイアログなどの細かな UI 部品
 - 軽量な Fluent スタイルのコンポーネントライブラリ（ボタン、カード、ナビゲーション、セグメント、スイッチなど）
-- 完全なアプリ設定ダイアログ（外観・キャプチャ・ホットキー・翻訳などの複数ページ）
-- 初回起動のウェルカムウィザード（6 ページの案内フロー）
+- 完全なアプリ設定ダイアログ（外観・キャプチャ・ホットキー・翻訳・画面注釈などの複数ページ）
+- 初回起動のウェルカムウィザード（8 ページの案内フロー）
 - 選択範囲情報パネル（サイズ表示、縦横比ロック、角丸など）
 
 ---
@@ -893,16 +944,21 @@ tests/
 ├── test_clipboard.cpp             # クリップボードのロジックとコンテキストメニュー
 ├── test_clipboard_backend.cpp     # クリップボードのバックエンド：データベースとシステムクリップボードの監視
 ├── test_clipboard_controller.cpp  # クリップボードウィンドウのコントローラー：ページング、フィルター、グループ、貼り付け
+├── test_clipboard_drag.cpp        # クリップボード項目のドラッグ：相手ごとに渡す形式と必要時に書き出すファイル
 ├── test_clipboard_manage.cpp      # クリップボード管理ウィンドウ
 ├── test_clipboard_selection.cpp   # クリップボードリストのキーボード・マウス選択
 ├── test_clipboard_ui.cpp          # クリップボードのバックエンド・ウィンドウ・設定の連携
 ├── test_clipboard_widgets.cpp     # クリップボードの部品：行描画、プレビュー、歯車メニュー、テーマ
 ├── test_clipboard_window.cpp      # クリップボードウィンドウのクリック、キー、メニュー
 ├── test_core.cpp                  # コア：グローバルホットキー、ログ文言、管理者タスク、単一インスタンスの引き継ぎ
+├── test_data_folder.cpp           # 設定ファイルの場所、レジストリと INI の分担、旧設定の移行、自動起動の登録
 ├── test_freehand.cpp              # ペンストロークの平滑化、スナップ、分割再描画
 ├── test_gif.cpp                   # GIF/MP4 の録画・再生・エクスポート
+├── test_gif_playback.cpp          # GIF 再生：デコードと表示サイズでの再生
 ├── test_hdr_capture.cpp           # HDR キャプチャ（デスクトップテスト）
 ├── test_http_providers.cpp        # HTTP クライアントとアドレスを設定できる翻訳プロバイダー
+├── test_input_engine.cpp          # 入力ステートマシン：ジェスチャー、ホットキー、ショートカット記録
+├── test_input_hooks.cpp           # 実際のデスクトップでの入力フックスレッド。入力を注入して確認（デスクトップテスト）
 ├── test_logger.cpp                # ログ
 ├── test_main_app.cpp              # メインアプリ：トレイ、ホットキー、撮影フロー、グローバル入力（デスクトップテスト）
 ├── test_msaa_element_finder.cpp   # ポイント検出と最初のフレームの選択範囲
@@ -913,11 +969,14 @@ tests/
 ├── test_ppocr_models.cpp          # PP-OCR モデルのダウンロード・追加・カタログ
 ├── test_result_windows.cpp        # OCR とコード読み取りの結果ウィンドウ
 ├── test_sandbox.cpp               # 全テストプログラムにリンク：設定・データ・ログを一時フォルダーに向ける
+├── test_save_image_dialog.cpp     # 画像保存ダイアログ：フォルダーのタグ、形式と品質
+├── test_screen_annotation.cpp     # 画面注釈：画面ごとのレイヤー、透過とフォーカス、画面をまたぐ元に戻す、画面の抜き差し
 ├── test_screenshot_window.cpp     # スクリーンショットウィンドウ
 ├── test_scroll_capture.cpp        # スクロールキャプチャ
 ├── test_settings_window.cpp       # 設定ウィンドウ
 ├── test_shortcut_manager.cpp      # ショートカット管理とグローバルフック
 ├── test_smart_selection.cpp       # 実ウィンドウでのスマート選択（デスクトップテスト）
+├── test_snipping_tool_ocr.cpp     # Snipping Tool OCR の連携（偽の oneocr.dll を使用）
 ├── test_stitch.cpp                # 長いスクリーンショットの結合
 ├── test_text_recognition.cpp      # テキスト認識：整形とウィンドウ配置
 ├── test_translation.cpp           # 翻訳プロバイダー、レジストリ、サービス
@@ -926,6 +985,9 @@ tests/
 ├── test_ui_widgets.cpp            # 共通 UI 部品：ツールバー、設定パネル、ホットキー編集など
 ├── test_update.cpp                # 更新確認とワンクリック更新（偽の更新ツールを使用）
 ├── clipboard_test_support.h       # クリップボードテスト共通の準備コード
+├── caption_check.h                # 自前で描くウィンドウのタイトルバーが共通の配置（左にアイコン、続いてタイトル）かを確認
+├── save_dialog_answerer.h         # テストで画像保存ダイアログに自動で応答
+├── fake_oneocr.cpp                # テストで Snipping Tool の oneocr.dll の代わりをする偽ライブラリ（関数が欠けた版を含む）
 ├── fake_updater.cpp               # テストで更新ツールの代わりをする偽プログラム
 ├── leak_check.h/.cpp              # リーク検出モード：テストを 3 回実行し、デバッグヒープでリークを検出
 └── fixtures/                      # 期待結果データ（コミット済み、再生成しない）

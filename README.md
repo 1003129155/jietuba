@@ -14,52 +14,91 @@
 
 </div>
 
-<img width="1391" height="844" alt="21" src="https://github.com/user-attachments/assets/01770043-6dbe-4c9f-b1d9-5d9eb467c559" />
-
 ## Overview
 
-jietuba is a free, open-source screenshot tool for Windows: region and window capture, scrolling (long) screenshots, annotation, OCR text recognition, translation, image pinning, GIF/MP4 recording, live screen annotation, QR code and barcode scanning, PDF export, and a full clipboard history manager. Everything runs locally.
+jietuba is a free, open-source screenshot tool for Windows: capture, annotation, OCR, translation, pinning, screen recording and clipboard history in one program, all running locally.
 
-MP4 region recording supports custom frame rates and bitrates, pause/resume, the mouse pointer, and system audio. Audio from common 5.1/7.1 playback devices is converted to stereo; microphone recording is not included.
+It is written in C++ (Qt6), with image processing, clipboard access, the PP-OCR engine and other core parts in Rust, and runs on Windows x86_64 and ARM64. The earlier Python (PySide6) implementation is archived on the [`archive/python`](https://github.com/1003129155/jietuba/tree/archive/python) branch and no longer updated.
 
-Screen annotation draws straight on the screen you are working on: start it with its global hotkey (Settings → Shortcuts → Screen Annotation, unset by default) or Screen Annotation in the tray menu. Pen, highlighter, arrow, number, rectangle, ellipse, text and eraser are the same tools and settings as in capture editing. Until a tool is picked the mouse keeps working the windows below; Esc or the pass-through button returns to pass-through and gives the focus back to the window you were using, so a slide show keeps its page keys. Every screen gets its own layer, and undo follows the drawing order across screens; drawings can be hidden or cleared in one go (undoable). Screenshots and GIF/MP4 recordings include the drawings but not the annotation toolbar. On the screen the highlighter tints at a fixed translucency, so the text under it stays readable. There is also a whiteboard, on and off with one click, and a cursor highlight with a ring for every click. Settings → Screen Annotation chooses what a session starts with, where the toolbar appears, whether drawings are kept, and the size and click rings of the cursor highlight.
+## Features
 
-jietuba is written in C++ (Qt6); image processing, clipboard access, the PP-OCR engine and other core parts are implemented in Rust. Runs on Windows x86_64 and ARM64. The earlier Python (PySide6) implementation is archived on the [`archive/python`](https://github.com/1003129155/jietuba/tree/archive/python) branch and no longer updated.
+<table>
+<tr>
+<td width="50%" valign="top">
+<img width="100%" alt="Capture and annotation" src="https://github.com/user-attachments/assets/5318b991-b0de-46a2-9c0e-d75eeae2a827" />
+<p><b>Capture and annotation</b><br>Snaps to windows and controls; pen, arrow, number, mosaic, spotlight, watermark and more, all undoable.</p>
+</td>
+<td width="50%" valign="top">
+<img width="100%" alt="Clipboard history" src="https://github.com/user-attachments/assets/b0a116e8-d944-43c9-b895-e6fc10d8c08a" />
+<p><b>Clipboard history</b><br>Text, images and files you copy are kept and can be grouped for good; open it with Win+V, select several, drag them out or pin one to the screen.</p>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<img width="100%" alt="Scrolling capture" src="https://github.com/user-attachments/assets/a9720f08-5128-447d-b425-6d0640272e6a" />
+<p><b>Scrolling capture</b><br>Stitches in all four directions, with auto-scroll; scrolling back only repositions, and one click trims the rest.</p>
+</td>
+<td width="50%" valign="top">
+<img width="100%" alt="OCR" src="https://github.com/user-attachments/assets/60a16100-5edc-4543-9a35-daf05b1e244e" />
+<p><b>OCR</b><br>Windows 11 Snipping Tool OCR and PP-OCR, offline; wrapped lines are joined and punctuation tidied.</p>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<img width="100%" alt="Pins" src="https://github.com/user-attachments/assets/827b912c-11ac-4692-b3f6-826561957615" />
+<p><b>Pins</b><br>Keep a screenshot on top to zoom, rotate and annotate; select its text to copy or translate, or turn it into editable text.</p>
+</td>
+<td width="50%" valign="top">
+<img width="100%" alt="GIF and MP4 recording" src="https://github.com/user-attachments/assets/8653fffb-b419-4584-ab4b-9fe95bb9f246" />
+<p><b>GIF / MP4 recording</b><br>Annotate while recording and trim GIFs in playback; MP4 with custom frame rate and bitrate, system audio and the pointer, no microphone.</p>
+</td>
+</tr>
+</table>
 
-Download a ready-to-run Windows release or build it from source.
+Also:
 
----
+- **Live screen annotation**: draw on the screen you are working on while the mouse keeps working the windows below until you pick a tool, made for demos and teaching; with a whiteboard and a cursor highlight (a glowing pointer and click rings). Start it from Screen Annotation in the tray menu or its hotkey under Settings → Shortcuts → Screen Annotation.
+- **Translation**: translate selected text with one key through DeepL, Google, Azure, Amazon, Baidu, Volcengine, Tencent Cloud, Youdao, DeepSeek or any OpenAI-compatible API, and have the result read aloud.
+- **Code scanning**: reads several QR codes and barcodes in a selection at once.
+- **Global mouse shortcuts**: hold modifiers and drag to capture, pin, recognize text or translate straight away.
+- **And more**: PDF export, watermarks, delayed capture, five interface languages (Simplified and Traditional Chinese, English, Japanese, Korean).
 
 ## Highlights
 
 A smooth, three-way "screenshot ⇄ clipboard ⇄ pin" workflow.
 
-- **Anything you copy lands in history** — not just your own screenshots: any text, image, file, or HTML you copy goes automatically into the same clipboard history, ready to group, save permanently, export in one click, and share across devices
-
-- **History → pin → keep working** — pin any image from history back to the top of the screen with one click. Bring it up anytime to compare, zoom, keep annotating, or re-run OCR
-
-- **Polished down to the details** — scroll capture stitches precisely in all four directions within milliseconds; seamless capture across multiple monitors and mixed DPI; export images in various encodings. Every feature rivals paid software — or does even better
-
-- **Memory footprint** — a strict runtime memory design keeps resident memory very low even under continuous, complex usage (often just a dozen MB or even a few MB)
-
-- **Smooth UI** — demanding scenarios are optimized and CPU usage reduced, so even low-end machines run smoothly
-
-- **Data safety** — everything runs entirely on your machine: no data collection, no silent network calls, all data stays local. Translation is the one feature that needs the internet, and only when you actively use it, calling whichever third-party translation API you've chosen
+- **Anything you copy lands in history**: not just your own screenshots; any text, image, file or HTML you copy goes into the same clipboard history, ready to group, keep for good and export to other devices in one click.
+- **History → pin → keep working**: pin any image from history back to the top of the screen with one click, to compare, zoom, keep annotating or re-run OCR.
+- **Polished down to the details**: scroll capture stitches precisely in all four directions within milliseconds; seamless capture across multiple monitors and mixed DPI; export images in various encodings. Every feature rivals paid software, or does better.
+- **Low memory**: a strict memory design keeps resident memory very low even after long, heavy use (often a dozen MB or even a few).
+- **Smooth UI**: demanding scenarios are optimized and CPU usage reduced, so even low-end machines run smoothly.
+- **Data safety**: everything runs on your machine, with no data collection and no silent network calls; translation is the one feature that goes online, and only when you use it, through the translation API you chose.
 
 ---
 
 ## Download and Run
 
-The Windows x86_64 and ARM64 releases are ready to run. You do not need to install any runtime or development environment.
+1. Open the [Releases page](https://github.com/1003129155/jietuba/releases/latest) and download the archive ending in `-x64.zip` or `-arm64.zip` for your device. No runtime needs installing.
+2. Extract the entire archive and double-click the exe inside.
 
-1. Open the [Releases page](https://github.com/1003129155/jietuba/releases/latest) and download the archive ending in `-x64.zip` or `-arm64.zip` for your device.
-2. There are two packages. Extract the entire archive and double-click the exe inside:
-   - **Full** `jietuba_pp-…zip`: includes the PP-OCR engine and models, so OCR works on any Windows. Keep `jietuba_pp.exe` and the `models/` folder together.
-   - **Lite** `jietuba_lite-…zip`: a single exe without PP-OCR, smaller to download. By default it uses only the OCR built into the Windows 11 Snipping Tool; OCR is unavailable on PCs without it, or where it is older than 11.2308 (no "Text actions"). Update the Snipping Tool or use the Full package. Placing the PP-OCR pack beside the exe also enables PP-OCR; see [PP-OCR Pack](#ppocr-pack).
-3. Both packages prefer the Snipping Tool OCR by default (faster, more languages). Switch engines under **OCR Settings** in Settings.
-4. The application is not digitally signed, so Windows may display a warning after you download it through a browser. If prompted, click **More info**, then **Run anyway** to start the application.
+|  | Full `jietuba_pp-…zip` | Lite `jietuba_lite-…zip` |
+|---|---|---|
+| Contents | `jietuba_pp.exe` and the `models/` folder beside it (keep both) | A single `jietuba_lite.exe` |
+| OCR engines | Snipping Tool OCR + bundled PP-OCR, works on any Windows | Only the Windows 11 Snipping Tool OCR by default; the [PP-OCR pack](#ppocr-pack) can be downloaded in Settings |
+| Best for | Windows 10, or OCR that works out of the box | Windows 11 and a smaller download |
 
-Both packages share settings and clipboard history, so you can switch between them, but do not run both at once (the default hotkeys conflict).
+Both packages prefer the Snipping Tool OCR by default (faster, more languages); switch engines under **OCR Settings** in Settings. On PCs without the Snipping Tool, or where it is older than 11.2308 (no "Text actions"), the Lite package needs an updated Snipping Tool or the PP-OCR pack before it can recognize text.
+
+> [!NOTE]
+> Windows may display a warning after you download the program through a browser. If prompted, click **More info**, then **Run anyway**.
+
+> [!WARNING]
+> Both packages share settings and clipboard history, so you can switch between them, but do not run both at once: the default hotkeys conflict.
+
+> [!TIP]
+> Settings are kept in `%APPDATA%\Jietuba\settings.ini`. Put a `settings.ini` next to the exe (an empty file is enough) and the program uses that one instead, so copying the program folder takes the settings along. Settings that only make sense on this computer, such as the screenshot save folder, the clipboard history location and autostart, stay in the registry; the clipboard history is in `%APPDATA%\pyclipboard` by default and can be moved on the Clipboard page of the settings.
+
+### Updates
 
 After installing the first release containing the updater, use **About → Check for Updates → Update and Restart**. It downloads the matching GitHub Release ZIP, replaces only the application EXE, and restarts. Settings, clipboard history, models and other files remain intact. Finish recording, exporting and saving before installation. The last application backup is kept under `.jietuba-update/`; see [updater recovery](rust_libs/updater/README.md). Python builds older than 2.1.8 switch to the C++ build through the one-click update, keeping settings, clipboard history and models.
 
@@ -241,7 +280,6 @@ barcode/
 ### canvas/ — Canvas Module
 
 Graphics editing canvas system with scene management, view rendering, item selection, and undo/redo.
-![jietuba_gif_20260404_000903](https://github.com/user-attachments/assets/5318b991-b0de-46a2-9c0e-d75eeae2a827)
 
 <details>
 <summary>Expand directory structure</summary>
@@ -313,7 +351,6 @@ capture/
 
 Clipboard history manager organized into controllers, core, services, and ui layers.
 Supports text, images, HTML, files, a dedicated three-pane management window, and pin creation from history items.
-![jietuba_gif_20260404_001128](https://github.com/user-attachments/assets/b0a116e8-d944-43c9-b895-e6fc10d8c08a)
 
 <details>
 <summary>Expand directory structure</summary>
@@ -364,6 +401,8 @@ clipboard/
     ├── widgets/
     │   ├── group_bar.h/.cpp
     │   ├── item_delegate.h/.cpp
+    │   ├── item_drag.h/.cpp            # Dragging history items out: text, HTML, images and files, written only when a target asks for files
+    │   ├── selection_bar.h/.cpp        # The bar under the list during multiple selection: count, paste, save and other actions
     │   ├── preview_popup.h/.cpp
     │   ├── quick_edit_popup.h/.cpp
     │   ├── manage_rows.h/.cpp
@@ -383,6 +422,8 @@ clipboard/
 - CSV import/export for text items
 - Multiple themes (light, dark and more)
 - Quick paste of history items with shortcuts
+- Select several items to paste, save or act on them together; drag items straight into editors, chat boxes or Explorer
+- Change the data location in the settings: move the current data there, or switch to the data already in that folder
 - Preview popups for large images and long text
 - Opens with Win+V in place of the Windows clipboard history by default (the third clipboard hotkey slot); clear that slot to give Win+V back to Windows
 
@@ -398,6 +439,8 @@ Logging, resource loading, theme management, i18n, hotkeys, and other infrastruc
 ```text
 core/
 ├── bootstrap.h/.cpp            # PreloadManager — startup bootstrap, env init, DPI, single instance
+├── data_location.h/.cpp        # Where the settings file lives: settings.ini next to the exe when there is one, else %APPDATA%\Jietuba
+├── game_mode_monitor.h/.cpp    # GameModeMonitor — follows foreground switches to tell when a game is in front, for "Pause Hotkeys While Gaming"
 ├── elevation.h/.cpp            # Run as administrator — elevation state, scheduled task for sign-in
 ├── logger.h/.cpp               # Logger — file + console logging (debug/info/warning/error/exception)
 ├── crash_handler.h/.cpp        # install_crash_hooks() — global exception catching
@@ -443,7 +486,7 @@ core/
 - Unified loading of SVG and image resources
 - Application-wide light/dark theme management
 - XML-based i18n system (Chinese / English / Japanese / Korean / Traditional Chinese)
-- Global hotkey system (Windows API) and in-app shortcut management
+- Global hotkey system (Windows API) and in-app shortcut management; with "Pause Hotkeys While Gaming" on in the tray menu, global hotkeys pause while a game is in front
 - File save/export services (including high-quality PDF output)
 - Run as administrator: a scheduled task starts it at sign-in without a UAC prompt, and a normal launch hands over to the elevated instance
 - System HTTP requests (WinHTTP, using the system proxy) and the declarations of the Rust libraries' C interface
@@ -456,8 +499,8 @@ Screen recording, editing, playback, and export to GIF/video.
 
 Choose **MP4** on the recording toolbar for direct H.264 recording, with custom 1–60 fps, 0.5–50 Mbps target bitrate, optional system audio and mouse pointer. Hardware encoding is preferred when available, with Windows software encoding as fallback. Recording runs in a separate worker process (the same exe started with `--video-recorder-worker`) that streams frames to the video without keeping them in the GUI process; stopping waits for MP4 finalization before reporting success. MP4 recordings are saved directly and do not enter the GIF editing/playback workflow. Video is output as SDR (on HDR displays frames are captured through DXGI and mapped to SDR, so there is no HDR video), and system audio comes from the default playback device (up to 8 channels, down-mixed to stereo) and excludes the microphone.
 
-Windows Media Foundation/H.264/AAC components must be available; Windows N editions may need the Media Feature Pack. No FFmpeg or additional codec bundle is included.
-<img width="766" height="630" alt="image" src="https://github.com/user-attachments/assets/8653fffb-b419-4584-ab4b-9fe95bb9f246" />
+> [!NOTE]
+> Windows Media Foundation/H.264/AAC components must be available; Windows N editions may need the Media Feature Pack. No FFmpeg or additional codec bundle is included.
 
 <details>
 <summary>Expand directory structure</summary>
@@ -495,7 +538,6 @@ gif/
 
 Text recognition management with two engines: the OCR built into the Windows Snipping Tool, and PP-OCR.
 
-<img width="580" height="505" alt="image" src="https://github.com/user-attachments/assets/60a16100-5edc-4543-9a35-daf05b1e244e" />
 
 <details>
 <summary>Expand directory structure</summary>
@@ -503,6 +545,7 @@ Text recognition management with two engines: the OCR built into the Windows Sni
 ```text
 ocr/
 ├── ocr_manager.h/.cpp        # OCRManager — engine choice, loading, release, unified recognition interface
+├── ocr_line_geometry.h/.cpp  # Reading frame and character positions of a recognized line, estimated from character widths when the engine gives none
 ├── ppocr_models.h/.cpp       # PP-OCR models: models/ folder, built-in catalog, import, removal, download via the updater
 ├── snipping_tool_ocr.h/.cpp  # SnippingToolOcr — locate the Snipping Tool, copy its OCR files, pad and recognize
 └── bundled_runtime.h/.cpp    # bundled_runtime — the onnxruntime.dll embedded in the Full exe, written into models/ at startup when missing or unusable
@@ -524,7 +567,6 @@ ocr/
 
 Pin screenshots on screen with editing, zoom, OCR, and translation.
 
-<img width="737" height="657" alt="image" src="https://github.com/user-attachments/assets/827b912c-11ac-4692-b3f6-826561957615" />
 
 <details>
 <summary>Expand directory structure</summary>
@@ -546,7 +588,9 @@ pin/
 ├── pin_thumbnail.h/.cpp          # PinThumbnailMode — thumbnail mode
 ├── pin_translation.h/.cpp        # PinTranslationHelper — translation helper
 ├── pin_image_transform.h/.cpp    # PinImageTransform — rotate, flip, etc.
-└── ocr_text_layer.h/.cpp         # OCRTextLayer / OCRTextItem — OCR text layer display
+├── ocr_text_layout.h/.cpp        # OcrTextLayout — the pin's recognized text and selection, in image pixels
+├── pin_text_selection.h/.cpp     # PinTextSelection — selecting text on a pin by dragging, double-clicking or Ctrl+A, and its highlight
+└── pin_text_mode.h/.cpp          # PinTextPanel / PinTextEdit — text mode: the pin shown as editable recognized text
 ```
 
 </details>
@@ -554,7 +598,8 @@ pin/
 **Core Features:**
 - Screenshots stay on top of the screen, draggable and zoomable with the mouse wheel
 - Draw and edit directly on a pin
-- Built-in OCR with a selectable text layer
+- Built-in OCR: select and copy text right on the pin, still selectable after zooming or rotating
+- Text mode: the pin turns into editable recognized text; switch back to the image and again, and the edits and their undo history are still there
 - Built-in translation of the text in a pin
 - Shortcuts for both normal and edit modes
 
@@ -569,24 +614,25 @@ Unified configuration management.
 
 ```text
 settings/
-├── color_formats.h/.cpp      # magnifier color format templates: render, load, save
-├── settings_transfer.h/.cpp  # export/import settings-page options (and the toolbar layout) as a JSON file
-├── special_paste.h/.cpp      # special paste menu: built-in options, order and on/off state
+├── app_settings.inc          # The settings table: one row per setting (key, type, default, scope), generating the typed accessors, defaults and import list
 ├── tool_settings.h/.cpp      # ToolSettingsManager / ToolSettings — tool color, size, hotkey config
-└── settings_accessors.inc    # One-line QSettings accessors (hand-kept; a new one is also listed in the three lookup functions at the end)
+├── data_folder.h/.cpp        # At startup: takes in the settings older versions kept in the registry, and keeps the autostart entries in line with the switch
+├── settings_transfer.h/.cpp  # Import settings from another settings.ini or a JSON file exported by earlier versions
+├── color_formats.h/.cpp      # magnifier color format templates: render, load, save
+└── special_paste.h/.cpp      # special paste menu: built-in options, order and on/off state
 ```
 
 </details>
 
 **Core Features:**
-- Singleton configuration manager
+- Singleton configuration manager, with every setting listed in one table
 - Manages the colour, line width, font size and other parameters of each drawing tool
-- Persists everything in QSettings
+- Settings are stored in `settings.ini` (next to the exe or in `%APPDATA%\Jietuba`); those that only make sense on this computer stay in the registry
+- On first start the settings older versions kept in the registry are copied into `settings.ini`; nothing is deleted, so going back to an older version still works
 
 ---
 
 ### stitch/ — Long Screenshot Stitching Module
-![jietuba_gif_20260404_001930](https://github.com/user-attachments/assets/a9720f08-5128-447d-b425-6d0640272e6a)
 
 <details>
 <summary>Expand directory structure</summary>
@@ -769,6 +815,9 @@ ui/
 ├── submenu_position.h/.cpp          # Cascading submenus: which way they open and how they hug the parent item
 ├── magnifier.h/.cpp                 # MagnifierOverlay — pixel-level magnifier
 ├── color_picker_button.h/.cpp       # ColorPickerButton — color selection button
+├── color_picker_dialog.h/.cpp       # Color picker window: saturation/value square, hue and opacity sliders, eyedropper
+├── save_image_dialog.h/.cpp         # SaveImageDialog — save image dialog: frequent folder tags, format and quality
+├── screenshot_countdown.h/.cpp      # ScreenshotCountdown — countdown before a delayed screenshot
 ├── hotkey_edit.h/.cpp               # HotkeyEdit — global hotkey editor
 ├── inapp_key_edit.h/.cpp            # InAppKeyEdit — in-app shortcut editor
 ├── key_chip.h/.cpp                  # KeyChipLineEdit / StatusIcon — shared shortcut chip look
@@ -813,6 +862,7 @@ ui/
 │   ├── page_hotkey.cpp              # Hotkey settings
 │   ├── page_mouse.cpp               # Mouse shortcut settings
 │   ├── page_pin.cpp                 # Pin settings (behavior, appearance, click-through)
+│   ├── page_screen_annotation.cpp   # Screen annotation settings
 │   ├── page_translation.cpp         # Translation settings
 │   ├── provider_fields.cpp          # Translation provider fields: read/write config and widget values from declarations
 │   ├── page_log.cpp                 # Log settings
@@ -822,7 +872,7 @@ ui/
 │   ├── mouse_binding_editor.h       # MouseBindingEditor — picker for a mouse shortcut's modifiers and gesture
 │   └── pages.h                      # Declarations of the settings page builders
 │
-├── welcome/                         # First-run welcome wizard (6-page guided setup)
+├── welcome/                         # First-run welcome wizard (8-page guided setup)
 │   ├── wizard.h/.cpp                # WelcomeWizard — wizard main window
 │   ├── base_page.h/.cpp             # BasePage — wizard page base class
 │   ├── page1_welcome.cpp            # Welcome page
@@ -831,6 +881,8 @@ ui/
 │   ├── page5_translation.cpp        # Translation feature intro page
 │   ├── page6_finish.cpp             # Finish page
 │   ├── page_hotkeys.cpp             # Global hotkey page — six hotkeys share one conflict domain, set and validated together
+│   ├── page_mouse_shortcuts.cpp     # Global mouse shortcut page — hold modifiers and drag to capture or act at once
+│   ├── page_screen_annotation.cpp   # Screen annotation page — a demo and its hotkeys
 │   └── pages.h                      # Declarations of the wizard pages
 │
 └── selection_info/                  # Selection info UI
@@ -846,10 +898,10 @@ ui/
 **Core Features:**
 - Draggable toolbar base class that every toolbar inherits from
 - Full-screen screenshot window that handles selection drawing and interaction
-- Fine-grained UI components such as the magnifier and the colour picker
+- Fine-grained UI components such as the magnifier, the color picker window and the save image dialog
 - Lightweight Fluent-style component library (buttons, cards, navigation, segmented controls, switches and more)
-- Complete application settings dialog (appearance / capture / hotkeys / translation and other pages)
-- First-run welcome wizard (a six-page guided flow)
+- Complete application settings dialog (appearance / capture / hotkeys / translation / screen annotation and other pages)
+- First-run welcome wizard (an eight-page guided flow)
 - Selection info panel (size readout, aspect-ratio lock, rounded corners and more)
 
 ---
@@ -892,16 +944,21 @@ tests/
 ├── test_clipboard.cpp             # Clipboard logic and context menus
 ├── test_clipboard_backend.cpp     # Clipboard backend: the database and the system clipboard watcher
 ├── test_clipboard_controller.cpp  # Clipboard window controller: paging, filters, groups, pasting
+├── test_clipboard_drag.cpp        # Dragging clipboard items out: the formats each target gets and files written on demand
 ├── test_clipboard_manage.cpp      # Clipboard management window
 ├── test_clipboard_selection.cpp   # Keyboard and mouse selection in the clipboard list
 ├── test_clipboard_ui.cpp          # The clipboard backend, windows and settings together
 ├── test_clipboard_widgets.cpp     # Clipboard widgets: row painting, preview popups, gear menu, themes
 ├── test_clipboard_window.cpp      # Clicks, keys and menus of the clipboard window
 ├── test_core.cpp                  # Core: global hotkeys, log texts, the administrator task, single-instance hand-off
+├── test_data_folder.cpp           # Settings file location, registry vs INI, migrating older settings, autostart entries
 ├── test_freehand.cpp              # Pen stroke smoothing, snapping and chunked repainting
 ├── test_gif.cpp                   # GIF/MP4 recording, playback and export
+├── test_gif_playback.cpp          # GIF playback: decoding and playing at the display size
 ├── test_hdr_capture.cpp           # HDR capture (desktop test)
 ├── test_http_providers.cpp        # The HTTP client and providers with a configurable address
+├── test_input_engine.cpp          # Input state machine: gestures, hotkeys, shortcut recording
+├── test_input_hooks.cpp           # The input hook thread on the real desktop, driven by injected input (desktop test)
 ├── test_logger.cpp                # Logging
 ├── test_main_app.cpp              # Main app: tray, hotkeys, capture flow and global input (desktop test)
 ├── test_msaa_element_finder.cpp   # Point query and first-frame selection
@@ -912,11 +969,14 @@ tests/
 ├── test_ppocr_models.cpp          # PP-OCR model download, adding and catalog
 ├── test_result_windows.cpp        # OCR and barcode result windows
 ├── test_sandbox.cpp               # Linked into every test program: points settings, data and logs at a temporary folder
+├── test_save_image_dialog.cpp     # Save image dialog: folder tags, format and quality
+├── test_screen_annotation.cpp     # Screen annotation: per-screen layers, click-through and focus, cross-screen undo, screens plugged in or out
 ├── test_screenshot_window.cpp     # Screenshot window
 ├── test_scroll_capture.cpp        # Scroll capture
 ├── test_settings_window.cpp       # Settings window
 ├── test_shortcut_manager.cpp      # Shortcut manager and global hooks
 ├── test_smart_selection.cpp       # Smart selection over real windows (desktop test)
+├── test_snipping_tool_ocr.cpp     # Snipping Tool OCR binding (against a fake oneocr.dll)
 ├── test_stitch.cpp                # Long screenshot stitching
 ├── test_text_recognition.cpp      # Text recognition: layout and window placement
 ├── test_translation.cpp           # Translation providers, registry and service
@@ -925,6 +985,9 @@ tests/
 ├── test_ui_widgets.cpp            # Shared widgets: toolbar, settings panels, hotkey editors and more
 ├── test_update.cpp                # Update check and one-click update (against a fake updater)
 ├── clipboard_test_support.h       # Shared setup of the clipboard tests
+├── caption_check.h                # Checks that self-drawn windows share one caption layout (icon on the left, then the title)
+├── save_dialog_answerer.h         # Answers the save image dialog in tests
+├── fake_oneocr.cpp                # Stand-in for the Snipping Tool's oneocr.dll in tests (including variants missing functions)
 ├── fake_updater.cpp               # Stand-in for the updater helper in tests
 ├── leak_check.h/.cpp              # Leak mode: runs the tests three times and finds leaks on the debug heap
 └── fixtures/                      # Expected-result data (committed, not regenerated)
