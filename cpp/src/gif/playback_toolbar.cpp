@@ -211,24 +211,24 @@ void PlaybackToolbar::build_ui() {
     cursor_btn_->setCheckable(true);
     cursor_btn_->setChecked(true);
     cursor_btn_->setToolTip(tr_text("显示鼠标光标"));
-    set_button_icon(cursor_btn_, QString::fromUtf8("鼠标.svg"));
+    set_button_icon(cursor_btn_, QString::fromUtf8("鼠标指针.svg"));
     connect(cursor_btn_, &QPushButton::clicked, this, [this] { emit cursor_toggled(cursor_btn_->isChecked()); });
     row_->addWidget(cursor_btn_);
 
     copy_btn_ = new QPushButton;
-    set_button_icon(copy_btn_, QString::fromUtf8("复制.svg"));
+    set_button_icon(copy_btn_, "copy.svg");
     copy_btn_->setToolTip(tr_text("复制到剪贴板"));
     connect(copy_btn_, &QPushButton::clicked, this, &PlaybackToolbar::copy_requested);
     row_->addWidget(copy_btn_);
 
     save_btn_ = new QPushButton;
-    set_button_icon(save_btn_, QString::fromUtf8("保存.svg"));
+    set_button_icon(save_btn_, QString::fromUtf8("下载.svg"));
     save_btn_->setToolTip(tr_text("另存为"));
     connect(save_btn_, &QPushButton::clicked, this, &PlaybackToolbar::save_requested);
     row_->addWidget(save_btn_);
 
     close_btn_ = new QPushButton;
-    set_button_icon(close_btn_, "fluent_icons/Close.svg");
+    set_button_icon(close_btn_, QString::fromUtf8("结束截图.svg"));
     close_btn_->setToolTip(tr_text("关闭"));
     connect(close_btn_, &QPushButton::clicked, this, &PlaybackToolbar::close_requested);
     row_->addWidget(close_btn_);

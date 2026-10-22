@@ -1,5 +1,6 @@
 #include "gif/_widgets.h"
 #include "core/resource_manager.h"
+#include "core/theme.h"
 #include "core/ui_scale.h"
 #include <QAction>
 #include <QApplication>
@@ -8,17 +9,22 @@
 
 namespace jietuba {
 QString toolbar_style() {
+    // Button fills match the capture toolbar.
+    const auto tc = get_theme().theme_color();
     return QString(R"(
         .QWidget, .QLabel { background: transparent; border: none; color: #2a3243; }
         QPushButton { border: none; border-radius: %1px;
                        color: #2a3243; font-size: %2px; padding: 0; }
-        QPushButton:hover { background: rgba(15,23,42,0.07); }
-        QPushButton:pressed { background: rgba(15,23,42,0.12); }
-        QPushButton:checked { background: rgba(74,124,184,0.16); }
+        QPushButton:hover { background: rgba(0,0,0,0.06); }
+        QPushButton:pressed { background: rgba(0,0,0,0.12); }
+        QPushButton:checked { background: rgba(%3,%4,%5,0.3); }
         QPushButton:disabled { color: #9aa3b1; }
     )")
-        .arg(scaled(7))
-        .arg(scaled(12));
+        .arg(scaled(9))
+        .arg(scaled(12))
+        .arg(tc.red())
+        .arg(tc.green())
+        .arg(tc.blue());
 }
 
 void popup_menu(QMenu *menu, QWidget *anchor, bool below) {

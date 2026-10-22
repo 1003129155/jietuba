@@ -498,6 +498,10 @@ private slots:
         const QRectF bottom(selection.x(), screen.bottom() - 30, 200, 30);
         toolbar.position_near_rect(bottom);
         QVERIFY(toolbar.geometry().bottom() <= bottom.top());
+        // No room on either side: inside the selection, along its bottom edge.
+        toolbar.position_near_rect(QRectF(screen));
+        QVERIFY(toolbar.geometry().bottom() <= screen.bottom());
+        QVERIFY(toolbar.geometry().bottom() >= screen.bottom() - toolbar.height());
         // Never off the left edge.
         toolbar.position_near_rect(QRectF(0, 100, 20, 20));
         QVERIFY(toolbar.x() >= screen.left());

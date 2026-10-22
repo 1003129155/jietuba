@@ -20,14 +20,14 @@ const MANIFEST: &str = r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?
 // 给更新器 exe 写入图标、版本信息和 manifest，缺少这些资源的小型 exe 更容易被启发式扫描误判。
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=../../托盘.ico");
+    println!("cargo:rerun-if-changed=../../app.ico");
     if env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("windows") {
         return;
     }
 
     let out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
-    // 图标沿用主程序的；文件名含非 ASCII，复制成 ASCII 名再交给 rc.exe。
-    fs::copy("../../托盘.ico", out.join("app.ico")).unwrap();
+    // 图标沿用主程序的，复制到 OUT_DIR 与生成的 rc 脚本放在一起。
+    fs::copy("../../app.ico", out.join("app.ico")).unwrap();
     fs::write(out.join("manifest.xml"), MANIFEST).unwrap();
 
     let version = env::var("CARGO_PKG_VERSION").unwrap();

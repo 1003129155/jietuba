@@ -124,13 +124,14 @@ void RecordToolbar::apply_scale_sizes() {
     setFixedHeight(scaled(BASE_HEIGHT));
     container_->setStyleSheet(toolbar_style());
     result_container_->setStyleSheet(toolbar_style());
-    row_layout_->setContentsMargins(scaled(8), scaled(4), scaled(8), scaled(4));
-    row_layout_->setSpacing(scaled(4));
+    const int inset = python_floordiv(scaled(BASE_HEIGHT) - scaled(BASE_BTN_H), 2);
+    row_layout_->setContentsMargins(scaled(8), inset, scaled(8), inset);
+    row_layout_->setSpacing(scaled(6));
 
-    const int btn_sz = scaled(BASE_BTN);
+    const int btn_w = scaled(BASE_BTN_W), btn_h = scaled(BASE_BTN_H);
     const int icon_sz = scaled(BASE_ICON);
     for (const auto &[button, svg] : button_svgs_) {
-        button->setFixedSize(btn_sz, btn_sz);
+        button->setFixedSize(btn_w, btn_h);
         button->setIconSize(QSize(icon_sz, icon_sz));
         button->setIcon(svg_icon(svg, icon_sz));
     }
@@ -138,15 +139,15 @@ void RecordToolbar::apply_scale_sizes() {
     fps_btn_->apply_scale();
     mode_btn_->apply_scale();
     for (auto *button : result_buttons_) {
-        button->setMinimumHeight(btn_sz);
+        button->setMinimumHeight(btn_h);
         button->setStyleSheet(QString("padding: 0 %1px;").arg(scaled(9)));
     }
-    result_layout_->setContentsMargins(scaled(12), scaled(6), scaled(12), scaled(6));
+    result_layout_->setContentsMargins(scaled(12), inset, scaled(12), inset);
     result_layout_->setSpacing(scaled(8));
     result_label_->setStyleSheet(QString("color: #3e7960; font-size: %1px;").arg(scaled(12)));
     for (auto *sep : separators_) sep->setFixedSize(1, scaled(BASE_SEP_HEIGHT));
     const int handle_icon = scaled(BASE_HANDLE_ICON);
-    move_handle_->setFixedSize(scaled(BASE_HANDLE_WIDTH), btn_sz);
+    move_handle_->setFixedSize(scaled(BASE_HANDLE_WIDTH), btn_h);
     move_handle_->setPixmap(svg_icon(QString::fromUtf8("移动窗口.svg"), handle_icon).pixmap(QSize(handle_icon, handle_icon)));
 }
 
@@ -229,7 +230,7 @@ void RecordToolbar::build_ui() {
     layout->addWidget(audio_btn_);
     cursor_btn_ = new QPushButton;
     cursor_btn_->setCheckable(true);
-    set_button_icon(cursor_btn_, QString::fromUtf8("鼠标.svg"));
+    set_button_icon(cursor_btn_, QString::fromUtf8("鼠标指针.svg"));
     cursor_btn_->setToolTip(tr_text("录制鼠标指针"));
     connect(cursor_btn_, &QPushButton::clicked, this, [this](bool checked) { save_quick_option(std::nullopt, checked); });
     layout->addWidget(cursor_btn_);
@@ -281,7 +282,7 @@ void RecordToolbar::build_ui() {
     layout->addWidget(move_handle_);
 
     close_btn_ = new QPushButton;
-    set_button_icon(close_btn_, "fluent_icons/Close.svg");
+    set_button_icon(close_btn_, QString::fromUtf8("结束截图.svg"));
     close_btn_->setToolTip(tr_text("关闭"));
     connect(close_btn_, &QPushButton::clicked, this, &RecordToolbar::close_requested);
     layout->addWidget(close_btn_);
@@ -306,7 +307,7 @@ void RecordToolbar::build_ui() {
         result_layout_->addWidget(button);
     }
     auto *result_close = new QPushButton;
-    set_button_icon(result_close, "fluent_icons/Close.svg");
+    set_button_icon(result_close, QString::fromUtf8("结束截图.svg"));
     result_close->setToolTip(tr_text("关闭"));
     connect(result_close, &QPushButton::clicked, this, &RecordToolbar::close_requested);
     result_layout_->addWidget(result_close);

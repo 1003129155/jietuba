@@ -31,9 +31,11 @@ class ToolSettingsManager;
 class RecordToolbar : public QWidget {
     Q_OBJECT
 public:
-    static constexpr int BASE_HEIGHT = 48;
-    static constexpr int BASE_BTN = 32;
-    static constexpr int BASE_ICON = 20;
+    // The capture toolbar's height and visible button cell (its 38 x 40 cell less the 3 px inset).
+    static constexpr int BASE_HEIGHT = 40;
+    static constexpr int BASE_BTN_W = 32;
+    static constexpr int BASE_BTN_H = 34;
+    static constexpr int BASE_ICON = 24;
     static constexpr int BASE_SEP_HEIGHT = 24;
     static constexpr int BASE_HANDLE_WIDTH = 28;
     static constexpr int BASE_HANDLE_ICON = 18;

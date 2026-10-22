@@ -184,7 +184,7 @@ ctest --test-dir build\msvc -C Release --output-on-failure -E "_desktop$|_window
 # 项目根目录
 ├── README.md / README_zh-CN.md / README_JA.md   # 英文、中文、日文说明文档
 ├── VERSION                  # 版本号，CMake 与发版流程都读它
-├── 托盘.ico                 # 程序与更新器图标
+├── app.ico                  # 程序与更新器图标
 ├── licenses/                # 发布包附带的第三方许可
 │
 ├── cpp/                     # C++（Qt6）实现

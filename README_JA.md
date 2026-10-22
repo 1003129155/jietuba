@@ -182,7 +182,7 @@ ctest --test-dir build\msvc -C Release --output-on-failure -E "_desktop$|_window
 # プロジェクトルート
 ├── README.md / README_zh-CN.md / README_JA.md   # 英語・中国語・日本語のドキュメント
 ├── VERSION                  # バージョン番号（CMake とリリースワークフローが参照）
-├── 托盘.ico                 # アプリと更新機能のアイコン
+├── app.ico                  # アプリと更新機能のアイコン
 ├── licenses/                # 配布パッケージに同梱するサードパーティライセンス
 │
 ├── cpp/                     # C++（Qt6）実装

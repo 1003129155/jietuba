@@ -117,12 +117,15 @@ public:
             GetClassNameW(hwnd, class_name, 256);
             const QString name = QString::fromWCharArray(class_name);
             const bool browser = name.startsWith("Chrome_WidgetWin") || name.startsWith("MozillaWindowClass");
-            if (browser && child_count(hit_node.node.Get()) > 0) {
+            if (browser) {
+                // Chromium answers a point away from its last hit from the cached tree, often with an
+                // outer pane that reports no children, and has the exact hit ready about 10 ms later.
+                const auto first_rect = location(hit_node.node.Get(), hit_node.child);
+                std::this_thread::sleep_for(std::chrono::milliseconds(BROWSER_SETTLE_MS));
                 try {
                     auto second = hit(root_node.Get(), request.x, request.y);
-                    const auto first_rect = location(hit_node.node.Get(), hit_node.child);
                     const auto second_rect = location(second.node.Get(), second.child);
-                    if (second_rect && contains(*second_rect, request.x, request.y)
+                    if (second_rect && second_rect != first_rect && contains(*second_rect, request.x, request.y)
                         && (!first_rect || child_count(second.node.Get()) == 0 || area(*second_rect) < area(*first_rect)))
                         hit_node = std::move(second);
                 } catch (const std::exception &) {}
@@ -147,6 +150,7 @@ public:
     }
 private:
     static constexpr int MAX_DEPTH = 31;
+    static constexpr int BROWSER_SETTLE_MS = 8;
     static ComPtr<IAccessible> root(HWND hwnd) {
         ComPtr<IAccessible> result;
         AccessibleObjectFromWindow(hwnd, OBJID_WINDOW, __uuidof(IAccessible), reinterpret_cast<void **>(result.GetAddressOf()));

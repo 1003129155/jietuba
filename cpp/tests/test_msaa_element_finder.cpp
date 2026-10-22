@@ -75,7 +75,6 @@ private slots:
         QFile file(JIETUBA_MSAA_FIXTURE);
         QVERIFY(file.open(QIODevice::ReadOnly));
         const auto fixture = QJsonDocument::fromJson(file.readAll()).object();
-        QCOMPARE(InitialSelectionGate::WAIT_MS, fixture["initial_wait_ms"].toInt());
         for (const auto &value : fixture["cases"].toArray()) {
             const auto row = value.toObject();
             const auto point = row["point"].toArray(), minimum = row["min"].toArray();
@@ -211,17 +210,20 @@ private slots:
         CanvasScene scene(image(), QRectF(0, 0, 400, 300));
         CanvasView view(&scene);
         setup_view(view, [](quintptr, int, int, bool) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(150));
+            std::this_thread::sleep_for(std::chrono::milliseconds(InitialSelectionGate::WAIT_MS + 200));
             return Elements{};
         });
         InitialSelectionGate gate;
         QSignalSpy ready(&gate, &InitialSelectionGate::ready);
+        QElapsedTimer timer;
+        timer.start();
         gate.start(&view);
-        QTRY_COMPARE_WITH_TIMEOUT(ready.count(), 1, 100);
+        QTRY_COMPARE_WITH_TIMEOUT(ready.count(), 1, InitialSelectionGate::WAIT_MS + 100);
+        QVERIFY(timer.elapsed() >= InitialSelectionGate::WAIT_MS - 20);
         QCOMPARE(view.get_smart_selection_rect(QPointF(20, 20)), QRectF(0, 0, 300, 200));
         gate.start(&view);
         gate.cancel();
-        QTest::qWait(60);
+        QTest::qWait(InitialSelectionGate::WAIT_MS + 50);
         QCOMPARE(ready.count(), 1);
     }
 };

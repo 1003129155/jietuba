@@ -180,8 +180,8 @@ else()
     set(JIETUBA_EXE_NAME jietuba_cpp CACHE INTERNAL "")
 endif()
 # The exe icon and the version resource; SignPath checks the product name and version.
-# The icon is the repository's 托盘.ico, copied to an ASCII path for rc.exe and the :/app.ico resource.
-configure_file(${JIETUBA_REPO_ROOT}/托盘.ico ${CMAKE_BINARY_DIR}/generated/app.ico COPYONLY)
+# The icon is the repository's app.ico, copied next to the generated rc and qrc that embed it.
+configure_file(${JIETUBA_REPO_ROOT}/app.ico ${CMAKE_BINARY_DIR}/generated/app.ico COPYONLY)
 set(JIETUBA_ICON_PATH ${CMAKE_BINARY_DIR}/generated/app.ico)
 set(JIETUBA_ICON_QRC ${CMAKE_BINARY_DIR}/generated/app_icon.qrc)
 file(CONFIGURE OUTPUT ${JIETUBA_ICON_QRC} CONTENT "<RCC><qresource prefix=\"/\"><file alias=\"app.ico\">app.ico</file></qresource></RCC>\n")

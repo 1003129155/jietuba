@@ -182,7 +182,7 @@ Releases are made by [build.yml](.github/workflows/build.yml): the tag must be `
 # Project root
 ├── README.md / README_zh-CN.md / README_JA.md   # English, Chinese and Japanese documentation
 ├── VERSION                  # Version number, read by CMake and the release workflow
-├── 托盘.ico                 # Application and updater icon
+├── app.ico                  # Application and updater icon
 ├── licenses/                # Third-party licenses shipped with the release packages
 │
 ├── cpp/                     # C++ (Qt6) implementation
