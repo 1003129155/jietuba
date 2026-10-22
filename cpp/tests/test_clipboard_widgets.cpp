@@ -598,7 +598,7 @@ private slots:
         QCOMPARE(contents_of(ClipboardManager::instance().get_history()).size(), 3);
         QCOMPARE(dialog.attr<SettingCard>("_clipboard_storage_card")->contentLabel->text(), new_db);
 
-        // A folder holding clipboard data asks before replacing it; No keeps everything.
+        // A folder holding clipboard data asks first; cancelling keeps everything.
         const QString occupied = QDir::toNativeSeparators(env_.dir.filePath("occupied"));
         QDir().mkpath(occupied);
         QFile stale(QDir(occupied).filePath("clipboard.db"));
@@ -609,6 +609,65 @@ private slots:
             ModalAnswerer no(false);
             button("Change")->click();
             QCOMPARE(no.answered(), 1);
+        }
+        QCOMPARE(ClipboardManager::instance().get_db_path().value_or(QString()), new_db);
+
+        // Using the data already there switches to it and leaves both folders as they are.
+        const QString other = QDir::toNativeSeparators(env_.dir.filePath("other"));
+        const QString other_db = QDir::toNativeSeparators(QDir(other).filePath("clipboard.db"));
+        QVERIFY(QDir(other).removeRecursively());
+        QVERIFY(ClipboardManager::instance().reset_storage(other_db));
+        add_texts({"elsewhere"});
+        QVERIFY(ClipboardManager::instance().reset_storage(new_db));
+        {
+            FileDialogAnswerer pick(other);
+            ModalAnswerer use(settings_tr("Use That Data"));
+            button("Change")->click();
+            QCOMPARE(use.answered(), 1);
+        }
+        QCOMPARE(ClipboardManager::instance().get_db_path().value_or(QString()), other_db);
+        QCOMPARE(env_.config->get_clipboard_db_path(), other_db);
+        QCOMPARE(contents_of(ClipboardManager::instance().get_history()), QStringList{"elsewhere"});
+        QVERIFY(QFileInfo::exists(new_db));
+        QCOMPARE(dialog.attr<SettingCard>("_clipboard_storage_card")->contentLabel->text(), other_db);
+
+        // Data that cannot be opened keeps the current database.
+        const QString broken = QDir::toNativeSeparators(env_.dir.filePath("broken"));
+        QDir().mkpath(broken);
+        QFile garbage(QDir(broken).filePath("clipboard.db"));
+        QVERIFY(garbage.open(QIODevice::WriteOnly));
+        garbage.write(QByteArray(4096, 'x'));
+        garbage.close();
+        {
+            FileDialogAnswerer pick(broken);
+            ModalAnswerer use(settings_tr("Use That Data"));
+            button("Change")->click();
+            QCOMPARE(use.answered(), 2);
+            QVERIFY(use.texts.last().contains(settings_tr("Cannot open the clipboard data in the selected folder. The current data is still in use.")));
+        }
+        QCOMPARE(ClipboardManager::instance().get_db_path().value_or(QString()), other_db);
+        QCOMPARE(env_.config->get_clipboard_db_path(), other_db);
+        QCOMPARE(contents_of(ClipboardManager::instance().get_history()), QStringList{"elsewhere"});
+
+        // Replacing moves the current data over the folder's own and removes it from the old place.
+        const QString occupied_db = QDir::toNativeSeparators(QDir(occupied).filePath("clipboard.db"));
+        {
+            FileDialogAnswerer pick(occupied);
+            ModalAnswerer replace(settings_tr("Replace"));
+            button("Change")->click();
+            QCOMPARE(replace.answered(), 1);
+        }
+        QTRY_COMPARE_WITH_TIMEOUT(env_.config->get_clipboard_db_path(), occupied_db, 10000);
+        QTRY_COMPARE(ClipboardManager::instance().get_db_path().value_or(QString()), occupied_db);
+        QCOMPARE(contents_of(ClipboardManager::instance().get_history()), QStringList{"elsewhere"});
+        QVERIFY(!QFileInfo::exists(other_db));
+
+        // Back to the moved data for the rest of the test.
+        {
+            FileDialogAnswerer pick(target);
+            ModalAnswerer use(true);
+            button("Change")->click();
+            QCOMPARE(use.answered(), 1);
         }
         QCOMPARE(ClipboardManager::instance().get_db_path().value_or(QString()), new_db);
 

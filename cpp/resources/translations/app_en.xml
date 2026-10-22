@@ -4944,8 +4944,15 @@ Items in the group will be moved back to clipboard history.</translation>
     <message><source>Info</source><translation>Info</translation></message>
     <message><source>The selected folder is already the current location.</source><translation>The selected folder is already the current location.</translation></message>
     <message><source>Please choose a folder outside the current clipboard images folder.</source><translation>Please choose a folder outside the current clipboard images folder.</translation></message>
-    <message><source>Replace Existing Data</source><translation>Replace Existing Data</translation></message>
-    <message><source>The selected folder already contains clipboard data. Replace it with the current data?</source><translation>The selected folder already contains clipboard data. Replace it with the current data?</translation></message>
+    <message><source>Existing Clipboard Data</source><translation>Existing Clipboard Data</translation></message>
+    <message><source>The selected folder already contains clipboard data.
+Use That Data: switch to it and leave the current data where it is.
+Replace: move the current data there; the data already in that folder will be deleted.</source><translation>The selected folder already contains clipboard data.
+Use That Data: switch to it and leave the current data where it is.
+Replace: move the current data there; the data already in that folder will be deleted.</translation></message>
+    <message><source>Use That Data</source><translation>Use That Data</translation></message>
+    <message><source>Replace</source><translation>Replace</translation></message>
+    <message><source>Cannot open the clipboard data in the selected folder. The current data is still in use.</source><translation>Cannot open the clipboard data in the selected folder. The current data is still in use.</translation></message>
     <message><source>Failed to close the current clipboard database.</source><translation>Failed to close the current clipboard database.</translation></message>
     <message><source>Preparing migration...</source><translation>Preparing migration...</translation></message>
     <message><source>Moving Clipboard Data</source><translation>Moving Clipboard Data</translation></message>

@@ -5029,8 +5029,15 @@ Items in the group will be moved back to clipboard history.</source>
     <message><source>Info</source><translation>情報</translation></message>
     <message><source>The selected folder is already the current location.</source><translation>選択したフォルダーは現在の場所です。</translation></message>
     <message><source>Please choose a folder outside the current clipboard images folder.</source><translation>現在のクリップボード画像フォルダーの外側を選択してください。</translation></message>
-    <message><source>Replace Existing Data</source><translation>既存データを置換</translation></message>
-    <message><source>The selected folder already contains clipboard data. Replace it with the current data?</source><translation>選択したフォルダーには既にクリップボードデータがあります。現在のデータで置き換えますか？</translation></message>
+    <message><source>Existing Clipboard Data</source><translation>既存のクリップボードデータ</translation></message>
+    <message><source>The selected folder already contains clipboard data.
+Use That Data: switch to it and leave the current data where it is.
+Replace: move the current data there; the data already in that folder will be deleted.</source><translation>選択したフォルダーには既にクリップボードデータがあります。
+「そのデータを使用」：そのフォルダーのデータに切り替え、現在のデータは元の場所に残します。
+「置換」：現在のデータを移動し、そのフォルダーにある既存のデータは削除されます。</translation></message>
+    <message><source>Use That Data</source><translation>そのデータを使用</translation></message>
+    <message><source>Replace</source><translation>置換</translation></message>
+    <message><source>Cannot open the clipboard data in the selected folder. The current data is still in use.</source><translation>選択したフォルダーのクリップボードデータを開けません。現在のデータを引き続き使用します。</translation></message>
     <message><source>Failed to close the current clipboard database.</source><translation>現在のクリップボードデータベースを閉じられませんでした。</translation></message>
     <message><source>Preparing migration...</source><translation>移行を準備しています...</translation></message>
     <message><source>Moving Clipboard Data</source><translation>クリップボードデータを移動中</translation></message>

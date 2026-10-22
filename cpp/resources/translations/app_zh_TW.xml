@@ -5329,12 +5329,28 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>請選擇目前剪貼簿圖片資料夾之外的位置。</translation>
     </message>
     <message>
-        <source>Replace Existing Data</source>
-        <translation>替換現有資料</translation>
+        <source>Existing Clipboard Data</source>
+        <translation>已有剪貼簿資料</translation>
     </message>
     <message>
-        <source>The selected folder already contains clipboard data. Replace it with the current data?</source>
-        <translation>所選資料夾已包含剪貼簿資料。要用目前資料替換嗎？</translation>
+        <source>The selected folder already contains clipboard data.
+Use That Data: switch to it and leave the current data where it is.
+Replace: move the current data there; the data already in that folder will be deleted.</source>
+        <translation>所選資料夾已有剪貼簿資料。
+改用該資料：直接讀取那裡的資料，目前資料留在原處不動。
+替換：將目前資料移過去，那裡原有的資料會被刪除。</translation>
+    </message>
+    <message>
+        <source>Use That Data</source>
+        <translation>改用該資料</translation>
+    </message>
+    <message>
+        <source>Replace</source>
+        <translation>替換</translation>
+    </message>
+    <message>
+        <source>Cannot open the clipboard data in the selected folder. The current data is still in use.</source>
+        <translation>無法開啟所選資料夾中的剪貼簿資料，仍在使用目前資料。</translation>
     </message>
     <message>
         <source>Failed to close the current clipboard database.</source>

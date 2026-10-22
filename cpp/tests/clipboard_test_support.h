@@ -71,6 +71,8 @@ public:
         QObject::connect(&timer_, &QTimer::timeout, this, [this] { poll(); });
         timer_.start();
     }
+    // Clicks the button with this text instead, where there is one.
+    explicit ModalAnswerer(QString button_text) : ModalAnswerer(true) { button_text_ = std::move(button_text); }
     QStringList texts;
     int answered() const { return static_cast<int>(texts.size()); }
 
@@ -90,6 +92,8 @@ private:
                 const bool no = role == QDialogButtonBox::NoRole || role == QDialogButtonBox::RejectRole;
                 if ((accept_ && yes) || (!accept_ && no)) target = qobject_cast<QPushButton *>(button);
             }
+            for (auto *button : buttons->buttons())
+                if (!button_text_.isEmpty() && button->text() == button_text_) target = qobject_cast<QPushButton *>(button);
         }
         last_ = dialog;
         texts << text;
@@ -98,6 +102,7 @@ private:
         else dialog->reject();
     }
     bool accept_, check_box_;
+    QString button_text_;
     QTimer timer_;
     QPointer<QDialog> last_;
 };

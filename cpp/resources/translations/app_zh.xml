@@ -5019,8 +5019,15 @@ Items in the group will be moved back to clipboard history.</source>
     <message><source>Info</source><translation>提示</translation></message>
     <message><source>The selected folder is already the current location.</source><translation>所选文件夹已经是当前位置。</translation></message>
     <message><source>Please choose a folder outside the current clipboard images folder.</source><translation>请选择当前剪贴板图片文件夹之外的位置。</translation></message>
-    <message><source>Replace Existing Data</source><translation>替换现有数据</translation></message>
-    <message><source>The selected folder already contains clipboard data. Replace it with the current data?</source><translation>所选文件夹已包含剪贴板数据。要用当前数据替换吗？</translation></message>
+    <message><source>Existing Clipboard Data</source><translation>已有剪贴板数据</translation></message>
+    <message><source>The selected folder already contains clipboard data.
+Use That Data: switch to it and leave the current data where it is.
+Replace: move the current data there; the data already in that folder will be deleted.</source><translation>所选文件夹已有剪贴板数据。
+改用该数据：直接读取那里的数据，当前数据留在原处不动。
+替换：把当前数据移过去，那里原有的数据会被删除。</translation></message>
+    <message><source>Use That Data</source><translation>改用该数据</translation></message>
+    <message><source>Replace</source><translation>替换</translation></message>
+    <message><source>Cannot open the clipboard data in the selected folder. The current data is still in use.</source><translation>无法打开所选文件夹中的剪贴板数据，仍在使用当前数据。</translation></message>
     <message><source>Failed to close the current clipboard database.</source><translation>关闭当前剪贴板数据库失败。</translation></message>
     <message><source>Preparing migration...</source><translation>正在准备迁移...</translation></message>
     <message><source>Moving Clipboard Data</source><translation>正在移动剪贴板数据</translation></message>

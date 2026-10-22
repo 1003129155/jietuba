@@ -5021,8 +5021,15 @@ Items in the group will be moved back to clipboard history.</source>
     <message><source>Info</source><translation>정보</translation></message>
     <message><source>The selected folder is already the current location.</source><translation>선택한 폴더가 이미 현재 위치입니다.</translation></message>
     <message><source>Please choose a folder outside the current clipboard images folder.</source><translation>현재 클립보드 이미지 폴더 밖의 폴더를 선택하세요.</translation></message>
-    <message><source>Replace Existing Data</source><translation>기존 데이터 교체</translation></message>
-    <message><source>The selected folder already contains clipboard data. Replace it with the current data?</source><translation>선택한 폴더에 이미 클립보드 데이터가 있습니다. 현재 데이터로 교체할까요?</translation></message>
+    <message><source>Existing Clipboard Data</source><translation>기존 클립보드 데이터</translation></message>
+    <message><source>The selected folder already contains clipboard data.
+Use That Data: switch to it and leave the current data where it is.
+Replace: move the current data there; the data already in that folder will be deleted.</source><translation>선택한 폴더에 이미 클립보드 데이터가 있습니다.
+'해당 데이터 사용': 그 폴더의 데이터로 전환하고 현재 데이터는 원래 위치에 그대로 둡니다.
+'교체': 현재 데이터를 옮기며, 그 폴더에 있던 기존 데이터는 삭제됩니다.</translation></message>
+    <message><source>Use That Data</source><translation>해당 데이터 사용</translation></message>
+    <message><source>Replace</source><translation>교체</translation></message>
+    <message><source>Cannot open the clipboard data in the selected folder. The current data is still in use.</source><translation>선택한 폴더의 클립보드 데이터를 열 수 없습니다. 현재 데이터를 계속 사용합니다.</translation></message>
     <message><source>Failed to close the current clipboard database.</source><translation>현재 클립보드 데이터베이스를 닫지 못했습니다.</translation></message>
     <message><source>Preparing migration...</source><translation>이동을 준비하는 중...</translation></message>
     <message><source>Moving Clipboard Data</source><translation>클립보드 데이터 이동 중</translation></message>

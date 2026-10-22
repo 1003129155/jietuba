@@ -309,6 +309,22 @@ void on_clipboard_move_failed(SettingsDialog *dialog, QProgressDialog *progress,
     show_warning_dialog(dialog, dialog->tr_text("Error"), message);
 }
 
+// Opens the database already in the target folder; nothing is copied or deleted on either side.
+void switch_clipboard_data_location(SettingsDialog *dialog, const QString &current_db_path, const QString &target_dir) {
+    auto &cm = ClipboardManager::instance();
+    const QString new_db_path = path_join(absolute_path(target_dir), "clipboard.db");
+    if (!cm.reset_storage(new_db_path)) {
+        cm.reset_storage(current_db_path);
+        show_warning_dialog(dialog, dialog->tr_text("Error"),
+                            dialog->tr_text("Cannot open the clipboard data in the selected folder. The current data is still in use."));
+        return;
+    }
+    get_tool_settings_manager()->set_clipboard_db_path(new_db_path);
+    refresh_open_clipboard_windows();
+    set_storage_path_label(dialog, new_db_path);
+    refresh_clipboard_size_async(dialog);
+}
+
 void change_clipboard_data_location(SettingsDialog *dialog) {
     auto &cm = ClipboardManager::instance();
     if (!cm.is_available()) {
@@ -339,10 +355,18 @@ void change_clipboard_data_location(SettingsDialog *dialog) {
             return;
         }
     }
-    if (target_has_clipboard_data(target_dir) &&
-        !show_confirm_dialog(dialog, dialog->tr_text("Replace Existing Data"),
-                             dialog->tr_text("The selected folder already contains clipboard data. Replace it with the current data?")))
-        return;
+    if (target_has_clipboard_data(target_dir)) {
+        const QVariant choice = show_custom_confirm_dialog(
+            dialog, dialog->tr_text("Existing Clipboard Data"),
+            dialog->tr_text("The selected folder already contains clipboard data.\n"
+                            "Use That Data: switch to it and leave the current data where it is.\n"
+                            "Replace: move the current data there; the data already in that folder will be deleted."),
+            {{"use", dialog->tr_text("Use That Data"), QDialogButtonBox::AcceptRole},
+             {"replace", dialog->tr_text("Replace"), QDialogButtonBox::DestructiveRole},
+             {"cancel", dialog->tr_text("Cancel"), QDialogButtonBox::RejectRole, true}});
+        if (choice.toString() == "use") switch_clipboard_data_location(dialog, current_db_path, target_dir);
+        if (choice.toString() != "replace") return;
+    }
 
     close_open_clipboard_windows();
     if (!cm.release_storage()) {
