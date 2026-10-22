@@ -346,8 +346,7 @@ void CanvasView::enable_smart_selection(const QString &requested) {
         window_finder->find_windows();
         log_debug(T("已启用，找到 {window_count} 个窗口", {{"window_count", static_cast<int>(window_finder->windows.size())}}), "SmartSelect");
         if (smart_selection_drills_to_elements) {
-            element_finder = std::make_unique<MSAAElementFinder>(this);
-            connect(element_finder.get(), &MSAAElementFinder::cache_updated, this, &CanvasView::on_element_cache_updated);
+            use_element_finder(std::make_unique<MSAAElementFinder>(this));
             const auto cursor_pos = QCursor::pos();
             initial_selection_point_ = cursor_pos;
             if (const auto hit = window_finder->find_window_at_point_info(cursor_pos.x(), cursor_pos.y()))
@@ -358,6 +357,11 @@ void CanvasView::enable_smart_selection(const QString &requested) {
         smart_selection_anim_->stop();
         if (window_finder) window_finder->clear();
     }
+}
+
+void CanvasView::use_element_finder(std::unique_ptr<MSAAElementFinder> finder) {
+    element_finder = std::move(finder);
+    if (element_finder) connect(element_finder.get(), &MSAAElementFinder::cache_updated, this, &CanvasView::on_element_cache_updated);
 }
 
 bool CanvasView::prepare_initial_selection() {
@@ -411,6 +415,16 @@ std::vector<SmartRect> CanvasView::element_rects(quintptr hwnd, const SmartRect 
             rects.push_back(clipped);
     }
     return rects;
+}
+
+bool CanvasView::holds_smart_selection(const QPointF &scene_pos) const {
+    // While the control under the pointer is being looked up, the shown selection stays put:
+    // stepping out to a parent or the window and back reads as flashing.
+    const auto *model = canvas_scene->selection_model;
+    if (!smart_selection_drills_to_elements || !element_finder || !model->is_dragging() || model->is_empty()) return false;
+    const int x = static_cast<int>(scene_pos.x()), y = static_cast<int>(scene_pos.y());
+    const auto hit = window_finder->find_window_at_point_info(x, y);
+    return hit && element_finder->resolving(hit->hwnd, x, y);
 }
 
 std::optional<SmartRect> CanvasView::pick_smart_selection_level(const std::vector<SmartRect> &chain) {
@@ -1002,6 +1016,7 @@ void CanvasView::handle_hover_preview(const QPointF &scene_pos) {
     auto *model = canvas_scene->selection_model;
     if (smart_selection_enabled) {
         const auto smart_rect = get_smart_selection_rect(scene_pos);
+        if (holds_smart_selection(scene_pos)) return;
         if (!smart_rect.isEmpty()) {
             model->activate();
             if (!model->is_dragging()) model->start_dragging();

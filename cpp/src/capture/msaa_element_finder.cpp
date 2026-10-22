@@ -378,21 +378,33 @@ MSAAElementFinder::MSAAElementFinder(QObject *parent, MSAAQuery query) : QObject
     settle_timer_.setSingleShot(true);
     settle_timer_.setInterval(40);
     connect(&settle_timer_, &QTimer::timeout, this, [this] {
-        if (!closed_ && desired_ && !pending_) enqueue(true, true);
+        if (!closed_ && desired_ && !inflight_) enqueue(true, true);
+    });
+    // A query outlasting this is a slow provider: the caller falls back to the coarser levels it has.
+    hold_timer_.setSingleShot(true);
+    hold_timer_.setInterval(HOLD_MS);
+    connect(&hold_timer_, &QTimer::timeout, this, [this] {
+        if (!closed_ && desired_) emit cache_updated(desired_->hwnd);
     });
     prepare_point_detection();
 }
 MSAAElementFinder::~MSAAElementFinder() { close(); }
+bool MSAAElementFinder::leaf_covers(const Point &point) const {
+    return answer_point_ && answer_point_->hwnd == point.hwnd && !answer_.empty() && answer_.front().contains(point.x, point.y);
+}
 void MSAAElementFinder::request_refresh_if_needed(quintptr hwnd, int x, int y) {
     const Point point{hwnd, x, y};
     if (closed_ || !hwnd || (desired_ && *desired_ == point)) return;
     desired_ = point;
     settle_timer_.stop();
-    enqueue();
+    // Timed only while the pointer is outside every answered control: a parent-chain
+    // query for a covered point must not cut the wheel's wait for it short.
+    if (!leaf_covers(point) && !hold_timer_.isActive()) hold_timer_.start();
+    if (!inflight_) enqueue();
 }
 void MSAAElementFinder::enqueue(bool settle, bool parents) {
     ++sequence_;
-    pending_ = true;
+    inflight_ = true;
     PointService::instance().submit({desired_->hwnd, desired_->x, desired_->y, session_, sequence_, settle, parents});
 }
 bool MSAAElementFinder::has_parent_chain(quintptr hwnd, int x, int y) const {
@@ -402,7 +414,12 @@ void MSAAElementFinder::request_parent_chain(quintptr hwnd, int x, int y) {
     if (closed_ || has_parent_chain(hwnd, x, y)) return;
     desired_ = Point{hwnd, x, y};
     settle_timer_.stop();
-    enqueue(true, true);
+    if (inflight_) parents_wanted_ = true;
+    else enqueue(true, true);
+}
+bool MSAAElementFinder::resolving(quintptr hwnd, int x, int y) const {
+    const Point point{hwnd, x, y};
+    return !closed_ && inflight_ && desired_ && *desired_ == point && !leaf_covers(point) && hold_timer_.isActive();
 }
 std::vector<MSAAElementSnapshot> MSAAElementFinder::elements_at(quintptr hwnd, int x, int y, QSize min_size) {
     request_refresh_if_needed(hwnd, x, y);
@@ -416,7 +433,7 @@ std::vector<MSAAElementSnapshot> MSAAElementFinder::elements_at(quintptr hwnd, i
 bool MSAAElementFinder::prepare_at(quintptr hwnd, int x, int y) {
     request_refresh_if_needed(hwnd, x, y);
     drain_results();
-    return !closed_ && !pending_ && answer_point_ && *answer_point_ == Point{hwnd, x, y};
+    return !closed_ && !inflight_ && answer_point_ && *answer_point_ == Point{hwnd, x, y};
 }
 void MSAAElementFinder::drain_results() {
     while (!closed_) {
@@ -436,10 +453,21 @@ void MSAAElementFinder::drain_results() {
             parents_ready_ = request.parents;
         }
         answer_point_ = Point{request.hwnd, request.x, request.y};
-        pending_ = false;
+        inflight_ = false;
         last_error_ = reply->error;
         last_elapsed_ms_ = request.elapsed_ms;
-        if (!request.settle) settle_timer_.start();
+        // The pointer may have moved while this query ran: follow it with the next one.
+        if (desired_ && parents_wanted_) {
+            parents_wanted_ = false;
+            enqueue(true, true);
+        } else if (desired_ && *desired_ != *answer_point_) {
+            enqueue();
+            if (leaf_covers(*desired_)) hold_timer_.stop();
+            else hold_timer_.start();
+        } else {
+            hold_timer_.stop();
+            if (!request.settle) settle_timer_.start();
+        }
         const QPointer<MSAAElementFinder> self(this);
         emit cache_updated(request.hwnd);
         if (!self) return;
@@ -450,6 +478,7 @@ void MSAAElementFinder::close() {
     closed_ = true;
     session_->cancelled = true;
     settle_timer_.stop();
+    hold_timer_.stop();
     {
         std::lock_guard guard(session_->lock);
         session_->notify = nullptr;

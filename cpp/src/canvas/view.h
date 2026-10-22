@@ -75,6 +75,8 @@ public:
     void enable_smart_selection(const QString &mode);
     bool prepare_initial_selection();
     QRectF get_smart_selection_rect(const QPointF &scene_pos);
+    // Late answers re-evaluate the hover under the cursor.
+    void use_element_finder(std::unique_ptr<MSAAElementFinder> finder);
     void apply_smart_selection_rect(const QRectF &rect, bool animate);
 
     // Applies one style to a selected item of another tool without touching
@@ -143,6 +145,7 @@ private:
     void sync_fullscreen_crosshair();
     std::vector<SmartRect> smart_selection_chain(int x, int y, const SmartRect &capture_rect);
     std::vector<SmartRect> element_rects(quintptr hwnd, const SmartRect &window_rect, int x, int y, const SmartRect &capture_rect);
+    bool holds_smart_selection(const QPointF &scene_pos) const;
     std::optional<SmartRect> pick_smart_selection_level(const std::vector<SmartRect> &chain);
     bool adjust_smart_selection_level(int delta, const QPointF &scene_pos);
     void on_element_cache_updated(quintptr hwnd);
