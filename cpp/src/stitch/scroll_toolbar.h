@@ -59,6 +59,7 @@ public:
     QPushButton *auto_scroll_btn;
     QPushButton *crop_btn;
     QPushButton *cancel_btn;
+    QPushButton *ocr_btn;
     QPushButton *pin_btn;
     QPushButton *finish_btn;
 
@@ -67,6 +68,7 @@ signals:
     void auto_scroll_clicked();
     // "top" removes the content before the current view, "bottom" after it.
     void crop_requested(const QString &side);
+    void ocr_clicked();
     void pin_clicked();
     void finish_clicked();
     void cancel_clicked();

@@ -24,8 +24,7 @@ class TranslationOcrThread : public QThread {
     Q_OBJECT
 public:
     explicit TranslationOcrThread(const QImage &image) : image_(image) {}
-    // Requests cancellation; the recognition itself is one synchronous native call
-    // that cannot be interrupted, so its result is dropped instead.
+    // Drops the result; PP-OCR also stops at its next tile or line.
     void cancel() { cancelled_ = true; }
 signals:
     // (success, recognized text or error message)

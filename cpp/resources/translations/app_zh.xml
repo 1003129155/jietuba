@@ -2047,6 +2047,10 @@ Replace it?</source>
         <translation>钉到桌面</translation>
     </message>
     <message>
+        <source>Recognize text (OCR)</source>
+        <translation>文字识别（OCR）</translation>
+    </message>
+    <message>
         <source>Finish and save</source>
         <translation>完成并保存</translation>
     </message>

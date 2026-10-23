@@ -40,7 +40,7 @@ void TranslationOcrThread::run() {
             return;
         }
         // Full result with coordinates, so lines come out in reading order.
-        const auto result = recognize_text(image_);
+        const auto result = recognize_text(image_, &cancelled_);
         if (cancelled_) {
             image_ = QImage();
             return;
@@ -425,10 +425,10 @@ void TranslationManager::shutdown(std::optional<int> timeout_ms, int ocr_timeout
     }
 
     // The OCR thread must be waited for as well: process teardown racing a thread
-    // still inside the native recognizer aborts the process. cancel() only sets a
-    // flag and cannot interrupt a running recognition; the wait is what makes exit
-    // safe. Local recognition is usually far faster than a network request, so the
-    // budget is shorter.
+    // still inside the native recognizer aborts the process. cancel() stops PP-OCR
+    // at its next tile or line but not the Snipping Tool OCR; the wait is what makes
+    // exit safe. Local recognition is usually far faster than a network request, so
+    // the budget is shorter.
     if (ocr_thread_ && ocr_thread_->isRunning()) {
         ocr_thread_->cancel();
         if (!ocr_thread_->wait(std::max(0, ocr_timeout_ms))) log_warning(T("退出时 OCR 线程未在期限内结束"), "Translation");

@@ -4,6 +4,7 @@
 #include "canvas/scene.h"
 #include "capture/capture_service.h"
 #include "gif/record_window.h"
+#include "ocr/ocr_manager.h"
 #include "ui/screenshot_window.h"
 #include "ui/toolbar.h"
 #include "pin/pin_manager.h"
@@ -14,6 +15,7 @@
 #include "stitch/incremental.h"
 #include "stitch/scroll_toolbar.h"
 #include "stitch/scroll_window.h"
+#include "text_recognition/result_window.h"
 #include <QApplication>
 #include <QCursor>
 #include <QDialog>
@@ -24,6 +26,7 @@
 #include <QPushButton>
 #include <QRandomGenerator>
 #include <QRegularExpression>
+#include <QScopeGuard>
 #include <QWheelEvent>
 #include <QScreen>
 #include <QSettings>
@@ -129,6 +132,12 @@ QSize clipboard_bitmap_size() {
         if (size.isEmpty()) QTest::qWait(50);
     }
     return size;
+}
+
+template <typename T> T *visible_top_level() {
+    for (auto *widget : QApplication::topLevelWidgets())
+        if (auto *typed = dynamic_cast<T *>(widget); typed && typed->isVisible()) return typed;
+    return nullptr;
 }
 
 void clear_clipboard() {
@@ -237,6 +246,35 @@ private slots:
         QCOMPARE(size.width(), PAGE_W);
         QVERIFY2(std::abs(size.height() - (VIEW_H + 300)) <= 2, qPrintable(QString::number(size.height())));
         QCOMPARE(PinManager::instance()->count(), 0);
+    }
+
+    // The button ends the capture and hands the whole long image to the result window, like the
+    // capture toolbar's button: nothing is pinned, saved or copied as an image.
+    void recognizingTextReadsTheLongImage() {
+        auto *window = open();
+        QVERIFY(window);
+        QVERIFY(scroll_in_steps({150, 300}));
+        std::atomic_int width = 0, height = 0;
+        set_recognizer_for_test([&](const QImage &image) {
+            width = image.width();
+            height = image.height();
+            return OcrResult{100, "ok", {OcrLine{{QPointF(0, 0), QPointF(80, 0), QPointF(80, 16), QPointF(0, 16)}, "long text"}}, 0.0};
+        });
+        const auto restore = qScopeGuard([] { set_recognizer_for_test({}); });
+        config_->set_ocr_copy_directly_enabled(false);
+        clear_clipboard();
+        QSignalSpy finished(window, &ScrollCaptureWindow::finished);
+        window->toolbar->ocr_btn->click();
+        QCOMPARE(finished.count(), 1);
+        TextRecognitionWindow *result = nullptr;
+        QTRY_VERIFY(result = visible_top_level<TextRecognitionWindow>());
+        QTRY_VERIFY(height > 0);
+        // The page from the top to the last view: 300 + 300 rows.
+        QCOMPARE(width.load(), PAGE_W);
+        QVERIFY2(std::abs(height - (VIEW_H + 300)) <= 2, qPrintable(QString::number(height)));
+        result->close();
+        QCOMPARE(PinManager::instance()->count(), 0);
+        QCOMPARE(clipboard_bitmap_size(), QSize());
     }
 
     void scrollingBackDoesNotDuplicateTheTop() {

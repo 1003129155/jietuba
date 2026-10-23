@@ -117,6 +117,7 @@
 "[WARN] 无法移动窗口到目标位置，可能会超出显示器边界": "[WARN] Cannot move window to target position, it may exceed screen bounds",
 "[WARN] 检测到窗口不可见，强制显示": "[WARN] Window not visible, forcing display",
 "[WARN] 没有拼接结果，无法钉图": "[WARN] No stitched result, cannot pin",
+"[WARN] 没有拼接结果，无法识别文字": "[WARN] No stitched result, cannot recognize text",
 "[WARN] 没有拼接结果，跳过保存": "[WARN] No stitched result, skipping save",
 "[WARN] 清理资源时出错: {e}": "[WARN] Error cleaning up resources: {e}",
 "[WARN] 第 {screenshot_count} 张拼接出错: {e}": "[WARN] Stitch #{screenshot_count} raised an error: {e}",

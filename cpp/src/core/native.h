@@ -29,8 +29,10 @@ bool jb_ppocr_init_runtime(const char *dll_path, char *error, size_t error_len);
 JbPpocr *jb_ppocr_open(const char *det_path, const char *rec_path, const char *dict_path, char *error, size_t error_len);
 void jb_ppocr_free(JbPpocr *engine);
 void jb_ppocr_close(const JbPpocr *engine);
-bool jb_ppocr_recognize(const JbPpocr *engine, const uint8_t *data, size_t len, size_t w, size_t h, size_t stride, JbOcrLine **lines, size_t *count,
-                        char *error, size_t error_len);
+// cancelled may be null; it is asked with context before each detection tile and each line, and
+// once it returns true recognition stops and succeeds with no lines.
+bool jb_ppocr_recognize(const JbPpocr *engine, const uint8_t *data, size_t len, size_t w, size_t h, size_t stride, bool (*cancelled)(const void *context),
+                        const void *context, JbOcrLine **lines, size_t *count, char *error, size_t error_len);
 void jb_ppocr_lines_free(JbOcrLine *lines, size_t count);
 // PP-OCR models in a models/ folder (ppocr_rust::models). Lists and models are JSON strings
 // freed with jb_ppocr_text_free; a null return means none, or failure with error set.

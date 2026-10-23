@@ -13,6 +13,7 @@
 #include "stitch/change_watch.h"
 #include "stitch/jietuba_long_stitch_unified.h"
 #include "stitch/scroll_toolbar.h"
+#include "text_recognition/result_window.h"
 #include <QApplication>
 #include <QGuiApplication>
 #include <QLinearGradient>
@@ -344,6 +345,7 @@ void ScrollCaptureWindow::setup_floating_toolbar() {
     connect(toolbar, &FloatingToolbar::direction_changed, this, &ScrollCaptureWindow::toggle_direction);
     connect(toolbar, &FloatingToolbar::auto_scroll_clicked, this, &ScrollCaptureWindow::toggle_auto_scroll);
     connect(toolbar, &FloatingToolbar::crop_requested, this, &ScrollCaptureWindow::crop);
+    connect(toolbar, &FloatingToolbar::ocr_clicked, this, &ScrollCaptureWindow::on_text_recognize);
     connect(toolbar, &FloatingToolbar::pin_clicked, this, &ScrollCaptureWindow::on_pin);
     connect(toolbar, &FloatingToolbar::finish_clicked, this, &ScrollCaptureWindow::on_finish);
     connect(toolbar, &FloatingToolbar::cancel_clicked, this, &ScrollCaptureWindow::on_cancel);
@@ -1036,6 +1038,23 @@ void ScrollCaptureWindow::on_pin() {
     cleanup();
     hide();
     deliver_screenshot(image, config_manager, false, "pin", file_prefix());
+    emit finished();
+    close();
+}
+
+void ScrollCaptureWindow::on_text_recognize() {
+    capture_pending_now();
+    const auto image = result_qimage();
+    if (image.isNull()) {
+        log_stitch(T("[WARN] 没有拼接结果，无法识别文字"));
+        return;
+    }
+    const auto anchor = capture_rect;
+    const bool copy_directly = config_manager && config_manager->get_ocr_copy_directly_enabled();
+    cleanup();
+    hide();
+    if (copy_directly) copy_text_recognition(image);
+    else show_text_recognition(image, anchor);
     emit finished();
     close();
 }

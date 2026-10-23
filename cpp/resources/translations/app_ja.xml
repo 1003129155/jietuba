@@ -2058,6 +2058,10 @@ Replace it?</source>
         <translation>ピン留め</translation>
     </message>
     <message>
+        <source>Recognize text (OCR)</source>
+        <translation>文字認識（OCR）</translation>
+    </message>
+    <message>
         <source>Auto scroll (move the mouse to stop)</source>
         <translation>自動スクロール（マウスを動かすと停止）</translation>
     </message>

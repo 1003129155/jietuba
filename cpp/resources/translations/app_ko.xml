@@ -2061,6 +2061,10 @@ Replace it?</source>
         <translation>바탕 화면에 고정</translation>
     </message>
     <message>
+        <source>Recognize text (OCR)</source>
+        <translation>텍스트 인식(OCR)</translation>
+    </message>
+    <message>
         <source>Finish and save</source>
         <translation>완료 후 저장</translation>
     </message>

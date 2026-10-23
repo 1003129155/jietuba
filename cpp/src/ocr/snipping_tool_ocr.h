@@ -15,6 +15,8 @@ inline const QString SNIPPING_TOOL_PACKAGE_FAMILY = "Microsoft.ScreenSketch_8wek
 inline const QStringList SNIPPING_TOOL_REQUIRED_FILES = {"oneocr.dll", "oneocr.onemodel", "onnxruntime.dll"};
 // The engine rejects images with a side under 50 px; padded to 50 px they recognize fine.
 constexpr int SNIPPING_TOOL_MIN_SIDE = 50;
+// Past about this many pixels along its long side the engine shrinks the image and loses small text.
+constexpr int SNIPPING_TOOL_MAX_SIDE = 2500;
 
 // (package full name, SnippingTool directory); nullopt without the Snipping Tool or
 // without OCR files in its version. Goes through the package manager API: plain users

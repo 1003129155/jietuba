@@ -404,9 +404,11 @@ if(BUILD_TESTING)
     add_test(NAME save_image_dialog COMMAND jietuba_save_image_dialog_tests -o ${JIETUBA_TEST_REPORTS}/save_image_dialog.txt,txt)
     set_tests_properties(save_image_dialog PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     # The PP-OCR pack is not in the repository; the PP-OCR cases copy it from this folder when set.
-    set(JIETUBA_PPOCR_MODELS "" CACHE PATH "Folder holding the PP-OCR pack (models and onnxruntime.dll) for the OCR tests")
+    # CI names it in the environment.
+    set(JIETUBA_PPOCR_MODELS "$ENV{JIETUBA_PPOCR_MODELS}" CACHE PATH "Folder holding the PP-OCR pack (models and onnxruntime.dll) for the OCR tests")
     qt_add_executable(jietuba_ocr_manager_tests tests/test_ocr_manager.cpp)
     target_link_libraries(jietuba_ocr_manager_tests PRIVATE jietuba_lib Qt6::Test)
+    target_compile_definitions(jietuba_ocr_manager_tests PRIVATE JIETUBA_OCR_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures")
     add_test(NAME ocr_manager COMMAND jietuba_ocr_manager_tests -o ${JIETUBA_TEST_REPORTS}/ocr_manager.txt,txt)
     set_tests_properties(ocr_manager PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;JIETUBA_PPOCR_MODELS=${JIETUBA_PPOCR_MODELS}")
     # Stand-in oneocr.dll files: the variants lack one export each (see tests/fake_oneocr.cpp).
@@ -430,6 +432,10 @@ if(BUILD_TESTING)
     # Loading an engine clears the shared test cache of other versions' copies, so the two do not run together.
     set_tests_properties(snipping_tool_ocr PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" RESOURCE_LOCK oneocr_test_cache)
     set_tests_properties(ocr_manager PROPERTIES RESOURCE_LOCK oneocr_test_cache)
+    qt_add_executable(jietuba_ocr_bands_tests tests/test_ocr_bands.cpp)
+    target_link_libraries(jietuba_ocr_bands_tests PRIVATE jietuba_lib Qt6::Test)
+    add_test(NAME ocr_bands COMMAND jietuba_ocr_bands_tests -o ${JIETUBA_TEST_REPORTS}/ocr_bands.txt,txt)
+    set_tests_properties(ocr_bands PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" RESOURCE_LOCK oneocr_test_cache)
     qt_add_executable(jietuba_ppocr_models_tests tests/test_ppocr_models.cpp)
     target_link_libraries(jietuba_ppocr_models_tests PRIVATE jietuba_lib Qt6::Test)
     add_test(NAME ppocr_models COMMAND jietuba_ppocr_models_tests -o ${JIETUBA_TEST_REPORTS}/ppocr_models.txt,txt)

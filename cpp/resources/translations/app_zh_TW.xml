@@ -2045,6 +2045,10 @@ Replace it?</source>
         <translation>釘到桌面</translation>
     </message>
     <message>
+        <source>Recognize text (OCR)</source>
+        <translation>文字辨識（OCR）</translation>
+    </message>
+    <message>
         <source>Finish and save</source>
         <translation>完成並儲存</translation>
     </message>

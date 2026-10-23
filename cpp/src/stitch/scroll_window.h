@@ -200,6 +200,8 @@ private:
     QImage result_qimage();
     // Pins the current result to the desktop, then ends the long screenshot.
     void on_pin();
+    // Recognizes the text of the current result like the capture toolbar does, then ends the long screenshot.
+    void on_text_recognize();
     void on_cancel();
     void cleanup();
 

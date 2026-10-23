@@ -2,6 +2,7 @@
 #include "pin/pin_text_selection.h"
 #include <QPointer>
 #include <QThread>
+#include <atomic>
 #include <functional>
 #include <memory>
 
@@ -17,6 +18,8 @@ public:
     // The image is what the pin shows, at the screen's pixel ratio; to_image maps its pixels to
     // the pin's image pixels, where layout comes out.
     PinOcrThread(const QImage &image, const QTransform &to_image, QObject *parent = nullptr) : QThread(parent), image_(image), to_image_(to_image) {}
+    // Stops PP-OCR at its next tile or line; the result is then empty.
+    void cancel() { cancelled_ = true; }
     std::optional<OcrResult> result;
     OcrTextLayout layout;
 protected:
@@ -24,6 +27,7 @@ protected:
 private:
     QImage image_;
     QTransform to_image_;
+    std::atomic_bool cancelled_ = false;
 };
 
 // A pin's OCR: availability and settings, the text selection, the worker thread's

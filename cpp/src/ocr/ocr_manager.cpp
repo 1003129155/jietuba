@@ -1,12 +1,16 @@
 #include "ocr/ocr_manager.h"
 #include "core/logger.h"
+#include "ocr/ocr_bands.h"
+#include "ocr/ocr_line_geometry.h"
 #include "ocr/ppocr_models.h"
 #include "settings/tool_settings.h"
 #include <QDateTime>
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFileInfo>
+#include <QTransform>
 #include <algorithm>
+#include <cmath>
 #include <vector>
 #include <windows.h>
 #include "core/native.h"
@@ -81,11 +85,13 @@ public:
     ~PpocrEngine() { jb_ppocr_free(engine_); }
     void close() { jb_ppocr_close(engine_); }
     // RGB888 rows of `stride` bytes; corners, text, score, direction and characters per line.
-    QVector<OcrLine> recognize(const uchar *rgb, size_t len, int w, int h, int stride) {
+    // A set cancelled stops it with no lines.
+    QVector<OcrLine> recognize(const uchar *rgb, size_t len, int w, int h, int stride, const std::atomic_bool *cancelled) {
         JbOcrLine *lines = nullptr;
         size_t count = 0;
         char error[512] = {};
-        if (!jb_ppocr_recognize(engine_, rgb, len, w, h, stride, &lines, &count, error, sizeof error))
+        const auto asked = [](const void *flag) { return static_cast<const std::atomic_bool *>(flag)->load(); };
+        if (!jb_ppocr_recognize(engine_, rgb, len, w, h, stride, cancelled ? +asked : nullptr, cancelled, &lines, &count, error, sizeof error))
             throw std::runtime_error(error);
         QVector<OcrLine> result;
         for (size_t index = 0; index < count; ++index) {
@@ -382,7 +388,7 @@ void OCRManager::close_stale_engines() {
     }
 }
 
-OcrResult OCRManager::recognize(const QImage &image) {
+OcrResult OCRManager::recognize(const QImage &image, const std::atomic_bool *cancelled) {
     ensure_preference();
     std::lock_guard lock(engine_lock_);
     set_last_reason({});
@@ -394,7 +400,7 @@ OcrResult OCRManager::recognize(const QImage &image) {
         set_engine(configured());
         const auto engine = get_current_engine();
         if (engine == ENGINE_ONEOCR) {
-            result = recognize_with_oneocr(image);
+            result = recognize_with_oneocr(image, cancelled);
             break;
         }
         if (engine != ENGINE_PP_RUST) {
@@ -402,14 +408,14 @@ OcrResult OCRManager::recognize(const QImage &image) {
             break;
         }
         const auto broken = broken_count();
-        result = recognize_with_ppocr_rust(image);
+        result = recognize_with_ppocr_rust(image, cancelled);
         if (broken_count() == broken) break;
     }
     close_stale_engines();
     return result;
 }
 
-OcrResult OCRManager::recognize_with_ppocr_rust(const QImage &source) {
+OcrResult OCRManager::recognize_with_ppocr_rust(const QImage &source, const std::atomic_bool *cancelled) {
     // Inference runs on the native side, off the UI thread's work.
     if (!initialize_ppocr_rust()) return format_error();
     try {
@@ -420,7 +426,7 @@ OcrResult OCRManager::recognize_with_ppocr_rust(const QImage &source) {
         if (!pp_engine_) return format_error(QString::fromUtf8("ppocr_rust 引擎已释放"));
         // The pixels go in place; the call is synchronous, so the image outlives it.
         const auto lines = pp_engine_->recognize(image.constBits(), static_cast<size_t>(image.sizeInBytes()), image.width(), image.height(),
-                                                 static_cast<int>(image.bytesPerLine()));
+                                                 static_cast<int>(image.bytesPerLine()), cancelled);
         const double elapse = clock.nsecsElapsed() / 1e9;
         QVector<OcrLine> results;
         for (const auto &line : lines)
@@ -433,13 +439,14 @@ OcrResult OCRManager::recognize_with_ppocr_rust(const QImage &source) {
     }
 }
 
-OcrResult OCRManager::recognize_with_oneocr(const QImage &image) {
+OcrResult OCRManager::recognize_with_oneocr(const QImage &image, const std::atomic_bool *cancelled) {
     if (!one_engine_ && !initialize_oneocr()) return format_error();
     try {
         QElapsedTimer clock;
         clock.start();
         if (image.isNull()) return format_empty_result();
-        const auto lines = one_engine_->recognize(image);
+        // Bands overlap by 200 px, so lines up to that tall stay whole where a band ends.
+        const auto lines = recognize_in_bands(image, SNIPPING_TOOL_MAX_SIDE, 100, [this](const QImage &band) { return one_engine_->recognize(band); }, cancelled);
         const double elapse = clock.nsecsElapsed() / 1e9;
         if (lines.isEmpty()) return format_empty_result();
         return format_result(lines, elapse);
@@ -523,9 +530,9 @@ bool set_ocr_engine(const QString &engine_type) { return OCRManager::instance().
 void set_ppocr_model(const QString &model_id) { OCRManager::instance().set_ppocr_model(model_id); }
 std::optional<QString> get_current_engine() { return OCRManager::instance().get_current_engine(); }
 bool initialize_ocr(const QString &engine_type) { return current_recognizer() || OCRManager::instance().initialize(engine_type); }
-OcrResult recognize_text(const QImage &image) {
+OcrResult recognize_text(const QImage &image, const std::atomic_bool *cancelled) {
     if (auto recognizer = current_recognizer()) return recognizer(image);
-    return OCRManager::instance().recognize(image);
+    return OCRManager::instance().recognize(image, cancelled);
 }
 void release_ocr_engine() { OCRManager::instance().release_engine(); }
 QString get_ocr_memory_status() { return OCRManager::instance().get_memory_status(); }
@@ -546,10 +553,24 @@ OcrTextLine join_line(QVector<OcrTextLine> blocks) {
     line.text = texts.join(' ');
     return line;
 }
+
+// Turns the page so its lines run level: the median direction of the lines read across.
+QTransform level_page(const OcrResult &result) {
+    std::vector<double> angles;
+    for (const auto &item : result.data) {
+        if (item.vertical || item.text.isEmpty()) continue;
+        const auto frame = line_frame(item.box, false);
+        if (frame.valid()) angles.push_back(std::atan2(frame.along.y(), frame.along.x()));
+    }
+    if (angles.empty()) return {};
+    std::nth_element(angles.begin(), angles.begin() + angles.size() / 2, angles.end());
+    return QTransform().rotateRadians(-angles[angles.size() / 2]);
+}
 }
 
 QVector<OcrTextLine> group_ocr_lines(const OcrResult &result) {
     if (result.code != 100 || result.data.isEmpty()) return {};
+    const QTransform level = level_page(result);
     QVector<OcrTextLine> blocks;
     for (const auto &item : result.data) {
         if (item.text.isEmpty()) continue;
@@ -558,14 +579,8 @@ QVector<OcrTextLine> group_ocr_lines(const OcrResult &result) {
             if (result.data.size() == 1) blocks.append(OcrTextLine{item.text, 0, 0, 0, 0});
             continue;
         }
-        OcrTextLine block{item.text, item.box[0].x(), item.box[0].x(), item.box[0].y(), item.box[0].y()};
-        for (const auto &point : item.box) {
-            block.left = std::min(block.left, point.x());
-            block.right = std::max(block.right, point.x());
-            block.top = std::min(block.top, point.y());
-            block.bottom = std::max(block.bottom, point.y());
-        }
-        blocks.append(block);
+        const QRectF bounds = level.map(QPolygonF(item.box)).boundingRect();
+        blocks.append(OcrTextLine{item.text, bounds.left(), bounds.right(), bounds.top(), bounds.bottom()});
     }
     if (blocks.isEmpty()) return {};
     // Blocks whose vertical centres differ by less than this share a line.
