@@ -7,6 +7,7 @@
 #include <QString>
 #include <QTransform>
 #include <QVariantMap>
+#include <array>
 #include <functional>
 #include <optional>
 #include <vector>
@@ -18,7 +19,7 @@ namespace jietuba {
 enum class HandleType {
     CORNER_TL, CORNER_TR, CORNER_BR, CORNER_BL, EDGE_T, EDGE_R, EDGE_B, EDGE_L,
     ROTATE, ARROW_START, ARROW_END, ARROW_CONTROL, CORNER_RADIUS,
-    NUMBER_INCREMENT, NUMBER_DECREMENT, NUMBER_DELETE, ITEM_DELETE, TEXT_SCALE
+    NUMBER_INCREMENT, NUMBER_DECREMENT, NUMBER_DELETE, ITEM_DELETE, TEXT_SCALE, ARROW_BEND
 };
 QString handle_type_name(HandleType type);
 
@@ -58,6 +59,8 @@ public:
     static constexpr int FUNCTIONAL_HANDLE_SIZE = 14;
     // Glyph radius as a share of the side; the rest is theme colour.
     static constexpr double FUNCTIONAL_GLYPH_RATIO = .24;
+    // Screen distance every pair of neighbouring arrow handles needs before the bend handles appear.
+    static constexpr int ARROW_BEND_SPACING = 28;
     static constexpr int NUMBER_BUTTON_SIZE = 14;
     static constexpr int NUMBER_BUTTON_GAP = 4;
     static inline const QColor NUMBER_BUTTON_COLOR = QColor(220, 45, 35);
@@ -129,7 +132,7 @@ private:
     void apply_rotation(QGraphicsItem *layer, const QPointF &delta_scene);
     void apply_stroke_item_drag(QGraphicsItem *layer, const EditHandle &handle, const QPointF &delta_scene, bool keep_ratio);
     void capture_arrow_base_geometry(QGraphicsItem *layer);
-    void apply_arrow_item_drag(QGraphicsItem *layer, HandleType type, const QPointF &delta_scene);
+    void apply_arrow_item_drag(QGraphicsItem *layer, const EditHandle &handle, const QPointF &delta_scene);
     void render_functional_handle(QPainter *painter, const EditHandle &handle) const;
     void draw_handle_glyph(QPainter *painter, const EditHandle &handle, const QPointF &center, const QColor &ink) const;
     std::optional<QVariantMap> copy_layer_state(QGraphicsItem *layer) const;
@@ -151,6 +154,7 @@ private:
     std::optional<QPointF> arrow_base_start_local_, arrow_base_end_local_, arrow_base_start_scene_, arrow_base_end_scene_;
     std::optional<QPointF> arrow_base_control_local_, arrow_base_control_scene_;
     bool arrow_base_control_modified_ = false;
+    std::optional<std::array<QPointF, 2>> arrow_base_bend_points_, arrow_base_bend_scene_;
     std::optional<double> base_corner_radius_, base_font_point_size_;
 };
 }

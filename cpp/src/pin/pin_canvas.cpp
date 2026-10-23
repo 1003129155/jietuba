@@ -120,6 +120,7 @@ QGraphicsItem *PinCanvas::clone_graphics_item(QGraphicsItem *item) {
         auto *cloned = new ArrowItem(arrow->start_pos, arrow->end_pos, pen, arrow_style);
         // Only a moved control point carries a curve.
         if (arrow->_control_modified) cloned->set_control_point(arrow->control_pos());
+        if (arrow->has_bend_points()) cloned->set_bend_points(arrow->_bend_points);
         return cloned;
     }
     if (auto *text = dynamic_cast<TextItem *>(item)) {
