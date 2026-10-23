@@ -141,6 +141,8 @@ pub fn export_gif(
         ));
     }
 
+    let delays_cs = frame_delays_cs(&timestamps[start..=end], opts.speed_multiplier);
+
     let global_palette = build_global_palette(
         store,
         opts,
@@ -212,20 +214,7 @@ pub fn export_gif(
                 return Err("cancelled".into());
             }
 
-            // 计算帧延迟（使用原始帧时间戳，idx 是真实帧索引）
-            let delay_ms = if idx < end {
-                timestamps[idx + 1].saturating_sub(timestamps[idx])
-            } else if n > 1 {
-                let total_dur = timestamps[end].saturating_sub(timestamps[start]);
-                total_dur / (n as u32 - 1)
-            } else {
-                100
-            };
-            // 应用速度倍率（2x → 延迟减半；0.5x → 延迟翻倍）
-            let speed = opts.speed_multiplier.max(0.1);
-            let delay_ms = ((delay_ms as f32 / speed).round() as u32).max(1);
-            // GIF delay 单位是厘秒 (1/100s)，最小 2 (20ms)
-            let delay_cs = ((delay_ms + 5) / 10).max(2) as u16;
+            let delay_cs = delays_cs[idx - start];
 
             if let Some(ref prev) = prev_rgba {
                 // ── 帧差分编码 ──
@@ -291,6 +280,34 @@ pub fn export_gif(
     }
 
     Ok(())
+}
+
+/// GIF 延迟的下限（厘秒）：小于 2 的延迟会被多数播放器按 10 播放。
+const MIN_DELAY_CS: i64 = 2;
+
+/// 按每帧结束时刻的绝对时间换算成厘秒再求差，取整误差结转到下一帧，总时长不漂移。
+/// 末帧时长取平均帧间隔。间隔不足下限时按下限写，多出的时间从后面较长的间隔里扣回；
+/// 一直不足（输出帧率高于 50fps）时整体变慢。
+fn frame_delays_cs(timestamps: &[u32], speed_multiplier: f32) -> Vec<u16> {
+    let n = timestamps.len();
+    let base = timestamps[0];
+    let speed = speed_multiplier.max(0.1) as f64;
+    let span_ms = timestamps[n - 1].saturating_sub(base) as f64;
+    let last_ms = if n > 1 { span_ms / (n - 1) as f64 } else { 100.0 };
+    let mut emitted_cs = 0i64;
+    (0..n)
+        .map(|k| {
+            let end_ms = if k + 1 < n {
+                timestamps[k + 1].saturating_sub(base) as f64
+            } else {
+                span_ms + last_ms
+            };
+            let target_cs = (end_ms / speed / 10.0).round() as i64;
+            let delay = (target_cs - emitted_cs).clamp(MIN_DELAY_CS, u16::MAX as i64);
+            emitted_cs += delay;
+            delay as u16
+        })
+        .collect()
 }
 
 fn render_frame_rgba(
@@ -637,5 +654,122 @@ mod tests {
         assert_eq!(count, FRAMES);
         let mean = total_err as f64 / (FRAMES * W * H * 3) as f64;
         assert!(mean < 2.0, "mean abs error {mean}");
+    }
+
+    fn store_with_timestamps(timestamps: &[u32]) -> Arc<FrameStore> {
+        use crate::frame_store::RecordConfig;
+        const W: usize = 16;
+        const H: usize = 12;
+        let store = Arc::new(FrameStore::new(W as u32, H as u32, 10, RecordConfig::default()));
+        for (f, &ts) in timestamps.iter().enumerate() {
+            let mut rgb = vec![230u8; W * H * 3];
+            let x = f % W;
+            for y in 0..H {
+                rgb[(y * W + x) * 3..(y * W + x) * 3 + 3].copy_from_slice(&[20, 40, 200]);
+            }
+            store.push_rgb(&rgb, ts).unwrap();
+        }
+        store
+    }
+
+    /// 导出后回读，返回每帧延迟（厘秒）和合成后的画面
+    fn export_and_read(store: &Arc<FrameStore>, speed: f32, tag: &str) -> (Vec<u16>, Vec<Vec<u8>>) {
+        let path = std::env::temp_dir().join(format!(
+            "jietuba_delay_test_{}_{tag}.gif",
+            std::process::id()
+        ));
+        let opts = GifExportOptions {
+            path: path.to_string_lossy().into_owned(),
+            width: 0,
+            height: 0,
+            repeat: 0,
+            frame_start: 0,
+            frame_end: 0,
+            cursor_sprites: None,
+            cursor_infos: None,
+            speed_multiplier: speed,
+        };
+        let exported = export_gif(store, &opts, None);
+        let mut decode = gif::DecodeOptions::new();
+        decode.set_color_output(gif::ColorOutput::RGBA);
+        let result = exported
+            .and_then(|()| File::open(&path).map_err(|e| e.to_string()))
+            .and_then(|file| decode.read_info(file).map_err(|e| e.to_string()))
+            .and_then(|mut decoder| {
+                let (w, h) = (decoder.width() as usize, decoder.height() as usize);
+                let mut canvas = vec![0u8; w * h * 4];
+                let mut delays = Vec::new();
+                let mut frames = Vec::new();
+                while let Some(frame) = decoder.read_next_frame().map_err(|e| e.to_string())? {
+                    let (fl, ft, fw) = (frame.left as usize, frame.top as usize, frame.width as usize);
+                    for y in 0..frame.height as usize {
+                        for x in 0..fw {
+                            let s = (y * fw + x) * 4;
+                            if frame.buffer[s + 3] != 0 {
+                                let d = ((ft + y) * w + fl + x) * 4;
+                                canvas[d..d + 4].copy_from_slice(&frame.buffer[s..s + 4]);
+                            }
+                        }
+                    }
+                    delays.push(frame.delay);
+                    frames.push(canvas.clone());
+                }
+                Ok((delays, frames))
+            });
+        let _ = std::fs::remove_file(&path);
+        result.unwrap_or_else(|e| panic!("export or read failed: {e}"))
+    }
+
+    fn timestamps_at(fps: u32, count: usize) -> Vec<u32> {
+        (0..count)
+            .map(|i| (i as f64 * 1000.0 / fps as f64).round() as u32)
+            .collect()
+    }
+
+    /// 每个前缀的累计延迟都贴着时间戳：误差不随帧数累积
+    #[test]
+    fn exported_delays_follow_the_timestamps() {
+        for fps in [5u32, 10, 16, 24, 48] {
+            let ts = timestamps_at(fps, 120);
+            let (delays, _) = export_and_read(&store_with_timestamps(&ts), 1.0, &format!("fps{fps}"));
+            assert_eq!(delays.len(), ts.len(), "fps {fps}");
+            let mut elapsed_ms = 0i64;
+            for k in 0..ts.len() - 1 {
+                elapsed_ms += delays[k] as i64 * 10;
+                let expected = (ts[k + 1] - ts[0]) as i64;
+                assert!(
+                    (elapsed_ms - expected).abs() <= 10,
+                    "fps {fps}: after frame {k} GIF is at {elapsed_ms} ms, timestamps say {expected} ms"
+                );
+            }
+        }
+    }
+
+    /// 小于 2cs 的延迟会被播放器当成 10cs，任何帧率都不能写出来
+    #[test]
+    fn exported_delays_are_never_below_two_centiseconds() {
+        for fps in [48u32, 60, 100] {
+            let ts = timestamps_at(fps, 60);
+            let (delays, _) = export_and_read(&store_with_timestamps(&ts), 1.0, &format!("min{fps}"));
+            assert!(delays.iter().all(|&d| d >= 2), "fps {fps}: {delays:?}");
+        }
+    }
+
+    #[test]
+    fn double_speed_halves_the_duration_and_keeps_the_pixels() {
+        for fps in [8u32, 15, 24] {
+            let ts = timestamps_at(fps, 120);
+            let store = store_with_timestamps(&ts);
+            let (slow, slow_frames) = export_and_read(&store, 1.0, &format!("x1_{fps}"));
+            let (fast, fast_frames) = export_and_read(&store, 2.0, &format!("x2_{fps}"));
+            assert_eq!(slow_frames, fast_frames, "fps {fps}");
+            let slow_total: i64 = slow.iter().map(|&d| d as i64).sum();
+            let fast_total: i64 = fast.iter().map(|&d| d as i64).sum();
+            let one_frame_cs = (1000 / fps / 10) as i64 + 1;
+            assert!(
+                (slow_total - 2 * fast_total).abs() <= one_frame_cs,
+                "fps {fps}: 1x {slow_total} cs, 2x {fast_total} cs"
+            );
+        }
     }
 }
