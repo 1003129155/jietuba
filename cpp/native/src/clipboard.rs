@@ -405,6 +405,22 @@ pub unsafe extern "C" fn jb_clipboard_clear_unpinned_ungrouped(ptr: *const JbCli
     })
 }
 
+/// Whether the database keeps everything in one file (not WAL); see Database::single_file.
+#[no_mangle]
+pub unsafe extern "C" fn jb_clipboard_single_file(ptr: *const JbClipboard) -> bool {
+    guard(false, || {
+        ptr.as_ref().is_some_and(|clipboard| clipboard.inner.single_file())
+    })
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn jb_clipboard_set_single_file(ptr: *const JbClipboard, on: bool, error: *mut c_char, error_len: usize) -> bool {
+    guard_error(false, error, error_len, || {
+        let manager = manager_or_fail!(ptr, error, error_len);
+        finish(manager.set_single_file(on), error, error_len, |_| {})
+    })
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn jb_clipboard_toggle_pin(ptr: *const JbClipboard, id: i64, out_pinned: *mut bool, error: *mut c_char, error_len: usize) -> bool {
     guard_error(false, error, error_len, || {

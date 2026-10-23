@@ -3,6 +3,7 @@
 #include "clipboard/controllers/clipboard_controller.h"
 #include "clipboard/ui/dialogs/manage_dialog.h"
 #include "clipboard/ui/windows/pin_window.h"
+#include "clipboard/ui/widgets/item_drag.h"
 #include "core/clipboard_utils.h"
 #include "core/native.h"
 #include "core/constants.h"
@@ -17,6 +18,7 @@
 #include <QMimeData>
 #include <QMutex>
 #include <QSignalSpy>
+#include <QTemporaryDir>
 #include <QTest>
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -388,6 +390,34 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(find_item("text", [](const ClipboardItem &item) { return item.content == "left + right"; }), 10000);
         env_.config->set_clipboard_multi_paste_keep_merged(false);
         env_.config->set_clipboard_multi_paste_separator("\n");
+    }
+
+    void anImageWhoseFileIsMissingIsRebuiltFromTheDatabase() {
+        start_watching();
+        const auto item = record_image(solid(QSize(40, 30), Qt::red));
+        QVERIFY(item && item->image_id);
+        const QString images_dir = manager().get_images_dir().value_or(QString());
+        const QString file = QDir(images_dir).filePath(*item->image_id + ".png");
+        QVERIFY(QFile::remove(file));
+
+        const auto data = manager().get_image_data(*item->image_id);
+        QVERIFY(data);
+        const QImage rebuilt = QImage::fromData(*data);
+        QCOMPARE(rebuilt.size(), QSize(40, 30));
+        QCOMPARE(rebuilt.pixelColor(5, 5), QColor(Qt::red));
+        QVERIFY(create_pin_from_clipboard_item(item->id, &manager(), nullptr));
+
+        QVERIFY(ItemDragMimeData::can_drag(*item, images_dir));
+        QTemporaryDir temp;
+        {
+            ItemDragMimeData mime({*item}, images_dir, temp.path());
+            QCOMPARE(qvariant_cast<QImage>(mime.imageData()).size(), QSize(40, 30));
+            const auto paths = mime.file_paths();
+            QCOMPARE(paths.size(), 1);
+            QCOMPARE(QImage(paths.front()).size(), QSize(40, 30));
+        }
+        // Rebuilt on demand only; the library folder is left as it is.
+        QVERIFY(!QFileInfo::exists(file));
     }
 
     void recordedImagesPinPreviewAndStitch() {

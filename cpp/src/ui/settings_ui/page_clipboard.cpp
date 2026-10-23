@@ -97,6 +97,23 @@ void set_storage_path_label(SettingsDialog *dialog, const QString &path) {
     if (auto *card = dialog->attr<SettingCard>("_clipboard_storage_card")) card->setContent(path);
 }
 
+// The storage mode belongs to the open database, so the switch follows it after the data location changes.
+void sync_single_file_toggle(SettingsDialog *dialog) {
+    auto *card = dialog->attr<SwitchSettingCard>("_clipboard_single_file_toggle");
+    if (!card) return;
+    const QSignalBlocker block(card);
+    auto &cm = ClipboardManager::instance();
+    card->setChecked(cm.single_file());
+    card->setEnabled(cm.is_available());
+}
+
+void set_clipboard_single_file(SettingsDialog *dialog, bool on) {
+    if (ClipboardManager::instance().set_single_file(on)) return;
+    sync_single_file_toggle(dialog);
+    show_warning_dialog(dialog, dialog->tr_text("Error"),
+                        dialog->tr_text("Cannot switch the storage mode: the clipboard database is open in another program. Close it and try again."));
+}
+
 bool target_has_clipboard_data(const QString &target_dir) {
     const QString db_path = path_join(target_dir, "clipboard.db");
     for (const char *suffix : {"", "-wal", "-shm"})
@@ -286,6 +303,7 @@ void on_clipboard_move_completed(SettingsDialog *dialog, QProgressDialog *progre
     dialog->clipboard_move_thread = nullptr;
     if (reopened) {
         set_storage_path_label(dialog, new_db_path);
+        sync_single_file_toggle(dialog);
         refresh_clipboard_size_async(dialog);
         if (!cleanup_error.isEmpty())
             show_warning_dialog(dialog, dialog->tr_text("Success"),
@@ -322,6 +340,7 @@ void switch_clipboard_data_location(SettingsDialog *dialog, const QString &curre
     get_tool_settings_manager()->set_clipboard_db_path(new_db_path);
     refresh_open_clipboard_windows();
     set_storage_path_label(dialog, new_db_path);
+    sync_single_file_toggle(dialog);
     refresh_clipboard_size_async(dialog);
 }
 
@@ -493,6 +512,16 @@ QWidget *create_clipboard_page(SettingsDialog *dialog) {
     storage_card->addControl(change_folder_btn);
     storage_card->addControl(open_folder_btn);
     grp_data->addSettingCard(storage_card);
+
+    // Applied right away rather than with the other settings: the mode is stored in the database file.
+    auto *single_file_card = new SwitchSettingCard(FluentIcon::Document, dialog->tr_text("Single-File Database"),
+                                                   dialog->tr_text("Recommended when the data folder is in OneDrive or another sync folder: the "
+                                                                   "database stays one complete file. Saving is slightly slower."),
+                                                   grp_data);
+    dialog->set_attr("_clipboard_single_file_toggle", single_file_card);
+    sync_single_file_toggle(dialog);
+    QObject::connect(single_file_card, &SwitchSettingCard::checkedChanged, dialog, [dialog](bool on) { set_clipboard_single_file(dialog, on); });
+    grp_data->addSettingCard(single_file_card);
 
     auto *cleanup_card = new SettingCard(FluentIcon::Delete, dialog->tr_text("Clear Clipboard History"), dialog->tr_text("Delete all clipboard history records"), grp_data);
     // The size needs a disk scan, so it refreshes on demand; the button and result sit left of the control column so the buttons line up with other cards.

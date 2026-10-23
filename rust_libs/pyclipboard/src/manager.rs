@@ -759,14 +759,10 @@ impl ClipboardManager {
 
                     let id = {
                         let db = self.db.lock();
-                        let Ok(id) = db.insert_item(&main_item) else {
+                        let limit = HISTORY_LIMIT.load(Ordering::Relaxed);
+                        let Ok(id) = db.store_capture(&main_item, &formats_to_store, limit) else {
                             return;
                         };
-                        let _ = db.replace_formats(id, &formats_to_store);
-                        let limit = HISTORY_LIMIT.load(Ordering::Relaxed);
-                        if limit > 0 {
-                            let _ = db.cleanup_old_items(limit);
-                        }
                         id
                     };
                     // 回调可能要拿绑定层的锁（Python 的 GIL），而持有它的线程可能正等着数据库锁，所以先放锁再回调
@@ -841,8 +837,36 @@ impl ClipboardManager {
                 .map_err(|e| format!("读取图片失败: {}", e))?;
             Ok(Some(data))
         } else {
-            Ok(None)
+            Ok(self.image_from_formats(image_id))
         }
+    }
+
+    /// 图片文件不在时（同步盘还没传到、被删了），用库里存的原始图片数据现场生成 PNG。
+    /// 不写回图片文件夹：同步盘上会和稍后同步来的原文件同名冲突
+    #[cfg(target_os = "windows")]
+    fn image_from_formats(&self, image_id: &str) -> Option<Vec<u8>> {
+        use image::codecs::png::PngEncoder;
+        use image::ImageEncoder;
+
+        let formats = {
+            let db = self.db.lock();
+            let id = db.image_item_id(image_id).ok()??;
+            db.get_formats(id).ok()?
+        };
+        if let Some(png) = stored_format(&formats, "PNG") {
+            return Some(png.to_vec());
+        }
+        let rgba = win_clipboard::decode_image(None, stored_format(&formats, "CF_DIBV5"), stored_format(&formats, "CF_DIB"))?;
+        let mut png = Vec::new();
+        PngEncoder::new(&mut png)
+            .write_image(rgba.as_raw(), rgba.width(), rgba.height(), image::ExtendedColorType::Rgba8)
+            .ok()?;
+        Some(png)
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    fn image_from_formats(&self, _image_id: &str) -> Option<Vec<u8>> {
+        None
     }
 
     /// 获取某条记录保存的所有原始剪贴板格式（Ditto 风格）
@@ -994,6 +1018,15 @@ impl ClipboardManager {
     pub fn clear_unpinned_ungrouped(&self, vacuum: bool) -> Result<(), String> {
         let db = self.db.lock();
         db.clear_unpinned_ungrouped(vacuum)
+    }
+
+    /// 库是否只用一个文件，见 Database::single_file
+    pub fn single_file(&self) -> bool {
+        self.db.lock().single_file()
+    }
+
+    pub fn set_single_file(&self, on: bool) -> Result<(), String> {
+        self.db.lock().set_single_file(on)
     }
 
     /// 切换置顶状态
@@ -1603,6 +1636,38 @@ fn formats_from_item(
 mod paste_format_tests {
     use super::*;
     use win_clipboard::*;
+
+    #[test]
+    fn a_missing_image_file_is_rebuilt_from_the_stored_formats() {
+        let dir = std::env::temp_dir().join(format!("pyclipboard_image_fallback_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        {
+            let manager = ClipboardManager::new(Some(dir.join("clipboard.db").to_string_lossy().to_string())).unwrap();
+            let picture = image::RgbaImage::from_fn(5, 3, |x, y| image::Rgba([x as u8 * 40, y as u8 * 80, 7, 200]));
+            let store = |image_id: &str, formats: Vec<(u32, String, Vec<u8>, bool)>| {
+                let mut item = PyClipboardItem::new(0, "[5x3]".to_string(), "image".to_string());
+                item.image_id = Some(image_id.to_string());
+                manager.db.lock().store_capture(&item, &formats, 0).unwrap();
+            };
+            store("from-dib", vec![(CF_DIBV5, "CF_DIBV5".to_string(), rgba_to_dibv5(&picture), false)]);
+            store("from-png", vec![(register_format("PNG"), "PNG".to_string(), b"original png".to_vec(), false)]);
+            store("no-data", vec![]);
+
+            let rebuilt = manager.get_image_data("from-dib").unwrap().unwrap();
+            assert_eq!(image::load_from_memory_with_format(&rebuilt, image::ImageFormat::Png).unwrap().to_rgba8(), picture);
+            assert_eq!(manager.get_image_data("from-png").unwrap().unwrap(), b"original png".to_vec());
+            assert_eq!(manager.get_image_data("no-data").unwrap(), None);
+            assert_eq!(manager.get_image_data("unknown").unwrap(), None);
+            // 不写回图片文件夹
+            assert!(!image_file(std::path::Path::new(&manager.get_images_dir()), "from-dib").exists());
+
+            let file = image_file(std::path::Path::new(&manager.get_images_dir()), "from-dib");
+            std::fs::write(&file, b"file wins").unwrap();
+            assert_eq!(manager.get_image_data("from-dib").unwrap().unwrap(), b"file wins".to_vec());
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     fn item(content: &str, content_type: &str) -> PyClipboardItem {
         PyClipboardItem::new(1, content.to_string(), content_type.to_string())

@@ -5,6 +5,7 @@
 #include "clipboard/ui/theme/themes.h"
 #include "clipboard/ui/widgets/item_delegate.h"
 #include "clipboard/ui/widgets/quick_edit_popup.h"
+#include "core/native.h"
 #include "core/ui_scale.h"
 #include "settings/special_paste.h"
 #include "ui/fluent_lite/cards.h"
@@ -532,6 +533,39 @@ private slots:
         QVERIFY(!editor.grab().isNull());
         editor.tabs->setCurrentItem("text");
         QCOMPARE(editor.entries(), special_paste::default_entries());
+    }
+
+    void theSingleFileSwitchFollowsTheDatabaseAndRevertsWhenItCannotSwitch() {
+        auto &cm = ClipboardManager::instance();
+        QVERIFY(!cm.single_file());
+        SettingsDialog dialog(env_.config, "");
+        dialog.show();
+        dialog.on_nav_changed(2, "clipboard");
+        auto *card = dialog.attr<SwitchSettingCard>("_clipboard_single_file_toggle");
+        QVERIFY(card && card->isEnabled());
+        QVERIFY(!card->isChecked());
+
+        // Another connection keeps the database in WAL: the switch goes back and says why.
+        const QByteArray path = cm.get_db_path().value_or(QString()).toUtf8();
+        char error[256] = {};
+        JbClipboard *other = jb_clipboard_open(path.constData(), error, sizeof error);
+        QVERIFY2(other, error);
+        {
+            ModalAnswerer ok(true);
+            card->setChecked(true);
+            QTRY_COMPARE(ok.answered(), 1);
+            QVERIFY(ok.texts.first().contains("another program"));
+        }
+        jb_clipboard_free(other);
+        QVERIFY(!card->isChecked());
+        QVERIFY(!cm.single_file());
+
+        card->setChecked(true);
+        QVERIFY(cm.single_file());
+        QVERIFY(cm.add_item("one file"));
+        QVERIFY(!QFileInfo::exists(QString::fromUtf8(path) + "-wal"));
+        card->setChecked(false);
+        QVERIFY(!cm.single_file());
     }
 
     void theSettingsPageMovesClearsAndOpensTheData() {

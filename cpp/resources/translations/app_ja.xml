@@ -3783,6 +3783,18 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>データ保存場所</translation>
     </message>
     <message>
+        <source>Single-File Database</source>
+        <translation>単一ファイルのデータベース</translation>
+    </message>
+    <message>
+        <source>Recommended when the data folder is in OneDrive or another sync folder: the database stays one complete file. Saving is slightly slower.</source>
+        <translation>データフォルダーを OneDrive などの同期フォルダーに置く場合におすすめです。データベースが常に 1 つの完全なファイルになります。保存は少し遅くなります。</translation>
+    </message>
+    <message>
+        <source>Cannot switch the storage mode: the clipboard database is open in another program. Close it and try again.</source>
+        <translation>保存方式を切り替えられません。クリップボードのデータベースが他のプログラムで開かれています。閉じてからもう一度お試しください。</translation>
+    </message>
+    <message>
         <source>Unknown</source>
         <translation>不明</translation>
     </message>

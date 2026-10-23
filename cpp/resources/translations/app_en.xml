@@ -3684,6 +3684,18 @@ Items in the group will be moved back to clipboard history.</translation>
         <translation>Data Storage Location</translation>
     </message>
     <message>
+        <source>Single-File Database</source>
+        <translation>Single-File Database</translation>
+    </message>
+    <message>
+        <source>Recommended when the data folder is in OneDrive or another sync folder: the database stays one complete file. Saving is slightly slower.</source>
+        <translation>Recommended when the data folder is in OneDrive or another sync folder: the database stays one complete file. Saving is slightly slower.</translation>
+    </message>
+    <message>
+        <source>Cannot switch the storage mode: the clipboard database is open in another program. Close it and try again.</source>
+        <translation>Cannot switch the storage mode: the clipboard database is open in another program. Close it and try again.</translation>
+    </message>
+    <message>
         <source>Unknown</source>
         <translation>Unknown</translation>
     </message>

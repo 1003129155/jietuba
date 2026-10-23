@@ -1,4 +1,5 @@
 #include "clipboard/ui/widgets/item_drag.h"
+#include "clipboard/core/manager.h"
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QDir>
@@ -20,6 +21,14 @@ const QString IMAGE_MIME = QStringLiteral("application/x-qt-image");
 
 QString image_path(const QString &images_dir, const ClipboardItem &item) {
     return item.image_id && !item.image_id->isEmpty() && !images_dir.isEmpty() ? QDir(images_dir).filePath(*item.image_id + ".png") : QString();
+}
+
+// For an image whose library file is missing: the PNG the manager rebuilds from the stored clipboard data.
+std::optional<QByteArray> rebuilt_image(const ClipboardItem &item) {
+    if (!item.image_id || item.image_id->isEmpty()) return std::nullopt;
+    auto data = ClipboardManager::instance().get_image_data(*item.image_id);
+    if (!data || data->isEmpty()) return std::nullopt;
+    return data;
 }
 
 // Hands a drag's files to Windows as CF_HDROP and nothing else; reading drops is left to Qt.
@@ -85,18 +94,25 @@ ItemDragMimeData::ItemDragMimeData(QList<ClipboardItem> items, QString images_di
     : items_(std::move(items)), images_dir_(std::move(images_dir)), temp_root_(std::move(temp_root)) {
     ensure_file_drop_converter();
     QStringList texts;
-    QStringList images;
+    QList<ClipboardItem> images;
     for (const auto &item : items_) {
         if (item.content_type == "text") texts.append(item.content);
-        else if (item.content_type == "image") images.append(image_path(images_dir_, item));
+        else if (item.content_type == "image") images.append(item);
         else if (item.content_type == "file") item_files_.append(item_paths(item));
     }
     text_ = texts.join('\n');
     if (items_.size() == 1 && items_.front().content_type == "text" && items_.front().html_content && !items_.front().html_content->isEmpty())
         html_ = items_.front().html_content;
     // Decoded off the UI thread while the cursor travels to the target.
-    if (images.size() == 1 && QFile::exists(images.front()))
-        image_ = std::async(std::launch::async, [path = images.front()] { return QImage(path); }).share();
+    if (images.size() == 1) {
+        const QString path = image_path(images_dir_, images.front());
+        if (QFile::exists(path)) image_ = std::async(std::launch::async, [path] { return QImage(path); }).share();
+        else
+            image_ = std::async(std::launch::async, [item = images.front()] {
+                         const auto data = rebuilt_image(item);
+                         return data ? QImage::fromData(*data) : QImage();
+                     }).share();
+    }
 }
 
 ItemDragMimeData::~ItemDragMimeData() {
@@ -123,10 +139,16 @@ const QStringList &ItemDragMimeData::write_files() const {
         } else if (item.content_type == "image") {
             // The library file is copied, never handed out: a target that moved it would break the history item.
             const QString source = image_path(images_dir_, item);
-            if (source.isEmpty() || !QFile::copy(source, path)) continue;
-            // The copy keeps the library file's date; the dropped file should carry the time it was made.
-            QFile copy(path);
-            if (copy.open(QIODevice::ReadWrite)) copy.setFileTime(QDateTime::currentDateTime(), QFileDevice::FileModificationTime);
+            if (QFile::exists(source)) {
+                if (!QFile::copy(source, path)) continue;
+                // The copy keeps the library file's date; the dropped file should carry the time it was made.
+                QFile copy(path);
+                if (copy.open(QIODevice::ReadWrite)) copy.setFileTime(QDateTime::currentDateTime(), QFileDevice::FileModificationTime);
+            } else {
+                const auto data = rebuilt_image(item);
+                QFile file(path);
+                if (!data || !file.open(QIODevice::WriteOnly) || file.write(*data) != data->size()) continue;
+            }
             written_->append(path);
         }
     }
@@ -156,7 +178,7 @@ QVariant ItemDragMimeData::retrieveData(const QString &mime_type, QMetaType type
 
 bool ItemDragMimeData::can_drag(const ClipboardItem &item, const QString &images_dir) {
     if (item.content_type == "text") return !item.content.isEmpty();
-    if (item.content_type == "image") return QFile::exists(image_path(images_dir, item));
+    if (item.content_type == "image") return QFile::exists(image_path(images_dir, item)) || rebuilt_image(item).has_value();
     if (item.content_type == "file") return !item_paths(item).isEmpty();
     return false;
 }

@@ -3755,6 +3755,18 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>数据存储位置</translation>
     </message>
     <message>
+        <source>Single-File Database</source>
+        <translation>单文件数据库</translation>
+    </message>
+    <message>
+        <source>Recommended when the data folder is in OneDrive or another sync folder: the database stays one complete file. Saving is slightly slower.</source>
+        <translation>数据文件夹放在 OneDrive 等同步盘时建议开启：数据库始终是一个完整的文件。保存会稍慢一些。</translation>
+    </message>
+    <message>
+        <source>Cannot switch the storage mode: the clipboard database is open in another program. Close it and try again.</source>
+        <translation>无法切换存储方式：剪贴板数据库正被其他程序打开。请关闭后重试。</translation>
+    </message>
+    <message>
         <source>Unknown</source>
         <translation>未知</translation>
     </message>

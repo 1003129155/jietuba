@@ -55,6 +55,10 @@ public:
     // Keeps pinned and grouped items. vacuum also shrinks the database file, which takes
     // time in proportion to what is kept; false only removes the rows.
     bool clear_unpinned_ungrouped(bool vacuum = true);
+    // Single-file storage (rollback journal) instead of WAL, so a sync folder always uploads a complete database.
+    // The mode is stored in the database file. Switching fails while another program has the database open.
+    bool single_file() const;
+    bool set_single_file(bool on);
     std::optional<qint64> add_item(const QString &content, const QString &content_type = "text", const std::optional<QString> &title = std::nullopt);
     bool update_item(qint64 item_id, const QString &content, const std::optional<QString> &title = std::nullopt);
     // The new pinned state.
