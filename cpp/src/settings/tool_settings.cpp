@@ -422,6 +422,7 @@ const std::vector<MouseAction> &QUICK_CAPTURE_ACTIONS() {
         {"copy_pin", "Copy and Pin", "", "global"},
         {"ocr", "Region Text Recognition", "", "global"},
         {"translate", "Region Translation", "", "global"},
+        {"scan_code", "Scan QR code / barcode", "", "global"},
         {"edit", "Capture and Edit", "", "global"},
     };
     return actions;

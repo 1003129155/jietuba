@@ -1,4 +1,5 @@
 #include "capture/quick_capture_controller.h"
+#include "barcode/result_window.h"
 #include "canvas/scene.h"
 #include "capture/capture_service.h"
 #include "capture/system_cursor.h"
@@ -70,6 +71,9 @@ void QuickCaptureWorker::run() {
             bounds = QRectF(region);
         }
         if (image.isNull()) throw std::runtime_error("The captured image is empty");
+        if (isInterruptionRequested()) return;
+        // 复用当前截图线程，只识别选区；取消后丢弃结果，不阻塞 GUI。
+        if (action == "scan_code") codes = read_codes(image);
         if (!isInterruptionRequested()) emit captured(image, bounds);
     } catch (const std::exception &e) {
         emit failed(QString::fromUtf8(e.what()));
@@ -191,7 +195,8 @@ void QuickCaptureController::capture(const QRect &region) {
     const auto action = active_action_;
     auto *worker = new QuickCaptureWorker(region, action, this);
     // Recognition and translation want the text; a drawn pointer would only cover it.
-    worker->include_cursor = !is_text_action(action) && main_app->config_manager->get_capture_include_cursor();
+    // 扫码同样使用原始选区，避免指针遮挡码的内容。
+    worker->include_cursor = !is_text_action(action) && action != "scan_code" && main_app->config_manager->get_capture_include_cursor();
     worker_ = worker;
     connect(worker, &QuickCaptureWorker::captured, this, &QuickCaptureController::deliver, Qt::QueuedConnection);
     connect(worker, &QuickCaptureWorker::failed, this, &QuickCaptureController::on_failure, Qt::QueuedConnection);
@@ -216,6 +221,8 @@ void QuickCaptureController::deliver(const QImage &captured_image, const QRectF 
             // As the toolbar's text recognition: a result window or a direct copy per settings.
             if (config->get_ocr_copy_directly_enabled()) copy_text_recognition(captured_image);
             else show_text_recognition(captured_image, region);
+        } else if (action == "scan_code") {
+            show_barcode_result(captured_image, worker->codes, config->get_barcode_copy_single_enabled());
         } else {
             const auto [copy, pin] = capture_action(action).value_or(std::make_pair(false, false));
             // No canvas involved: with "add the last watermark" on it is drawn straight onto the image.

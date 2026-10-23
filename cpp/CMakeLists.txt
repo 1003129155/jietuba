@@ -275,6 +275,7 @@ if(BUILD_TESTING)
         qt_add_executable(jietuba_main_app_tests tests/test_main_app.cpp ${JIETUBA_ICON_QRC})
         set_target_properties(jietuba_main_app_tests PROPERTIES AUTORCC ON)
         target_link_libraries(jietuba_main_app_tests PRIVATE jietuba_lib Qt6::Test)
+        target_compile_definitions(jietuba_main_app_tests PRIVATE JIETUBA_BARCODE_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures")
         add_test(NAME main_app_desktop COMMAND jietuba_main_app_tests -o ${JIETUBA_TEST_REPORTS}/main_app_desktop.txt,txt -platform windows)
         set_tests_properties(main_app_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
         # Long screenshots of a page window on the real screen.

@@ -323,6 +323,10 @@ BarcodeResultWindow *show_barcode_result(const QImage &image, bool copy_single) 
                {{"count", static_cast<int>(codes.size())}, {"elapsed_ms", started.nsecsElapsed() / 1e6}}),
              "Barcode");
 
+    return show_barcode_result(image, codes, copy_single);
+}
+
+BarcodeResultWindow *show_barcode_result(const QImage &image, const std::vector<DecodedCode> &codes, bool copy_single) {
     if (copy_single && codes.size() == 1) {
         QApplication::clipboard()->setText(codes.front().text);
         show_toast(tr_text("Copied: %1").replace("%1", codes.front().text));

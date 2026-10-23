@@ -12,6 +12,10 @@
         <translation>영역 텍스트 인식</translation>
     </message>
     <message>
+        <source>Scan QR code / barcode</source>
+        <translation>코드 스캔 (QR 코드 / 바코드)</translation>
+    </message>
+    <message>
         <source>Region Translation</source>
         <translation>영역 번역</translation>
     </message>
