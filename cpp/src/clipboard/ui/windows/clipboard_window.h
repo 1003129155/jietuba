@@ -238,7 +238,9 @@ private:
     void open_file_location(qint64 item_id);
     void warmup_offscreen_once();
     void reveal_window();
+    void position_on_show();
     void position_at_cursor();
+    bool restore_previous_position();
     bool owns_window(const QWidget *window) const;
     void check_and_hide();
     // The row as it looks, at most 240 wide, with the number of dragged rows when there are several.

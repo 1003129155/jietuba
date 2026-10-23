@@ -721,6 +721,7 @@ void SettingsDialog::reset_clipboard_page() {
     if (auto *toggle = attr_widget("clipboard_enabled_toggle")) set_checked(toggle, defaults.value("clipboard_enabled").toBool());
     if (auto *toggle = attr_widget("clipboard_auto_paste_toggle")) set_checked(toggle, defaults.value("clipboard_auto_paste").toBool());
     if (auto *spin = attr<QSpinBox>("clipboard_history_limit_spin")) spin->setValue(defaults.value("clipboard_history_limit").toInt());
+    refresh_behavior_controls(true, {}, std::set<QString>{"clipboard_open_position"});
     if (clipboard_special_paste_entries) clipboard_special_paste_entries = special_paste::default_entries();
 }
 

@@ -6845,4 +6845,38 @@ Replace it?</source>
         <translation>名前「%1」はパス「%2」で使われています。現在のパスに新しい名前を付けますか？</translation>
     </message>
 </context>
+<context>
+    <name>ClipboardWindow</name>
+    <message>
+        <source>Window Position</source>
+        <translation>ウィンドウの位置</translation>
+    </message>
+    <message>
+        <source>Follow Mouse</source>
+        <translation>マウスの位置</translation>
+    </message>
+    <message>
+        <source>Last Position</source>
+        <translation>前回の位置</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Window Position</source>
+        <translation>ウィンドウの位置</translation>
+    </message>
+    <message>
+        <source>Follow Mouse</source>
+        <translation>マウスの位置</translation>
+    </message>
+    <message>
+        <source>Last Position</source>
+        <translation>前回の位置</translation>
+    </message>
+    <message>
+        <source>Where the clipboard window appears when it opens</source>
+        <translation>クリップボードウィンドウを開いたときに表示する位置</translation>
+    </message>
+</context>
 </TS>

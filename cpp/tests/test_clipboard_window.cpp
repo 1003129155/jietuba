@@ -11,6 +11,7 @@
 #include "core/platform_utils.h"
 #include "core/ui_scale.h"
 #include "ui/fluent_lite/inputs.h"
+#include <QCursor>
 #include <QDateEdit>
 #include <QDesktopServices>
 #include <QDrag>
@@ -19,6 +20,7 @@
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QScopeGuard>
+#include <QScreen>
 #include <QScrollBar>
 #include <QTemporaryDir>
 #include <QSignalSpy>
@@ -120,6 +122,7 @@ private slots:
         env_.config->set_app_setting("clipboard_paste_with_html", true);
         env_.config->set_clipboard_multi_paste_keep_merged(false);
         env_.config->set_clipboard_group_bar_position("right");
+        env_.config->set_clipboard_open_position("cursor");
         env_.config->set_inapp_clipboard_pick_mode("both");
         urls_.urls.clear();
     }
@@ -1160,6 +1163,50 @@ private slots:
         QCOMPARE(stored.value("window/width").toInt(), 500);
         auto *again = open_window();
         QCOMPARE(again->width(), 500);
+    }
+
+    void theWindowOpensAtTheMouseOrWhereItWasLeft() {
+        const QRect available = QGuiApplication::primaryScreen()->availableGeometry();
+        // Near the top left, so the window opens below and right of the mouse.
+        const QPoint cursor = available.topLeft() + QPoint(20, 20);
+        QCursor::setPos(cursor);
+        QCOMPARE(QCursor::pos(), cursor);
+        const auto reopen = [this] {
+            window_->hide();
+            window_->show();
+            QApplication::processEvents();
+        };
+
+        env_.config->set_clipboard_open_position("cursor");
+        auto *window = open_window();
+        window->resize(300, 200);
+        QVERIFY(window->width() + 30 <= available.width() && window->height() + 30 <= available.height());
+        window->move(available.topLeft() + QPoint(37, 41));
+        reopen();
+        QCOMPARE(window->pos(), cursor + QPoint(10, 10));
+
+        env_.config->set_clipboard_open_position("previous");
+        const QPoint left_at = available.topLeft() + QPoint(37, 41);
+        window->move(left_at);
+        reopen();
+        QCOMPARE(window->pos(), left_at);
+        // Also after the application restarts.
+        window->close();
+        window_.reset();
+        window = open_window();
+        QCOMPARE(window->pos(), left_at);
+
+        // Hanging over the right edge: pulled back in whole.
+        const int width = window->width();
+        window->move(available.right() + 1 - width + 30, available.top() + 50);
+        reopen();
+        QCOMPARE(window->pos(), QPoint(available.right() + 1 - width, available.top() + 50));
+
+        // Off every screen, as after unplugging a monitor: opens at the mouse.
+        window->move(available.left() - 10000, available.top() - 10000);
+        reopen();
+        QCOMPARE(window->pos(), cursor + QPoint(10, 10));
+        env_.config->set_clipboard_open_position("cursor");
     }
 
     void displayLineMenuUpdatesRowsAndSurvivesReopening() {

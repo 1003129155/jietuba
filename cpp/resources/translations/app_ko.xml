@@ -6833,4 +6833,38 @@ Replace it?</source>
         <translation>이름 &quot;%1&quot;은(는) 경로 &quot;%2&quot;에서 사용 중입니다. 현재 경로에 새 이름을 지정할까요?</translation>
     </message>
 </context>
+<context>
+    <name>ClipboardWindow</name>
+    <message>
+        <source>Window Position</source>
+        <translation>창 위치</translation>
+    </message>
+    <message>
+        <source>Follow Mouse</source>
+        <translation>마우스 위치</translation>
+    </message>
+    <message>
+        <source>Last Position</source>
+        <translation>마지막 위치</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Window Position</source>
+        <translation>창 위치</translation>
+    </message>
+    <message>
+        <source>Follow Mouse</source>
+        <translation>마우스 위치</translation>
+    </message>
+    <message>
+        <source>Last Position</source>
+        <translation>마지막 위치</translation>
+    </message>
+    <message>
+        <source>Where the clipboard window appears when it opens</source>
+        <translation>클립보드 창이 열릴 때 표시되는 위치</translation>
+    </message>
+</context>
 </TS>

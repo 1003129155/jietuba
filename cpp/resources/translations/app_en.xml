@@ -6780,4 +6780,38 @@ Replace it?</translation>
         <translation>The name &quot;%1&quot; is already used by path &quot;%2&quot;. Do you want to set a new name for the current path?</translation>
     </message>
 </context>
+<context>
+    <name>ClipboardWindow</name>
+    <message>
+        <source>Window Position</source>
+        <translation>Window Position</translation>
+    </message>
+    <message>
+        <source>Follow Mouse</source>
+        <translation>Follow Mouse</translation>
+    </message>
+    <message>
+        <source>Last Position</source>
+        <translation>Last Position</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Window Position</source>
+        <translation>Window Position</translation>
+    </message>
+    <message>
+        <source>Follow Mouse</source>
+        <translation>Follow Mouse</translation>
+    </message>
+    <message>
+        <source>Last Position</source>
+        <translation>Last Position</translation>
+    </message>
+    <message>
+        <source>Where the clipboard window appears when it opens</source>
+        <translation>Where the clipboard window appears when it opens</translation>
+    </message>
+</context>
 </TS>

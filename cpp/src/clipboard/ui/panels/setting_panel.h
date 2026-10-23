@@ -50,6 +50,9 @@ struct SettingMenuOptions {
     // Without it the menu has no clear entry.
     std::function<void()> on_clear_history;
     std::function<void(const QString &)> on_set_group_bar_position;
+    // "cursor" or "previous"; without the callback the menu has no position entry.
+    QString open_position = "cursor";
+    std::function<void(const QString &)> on_set_open_position;
     QString multi_paste_separator = "\n";
     QString multi_paste_order = "oldest_first";
     bool multi_paste_keep_merged = false;

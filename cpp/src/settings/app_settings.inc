@@ -178,6 +178,7 @@ SETTING(clipboard_display_lines, "clipboard/display_lines", int, 1, Internal, Ow
 SETTING(clipboard_theme, "clipboard/theme", QString, "light", Import, Gen, Gen)
 SETTING(clipboard_group_bar_position, "clipboard/group_bar_position", QString, "top", Internal, Own, Own)
 SETTING(clipboard_preserve_search, "clipboard/preserve_search", bool, false, Internal, Gen, Gen)
+SETTING(clipboard_open_position, "clipboard/open_position", QString, "cursor", Import, Gen, Gen)
 SETTING(clipboard_move_to_top_on_paste, "clipboard/move_to_top_on_paste", bool, true, Internal, Gen, Gen)
 SETTING(clipboard_db_path, "clipboard/db_path", QString, "", Local, Gen, Gen)
 SETTING(clipboard_multi_paste_separator, "clipboard/multi_paste_separator", QString, "\n", Internal, Gen, Gen)

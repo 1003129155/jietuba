@@ -381,6 +381,8 @@ void ClipboardWindow::load_window_geometry() {
 }
 
 void ClipboardWindow::save_window_geometry() {
+    saved_x_ = x();
+    saved_y_ = y();
     qsettings_->setValue("window/x", x());
     qsettings_->setValue("window/y", y());
     qsettings_->setValue("window/width", width());
@@ -654,6 +656,8 @@ void ClipboardWindow::show_main_menu() {
     options.on_add_item = [this] { on_add_item_clicked(); };
     options.on_clear_history = [this] { on_clear_clicked(); };
     options.on_set_group_bar_position = [this](const QString &position) { set_group_bar_position(position); };
+    options.open_position = config->get_clipboard_open_position();
+    options.on_set_open_position = [this](const QString &position) { config->set_clipboard_open_position(position); };
     options.multi_paste_separator = config->get_clipboard_multi_paste_separator();
     options.multi_paste_order = config->get_clipboard_multi_paste_order();
     options.multi_paste_keep_merged = config->get_clipboard_multi_paste_keep_merged();
@@ -1458,13 +1462,32 @@ void ClipboardWindow::showEvent(QShowEvent *event) {
     timer.start();
     QWidget::showEvent(event);
     list_widget->setFocus();
-    position_at_cursor();
+    position_on_show();
     QTimer::singleShot(0, group_bar, [this] { group_bar->refresh_buttons(); });
     QTimer::singleShot(0, this, [this] { reveal_window(); });
     log_debug(T("⏱️ 打开窗口耗时: {elapsed_ms:.1f} ms", {{"elapsed_ms", timer.nsecsElapsed() / 1e6}}), "Clipboard");
 }
 
 void ClipboardWindow::reveal_window() { setWindowOpacity(1); }
+
+void ClipboardWindow::position_on_show() {
+    if (config->get_clipboard_open_position() == "previous" && restore_previous_position()) return;
+    position_at_cursor();
+}
+
+// A saved position whose screen is gone, or that no longer fits on it, falls back to the cursor.
+bool ClipboardWindow::restore_previous_position() {
+    if (!saved_x_ || !saved_y_) return false;
+    const QRect frame(QPoint(*saved_x_, *saved_y_), size());
+    QScreen *screen = QGuiApplication::screenAt(frame.center());
+    if (!screen) return false;
+    const QRect available = screen->availableGeometry();
+    if (frame.width() > available.width() || frame.height() > available.height()) return false;
+    const int x = std::clamp(frame.x(), available.left(), available.right() + 1 - frame.width());
+    const int y = std::clamp(frame.y(), available.top(), available.bottom() + 1 - frame.height());
+    move(x, y);
+    return true;
+}
 
 void ClipboardWindow::position_at_cursor() {
     const QPoint cursor_pos = QCursor::pos();

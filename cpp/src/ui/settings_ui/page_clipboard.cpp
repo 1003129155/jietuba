@@ -477,6 +477,16 @@ QWidget *create_clipboard_page(SettingsDialog *dialog) {
     enabled_card->setChecked(dialog->config_manager->get_clipboard_enabled());
     dialog->set_attr("clipboard_enabled_toggle", enabled_card);
     grp_basic->addSettingCard(enabled_card);
+
+    auto *position_card = new SettingCard(FluentIcon::Layout, dialog->tr_text("Window Position"), dialog->tr_text("Where the clipboard window appears when it opens"), grp_basic);
+    auto *position_combo = new ComboBox(position_card);
+    position_combo->addItem(dialog->tr_text("Follow Mouse"), QString("cursor"));
+    position_combo->addItem(dialog->tr_text("Last Position"), QString("previous"));
+    const int position_index = position_combo->findData(dialog->config_manager->get_clipboard_open_position());
+    position_combo->setCurrentIndex(std::max(0, position_index));
+    dialog->behavior_controls.emplace_back("clipboard_open_position", position_combo);
+    position_card->addControl(position_combo);
+    grp_basic->addSettingCard(position_card);
     layout->addWidget(grp_basic);
 
     // ════ History ════

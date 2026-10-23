@@ -412,6 +412,8 @@ private slots:
         options.on_add_item = [&calls] { calls << "add"; };
         options.on_clear_history = [&calls] { calls << "clear"; };
         options.on_set_group_bar_position = [&calls](const QString &value) { calls << "bar " + value; };
+        options.open_position = "previous";
+        options.on_set_open_position = [&calls](const QString &value) { calls << "position " + value; };
         options.multi_paste_separator = " | ";
         options.multi_paste_order = "newest_first";
         options.multi_paste_keep_merged = true;
@@ -439,6 +441,8 @@ private slots:
         three_lines->trigger();
         QVERIFY(calls.contains("lines 3"));
         QVERIFY(actions[QString::fromUtf8("◀ Left")]->isChecked());
+        QVERIFY(actions["Last Position"]->isChecked());
+        QVERIFY(!actions["Follow Mouse"]->isChecked());
         QVERIFY(actions["Last Selected First"]->isChecked());
         QVERIFY(actions["Record Content"]->isChecked());
         // A custom separator shows in the field; no preset is checked.
@@ -448,7 +452,7 @@ private slots:
         for (const char *label : {"New Line", "Comma", "No Separator"}) QVERIFY(!actions[label]->isChecked());
         for (const char *label : {"Paste with Format", "Auto Paste After Selection", "Close After Paste", "Move to Top After Paste", "Show Time and Source",
                                   "Preserve Search on Reopen", "Opaque", "17px", "Large", "First Selected First", "Record Content", "Comma", "Add Content",
-                                  "Clear History"})
+                                  "Clear History", "Follow Mouse"})
             actions[label]->trigger();
         actions[QString::fromUtf8("▲ Top")]->trigger();
         QVERIFY(calls.contains("html 0"));
@@ -462,6 +466,7 @@ private slots:
         QVERIFY(calls.contains("add"));
         QVERIFY(calls.contains("clear"));
         QVERIFY(calls.contains("bar top"));
+        QVERIFY(calls.contains("position cursor"));
         // Theme swatches are buttons inside the menu.
         QPushButton *swatch = nullptr;
         for (auto *button : menu->findChildren<QPushButton *>()) swatch = button;
