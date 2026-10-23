@@ -9,6 +9,10 @@
         <translation>區域辨識文字</translation>
     </message>
     <message>
+        <source>Scan QR code / barcode</source>
+        <translation>掃碼（二維碼 / 條碼）</translation>
+    </message>
+    <message>
         <source>Region Translation</source>
         <translation>區域翻譯</translation>
     </message>

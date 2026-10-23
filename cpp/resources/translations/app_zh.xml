@@ -13,6 +13,10 @@
         <translation>区域识别文字</translation>
     </message>
     <message>
+        <source>Scan QR code / barcode</source>
+        <translation>扫码（二维码 / 条形码）</translation>
+    </message>
+    <message>
         <source>Region Translation</source>
         <translation>区域翻译</translation>
     </message>

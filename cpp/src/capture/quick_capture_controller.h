@@ -1,4 +1,5 @@
 #pragma once
+#include "barcode/reader.h"
 #include <QImage>
 #include <QObject>
 #include <QPoint>
@@ -33,6 +34,8 @@ public:
     QString action;
     bool include_cursor = false;
     std::shared_ptr<SystemCursor> cursor;
+    // 仅由工作线程在 captured 发出前写入；随后由 GUI 线程读取。
+    std::vector<DecodedCode> codes;
 signals:
     void captured(const QImage &image, const QRectF &bounds);
     void failed(const QString &message);

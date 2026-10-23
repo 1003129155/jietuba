@@ -14,6 +14,10 @@
         <translation>範囲の文字認識</translation>
     </message>
     <message>
+        <source>Scan QR code / barcode</source>
+        <translation>コードをスキャン（QR コード / バーコード）</translation>
+    </message>
+    <message>
         <source>Region Translation</source>
         <translation>範囲翻訳</translation>
     </message>

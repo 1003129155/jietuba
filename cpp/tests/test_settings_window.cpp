@@ -49,6 +49,7 @@
 #include <QStackedWidget>
 #include <QTemporaryDir>
 #include <QTest>
+#include <algorithm>
 
 using namespace jietuba;
 
@@ -651,6 +652,43 @@ private slots:
         QVERIFY_THROWS_EXCEPTION(std::invalid_argument, config.set_global_hotkeys("clipboard", {"ctrl+2"}));
     }
 
+    // 新动作默认关闭，沿用设置保存、重载、导入和手势冲突检查。
+    void globalMouseScanBindingPersistsAndRejectsConflicts() {
+        const auto saved = config_->get_quick_capture_scan_code();
+        const auto restore = qScopeGuard([&] { config_->set_quick_capture_scan_code(saved); });
+        config_->set_quick_capture_scan_code("");
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.on_nav_changed(10, "mouse");
+        auto *scan = qobject_cast<MouseBindingEditor *>(dialog.behavior_control("quick_capture_scan_code"));
+        QVERIFY(scan);
+        QVERIFY(scan->currentData().isEmpty());
+        QVERIFY(settings_transfer::IMPORTED_KEYS().contains("app/quick_capture_scan_code"));
+        QVERIFY(!ResourceManager::get_icon_by_name(QString::fromUtf8("扫码.svg")).isNull());
+        scan->setBinding("ctrl+alt+dragright");
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_quick_capture_scan_code(), QString("ctrl+alt+dragright"));
+        settings_->sync();
+        QSettings reloaded(settings_->fileName(), QSettings::IniFormat);
+        ToolSettingsManager fresh(reloaded);
+        QCOMPARE(get_quick_capture_binding(&fresh, "scan_code"), QString("ctrl+alt+dragright"));
+        const auto bindings = get_quick_capture_bindings(&fresh);
+        const auto found = std::find_if(bindings.begin(), bindings.end(), [](const auto &entry) { return entry.second == "scan_code"; });
+        QVERIFY(found != bindings.end());
+        QCOMPARE(found->first.first, (QStringList{"alt", "ctrl"}));
+        QCOMPARE(found->first.second, QString("right"));
+
+        auto *pin = qobject_cast<MouseBindingEditor *>(dialog.behavior_control("quick_capture_pin"));
+        QVERIFY(pin && !pin->currentData().isEmpty());
+        answer_next(true);
+        scan->setBinding(pin->currentData());
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(scan->currentData(), QString("ctrl+alt+dragright"));
+        QCOMPARE(config_->get_quick_capture_scan_code(), QString("ctrl+alt+dragright"));
+        scan->setBinding("");
+        QVERIFY(dialog.apply_settings());
+        for (const auto &binding : get_quick_capture_bindings(config_)) QVERIFY(binding.second != "scan_code");
+    }
+
     void duplicateMouseBindingsAreListed() {
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.on_nav_changed(10, "mouse");
@@ -1023,6 +1061,9 @@ private slots:
             return static_cast<MouseBindingEditor *>(nullptr);
         };
         QCOMPARE(editor_for("pin")->currentData(), QString("win+dragleft"));
+        QVERIFY(editor_for("scan_code"));
+        QVERIFY(editor_for("scan_code")->currentData().isEmpty());
+        editor_for("scan_code")->setBinding("ctrl+alt+dragright");
         QLabel *conflict = nullptr;
         for (auto *label : page.findChildren<QLabel *>())
             if (label->styleSheet().contains("#D9534F")) conflict = label;
@@ -1033,6 +1074,7 @@ private slots:
         QVERIFY(conflict->text().contains(settings_tr("Pin to Screen")));
         page.save();
         QCOMPARE(get_quick_capture_binding(config_, "ocr"), QString("ctrl+win+dragleft"));
+        QCOMPARE(get_quick_capture_binding(config_, "scan_code"), QString("ctrl+alt+dragright"));
         QCOMPARE(get_quick_capture_binding(config_, "copy"), QString(""));
         QCOMPARE(get_quick_capture_binding(config_, "pin"), QString("win+dragleft"));
         editor_for("pin")->setBinding("");

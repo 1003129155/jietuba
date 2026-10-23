@@ -108,4 +108,6 @@ private:
 // With copy_single and exactly one code no window opens: the code is copied and a
 // toast shows next to the cursor, returning nullptr.
 BarcodeResultWindow *show_barcode_result(const QImage &image, bool copy_single = false);
+// 工作线程已完成识别时，GUI 线程直接展示结果，避免再次解码。
+BarcodeResultWindow *show_barcode_result(const QImage &image, const std::vector<DecodedCode> &codes, bool copy_single = false);
 }

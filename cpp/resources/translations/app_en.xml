@@ -13,6 +13,10 @@
         <translation>Region Text Recognition</translation>
     </message>
     <message>
+        <source>Scan QR code / barcode</source>
+        <translation>Scan QR code / barcode</translation>
+    </message>
+    <message>
         <source>Region Translation</source>
         <translation>Region Translation</translation>
     </message>
