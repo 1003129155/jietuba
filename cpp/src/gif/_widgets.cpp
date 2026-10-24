@@ -2,6 +2,7 @@
 #include "core/resource_manager.h"
 #include "core/theme.h"
 #include "core/ui_scale.h"
+#include "gif/record_toolbar.h"
 #include <QAction>
 #include <QApplication>
 #include <QCursor>
@@ -28,6 +29,7 @@ QString toolbar_style() {
 }
 
 void popup_menu(QMenu *menu, QWidget *anchor, bool below) {
+    if (auto *toolbar = qobject_cast<RecordToolbar *>(anchor->window())) toolbar->track_capture_exclusion(menu);
     // The menu is always light, and the text colour must sit on ::item: the global
     // style sheet colours QMenu::item by UI theme, which a colour on QMenu alone does
     // not override, giving white text in dark mode.

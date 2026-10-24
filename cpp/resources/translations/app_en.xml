@@ -1410,6 +1410,14 @@ Replace it?</translation>
         <translation>Keeps the toolbar and its panels out of recordings, screenshots, screen sharing, remote desktop and other screen capture; you still see them. Turn off to let them be captured, for example when recording a tutorial.</translation>
     </message>
     <message>
+        <source>Screen Recording</source>
+        <translation>Screen Recording</translation>
+    </message>
+    <message>
+        <source>Keeps the recording toolbar, its panels and menus out of the recording while they sit inside the recording area, such as when recording the full screen; you still see them. Turn off to record them too.</source>
+        <translation>Keeps the recording toolbar, its panels and menus out of the recording while they sit inside the recording area, such as when recording the full screen; you still see them. Turn off to record them too.</translation>
+    </message>
+    <message>
         <source>Where It Was Last</source>
         <translation>Where It Was Last</translation>
     </message>

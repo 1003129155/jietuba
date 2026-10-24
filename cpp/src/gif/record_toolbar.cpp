@@ -1,6 +1,7 @@
 #include "gif/record_toolbar.h"
 #include "core/i18n.h"
 #include "core/logger.h"
+#include "core/platform_utils.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
 #include "gif/_widgets.h"
@@ -75,6 +76,8 @@ RecordToolbar::RecordToolbar(QWidget *parent) : QWidget(parent), config_(get_too
 
     build_ui();
     init_settings_panels();
+    track_capture_exclusion(this);
+    for (QWidget *panel : unique_panels()) track_capture_exclusion(panel);
     // Recomputes sizes on scale changes; the connection ends with this widget.
     connect(&get_ui_scale(), &UIScaleManager::scale_changed, this, &RecordToolbar::apply_scale);
 }
@@ -777,6 +780,7 @@ void RecordToolbar::show_video_settings() {
         if (video_dialog_ == dialog) video_dialog_ = nullptr;
         dialog->deleteLater();
     });
+    track_capture_exclusion(dialog);
     dialog->open();
 }
 
@@ -841,7 +845,34 @@ void RecordToolbar::on_pause_clicked() {
 
 // ── Dragging ──
 
+void RecordToolbar::set_record_rect(const QRect &rect) {
+    record_rect_ = rect;
+    for (const auto &window : capture_tracked_)
+        if (window) update_capture_exclusion(window);
+}
+
+void RecordToolbar::track_capture_exclusion(QWidget *window) {
+    // Qt shows tooltips only for the active window otherwise.
+    window->setAttribute(Qt::WA_AlwaysShowToolTips);
+    window->installEventFilter(this);
+    capture_tracked_.erase(std::remove(capture_tracked_.begin(), capture_tracked_.end(), nullptr), capture_tracked_.end());
+    capture_tracked_.emplace_back(window);
+    update_capture_exclusion(window);
+}
+
+void RecordToolbar::update_capture_exclusion(QWidget *window) {
+    // Elsewhere the window would not be recorded, and excluding it would also hide it from
+    // screen sharing. The Show event comes before the window reaches the screen.
+    if (!window->isVisible()) return;
+    const bool exclude = config_->get_recording_hide_toolbar_in_captures() && window->frameGeometry().intersects(record_rect_);
+    if (window->property("capture_excluded").toBool() == exclude) return;
+    if (set_window_exclude_from_capture(static_cast<quintptr>(window->winId()), exclude)) window->setProperty("capture_excluded", exclude);
+    else log_debug(T("录制工具栏未能排除出截图: {error_code}", {{"error_code", get_last_error()}}), "GIF");
+}
+
 bool RecordToolbar::eventFilter(QObject *watched, QEvent *event) {
+    if (const auto type = event->type(); type == QEvent::Show || type == QEvent::Move || type == QEvent::Resize)
+        if (auto *window = qobject_cast<QWidget *>(watched); window && window->isWindow()) update_capture_exclusion(window);
     if (watched == move_handle_) {
         switch (event->type()) {
         case QEvent::MouseButtonPress: {
@@ -889,6 +920,7 @@ void RecordToolbar::on_fps_selected(const QVariant &value) {
             });
             // The menu's "custom" entry is not a real frame rate; cancelling keeps the current one.
             refresh_recording_options();
+            track_capture_exclusion(dialog);
             dialog->open();
             return;
         }

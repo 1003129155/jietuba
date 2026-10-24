@@ -1525,6 +1525,14 @@ Replace it?</source>
         <translation>도구 모음과 패널이 녹화, 스크린샷, 화면 공유, 원격 화면 등에 캡처되지 않게 합니다. 본인에게는 보입니다. 튜토리얼 녹화처럼 찍혀야 하면 끄세요.</translation>
     </message>
     <message>
+        <source>Screen Recording</source>
+        <translation>녹화</translation>
+    </message>
+    <message>
+        <source>Keeps the recording toolbar, its panels and menus out of the recording while they sit inside the recording area, such as when recording the full screen; you still see them. Turn off to record them too.</source>
+        <translation>전체 화면 녹화처럼 도구 모음과 패널, 메뉴가 녹화 영역 안에 있을 때 녹화되지 않게 합니다. 본인에게는 보입니다. 함께 녹화하려면 끄세요.</translation>
+    </message>
+    <message>
         <source>Where It Was Last</source>
         <translation>마지막 위치</translation>
     </message>

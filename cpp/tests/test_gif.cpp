@@ -36,6 +36,7 @@
 #include <QImageReader>
 #include <QPainter>
 #include <QPointer>
+#include <QScopeGuard>
 #include <QPushButton>
 #include <QTimer>
 #include <QClipboard>
@@ -300,6 +301,117 @@ private slots:
         }
         QCOMPARE(panels.size(), 4);
         for (const auto &panel : panels) QVERIFY(!panel);
+    }
+
+    // Only windows over the recording area are left out, and only with the setting on; moving
+    // the toolbar or changing the area decides again.
+    void toolbarWindowsLeaveCapturesOnlyOverTheRecordingArea() {
+        auto *config = get_tool_settings_manager();
+        const bool saved = config->get_recording_hide_toolbar_in_captures();
+        const auto restore = qScopeGuard([config, saved] { config->set_recording_hide_toolbar_in_captures(saved); });
+        const auto affinity = [](QWidget *window) {
+            DWORD value = 0xFFFF;
+            GetWindowDisplayAffinity(reinterpret_cast<HWND>(window->winId()), &value);
+            return value;
+        };
+        const DWORD left_out = WDA_EXCLUDEFROMCAPTURE, captured = WDA_NONE;
+        const QRect screen = QGuiApplication::primaryScreen()->availableGeometry();
+        const QRect small_area(screen.center(), QSize(200, 150));
+        config->set_recording_hide_toolbar_in_captures(true);
+        {
+            RecordToolbar toolbar;
+            toolbar.move(screen.topLeft() + QPoint(40, 40));
+            toolbar.set_record_rect(small_area);
+            toolbar.show();
+            QVERIFY(QTest::qWaitForWindowExposed(&toolbar));
+            QCOMPARE(affinity(&toolbar), captured);
+            toolbar.move(small_area.topLeft());
+            QCOMPARE(affinity(&toolbar), left_out);
+            toolbar.move(screen.topLeft() + QPoint(40, 40));
+            QCOMPARE(affinity(&toolbar), captured);
+            // A full-screen area covers the toolbar where it is.
+            toolbar.set_record_rect(screen);
+            QCOMPARE(affinity(&toolbar), left_out);
+            toolbar.paint_panel->move(screen.topLeft() + QPoint(40, 120));
+            toolbar.paint_panel->show();
+            QCOMPARE(affinity(toolbar.paint_panel), left_out);
+            QMenu menu;
+            menu.addAction("x");
+            popup_menu(&menu, &toolbar);
+            QCOMPARE(affinity(&menu), left_out);
+            menu.close();
+        }
+        config->set_recording_hide_toolbar_in_captures(false);
+        RecordToolbar toolbar;
+        toolbar.set_record_rect(screen);
+        toolbar.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&toolbar));
+        QCOMPARE(affinity(&toolbar), captured);
+        QMenu menu;
+        menu.addAction("x");
+        popup_menu(&menu, &toolbar);
+        QCOMPARE(affinity(&menu), captured);
+        menu.close();
+    }
+
+    // Over a solid backdrop in a full-screen area, both capture engines see the toolbar while the setting is off and
+    // only the backdrop once it is on. The off case runs first, so a stale duplication frame
+    // can only fail the on case, never pass it.
+    void toolbarStaysOutOfScreenCaptures() {
+        auto *config = get_tool_settings_manager();
+        const bool saved = config->get_recording_hide_toolbar_in_captures();
+        const auto restore = qScopeGuard([config, saved] { config->set_recording_hide_toolbar_in_captures(saved); });
+        const QColor backdrop_color(255, 0, 255);
+        const auto foreign_share = [&backdrop_color](const QImage &image) {
+            const QImage x = image.convertToFormat(QImage::Format_RGB32);
+            if (x.isNull()) return 1.0;
+            qint64 foreign = 0;
+            for (int row = 0; row < x.height(); ++row) {
+                const auto *p = reinterpret_cast<const QRgb *>(x.constScanLine(row));
+                for (int col = 0; col < x.width(); ++col)
+                    foreign += std::abs(qRed(p[col]) - backdrop_color.red()) + std::abs(qGreen(p[col]) - backdrop_color.green()) +
+                                   std::abs(qBlue(p[col]) - backdrop_color.blue()) > 24;
+            }
+            return double(foreign) / (qint64(x.width()) * x.height());
+        };
+        QScreen *screen = QGuiApplication::primaryScreen();
+        QWidget backdrop;
+        backdrop.setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
+        backdrop.setAttribute(Qt::WA_ShowWithoutActivating);
+        backdrop.setAutoFillBackground(true);
+        QPalette palette = backdrop.palette();
+        palette.setColor(QPalette::Window, backdrop_color);
+        backdrop.setPalette(palette);
+        for (bool hidden : {false, true}) {
+            config->set_recording_hide_toolbar_in_captures(hidden);
+            RecordToolbar toolbar;
+            toolbar.move(screen->geometry().center() - QPoint(toolbar.width() / 2, toolbar.height() / 2));
+            backdrop.setGeometry(toolbar.frameGeometry().adjusted(-20, -20, 20, 20));
+            toolbar.set_record_rect(screen->geometry());
+            backdrop.show();
+            QVERIFY(QTest::qWaitForWindowExposed(&backdrop));
+            toolbar.show();
+            QVERIFY(QTest::qWaitForWindowExposed(&toolbar));
+            toolbar.raise();
+            const QRect logical = toolbar.frameGeometry();
+            const qreal dpr = screen->devicePixelRatio();
+            const QRect physical(QPoint(qRound(logical.x() * dpr), qRound(logical.y() * dpr)), QSize(qRound(logical.width() * dpr), qRound(logical.height() * dpr)));
+            const QPoint origin = logical.topLeft() - screen->geometry().topLeft();
+            const auto gdi = [&] { return foreign_share(screen->grabWindow(0, origin.x(), origin.y(), logical.width(), logical.height()).toImage()); };
+            const auto dxgi = [&] { return foreign_share(grab_region_hdr(physical)); };
+            if (!hidden) {
+                QTRY_VERIFY_WITH_TIMEOUT(gdi() > 0.2, 3000);
+                QTRY_VERIFY_WITH_TIMEOUT(dxgi() > 0.2, 3000);
+                continue;
+            }
+            QTest::qWait(300);
+            for (int sample = 0; sample < 3; ++sample) {
+                const double g = gdi(), d = dxgi();
+                QVERIFY2(g < 0.02, qPrintable(QString("GDI saw the toolbar: %1").arg(g)));
+                QVERIFY2(d < 0.02, qPrintable(QString("DXGI saw the toolbar: %1").arg(d)));
+                QTest::qWait(100);
+            }
+        }
     }
 
     // The window hands its capture session back when closed, and clears the global pointer.

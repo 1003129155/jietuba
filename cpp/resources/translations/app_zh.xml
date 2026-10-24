@@ -1530,6 +1530,14 @@ Replace it?</source>
         <translation>让工具栏及其面板不会被录屏、截图、屏幕共享、远程画面等捕获，你自己照常看得见。录教程等需要录进工具栏时可关掉。</translation>
     </message>
     <message>
+        <source>Screen Recording</source>
+        <translation>录屏</translation>
+    </message>
+    <message>
+        <source>Keeps the recording toolbar, its panels and menus out of the recording while they sit inside the recording area, such as when recording the full screen; you still see them. Turn off to record them too.</source>
+        <translation>录制全屏等情况下，工具栏及其面板、菜单落在录制区域里时不会被录进去，你自己照常看得见。需要录进工具栏时可关掉。</translation>
+    </message>
+    <message>
         <source>Where It Was Last</source>
         <translation>上次的位置</translation>
     </message>

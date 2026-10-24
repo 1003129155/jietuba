@@ -1532,6 +1532,14 @@ Replace it?</source>
         <translation>ツールバーとパネルを録画、スクリーンショット、画面共有、リモート画面などのキャプチャに写さないようにします。自分には見えています。チュートリアルの録画などで写したいときはオフにします。</translation>
     </message>
     <message>
+        <source>Screen Recording</source>
+        <translation>録画</translation>
+    </message>
+    <message>
+        <source>Keeps the recording toolbar, its panels and menus out of the recording while they sit inside the recording area, such as when recording the full screen; you still see them. Turn off to record them too.</source>
+        <translation>全画面の録画などで、ツールバーやパネル、メニューが録画範囲に入っているときは録画に写さないようにします。自分には見えています。写したいときはオフにします。</translation>
+    </message>
+    <message>
         <source>Where It Was Last</source>
         <translation>前回の位置</translation>
     </message>

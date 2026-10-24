@@ -145,6 +145,7 @@ SETTING(video_record_bitrate, "app/video_record_bitrate", int, 4000000, Internal
 SETTING(video_record_system_audio, "app/video_record_system_audio", bool, true, Internal, Gen, Gen)
 SETTING(video_record_hardware, "app/video_record_hardware", bool, true, Internal, Gen, Gen)
 SETTING(video_record_cursor, "app/video_record_cursor", bool, true, Internal, Gen, Gen)
+SETTING(recording_hide_toolbar_in_captures, "app/recording_hide_toolbar_in_captures", bool, true, Import, Gen, Gen)
 SETTING(gif_fps_options, "app/gif_fps_options", QVariantList, (QVariantList{5, 10, 16, 24}), Internal, Own, None)
 SETTING(ocr_enabled, "app/ocr_enabled", bool, true, Import, Gen, Gen)
 SETTING(ocr_engine, "app/ocr_engine", QString, "auto", Import, Own, Own)

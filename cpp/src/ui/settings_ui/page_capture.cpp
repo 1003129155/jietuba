@@ -102,6 +102,16 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     grp_engine->addSettingCard(engine_card);
     layout->addWidget(grp_engine);
 
+    // ── Recording ──
+    auto *grp_record = new SettingsCardGroup(dialog->tr_text("Screen Recording"), view, "capture");
+    auto *record_hide_card = new SwitchSettingCard(FluentIcon::Camera, dialog->tr_text("Toolbar Invisible to Screen Capture"),
+                                                   dialog->tr_text("Keeps the recording toolbar, its panels and menus out of the recording while they sit inside the recording area, such as when recording the full screen; you still see them. Turn off to record them too."),
+                                                   grp_record);
+    record_hide_card->setChecked(config->get_recording_hide_toolbar_in_captures());
+    dialog->behavior_controls.emplace_back("recording_hide_toolbar_in_captures", record_hide_card);
+    grp_record->addSettingCard(record_hide_card);
+    layout->addWidget(grp_record);
+
     // ── Smart selection ──
     auto *grp_smart = new SettingsCardGroup(dialog->tr_text("Smart Selection"), view, "capture");
     // Three levels in one combo rather than a master switch plus a drill-down switch: the

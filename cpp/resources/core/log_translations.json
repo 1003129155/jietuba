@@ -383,6 +383,7 @@
 "屏幕标注图层: {geometry}": "Screen annotation layer: {geometry}",
 "屏幕标注工具: {tool_id}": "Screen annotation tool: {tool_id}",
 "屏幕标注工具栏未能排除出截图: {error_code}": "Could not keep the screen annotation toolbar out of captures: {error_code}",
+"录制工具栏未能排除出截图: {error_code}": "Could not keep the recording toolbar out of captures: {error_code}",
 "屏幕标注已清空: {count} 个屏幕": "Screen annotation cleared: {count} screens",
 "屏幕标注开始": "Screen annotation started",
 "屏幕标注结束": "Screen annotation ended",

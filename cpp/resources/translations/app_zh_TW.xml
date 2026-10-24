@@ -1539,6 +1539,14 @@ Replace it?</source>
         <translation>讓工具列及其面板不會被螢幕錄影、截圖、螢幕分享、遠端畫面等擷取，你自己照常看得見。錄教學等需要錄進工具列時可關掉。</translation>
     </message>
     <message>
+        <source>Screen Recording</source>
+        <translation>螢幕錄影</translation>
+    </message>
+    <message>
+        <source>Keeps the recording toolbar, its panels and menus out of the recording while they sit inside the recording area, such as when recording the full screen; you still see them. Turn off to record them too.</source>
+        <translation>錄製全螢幕等情況下，工具列及其面板、選單落在錄製區域內時不會被錄進去，你自己照常看得見。需要錄進工具列時可關掉。</translation>
+    </message>
+    <message>
         <source>Where It Was Last</source>
         <translation>上次的位置</translation>
     </message>

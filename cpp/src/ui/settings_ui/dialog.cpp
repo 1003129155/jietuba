@@ -668,6 +668,7 @@ void SettingsDialog::reset_quick_actions_page() {
 
 void SettingsDialog::reset_screenshot_settings_page() {
     const auto &defaults = config_manager->app_defaults();
+    refresh_behavior_controls(true, {}, std::set<QString>{"recording_hide_toolbar_in_captures"});
     if (auto *combo = attr<QComboBox>("capture_engine_combo")) combo->setCurrentIndex(CAPTURE_ENGINE_CHOICES.indexOf(defaults.value("capture_engine").toString()));
     if (auto *combo = attr<QComboBox>("smart_mode_combo"))
         combo->setCurrentIndex(SMART_SELECTION_MODES.indexOf(defaults.value("smart_selection").toBool() ? defaults.value("smart_selection_mode").toString() : QString("off")));
