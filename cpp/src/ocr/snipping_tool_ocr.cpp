@@ -33,11 +33,6 @@ QList<int> package_version(const QString &full_name) {
     return version;
 }
 
-bool has_required_files(const QString &directory) {
-    for (const auto &name : SNIPPING_TOOL_REQUIRED_FILES)
-        if (!QFileInfo(QDir(directory).filePath(name)).isFile()) return false;
-    return true;
-}
 
 // The image the engine takes: BGRA rows.
 struct OcrImage {
@@ -90,6 +85,12 @@ struct SnippingToolOcr::Api {
     Release release_result, release_init_options, release_pipeline, release_process_options;
 };
 
+bool snipping_tool_files_present(const QString &directory) {
+    for (const auto &name : SNIPPING_TOOL_REQUIRED_FILES)
+        if (!QFileInfo(QDir(directory).filePath(name)).isFile()) return false;
+    return true;
+}
+
 std::optional<std::pair<QString, QString>> find_snipping_tool() {
     using FindPackagesByPackageFamilyFn = LONG(WINAPI *)(PCWSTR, UINT32, UINT32 *, PWSTR *, UINT32 *, WCHAR *, UINT32 *);
     using GetPackagePathByFullNameFn = LONG(WINAPI *)(PCWSTR, UINT32 *, PWSTR);
@@ -112,7 +113,7 @@ std::optional<std::pair<QString, QString>> find_snipping_tool() {
         if (get_package_path(full_names[index], &path_len, path.data()) != 0) continue;
         const auto full_name = QString::fromWCharArray(full_names[index]);
         const auto source = QDir(QString::fromWCharArray(path.data())).filePath("SnippingTool");
-        if (!has_required_files(source)) continue;
+        if (!snipping_tool_files_present(source)) continue;
         auto candidate = std::make_tuple(package_version(full_name), full_name, source);
         if (!best || candidate > *best) best = candidate;
     }
@@ -131,7 +132,7 @@ QString prepare_snipping_tool_files(const std::pair<QString, QString> &package) 
     const auto &[full_name, source] = package;
     const QDir root(snipping_tool_cache_root());
     const auto target = root.filePath(full_name);
-    if (has_required_files(target)) return target;
+    if (snipping_tool_files_present(target)) return target;
     const auto staging = root.filePath(QString("%1.tmp%2").arg(full_name).arg(QCoreApplication::applicationPid()));
     QDir(staging).removeRecursively();
     if (!QDir().mkpath(staging)) throw std::runtime_error("cannot create OCR staging directory");

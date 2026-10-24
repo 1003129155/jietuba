@@ -194,6 +194,19 @@ private:
     QTemporaryDir dir_;
     QSettings *settings_ = nullptr;
     bool ppocr_ = false;
+
+    using SnippingToolPackage = std::optional<std::pair<QString, QString>>;
+    // A package holding the stand-in oneocr.dll. The full name carries the process id: engine
+    // copies are cached by full name, and one left by an earlier run must not be reused.
+    static SnippingToolPackage fake_package(const QTemporaryDir &packages, const QString &name) {
+        const QDir source(QDir(packages.path()).filePath(name));
+        if (!QDir().mkpath(source.path()) || !QFile::copy(QDir(JIETUBA_FAKE_ONEOCR_FULL_DIR).filePath("oneocr.dll"), source.filePath("oneocr.dll"))) return std::nullopt;
+        for (const char *file : {"oneocr.onemodel", "onnxruntime.dll"}) {
+            QFile placeholder(source.filePath(file));
+            if (!placeholder.open(QIODevice::WriteOnly)) return std::nullopt;
+        }
+        return std::make_pair(QString("Fake.Oneocr.%1_1.0.0.0_x64__test%2").arg(name).arg(QCoreApplication::applicationPid()), source.path());
+    }
 private slots:
     void initTestCase() {
         QVERIFY(dir_.isValid());
@@ -239,6 +252,64 @@ private slots:
         QVERIFY(!set_ocr_engine(OCRManager::ENGINE_ONEOCR));
         QVERIFY(!ocr.get_last_error().isEmpty());
         QCOMPARE(get_ocr_memory_status(), QString::fromUtf8("未初始化"));
+    }
+
+    void aWorkingPpocrChoiceDoesNotLookUpTheSnippingTool() {
+        if (!ppocr_) QSKIP("PP-OCR pack is not installed; set JIETUBA_PPOCR_MODELS.");
+        QTemporaryDir packages;
+        QVERIFY(packages.isValid());
+        const auto installed = fake_package(packages, "unneeded");
+        QVERIFY(installed);
+        int lookups = 0;
+        const auto restore = qScopeGuard([] {
+            release_ocr_engine();
+            set_snipping_tool_finder_for_test({});
+            set_ppocr_model({});
+            set_ocr_engine(OCRManager::ENGINE_AUTO);
+        });
+        set_ppocr_model({});
+        set_snipping_tool_finder_for_test([&] { ++lookups; return installed; });
+        QVERIFY(initialize_ocr(OCRManager::ENGINE_PP_RUST));
+        QCOMPARE(lookups, 0);
+        for (int attempt = 0; attempt < 2; ++attempt) {
+            QVERIFY(recognized_text(recognize_text(text_image("Chosen"))).contains("Chosen"));
+            QCOMPARE(get_current_engine(), std::optional<QString>(OCRManager::ENGINE_PP_RUST));
+            QCOMPARE(lookups, 0);
+        }
+        QVERIFY(set_ocr_engine(OCRManager::ENGINE_AUTO));
+        QVERIFY(lookups > 0);
+        QCOMPARE(get_current_engine(), std::optional<QString>(OCRManager::ENGINE_ONEOCR));
+    }
+
+    void anUnavailablePpocrChoiceFallsBackToTheSnippingTool_data() {
+        QTest::addColumn<bool>("has_model");
+        QTest::newRow("missing model") << false;
+        QTest::newRow("missing runtime") << true;
+    }
+
+    void anUnavailablePpocrChoiceFallsBackToTheSnippingTool() {
+        QFETCH(bool, has_model);
+        QTemporaryDir models, packages;
+        QVERIFY(models.isValid());
+        QVERIFY(packages.isValid());
+        const auto installed = fake_package(packages, "fallback");
+        QVERIFY(installed);
+        ppocr_models::set_models_root_for_test(models.path());
+        int lookups = 0;
+        const auto restore = qScopeGuard([] {
+            release_ocr_engine();
+            ppocr_models::set_models_root_for_test({});
+            set_snipping_tool_finder_for_test({});
+            set_ppocr_model({});
+            set_ocr_engine(OCRManager::ENGINE_AUTO);
+        });
+        if (has_model) write_placeholder_model(models.path());
+        set_ppocr_model("placeholder");
+        set_snipping_tool_finder_for_test([&] { ++lookups; return installed; });
+        QVERIFY(initialize_ocr(OCRManager::ENGINE_PP_RUST));
+        QVERIFY(lookups > 0);
+        QCOMPARE(get_current_engine(), std::optional<QString>(OCRManager::ENGINE_ONEOCR));
+        QCOMPARE(recognize_text(text_image("Fallback")).code, 100);
     }
 
     // A tilted paragraph keeps its lines and their order: lines are told apart across the page's
@@ -673,6 +744,78 @@ private slots:
         QVERIFY(set_ocr_engine(OCRManager::ENGINE_PP_RUST));
         QVERIFY(!ocr.is_engine_loaded());
         QVERIFY(set_ocr_engine(OCRManager::ENGINE_AUTO));
+    }
+
+    // Not found at first: found once installed, on the next lookup after the interval; once found
+    // with its files in place it is not looked up again.
+    void aSnippingToolInstalledLaterIsFound() {
+        QTemporaryDir packages;
+        QVERIFY(packages.isValid());
+        SnippingToolPackage installed;
+        int lookups = 0;
+        set_snipping_tool_finder_for_test([&] { ++lookups; return installed; }, std::chrono::milliseconds(200));
+        const auto restore = qScopeGuard([] { set_snipping_tool_finder_for_test({}); });
+        QVERIFY(!get_available_engines().contains(OCRManager::ENGINE_ONEOCR));
+        QVERIFY(!get_available_engines().contains(OCRManager::ENGINE_ONEOCR));
+        QCOMPARE(lookups, 1);
+        installed = fake_package(packages, "a");
+        QVERIFY(installed);
+        QTest::qWait(250);
+        QVERIFY(get_available_engines().contains(OCRManager::ENGINE_ONEOCR));
+        QCOMPARE(lookups, 2);
+        QTest::qWait(250);
+        QVERIFY(get_available_engines().contains(OCRManager::ENGINE_ONEOCR));
+        QCOMPARE(lookups, 2);
+    }
+
+    // A Store update moves the package: the load from the old directory fails, the lookup runs
+    // again at once and the load is retried with the new one. Removed, it falls out of the list.
+    void aMovedSnippingToolIsFoundAgainAndARemovedOneDropsOut() {
+        QTemporaryDir packages;
+        QVERIFY(packages.isValid());
+        SnippingToolPackage installed = fake_package(packages, "old");
+        QVERIFY(installed);
+        int lookups = 0;
+        set_snipping_tool_finder_for_test([&] { ++lookups; return installed; }, std::chrono::hours(1));
+        const auto restore = qScopeGuard([] {
+            set_snipping_tool_finder_for_test({});
+            set_ocr_engine(OCRManager::ENGINE_AUTO);
+        });
+        QVERIFY(set_ocr_engine(OCRManager::ENGINE_ONEOCR));
+        QCOMPARE(lookups, 1);
+        QVERIFY(QDir(installed->second).removeRecursively());
+        installed = fake_package(packages, "new");
+        QVERIFY(installed);
+        QVERIFY(initialize_ocr(OCRManager::ENGINE_ONEOCR));
+        QCOMPARE(lookups, 2);
+        QVERIFY(get_ocr_memory_status().contains(QString::fromUtf8("截图工具")));
+
+        // Removed before the engine was loaded again: the load fails and the engine is no longer listed.
+        release_ocr_engine();
+        set_snipping_tool_finder_for_test([&] { ++lookups; return installed; }, std::chrono::hours(1));
+        installed = fake_package(packages, "gone");
+        QVERIFY(installed);
+        lookups = 0;
+        QVERIFY(get_available_engines().contains(OCRManager::ENGINE_ONEOCR));
+        QVERIFY(QDir(installed->second).removeRecursively());
+        installed.reset();
+        QVERIFY(!initialize_ocr(OCRManager::ENGINE_ONEOCR));
+        QCOMPARE(lookups, 2);
+        QVERIFY(!get_available_engines().contains(OCRManager::ENGINE_ONEOCR));
+        set_ocr_engine(OCRManager::ENGINE_ONEOCR);
+        QVERIFY(get_current_engine() != OCRManager::ENGINE_ONEOCR);
+
+        // Removed while chosen: the recognition that finds it gone is done by PP-OCR instead.
+        if (!ppocr_) return;
+        installed = fake_package(packages, "gone-while-chosen");
+        QVERIFY(installed);
+        set_snipping_tool_finder_for_test([&] { return installed; }, std::chrono::hours(1));
+        QVERIFY(set_ocr_engine(OCRManager::ENGINE_ONEOCR));
+        QCOMPARE(get_current_engine(), std::optional<QString>(OCRManager::ENGINE_ONEOCR));
+        QVERIFY(QDir(installed->second).removeRecursively());
+        installed.reset();
+        QVERIFY(recognized_text(recognize_text(text_image("Snipping"))).contains("Snipping"));
+        QCOMPARE(get_current_engine(), std::optional<QString>(OCRManager::ENGINE_PP_RUST));
     }
 };
 

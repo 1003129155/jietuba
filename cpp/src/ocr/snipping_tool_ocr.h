@@ -22,6 +22,8 @@ constexpr int SNIPPING_TOOL_MAX_SIDE = 2500;
 // without OCR files in its version. Goes through the package manager API: plain users
 // cannot list WindowsApps.
 std::optional<std::pair<QString, QString>> find_snipping_tool();
+// The directory holds every file the engine needs.
+bool snipping_tool_files_present(const QString &directory);
 QString snipping_tool_cache_root();
 // Copies the OCR files into the app data directory and returns that directory. Copies
 // to a staging directory first and renames it whole, so a failure never leaves a

@@ -10,7 +10,10 @@
 #include <QFileInfo>
 #include <QTransform>
 #include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <functional>
+#include <mutex>
 #include <vector>
 #include <windows.h>
 #include "core/native.h"
@@ -24,15 +27,41 @@ void ocr_log(const LogMsg &message, const QString &level = "INFO") {
     else log_info(message, "OCR");
 }
 
-// The Snipping Tool OCR needs a Snipping Tool with OCR files (Windows 11).
-const std::optional<std::pair<QString, QString>> &snipping_tool() {
-    static const auto package = [] {
-        const auto found = find_snipping_tool();
+using SnippingToolPackage = std::optional<std::pair<QString, QString>>;
+constexpr std::chrono::milliseconds SNIPPING_TOOL_RESCAN{std::chrono::seconds(30)};
+
+// The Snipping Tool OCR needs a Snipping Tool with OCR files (Windows 11). It can be installed,
+// removed or updated while running; an update moves the files to a new versioned directory.
+struct SnippingToolLookup {
+    std::mutex lock;
+    std::function<SnippingToolPackage()> finder = find_snipping_tool;
+    std::chrono::milliseconds interval = SNIPPING_TOOL_RESCAN;
+    SnippingToolPackage package;
+    std::optional<std::chrono::steady_clock::time_point> checked_at;
+};
+
+SnippingToolLookup &snipping_tool_lookup() {
+    static SnippingToolLookup lookup;
+    return lookup;
+}
+
+// Looked up again at most once per interval, while missing or once the found files are gone;
+// force looks up now.
+SnippingToolPackage snipping_tool(bool force = false) {
+    auto &lookup = snipping_tool_lookup();
+    std::lock_guard lock(lookup.lock);
+    const auto now = std::chrono::steady_clock::now();
+    const bool first = !lookup.checked_at;
+    if (!force && !first && now - *lookup.checked_at < lookup.interval) return lookup.package;
+    lookup.checked_at = now;
+    if (!force && lookup.package && snipping_tool_files_present(lookup.package->second)) return lookup.package;
+    auto found = lookup.finder();
+    if (first || found != lookup.package) {
         if (found) ocr_log(T("截图工具 OCR 可用: {package}", {{"package", found->first}}), "DEBUG");
         else ocr_log(T("截图工具 OCR 不可用（未安装截图工具或缺少 OCR 文件）"), "DEBUG");
-        return found;
-    }();
-    return package;
+    }
+    lookup.package = std::move(found);
+    return lookup.package;
 }
 
 std::optional<bool> &oneocr_override() {
@@ -40,7 +69,8 @@ std::optional<bool> &oneocr_override() {
     return available;
 }
 
-bool oneocr_available() { return oneocr_override().value_or(snipping_tool().has_value()); }
+// A loaded engine works from its own copy of the files, so it is not looked up again.
+bool oneocr_available(bool loaded) { return oneocr_override().value_or(loaded || snipping_tool().has_value()); }
 
 // The ort used by the reference's ppocr_rust needs ONNX Runtime 1.24 or later (API version 24).
 constexpr int ORT_MIN_MINOR = 24;
@@ -123,6 +153,15 @@ bool ppocr_runtime_supported(const QString &dll) { return runtime_supported(dll)
 
 void set_oneocr_available_for_test(std::optional<bool> available) { oneocr_override() = available; }
 
+void set_snipping_tool_finder_for_test(std::function<std::optional<std::pair<QString, QString>>()> finder, std::chrono::milliseconds rescan) {
+    auto &lookup = snipping_tool_lookup();
+    std::lock_guard lock(lookup.lock);
+    lookup.interval = finder ? rescan : SNIPPING_TOOL_RESCAN;
+    lookup.finder = finder ? std::move(finder) : find_snipping_tool;
+    lookup.package.reset();
+    lookup.checked_at.reset();
+}
+
 OCRManager::OCRManager() = default;
 
 OCRManager &OCRManager::instance() {
@@ -130,11 +169,11 @@ OCRManager &OCRManager::instance() {
     return manager;
 }
 
-bool OCRManager::is_available() const { return oneocr_available() || ppocr_ready(); }
+bool OCRManager::is_available() const { return oneocr_available(one_loaded_) || ppocr_ready(); }
 
 QStringList OCRManager::get_available_engines() const {
     QStringList engines;
-    if (oneocr_available()) engines.append(ENGINE_ONEOCR);
+    if (oneocr_available(one_loaded_)) engines.append(ENGINE_ONEOCR);
     if (ppocr_ready()) engines.append(ENGINE_PP_RUST);
     return engines;
 }
@@ -200,10 +239,10 @@ qsizetype OCRManager::broken_count() const {
 }
 
 bool OCRManager::falls_back(const QString &preference) const {
-    if (preference == ENGINE_ONEOCR) return !oneocr_available();
+    if (preference == ENGINE_ONEOCR) return !oneocr_available(one_loaded_);
     if (preference != ENGINE_PP_RUST) return false;
     const auto model = chosen_model();
-    return !model || is_broken(*model);
+    return !model || is_broken(*model) || !runtime_ready();
 }
 
 QString OCRManager::missing_reason() { return get_ppocr_status() == "missing_engine" ? QString("no_runtime") : QString("no_model"); }
@@ -226,9 +265,10 @@ void OCRManager::set_ppocr_model(const QString &model_id) {
 bool OCRManager::ppocr_ready() const { return selected_ppocr_model() && runtime_ready(); }
 
 std::optional<QString> OCRManager::resolve_engine(const QString &preference) const {
+    if (!ENGINE_PREFERENCES.contains(preference)) return std::nullopt;
+    if (preference != ENGINE_AUTO && !falls_back(preference)) return preference;
     const auto available = get_available_engines();
-    if (preference == ENGINE_AUTO || falls_back(preference)) return available.isEmpty() ? std::nullopt : std::optional<QString>(available.front());
-    return available.contains(preference) ? std::optional<QString>(preference) : std::nullopt;
+    return available.isEmpty() ? std::nullopt : std::optional<QString>(available.front());
 }
 
 std::optional<QString> OCRManager::get_current_engine() const {
@@ -350,25 +390,36 @@ bool OCRManager::initialize_ppocr_rust() {
 }
 
 bool OCRManager::initialize_oneocr() {
-    if (!oneocr_available()) {
+    if (!oneocr_available(one_loaded_)) {
         set_last_error(QString::fromUtf8("截图工具 OCR 不可用"));
         return false;
     }
     if (one_loaded_) return true;
     std::lock_guard lock(engine_lock_);
     if (one_engine_) return true;
-    try {
-        // The first run copies about 114 MB of files into the app data directory.
-        ocr_log(T("正在初始化截图工具 OCR..."), "DEBUG");
-        one_engine_ = std::make_unique<SnippingToolOcr>(*snipping_tool());
-        one_loaded_ = true;
-        ocr_log(T("截图工具 OCR 初始化成功"), "DEBUG");
-        return true;
-    } catch (const std::exception &e) {
-        set_last_error(QString::fromUtf8("截图工具 OCR 初始化失败: ") + QString::fromUtf8(e.what()));
-        ocr_log(T("截图工具 OCR 初始化失败: {e}\n{tb}", {{"e", QString::fromUtf8(e.what())}, {"tb", QString()}}), "ERROR");
-        one_engine_.reset();
-        return false;
+    auto package = snipping_tool();
+    // A failed load looks the package up again and retries once if it moved (a Store update).
+    for (bool retried = false;; retried = true) {
+        if (!package) {
+            set_last_error(QString::fromUtf8("截图工具 OCR 不可用"));
+            return false;
+        }
+        try {
+            // The first run copies about 114 MB of files into the app data directory.
+            ocr_log(T("正在初始化截图工具 OCR..."), "DEBUG");
+            one_engine_ = std::make_unique<SnippingToolOcr>(*package);
+            one_loaded_ = true;
+            ocr_log(T("截图工具 OCR 初始化成功"), "DEBUG");
+            return true;
+        } catch (const std::exception &e) {
+            set_last_error(QString::fromUtf8("截图工具 OCR 初始化失败: ") + QString::fromUtf8(e.what()));
+            ocr_log(T("截图工具 OCR 初始化失败: {e}\n{tb}", {{"e", QString::fromUtf8(e.what())}, {"tb", QString()}}), "ERROR");
+            one_engine_.reset();
+        }
+        if (retried) return false;
+        auto found = snipping_tool(true);
+        if (found == package) return false;
+        package = std::move(found);
     }
 }
 
@@ -401,7 +452,9 @@ OcrResult OCRManager::recognize(const QImage &image, const std::atomic_bool *can
         const auto engine = get_current_engine();
         if (engine == ENGINE_ONEOCR) {
             result = recognize_with_oneocr(image, cancelled);
-            break;
+            // The Snipping Tool went away during the load: the next choice skips it.
+            if (result.code == 100 || oneocr_available(one_loaded_)) break;
+            continue;
         }
         if (engine != ENGINE_PP_RUST) {
             result = format_error();

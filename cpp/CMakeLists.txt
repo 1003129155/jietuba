@@ -433,6 +433,8 @@ if(BUILD_TESTING)
     # Loading an engine clears the shared test cache of other versions' copies, so the two do not run together.
     set_tests_properties(snipping_tool_ocr PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" RESOURCE_LOCK oneocr_test_cache)
     set_tests_properties(ocr_manager PROPERTIES RESOURCE_LOCK oneocr_test_cache)
+    add_dependencies(jietuba_ocr_manager_tests fake_oneocr_full)
+    target_compile_definitions(jietuba_ocr_manager_tests PRIVATE JIETUBA_FAKE_ONEOCR_FULL_DIR="$<TARGET_FILE_DIR:fake_oneocr_full>")
     qt_add_executable(jietuba_ocr_bands_tests tests/test_ocr_bands.cpp)
     target_link_libraries(jietuba_ocr_bands_tests PRIVATE jietuba_lib Qt6::Test)
     add_test(NAME ocr_bands COMMAND jietuba_ocr_bands_tests -o ${JIETUBA_TEST_REPORTS}/ocr_bands.txt,txt)
