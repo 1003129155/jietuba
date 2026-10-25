@@ -46,10 +46,12 @@
 #include <QScrollBar>
 #include <QSet>
 #include <QSettings>
+#include <QSemaphore>
 #include <QStackedWidget>
 #include <QTemporaryDir>
 #include <QTest>
 #include <algorithm>
+#include <atomic>
 
 using namespace jietuba;
 
@@ -143,6 +145,107 @@ private slots:
                                  "clipboard_history_limit_spin", "special_paste_manage_btn", "_clip_theme_btn", "_clip_font_combo", "_clip_opacity_combo",
                                  "preload_clipboard_toggle"})
             QVERIFY2(dialog.has_attr(name), name);
+    }
+
+    void externalRefreshRunsInBackgroundAndSupersedesOldResults() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        struct QueryState {
+            QSemaphore started, release;
+            std::atomic_int calls{0};
+            std::atomic_bool on_gui{false};
+        };
+        auto state = std::make_shared<QueryState>();
+        const auto unblock = qScopeGuard([state] { state->release.release(); });
+        auto *gui = QThread::currentThread();
+        QList<int> results;
+        bool applied_on_gui = false;
+        const auto refresh = dialog.add_external_refresh([state, gui] {
+            state->on_gui = QThread::currentThread() == gui;
+            const int call = ++state->calls;
+            state->started.release();
+            if (call == 1) state->release.acquire();
+            return call;
+        }, [&](int result) {
+            applied_on_gui = QThread::currentThread() == gui;
+            results << result;
+        });
+        // Registering a page refresh starts its first query without another show or activation.
+        QTRY_VERIFY(state->started.available() > 0);
+        bool responsive = false;
+        QTimer::singleShot(0, &dialog, [&] { responsive = true; });
+        QTRY_VERIFY(responsive);
+        for (int i = 0; i < 10; ++i) refresh();
+        state->release.release();
+        QTRY_COMPARE(results, QList<int>{2});
+        QCOMPARE(state->calls.load(), 2);
+        QVERIFY(!state->on_gui.load());
+        QVERIFY(applied_on_gui);
+        QVERIFY(!dialog.has_unsaved_changes());
+    }
+
+    void externalRefreshOutlivesAClosedWindowWithoutDeliveringToIt() {
+        struct QueryState {
+            QSemaphore started, release;
+            std::atomic_bool finished{false};
+        };
+        auto state = std::make_shared<QueryState>();
+        const auto unblock = qScopeGuard([state] { state->release.release(); });
+        bool applied = false;
+        auto dialog = std::make_unique<SettingsDialog>(config_, config_->get_hotkey());
+        dialog->add_external_refresh([state] {
+            state->started.release();
+            state->release.acquire();
+            state->finished = true;
+            return true;
+        }, [&](bool) { applied = true; });
+        QTRY_VERIFY(state->started.available() > 0);
+        dialog.reset();
+        state->release.release();
+        QTRY_VERIFY(state->finished.load());
+        QCoreApplication::processEvents();
+        QVERIFY(!applied);
+    }
+
+    void externalRefreshCanRetryAfterAQueryFailure() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        auto calls = std::make_shared<std::atomic_int>(0);
+        int result = 0;
+        const auto refresh = dialog.add_external_refresh([calls] {
+            if (++*calls == 1) throw std::runtime_error("query unavailable");
+            return 42;
+        }, [&](int value) { result = value; });
+        QTRY_COMPARE(calls->load(), 1);
+        QTest::qWait(30);
+        QCOMPARE(result, 0);
+        refresh();
+        QTRY_COMPARE(result, 42);
+    }
+
+    // Showing the window also activates it; the two must not run the query twice. Coming back
+    // from another window reads again.
+    void showingTheWindowQueriesOnce() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        auto calls = std::make_shared<std::atomic_int>(0);
+        int applied = 0;
+        dialog.add_external_refresh([calls] { return ++*calls; }, [&](int) { ++applied; });
+        QTRY_COMPARE(applied, 1);
+
+        dialog.show();
+        QTRY_VERIFY(dialog.isActiveWindow());
+        QTRY_COMPARE(applied, 2);
+        QTest::qWait(100);
+        QCOMPARE(calls->load(), 2);
+        QCOMPARE(applied, 2);
+
+        QWidget other;
+        other.show();
+        QTRY_VERIFY(!dialog.isActiveWindow());
+        QTest::qWait(100);
+        QCOMPARE(calls->load(), 2);
+        dialog.activateWindow();
+        QTRY_COMPARE(applied, 3);
+        QCOMPARE(calls->load(), 3);
     }
 
     void sizeFollowsTheScreenAndKeepsAUserSize() {
@@ -358,6 +461,7 @@ private slots:
         dialog.on_nav_changed(1, "capture");
         auto *combo = dialog.attr<QComboBox>("ocr_engine_combo");
         QVERIFY(combo);
+        QTRY_VERIFY(combo->property("queried").toBool());
         auto *items = qobject_cast<QStandardItemModel *>(combo->model());
         QStringList catalog_order;
         for (const auto &value : ppocr_models::catalog().value("models").toArray()) catalog_order << value.toObject().value("id").toString();
@@ -374,7 +478,7 @@ private slots:
 
         QVERIFY(write("new/det.onnx") && write("new/rec.onnx") && write("new/model.json", manifest("new", "")));
         emit model_downloads()->models_changed();
-        QVERIFY(combo->findData("ppocr_rust:new") >= 0);
+        QTRY_VERIFY(combo->findData("ppocr_rust:new") >= 0);
         QCOMPARE(combo->currentData().toString(), QString("ppocr_rust:ppocr-v5-korean"));
 
         combo->setCurrentIndex(combo->findData("ppocr_rust:local"));
@@ -383,7 +487,8 @@ private slots:
         QCOMPARE(config_->get_ppocr_model(), QString("local"));
 
         QVERIFY(QDir(root.filePath("local")).removeRecursively());
-        fill_ocr_engines(&dialog, "ppocr_rust", "local");
+        emit model_downloads()->models_changed();
+        QTRY_COMPARE(combo->currentText(), settings_tr("%1 (not installed)").replace("%1", "local"));
         QCOMPARE(combo->currentData().toString(), QString("ppocr_rust:local"));
         QCOMPARE(combo->currentText(), settings_tr("%1 (not installed)").replace("%1", "local"));
         QVERIFY(!items->item(combo->currentIndex())->isEnabled());
@@ -392,6 +497,51 @@ private slots:
 
         reset_page(dialog);
         QCOMPARE(combo->currentData().toString(), QString("auto"));
+    }
+
+    // The window is kept hidden between uses: a Snipping Tool installed or removed meanwhile is
+    // listed or dropped when it comes back, and the unavailable card follows.
+    void ocrListFollowsTheSnippingToolWhenShownAgain() {
+        QTemporaryDir models;
+        QVERIFY(models.isValid());
+        ppocr_models::set_models_root_for_test(models.path());
+        set_oneocr_available_for_test(false);
+        const auto restore = qScopeGuard([] {
+            ppocr_models::set_models_root_for_test({});
+            set_oneocr_available_for_test(std::nullopt);
+        });
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.on_nav_changed(1, "capture");
+        dialog.show();
+        auto *combo = dialog.attr<QComboBox>("ocr_engine_combo");
+        auto *card = dialog.attr<QWidget>("ocr_unavailable_card");
+        QVERIFY(combo && card);
+        QTRY_VERIFY(combo->property("queried").toBool());
+        QCOMPARE(combo->findData(OCRManager::ENGINE_ONEOCR), -1);
+        QVERIFY(!card->isHidden());
+        dialog.on_nav_changed(11, "pin");
+        auto *ocr_toggle = dialog.attr<SwitchSettingCard>("ocr_enable_toggle");
+        QVERIFY(ocr_toggle);
+        QVERIFY(!ocr_toggle->isEnabled());
+        QCOMPARE(ocr_toggle->isChecked(), config_->get_ocr_enabled());
+
+        dialog.hide();
+        set_oneocr_available_for_test(true);
+        dialog.show();
+        QTRY_COMPARE(combo->findData(OCRManager::ENGINE_ONEOCR), 1);
+        QCOMPARE(combo->currentData().toString(), QString("auto"));
+        QVERIFY(card->isHidden());
+        QTRY_VERIFY(ocr_toggle->isEnabled());
+        QVERIFY(!dialog.has_unsaved_changes());
+
+        dialog.hide();
+        set_oneocr_available_for_test(false);
+        dialog.show();
+        QTRY_COMPARE(combo->findData(OCRManager::ENGINE_ONEOCR), -1);
+        QVERIFY(!card->isHidden());
+        QTRY_VERIFY(!ocr_toggle->isEnabled());
+        QCOMPARE(ocr_toggle->isChecked(), config_->get_ocr_enabled());
+        QVERIFY(!dialog.has_unsaved_changes());
     }
 
     void resetRestoresTheCurrentPageDefaults() {
@@ -953,6 +1103,28 @@ private slots:
         QVERIFY(text.endsWith(quota_usage_text(&dialog, "tencent")));
         config_->settings().remove("translation/usage");
         config_->settings().remove("translation/providers/volcengine");
+    }
+
+    // The window is kept hidden between uses; what was translated meanwhile shows when it is back.
+    void usageShowsTranslationsMadeWhileHidden() {
+        const QString provider = config_->get_translation_provider();
+        const auto restore = qScopeGuard([this, provider] {
+            config_->settings().remove("translation/usage");
+            config_->set_translation_provider(provider);
+        });
+        config_->settings().remove("translation/usage");
+        config_->set_translation_provider("tencent");
+        config_->add_translation_usage_chars("tencent", 500);
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.on_nav_changed(4, "translation");
+        auto *label = dialog.attr<QLabel>("translation_notice_label");
+        // Shown as soon as the page is built, before the background read returns.
+        QVERIFY2(label->text().contains(": 500 / "), qPrintable(label->text()));
+        dialog.hide();
+        config_->add_translation_usage_chars("tencent", 1000);
+        dialog.show();
+        QTRY_VERIFY(label->text().contains(": 1,500 / "));
     }
 
     void wizardNavigatesAcrossEveryPage() {

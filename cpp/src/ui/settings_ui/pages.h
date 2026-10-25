@@ -47,6 +47,8 @@ std::pair<QString, std::optional<QString>> ocr_choice(const QString &data);
 // model manager. A chosen engine or model that is gone stays listed, marked as not installed and
 // disabled, instead of quietly becoming another one.
 void fill_ocr_engines(SettingsDialog *dialog, const QString &engine, const QString &model_id);
+// The capture and pin pages share one installation query and its latest result.
+void ensure_ocr_refresh(SettingsDialog *dialog);
 
 // page_hotkey: the global hotkey editors form one conflict domain.
 extern const QStringList GLOBAL_HOTKEY_EDIT_ATTRS;
@@ -88,7 +90,7 @@ void refresh_latest_log_label(SettingsDialog *dialog);
 
 // page_translation: this month's usage and the guard state of a provider declaring a free
 // quota; empty for other providers.
-QString quota_usage_text(SettingsDialog *dialog, const QString &provider_id);
+QString quota_usage_text(SettingsDialog *dialog, const QString &provider_id, std::optional<qint64> usage = std::nullopt);
 
 // provider_fields: reading and writing provider settings declared by Field; no layout.
 // The settings page and the welcome page lay them out differently, but which fields exist

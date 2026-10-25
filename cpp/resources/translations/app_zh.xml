@@ -3799,10 +3799,6 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>删除所有剪贴板历史记录</translation>
     </message>
     <message>
-        <source>← Get storage size</source>
-        <translation>← 获取数据占用大小</translation>
-    </message>
-    <message>
         <source>Clear History</source>
         <translation>清空历史</translation>
     </message>

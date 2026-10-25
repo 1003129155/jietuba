@@ -3728,10 +3728,6 @@ Items in the group will be moved back to clipboard history.</translation>
         <translation>Delete all clipboard history records</translation>
     </message>
     <message>
-        <source>← Get storage size</source>
-        <translation>← Get storage size</translation>
-    </message>
-    <message>
         <source>Clear History</source>
         <translation>Clear History</translation>
     </message>

@@ -400,8 +400,7 @@ void SettingsDialog::refresh_clipboard_size(int delay_ms) {
         QTimer::singleShot(delay_ms, this, [this] { refresh_clipboard_size(); });
         return;
     }
-    const QString size = clipboard_storage_size_text();
-    attr<QLabel>("_clipboard_size_label")->setText(size.isEmpty() ? QString::fromUtf8("—") : size);
+    if (clipboard_size_refresh) clipboard_size_refresh();
 }
 
 void SettingsDialog::show_logo_context_menu(const QPoint &pos) {
@@ -1074,6 +1073,7 @@ void SettingsDialog::resizeEvent(QResizeEvent *event) {
 
 void SettingsDialog::showEvent(QShowEvent *event) {
     apply_dialog_stylesheet();
+    refresh_external_state();
     refresh_settings();
     settings_snapshot_ = snapshot_settings();
     if (save_timer_) save_timer_->stop();
@@ -1087,6 +1087,16 @@ void SettingsDialog::showEvent(QShowEvent *event) {
         open_view(*std::exchange(pending_view_, std::nullopt));
         QTimer::singleShot(0, this, [this] { setUpdatesEnabled(true); });
     }
+}
+
+void SettingsDialog::changeEvent(QEvent *event) {
+    FrostedFramelessDialog::changeEvent(event);
+    // Back from Windows Settings or Task Manager, where voices or startup apps may have changed.
+    if (event->type() == QEvent::ActivationChange && isActiveWindow()) refresh_external_state();
+}
+
+void SettingsDialog::refresh_external_state() {
+    for (const auto &refresh : external_refreshes_) refresh();
 }
 
 void SettingsDialog::hideEvent(QHideEvent *event) {

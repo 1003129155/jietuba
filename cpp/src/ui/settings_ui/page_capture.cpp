@@ -14,6 +14,7 @@
 #include "ui/settings_ui/pages.h"
 #include "ui/settings_ui/ppocr_model_dialog.h"
 #include <QHash>
+#include <QDir>
 #include <QJsonArray>
 #include <QStandardItemModel>
 #include <algorithm>
@@ -54,9 +55,11 @@ void open_model_manager(SettingsDialog *dialog) {
     auto *combo = dialog->attr<QComboBox>("ocr_engine_combo");
     PpocrModelDialog window(dialog);
     QObject::connect(&window, &PpocrModelDialog::model_removed, dialog, [dialog, &window](const QString &model_id) { on_model_removed(dialog, &window, model_id); });
+    QObject::connect(&window, &PpocrModelDialog::models_changed, dialog, dialog->ocr_refresh);
     exec_dialog(&window);
     const auto [engine, model_id] = ocr_choice(combo->property("selected").toString());
     fill_ocr_engines(dialog, engine, model_id.value_or(dialog->config_manager->get_ppocr_model()));
+    dialog->ocr_refresh();
 }
 
 // Picking "Download more models..." opens the manager; any other item becomes the selection.
@@ -74,6 +77,45 @@ SwitchSettingCard *switch_card(SettingsDialog *dialog, SettingsCardGroup *group,
     group->addSettingCard(card);
     return card;
 }
+
+void apply_ocr_install_state(SettingsDialog *dialog) {
+    if (dialog->ocr_install_state.isEmpty()) return;
+    const auto &state = dialog->ocr_install_state;
+    const bool available = state.value("has_oneocr").toBool() ||
+                           (state.value("runtime_ready").toBool() && !state.value("installed_models").toJsonArray().isEmpty());
+    if (auto *card = dialog->attr<SettingCard>("ocr_unavailable_card")) {
+        auto *group = dialog->attr<SettingsCardGroup>("ocr_settings_group");
+        group->setCardVisible(card, !available);
+        group->refreshHeight();
+    }
+    if (auto *combo = dialog->attr<QComboBox>("ocr_engine_combo")) {
+        for (auto it = state.begin(); it != state.end(); ++it) combo->setProperty(it.key().toUtf8().constData(), it.value());
+        const QString selection = combo->currentData().toString();
+        const auto [engine, model_id] = ocr_choice(selection == MANAGE_MODELS ? combo->property("selected").toString() : selection);
+        fill_ocr_engines(dialog, engine, model_id.value_or(dialog->config_manager->get_ppocr_model()));
+        combo->setProperty("queried", true);
+    }
+    if (auto *toggle = dialog->attr_widget("ocr_enable_toggle")) toggle->setEnabled(available);
+}
+}
+
+void ensure_ocr_refresh(SettingsDialog *dialog) {
+    apply_ocr_install_state(dialog);
+    if (dialog->ocr_refresh) {
+        dialog->ocr_refresh();
+        return;
+    }
+    const QString root = ppocr_models::models_root();
+    const QString fallback = ppocr_models::fallback_runtime_path();
+    dialog->ocr_refresh = dialog->add_external_refresh([root, fallback] {
+        const bool runtime = ppocr_runtime_supported(QDir(root).filePath("onnxruntime.dll")) || ppocr_runtime_supported(fallback);
+        return QVariantMap{{"has_oneocr", snipping_tool_ocr_installed()}, {"runtime_ready", runtime},
+                           {"installed_models", ppocr_models::installed(root)}, {"catalog_models", ppocr_models::catalog().value("models").toArray()}};
+    }, [dialog](const QVariantMap &state) {
+        dialog->ocr_install_state = state;
+        apply_ocr_install_state(dialog);
+    });
+    QObject::connect(model_downloads(), &ModelDownloads::models_changed, dialog, dialog->ocr_refresh);
 }
 
 QWidget *create_capture_page(SettingsDialog *dialog) {
@@ -224,23 +266,12 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     layout->addWidget(grp_magnifier);
 
     // ── OCR ──
-    QStringList available_engines;
-    try {
-        available_engines = get_available_engines();
-    } catch (const std::exception &) {
-        available_engines.clear();
-    }
-    const bool ocr_available = !available_engines.isEmpty();
     auto *grp_ocr = new SettingsCardGroup(dialog->tr_text("OCR Settings"), view, "capture");
+    dialog->set_attr("ocr_settings_group", grp_ocr);
     auto *ocr_engine_card = new SettingCard(FluentIcon::Font, dialog->tr_text("OCR Engine"), dialog->tr_text("Switch OCR engines here."), grp_ocr);
     auto *ocr_engine_combo = new ComboBox(ocr_engine_card);
-    ocr_engine_combo->setProperty("has_oneocr", available_engines.contains(OCRManager::ENGINE_ONEOCR));
     dialog->set_attr("ocr_engine_combo", ocr_engine_combo);
     fill_ocr_engines(dialog, config->get_ocr_engine(), config->get_ppocr_model());
-    QObject::connect(model_downloads(), &ModelDownloads::models_changed, dialog, [dialog, ocr_engine_combo] {
-        const auto [engine, model_id] = ocr_choice(ocr_engine_combo->property("selected").toString());
-        fill_ocr_engines(dialog, engine, model_id.value_or(dialog->config_manager->get_ppocr_model()));
-    });
     QObject::connect(ocr_engine_combo, &QComboBox::activated, dialog, [dialog] { on_ocr_engine_activated(dialog); });
     ocr_engine_card->addControl(ocr_engine_combo);
     grp_ocr->addSettingCard(ocr_engine_card);
@@ -264,10 +295,11 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     dialog->set_attr("ocr_result_position_combo", position_combo);
     ocr_position_card->addControl(position_combo);
     grp_ocr->addSettingCard(ocr_position_card);
-    if (!ocr_available)
-        grp_ocr->addSettingCard(new SettingCard(FluentIcon::Info,
-                                                dialog->tr_text("OCR unavailable: install the Snipping Tool from the Microsoft Store, or download the full version"),
-                                                {}, grp_ocr));
+    auto *unavailable_card = new SettingCard(FluentIcon::Info, dialog->tr_text("OCR unavailable: install the Snipping Tool from the Microsoft Store, or download the full version"), {}, grp_ocr);
+    dialog->set_attr("ocr_unavailable_card", unavailable_card);
+    grp_ocr->addSettingCard(unavailable_card);
+    grp_ocr->setCardVisible(unavailable_card, false);
+    ensure_ocr_refresh(dialog);
     layout->addWidget(grp_ocr);
 
     auto *hint = new CaptionLabel(dialog->tr_text("💡 Hint: Even with auto-save off, it will be copied to clipboard."), view);
@@ -293,12 +325,12 @@ void fill_ocr_engines(SettingsDialog *dialog, const QString &engine, const QStri
     std::vector<Item> items;
     if (combo->property("has_oneocr").toBool()) items.push_back({dialog->tr_text("Snipping Tool OCR"), OCRManager::ENGINE_ONEOCR, true});
     // Models also need models/onnxruntime.dll; without it they are listed but cannot be picked.
-    const bool runtime_ready = ppocr_runtime_supported(ppocr_models::runtime_path());
+    const bool runtime_ready = combo->property("runtime_ready").toBool();
     QHash<QString, int> order;
-    const auto catalog = ppocr_models::catalog().value("models").toArray();
+    const auto catalog = combo->property("catalog_models").toJsonArray();
     for (int i = 0; i < catalog.size(); ++i) order.insert(catalog[i].toObject().value("id").toString(), i);
     std::vector<QJsonObject> models;
-    for (const auto &value : ppocr_models::installed()) models.push_back(value.toObject());
+    for (const auto &value : combo->property("installed_models").toJsonArray()) models.push_back(value.toObject());
     std::stable_sort(models.begin(), models.end(), [&](const QJsonObject &a, const QJsonObject &b) {
         return order.value(a.value("catalog_id").toString(), catalog.size()) < order.value(b.value("catalog_id").toString(), catalog.size());
     });

@@ -3819,10 +3819,6 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>クリップボードモジュールが利用できません</translation>
     </message>
     <message>
-        <source>← Get storage size</source>
-        <translation>← ストレージサイズを取得</translation>
-    </message>
-    <message>
         <source>Clear History</source>
         <translation>履歴をクリア</translation>
     </message>

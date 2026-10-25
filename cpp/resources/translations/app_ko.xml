@@ -3806,10 +3806,6 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>모든 클립보드 기록을 삭제합니다</translation>
     </message>
     <message>
-        <source>← Get storage size</source>
-        <translation>← 저장소 크기 가져오기</translation>
-    </message>
-    <message>
         <source>Clear History</source>
         <translation>기록 비우기</translation>
     </message>

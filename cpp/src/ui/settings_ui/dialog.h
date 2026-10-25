@@ -2,6 +2,7 @@
 #include "settings/color_formats.h"
 #include "settings/special_paste.h"
 #include "ui/fluent_lite/frameless.h"
+#include "ui/settings_ui/external_refresh.h"
 #include <QColor>
 #include <QMap>
 #include <QPoint>
@@ -9,9 +10,11 @@
 #include <QSet>
 #include <QThread>
 #include <QVariantMap>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <set>
+#include <type_traits>
 #include <vector>
 
 class QLabel;
@@ -108,6 +111,20 @@ public:
     // Combos, switches and mouse binding editors saved under their configuration key, in creation order.
     std::vector<std::pair<QString, QPointer<QWidget>>> behavior_controls;
     QWidget *behavior_control(const QString &key) const;
+    // What a page shows from outside the settings (disk, registry, the system) is read again each
+    // time the window is shown or activated: the window stays alive hidden between uses. A page
+    // registers its first query when built, so pages never opened cost nothing.
+    template <typename Query, typename Apply> std::function<void()> add_external_refresh(Query query, Apply apply) {
+        using Result = std::invoke_result_t<Query>;
+        auto *job = new ExternalRefresh<Result>(this, std::move(query), std::move(apply));
+        const QPointer<ExternalRefresh<Result>> guard(job);
+        std::function<void()> refresh = [guard] { if (guard) guard->request(); };
+        external_refreshes_.push_back(refresh);
+        refresh();
+        return refresh;
+    }
+    // Queues the registered queries; repeated requests are coalesced by each job.
+    Q_INVOKABLE void refresh_external_state();
     // In-app shortcut editors by configuration key, in creation order, and their conflict group.
     std::vector<std::pair<QString, InAppKeyEdit *>> inapp_edits;
     QMap<QString, QString> inapp_groups;
@@ -123,11 +140,15 @@ public:
     std::optional<QString> clip_theme_name;
     // The clipboard storage move in progress, if any.
     QPointer<QThread> clipboard_move_thread;
+    std::function<void()> clipboard_size_refresh;
+    std::function<void()> ocr_refresh;
+    QVariantMap ocr_install_state;
     // Translation page state.
     std::shared_ptr<ProviderRegistry> translation_registry;
     std::optional<QMap<QString, QPointer<QWidget>>> provider_field_widgets;
     QMap<QString, QPointer<QWidget>> provider_sections;
     QMap<QString, QPointer<QLabel>> provider_status_labels;
+    QMap<QString, qint64> translation_usage;
     QMap<QString, QPointer<QWidget>> request_option_cards;
 
     void change_save_dir();
@@ -153,6 +174,7 @@ signals:
 protected:
     void resizeEvent(QResizeEvent *event) override;
     void showEvent(QShowEvent *event) override;
+    void changeEvent(QEvent *event) override;
     // Saves what is pending before the window goes away.
     void hideEvent(QHideEvent *event) override;
     void closeEvent(QCloseEvent *event) override;
@@ -207,6 +229,7 @@ private:
     void refresh_appearance_controls(const std::function<QVariant(const QString &)> &value_of);
 
     QMap<QString, QPointer<QWidget>> attrs_;
+    std::vector<std::function<void()>> external_refreshes_;
     std::set<int> built_pages_;
     // The size last set for a screen; a different current size means the user resized the dialog.
     std::optional<QSize> fitted_size_;

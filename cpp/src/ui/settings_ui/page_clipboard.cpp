@@ -72,19 +72,6 @@ QString get_clipboard_db_path(SettingsDialog *dialog) {
     return dialog->tr_text("Clipboard module not available");
 }
 
-void refresh_clipboard_size_async(SettingsDialog *dialog) {
-    // Scans the disk on a worker thread and updates the label only if it still exists.
-    QPointer<QLabel> label = dialog->attr<QLabel>("_clipboard_size_label");
-    if (!label) return;
-    auto result = std::make_shared<QString>();
-    QThread *thread = QThread::create([result] { *result = calc_clipboard_storage_size(); });
-    QObject::connect(thread, &QThread::finished, label, [label, result] {
-        if (label) label->setText(result->isEmpty() ? QString::fromUtf8("—") : *result);
-    });
-    QObject::connect(thread, &QThread::finished, thread, &QObject::deleteLater);
-    thread->start();
-}
-
 void manage_special_paste(SettingsDialog *dialog) {
     SpecialPasteDialog editor(dialog->clipboard_special_paste_entries.value_or(special_paste::load(dialog->config_manager)), dialog);
     if (exec_dialog(&editor) == QDialog::Accepted) {
@@ -304,7 +291,7 @@ void on_clipboard_move_completed(SettingsDialog *dialog, QProgressDialog *progre
     if (reopened) {
         set_storage_path_label(dialog, new_db_path);
         sync_single_file_toggle(dialog);
-        refresh_clipboard_size_async(dialog);
+        dialog->refresh_clipboard_size();
         if (!cleanup_error.isEmpty())
             show_warning_dialog(dialog, dialog->tr_text("Success"),
                                 dialog
@@ -341,7 +328,7 @@ void switch_clipboard_data_location(SettingsDialog *dialog, const QString &curre
     refresh_open_clipboard_windows();
     set_storage_path_label(dialog, new_db_path);
     sync_single_file_toggle(dialog);
-    refresh_clipboard_size_async(dialog);
+    dialog->refresh_clipboard_size();
 }
 
 void change_clipboard_data_location(SettingsDialog *dialog) {
@@ -534,19 +521,17 @@ QWidget *create_clipboard_page(SettingsDialog *dialog) {
     grp_data->addSettingCard(single_file_card);
 
     auto *cleanup_card = new SettingCard(FluentIcon::Delete, dialog->tr_text("Clear Clipboard History"), dialog->tr_text("Delete all clipboard history records"), grp_data);
-    // The size needs a disk scan, so it refreshes on demand; the button and result sit left of the control column so the buttons line up with other cards.
-    auto *size_label = new CaptionLabel(dialog->tr_text("← Get storage size"), cleanup_card);
+    // The result sits left of the control column so the buttons line up with other cards.
+    auto *size_label = new CaptionLabel(QString::fromUtf8("…"), cleanup_card);
     // CaptionLabel wraps and may shrink to zero width (for card descriptions); this one-line result sizes to its content.
     size_label->setWordWrap(false);
     size_label->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
     dialog->set_attr("_clipboard_size_label", size_label);
-    auto *refresh_btn = new TransparentToolButton(FluentIcon::Sync, cleanup_card);
-    refresh_btn->setBaseMetrics(48, 32);
-    QObject::connect(refresh_btn, &QToolButton::clicked, dialog, [dialog] { refresh_clipboard_size_async(dialog); });
-    dialog->set_attr("_clipboard_refresh_btn", refresh_btn);
-    const int size_index = cleanup_card->hBoxLayout->count() - 1;
-    cleanup_card->hBoxLayout->insertWidget(size_index, refresh_btn);
-    cleanup_card->hBoxLayout->insertWidget(size_index + 1, size_label);
+    // The scan runs off the UI thread; history grows while the window is hidden, so it repeats on show and activation.
+    dialog->clipboard_size_refresh = dialog->add_external_refresh([] { return calc_clipboard_storage_size(); }, [size_label](const QString &size) {
+        size_label->setText(size.isEmpty() ? QString::fromUtf8("—") : size);
+    });
+    cleanup_card->hBoxLayout->insertWidget(cleanup_card->hBoxLayout->count() - 1, size_label);
     auto *clear_btn = new PrimaryPushButton(dialog->tr_text("Clear History"), cleanup_card);
     QObject::connect(clear_btn, &QPushButton::clicked, dialog, [dialog] { clear_clipboard_history(dialog); });
     cleanup_card->addControl(clear_btn);

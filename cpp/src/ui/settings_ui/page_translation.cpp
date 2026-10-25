@@ -13,6 +13,7 @@
 #include "ui/settings_ui/components.h"
 #include "ui/settings_ui/dialog.h"
 #include "ui/settings_ui/pages.h"
+#include <QDate>
 #include <QFrame>
 #include <QLocale>
 #include <QMenu>
@@ -321,7 +322,9 @@ void update_provider_groups(SettingsDialog *dialog) {
     if (auto *section = dialog->attr_widget("switch_options_section")) section->setVisible(!supported.isEmpty());
     if (auto *label = dialog->attr<QLabel>("translation_notice_label")) {
         auto html = notice_html(dialog, metadata);
-        const auto usage = quota_usage_text(dialog, provider_id);
+        // Until the first query returns, the count comes from the settings rather than as 0.
+        const auto read = dialog->translation_usage.constFind(provider_id);
+        const auto usage = quota_usage_text(dialog, provider_id, read == dialog->translation_usage.cend() ? std::nullopt : std::optional<qint64>(*read));
         if (!usage.isEmpty()) html = html.isEmpty() ? usage : html + "<br/>" + usage;
         label->setText(html);
         label->setVisible(!html.isEmpty());
@@ -331,7 +334,7 @@ void update_provider_groups(SettingsDialog *dialog) {
 }
 }
 
-QString quota_usage_text(SettingsDialog *dialog, const QString &provider_id) {
+QString quota_usage_text(SettingsDialog *dialog, const QString &provider_id, std::optional<qint64> usage) {
     if (provider_id.isEmpty() || !dialog->translation_registry || !dialog->config_manager) return {};
     std::unique_ptr<TranslationProvider> provider;
     try {
@@ -342,7 +345,7 @@ QString quota_usage_text(SettingsDialog *dialog, const QString &provider_id) {
     if (provider->quota_limit_chars <= 0) return {};
     const auto custom = dialog->config_manager->get_translation_quota_limit(provider_id);
     const auto limit = custom > 0 ? custom : provider->quota_limit_chars;
-    const auto used = dialog->config_manager->get_translation_usage_chars(provider_id);
+    const auto used = usage ? *usage : dialog->config_manager->get_translation_usage_chars(provider_id);
     const auto text = dialog->config_manager->get_translation_quota_enabled(provider_id) ? dialog->tr_text("Used this month: %1 / %2 characters (quota guard on)")
                                                                                         : dialog->tr_text("Used this month: %1 / %2 characters (quota guard off)");
     // Grouped with commas whatever the interface language.
@@ -447,6 +450,19 @@ QWidget *create_translation_page(SettingsDialog *dialog) {
 
     QObject::connect(provider_combo, &QComboBox::currentIndexChanged, dialog, [dialog] { update_provider_groups(dialog); });
     update_provider_groups(dialog);
+
+    const auto file = config->settings().fileName();
+    const auto format = config->settings().format();
+    dialog->add_external_refresh([file, format, providers] {
+        QSettings settings(file, format);
+        QMap<QString, qint64> usage;
+        const auto prefix = "translation/usage/" + QDate::currentDate().toString("yyyyMM") + "/";
+        for (const auto &provider : providers) usage[provider.provider_id] = settings.value(prefix + provider.provider_id, 0).toLongLong();
+        return usage;
+    }, [dialog](const QMap<QString, qint64> &usage) {
+        dialog->translation_usage = usage;
+        update_provider_groups(dialog);
+    });
 
     layout->addStretch();
     scroll->setWidget(page);

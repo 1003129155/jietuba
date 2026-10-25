@@ -128,6 +128,8 @@ QString get_ppocr_status();
 bool ppocr_runtime_supported(const QString &dll);
 // Tests hide or show the Snipping Tool OCR; nullopt goes back to detecting it.
 void set_oneocr_available_for_test(std::optional<bool> available);
+// Installation lookup without loading an engine or accessing tool settings.
+bool snipping_tool_ocr_installed();
 // Tests stand in for the Snipping Tool lookup and its rescan interval; an empty finder goes back
 // to the real lookup. The last result is forgotten either way.
 void set_snipping_tool_finder_for_test(std::function<std::optional<std::pair<QString, QString>>()> finder, std::chrono::milliseconds rescan = std::chrono::milliseconds(0));

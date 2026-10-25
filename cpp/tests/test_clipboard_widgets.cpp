@@ -588,11 +588,10 @@ private slots:
         };
         QVERIFY(button("Change") && button("Open") && button("Clear History"));
 
-        // The size is measured on demand.
+        // The size is measured when the page opens, without a button.
         auto *size_label = dialog.attr<QLabel>("_clipboard_size_label");
-        auto *refresh = qobject_cast<QToolButton *>(dialog.attr_widget("_clipboard_refresh_btn"));
-        QVERIFY(size_label && refresh);
-        refresh->click();
+        QVERIFY(size_label);
+        QVERIFY(!dialog.has_attr("_clipboard_refresh_btn"));
         QTRY_VERIFY(size_label->text().contains("B"));
 
         // Opening shows the data folder.

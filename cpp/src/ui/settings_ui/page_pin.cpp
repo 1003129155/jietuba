@@ -72,19 +72,14 @@ void build_behavior_section(SettingsDialog *dialog, SettingsCardGroup *grp) {
     dialog->set_attr("pin_auto_toolbar_toggle", toolbar_card);
     grp->addSettingCard(toolbar_card);
 
-    bool ocr_available = false;
-    try {
-        ocr_available = !get_available_engines().isEmpty();
-    } catch (const std::exception &) {
-        ocr_available = false;
-    }
     auto *ocr_card = new SwitchSettingCard(FluentIcon::Font, dialog->tr_text("Automatically recognize text after pinning"),
                                            dialog->tr_text("On very low-end computers, OCR after pinning may cause a brief stutter. Turn off automatic recognition if needed."),
                                            grp);
-    ocr_card->setChecked(ocr_available ? dialog->config_manager->get_ocr_enabled() : false);
-    ocr_card->setEnabled(ocr_available);
+    ocr_card->setChecked(dialog->config_manager->get_ocr_enabled());
+    ocr_card->setEnabled(false);
     dialog->set_attr("ocr_enable_toggle", ocr_card);
     grp->addSettingCard(ocr_card);
+    ensure_ocr_refresh(dialog);
 
     auto *opacity_card = new SettingCard(FluentIcon::Transparent, dialog->tr_text("Default Opacity"),
                                          dialog->tr_text("Opacity of newly pinned images. Each image can still be adjusted with the mouse."), grp);

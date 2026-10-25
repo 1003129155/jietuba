@@ -64,13 +64,16 @@ SnippingToolPackage snipping_tool(bool force = false) {
     return lookup.package;
 }
 
-std::optional<bool> &oneocr_override() {
-    static std::optional<bool> available;
+std::atomic_int &oneocr_override() {
+    static std::atomic_int available{-1};
     return available;
 }
 
 // A loaded engine works from its own copy of the files, so it is not looked up again.
-bool oneocr_available(bool loaded) { return oneocr_override().value_or(loaded || snipping_tool().has_value()); }
+bool oneocr_available(bool loaded) {
+    const int available = oneocr_override().load();
+    return available < 0 ? loaded || snipping_tool().has_value() : available != 0;
+}
 
 // The ort used by the reference's ppocr_rust needs ONNX Runtime 1.24 or later (API version 24).
 constexpr int ORT_MIN_MINOR = 24;
@@ -151,7 +154,9 @@ QString get_ppocr_status() {
 
 bool ppocr_runtime_supported(const QString &dll) { return runtime_supported(dll); }
 
-void set_oneocr_available_for_test(std::optional<bool> available) { oneocr_override() = available; }
+void set_oneocr_available_for_test(std::optional<bool> available) { oneocr_override() = available ? int(*available) : -1; }
+
+bool snipping_tool_ocr_installed() { return oneocr_available(false); }
 
 void set_snipping_tool_finder_for_test(std::function<std::optional<std::pair<QString, QString>>()> finder, std::chrono::milliseconds rescan) {
     auto &lookup = snipping_tool_lookup();
