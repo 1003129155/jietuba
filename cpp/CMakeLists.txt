@@ -355,6 +355,12 @@ if(BUILD_TESTING)
     target_link_libraries(jietuba_settings_window_tests PRIVATE jietuba_lib Qt6::Test)
     add_test(NAME settings_window COMMAND jietuba_settings_window_tests -o ${JIETUBA_TEST_REPORTS}/settings_window.txt,txt)
     set_tests_properties(settings_window PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    if(WIN32)
+        # Whether texts fit needs real fonts.
+        add_test(NAME settings_window_desktop COMMAND jietuba_settings_window_tests -o ${JIETUBA_TEST_REPORTS}/settings_window_desktop.txt,txt -platform windows
+                 readAloudGroupFitsEveryLanguageInTheNarrowestWindow everyPageFitsEveryLanguageAtTheMinimumWidth)
+        set_tests_properties(settings_window_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
+    endif()
     qt_add_executable(jietuba_data_folder_tests tests/test_data_folder.cpp)
     target_link_libraries(jietuba_data_folder_tests PRIVATE jietuba_lib Qt6::Test)
     add_test(NAME data_folder COMMAND jietuba_data_folder_tests -o ${JIETUBA_TEST_REPORTS}/data_folder.txt,txt)

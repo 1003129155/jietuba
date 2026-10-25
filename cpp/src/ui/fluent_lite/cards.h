@@ -21,6 +21,8 @@ const ToneColors &feature_tone(const QString &tone);
 int card_right_margin();
 // Left edge of card titles; separators and nested rows align to it.
 int card_text_left();
+// A setting row's width besides its title: icon, gaps, margins and the widest control column.
+int card_width_besides_title();
 
 // The icon tile of a setting row: a tinted square for a tone, or the bare icon when tone is empty.
 class IconBadge : public QWidget {

@@ -297,6 +297,40 @@ private slots:
         QCOMPARE(dialog.size(), shown);
     }
 
+    // Whether the cards fit at this width is settings_window_desktop's check.
+    void minimumWidthFollowsTheWindowScale() {
+        auto &scale = get_dialog_scale();
+        const int before = scale.percent(), panel_before = get_ui_scale().percent();
+        const auto restore = qScopeGuard([&] {
+            scale.set_percent(before);
+            get_ui_scale().set_percent(panel_before);
+        });
+        // 575 outside the card and for its title, 302 for the rest of the card; at 150% each part is
+        // rounded half to even: 862 + 96 + 321 + 36.
+        for (const auto &[percent, expected] : {std::pair{100, 877}, std::pair{150, 1315}, std::pair{200, 1754}}) {
+            scale.set_percent(percent);
+            get_ui_scale().set_percent(100);
+            SettingsDialog dialog(config_, config_->get_hotkey());
+            dialog.fit_to_available({2560, 1392});
+            QCOMPARE(dialog.minimumWidth(), expected);
+            dialog.resize(400, dialog.height());
+            QCOMPARE(dialog.width(), expected);
+            get_ui_scale().set_percent(150);
+            dialog.fit_to_available({2560, 1392});
+            QCOMPARE(dialog.minimumWidth(), expected);
+        }
+
+        // A narrower screen gets its whole width; a wider one brings the minimum back.
+        scale.set_percent(150);
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.fit_to_available({1280, 672});
+        QCOMPARE(dialog.minimumWidth(), 1280);
+        QCOMPARE(dialog.width(), 1280);
+        dialog.fit_to_available({2560, 1392});
+        QCOMPARE(dialog.minimumWidth(), 1315);
+        QCOMPARE(dialog.width(), 1575);
+    }
+
     // Only a dialog with no part on any screen is moved back; its corner alone does not decide.
     void aDialogOffEveryScreenIsCentredAgain() {
         SettingsDialog dialog(config_, config_->get_hotkey());
@@ -1806,6 +1840,159 @@ private slots:
         QVERIFY(QMetaObject::invokeMethod(chinese, "activated", Q_ARG(int, 0)));
         QTRY_VERIFY(config_->get_speech_voices().isEmpty());
         QCOMPARE(saved.count(), 1);
+    }
+
+    // The voices are the longest names Windows ships for these languages; the width is the
+    // window's minimum.
+    void readAloudGroupFitsEveryLanguageInTheNarrowestWindow() {
+        // Text widths need real fonts, which the offscreen platform does not have.
+        if (QGuiApplication::platformName() != "windows") QSKIP("needs -platform windows");
+        const QString root = QString("HKEY_CURRENT_USER\\Software\\jietuba_tests\\speech_width_%1").arg(QCoreApplication::applicationPid());
+        const QString category = root + "\\Voices";
+        const std::pair<const char *, const char *> voices[] = {
+            {"Microsoft Huihui Desktop - Chinese (Simplified)", "804"}, {"Microsoft Kangkang - Chinese (Simplified, PRC)", "804"},
+            {"Microsoft Hanhan Desktop - Chinese(Taiwan)", "404"},       {"Microsoft David Desktop - English (United States)", "409"},
+            {"Microsoft Hazel Desktop - English (Great Britain)", "809"}, {"Microsoft Haruka Desktop - Japanese", "411"},
+            {"Microsoft Heami Desktop - Korean", "412"},                 {"Microsoft An - Vietnamese (Vietnam)", "42A"},
+            {"Microsoft Hortense Desktop - French", "40C"}};
+        {
+            QSettings registry(category, QSettings::NativeFormat);
+            int index = 0;
+            for (const auto &[name, language] : voices) {
+                const QString key = QString("Tokens/Voice%1/").arg(index++);
+                registry.setValue(key + "Default", name);
+                registry.setValue(key + "Attributes/Language", language);
+            }
+        }
+        SpeechService::set_voice_categories({category});
+        auto &scale = get_dialog_scale();
+        const int percent_before = scale.percent();
+        const QString language = I18nManager::get_current_language();
+        const auto restore = qScopeGuard([&scale, percent_before, language, root] {
+            SpeechService::reset_instance();
+            SpeechService::set_voice_categories({});
+            QSettings("HKEY_CURRENT_USER\\Software\\jietuba_tests", QSettings::NativeFormat).remove(root.section('\\', -1));
+            scale.set_percent(percent_before);
+            I18nManager::load_language(language);
+        });
+
+        for (const int percent : {100, 150, 200}) {
+            scale.set_percent(percent);
+            for (const char *code : {"zh", "zh_TW", "en", "ja", "ko"}) {
+                QVERIFY(I18nManager::load_language(code));
+                const QString where = QString("%1 at %2%").arg(code).arg(percent);
+                SettingsDialog dialog(config_, config_->get_hotkey());
+                // Wider than any screen, so the minimum is not capped at this one's width.
+                dialog.fit_to_available({4000, dialog.height()});
+                const int narrowest = dialog.minimumWidth();
+                dialog.resize(narrowest, dialog.height());
+                dialog.show();
+                dialog.on_nav_changed(4, "translation");
+                QTRY_COMPARE(dialog.speech_voice_combos.size(), size_t(6));
+                QApplication::processEvents();
+                auto *group = dialog.attr<SettingCardGroup>("speech_group");
+                QVERIFY(group);
+                auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+                QVERIFY(scroll);
+                QVERIFY2(dialog.width() == narrowest, qPrintable(QString("%1: the window is %2 wide, not %3").arg(where).arg(dialog.width()).arg(narrowest)));
+                QVERIFY2(scroll->horizontalScrollBar()->maximum() == 0, qPrintable(where + ": the page scrolls sideways"));
+
+                // Empty when the part gets its whole width.
+                const auto squeezed = [&where](QWidget *part, const QString &name) {
+                    if (part->width() >= part->sizeHint().width()) return QString();
+                    return QString("%1: %2 is %3 wide, needs %4").arg(where, name).arg(part->width()).arg(part->sizeHint().width());
+                };
+                QString problem = squeezed(group->titleLabel, group->titleLabel->text());
+                QVERIFY2(problem.isEmpty(), qPrintable(problem));
+                QWidget *viewport = scroll->viewport();
+                QStringList voice_items;
+                for (auto *card : group->findChildren<SettingCard *>()) {
+                    problem = squeezed(card->titleLabel, card->titleLabel->text());
+                    QVERIFY2(problem.isEmpty(), qPrintable(problem));
+                    if (card->contentLabel->isVisible())
+                        QVERIFY2(card->contentLabel->height() >= card->contentLabel->heightForWidth(card->contentLabel->width()),
+                                 qPrintable(QString("%1: the description of %2 is cut off").arg(where, card->titleLabel->text())));
+                    const QRect in_page(card->mapTo(viewport, QPoint()), card->size());
+                    QVERIFY2(in_page.left() >= 0 && in_page.right() < viewport->width(), qPrintable(QString("%1: %2 sticks out of the page").arg(where, card->titleLabel->text())));
+                    for (auto *control : card->controlContainer->findChildren<QWidget *>(Qt::FindDirectChildrenOnly)) {
+                        if (!control->isVisible()) continue;
+                        QString name = control->property("text").toString();
+                        if (auto *combo = qobject_cast<QComboBox *>(control)) {
+                            QStringList items;
+                            for (int i = 0; i < combo->count(); ++i) items << combo->itemText(i);
+                            name = items.join(" / ");
+                            voice_items << name;
+                        }
+                        // The preview button is an icon of fixed size.
+                        if (name.isEmpty()) name = control->accessibleName();
+                        else problem = squeezed(control, QString("%1's %2").arg(card->titleLabel->text(), name));
+                        QVERIFY2(problem.isEmpty(), qPrintable(problem));
+                        QVERIFY2(card->rect().contains(QRect(control->mapTo(card, QPoint()), control->size())),
+                                 qPrintable(QString("%1: %2 sticks out of %3").arg(where, name, card->titleLabel->text())));
+                    }
+                }
+                // Each voice row, the speed and volume combos and the Open Settings button were checked.
+                QPushButton *open = nullptr;
+                for (auto *button : group->findChildren<QPushButton *>())
+                    if (button->text() == settings_tr("Open Settings")) open = button;
+                QVERIFY2(open && open->isVisible(), qPrintable(where));
+                QCOMPARE(voice_items.size(), qsizetype(6 + 2));
+                QVERIFY2(voice_items.contains(settings_tr("Auto") + " / Hanhan Desktop / Huihui Desktop / Kangkang"), qPrintable(voice_items.join(", ")));
+                QVERIFY2(voice_items.contains(settings_tr("Auto") + " / Hortense Desktop"), qPrintable(voice_items.join(", ")));
+            }
+        }
+    }
+
+    // Every page in every language at the window's minimum width; the shortcut pages are tables that
+    // scroll sideways below the default width.
+    void everyPageFitsEveryLanguageAtTheMinimumWidth() {
+        // Text widths need real fonts, which the offscreen platform does not have.
+        if (QGuiApplication::platformName() != "windows") QSKIP("needs -platform windows");
+        auto &scale = get_dialog_scale();
+        const int percent_before = scale.percent();
+        const QString language = I18nManager::get_current_language();
+        const auto restore = qScopeGuard([&scale, percent_before, language] {
+            scale.set_percent(percent_before);
+            I18nManager::load_language(language);
+        });
+        // The developer page has no navigation item.
+        const std::pair<int, const char *> pages[] = {{1, "capture"}, {11, "pin"}, {12, "screen_annotation"}, {2, "clipboard"}, {4, "translation"},
+                                                      {3, "appearance"}, {5, "log"}, {6, "other"}, {8, "about"}, {7, nullptr}};
+        QStringList problems;
+        for (const int percent : {100, 150, 200}) {
+            scale.set_percent(percent);
+            for (const char *code : {"zh", "zh_TW", "en", "ja", "ko"}) {
+                QVERIFY(I18nManager::load_language(code));
+                SettingsDialog dialog(config_, config_->get_hotkey());
+                // Wider than any screen, so the minimum is not capped at this one's width.
+                dialog.fit_to_available({4000, dialog.height()});
+                dialog.build_all_pages();
+                dialog.resize(0, dialog.height());
+                dialog.show();
+                QCOMPARE(dialog.width(), dialog.minimumWidth());
+                for (const auto &[index, route] : pages) {
+                    if (route) dialog.on_nav_changed(index, route);
+                    else dialog.content_stack->setCurrentIndex(index);
+                    QApplication::processEvents();
+                    const QString where = QString("%1 at %2%, page %3").arg(code).arg(percent).arg(index);
+                    // A layout given less than its minimum cuts a title short or pushes controls out of their card.
+                    const auto check = [&problems, &where](QWidget *widget, const QString &name) {
+                        const int needs = widget->layout()->totalMinimumSize().width();
+                        if (needs > widget->width()) problems << QString("%1: %2 needs %3, has %4").arg(where, name).arg(needs).arg(widget->width());
+                    };
+                    check(&dialog, "the window");
+                    auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+                    QVERIFY(scroll);
+                    if (scroll->horizontalScrollBar()->maximum() > 0) problems << where + ": the page scrolls sideways";
+                    for (auto *widget : scroll->widget()->findChildren<QWidget *>()) {
+                        if (!widget->layout() || !widget->isVisible()) continue;
+                        auto *card = qobject_cast<SettingCard *>(widget);
+                        check(widget, card ? card->titleLabel->text() : QString(widget->metaObject()->className()));
+                    }
+                }
+            }
+        }
+        QVERIFY2(problems.isEmpty(), qPrintable(problems.join('\n')));
     }
 
     // The logo's context menu opens the developer page; the pin page links to its shortcut tabs.

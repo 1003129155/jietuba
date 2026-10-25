@@ -141,6 +141,14 @@ public:
 private:
     int &depth_;
 };
+
+// Between the window edge and a card: window margins, navigation, the page's scroll bar and the group frame.
+constexpr int OUTSIDE_CARDS = 315;
+// The longest card titles are Japanese.
+constexpr int LONGEST_CARD_TITLE = 260;
+
+// The narrowest window in which every card keeps its title on one line and its controls inside.
+int settings_minimum_width() { return dialog_scaled(OUTSIDE_CARDS + LONGEST_CARD_TITLE) + card_width_besides_title(); }
 }
 
 QString settings_tr(const char *text) { return i18n_tr(text, "SettingsDialog"); }
@@ -199,7 +207,11 @@ void SettingsDialog::fit_to_screen() {
 }
 
 void SettingsDialog::fit_to_available(const QSize &available) {
+    // Decided before the minimum changes: raising it enlarges the window at once, which would then read as dragged.
     const bool user_sized = fitted_size_ && size() != *fitted_size_;
+    // Set before resizing, which stops at the old minimum. It replaces the layout's own minimum width,
+    // the title row's, which is narrower.
+    setMinimumWidth(std::min(settings_minimum_width(), available.width()));
     const QSize target = user_sized ? size().boundedTo(available)
                                     : settings_window_size(available.width(), available.height(), get_dialog_scale().factor());
     if (target != size()) resize(target);
