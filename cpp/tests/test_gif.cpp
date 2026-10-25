@@ -870,6 +870,28 @@ private slots:
         QTRY_VERIFY(active_gif_window().isNull());
     }
 
+    // A full-screen area leaves no room outside: the toolbar sits inside it along the bottom edge,
+    // centred, and its panels open above it.
+    void theToolbarStaysInsideAFullScreenArea() {
+        get_tool_settings_manager()->set_app_setting("recording_format", "gif");
+        QScreen *screen = QGuiApplication::primaryScreen();
+        const QRect full = screen->geometry();
+        auto *window = new GifRecordWindow(full);
+        active_gif_window() = window;
+        RecordToolbar *toolbar = nullptr;
+        QTRY_VERIFY((toolbar = visible_top_level<RecordToolbar>()));
+        const QRect placed = toolbar->geometry();
+        QVERIFY(full.contains(placed));
+        QVERIFY(placed.bottom() <= screen->availableGeometry().bottom());
+        QVERIFY2(screen->availableGeometry().bottom() - placed.bottom() < placed.height(), qPrintable(QString::number(placed.bottom())));
+        QVERIFY(std::abs(placed.center().x() - full.center().x()) <= 1);
+        toolbar->paint_panel->show();
+        toolbar->reposition_panels();
+        QVERIFY(toolbar->paint_panel->geometry().bottom() < placed.top());
+        window->close_all();
+        QTRY_VERIFY(active_gif_window().isNull());
+    }
+
     // The toolbar's styles reach the drawing layer and the selected arrow.
     void drawingStylesReachTheLayer() {
         get_tool_settings_manager()->set_app_setting("recording_format", "gif");

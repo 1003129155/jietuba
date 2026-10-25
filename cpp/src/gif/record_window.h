@@ -54,7 +54,7 @@ private:
     void connect_record_toolbar();
     void enter_state(AppState state);
     void sync_geometry(const QRect &rect, bool reposition = true);
-    // Below the selection first, then above, left, right.
+    // Below the selection first, then above, left, right; inside its bottom edge when it fills the screen.
     void reposition_toolbar(QWidget *toolbar);
     void on_rect_changed(const QRect &rect);
     // The drag handle moves the selection and the toolbar together.
