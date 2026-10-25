@@ -362,7 +362,13 @@ private slots:
     }
 
     // The preview grows inside a strip a screen long that stays put, its bottom on the region's.
+    // A preview taller than the region reaches the toolbar above it when the toolbar is wider than
+    // the region, and then moves aside to keep the buttons clear; this region is tall enough.
     void thePreviewGrowsWithoutMovingItsWindow() {
+        const QRect saved = area_;
+        const auto restore = qScopeGuard([this, saved] { area_ = saved; });
+        const auto available = QGuiApplication::primaryScreen()->availableGeometry();
+        area_ = QRect(available.center() - QPoint(PAGE_W / 2, 300), QSize(PAGE_W, 600));
         auto *window = open();
         QVERIFY(window);
         auto *panel = window->preview_panel.data();
@@ -373,6 +379,7 @@ private slots:
         const int before = panel->panel_size().height();
         QVERIFY(scroll_in_steps({100, 200, 300, 400, 500}));
         QTRY_VERIFY_WITH_TIMEOUT(panel->panel_size().height() > before, 5000);
+        QVERIFY2(panel->panel_geometry().top() > window->geometry().top(), "the preview outgrew the region");
         QCOMPARE(panel->geometry(), strip);
         QCOMPARE(panel->panel_geometry().bottom(), window->geometry().bottom());
         window->toolbar->cancel_btn->click();
