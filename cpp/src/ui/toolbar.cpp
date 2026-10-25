@@ -815,6 +815,8 @@ void Toolbar::position_near_rect(const QRectF &rect, QWidget *parent_widget) {
     if (y + toolbar_h + panel_extra > screen_rect.bottom()) {
         y = global_rect.top() - toolbar_h - margin;
         toolbar_below = false;
+        // No room above either (a full-screen selection): inside it along the bottom edge.
+        if (y < screen_rect.top()) y = std::min(global_rect.bottom(), screen_rect.bottom()) - toolbar_h - margin;
     }
     y = std::max(screen_rect.top(), std::min(y, screen_rect.bottom() - toolbar_h));
     // Screen edges stop the toolbar.

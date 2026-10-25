@@ -349,6 +349,26 @@ private slots:
         QVERIFY(empty->cards.empty());
     }
 
+    // 预解码入口只消费已有结果，空图上的合成结果也不应被重新识别覆盖。
+    void predecodedCodesShareTheWindowAndCopyPolicy() {
+        const std::vector<DecodedCode> codes{{QString::fromUtf8("中文扫码结果"), "QR Code", {}}};
+        QApplication::clipboard()->setText("before");
+        auto *window = show_barcode_result(blank_image(), codes, false);
+        QVERIFY(window);
+        QCOMPARE(window->cards.size(), size_t(1));
+        QCOMPARE(QApplication::clipboard()->text(), QString("before"));
+        QCOMPARE(window->cards[0]->findChild<CodeText *>()->toPlainText(), codes[0].text);
+        QCOMPARE(show_barcode_result(blank_image(), codes, true), nullptr);
+        QCOMPARE(QApplication::clipboard()->text(), codes[0].text);
+        auto *multiple = show_barcode_result(blank_image(), std::vector<DecodedCode>{codes[0], codes[0]}, true);
+        QVERIFY(multiple);
+        QCOMPARE(multiple->cards.size(), size_t(2));
+        auto *empty = show_barcode_result(blank_image(), std::vector<DecodedCode>{}, true);
+        QVERIFY(empty);
+        QVERIFY(empty->cards.empty());
+        QCOMPARE(QApplication::clipboard()->text(), codes[0].text);
+    }
+
     void webLinksGetAnOpenButton() {
         // Only http(s) links with a host can be opened; the card decides from the text.
         DecodedCode link;

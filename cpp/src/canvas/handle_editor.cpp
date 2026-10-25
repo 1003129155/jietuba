@@ -11,6 +11,7 @@
 #include <QFile>
 #include <QGraphicsScene>
 #include <QGraphicsTextItem>
+#include <QLineF>
 #include <QPainter>
 #include <QPixmap>
 #include <QPolygonF>
@@ -22,8 +23,9 @@
 
 namespace jietuba {
 QString handle_type_name(HandleType type) {
-    static const std::array<const char *, 18> names = {{"corner_tl", "corner_tr", "corner_br", "corner_bl", "edge_t", "edge_r", "edge_b", "edge_l",
-        "rotate", "arrow_start", "arrow_end", "arrow_control", "corner_radius", "number_increment", "number_decrement", "number_delete", "item_delete", "text_scale"}};
+    static const std::array<const char *, 19> names = {{"corner_tl", "corner_tr", "corner_br", "corner_bl", "edge_t", "edge_r", "edge_b", "edge_l",
+        "rotate", "arrow_start", "arrow_end", "arrow_control", "corner_radius", "number_increment", "number_decrement", "number_delete", "item_delete", "text_scale",
+        "arrow_bend"}};
     return QString::fromLatin1(names.at(static_cast<size_t>(type)));
 }
 
@@ -41,6 +43,11 @@ QRectF EditHandle::hit_rect_at(const QPointF &center) const {
 namespace {
 bool is_number_item(QGraphicsItem *layer) { return dynamic_cast<NumberItem *>(layer) != nullptr; }
 bool is_arrow_item(QGraphicsItem *layer) { return dynamic_cast<ArrowItem *>(layer) != nullptr; }
+bool is_arrow_handle(HandleType type) {
+    return type == HandleType::ARROW_START || type == HandleType::ARROW_END || type == HandleType::ARROW_CONTROL || type == HandleType::ARROW_BEND;
+}
+// Ids of the two bend handles, in curve order.
+constexpr int ARROW_BEND_FIRST_ID = 103;
 bool is_freehand_mosaic_item(QGraphicsItem *layer) {
     auto *mosaic = dynamic_cast<MosaicItem *>(layer);
     return mosaic && !mosaic->fill_mode();
@@ -133,6 +140,8 @@ void LayerEditor::stop_edit() {
     arrow_base_control_local_.reset();
     arrow_base_control_scene_.reset();
     arrow_base_control_modified_ = false;
+    arrow_base_bend_points_.reset();
+    arrow_base_bend_scene_.reset();
     base_corner_radius_.reset();
     base_font_point_size_.reset();
 }
@@ -177,11 +186,24 @@ std::vector<EditHandle> LayerEditor::generate_arrow_handles(QGraphicsItem *layer
     const int size = HANDLE_SIZE + 2;
     const auto control = arrow->mapToScene(arrow->get_control_point());
     constexpr int hit_padding = 12;
-    return {
+    std::vector<EditHandle> result{
         {100, HandleType::ARROW_START, start, QCursor(Qt::CrossCursor), size, hit_padding, {}},
         {101, HandleType::ARROW_END, end, QCursor(Qt::CrossCursor), size, hit_padding, {}},
         {102, HandleType::ARROW_CONTROL, control, QCursor(Qt::SizeAllCursor), size, hit_padding, {}},
     };
+    if (!arrow->is_curved()) return result;
+    const auto bends = arrow->bend_points();
+    const std::array<QPointF, 2> bend_scene{{arrow->mapToScene(bends[0]), arrow->mapToScene(bends[1])}};
+    // Bend handles wait until five handles fit apart on screen; stored ones always show, so they stay reachable.
+    if (!arrow->has_bend_points()) {
+        const auto screen = to_screen();
+        const std::array<QPointF, 5> chain{{start, bend_scene[0], control, bend_scene[1], end}};
+        for (size_t i = 1; i < chain.size(); ++i)
+            if (QLineF(screen.map(chain[i - 1]), screen.map(chain[i])).length() < ARROW_BEND_SPACING) return result;
+    }
+    for (int i = 0; i < 2; ++i)
+        result.push_back({ARROW_BEND_FIRST_ID + i, HandleType::ARROW_BEND, bend_scene[static_cast<size_t>(i)], QCursor(Qt::SizeAllCursor), HANDLE_SIZE, hit_padding, {}});
+    return result;
 }
 
 std::optional<QRectF> LayerEditor::get_scene_rect(QGraphicsItem *layer) const {
@@ -259,8 +281,20 @@ QRectF LayerEditor::screen_rect(const EditHandle &handle) const { return handle.
 
 std::optional<EditHandle> LayerEditor::hit_test(const QPointF &pos) const {
     const auto screen_pos = to_screen().map(pos);
-    for (const auto &handle : handles)
-        if (handle.hit_rect_at(screen_center(handle)).contains(screen_pos)) return handle;
+    const EditHandle *nearest = nullptr;
+    qreal nearest_distance = 0;
+    for (const auto &handle : handles) {
+        const auto center = screen_center(handle);
+        if (!handle.hit_rect_at(center).contains(screen_pos)) continue;
+        // Arrow handles crowd on short or tightly bent arrows; the closest one wins, not the first listed.
+        if (!is_arrow_handle(handle.handle_type)) return handle;
+        const auto distance = QLineF(center, screen_pos).length();
+        if (!nearest || distance < nearest_distance) {
+            nearest = &handle;
+            nearest_distance = distance;
+        }
+    }
+    if (nearest) return *nearest;
     return std::nullopt;
 }
 
@@ -384,9 +418,8 @@ void LayerEditor::apply_handle_drag(QGraphicsItem *layer, const EditHandle &hand
         apply_stroke_item_drag(layer, handle, delta_scene, keep_ratio);
         return;
     }
-    if (is_arrow_item(layer) && (handle.handle_type == HandleType::ARROW_START || handle.handle_type == HandleType::ARROW_END
-                                 || handle.handle_type == HandleType::ARROW_CONTROL)) {
-        apply_arrow_item_drag(layer, handle.handle_type, delta_scene);
+    if (is_arrow_item(layer) && is_arrow_handle(handle.handle_type)) {
+        apply_arrow_item_drag(layer, handle, delta_scene);
         return;
     }
     if (get_local_rect(layer) && base_local_rect_) {
@@ -501,10 +534,14 @@ void LayerEditor::capture_arrow_base_geometry(QGraphicsItem *layer) {
     arrow_base_control_local_ = arrow->get_control_point();
     arrow_base_control_scene_ = arrow->mapToScene(*arrow_base_control_local_);
     arrow_base_control_modified_ = arrow->_control_modified;
+    arrow_base_bend_points_ = arrow->_bend_points;
+    const auto bends = arrow->bend_points();
+    arrow_base_bend_scene_ = std::array<QPointF, 2>{{arrow->mapToScene(bends[0]), arrow->mapToScene(bends[1])}};
 }
 
-void LayerEditor::apply_arrow_item_drag(QGraphicsItem *layer, HandleType type, const QPointF &delta_scene) {
+void LayerEditor::apply_arrow_item_drag(QGraphicsItem *layer, const EditHandle &handle, const QPointF &delta_scene) {
     auto *arrow = dynamic_cast<ArrowItem *>(layer);
+    const auto type = handle.handle_type;
     const auto start_local = arrow_base_start_local_.value_or(arrow->start_pos);
     const auto end_local = arrow_base_end_local_.value_or(arrow->end_pos);
     auto scene_sum = [&](const std::optional<QPointF> &base) -> std::optional<QPointF> {
@@ -523,6 +560,9 @@ void LayerEditor::apply_arrow_item_drag(QGraphicsItem *layer, HandleType type, c
         const auto control_local = arrow_base_control_local_.value_or(arrow->get_control_point());
         const auto target = scene_sum(arrow_base_control_scene_);
         arrow->set_control_point(target ? arrow->mapFromScene(*target) : control_local + delta_scene);
+    } else if (type == HandleType::ARROW_BEND && arrow_base_bend_scene_) {
+        const auto index = handle.id - ARROW_BEND_FIRST_ID;
+        if (index == 0 || index == 1) arrow->set_bend_point(index, arrow->mapFromScene((*arrow_base_bend_scene_)[static_cast<size_t>(index)] + delta_scene));
     }
     arrow->update();
 }
@@ -548,7 +588,7 @@ void LayerEditor::render(QPainter *painter) {
         case HandleType::ROTATE: case HandleType::NUMBER_INCREMENT: case HandleType::NUMBER_DECREMENT:
         case HandleType::NUMBER_DELETE: case HandleType::ITEM_DELETE:
             functional.push_back(&handle); break;
-        case HandleType::ARROW_CONTROL: control.push_back(&handle); break;
+        case HandleType::ARROW_CONTROL: case HandleType::ARROW_BEND: control.push_back(&handle); break;
         case HandleType::CORNER_RADIUS: radius.push_back(&handle); break;
         default: normal.push_back(&handle); break;
         }
@@ -670,6 +710,10 @@ std::optional<QVariantMap> LayerEditor::copy_layer_state(QGraphicsItem *layer) c
         state["end"] = arrow->end_pos;
         state["control"] = arrow->control_pos();
         state["control_modified"] = arrow->_control_modified;
+        QVariantList bends;
+        if (arrow->_bend_points)
+            for (const auto &point : *arrow->_bend_points) bends << point;
+        state["bend_points"] = bends;
     } else {
         state["control"] = QVariant();
     }
@@ -689,6 +733,7 @@ void LayerEditor::restore_base_state(QGraphicsItem *layer) {
         arrow->set_positions(*arrow_base_start_local_, *arrow_base_end_local_);
         arrow->_control_modified = arrow_base_control_modified_;
         if (arrow_base_control_local_) arrow->_control_pos = *arrow_base_control_local_;
+        arrow->_bend_points = arrow_base_bend_points_;
     }
     if (base_corner_radius_)
         if (auto *rect_item = corner_radius_item(layer)) rect_item->set_corner_radius(*base_corner_radius_);

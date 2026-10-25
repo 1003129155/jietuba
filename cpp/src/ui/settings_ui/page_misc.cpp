@@ -1,6 +1,7 @@
 #include "core/data_location.h"
 #include "core/elevation.h"
 #include "core/i18n.h"
+#include "core/platform_utils.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
 #include "settings/settings_transfer.h"
@@ -78,6 +79,12 @@ QWidget *create_misc_page(SettingsDialog *dialog) {
     autostart_card->setChecked(config->get_autostart_enabled());
     dialog->set_attr("autostart_toggle", autostart_card);
     grp_startup->addSettingCard(autostart_card);
+    // Task Manager's switch is the user's choice in Windows; the card tells about it rather than undoing it.
+    dialog->add_external_refresh([] { return autostart_disabled_by_system(); }, [dialog, autostart_card](bool disabled) {
+        autostart_card->setContent(disabled
+                                       ? dialog->tr_text("Turned off in Task Manager's Startup apps, so Windows will not start it at sign-in. Turn it back on there.")
+                                       : dialog->tr_text("Register in Windows startup via registry."));
+    });
     add_run_as_admin_card(dialog, grp_startup, autostart_card);
     auto *show_card = new SwitchSettingCard(FluentIcon::Application, dialog->tr_text("Show Main Window on Startup"), dialog->tr_text("If off, starts in background."), grp_startup);
     show_card->setChecked(config->get_show_main_window());

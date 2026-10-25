@@ -8,7 +8,9 @@ class CanvasView;
 class InitialSelectionGate : public QObject {
     Q_OBJECT
 public:
-    static constexpr int WAIT_MS = 50;
+    // Matches the backend's slow-provider threshold: a cold provider still gets the first
+    // frame right, while one that hangs cannot keep the capture from showing.
+    static constexpr int WAIT_MS = 300;
     explicit InitialSelectionGate(QObject *parent = nullptr);
     void start(CanvasView *view);
     void cancel();

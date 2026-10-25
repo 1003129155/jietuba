@@ -2,6 +2,7 @@
 #include "canvas/items/drawing_items.h"
 #include <QStringList>
 #include <array>
+#include <optional>
 
 namespace jietuba {
 class ArrowItem : public QGraphicsPathItem, public DrawingItemMixin {
@@ -22,6 +23,9 @@ public:
     ArrowItem(const QPointF &start, const QPointF &end, const QPen &, const QString &style = "single");
     QPointF start_pos, end_pos, _control_pos;
     bool _control_modified = false;
+    // Points a quarter and three quarters along the curve; stored once either is dragged,
+    // after which the curve runs through all five points and can bend both ways.
+    std::optional<std::array<QPointF, 2>> _bend_points;
     qreal base_width;
     QColor color;
     QString _arrow_style;
@@ -37,6 +41,11 @@ public:
     void reset_control_point();
     QPointF get_control_point() const { return control_pos(); }
     bool is_curved() const { return _control_modified; }
+    // The stored bend points, or where they lie on the current single bend.
+    std::array<QPointF, 2> bend_points() const;
+    bool has_bend_points() const { return _bend_points.has_value(); }
+    void set_bend_point(int index, const QPointF &);
+    void set_bend_points(const std::optional<std::array<QPointF, 2>> &);
     void update_geometry();
     void paint(QPainter *, const QStyleOptionGraphicsItem *, QWidget * = nullptr) override;
     void set_stroke_width(qreal) override;
@@ -70,6 +79,9 @@ private:
     static QPainterPath bar_path(const QPointF &, const QPointF &, qreal bar_half, qreal thickness);
     static QPainterPath shaft_path(const QPointF &a, const QPointF &b, const QPointF &mid,
         const QPointF &u_a, const QPointF &u_b, qreal w_a, qreal w_b, const QPointF &chord);
+    std::pair<QPointF, QPointF> bend_tangents(const Frame &, qreal trim_start, qreal trim_end) const;
+    static QPainterPath bend_shaft_path(const QPointF &a, const QPointF &b, const QPointF &mid, const std::array<QPointF, 2> &bends,
+        const QPointF &u_a, const QPointF &u_b, qreal w_a, qreal w_b);
     mutable std::optional<QPainterPath> shape_cache_;
     std::optional<QPainterPath> hit_path_;
 };

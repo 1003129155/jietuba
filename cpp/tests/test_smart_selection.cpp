@@ -37,7 +37,9 @@ private:
         QImage image(screen().size(), QImage::Format_RGB32);
         image.fill(Qt::gray);
         window_ = new ScreenshotWindow(config_, image, QRectF(screen()));
-        QApplication::processEvents();
+        // The window shows once its first selection is known, at most the gate's wait later; wheel
+        // events need it on screen.
+        QTest::qWaitFor([this] { return window_ && window_->isVisible(); }, 3000);
         return window_;
     }
 

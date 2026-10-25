@@ -13,6 +13,10 @@
         <translation>Region Text Recognition</translation>
     </message>
     <message>
+        <source>Scan QR code / barcode</source>
+        <translation>Scan QR code / barcode</translation>
+    </message>
+    <message>
         <source>Region Translation</source>
         <translation>Region Translation</translation>
     </message>
@@ -765,6 +769,10 @@ Replace it?</translation>
         <translation>Register in Windows startup via registry.</translation>
     </message>
     <message>
+        <source>Turned off in Task Manager's Startup apps, so Windows will not start it at sign-in. Turn it back on there.</source>
+        <translation>Turned off in Task Manager's Startup apps, so Windows will not start it at sign-in. Turn it back on there.</translation>
+    </message>
+    <message>
         <source>Run as Administrator</source>
         <translation>Run as Administrator</translation>
     </message>
@@ -1406,6 +1414,14 @@ Replace it?</translation>
         <translation>Keeps the toolbar and its panels out of recordings, screenshots, screen sharing, remote desktop and other screen capture; you still see them. Turn off to let them be captured, for example when recording a tutorial.</translation>
     </message>
     <message>
+        <source>Screen Recording</source>
+        <translation>Screen Recording</translation>
+    </message>
+    <message>
+        <source>Keeps the recording toolbar, its panels and menus out of the recording while they sit inside the recording area, such as when recording the full screen; you still see them. Turn off to record them too.</source>
+        <translation>Keeps the recording toolbar, its panels and menus out of the recording while they sit inside the recording area, such as when recording the full screen; you still see them. Turn off to record them too.</translation>
+    </message>
+    <message>
         <source>Where It Was Last</source>
         <translation>Where It Was Last</translation>
     </message>
@@ -2020,6 +2036,14 @@ Replace it?</translation>
     <message>
         <source>Pin to desktop</source>
         <translation>Pin to desktop</translation>
+    </message>
+    <message>
+        <source>Save to file</source>
+        <translation>Save to file</translation>
+    </message>
+    <message>
+        <source>Recognize text (OCR)</source>
+        <translation>Recognize text (OCR)</translation>
     </message>
     <message>
         <source>Finish and save</source>
@@ -3684,6 +3708,18 @@ Items in the group will be moved back to clipboard history.</translation>
         <translation>Data Storage Location</translation>
     </message>
     <message>
+        <source>Single-File Database</source>
+        <translation>Single-File Database</translation>
+    </message>
+    <message>
+        <source>Recommended when the data folder is in OneDrive or another sync folder: the database stays one complete file. Saving is slightly slower.</source>
+        <translation>Recommended when the data folder is in OneDrive or another sync folder: the database stays one complete file. Saving is slightly slower.</translation>
+    </message>
+    <message>
+        <source>Cannot switch the storage mode: the clipboard database is open in another program. Close it and try again.</source>
+        <translation>Cannot switch the storage mode: the clipboard database is open in another program. Close it and try again.</translation>
+    </message>
+    <message>
         <source>Unknown</source>
         <translation>Unknown</translation>
     </message>
@@ -3698,10 +3734,6 @@ Items in the group will be moved back to clipboard history.</translation>
     <message>
         <source>Delete all clipboard history records</source>
         <translation>Delete all clipboard history records</translation>
-    </message>
-    <message>
-        <source>← Get storage size</source>
-        <translation>← Get storage size</translation>
     </message>
     <message>
         <source>Clear History</source>
@@ -6758,6 +6790,80 @@ Replace it?</translation>
     <message>
         <source>The name &quot;%1&quot; is already used by path &quot;%2&quot;. Do you want to set a new name for the current path?</source>
         <translation>The name &quot;%1&quot; is already used by path &quot;%2&quot;. Do you want to set a new name for the current path?</translation>
+    </message>
+</context>
+<context>
+    <name>ClipboardWindow</name>
+    <message>
+        <source>Window Position</source>
+        <translation>Window Position</translation>
+    </message>
+    <message>
+        <source>Follow Mouse</source>
+        <translation>Follow Mouse</translation>
+    </message>
+    <message>
+        <source>Last Position</source>
+        <translation>Last Position</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Window Position</source>
+        <translation>Window Position</translation>
+    </message>
+    <message>
+        <source>Follow Mouse</source>
+        <translation>Follow Mouse</translation>
+    </message>
+    <message>
+        <source>Last Position</source>
+        <translation>Last Position</translation>
+    </message>
+    <message>
+        <source>Where the clipboard window appears when it opens</source>
+        <translation>Where the clipboard window appears when it opens</translation>
+    </message>
+</context>
+<!-- ========== Read Aloud Settings ========== -->
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Read Aloud</source>
+        <translation>Read Aloud</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>Auto</translation>
+    </message>
+    <message>
+        <source>Preview</source>
+        <translation>Preview</translation>
+    </message>
+    <message>
+        <source>Stop</source>
+        <translation>Stop</translation>
+    </message>
+    <message>
+        <source>Speech Rate</source>
+        <translation>Speech Rate</translation>
+    </message>
+    <message>
+        <source>Volume</source>
+        <translation>Volume</translation>
+    </message>
+    <message>
+        <source>Add Voices</source>
+        <translation>Add Voices</translation>
+    </message>
+    <message>
+        <source>Install voices for more languages in Windows Settings.</source>
+        <translation>Install voices for more languages in Windows Settings.</translation>
+    </message>
+    <message>
+        <source>Open Settings</source>
+        <translation>Open Settings</translation>
     </message>
 </context>
 </TS>

@@ -5,6 +5,7 @@
 #include "clipboard/ui/theme/themes.h"
 #include "clipboard/ui/widgets/item_delegate.h"
 #include "clipboard/ui/widgets/quick_edit_popup.h"
+#include "core/native.h"
 #include "core/ui_scale.h"
 #include "settings/special_paste.h"
 #include "ui/fluent_lite/cards.h"
@@ -411,6 +412,8 @@ private slots:
         options.on_add_item = [&calls] { calls << "add"; };
         options.on_clear_history = [&calls] { calls << "clear"; };
         options.on_set_group_bar_position = [&calls](const QString &value) { calls << "bar " + value; };
+        options.open_position = "previous";
+        options.on_set_open_position = [&calls](const QString &value) { calls << "position " + value; };
         options.multi_paste_separator = " | ";
         options.multi_paste_order = "newest_first";
         options.multi_paste_keep_merged = true;
@@ -438,6 +441,8 @@ private slots:
         three_lines->trigger();
         QVERIFY(calls.contains("lines 3"));
         QVERIFY(actions[QString::fromUtf8("◀ Left")]->isChecked());
+        QVERIFY(actions["Last Position"]->isChecked());
+        QVERIFY(!actions["Follow Mouse"]->isChecked());
         QVERIFY(actions["Last Selected First"]->isChecked());
         QVERIFY(actions["Record Content"]->isChecked());
         // A custom separator shows in the field; no preset is checked.
@@ -447,7 +452,7 @@ private slots:
         for (const char *label : {"New Line", "Comma", "No Separator"}) QVERIFY(!actions[label]->isChecked());
         for (const char *label : {"Paste with Format", "Auto Paste After Selection", "Close After Paste", "Move to Top After Paste", "Show Time and Source",
                                   "Preserve Search on Reopen", "Opaque", "17px", "Large", "First Selected First", "Record Content", "Comma", "Add Content",
-                                  "Clear History"})
+                                  "Clear History", "Follow Mouse"})
             actions[label]->trigger();
         actions[QString::fromUtf8("▲ Top")]->trigger();
         QVERIFY(calls.contains("html 0"));
@@ -461,6 +466,7 @@ private slots:
         QVERIFY(calls.contains("add"));
         QVERIFY(calls.contains("clear"));
         QVERIFY(calls.contains("bar top"));
+        QVERIFY(calls.contains("position cursor"));
         // Theme swatches are buttons inside the menu.
         QPushButton *swatch = nullptr;
         for (auto *button : menu->findChildren<QPushButton *>()) swatch = button;
@@ -534,6 +540,39 @@ private slots:
         QCOMPARE(editor.entries(), special_paste::default_entries());
     }
 
+    void theSingleFileSwitchFollowsTheDatabaseAndRevertsWhenItCannotSwitch() {
+        auto &cm = ClipboardManager::instance();
+        QVERIFY(!cm.single_file());
+        SettingsDialog dialog(env_.config, "");
+        dialog.show();
+        dialog.on_nav_changed(2, "clipboard");
+        auto *card = dialog.attr<SwitchSettingCard>("_clipboard_single_file_toggle");
+        QVERIFY(card && card->isEnabled());
+        QVERIFY(!card->isChecked());
+
+        // Another connection keeps the database in WAL: the switch goes back and says why.
+        const QByteArray path = cm.get_db_path().value_or(QString()).toUtf8();
+        char error[256] = {};
+        JbClipboard *other = jb_clipboard_open(path.constData(), error, sizeof error);
+        QVERIFY2(other, error);
+        {
+            ModalAnswerer ok(true);
+            card->setChecked(true);
+            QTRY_COMPARE(ok.answered(), 1);
+            QVERIFY(ok.texts.first().contains("another program"));
+        }
+        jb_clipboard_free(other);
+        QVERIFY(!card->isChecked());
+        QVERIFY(!cm.single_file());
+
+        card->setChecked(true);
+        QVERIFY(cm.single_file());
+        QVERIFY(cm.add_item("one file"));
+        QVERIFY(!QFileInfo::exists(QString::fromUtf8(path) + "-wal"));
+        card->setChecked(false);
+        QVERIFY(!cm.single_file());
+    }
+
     void theSettingsPageMovesClearsAndOpensTheData() {
         const auto group = ClipboardManager::instance().create_group("Keep");
         const auto ids = add_texts({"loose", "grouped", "pinned"});
@@ -549,11 +588,10 @@ private slots:
         };
         QVERIFY(button("Change") && button("Open") && button("Clear History"));
 
-        // The size is measured on demand.
+        // The size is measured when the page opens, without a button.
         auto *size_label = dialog.attr<QLabel>("_clipboard_size_label");
-        auto *refresh = qobject_cast<QToolButton *>(dialog.attr_widget("_clipboard_refresh_btn"));
-        QVERIFY(size_label && refresh);
-        refresh->click();
+        QVERIFY(size_label);
+        QVERIFY(!dialog.has_attr("_clipboard_refresh_btn"));
         QTRY_VERIFY(size_label->text().contains("B"));
 
         // Opening shows the data folder.

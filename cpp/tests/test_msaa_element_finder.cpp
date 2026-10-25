@@ -2,11 +2,13 @@
 #include "capture/window_finder.h"
 #include "canvas/scene.h"
 #include "canvas/view.h"
+#include "canvas/smart_selection_anim.h"
 #include "ui/initial_selection.h"
 #include <QApplication>
 #include <QCursor>
 #include <QFile>
 #include <QJsonArray>
+#include <QMouseEvent>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QEventLoop>
@@ -46,7 +48,23 @@ void setup_view(CanvasView &view, MSAAQuery query) {
     view.smart_selection_enabled = view.smart_selection_drills_to_elements = true;
     view.window_finder = std::make_unique<WindowFinder>();
     view.window_finder->windows = {{100, {0, 0, 300, 200}, "fixture"}};
-    view.element_finder = std::make_unique<MSAAElementFinder>(&view, std::move(query));
+    view.use_element_finder(std::make_unique<MSAAElementFinder>(&view, std::move(query)));
+}
+// A hover move in scene coordinates, through the view's own mouse handling. Late replies
+// re-read the cursor, and scene coordinates are screen coordinates.
+void hover(CanvasView &view, const QPointF &scene_pos) {
+    QCursor::setPos(scene_pos.toPoint());
+    const QPointF view_pos = view.mapFromScene(scene_pos);
+    QMouseEvent event(QEvent::MouseMove, view_pos, QPointF(view.viewport()->mapToGlobal(view_pos.toPoint())), Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+    QApplication::sendEvent(view.viewport(), &event);
+}
+QRectF selection(CanvasView &view) { return view.canvas_scene->selection_model->rect(); }
+// A 40 px control centred on the queried x; the given x answers slowly.
+MSAAQuery controls(int slow_x, int slow_ms) {
+    return [slow_x, slow_ms](quintptr, int x, int, bool) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(x == slow_x ? slow_ms : 10));
+        return Elements{{{x - 20, 10, x + 20, 60}, 0}};
+    };
 }
 }
 
@@ -57,7 +75,6 @@ private slots:
         QFile file(JIETUBA_MSAA_FIXTURE);
         QVERIFY(file.open(QIODevice::ReadOnly));
         const auto fixture = QJsonDocument::fromJson(file.readAll()).object();
-        QCOMPARE(InitialSelectionGate::WAIT_MS, fixture["initial_wait_ms"].toInt());
         for (const auto &value : fixture["cases"].toArray()) {
             const auto row = value.toObject();
             const auto point = row["point"].toArray(), minimum = row["min"].toArray();
@@ -92,6 +109,71 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(finder.has_parent_chain(100, 20, 20), 1000);
         QTRY_VERIFY_WITH_TIMEOUT(finder.prepare_at(100, 21, 20), 1000);
         QCOMPARE(finder.elements_at(100, 21, 20).size(), size_t(2));
+    }
+    void replyForAnEarlierPointIsKeptWhileItsControlHoldsThePointer() {
+        CursorRestore restore;
+        CanvasScene scene(image(), QRectF(0, 0, 400, 300));
+        CanvasView view(&scene);
+        // 150 answers slowly enough that the reply for 140 can be seen under a loaded ctest -j.
+        setup_view(view, controls(150, 1500));
+        hover(view, QPointF(100, 30));
+        QTRY_COMPARE_WITH_TIMEOUT(selection(view), QRectF(80, 10, 40, 50), 1000);
+        // 140 is still being answered when the pointer reaches 150; its control covers 150.
+        hover(view, QPointF(140, 30));
+        hover(view, QPointF(150, 30));
+        QTRY_COMPARE_WITH_TIMEOUT(selection(view), QRectF(120, 10, 40, 50), 1000);
+        QTRY_COMPARE_WITH_TIMEOUT(selection(view), QRectF(130, 10, 40, 50), 3000);
+    }
+    void selectionHoldsWhileTheNextControlIsLookedUp() {
+        CursorRestore restore;
+        CanvasScene scene(image(), QRectF(0, 0, 400, 300));
+        CanvasView view(&scene);
+        setup_view(view, controls(200, 60));
+        hover(view, QPointF(100, 30));
+        QTRY_COMPARE_WITH_TIMEOUT(selection(view), QRectF(80, 10, 40, 50), 1000);
+        // Outside the known control: the window is not flashed while 200 is answered.
+        hover(view, QPointF(200, 30));
+        QCOMPARE(selection(view), QRectF(80, 10, 40, 50));
+        QTest::qWait(30);
+        QCOMPARE(selection(view), QRectF(80, 10, 40, 50));
+        QTRY_COMPARE_WITH_TIMEOUT(selection(view), QRectF(180, 10, 40, 50), 1000);
+    }
+    void slowLookupFallsBackToTheWindowAfterTheHold() {
+        CursorRestore restore;
+        CanvasScene scene(image(), QRectF(0, 0, 400, 300));
+        CanvasView view(&scene);
+        setup_view(view, controls(200, 600));
+        hover(view, QPointF(100, 30));
+        QTRY_COMPARE_WITH_TIMEOUT(selection(view), QRectF(80, 10, 40, 50), 1000);
+        QElapsedTimer timer;
+        timer.start();
+        hover(view, QPointF(200, 30));
+        QTRY_COMPARE_WITH_TIMEOUT(selection(view), QRectF(0, 0, 300, 200), 500);
+        QVERIFY(timer.elapsed() >= MSAAElementFinder::HOLD_MS - 20);
+        QTRY_COMPARE_WITH_TIMEOUT(selection(view), QRectF(180, 10, 40, 50), 1500);
+    }
+    void retargetingKeepsTheTweenDeadline() {
+        std::vector<QRectF> applied;
+        SmartSelectionAnimator animator([&](const QRectF &rect) { applied.push_back(rect); });
+        const QRectF a(0, 0, 100, 100), b(200, 0, 100, 100), c(400, 0, 100, 100);
+        animator.animate_to(a, b);
+        QVERIFY(animator.is_running());
+        // Blocking sleeps let time pass without ticks: only the clock decides.
+        QTest::qSleep(SmartSelectionAnimator::DURATION_MS * 3 / 4);
+        animator.animate_to(QRectF(150, 0, 100, 100), c);
+        QVERIFY(animator.is_running());
+        QCOMPARE(animator.target(), c);
+        QTest::qSleep(SmartSelectionAnimator::DURATION_MS / 3);
+        QTRY_VERIFY_WITH_TIMEOUT(!animator.is_running(), 200);
+        QCOMPARE(applied.back(), c);
+        // Idle again: a new change starts a full tween from the shown rect, the first frame near it.
+        applied.clear();
+        animator.animate_to(c, a);
+        QTRY_VERIFY_WITH_TIMEOUT(!applied.empty(), 200);
+        QVERIFY(applied.front().left() > a.left() && applied.front().left() < c.left());
+        animator.snap_to(b);
+        QVERIFY(!animator.is_running());
+        QCOMPARE(applied.back(), b);
     }
     void closeDiscardsPendingReply() {
         MSAAElementFinder finder(nullptr, [](quintptr, int, int, bool) {
@@ -129,17 +211,20 @@ private slots:
         CanvasScene scene(image(), QRectF(0, 0, 400, 300));
         CanvasView view(&scene);
         setup_view(view, [](quintptr, int, int, bool) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(150));
+            std::this_thread::sleep_for(std::chrono::milliseconds(InitialSelectionGate::WAIT_MS + 200));
             return Elements{};
         });
         InitialSelectionGate gate;
         QSignalSpy ready(&gate, &InitialSelectionGate::ready);
+        QElapsedTimer timer;
+        timer.start();
         gate.start(&view);
-        QTRY_COMPARE_WITH_TIMEOUT(ready.count(), 1, 100);
+        QTRY_COMPARE_WITH_TIMEOUT(ready.count(), 1, InitialSelectionGate::WAIT_MS + 100);
+        QVERIFY(timer.elapsed() >= InitialSelectionGate::WAIT_MS - 20);
         QCOMPARE(view.get_smart_selection_rect(QPointF(20, 20)), QRectF(0, 0, 300, 200));
         gate.start(&view);
         gate.cancel();
-        QTest::qWait(60);
+        QTest::qWait(InitialSelectionGate::WAIT_MS + 50);
         QCOMPARE(ready.count(), 1);
     }
 };

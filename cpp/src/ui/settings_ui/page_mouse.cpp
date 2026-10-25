@@ -22,6 +22,7 @@ IconSource quick_capture_icon(const QString &action) {
     static const QMap<QString, IconSource> icons{
         {"pin", inapp_icon("inapp_pin")}, {"copy", inapp_icon("inapp_confirm")}, {"copy_pin", inapp_icon("inapp_copy_pin")},
         {"ocr", inapp_icon("inapp_text_recognize")}, {"translate", inapp_icon("inapp_translate")}, {"edit", FluentIcon::Edit},
+        {"scan_code", QString::fromUtf8("扫码.svg")},
     };
     return icons.value(action);
 }

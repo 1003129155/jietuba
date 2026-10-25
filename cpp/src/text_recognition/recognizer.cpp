@@ -28,7 +28,7 @@ void RecognizeThread::run() {
         if (!is_ocr_available()) {
             const QString status = get_ppocr_status();
             reason = status == "missing_models" ? recognition_reason::NO_MODEL : status == "missing_engine" ? recognition_reason::NO_RUNTIME : recognition_reason::UNAVAILABLE;
-        } else if (const auto result = recognize_text(image_); result.code == -1) {
+        } else if (const auto result = recognize_text(image_, &cancelled_); result.code == -1) {
             reason = result.reason.isEmpty() ? recognition_reason::FAILED : result.reason;
         } else {
             lines = group_ocr_lines(result);

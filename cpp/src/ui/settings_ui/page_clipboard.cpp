@@ -72,19 +72,6 @@ QString get_clipboard_db_path(SettingsDialog *dialog) {
     return dialog->tr_text("Clipboard module not available");
 }
 
-void refresh_clipboard_size_async(SettingsDialog *dialog) {
-    // Scans the disk on a worker thread and updates the label only if it still exists.
-    QPointer<QLabel> label = dialog->attr<QLabel>("_clipboard_size_label");
-    if (!label) return;
-    auto result = std::make_shared<QString>();
-    QThread *thread = QThread::create([result] { *result = calc_clipboard_storage_size(); });
-    QObject::connect(thread, &QThread::finished, label, [label, result] {
-        if (label) label->setText(result->isEmpty() ? QString::fromUtf8("—") : *result);
-    });
-    QObject::connect(thread, &QThread::finished, thread, &QObject::deleteLater);
-    thread->start();
-}
-
 void manage_special_paste(SettingsDialog *dialog) {
     SpecialPasteDialog editor(dialog->clipboard_special_paste_entries.value_or(special_paste::load(dialog->config_manager)), dialog);
     if (exec_dialog(&editor) == QDialog::Accepted) {
@@ -95,6 +82,23 @@ void manage_special_paste(SettingsDialog *dialog) {
 
 void set_storage_path_label(SettingsDialog *dialog, const QString &path) {
     if (auto *card = dialog->attr<SettingCard>("_clipboard_storage_card")) card->setContent(path);
+}
+
+// The storage mode belongs to the open database, so the switch follows it after the data location changes.
+void sync_single_file_toggle(SettingsDialog *dialog) {
+    auto *card = dialog->attr<SwitchSettingCard>("_clipboard_single_file_toggle");
+    if (!card) return;
+    const QSignalBlocker block(card);
+    auto &cm = ClipboardManager::instance();
+    card->setChecked(cm.single_file());
+    card->setEnabled(cm.is_available());
+}
+
+void set_clipboard_single_file(SettingsDialog *dialog, bool on) {
+    if (ClipboardManager::instance().set_single_file(on)) return;
+    sync_single_file_toggle(dialog);
+    show_warning_dialog(dialog, dialog->tr_text("Error"),
+                        dialog->tr_text("Cannot switch the storage mode: the clipboard database is open in another program. Close it and try again."));
 }
 
 bool target_has_clipboard_data(const QString &target_dir) {
@@ -286,7 +290,8 @@ void on_clipboard_move_completed(SettingsDialog *dialog, QProgressDialog *progre
     dialog->clipboard_move_thread = nullptr;
     if (reopened) {
         set_storage_path_label(dialog, new_db_path);
-        refresh_clipboard_size_async(dialog);
+        sync_single_file_toggle(dialog);
+        dialog->refresh_clipboard_size();
         if (!cleanup_error.isEmpty())
             show_warning_dialog(dialog, dialog->tr_text("Success"),
                                 dialog
@@ -322,7 +327,8 @@ void switch_clipboard_data_location(SettingsDialog *dialog, const QString &curre
     get_tool_settings_manager()->set_clipboard_db_path(new_db_path);
     refresh_open_clipboard_windows();
     set_storage_path_label(dialog, new_db_path);
-    refresh_clipboard_size_async(dialog);
+    sync_single_file_toggle(dialog);
+    dialog->refresh_clipboard_size();
 }
 
 void change_clipboard_data_location(SettingsDialog *dialog) {
@@ -458,6 +464,16 @@ QWidget *create_clipboard_page(SettingsDialog *dialog) {
     enabled_card->setChecked(dialog->config_manager->get_clipboard_enabled());
     dialog->set_attr("clipboard_enabled_toggle", enabled_card);
     grp_basic->addSettingCard(enabled_card);
+
+    auto *position_card = new SettingCard(FluentIcon::Layout, dialog->tr_text("Window Position"), dialog->tr_text("Where the clipboard window appears when it opens"), grp_basic);
+    auto *position_combo = new ComboBox(position_card);
+    position_combo->addItem(dialog->tr_text("Follow Mouse"), QString("cursor"));
+    position_combo->addItem(dialog->tr_text("Last Position"), QString("previous"));
+    const int position_index = position_combo->findData(dialog->config_manager->get_clipboard_open_position());
+    position_combo->setCurrentIndex(std::max(0, position_index));
+    dialog->behavior_controls.emplace_back("clipboard_open_position", position_combo);
+    position_card->addControl(position_combo);
+    grp_basic->addSettingCard(position_card);
     layout->addWidget(grp_basic);
 
     // ════ History ════
@@ -494,20 +510,28 @@ QWidget *create_clipboard_page(SettingsDialog *dialog) {
     storage_card->addControl(open_folder_btn);
     grp_data->addSettingCard(storage_card);
 
+    // Applied right away rather than with the other settings: the mode is stored in the database file.
+    auto *single_file_card = new SwitchSettingCard(FluentIcon::Document, dialog->tr_text("Single-File Database"),
+                                                   dialog->tr_text("Recommended when the data folder is in OneDrive or another sync folder: the "
+                                                                   "database stays one complete file. Saving is slightly slower."),
+                                                   grp_data);
+    dialog->set_attr("_clipboard_single_file_toggle", single_file_card);
+    sync_single_file_toggle(dialog);
+    QObject::connect(single_file_card, &SwitchSettingCard::checkedChanged, dialog, [dialog](bool on) { set_clipboard_single_file(dialog, on); });
+    grp_data->addSettingCard(single_file_card);
+
     auto *cleanup_card = new SettingCard(FluentIcon::Delete, dialog->tr_text("Clear Clipboard History"), dialog->tr_text("Delete all clipboard history records"), grp_data);
-    // The size needs a disk scan, so it refreshes on demand; the button and result sit left of the control column so the buttons line up with other cards.
-    auto *size_label = new CaptionLabel(dialog->tr_text("← Get storage size"), cleanup_card);
+    // The result sits left of the control column so the buttons line up with other cards.
+    auto *size_label = new CaptionLabel(QString::fromUtf8("…"), cleanup_card);
     // CaptionLabel wraps and may shrink to zero width (for card descriptions); this one-line result sizes to its content.
     size_label->setWordWrap(false);
     size_label->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
     dialog->set_attr("_clipboard_size_label", size_label);
-    auto *refresh_btn = new TransparentToolButton(FluentIcon::Sync, cleanup_card);
-    refresh_btn->setBaseMetrics(48, 32);
-    QObject::connect(refresh_btn, &QToolButton::clicked, dialog, [dialog] { refresh_clipboard_size_async(dialog); });
-    dialog->set_attr("_clipboard_refresh_btn", refresh_btn);
-    const int size_index = cleanup_card->hBoxLayout->count() - 1;
-    cleanup_card->hBoxLayout->insertWidget(size_index, refresh_btn);
-    cleanup_card->hBoxLayout->insertWidget(size_index + 1, size_label);
+    // The scan runs off the UI thread; history grows while the window is hidden, so it repeats on show and activation.
+    dialog->clipboard_size_refresh = dialog->add_external_refresh([] { return calc_clipboard_storage_size(); }, [size_label](const QString &size) {
+        size_label->setText(size.isEmpty() ? QString::fromUtf8("—") : size);
+    });
+    cleanup_card->hBoxLayout->insertWidget(cleanup_card->hBoxLayout->count() - 1, size_label);
     auto *clear_btn = new PrimaryPushButton(dialog->tr_text("Clear History"), cleanup_card);
     QObject::connect(clear_btn, &QPushButton::clicked, dialog, [dialog] { clear_clipboard_history(dialog); });
     cleanup_card->addControl(clear_btn);

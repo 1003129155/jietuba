@@ -26,6 +26,7 @@ const ToneColors &feature_tone(const QString &tone) {
 
 int card_right_margin() { return dialog_scaled(24); }
 int card_text_left() { return dialog_scaled(CARD_LEFT + TILE_SIZE + CARD_GAP); }
+int card_width_besides_title() { return card_text_left() + dialog_scaled(CARD_GAP + SettingCard::CONTROL_COLUMN_MAX) + card_right_margin(); }
 
 IconBadge::IconBadge(const IconSource &icon, const QString &tone, QWidget *parent, int size, int icon_size, bool muted)
     : QWidget(parent), icon_(icon), tone_(tone), icon_size_(icon_size), muted_(muted) {

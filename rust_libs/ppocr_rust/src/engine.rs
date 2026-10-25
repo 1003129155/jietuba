@@ -55,15 +55,18 @@ struct Img {
 }
 
 impl Img {
-    /// 从带 stride 的 RGB 源构造紧密 RGB。
-    fn from_raw_rgb(src: &[u8], w: usize, h: usize, stride: usize) -> Img {
+    /// 从带 stride 的 RGB 源构造紧密 RGB；源比给的尺寸短时报错。
+    fn from_raw_rgb(src: &[u8], w: usize, h: usize, stride: usize) -> Result<Img, String> {
+        if h > 0 && (stride < w * 3 || src.len() < (h - 1) * stride + w * 3) {
+            return Err(format!("图像数据不足: {w}x{h}, stride {stride}, {} 字节", src.len()));
+        }
         let mut data = vec![0u8; w * h * 3];
         for y in 0..h {
             let srow = y * stride;
             let drow = y * w * 3;
             data[drow..drow + w * 3].copy_from_slice(&src[srow..srow + w * 3]);
         }
-        Img { w, h, data }
+        Ok(Img { w, h, data })
     }
 
     #[inline]
@@ -96,50 +99,181 @@ impl Img {
     }
 }
 
-// ====================== 预处理 ======================
+// ====================== 检测预处理：补边与分块 ======================
+//
+// 检测按原尺寸做、不缩放：缩小会把小字缩没，长图压到一千多像素后整张都认不出。
+// 大图分块推理，各块的概率图拼回整图再统一出框，框坐标就是原图坐标。
 
-/// 把整图按 DBNet 规则缩放，归一化为 CHW(BGR, (x/255-0.5)/0.5)。
-/// 返回 (chw_data, dst_w, dst_h, ratio_w, ratio_h)。
-fn preprocess_det(img: &Img) -> (Vec<f32>, usize, usize, f32, f32) {
-    let limit_side: f32 = 736.0;
-    let max_side_cap: f32 = 1536.0; // 防止超大图导致推理过慢
-    let (h, w) = (img.h as f32, img.w as f32);
+/// 任一边（补边后）达到这个长度就分块：整张大图一次推理，模型的中间张量随面积涨，
+/// 4K 屏要 1.7 GB，分块后不到 500 MB。
+const DET_TILE_FROM: usize = 1440;
+const DET_TILE: usize = 960;
+/// 相邻块的重叠。字在块边上被截断，模型在离块边几十像素内给的概率或缺或歪，大字跨过块边时
+/// 会断成两段、重复认出半个字；重叠里按离各自块边的远近交叉淡化（见 paste_blend）。
+/// 重叠只有 96 时，蓝底上的小字跨过块边仍会断。
+const DET_TILE_OVERLAP: usize = 192;
 
-    // limit_type = min：短边不足 limit 则放大
-    let mut ratio = if h.min(w) < limit_side {
-        limit_side / h.min(w)
-    } else {
-        1.0
-    };
-    // 上限保护：长边不超过 max_side_cap
-    if h.max(w) * ratio > max_side_cap {
-        ratio = max_side_cap / h.max(w);
+/// 检测的归一化照 PaddleOCR 训练时的做法：图按 BGR 排，ImageNet 的均值方差依次用在 B、G、R 上。
+const DET_MEAN: [f32; 3] = [0.485, 0.456, 0.406];
+const DET_STD: [f32; 3] = [0.229, 0.224, 0.225];
+
+/// 补边后的检测图：w×h，原图左上角在 (left, top)。
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Canvas {
+    w: usize,
+    h: usize,
+    left: usize,
+    top: usize,
+}
+
+/// 宽高各补到 32 的倍数且不小于 128，两侧均分。
+fn det_canvas(w: usize, h: usize) -> Canvas {
+    let side = |v: usize| v.max(128).div_ceil(32) * 32;
+    let (cw, ch) = (side(w), side(h));
+    Canvas { w: cw, h: ch, left: (cw - w) / 2, top: (ch - h) / 2 }
+}
+
+/// 补边的颜色：四个角像素的平均，接近底色，补出的边不会被当成一道框线。
+fn border_color(img: &Img) -> [u8; 3] {
+    let corners = [img.px(0, 0), img.px(img.w - 1, 0), img.px(0, img.h - 1), img.px(img.w - 1, img.h - 1)];
+    let mut fill = [0u8; 3];
+    for (c, value) in fill.iter_mut().enumerate() {
+        *value = (corners.iter().map(|p| p[c]).sum::<f32>() / 4.0).round() as u8;
     }
+    fill
+}
 
-    let round32 = |v: f32| -> usize {
-        let r = (v / 32.0).round() as i64 * 32;
-        r.max(32) as usize
-    };
-    let dst_h = round32(h * ratio);
-    let dst_w = round32(w * ratio);
-    let ratio_h = dst_h as f32 / h;
-    let ratio_w = dst_w as f32 / w;
+/// 一个检测块在补边后整图上的位置和大小。
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Tile {
+    x: usize,
+    y: usize,
+    w: usize,
+    h: usize,
+}
 
-    let plane = dst_h * dst_w;
+/// 一条边上的分段 (起点, 长度)：每段 DET_TILE、相邻重叠 DET_TILE_OVERLAP，剩下不足 1.3 段时
+/// 整个并进最后一段，免得末尾切出一条窄边。length 是 32 的倍数，各段的起点和长度因此也是。
+fn det_spans(length: usize) -> Vec<(usize, usize)> {
+    let mut spans = Vec::new();
+    let mut start = 0;
+    loop {
+        let rest = length - start;
+        if rest * 10 < DET_TILE * 13 {
+            spans.push((start, rest));
+            return spans;
+        }
+        spans.push((start, DET_TILE));
+        start += DET_TILE - DET_TILE_OVERLAP;
+    }
+}
+
+/// 补边后的图切成的检测块，先行后列。
+fn det_tiles(canvas: Canvas) -> Vec<Tile> {
+    if canvas.w.max(canvas.h) < DET_TILE_FROM {
+        return vec![Tile { x: 0, y: 0, w: canvas.w, h: canvas.h }];
+    }
+    let columns = det_spans(canvas.w);
+    det_spans(canvas.h)
+        .into_iter()
+        .flat_map(|(y, h)| columns.iter().map(move |&(x, w)| Tile { x, y, w, h }))
+        .collect()
+}
+
+/// 一块的检测输入，CHW(BGR)，按 DET_MEAN、DET_STD 归一化；落在补边里的像素取 fill。
+fn det_input(img: &Img, fill: [u8; 3], canvas: Canvas, tile: Tile) -> Vec<f32> {
+    let plane = tile.w * tile.h;
     let mut data = vec![0f32; 3 * plane];
-    for y in 0..dst_h {
-        let sy = y as f32 / ratio_h;
-        for x in 0..dst_w {
-            let sx = x as f32 / ratio_w;
-            let rgb = img.sample(sx, sy);
-            let off = y * dst_w + x;
-            // BGR 顺序 + 归一化
-            data[off] = (rgb[2] / 255.0 - 0.5) / 0.5; // B
-            data[plane + off] = (rgb[1] / 255.0 - 0.5) / 0.5; // G
-            data[2 * plane + off] = (rgb[0] / 255.0 - 0.5) / 0.5; // R
+    let border = fill.map(|v| v as f32);
+    for ty in 0..tile.h {
+        let sy = (tile.y + ty).checked_sub(canvas.top).filter(|&y| y < img.h);
+        for tx in 0..tile.w {
+            let sx = (tile.x + tx).checked_sub(canvas.left).filter(|&x| x < img.w);
+            let rgb = match (sx, sy) {
+                (Some(x), Some(y)) => img.px(x, y),
+                _ => border,
+            };
+            let off = ty * tile.w + tx;
+            for (c, value) in [rgb[2], rgb[1], rgb[0]].into_iter().enumerate() {
+                data[c * plane + off] = (value / 255.0 - DET_MEAN[c]) / DET_STD[c];
+            }
         }
     }
-    (data, dst_w, dst_h, ratio_w, ratio_h)
+    data
+}
+
+/// 块内第 i 个像素（共 len 个）的权重：挨着别的块的一侧，在重叠宽度内从 0 线性升到 1。
+/// 相邻两块的重叠正好是 DET_TILE_OVERLAP，两边的权重在重叠里相加处处为 1。
+fn blend_weight(i: usize, len: usize, inner_before: bool, inner_after: bool) -> f32 {
+    let overlap = DET_TILE_OVERLAP as f32;
+    let mut weight = 1.0f32;
+    if inner_before {
+        weight = weight.min((i as f32 + 0.5) / overlap);
+    }
+    if inner_after {
+        weight = weight.min(((len - i) as f32 - 0.5) / overlap);
+    }
+    weight
+}
+
+/// 把一块的概率图按权重加进原图大小 (w×h) 的概率图，补边部分丢掉。
+fn paste_blend(prob: &mut [f32], w: usize, h: usize, canvas: Canvas, tile: Tile, tile_prob: &[f32]) {
+    let x0 = tile.x.max(canvas.left);
+    let x1 = (tile.x + tile.w).min(canvas.left + w);
+    if x0 >= x1 {
+        return;
+    }
+    let (has_left, has_right) = (tile.x > 0, tile.x + tile.w < canvas.w);
+    let column_weights: Vec<f32> = (x0..x1).map(|cx| blend_weight(cx - tile.x, tile.w, has_left, has_right)).collect();
+    for ty in 0..tile.h {
+        let Some(y) = (tile.y + ty).checked_sub(canvas.top).filter(|&y| y < h) else { continue };
+        let row_weight = blend_weight(ty, tile.h, tile.y > 0, tile.y + tile.h < canvas.h);
+        let src = &tile_prob[ty * tile.w + (x0 - tile.x)..ty * tile.w + (x1 - tile.x)];
+        let dst = &mut prob[y * w + (x0 - canvas.left)..y * w + (x1 - canvas.left)];
+        for ((d, &s), &column_weight) in dst.iter_mut().zip(src).zip(&column_weights) {
+            *d += row_weight * column_weight * s;
+        }
+    }
+}
+
+/// 分格清零的格子边长、算作明暗变化的相邻像素亮度差，和够得着的格数：离任何有变化的格子
+/// 超过 FLAT_REACH 格（48 像素）就不会是字。
+const FLAT_CELL: usize = 16;
+const FLAT_STEP: i32 = 8;
+const FLAT_REACH: usize = 3;
+
+/// 大片纯色上模型也会给出整块的高概率（蓝底、米黄底尤其明显），出框后识别成空串或一个乱字，
+/// 还可能和旁边的字连成一块。字离笔画边缘总不远，离明暗变化太远的地方把概率清零。
+fn clear_flat(prob: &mut [f32], img: &Img) {
+    let (w, h) = (img.w, img.h);
+    let (gw, gh) = (w.div_ceil(FLAT_CELL), h.div_ceil(FLAT_CELL));
+    let luma = |x: usize, y: usize| {
+        let i = (y * w + x) * 3;
+        (299 * img.data[i] as i32 + 587 * img.data[i + 1] as i32 + 114 * img.data[i + 2] as i32) / 1000
+    };
+    let mut changed = vec![false; gw * gh];
+    for y in 0..h {
+        for x in 0..w {
+            let v = luma(x, y);
+            if (x + 1 < w && (luma(x + 1, y) - v).abs() >= FLAT_STEP) || (y + 1 < h && (luma(x, y + 1) - v).abs() >= FLAT_STEP) {
+                changed[(y / FLAT_CELL) * gw + x / FLAT_CELL] = true;
+            }
+        }
+    }
+    let mut near = vec![false; gw * gh];
+    for gy in 0..gh {
+        for gx in 0..gw {
+            let (x0, x1) = (gx.saturating_sub(FLAT_REACH), (gx + FLAT_REACH).min(gw - 1));
+            near[gy * gw + gx] = (gy.saturating_sub(FLAT_REACH)..=(gy + FLAT_REACH).min(gh - 1)).any(|row| changed[row * gw + x0..=row * gw + x1].contains(&true));
+        }
+    }
+    for y in 0..h {
+        for x in 0..w {
+            if !near[(y / FLAT_CELL) * gw + x / FLAT_CELL] {
+                prob[y * w + x] = 0.0;
+            }
+        }
+    }
 }
 
 // ====================== 连通域 (BFS, 4-邻接) ======================
@@ -243,10 +377,10 @@ fn rotate90(img: &Img) -> Img {
 // ====================== rec 预处理 ======================
 
 /// 把一行文本图缩放到识别模型的输入高度，归一化为 CHW(BGR)。返回 (chw_data, dst_w)。
+/// 宽度按比例走、不封顶：整屏宽的一行压窄后字被挤扁，基本认不对。
 fn preprocess_rec(img: &Img, target_h: usize) -> (Vec<f32>, usize) {
     let ratio = img.w as f32 / img.h as f32;
-    let mut dst_w = (target_h as f32 * ratio).ceil() as usize;
-    dst_w = dst_w.max(16).min(2000);
+    let dst_w = ((target_h as f32 * ratio).ceil() as usize).max(16);
 
     let plane = target_h * dst_w;
     let mut data = vec![0f32; 3 * plane];
@@ -367,83 +501,47 @@ impl Engine {
         rec_classes(&mut self.rec, self.rec_height).map(|_| ())
     }
 
-    /// 识别整张图，返回所有文本行（原图坐标）。
+    /// 识别整张图，返回所有文本行（原图坐标）。长图要几秒，cancelled 在每个检测块和
+    /// 每一行之前问一次，返回真就停下，结果为 None。
     pub fn recognize(
         &mut self,
         src_rgb: &[u8],
         w: usize,
         h: usize,
         stride: usize,
-    ) -> Result<Vec<OcrLine>, String> {
-    let img = Img::from_raw_rgb(src_rgb, w, h, stride);
-
-    // ---- det ----
-    let (det_data, dst_w, dst_h, ratio_w, ratio_h) = preprocess_det(&img);
-    let det_tensor = Tensor::from_array((
-        [1_i64, 3, dst_h as i64, dst_w as i64],
-        det_data,
-    ))
-    .map_err(|e| e.to_string())?;
-    let det_out = self
-        .det
-        .run(ort::inputs![det_tensor])
-        .map_err(|e| format!("det 推理失败: {e}"))?;
-    let prob = det_out[0]
-        .try_extract_tensor::<f32>()
-        .map_err(|e| e.to_string())?;
-    let prob_slice = prob.1; // (&Shape, &[f32])
-
-    // 二值化
-    let thresh = 0.3f32;
-    let box_thresh = 0.5f32;
-    let unclip_ratio = 1.6f32;
-    let n = dst_w * dst_h;
-    let prob_map: &[f32] = &prob_slice[..n.min(prob_slice.len())];
-    let bitmap: Vec<bool> = prob_map.iter().map(|&v| v > thresh).collect();
-
-    let comps = connected_components(&bitmap, dst_w, dst_h);
-
-    let mut boxes: Vec<Vec<Pt>> = Vec::new();
-    for comp in comps {
-        let pts: Vec<Pt> = comp.iter().map(|&(x, y)| [x as f32, y as f32]).collect();
-        let hull = geometry::convex_hull(pts.clone());
-        let rect = geometry::min_area_rect(&hull);
-        // box_score_fast：AABB 内 prob 均值
-        let score = box_score(prob_map, dst_w, dst_h, &rect);
-        if score < box_thresh {
-            continue;
-        }
-        // unclip
-        let expanded = geometry::unclip(&rect, unclip_ratio);
-        let final_box = geometry::min_area_rect(&geometry::convex_hull(expanded));
-        // 最小边过滤
-        let sw = dist(final_box[0], final_box[1]).min(dist(final_box[1], final_box[2]));
-        if sw < 3.0 {
-            continue;
-        }
-        // 映射回原图坐标
-        let mapped: Vec<Pt> = final_box
-            .iter()
-            .map(|p| {
-                [
-                    (p[0] / ratio_w).max(0.0).min((w - 1) as f32),
-                    (p[1] / ratio_h).max(0.0).min((h - 1) as f32),
-                ]
-            })
-            .collect();
-        boxes.push(geometry::order_quad(mapped));
+        cancelled: &dyn Fn() -> bool,
+    ) -> Result<Option<Vec<OcrLine>>, String> {
+    let img = Img::from_raw_rgb(src_rgb, w, h, stride)?;
+    if w == 0 || h == 0 {
+        return Ok(Some(Vec::new()));
     }
 
-    // 按从上到下、从左到右排序
-    boxes.sort_by(|a, b| {
-        let ay = a.iter().map(|p| p[1]).sum::<f32>();
-        let by = b.iter().map(|p| p[1]).sum::<f32>();
-        ay.partial_cmp(&by).unwrap()
-    });
+    // ---- det ----
+    let canvas = det_canvas(w, h);
+    let fill = border_color(&img);
+    let mut prob = vec![0f32; w * h];
+    for tile in det_tiles(canvas) {
+        if cancelled() {
+            return Ok(None);
+        }
+        let input = Tensor::from_array(([1_i64, 3, tile.h as i64, tile.w as i64], det_input(&img, fill, canvas, tile)))
+            .map_err(|e| e.to_string())?;
+        let out = self.det.run(ort::inputs![input]).map_err(|e| format!("det 推理失败: {e}"))?;
+        let (shape, tile_prob) = out[0].try_extract_tensor::<f32>().map_err(|e| e.to_string())?;
+        if tile_prob.len() != tile.w * tile.h {
+            return Err(format!("det 输出形状 {shape:?} 与输入 {}x{} 不符", tile.w, tile.h));
+        }
+        paste_blend(&mut prob, w, h, canvas, tile, tile_prob);
+    }
+    clear_flat(&mut prob, &img);
+    let boxes = det_boxes(&prob, w, h);
 
     // ---- rec ----
     let mut results = Vec::new();
     for quad in boxes {
+        if cancelled() {
+            return Ok(None);
+        }
         let (crop, vertical) = crop_quad(&img, &quad);
         if crop.w < 3 || crop.h < 3 {
             continue;
@@ -472,7 +570,7 @@ impl Engine {
         }
     }
 
-    Ok(results)
+    Ok(Some(results))
     }
 }
 
@@ -499,7 +597,41 @@ fn dist(a: Pt, b: Pt) -> f32 {
     ((a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2)).sqrt()
 }
 
-/// AABB 内概率均值。
+/// DB 后处理：w×h 概率图上的文本框（4 点，左上起顺时针），从上到下排。
+fn det_boxes(prob: &[f32], w: usize, h: usize) -> Vec<Vec<Pt>> {
+    let thresh = 0.3f32;
+    let box_thresh = 0.5f32;
+    let unclip_ratio = 1.6f32;
+    let bitmap: Vec<bool> = prob.iter().map(|&v| v > thresh).collect();
+
+    let mut boxes: Vec<Vec<Pt>> = Vec::new();
+    for comp in connected_components(&bitmap, w, h) {
+        let pts: Vec<Pt> = comp.iter().map(|&(x, y)| [x as f32, y as f32]).collect();
+        let rect = geometry::min_area_rect(&geometry::convex_hull(pts));
+        if box_score(prob, w, h, &rect) < box_thresh {
+            continue;
+        }
+        let expanded = geometry::unclip(&rect, unclip_ratio);
+        let final_box = geometry::min_area_rect(&geometry::convex_hull(expanded));
+        let short_side = dist(final_box[0], final_box[1]).min(dist(final_box[1], final_box[2]));
+        if short_side < 3.0 {
+            continue;
+        }
+        let clamped: Vec<Pt> = final_box
+            .iter()
+            .map(|p| [p[0].max(0.0).min((w - 1) as f32), p[1].max(0.0).min((h - 1) as f32)])
+            .collect();
+        boxes.push(geometry::order_quad(clamped));
+    }
+    boxes.sort_by(|a, b| {
+        let ay = a.iter().map(|p| p[1]).sum::<f32>();
+        let by = b.iter().map(|p| p[1]).sum::<f32>();
+        ay.total_cmp(&by)
+    });
+    boxes
+}
+
+/// 框内（含边界）的概率均值。斜着的框只占外接矩形的一小部分，按整个外接矩形平均会被空白拉低。
 fn box_score(prob: &[f32], w: usize, h: usize, quad: &[Pt]) -> f32 {
     let (mut minx, mut miny, mut maxx, mut maxy) = (f32::MAX, f32::MAX, f32::MIN, f32::MIN);
     for p in quad {
@@ -516,8 +648,10 @@ fn box_score(prob: &[f32], w: usize, h: usize, quad: &[Pt]) -> f32 {
     let mut cnt = 0;
     for y in y0..=y1 {
         for x in x0..=x1 {
-            sum += prob[y * w + x];
-            cnt += 1;
+            if geometry::convex_contains(quad, [x as f32, y as f32]) {
+                sum += prob[y * w + x];
+                cnt += 1;
+            }
         }
     }
     if cnt == 0 {
@@ -705,6 +839,202 @@ mod tests {
         assert!(char_spans(&token, 0.0, 10.0).is_empty());
         assert!(char_spans(&token, 10.0, 0.0).is_empty());
         assert!(char_spans(&[], 10.0, 10.0).is_empty());
+    }
+
+    #[test]
+    fn tilted_boxes_are_scored_by_the_pixels_inside() {
+        // 37 ≤ x+y ≤ 43、|x−y| ≤ 30 的斜带，框正好是它；外接矩形里大半在带外。
+        let (w, h) = (40usize, 40usize);
+        let in_band = |i: usize| {
+            let (x, y) = ((i % w) as i32, (i / w) as i32);
+            (37..=43).contains(&(x + y)) && (x - y).abs() <= 30
+        };
+        let band: Vec<f32> = (0..w * h).map(|i| if in_band(i) { 1.0 } else { 0.0 }).collect();
+        let outside: Vec<f32> = band.iter().map(|v| 1.0 - v).collect();
+        let quad = [[3.5, 33.5], [33.5, 3.5], [36.5, 6.5], [6.5, 36.5]];
+        assert_eq!(box_score(&band, w, h, &quad), 1.0);
+        assert_eq!(box_score(&outside, w, h, &quad), 0.0);
+    }
+
+    fn canvas(w: usize, h: usize) -> Canvas {
+        Canvas { w, h, left: 0, top: 0 }
+    }
+
+    #[test]
+    fn the_canvas_pads_both_sides_to_multiples_of_32() {
+        // 1080 → 1088、9000 → 9024，多出的 8 和 24 两侧各半。
+        assert_eq!(det_canvas(1080, 9000), Canvas { w: 1088, h: 9024, left: 4, top: 12 });
+        assert_eq!(det_canvas(1920, 1080), Canvas { w: 1920, h: 1088, left: 0, top: 4 });
+        // 不足 128 的补到 128；奇数的差额多的一半在右、下。
+        assert_eq!(det_canvas(100, 50), Canvas { w: 128, h: 128, left: 14, top: 39 });
+        assert_eq!(det_canvas(129, 161), Canvas { w: 160, h: 192, left: 15, top: 15 });
+        assert_eq!(det_canvas(2560, 1440), canvas(2560, 1440));
+    }
+
+    #[test]
+    fn the_border_takes_the_mean_of_the_corners() {
+        // 3×2：四角是黑、红、绿、蓝，中间两个白像素不参与。
+        let data = [[0, 0, 0], [255, 255, 255], [255, 0, 0], [0, 255, 0], [255, 255, 255], [0, 0, 255]].concat();
+        // 每个通道 255/4 = 63.75，取 64。
+        assert_eq!(border_color(&Img { w: 3, h: 2, data }), [64, 64, 64]);
+        assert_eq!(border_color(&Img { w: 1, h: 1, data: vec![10, 20, 30] }), [10, 20, 30]);
+    }
+
+    #[test]
+    fn spans_merge_a_short_rest_into_the_last_one() {
+        // 段长 960、起点每次进 768；剩余不足 1.3×960 = 1248 时整个作为最后一段。
+        assert_eq!(det_spans(1216), vec![(0, 1216)]);
+        assert_eq!(det_spans(1248), vec![(0, 960), (768, 480)]);
+        assert_eq!(det_spans(1920), vec![(0, 960), (768, 1152)]);
+        // 2016：起点 768 处正好剩 1248，仍切 960，剩下的 480 成最后一段。
+        assert_eq!(det_spans(2016), vec![(0, 960), (768, 960), (1536, 480)]);
+        assert_eq!(det_spans(3840), vec![(0, 960), (768, 960), (1536, 960), (2304, 960), (3072, 768)]);
+        // 9024：起点 7680 处剩 1344，切 960；8448 处剩 576，成最后一段。
+        let tall = det_spans(9024);
+        assert_eq!(tall.len(), 12);
+        assert_eq!(tall[10], (7680, 960));
+        assert_eq!(tall[11], (8448, 576));
+    }
+
+    #[test]
+    fn only_a_side_of_1440_or_more_splits_the_image() {
+        assert_eq!(det_tiles(canvas(1408, 1408)), vec![Tile { x: 0, y: 0, w: 1408, h: 1408 }]);
+        assert_eq!(det_tiles(canvas(1920, 1088)), vec![Tile { x: 0, y: 0, w: 960, h: 1088 }, Tile { x: 768, y: 0, w: 1152, h: 1088 }]);
+        // 有一边分块时另一边也照同样的规则切：1280 ≥ 1248，切成两段。
+        assert_eq!(det_tiles(canvas(1280, 1440)), vec![
+            Tile { x: 0, y: 0, w: 960, h: 960 },
+            Tile { x: 768, y: 0, w: 512, h: 960 },
+            Tile { x: 0, y: 768, w: 960, h: 672 },
+            Tile { x: 768, y: 768, w: 512, h: 672 },
+        ]);
+        let long = det_tiles(canvas(1088, 9024));
+        assert_eq!(long.len(), 12);
+        assert!(long.iter().all(|tile| tile.x == 0 && tile.w == 1088));
+    }
+
+    #[test]
+    fn tiles_cover_the_canvas_and_overlap_by_192() {
+        for length in (128..=12000).step_by(32) {
+            let spans = det_spans(length);
+            assert_eq!(spans[0].0, 0, "{length}");
+            let (last_start, last_len) = *spans.last().unwrap();
+            assert_eq!(last_start + last_len, length, "{length}");
+            assert!(spans.iter().all(|&(start, len)| start % 32 == 0 && len % 32 == 0 && len > 0), "{length}: {spans:?}");
+            for pair in spans.windows(2) {
+                assert_eq!(pair[0].1, 960, "{length}: {spans:?}");
+                assert_eq!(pair[0].0 + 960 - pair[1].0, 192, "{length}: {spans:?}");
+            }
+            if spans.len() > 1 {
+                assert!((480..1248).contains(&last_len), "{length}: {spans:?}");
+            } else {
+                assert!(length < 1248, "{length}");
+            }
+        }
+    }
+
+    fn close(got: [f32; 3], expected: [f32; 3]) -> bool {
+        got.iter().zip(expected).all(|(a, b)| (a - b).abs() < 1e-4)
+    }
+
+    #[test]
+    fn the_input_places_the_image_inside_the_border() {
+        // 2×1 的图补成 128×128，原图左上角在 (63, 63)。
+        let img = Img { w: 2, h: 1, data: vec![255, 0, 0, 0, 0, 255] };
+        let padded = det_canvas(2, 1);
+        assert_eq!(padded, Canvas { w: 128, h: 128, left: 63, top: 63 });
+        let input = det_input(&img, [255, 255, 255], padded, Tile { x: 0, y: 0, w: 128, h: 128 });
+        let plane = 128 * 128;
+        let bgr = |x: usize, y: usize| [input[y * 128 + x], input[plane + y * 128 + x], input[2 * plane + y * 128 + x]];
+        // B、G、R 依次减 0.485、0.456、0.406，再除以 0.229、0.224、0.225：0 和 255 分别得到
+        // B −2.1179 / 2.2489，G −2.0357 / 2.4286，R −1.8044 / 2.6400。
+        let (red, blue, white) = ([-2.1179, -2.0357, 2.64], [2.2489, -2.0357, -1.8044], [2.2489, 2.4286, 2.64]);
+        assert!(close(bgr(63, 63), red), "{:?}", bgr(63, 63));
+        assert!(close(bgr(64, 63), blue), "{:?}", bgr(64, 63));
+        for (x, y) in [(0, 0), (65, 63), (63, 64), (62, 63)] {
+            assert!(close(bgr(x, y), white), "({x}, {y}): {:?}", bgr(x, y));
+        }
+        // 不从原点起的块：块内 (0, 0) 是整图 (62, 63)，落在补边里；(1, 0) 是原图的红像素。
+        let part = det_input(&img, [0, 0, 128], padded, Tile { x: 62, y: 63, w: 32, h: 32 });
+        let plane = 32 * 32;
+        // 补边的 B = 128：(128/255 − 0.485) / 0.229 = 0.0741。
+        assert!(close([part[0], part[plane], part[2 * plane]], [0.0741, -2.0357, -1.8044]));
+        assert!(close([part[1], part[plane + 1], part[2 * plane + 1]], red));
+    }
+
+    #[test]
+    fn overlapping_tiles_cross_fade_and_their_weights_add_up_to_one() {
+        // 每块都全是 1 时，拼出来处处是 1：权重在重叠里相加为 1，补边部分不落进原图。
+        for (w, h) in [(1920, 1080), (3830, 2170), (1080, 9000), (1300, 1440), (900, 700)] {
+            let padded = det_canvas(w, h);
+            let mut prob = vec![0f32; w * h];
+            for tile in det_tiles(padded) {
+                paste_blend(&mut prob, w, h, padded, tile, &vec![1.0; tile.w * tile.h]);
+            }
+            let worst = prob.iter().map(|v| (v - 1.0).abs()).fold(0.0f32, f32::max);
+            assert!(worst < 1e-4, "{w}x{h}: {worst}");
+        }
+        // 1920×1088 分成 x 0..960（全是 0.2）和 768..1920（全是 0.6），重叠 768..960。
+        // 前一块的权重 (960 − x − 0.5)/192，后一块 (x − 768 + 0.5)/192。
+        let padded = canvas(1920, 1088);
+        let tiles = det_tiles(padded);
+        let mut prob = vec![0f32; 1920 * 1088];
+        for (tile, value) in tiles.iter().zip([0.2f32, 0.6]) {
+            paste_blend(&mut prob, 1920, 1088, padded, *tile, &vec![value; tile.w * tile.h]);
+        }
+        // x = 864：0.2 × 95.5/192 + 0.6 × 96.5/192 = 0.401042；768：0.201042；959：0.598958。
+        for (x, expected) in [(100, 0.2), (767, 0.2), (768, 0.201042), (864, 0.401042), (959, 0.598958), (960, 0.6), (1500, 0.6)] {
+            for y in [0, 500, 1087] {
+                assert!((prob[y * 1920 + x] - expected).abs() < 1e-5, "({x}, {y}): {}", prob[y * 1920 + x]);
+            }
+        }
+    }
+
+    #[test]
+    fn probability_far_from_any_contrast_is_cleared() {
+        // 200×100 的白图（13×7 格），只有一个黑点；离它所在的格子 3 格（48 像素）以内保留。
+        let (w, h) = (200, 100);
+        let dotted = |x: usize, y: usize| {
+            let mut data = vec![255u8; w * h * 3];
+            data[(y * w + x) * 3..(y * w + x) * 3 + 3].fill(0);
+            Img { w, h, data }
+        };
+        let cleared = |img: &Img| {
+            let mut prob = vec![1.0f32; w * h];
+            clear_flat(&mut prob, img);
+            prob
+        };
+        // 点在 (10, 10)，格 (0, 0)：x、y < 64 的保留。
+        let prob = cleared(&dotted(10, 10));
+        for (x, y, kept) in [(63, 63, true), (0, 0, true), (64, 10, false), (10, 64, false), (199, 99, false)] {
+            assert_eq!(prob[y * w + x] == 1.0, kept, "({x}, {y})");
+        }
+        // 点在 (150, 90)，格 (9, 5)：x ≥ 96、y ≥ 32 的保留。
+        let prob = cleared(&dotted(150, 90));
+        for (x, y, kept) in [(96, 50, true), (95, 50, false), (150, 32, true), (150, 31, false), (199, 99, true)] {
+            assert_eq!(prob[y * w + x] == 1.0, kept, "({x}, {y})");
+        }
+        // 上白下黑、只有上下之间有变化：分界在 y = 99|100，格行 6，y 在 48..160 的保留。
+        let (w2, h2) = (40, 200);
+        let mut halves = vec![255u8; w2 * h2 * 3];
+        halves[w2 * 100 * 3..].fill(0);
+        let mut prob = vec![1.0f32; w2 * h2];
+        clear_flat(&mut prob, &Img { w: w2, h: h2, data: halves });
+        for (y, kept) in [(47, false), (48, true), (159, true), (160, false)] {
+            assert_eq!(prob[y * w2 + 10] == 1.0, kept, "y {y}");
+        }
+        // 一点变化都没有就全清掉；亮度差不到 8 的不算变化。
+        assert!(cleared(&Img { w, h, data: vec![200; w * h * 3] }).iter().all(|&v| v == 0.0));
+        let mut faint = vec![200u8; w * h * 3];
+        faint[(10 * w + 10) * 3..(10 * w + 10) * 3 + 3].fill(193);
+        assert!(cleared(&Img { w, h, data: faint }).iter().all(|&v| v == 0.0));
+    }
+
+    #[test]
+    fn short_image_data_is_an_error() {
+        assert!(Img::from_raw_rgb(&[0; 11], 2, 2, 6).is_err());
+        assert!(Img::from_raw_rgb(&[0; 12], 2, 2, 5).is_err());
+        // 末行不必有 stride 的余量。
+        assert!(Img::from_raw_rgb(&[0; 14], 2, 2, 8).is_ok());
     }
 
     #[test]

@@ -28,7 +28,7 @@ std::optional<QJsonObject> catalog_entry(const QString &catalog_id);
 // The catalog's ONNX Runtime for this architecture; nullopt when the catalog has none.
 std::optional<QJsonObject> runtime_entry();
 // Installed models, the default one (empty id) first.
-QJsonArray installed();
+QJsonArray installed(const QString &root = models_root());
 // An installed model by id; nullopt when it is not installed.
 std::optional<QJsonObject> resolve(const QString &model_id);
 // The installed model Auto uses: by catalog priority, models added by hand last; nullopt when

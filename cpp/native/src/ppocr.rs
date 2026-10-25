@@ -1,7 +1,7 @@
 //! ppocr_rust's Engine for C. Mirrors the reference Python binding: one engine per
 //! handle holding det + rec models; close() drops the models, the handle stays valid.
 
-use std::ffi::{c_char, CString};
+use std::ffi::{c_char, c_void, CString};
 use std::sync::Mutex;
 
 use std::path::Path;
@@ -102,8 +102,13 @@ pub unsafe extern "C" fn jb_ppocr_close(ptr: *const JbPpocr) {
     })
 }
 
+/// Asked with the caller's context during recognition; true stops it.
+pub type JbCancelled = Option<unsafe extern "C" fn(context: *const c_void) -> bool>;
+
 /// Recognizes a whole RGB image (rows of `stride` bytes). On success `*lines` holds
-/// `*count` lines to free with jb_ppocr_lines_free.
+/// `*count` lines to free with jb_ppocr_lines_free. `cancelled` (may be null) is asked
+/// before each detection tile and each line; once it returns true recognition stops and
+/// succeeds with no lines.
 #[no_mangle]
 pub unsafe extern "C" fn jb_ppocr_recognize(
     ptr: *const JbPpocr,
@@ -112,6 +117,8 @@ pub unsafe extern "C" fn jb_ppocr_recognize(
     w: usize,
     h: usize,
     stride: usize,
+    cancelled: JbCancelled,
+    context: *const c_void,
     lines: *mut *mut JbOcrLine,
     count: *mut usize,
     error: *mut c_char,
@@ -123,10 +130,11 @@ pub unsafe extern "C" fn jb_ppocr_recognize(
             return false;
         };
         let pixels = std::slice::from_raw_parts(data, len);
+        let stop = || cancelled.is_some_and(|asked| asked(context));
         let result = (|| {
             let mut guard = ocr.inner.lock().map_err(|e| e.to_string())?;
             let engine = guard.as_mut().ok_or("引擎已关闭")?;
-            engine.recognize(pixels, w, h, stride)
+            engine.recognize(pixels, w, h, stride, &stop).map(Option::unwrap_or_default)
         })();
         match result {
             Ok(found) => {

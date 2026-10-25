@@ -141,6 +141,14 @@ public:
 private:
     int &depth_;
 };
+
+// Between the window edge and a card: window margins, navigation, the page's scroll bar and the group frame.
+constexpr int OUTSIDE_CARDS = 315;
+// The longest card titles are Japanese.
+constexpr int LONGEST_CARD_TITLE = 260;
+
+// The narrowest window in which every card keeps its title on one line and its controls inside.
+int settings_minimum_width() { return dialog_scaled(OUTSIDE_CARDS + LONGEST_CARD_TITLE) + card_width_besides_title(); }
 }
 
 QString settings_tr(const char *text) { return i18n_tr(text, "SettingsDialog"); }
@@ -199,7 +207,11 @@ void SettingsDialog::fit_to_screen() {
 }
 
 void SettingsDialog::fit_to_available(const QSize &available) {
+    // Decided before the minimum changes: raising it enlarges the window at once, which would then read as dragged.
     const bool user_sized = fitted_size_ && size() != *fitted_size_;
+    // Set before resizing, which stops at the old minimum. It replaces the layout's own minimum width,
+    // the title row's, which is narrower.
+    setMinimumWidth(std::min(settings_minimum_width(), available.width()));
     const QSize target = user_sized ? size().boundedTo(available)
                                     : settings_window_size(available.width(), available.height(), get_dialog_scale().factor());
     if (target != size()) resize(target);
@@ -400,8 +412,7 @@ void SettingsDialog::refresh_clipboard_size(int delay_ms) {
         QTimer::singleShot(delay_ms, this, [this] { refresh_clipboard_size(); });
         return;
     }
-    const QString size = clipboard_storage_size_text();
-    attr<QLabel>("_clipboard_size_label")->setText(size.isEmpty() ? QString::fromUtf8("—") : size);
+    if (clipboard_size_refresh) clipboard_size_refresh();
 }
 
 void SettingsDialog::show_logo_context_menu(const QPoint &pos) {
@@ -668,6 +679,7 @@ void SettingsDialog::reset_quick_actions_page() {
 
 void SettingsDialog::reset_screenshot_settings_page() {
     const auto &defaults = config_manager->app_defaults();
+    refresh_behavior_controls(true, {}, std::set<QString>{"recording_hide_toolbar_in_captures"});
     if (auto *combo = attr<QComboBox>("capture_engine_combo")) combo->setCurrentIndex(CAPTURE_ENGINE_CHOICES.indexOf(defaults.value("capture_engine").toString()));
     if (auto *combo = attr<QComboBox>("smart_mode_combo"))
         combo->setCurrentIndex(SMART_SELECTION_MODES.indexOf(defaults.value("smart_selection").toBool() ? defaults.value("smart_selection_mode").toString() : QString("off")));
@@ -714,6 +726,8 @@ void SettingsDialog::reset_translation_page() {
     select_data(attr<QComboBox>("translation_target_combo"), defaults.value("translation_target_lang"));
     if (auto *toggle = attr_widget("split_sentences_toggle")) set_checked(toggle, defaults.value("translation_split_sentences").toBool());
     if (auto *toggle = attr_widget("preserve_formatting_toggle")) set_checked(toggle, defaults.value("translation_preserve_formatting").toBool());
+    reset_speech_voices(this);
+    refresh_behavior_controls(true, {}, std::set<QString>{"speech_rate", "speech_volume"});
 }
 
 void SettingsDialog::reset_clipboard_page() {
@@ -721,6 +735,7 @@ void SettingsDialog::reset_clipboard_page() {
     if (auto *toggle = attr_widget("clipboard_enabled_toggle")) set_checked(toggle, defaults.value("clipboard_enabled").toBool());
     if (auto *toggle = attr_widget("clipboard_auto_paste_toggle")) set_checked(toggle, defaults.value("clipboard_auto_paste").toBool());
     if (auto *spin = attr<QSpinBox>("clipboard_history_limit_spin")) spin->setValue(defaults.value("clipboard_history_limit").toInt());
+    refresh_behavior_controls(true, {}, std::set<QString>{"clipboard_open_position"});
     if (clipboard_special_paste_entries) clipboard_special_paste_entries = special_paste::default_entries();
 }
 
@@ -879,6 +894,7 @@ void SettingsDialog::save_changes(QSet<QString> changed) {
     if (auto *toggle = attr_widget("split_sentences_toggle"); toggle && has("split_sentences_toggle")) config_manager->set_translation_split_sentences(checked_of(toggle));
     if (auto *toggle = attr_widget("preserve_formatting_toggle"); toggle && has("preserve_formatting_toggle"))
         config_manager->set_translation_preserve_formatting(checked_of(toggle));
+    if (has("speech_voice_combos")) config_manager->set_speech_voices(speech_voice_choices(this));
 
     // 6. Miscellaneous. Changing autostart or admin mode may ask for administrator permission;
     // that prompt is the confirmation.
@@ -1072,6 +1088,7 @@ void SettingsDialog::resizeEvent(QResizeEvent *event) {
 
 void SettingsDialog::showEvent(QShowEvent *event) {
     apply_dialog_stylesheet();
+    refresh_external_state();
     refresh_settings();
     settings_snapshot_ = snapshot_settings();
     if (save_timer_) save_timer_->stop();
@@ -1085,6 +1102,22 @@ void SettingsDialog::showEvent(QShowEvent *event) {
         open_view(*std::exchange(pending_view_, std::nullopt));
         QTimer::singleShot(0, this, [this] { setUpdatesEnabled(true); });
     }
+}
+
+void SettingsDialog::changeEvent(QEvent *event) {
+    FrostedFramelessDialog::changeEvent(event);
+    // Back from Windows Settings or Task Manager, where voices or startup apps may have changed.
+    if (event->type() == QEvent::ActivationChange && isActiveWindow()) refresh_external_state();
+}
+
+void SettingsDialog::refresh_external_state() {
+    for (const auto &refresh : external_refreshes_) refresh();
+}
+
+void SettingsDialog::adopt_controls(QWidget *root) {
+    configure_dialog_controls(*root);
+    disable_wheel_on_value_controls(root);
+    connect_save_tracking(root);
 }
 
 void SettingsDialog::hideEvent(QHideEvent *event) {
@@ -1115,6 +1148,7 @@ QVariantMap SettingsDialog::snapshot_settings() const {
     if (provider_field_widgets)
         for (const auto &f : provider_fields::all_fields(*translation_registry))
             if (QWidget *widget = provider_field_widgets->value(f.config_key)) snap[f.config_key] = provider_fields::widget_value(f, widget);
+    if (has_attr("speech_group")) snap["speech_voice_combos"] = speech_voice_choices(this);
     // Switches.
     for (const char *name : {"ocr_copy_directly_toggle", "barcode_copy_single_toggle", "cross_tool_selection_toggle", "text_always_on_top_toggle", "smart_animation_toggle",
                              "save_toggle", "screenshot_pin_save_toggle", "clipboard_file_reference_toggle", "screenshot_save_original_toggle", "watermark_auto_toggle",
@@ -1291,6 +1325,7 @@ void SettingsDialog::refresh_settings() {
     select_data(attr<QComboBox>("translation_target_combo"), config_manager->get_saved_translation_target_lang());
     if (auto *toggle = attr_widget("split_sentences_toggle")) set_checked(toggle, config_manager->get_translation_split_sentences());
     if (auto *toggle = attr_widget("preserve_formatting_toggle")) set_checked(toggle, config_manager->get_translation_preserve_formatting());
+    select_speech_voices(this, config_manager->get_speech_voices());
 
     if (auto *toggle = attr_widget("log_toggle")) set_checked(toggle, config_manager->get_log_enabled());
     if (auto *combo = attr<QComboBox>("log_level_combo")) combo->setCurrentText(config_manager->get_log_level());

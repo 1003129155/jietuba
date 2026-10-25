@@ -186,15 +186,19 @@ private slots:
     void theSettingsPageAppliesAndResetsTheClipboard() {
         config_->set_clipboard_enabled(true);
         config_->set_clipboard_history_limit(100);
+        config_->set_clipboard_open_position("cursor");
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.show();
         dialog.on_nav_changed(2, "clipboard");
         QVERIFY(!dialog.has_unsaved_changes());
         auto *enabled = dialog.attr<SwitchSettingCard>("clipboard_enabled_toggle");
         auto *limit = dialog.attr<QSpinBox>("clipboard_history_limit_spin");
-        QVERIFY(enabled && limit);
+        auto *position = qobject_cast<QComboBox *>(dialog.behavior_control("clipboard_open_position"));
+        QVERIFY(enabled && limit && position);
+        QCOMPARE(position->currentData().toString(), QString("cursor"));
         enabled->setChecked(false);
         limit->setValue(321);
+        position->setCurrentIndex(position->findData("previous"));
         QVERIFY(dialog.has_unsaved_changes());
         // Special paste entries are edited elsewhere and saved like the controls.
         auto entries = special_paste::default_entries();
@@ -203,6 +207,7 @@ private slots:
         QVERIFY(dialog.apply_settings());
         QVERIFY(!config_->get_clipboard_enabled());
         QCOMPARE(config_->get_clipboard_history_limit(), qint64(321));
+        QCOMPARE(config_->get_clipboard_open_position(), QString("previous"));
         QCOMPARE(special_paste::load(config_), entries);
 
         // The appearance page's clipboard section notifies the theme manager.
@@ -220,6 +225,8 @@ private slots:
         reset_page(dialog);
         QCOMPARE(enabled->isChecked(), config_->app_defaults().value("clipboard_enabled").toBool());
         QCOMPARE(limit->value(), config_->app_defaults().value("clipboard_history_limit").toInt());
+        QCOMPARE(position->currentData().toString(), QString("cursor"));
+        QCOMPARE(config_->get_clipboard_open_position(), QString("cursor"));
         QCOMPARE(*dialog.clipboard_special_paste_entries, special_paste::default_entries());
         QCOMPARE(special_paste::load(config_), special_paste::default_entries());
         QCOMPARE(config_->get_clipboard_history_limit(), config_->app_defaults().value("clipboard_history_limit").toLongLong());

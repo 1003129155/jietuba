@@ -236,10 +236,14 @@ void GifRecordWindow::reposition_toolbar(QWidget *toolbar) {
         y_mid = std::max(screen_rect.top(), std::min(y_mid, screen_rect.bottom() - th));
         if (r.left() - tw - gap >= screen_rect.left()) {
             x = r.left() - tw - gap, y = y_mid, toolbar_below = false;
+        } else if (r.right() + gap + tw <= screen_rect.right()) {
+            x = r.right() + gap, y = y_mid, toolbar_below = true;
         } else {
-            x = std::min(r.right() + gap, screen_rect.right() - tw);
-            x = std::max(screen_rect.left(), x);
-            y = y_mid, toolbar_below = true;
+            // Nothing fits outside (a full-screen area): inside along the bottom edge, above the taskbar.
+            const int bottom = std::min(r.bottom(), screen->availableGeometry().bottom());
+            x = x_center;
+            y = std::max(screen_rect.top(), bottom - th - scaled(10));
+            toolbar_below = false;
         }
     }
     if (record_toolbar) record_toolbar->set_toolbar_side(toolbar_below);

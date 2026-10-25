@@ -60,7 +60,7 @@ Also:
 - **Live screen annotation**: draw on the screen you are working on while the mouse keeps working the windows below until you pick a tool, made for demos and teaching; with a whiteboard and a cursor highlight (a glowing pointer and click rings). Start it from Screen Annotation in the tray menu or its hotkey under Settings → Shortcuts → Screen Annotation.
 - **Translation**: translate selected text with one key through DeepL, Google, Azure, Amazon, Baidu, Volcengine, Tencent Cloud, Youdao, DeepSeek or any OpenAI-compatible API, and have the result read aloud.
 - **Code scanning**: reads several QR codes and barcodes in a selection at once.
-- **Global mouse shortcuts**: hold modifiers and drag to capture, pin, recognize text or translate straight away.
+- **Global mouse shortcuts**: hold modifiers and drag to capture, pin, recognize text, translate or scan QR codes / barcodes straight away.
 - **And more**: PDF export, watermarks, delayed capture, five interface languages (Simplified and Traditional Chinese, English, Japanese, Korean).
 
 ## Highlights
@@ -182,7 +182,7 @@ Releases are made by [build.yml](.github/workflows/build.yml): the tag must be `
 # Project root
 ├── README.md / README_zh-CN.md / README_JA.md   # English, Chinese and Japanese documentation
 ├── VERSION                  # Version number, read by CMake and the release workflow
-├── 托盘.ico                 # Application and updater icon
+├── app.ico                  # Application and updater icon
 ├── licenses/                # Third-party licenses shipped with the release packages
 │
 ├── cpp/                     # C++ (Qt6) implementation

@@ -369,6 +369,44 @@ private slots:
         QVERIFY(dialog.original_label->text().contains("320 x 200"));
     }
 
+    // A tall image fitted to the height stays below the controls laid over the top, whatever
+    // the view height; zoomed a little past the fit it stays inside the view.
+    void aFittedTallImageStaysBelowTheControls() {
+        QImage image(613, 1425, QImage::Format_RGB32);
+        image.fill(Qt::white);
+        SavePreviewView view;
+        view.setAttribute(Qt::WA_DontShowOnScreen);
+        view.set_top_inset(40);
+        view.set_image(image);
+        view.show();
+        for (int height = 500; height <= 1200; ++height) {
+            view.resize(700, height);
+            QVERIFY2(view.image_rect().top() >= 40, qPrintable(QString("view height %1: image top %2").arg(height).arg(view.image_rect().top())));
+        }
+        view.resize(700, 900);
+        view.set_zoom(view.zoom() * 1.02, QPointF(350, 450));
+        QVERIFY(view.image_rect().top() >= 0);
+        QVERIFY(view.image_rect().bottom() <= view.height());
+    }
+
+    // Zoomed in, the image passes under the view switch, which keeps its own backing so the
+    // labels stay readable.
+    void theViewSwitchHasItsOwnBackingOverTheImage() {
+        QImage black(1600, 1600, QImage::Format_RGB32);
+        black.fill(Qt::black);
+        SaveImageDialog dialog(black, "shot", config_);
+        dialog.resize(900, 600);
+        dialog.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&dialog));
+        dialog.preview->set_zoom(1.0, QPointF(0, 0));
+        const QRect bar = dialog.view_mode->geometry();
+        // Inside the switch, between its top edge and the buttons.
+        const QPoint probe(bar.center().x(), bar.top() + 2);
+        QVERIFY(dialog.preview->rect().contains(probe) && dialog.preview->image_rect().contains(probe));
+        const QColor backing = dialog.preview->grab().toImage().pixelColor(probe);
+        QVERIFY2(backing.lightness() > 200, qPrintable(backing.name()));
+    }
+
     void splitShowsOriginalLeftAndEncodedRight() {
         QImage image(200, 100, QImage::Format_RGB32);
         image.fill(QColor(200, 40, 40));

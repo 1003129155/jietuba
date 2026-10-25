@@ -90,6 +90,23 @@ private slots:
         QVERIFY(get_last_error() >= 0);
     }
 
+    void startupApprovedSwitchIsRead() {
+        const QString key = QString("Software\\jietuba_tests\\approved_%1").arg(QCoreApplication::applicationPid());
+        const auto wkey = key.toStdWString();
+        const auto cleanup = qScopeGuard([&wkey] { RegDeleteTreeW(HKEY_CURRENT_USER, wkey.c_str()); });
+        // Task Manager writes 02 / 06 for enabled and 03 / 07 for disabled, followed by a timestamp.
+        const std::pair<const wchar_t *, BYTE> values[] = {{L"On", 0x02}, {L"Off", 0x03}, {L"OnNew", 0x06}, {L"OffNew", 0x07}};
+        for (const auto &[name, first] : values) {
+            const BYTE data[12] = {first};
+            QCOMPARE(RegSetKeyValueW(HKEY_CURRENT_USER, wkey.c_str(), name, REG_BINARY, data, sizeof(data)), LSTATUS(ERROR_SUCCESS));
+        }
+        QVERIFY(!startup_approved_disabled(wkey.c_str(), "On"));
+        QVERIFY(startup_approved_disabled(wkey.c_str(), "Off"));
+        QVERIFY(!startup_approved_disabled(wkey.c_str(), "OnNew"));
+        QVERIFY(startup_approved_disabled(wkey.c_str(), "OffNew"));
+        QVERIFY(!startup_approved_disabled(wkey.c_str(), "Missing"));
+    }
+
     void windowsCanLeaveScreenCaptures() {
         QWidget window;
         window.resize(120, 80);

@@ -14,6 +14,10 @@
         <translation>範囲の文字認識</translation>
     </message>
     <message>
+        <source>Scan QR code / barcode</source>
+        <translation>コードをスキャン（QR コード / バーコード）</translation>
+    </message>
+    <message>
         <source>Region Translation</source>
         <translation>範囲翻訳</translation>
     </message>
@@ -769,6 +773,10 @@ Replace it?</source>
     <message>
         <source>Register in Windows startup via registry.</source>
         <translation>レジストリを使用してWindows起動時に登録します。</translation>
+    </message>
+    <message>
+        <source>Turned off in Task Manager's Startup apps, so Windows will not start it at sign-in. Turn it back on there.</source>
+        <translation>タスク マネージャーの「スタートアップ アプリ」で無効になっているため、サインイン時に起動しません。そこで有効に戻してください。</translation>
     </message>
     <message>
         <source>Run as Administrator</source>
@@ -1528,6 +1536,14 @@ Replace it?</source>
         <translation>ツールバーとパネルを録画、スクリーンショット、画面共有、リモート画面などのキャプチャに写さないようにします。自分には見えています。チュートリアルの録画などで写したいときはオフにします。</translation>
     </message>
     <message>
+        <source>Screen Recording</source>
+        <translation>録画</translation>
+    </message>
+    <message>
+        <source>Keeps the recording toolbar, its panels and menus out of the recording while they sit inside the recording area, such as when recording the full screen; you still see them. Turn off to record them too.</source>
+        <translation>全画面の録画などで、ツールバーやパネル、メニューが録画範囲に入っているときは録画に写さないようにします。自分には見えています。写したいときはオフにします。</translation>
+    </message>
+    <message>
         <source>Where It Was Last</source>
         <translation>前回の位置</translation>
     </message>
@@ -2056,6 +2072,14 @@ Replace it?</source>
     <message>
         <source>Pin to desktop</source>
         <translation>ピン留め</translation>
+    </message>
+    <message>
+        <source>Save to file</source>
+        <translation>ファイルに保存</translation>
+    </message>
+    <message>
+        <source>Recognize text (OCR)</source>
+        <translation>文字認識（OCR）</translation>
     </message>
     <message>
         <source>Auto scroll (move the mouse to stop)</source>
@@ -3783,16 +3807,24 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>データ保存場所</translation>
     </message>
     <message>
+        <source>Single-File Database</source>
+        <translation>単一ファイルのデータベース</translation>
+    </message>
+    <message>
+        <source>Recommended when the data folder is in OneDrive or another sync folder: the database stays one complete file. Saving is slightly slower.</source>
+        <translation>データフォルダーを OneDrive などの同期フォルダーに置く場合におすすめです。データベースが常に 1 つの完全なファイルになります。保存は少し遅くなります。</translation>
+    </message>
+    <message>
+        <source>Cannot switch the storage mode: the clipboard database is open in another program. Close it and try again.</source>
+        <translation>保存方式を切り替えられません。クリップボードのデータベースが他のプログラムで開かれています。閉じてからもう一度お試しください。</translation>
+    </message>
+    <message>
         <source>Unknown</source>
         <translation>不明</translation>
     </message>
     <message>
         <source>Clipboard module not available</source>
         <translation>クリップボードモジュールが利用できません</translation>
-    </message>
-    <message>
-        <source>← Get storage size</source>
-        <translation>← ストレージサイズを取得</translation>
     </message>
     <message>
         <source>Clear History</source>
@@ -6823,6 +6855,80 @@ Replace it?</source>
     <message>
         <source>The name &quot;%1&quot; is already used by path &quot;%2&quot;. Do you want to set a new name for the current path?</source>
         <translation>名前「%1」はパス「%2」で使われています。現在のパスに新しい名前を付けますか？</translation>
+    </message>
+</context>
+<context>
+    <name>ClipboardWindow</name>
+    <message>
+        <source>Window Position</source>
+        <translation>ウィンドウの位置</translation>
+    </message>
+    <message>
+        <source>Follow Mouse</source>
+        <translation>マウスの位置</translation>
+    </message>
+    <message>
+        <source>Last Position</source>
+        <translation>前回の位置</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Window Position</source>
+        <translation>ウィンドウの位置</translation>
+    </message>
+    <message>
+        <source>Follow Mouse</source>
+        <translation>マウスの位置</translation>
+    </message>
+    <message>
+        <source>Last Position</source>
+        <translation>前回の位置</translation>
+    </message>
+    <message>
+        <source>Where the clipboard window appears when it opens</source>
+        <translation>クリップボードウィンドウを開いたときに表示する位置</translation>
+    </message>
+</context>
+<!-- ========== Read Aloud Settings ========== -->
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Read Aloud</source>
+        <translation>読み上げ</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>自動</translation>
+    </message>
+    <message>
+        <source>Preview</source>
+        <translation>試聴</translation>
+    </message>
+    <message>
+        <source>Stop</source>
+        <translation>停止</translation>
+    </message>
+    <message>
+        <source>Speech Rate</source>
+        <translation>読み上げ速度</translation>
+    </message>
+    <message>
+        <source>Volume</source>
+        <translation>音量</translation>
+    </message>
+    <message>
+        <source>Add Voices</source>
+        <translation>音声の追加</translation>
+    </message>
+    <message>
+        <source>Install voices for more languages in Windows Settings.</source>
+        <translation>Windows の設定で他の言語の読み上げ音声を追加できます。</translation>
+    </message>
+    <message>
+        <source>Open Settings</source>
+        <translation>設定を開く</translation>
     </message>
 </context>
 </TS>

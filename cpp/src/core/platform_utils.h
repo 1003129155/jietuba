@@ -50,6 +50,7 @@ QStringList recognized_game_executables(const QString &children_key = {});
 bool is_game_in_foreground();
 
 // Capture exclusion (Windows 10 2004+): the window stays visible but is absent from screenshots.
+// Fails on earlier versions, where the window then shows in captures as before.
 constexpr unsigned WDA_NONE = 0x00000000;
 constexpr unsigned WDA_EXCLUDEFROMCAPTURE = 0x00000011;
 bool set_window_exclude_from_capture(quintptr hwnd, bool exclude);
@@ -88,4 +89,10 @@ bool get_autostart();
 std::optional<QString> get_autostart_program();
 // Writes or removes the Run entry; failures are logged.
 void set_autostart(bool enabled);
+// Task Manager's Startup apps switch is kept apart from the Run entry, under this key and the
+// same value name. Its first byte is odd while the entry is disabled; no value means enabled.
+inline constexpr wchar_t STARTUP_APPROVED_REG_KEY[] = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\Run";
+bool startup_approved_disabled(const wchar_t *approved_key, const QString &name);
+// The Run entry exists but Windows will not start it.
+bool autostart_disabled_by_system();
 }

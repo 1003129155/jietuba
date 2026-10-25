@@ -61,6 +61,21 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw "dotnet-coverage install failed" }
           }
 
+      # The PP-OCR cases run on the default models in the repository and the catalog's ONNX Runtime;
+      # CMake takes the folder from JIETUBA_PPOCR_MODELS. The fetch checks the cached DLL's hash.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: cpp/build/ort/x64
+          key: ort-x64-${{ hashFiles('rust_libs/ppocr_rust/catalog.json') }}
+
+      - name: PP-OCR pack
+        run: |
+          $pack = Join-Path $PWD 'build\ppocr-pack'
+          New-Item -ItemType Directory -Path $pack -Force | Out-Null
+          $dll = .\scripts\fetch_ort_runtime.ps1 -Arch x64 -OutDir build\ort\x64
+          Copy-Item -LiteralPath $dll, ..\models\PP-OCRv6_det_small.onnx, ..\models\PP-OCRv6_rec_small.onnx -Destination $pack
+          "JIETUBA_PPOCR_MODELS=$pack" | Add-Content $env:GITHUB_ENV
+
       # One unoptimised build serves both the tests and the coverage; the release packages are
       # built by the Lite single exe workflow.
       - id: build

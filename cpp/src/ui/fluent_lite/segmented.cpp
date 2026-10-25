@@ -43,8 +43,18 @@ QString SegmentedWidget::style() const {
 
 void SegmentedWidget::_apply_theme() {
     const auto &t = ui_tokens(this);
-    set_own_style(this, QString("background: %1; border: 1px solid %2; border-radius: %3px;").arg(t.surface_subtle, t.border).arg(dialog_scaled(metrics(large_).radius() + 2)));
+    set_own_style(this, QString("background: %1; border: 1px solid %2; border-radius: %3px;")
+                            .arg(floating_ ? t.popup_background : t.surface_subtle, t.border)
+                            .arg(dialog_scaled(metrics(large_).radius() + 2)));
     for (auto *button : items_) apply_style_sheet(button, style());
+}
+
+void SegmentedWidget::setFloating(bool floating) {
+    if (floating_ == floating) return;
+    floating_ = floating;
+    // A QWidget subclass paints its style sheet background only with this attribute.
+    setAttribute(Qt::WA_StyledBackground, floating);
+    _apply_theme();
 }
 
 void SegmentedWidget::setLarge(bool large) {

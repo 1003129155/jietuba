@@ -1,5 +1,6 @@
 #include "annotation/annotation_view.h"
 #include "annotation/screen_annotation.h"
+#include "barcode/result_window.h"
 #include "canvas/scene.h"
 #include "capture/capture_service.h"
 #include "clipboard/core/manager.h"
@@ -32,6 +33,7 @@
 #include <QLabel>
 #include <QMenu>
 #include <QPushButton>
+#include <QPixmap>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QSystemTrayIcon>
@@ -465,6 +467,86 @@ private slots:
         QTRY_VERIFY(!main_app_->quick_capture->busy());
     }
 
+
+    void aGlobalMouseDragScansCodes_data() {
+        QTest::addColumn<int>("selection");
+        QTest::newRow("multiple") << 0;
+        QTest::newRow("single") << 1;
+        QTest::newRow("empty") << 2;
+        QTest::newRow("cancelled") << 3;
+    }
+
+    // 只框选测试窗口里的合成码，真实钩子到识别结果全链路；不写系统剪贴板。
+    void aGlobalMouseDragScansCodes() {
+        QFETCH(int, selection);
+        auto *config = main_app_->config_manager;
+        const auto saved = config->get_quick_capture_scan_code();
+        const bool copy_single = config->get_barcode_copy_single_enabled();
+        const bool include_cursor = config->get_capture_include_cursor();
+        const auto original_cursor = QCursor::pos();
+        const auto restore = qScopeGuard([&] {
+            send_mouse(QCursor::pos(), MOUSEEVENTF_RIGHTUP);
+            send_key(VK_MENU, false);
+            send_key(VK_CONTROL, false);
+            input_hub()->native->set_test_marker(0);
+            main_app_->quick_capture->cancel();
+            config->set_quick_capture_scan_code(saved);
+            config->set_barcode_copy_single_enabled(copy_single);
+            config->set_capture_include_cursor(include_cursor);
+            main_app_->update_hotkey();
+            for (auto *widget : QApplication::topLevelWidgets())
+                if (auto *result = qobject_cast<BarcodeResultWindow *>(widget)) result->close();
+            QCursor::setPos(original_cursor);
+        });
+        config->set_quick_capture_scan_code("ctrl+alt+dragright");
+        config->set_barcode_copy_single_enabled(false);
+        config->set_capture_include_cursor(true);
+        main_app_->update_hotkey();
+        input_hub()->native->set_test_marker(TEST_MARKER);
+        QTRY_VERIFY(input_hub()->native->hooks_installed());
+
+        QImage image(JIETUBA_BARCODE_FIXTURE_DIR "/barcodes.png");
+        QVERIFY(!image.isNull());
+        if (selection == 1) image = image.copy(QRect(30, 50, 110, 110));
+        if (selection == 2) image.fill(Qt::white);
+        const auto expected = read_codes(image);
+        QLabel surface;
+        surface.setWindowFlags(Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+        surface.setPixmap(QPixmap::fromImage(image));
+        surface.setFixedSize(image.size());
+        surface.move(QGuiApplication::primaryScreen()->availableGeometry().center() - surface.rect().center());
+        surface.show();
+        surface.raise();
+        QVERIFY(QTest::qWaitForWindowExposed(&surface));
+        QTest::qWait(100);
+        const QPoint start = surface.mapToGlobal(QPoint(0, 0));
+        const QPoint end = start + QPoint(image.width(), image.height());
+        send_key(VK_CONTROL, true);
+        send_key(VK_MENU, true);
+        send_mouse(start, 0);
+        QTest::qWait(50);
+        send_mouse(start, MOUSEEVENTF_RIGHTDOWN);
+        QTest::qWait(50);
+        send_mouse(end, 0);
+        QTRY_VERIFY(main_app_->quick_capture->busy());
+        QTest::qWait(80);
+        if (selection == 3) main_app_->quick_capture->cancel();
+        send_mouse(end, MOUSEEVENTF_RIGHTUP);
+        send_key(VK_MENU, false);
+        send_key(VK_CONTROL, false);
+        QTRY_VERIFY(!main_app_->quick_capture->busy());
+        BarcodeResultWindow *result = nullptr;
+        for (auto *widget : QApplication::topLevelWidgets())
+            if (auto *window = qobject_cast<BarcodeResultWindow *>(widget); window && window->isVisible()) result = window;
+        if (selection == 3) {
+            QVERIFY(!result);
+            return;
+        }
+        QVERIFY(result);
+        QCOMPARE(result->cards.size(), expected.size());
+        for (size_t i = 0; i < expected.size(); ++i)
+            QCOMPARE(result->cards[i]->findChild<CodeText *>()->toPlainText(), expected[i].text);
+    }
 
     // A combination another program holds is taken over by the hook without a warning; a key bound
     // alone cannot be, and is listed in a warning with its slot while the others still register.

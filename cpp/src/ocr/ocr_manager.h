@@ -5,6 +5,7 @@
 #include <QSet>
 #include <QStringList>
 #include <atomic>
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -56,7 +57,9 @@ public:
     std::optional<QString> get_current_engine() const;
     // Loads the engine; engine_type overrides the setting.
     bool initialize(const QString &engine_type = {});
-    OcrResult recognize(const QImage &image);
+    // A set cancelled stops PP-OCR at its next tile or line, and the Snipping Tool OCR at its next
+    // band of a tall image, with nothing recognized.
+    OcrResult recognize(const QImage &image, const std::atomic_bool *cancelled = nullptr);
     QString get_last_error() const;
     void close() { release_engine(); }
     // Releases loaded engines (tens to hundreds of MB); the next recognition reloads per setting.
@@ -93,8 +96,8 @@ private:
     bool initialize_oneocr();
     // Releases whichever engine is not current; the caller holds the lock.
     void close_stale_engines();
-    OcrResult recognize_with_ppocr_rust(const QImage &image);
-    OcrResult recognize_with_oneocr(const QImage &image);
+    OcrResult recognize_with_ppocr_rust(const QImage &image, const std::atomic_bool *cancelled);
+    OcrResult recognize_with_oneocr(const QImage &image, const std::atomic_bool *cancelled);
     static OcrResult format_result(const QVector<OcrLine> &lines, double elapse);
     static OcrResult format_empty_result();
     OcrResult format_error(const QString &error_msg = {}) const;
@@ -125,6 +128,11 @@ QString get_ppocr_status();
 bool ppocr_runtime_supported(const QString &dll);
 // Tests hide or show the Snipping Tool OCR; nullopt goes back to detecting it.
 void set_oneocr_available_for_test(std::optional<bool> available);
+// Installation lookup without loading an engine or accessing tool settings.
+bool snipping_tool_ocr_installed();
+// Tests stand in for the Snipping Tool lookup and its rescan interval; an empty finder goes back
+// to the real lookup. The last result is forgotten either way.
+void set_snipping_tool_finder_for_test(std::function<std::optional<std::pair<QString, QString>>()> finder, std::chrono::milliseconds rescan = std::chrono::milliseconds(0));
 // Tests stand in for the engines with a function, which runs on the recognition thread; an empty
 // one goes back to the engines.
 void set_recognizer_for_test(std::function<OcrResult(const QImage &)> recognizer);
@@ -135,12 +143,13 @@ bool set_ocr_engine(const QString &engine_type);
 void set_ppocr_model(const QString &model_id);
 std::optional<QString> get_current_engine();
 bool initialize_ocr(const QString &engine_type = {});
-OcrResult recognize_text(const QImage &image);
+OcrResult recognize_text(const QImage &image, const std::atomic_bool *cancelled = nullptr);
 // Frees memory after pins close or when OCR goes unused for long.
 void release_ocr_engine();
 QString get_ocr_memory_status();
 // Reading-order lines: grouped by vertical centre (top to bottom), sorted by x within a
-// line and joined with spaces. Kept as lines because layout needs line positions.
+// line and joined with spaces. Kept as lines because layout needs line positions. A tilted page
+// is first turned level by its lines' median direction, so the positions are in that frame.
 QVector<OcrTextLine> group_ocr_lines(const OcrResult &result);
 QString format_ocr_result_text(const OcrResult &result, const QString &separator = "\n");
 }

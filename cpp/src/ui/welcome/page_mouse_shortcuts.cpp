@@ -229,7 +229,7 @@ QString page_subtitle() { return welcome_tr("按住修饰键拖动鼠标框选�
 
 MouseShortcutPage::MouseShortcutPage(ToolSettingsManager *config, QWidget *parent) : BasePage(welcome_tr("鼠标快捷键"), page_subtitle(), parent), config_(config) {
     init();
-    // Six rows of two combos need the width more than the demo does.
+    // 每行有两个下拉框，给快捷键设置多留一些宽度。
     illus_area->setFixedWidth(dialog_scaled(270));
 }
 

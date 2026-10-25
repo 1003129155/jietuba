@@ -60,6 +60,33 @@ std::optional<EditHandle> handle_of(LayerEditor &editor, HandleType type) {
     return std::nullopt;
 }
 
+std::vector<EditHandle> handles_of(LayerEditor &editor, HandleType type) {
+    std::vector<EditHandle> found;
+    for (const auto &handle : editor.handles)
+        if (handle.handle_type == type) found.push_back(handle);
+    return found;
+}
+
+// Every point inside one outline and outside the other lies within tolerance of the first one's edge.
+bool same_outline(const QPainterPath &a, const QPainterPath &b, qreal tolerance) {
+    const auto bounds = a.boundingRect().united(b.boundingRect()).adjusted(-2, -2, 2, 2);
+    for (qreal y = bounds.top(); y <= bounds.bottom(); y += 1)
+        for (qreal x = bounds.left(); x <= bounds.right(); x += 1) {
+            const QPointF p(x, y);
+            const bool in_a = a.contains(p);
+            if (in_a == b.contains(p)) continue;
+            // Rings from half a pixel out, so a sliver thinner than the tolerance is not stepped over.
+            bool near_edge = false;
+            for (qreal radius = .5; radius <= tolerance && !near_edge; radius += .5)
+                for (int k = 0; k < 16 && !near_edge; ++k) {
+                    const auto angle = k * 3.14159265358979323846 / 8;
+                    near_edge = a.contains(p + radius * QPointF(std::cos(angle), std::sin(angle))) != in_a;
+                }
+            if (!near_edge) return false;
+        }
+    return true;
+}
+
 // Where a handle is drawn (its anchor plus a screen offset), in scene coordinates.
 QPointF handle_point(CanvasView *view, const EditHandle &handle) {
     return view->mapToScene(view->smart_edit_controller->layer_editor->screen_center(handle).toPoint());
@@ -709,6 +736,117 @@ private slots:
         QVERIFY(!arrow->is_curved());
         scene->undo_stack->undo();
         QCOMPARE(arrow->mapToScene(arrow->end_pos), QPointF(300, 100));
+    }
+
+    void storingABendsPointsKeepsItsShape_data() {
+        QTest::addColumn<QString>("style");
+        QTest::addColumn<QPointF>("control");
+        QTest::addColumn<double>("tolerance");
+        // A lopsided bend is tight near one end, where the single bend's quadratic edges run
+        // thin; the stored curve keeps the full width there.
+        for (const char *style : {"single", "double", "line_double", "bar_arrow"}) {
+            QTest::newRow(qPrintable(QString("%1 even").arg(style))) << QString(style) << QPointF(200, 60) << .5;
+            QTest::newRow(qPrintable(QString("%1 lopsided").arg(style))) << QString(style) << QPointF(110, 70) << 2.0;
+        }
+    }
+
+    void storingABendsPointsKeepsItsShape() {
+        QFETCH(QString, style);
+        QFETCH(QPointF, control);
+        QFETCH(double, tolerance);
+        ArrowItem single(QPointF(40, 150), QPointF(360, 150), QPen(RED, 6), style);
+        single.set_control_point(control);
+        ArrowItem stored(QPointF(40, 150), QPointF(360, 150), QPen(RED, 6), style);
+        stored.set_control_point(control);
+        const auto bends = stored.bend_points();
+        // Offered on the drawn shaft, not on the curve the heads are trimmed from.
+        QVERIFY(single.path().contains(bends[0]));
+        QVERIFY(single.path().contains(bends[1]));
+        stored.set_bend_point(0, bends[0]);
+        QVERIFY(stored.has_bend_points());
+        QCOMPARE(stored.bend_points(), bends);
+        QVERIFY(same_outline(single.path(), stored.path(), tolerance));
+        QVERIFY(same_outline(stored.path(), single.path(), tolerance));
+    }
+
+    void bendPointsMakeAnS() {
+        ArrowItem arrow(QPointF(40, 100), QPointF(360, 100), QPen(RED, 4), "triangle");
+        arrow.set_control_point(QPointF(200, 100));
+        arrow.set_bend_points(std::array<QPointF, 2>{{QPointF(110, 40), QPointF(290, 160)}});
+        const auto path = arrow.path();
+        for (const auto &on : {QPointF(110, 40), QPointF(200, 100), QPointF(290, 160)}) QVERIFY(path.contains(on));
+        for (const auto &off : {QPointF(110, 160), QPointF(290, 40), QPointF(110, 100), QPointF(290, 100)}) QVERIFY(!path.contains(off));
+        // Rising steeply out of the lower bend, the head points up and to the right.
+        QVERIFY(path.contains(QPointF(356, 108)));
+        QVERIFY(!path.contains(QPointF(350, 100)));
+        arrow.reset_control_point();
+        QVERIFY(!arrow.has_bend_points());
+        QVERIFY(!arrow.is_curved());
+        QCOMPARE(arrow.path(), ArrowItem(QPointF(40, 100), QPointF(360, 100), QPen(RED, 4), "triangle").path());
+    }
+
+    void bendHandlesAppearOnLongBentArrows() {
+        auto [scene, view] = canvas("arrow");
+        auto *arrow = new ArrowItem(QPointF(100, 160), QPointF(400, 160), QPen(RED, 4));
+        scene->addItem(arrow);
+        auto *stub = new ArrowItem(QPointF(100, 320), QPointF(180, 320), QPen(RED, 4));
+        stub->set_control_point(QPointF(140, 300));
+        scene->addItem(stub);
+        auto *editor = view->smart_edit_controller->layer_editor.get();
+        view->smart_edit_controller->select_item(stub);
+        QVERIFY(handles_of(*editor, HandleType::ARROW_BEND).empty());
+        view->smart_edit_controller->select_item(arrow);
+        QVERIFY(handles_of(*editor, HandleType::ARROW_BEND).empty());
+        const auto control_point = handle_point(view, *handle_of(*editor, HandleType::ARROW_CONTROL));
+        gesture(view, control_point, control_point + QPointF(0, -60), 3);
+        const auto bends = handles_of(*editor, HandleType::ARROW_BEND);
+        QCOMPARE(bends.size(), size_t(2));
+        QVERIFY(!arrow->has_bend_points());
+        for (const auto &bend : bends) QVERIFY(arrow->path().contains(arrow->mapFromScene(bend.position)));
+
+        const auto grab = handle_point(view, bends[1]);
+        gesture(view, grab, grab + QPointF(0, 90), 4);
+        QVERIFY(arrow->has_bend_points());
+        QVERIFY(QLineF(arrow->mapToScene(arrow->bend_points()[1]), grab + QPointF(0, 90)).length() < 1.5);
+        QVERIFY(arrow->path().contains(arrow->mapFromScene(grab + QPointF(0, 90))));
+        const auto s_path = arrow->path();
+        scene->undo_stack->undo();
+        QVERIFY(!arrow->has_bend_points());
+        QVERIFY(arrow->is_curved());
+        scene->undo_stack->redo();
+        QVERIFY(arrow->has_bend_points());
+        QCOMPARE(arrow->path(), s_path);
+
+        // Stored bend points stay editable after the arrow is shortened below the spacing.
+        const auto end_point = handle_point(view, *handle_of(*editor, HandleType::ARROW_END));
+        gesture(view, end_point, QPointF(150, 160), 4);
+        QCOMPARE(handles_of(*editor, HandleType::ARROW_BEND).size(), size_t(2));
+        // A style change records no bend points and leaves them alone.
+        auto old_state = view->smart_edit_controller->layer_editor->capture_state(arrow).value();
+        old_state.remove("bend_points");
+        old_state["arrow_style"] = arrow->arrow_style();
+        auto new_state = old_state;
+        new_state["arrow_style"] = QString("double");
+        scene->undo_stack->push(new EditItemCommand(ItemReference(arrow), old_state, new_state));
+        QCOMPARE(arrow->arrow_style(), QString("double"));
+        QVERIFY(arrow->has_bend_points());
+        scene->undo_stack->undo();
+        QCOMPARE(arrow->arrow_style(), QString("single"));
+        QVERIFY(arrow->has_bend_points());
+    }
+
+    void crowdedArrowHandlesPickTheNearest() {
+        auto [scene, view] = canvas("arrow");
+        auto *arrow = new ArrowItem(QPointF(100, 100), QPointF(140, 100), QPen(RED, 4));
+        scene->addItem(arrow);
+        view->smart_edit_controller->select_item(arrow);
+        auto *editor = view->smart_edit_controller->layer_editor.get();
+        const auto start = handle_point(view, *handle_of(*editor, HandleType::ARROW_START));
+        const auto control = handle_point(view, *handle_of(*editor, HandleType::ARROW_CONTROL));
+        // Both hit areas cover the point between them; the closer handle wins, whatever the order.
+        QCOMPARE(editor->hit_test(control - QPointF(3, 0))->handle_type, HandleType::ARROW_CONTROL);
+        QCOMPARE(editor->hit_test(start + QPointF(3, 0))->handle_type, HandleType::ARROW_START);
+        QCOMPARE(handle_type_name(HandleType::ARROW_BEND), QString("arrow_bend"));
     }
 
     void numberHandlesAdjustAndDelete() {

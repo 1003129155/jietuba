@@ -6,6 +6,7 @@
 #include "ocr/ppocr_models.h"
 #include "settings/settings_transfer.h"
 #include "settings/tool_settings.h"
+#include "translation/speech_service.h"
 #include "core/ui_scale.h"
 #include "ui/color_picker_dialog.h"
 #include "ui/fluent_lite/cards.h"
@@ -46,9 +47,12 @@
 #include <QScrollBar>
 #include <QSet>
 #include <QSettings>
+#include <QSemaphore>
 #include <QStackedWidget>
 #include <QTemporaryDir>
 #include <QTest>
+#include <algorithm>
+#include <atomic>
 
 using namespace jietuba;
 
@@ -104,6 +108,27 @@ QStringList texts_of(const std::vector<HotkeyEdit *> &edits) {
 }
 }
 
+// Reads nothing aloud; records what it was asked to read.
+class RecordingSpeech : public SpeechBackend {
+public:
+    bool voices(std::vector<VoiceInfo> &found, QString &) override { return found = voice_list, true; }
+    bool speak(const VoiceInfo &voice, const QString &text, const SpeechStyle &style, QString &) override {
+        spoken.push_back({voice.name, text, style});
+        done = false;
+        return true;
+    }
+    bool purge(QString &) override { return done = true; }
+    bool poll(SpeechStatus &status, QString &) override { return status = {done, 0, 0}, true; }
+    bool close(QString &error) override { return purge(error); }
+    struct Spoken {
+        QString voice, text;
+        SpeechStyle style;
+    };
+    std::vector<VoiceInfo> voice_list;
+    std::vector<Spoken> spoken;
+    bool done = true;
+};
+
 // Records the URLs the dialog asks the desktop to open.
 class UrlCatcher : public QObject {
     Q_OBJECT
@@ -144,6 +169,107 @@ private slots:
             QVERIFY2(dialog.has_attr(name), name);
     }
 
+    void externalRefreshRunsInBackgroundAndSupersedesOldResults() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        struct QueryState {
+            QSemaphore started, release;
+            std::atomic_int calls{0};
+            std::atomic_bool on_gui{false};
+        };
+        auto state = std::make_shared<QueryState>();
+        const auto unblock = qScopeGuard([state] { state->release.release(); });
+        auto *gui = QThread::currentThread();
+        QList<int> results;
+        bool applied_on_gui = false;
+        const auto refresh = dialog.add_external_refresh([state, gui] {
+            state->on_gui = QThread::currentThread() == gui;
+            const int call = ++state->calls;
+            state->started.release();
+            if (call == 1) state->release.acquire();
+            return call;
+        }, [&](int result) {
+            applied_on_gui = QThread::currentThread() == gui;
+            results << result;
+        });
+        // Registering a page refresh starts its first query without another show or activation.
+        QTRY_VERIFY(state->started.available() > 0);
+        bool responsive = false;
+        QTimer::singleShot(0, &dialog, [&] { responsive = true; });
+        QTRY_VERIFY(responsive);
+        for (int i = 0; i < 10; ++i) refresh();
+        state->release.release();
+        QTRY_COMPARE(results, QList<int>{2});
+        QCOMPARE(state->calls.load(), 2);
+        QVERIFY(!state->on_gui.load());
+        QVERIFY(applied_on_gui);
+        QVERIFY(!dialog.has_unsaved_changes());
+    }
+
+    void externalRefreshOutlivesAClosedWindowWithoutDeliveringToIt() {
+        struct QueryState {
+            QSemaphore started, release;
+            std::atomic_bool finished{false};
+        };
+        auto state = std::make_shared<QueryState>();
+        const auto unblock = qScopeGuard([state] { state->release.release(); });
+        bool applied = false;
+        auto dialog = std::make_unique<SettingsDialog>(config_, config_->get_hotkey());
+        dialog->add_external_refresh([state] {
+            state->started.release();
+            state->release.acquire();
+            state->finished = true;
+            return true;
+        }, [&](bool) { applied = true; });
+        QTRY_VERIFY(state->started.available() > 0);
+        dialog.reset();
+        state->release.release();
+        QTRY_VERIFY(state->finished.load());
+        QCoreApplication::processEvents();
+        QVERIFY(!applied);
+    }
+
+    void externalRefreshCanRetryAfterAQueryFailure() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        auto calls = std::make_shared<std::atomic_int>(0);
+        int result = 0;
+        const auto refresh = dialog.add_external_refresh([calls] {
+            if (++*calls == 1) throw std::runtime_error("query unavailable");
+            return 42;
+        }, [&](int value) { result = value; });
+        QTRY_COMPARE(calls->load(), 1);
+        QTest::qWait(30);
+        QCOMPARE(result, 0);
+        refresh();
+        QTRY_COMPARE(result, 42);
+    }
+
+    // Showing the window also activates it; the two must not run the query twice. Coming back
+    // from another window reads again.
+    void showingTheWindowQueriesOnce() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        auto calls = std::make_shared<std::atomic_int>(0);
+        int applied = 0;
+        dialog.add_external_refresh([calls] { return ++*calls; }, [&](int) { ++applied; });
+        QTRY_COMPARE(applied, 1);
+
+        dialog.show();
+        QTRY_VERIFY(dialog.isActiveWindow());
+        QTRY_COMPARE(applied, 2);
+        QTest::qWait(100);
+        QCOMPARE(calls->load(), 2);
+        QCOMPARE(applied, 2);
+
+        QWidget other;
+        other.show();
+        QTRY_VERIFY(!dialog.isActiveWindow());
+        QTest::qWait(100);
+        QCOMPARE(calls->load(), 2);
+        dialog.activateWindow();
+        QTRY_COMPARE(applied, 3);
+        QCOMPARE(calls->load(), 3);
+    }
+
     void sizeFollowsTheScreenAndKeepsAUserSize() {
         auto &scale = get_dialog_scale();
         const int before = scale.percent();
@@ -169,6 +295,40 @@ private slots:
         const QSize shown = dialog.size();
         dialog.fit_to_screen();
         QCOMPARE(dialog.size(), shown);
+    }
+
+    // Whether the cards fit at this width is settings_window_desktop's check.
+    void minimumWidthFollowsTheWindowScale() {
+        auto &scale = get_dialog_scale();
+        const int before = scale.percent(), panel_before = get_ui_scale().percent();
+        const auto restore = qScopeGuard([&] {
+            scale.set_percent(before);
+            get_ui_scale().set_percent(panel_before);
+        });
+        // 575 outside the card and for its title, 302 for the rest of the card; at 150% each part is
+        // rounded half to even: 862 + 96 + 321 + 36.
+        for (const auto &[percent, expected] : {std::pair{100, 877}, std::pair{150, 1315}, std::pair{200, 1754}}) {
+            scale.set_percent(percent);
+            get_ui_scale().set_percent(100);
+            SettingsDialog dialog(config_, config_->get_hotkey());
+            dialog.fit_to_available({2560, 1392});
+            QCOMPARE(dialog.minimumWidth(), expected);
+            dialog.resize(400, dialog.height());
+            QCOMPARE(dialog.width(), expected);
+            get_ui_scale().set_percent(150);
+            dialog.fit_to_available({2560, 1392});
+            QCOMPARE(dialog.minimumWidth(), expected);
+        }
+
+        // A narrower screen gets its whole width; a wider one brings the minimum back.
+        scale.set_percent(150);
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.fit_to_available({1280, 672});
+        QCOMPARE(dialog.minimumWidth(), 1280);
+        QCOMPARE(dialog.width(), 1280);
+        dialog.fit_to_available({2560, 1392});
+        QCOMPARE(dialog.minimumWidth(), 1315);
+        QCOMPARE(dialog.width(), 1575);
     }
 
     // Only a dialog with no part on any screen is moved back; its corner alone does not decide.
@@ -357,6 +517,7 @@ private slots:
         dialog.on_nav_changed(1, "capture");
         auto *combo = dialog.attr<QComboBox>("ocr_engine_combo");
         QVERIFY(combo);
+        QTRY_VERIFY(combo->property("queried").toBool());
         auto *items = qobject_cast<QStandardItemModel *>(combo->model());
         QStringList catalog_order;
         for (const auto &value : ppocr_models::catalog().value("models").toArray()) catalog_order << value.toObject().value("id").toString();
@@ -373,7 +534,7 @@ private slots:
 
         QVERIFY(write("new/det.onnx") && write("new/rec.onnx") && write("new/model.json", manifest("new", "")));
         emit model_downloads()->models_changed();
-        QVERIFY(combo->findData("ppocr_rust:new") >= 0);
+        QTRY_VERIFY(combo->findData("ppocr_rust:new") >= 0);
         QCOMPARE(combo->currentData().toString(), QString("ppocr_rust:ppocr-v5-korean"));
 
         combo->setCurrentIndex(combo->findData("ppocr_rust:local"));
@@ -382,7 +543,8 @@ private slots:
         QCOMPARE(config_->get_ppocr_model(), QString("local"));
 
         QVERIFY(QDir(root.filePath("local")).removeRecursively());
-        fill_ocr_engines(&dialog, "ppocr_rust", "local");
+        emit model_downloads()->models_changed();
+        QTRY_COMPARE(combo->currentText(), settings_tr("%1 (not installed)").replace("%1", "local"));
         QCOMPARE(combo->currentData().toString(), QString("ppocr_rust:local"));
         QCOMPARE(combo->currentText(), settings_tr("%1 (not installed)").replace("%1", "local"));
         QVERIFY(!items->item(combo->currentIndex())->isEnabled());
@@ -391,6 +553,51 @@ private slots:
 
         reset_page(dialog);
         QCOMPARE(combo->currentData().toString(), QString("auto"));
+    }
+
+    // The window is kept hidden between uses: a Snipping Tool installed or removed meanwhile is
+    // listed or dropped when it comes back, and the unavailable card follows.
+    void ocrListFollowsTheSnippingToolWhenShownAgain() {
+        QTemporaryDir models;
+        QVERIFY(models.isValid());
+        ppocr_models::set_models_root_for_test(models.path());
+        set_oneocr_available_for_test(false);
+        const auto restore = qScopeGuard([] {
+            ppocr_models::set_models_root_for_test({});
+            set_oneocr_available_for_test(std::nullopt);
+        });
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.on_nav_changed(1, "capture");
+        dialog.show();
+        auto *combo = dialog.attr<QComboBox>("ocr_engine_combo");
+        auto *card = dialog.attr<QWidget>("ocr_unavailable_card");
+        QVERIFY(combo && card);
+        QTRY_VERIFY(combo->property("queried").toBool());
+        QCOMPARE(combo->findData(OCRManager::ENGINE_ONEOCR), -1);
+        QVERIFY(!card->isHidden());
+        dialog.on_nav_changed(11, "pin");
+        auto *ocr_toggle = dialog.attr<SwitchSettingCard>("ocr_enable_toggle");
+        QVERIFY(ocr_toggle);
+        QVERIFY(!ocr_toggle->isEnabled());
+        QCOMPARE(ocr_toggle->isChecked(), config_->get_ocr_enabled());
+
+        dialog.hide();
+        set_oneocr_available_for_test(true);
+        dialog.show();
+        QTRY_COMPARE(combo->findData(OCRManager::ENGINE_ONEOCR), 1);
+        QCOMPARE(combo->currentData().toString(), QString("auto"));
+        QVERIFY(card->isHidden());
+        QTRY_VERIFY(ocr_toggle->isEnabled());
+        QVERIFY(!dialog.has_unsaved_changes());
+
+        dialog.hide();
+        set_oneocr_available_for_test(false);
+        dialog.show();
+        QTRY_COMPARE(combo->findData(OCRManager::ENGINE_ONEOCR), -1);
+        QVERIFY(!card->isHidden());
+        QTRY_VERIFY(!ocr_toggle->isEnabled());
+        QCOMPARE(ocr_toggle->isChecked(), config_->get_ocr_enabled());
+        QVERIFY(!dialog.has_unsaved_changes());
     }
 
     void resetRestoresTheCurrentPageDefaults() {
@@ -419,6 +626,40 @@ private slots:
         QCOMPARE(config_->get_capture_engine(), QString("mss"));
         reset_page(dialog);
         QCOMPARE(combo->currentData().toString(), config_->app_defaults().value("capture_engine").toString());
+        dialog.hide();
+    }
+
+    // What people change most comes first: the capture itself and where it is saved. Each recognition
+    // switch sits in the OCR group, and the capture-time switches in the first group.
+    void theCapturePageGroupsFollowTheOrderOfUse() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.on_nav_changed(1, "capture");
+        const auto group_of = [](QWidget *widget) -> SettingCardGroup * {
+            for (QWidget *w = widget; w; w = w->parentWidget())
+                if (auto *group = qobject_cast<SettingCardGroup *>(w)) return group;
+            return nullptr;
+        };
+        const auto behavior_control = [&dialog](const QString &key) -> QWidget * {
+            for (const auto &[name, widget] : dialog.behavior_controls)
+                if (name == key) return widget;
+            return nullptr;
+        };
+        const QList<QWidget *> markers = {dialog.attr_widget("capture_engine_combo"), dialog.attr_widget("save_toggle"), dialog.attr_widget("cross_tool_selection_toggle"),
+                                          dialog.attr_widget("smart_mode_combo"), dialog.attr_widget("magnifier_enabled_toggle"), dialog.attr_widget("ocr_engine_combo"),
+                                          behavior_control("recording_hide_toolbar_in_captures"), dialog.attr_widget("watermark_auto_toggle")};
+        QList<int> positions;
+        for (auto *marker : markers) {
+            QVERIFY(marker);
+            auto *group = group_of(marker);
+            QVERIFY(group);
+            positions << group->parentWidget()->layout()->indexOf(group);
+        }
+        for (int i = 1; i < positions.size(); ++i) QVERIFY2(positions[i - 1] < positions[i], qPrintable(QString("group %1 is not below group %2").arg(i).arg(i - 1)));
+        QCOMPARE(group_of(behavior_control("capture_include_cursor")), group_of(markers[0]));
+        QCOMPARE(group_of(behavior_control("capture_fullscreen_crosshair")), group_of(markers[0]));
+        QCOMPARE(group_of(dialog.attr_widget("ocr_copy_directly_toggle")), group_of(markers[5]));
+        QCOMPARE(group_of(dialog.attr_widget("barcode_copy_single_toggle")), group_of(markers[5]));
         dialog.hide();
     }
 
@@ -649,6 +890,43 @@ private slots:
         config.set_global_hotkeys("clipboard", {"win+v", "", "", ""});
         QVERIFY(config.get_app_setting("clipboard_take_over_win_v").toBool());
         QVERIFY_THROWS_EXCEPTION(std::invalid_argument, config.set_global_hotkeys("clipboard", {"ctrl+2"}));
+    }
+
+    // 新动作默认关闭，沿用设置保存、重载、导入和手势冲突检查。
+    void globalMouseScanBindingPersistsAndRejectsConflicts() {
+        const auto saved = config_->get_quick_capture_scan_code();
+        const auto restore = qScopeGuard([&] { config_->set_quick_capture_scan_code(saved); });
+        config_->set_quick_capture_scan_code("");
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.on_nav_changed(10, "mouse");
+        auto *scan = qobject_cast<MouseBindingEditor *>(dialog.behavior_control("quick_capture_scan_code"));
+        QVERIFY(scan);
+        QVERIFY(scan->currentData().isEmpty());
+        QVERIFY(settings_transfer::IMPORTED_KEYS().contains("app/quick_capture_scan_code"));
+        QVERIFY(!ResourceManager::get_icon_by_name(QString::fromUtf8("扫码.svg")).isNull());
+        scan->setBinding("ctrl+alt+dragright");
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_quick_capture_scan_code(), QString("ctrl+alt+dragright"));
+        settings_->sync();
+        QSettings reloaded(settings_->fileName(), QSettings::IniFormat);
+        ToolSettingsManager fresh(reloaded);
+        QCOMPARE(get_quick_capture_binding(&fresh, "scan_code"), QString("ctrl+alt+dragright"));
+        const auto bindings = get_quick_capture_bindings(&fresh);
+        const auto found = std::find_if(bindings.begin(), bindings.end(), [](const auto &entry) { return entry.second == "scan_code"; });
+        QVERIFY(found != bindings.end());
+        QCOMPARE(found->first.first, (QStringList{"alt", "ctrl"}));
+        QCOMPARE(found->first.second, QString("right"));
+
+        auto *pin = qobject_cast<MouseBindingEditor *>(dialog.behavior_control("quick_capture_pin"));
+        QVERIFY(pin && !pin->currentData().isEmpty());
+        answer_next(true);
+        scan->setBinding(pin->currentData());
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(scan->currentData(), QString("ctrl+alt+dragright"));
+        QCOMPARE(config_->get_quick_capture_scan_code(), QString("ctrl+alt+dragright"));
+        scan->setBinding("");
+        QVERIFY(dialog.apply_settings());
+        for (const auto &binding : get_quick_capture_bindings(config_)) QVERIFY(binding.second != "scan_code");
     }
 
     void duplicateMouseBindingsAreListed() {
@@ -917,6 +1195,28 @@ private slots:
         config_->settings().remove("translation/providers/volcengine");
     }
 
+    // The window is kept hidden between uses; what was translated meanwhile shows when it is back.
+    void usageShowsTranslationsMadeWhileHidden() {
+        const QString provider = config_->get_translation_provider();
+        const auto restore = qScopeGuard([this, provider] {
+            config_->settings().remove("translation/usage");
+            config_->set_translation_provider(provider);
+        });
+        config_->settings().remove("translation/usage");
+        config_->set_translation_provider("tencent");
+        config_->add_translation_usage_chars("tencent", 500);
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.on_nav_changed(4, "translation");
+        auto *label = dialog.attr<QLabel>("translation_notice_label");
+        // Shown as soon as the page is built, before the background read returns.
+        QVERIFY2(label->text().contains(": 500 / "), qPrintable(label->text()));
+        dialog.hide();
+        config_->add_translation_usage_chars("tencent", 1000);
+        dialog.show();
+        QTRY_VERIFY(label->text().contains(": 1,500 / "));
+    }
+
     void wizardNavigatesAcrossEveryPage() {
         WelcomeWizard wizard(config_);
         QCOMPARE(wizard.page_count(), 8);
@@ -1023,6 +1323,9 @@ private slots:
             return static_cast<MouseBindingEditor *>(nullptr);
         };
         QCOMPARE(editor_for("pin")->currentData(), QString("win+dragleft"));
+        QVERIFY(editor_for("scan_code"));
+        QVERIFY(editor_for("scan_code")->currentData().isEmpty());
+        editor_for("scan_code")->setBinding("ctrl+alt+dragright");
         QLabel *conflict = nullptr;
         for (auto *label : page.findChildren<QLabel *>())
             if (label->styleSheet().contains("#D9534F")) conflict = label;
@@ -1033,6 +1336,7 @@ private slots:
         QVERIFY(conflict->text().contains(settings_tr("Pin to Screen")));
         page.save();
         QCOMPARE(get_quick_capture_binding(config_, "ocr"), QString("ctrl+win+dragleft"));
+        QCOMPARE(get_quick_capture_binding(config_, "scan_code"), QString("ctrl+alt+dragright"));
         QCOMPARE(get_quick_capture_binding(config_, "copy"), QString(""));
         QCOMPARE(get_quick_capture_binding(config_, "pin"), QString("win+dragleft"));
         editor_for("pin")->setBinding("");
@@ -1340,6 +1644,357 @@ private slots:
         config_->set_global_hotkeys("screen_annotation", {"", "", "", ""});
     }
 
+    // The read-aloud rows list the registered voices without starting the speech engine, save a
+    // choice per language next to choices for languages not installed now, preview the row's
+    // current voice and style, and reset to the automatic choice.
+    void readAloudVoicesSaveResetAndPreview() {
+        const QString root = QString("HKEY_CURRENT_USER\\Software\\jietuba_tests\\settings_speech_%1").arg(QCoreApplication::applicationPid());
+        const QStringList categories{root + "\\Classic", root + "\\Modern"};
+        const std::tuple<QString, QString, QString, QString> tokens[] = {{categories[0], "ZhA", "Microsoft Alpha - Chinese", "804"},
+                                                                         {categories[1], "ZhB", "Microsoft Beta - Chinese", "804"},
+                                                                         {categories[1], "En", "Microsoft Gamma - English", "409"}};
+        auto backend = std::make_shared<RecordingSpeech>();
+        for (const auto &[category, key, name, language] : tokens) {
+            QSettings registry(category, QSettings::NativeFormat);
+            registry.setValue("Tokens/" + key + "/Default", name);
+            registry.setValue("Tokens/" + key + "/Attributes/Language", language);
+            backend->voice_list.push_back({name, *locale_from_lcid(language), category + "\\Tokens\\" + key});
+        }
+        int engines = 0;
+        SpeechService::set_voice_categories(categories);
+        SpeechService::set_backend_factory([backend, &engines](QString &) {
+            ++engines;
+            return backend;
+        });
+        config_->set_speech_voices({"ko=elsewhere"});
+        const auto restore = qScopeGuard([this, root] {
+            SpeechService::reset_instance();
+            SpeechService::set_backend_factory(nullptr);
+            SpeechService::set_voice_categories({});
+            QSettings(root, QSettings::NativeFormat).remove("");
+            QSettings("HKEY_CURRENT_USER\\Software\\jietuba_tests", QSettings::NativeFormat).remove(root.section('\\', -1));
+            config_->set_speech_voices({});
+            config_->set_speech_rate(0);
+            config_->set_speech_volume(100);
+        });
+
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.on_nav_changed(4, "translation");
+        QTRY_COMPARE(dialog.speech_voice_combos.size(), size_t(2));
+        QCOMPARE(engines, 0);
+        QStringList keys;
+        for (const auto &[key, combo] : dialog.speech_voice_combos) keys << key;
+        QCOMPARE(keys, QStringList({"zh", "en"}));
+        QPointer<QComboBox> chinese = dialog.speech_voice_combos.front().second;
+        QStringList items;
+        for (int index = 0; index < chinese->count(); ++index) items << chinese->itemText(index);
+        QCOMPARE(items, QStringList({settings_tr("Auto"), "Alpha", "Beta"}));
+        QCOMPARE(chinese->currentIndex(), 0);
+
+        chinese->setCurrentIndex(2);
+        auto *rate = qobject_cast<QComboBox *>(dialog.behavior_control("speech_rate"));
+        auto *volume = qobject_cast<QComboBox *>(dialog.behavior_control("speech_volume"));
+        QVERIFY(rate && volume);
+        rate->setCurrentIndex(rate->findData(4));
+        volume->setCurrentIndex(volume->findData(60));
+        QTRY_COMPARE(config_->get_speech_voices(), QStringList({"ko=elsewhere", "zh=" + categories[1] + "\\Tokens\\ZhB"}));
+        QCOMPARE(config_->get_speech_rate(), 4);
+        QCOMPARE(config_->get_speech_volume(), 60);
+
+        QPushButton *preview = nullptr;
+        for (auto *button : chinese->parentWidget()->findChildren<QPushButton *>())
+            if (button->toolTip() == settings_tr("Preview")) preview = button;
+        QVERIFY(preview);
+        // The other combos change before the save, so the preview reads what is shown.
+        rate->setCurrentIndex(rate->findData(-3));
+        chinese->setCurrentIndex(1);
+        preview->click();
+        QCOMPARE(engines, 1);
+        QCOMPARE(backend->spoken.size(), size_t(1));
+        QCOMPARE(backend->spoken.back().voice, QString("Microsoft Alpha - Chinese"));
+        QVERIFY(backend->spoken.back().text.contains(QString::fromUtf8("朗读")));
+        QCOMPARE(backend->spoken.back().style.rate, -3);
+        QCOMPARE(backend->spoken.back().style.volume, 60);
+        QCOMPARE(preview->toolTip(), settings_tr("Stop"));
+        preview->click();
+        QCOMPARE(preview->toolTip(), settings_tr("Preview"));
+        QCOMPARE(backend->spoken.size(), size_t(1));
+
+        QPushButton *reset = nullptr;
+        for (auto *button : dialog.findChildren<QPushButton *>())
+            if (button->text() == settings_tr("Reset This Page")) reset = button;
+        QVERIFY(reset);
+        answer_next(true);
+        reset->click();
+        QCOMPARE(chinese->currentIndex(), 0);
+        QCOMPARE(rate->currentData().toInt(), 0);
+        QTRY_COMPARE(config_->get_speech_voices(), QStringList({"ko=elsewhere"}));
+        QCOMPARE(config_->get_speech_rate(), 0);
+        QCOMPARE(config_->get_speech_volume(), 100);
+
+        // The window is kept hidden between uses: voices installed or removed meanwhile show when
+        // it comes back, and the rebuilt rows save like the first ones.
+        dialog.hide();
+        QSettings(categories[0], QSettings::NativeFormat).remove("Tokens/ZhA");
+        {
+            QSettings registry(categories[1], QSettings::NativeFormat);
+            registry.setValue("Tokens/Ja/Default", "Microsoft Delta - Japanese");
+            registry.setValue("Tokens/Ja/Attributes/Language", "411");
+        }
+        dialog.show();
+        QTRY_VERIFY(!chinese);
+        keys.clear();
+        for (const auto &[key, combo] : dialog.speech_voice_combos) keys << key;
+        keys.sort();
+        QCOMPARE(keys, QStringList({"en", "ja", "zh"}));
+        QVERIFY(!chinese);
+        for (const auto &[key, combo] : dialog.speech_voice_combos)
+            if (key == "zh") chinese = combo;
+        QVERIFY(chinese);
+        QCOMPARE(chinese->count(), 2);
+        QCOMPARE(chinese->itemText(1), QString("Beta"));
+        chinese->setCurrentIndex(1);
+        rate = qobject_cast<QComboBox *>(dialog.behavior_control("speech_rate"));
+        QVERIFY(rate);
+        rate->setCurrentIndex(rate->findData(2));
+        QTRY_COMPARE(config_->get_speech_voices(), QStringList({"ko=elsewhere", "zh=" + categories[1] + "\\Tokens\\ZhB"}));
+        QCOMPARE(config_->get_speech_rate(), 2);
+    }
+
+    void voiceRefreshPreservesPendingEditsAndUnavailablePreferences() {
+        const QString root = QString("HKEY_CURRENT_USER\\Software\\jietuba_tests\\refresh_speech_%1").arg(QCoreApplication::applicationPid());
+        const QString category = root + "\\Voices";
+        const QString token_a = category + "\\Tokens\\A", token_b = category + "\\Tokens\\B";
+        const auto add_voice = [category](const QString &key, const QString &name) {
+            QSettings registry(category, QSettings::NativeFormat);
+            registry.setValue("Tokens/" + key + "/Default", name);
+            registry.setValue("Tokens/" + key + "/Attributes/Language", "804");
+        };
+        add_voice("A", "Voice A");
+        add_voice("B", "Voice B");
+        SpeechService::set_voice_categories({category});
+        config_->set_speech_voices({"zh=" + token_a});
+        const auto restore = qScopeGuard([this, root] {
+            SpeechService::reset_instance();
+            SpeechService::set_voice_categories({});
+            QSettings("HKEY_CURRENT_USER\\Software\\jietuba_tests", QSettings::NativeFormat).remove(root.section('\\', -1));
+            config_->set_speech_voices({});
+            config_->set_speech_rate(0);
+            config_->set_speech_volume(100);
+        });
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.on_nav_changed(4, "translation");
+        QTRY_COMPARE(dialog.speech_voice_combos.size(), size_t(1));
+        QPointer<QComboBox> chinese = dialog.speech_voice_combos.front().second;
+        QCOMPARE(chinese->currentData().toString(), token_a);
+        QVERIFY(!dialog.has_unsaved_changes());
+
+        // A refresh uses the selections present when its result arrives, including unsaved edits.
+        add_voice("C", "Voice C");
+        dialog.refresh_external_state();
+        chinese->setCurrentIndex(chinese->findData(token_b));
+        auto *rate = qobject_cast<QComboBox *>(dialog.behavior_control("speech_rate"));
+        auto *volume = qobject_cast<QComboBox *>(dialog.behavior_control("speech_volume"));
+        rate->setCurrentIndex(rate->findData(4));
+        volume->setCurrentIndex(volume->findData(60));
+        QTRY_VERIFY(!chinese);
+        chinese = dialog.speech_voice_combos.front().second;
+        QCOMPARE(chinese->currentData().toString(), token_b);
+        QCOMPARE(qobject_cast<QComboBox *>(dialog.behavior_control("speech_rate"))->currentData().toInt(), 4);
+        QCOMPARE(qobject_cast<QComboBox *>(dialog.behavior_control("speech_volume"))->currentData().toInt(), 60);
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_speech_voices(), QStringList{"zh=" + token_b});
+        QSignalSpy saved(&dialog, &SettingsDialog::settings_applied);
+
+        QSettings(category, QSettings::NativeFormat).remove("Tokens/B");
+        dialog.refresh_external_state();
+        QTRY_VERIFY(!chinese);
+        chinese = dialog.speech_voice_combos.front().second;
+        QCOMPARE(chinese->currentIndex(), 0);
+        QVERIFY(!dialog.has_unsaved_changes());
+        QTest::qWait(350);
+        QCOMPARE(config_->get_speech_voices(), QStringList{"zh=" + token_b});
+        QCOMPARE(saved.count(), 0);
+
+        // Removing a whole language also keeps its preference, which returns with the voice.
+        QSettings(category, QSettings::NativeFormat).remove("Tokens");
+        dialog.refresh_external_state();
+        QTRY_VERIFY(dialog.speech_voice_combos.empty());
+        QVERIFY(!dialog.has_unsaved_changes());
+        add_voice("B", "Voice B");
+        dialog.refresh_external_state();
+        QTRY_COMPARE(dialog.speech_voice_combos.size(), size_t(1));
+        QCOMPARE(dialog.speech_voice_combos.front().second->currentData().toString(), token_b);
+        QVERIFY(!dialog.has_unsaved_changes());
+        QCOMPARE(saved.count(), 0);
+        add_voice("A", "Voice A");
+        QSettings(category, QSettings::NativeFormat).remove("Tokens/B");
+        chinese = dialog.speech_voice_combos.front().second;
+        dialog.refresh_external_state();
+        QTRY_VERIFY(!chinese);
+        chinese = dialog.speech_voice_combos.front().second;
+        QCOMPARE(chinese->currentIndex(), 0);
+        // Explicitly choosing the already displayed Auto clears the missing preference.
+        QVERIFY(QMetaObject::invokeMethod(chinese, "activated", Q_ARG(int, 0)));
+        QTRY_VERIFY(config_->get_speech_voices().isEmpty());
+        QCOMPARE(saved.count(), 1);
+    }
+
+    // The voices are the longest names Windows ships for these languages; the width is the
+    // window's minimum.
+    void readAloudGroupFitsEveryLanguageInTheNarrowestWindow() {
+        // Text widths need real fonts, which the offscreen platform does not have.
+        if (QGuiApplication::platformName() != "windows") QSKIP("needs -platform windows");
+        const QString root = QString("HKEY_CURRENT_USER\\Software\\jietuba_tests\\speech_width_%1").arg(QCoreApplication::applicationPid());
+        const QString category = root + "\\Voices";
+        const std::pair<const char *, const char *> voices[] = {
+            {"Microsoft Huihui Desktop - Chinese (Simplified)", "804"}, {"Microsoft Kangkang - Chinese (Simplified, PRC)", "804"},
+            {"Microsoft Hanhan Desktop - Chinese(Taiwan)", "404"},       {"Microsoft David Desktop - English (United States)", "409"},
+            {"Microsoft Hazel Desktop - English (Great Britain)", "809"}, {"Microsoft Haruka Desktop - Japanese", "411"},
+            {"Microsoft Heami Desktop - Korean", "412"},                 {"Microsoft An - Vietnamese (Vietnam)", "42A"},
+            {"Microsoft Hortense Desktop - French", "40C"}};
+        {
+            QSettings registry(category, QSettings::NativeFormat);
+            int index = 0;
+            for (const auto &[name, language] : voices) {
+                const QString key = QString("Tokens/Voice%1/").arg(index++);
+                registry.setValue(key + "Default", name);
+                registry.setValue(key + "Attributes/Language", language);
+            }
+        }
+        SpeechService::set_voice_categories({category});
+        auto &scale = get_dialog_scale();
+        const int percent_before = scale.percent();
+        const QString language = I18nManager::get_current_language();
+        const auto restore = qScopeGuard([&scale, percent_before, language, root] {
+            SpeechService::reset_instance();
+            SpeechService::set_voice_categories({});
+            QSettings("HKEY_CURRENT_USER\\Software\\jietuba_tests", QSettings::NativeFormat).remove(root.section('\\', -1));
+            scale.set_percent(percent_before);
+            I18nManager::load_language(language);
+        });
+
+        for (const int percent : {100, 150, 200}) {
+            scale.set_percent(percent);
+            for (const char *code : {"zh", "zh_TW", "en", "ja", "ko"}) {
+                QVERIFY(I18nManager::load_language(code));
+                const QString where = QString("%1 at %2%").arg(code).arg(percent);
+                SettingsDialog dialog(config_, config_->get_hotkey());
+                // Wider than any screen, so the minimum is not capped at this one's width.
+                dialog.fit_to_available({4000, dialog.height()});
+                const int narrowest = dialog.minimumWidth();
+                dialog.resize(narrowest, dialog.height());
+                dialog.show();
+                dialog.on_nav_changed(4, "translation");
+                QTRY_COMPARE(dialog.speech_voice_combos.size(), size_t(6));
+                QApplication::processEvents();
+                auto *group = dialog.attr<SettingCardGroup>("speech_group");
+                QVERIFY(group);
+                auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+                QVERIFY(scroll);
+                QVERIFY2(dialog.width() == narrowest, qPrintable(QString("%1: the window is %2 wide, not %3").arg(where).arg(dialog.width()).arg(narrowest)));
+                QVERIFY2(scroll->horizontalScrollBar()->maximum() == 0, qPrintable(where + ": the page scrolls sideways"));
+
+                // Empty when the part gets its whole width.
+                const auto squeezed = [&where](QWidget *part, const QString &name) {
+                    if (part->width() >= part->sizeHint().width()) return QString();
+                    return QString("%1: %2 is %3 wide, needs %4").arg(where, name).arg(part->width()).arg(part->sizeHint().width());
+                };
+                QString problem = squeezed(group->titleLabel, group->titleLabel->text());
+                QVERIFY2(problem.isEmpty(), qPrintable(problem));
+                QWidget *viewport = scroll->viewport();
+                QStringList voice_items;
+                for (auto *card : group->findChildren<SettingCard *>()) {
+                    problem = squeezed(card->titleLabel, card->titleLabel->text());
+                    QVERIFY2(problem.isEmpty(), qPrintable(problem));
+                    if (card->contentLabel->isVisible())
+                        QVERIFY2(card->contentLabel->height() >= card->contentLabel->heightForWidth(card->contentLabel->width()),
+                                 qPrintable(QString("%1: the description of %2 is cut off").arg(where, card->titleLabel->text())));
+                    const QRect in_page(card->mapTo(viewport, QPoint()), card->size());
+                    QVERIFY2(in_page.left() >= 0 && in_page.right() < viewport->width(), qPrintable(QString("%1: %2 sticks out of the page").arg(where, card->titleLabel->text())));
+                    for (auto *control : card->controlContainer->findChildren<QWidget *>(Qt::FindDirectChildrenOnly)) {
+                        if (!control->isVisible()) continue;
+                        QString name = control->property("text").toString();
+                        if (auto *combo = qobject_cast<QComboBox *>(control)) {
+                            QStringList items;
+                            for (int i = 0; i < combo->count(); ++i) items << combo->itemText(i);
+                            name = items.join(" / ");
+                            voice_items << name;
+                        }
+                        // The preview button is an icon of fixed size.
+                        if (name.isEmpty()) name = control->accessibleName();
+                        else problem = squeezed(control, QString("%1's %2").arg(card->titleLabel->text(), name));
+                        QVERIFY2(problem.isEmpty(), qPrintable(problem));
+                        QVERIFY2(card->rect().contains(QRect(control->mapTo(card, QPoint()), control->size())),
+                                 qPrintable(QString("%1: %2 sticks out of %3").arg(where, name, card->titleLabel->text())));
+                    }
+                }
+                // Each voice row, the speed and volume combos and the Open Settings button were checked.
+                QPushButton *open = nullptr;
+                for (auto *button : group->findChildren<QPushButton *>())
+                    if (button->text() == settings_tr("Open Settings")) open = button;
+                QVERIFY2(open && open->isVisible(), qPrintable(where));
+                QCOMPARE(voice_items.size(), qsizetype(6 + 2));
+                QVERIFY2(voice_items.contains(settings_tr("Auto") + " / Hanhan Desktop / Huihui Desktop / Kangkang"), qPrintable(voice_items.join(", ")));
+                QVERIFY2(voice_items.contains(settings_tr("Auto") + " / Hortense Desktop"), qPrintable(voice_items.join(", ")));
+            }
+        }
+    }
+
+    // Every page in every language at the window's minimum width; the shortcut pages are tables that
+    // scroll sideways below the default width.
+    void everyPageFitsEveryLanguageAtTheMinimumWidth() {
+        // Text widths need real fonts, which the offscreen platform does not have.
+        if (QGuiApplication::platformName() != "windows") QSKIP("needs -platform windows");
+        auto &scale = get_dialog_scale();
+        const int percent_before = scale.percent();
+        const QString language = I18nManager::get_current_language();
+        const auto restore = qScopeGuard([&scale, percent_before, language] {
+            scale.set_percent(percent_before);
+            I18nManager::load_language(language);
+        });
+        // The developer page has no navigation item.
+        const std::pair<int, const char *> pages[] = {{1, "capture"}, {11, "pin"}, {12, "screen_annotation"}, {2, "clipboard"}, {4, "translation"},
+                                                      {3, "appearance"}, {5, "log"}, {6, "other"}, {8, "about"}, {7, nullptr}};
+        QStringList problems;
+        for (const int percent : {100, 150, 200}) {
+            scale.set_percent(percent);
+            for (const char *code : {"zh", "zh_TW", "en", "ja", "ko"}) {
+                QVERIFY(I18nManager::load_language(code));
+                SettingsDialog dialog(config_, config_->get_hotkey());
+                // Wider than any screen, so the minimum is not capped at this one's width.
+                dialog.fit_to_available({4000, dialog.height()});
+                dialog.build_all_pages();
+                dialog.resize(0, dialog.height());
+                dialog.show();
+                QCOMPARE(dialog.width(), dialog.minimumWidth());
+                for (const auto &[index, route] : pages) {
+                    if (route) dialog.on_nav_changed(index, route);
+                    else dialog.content_stack->setCurrentIndex(index);
+                    QApplication::processEvents();
+                    const QString where = QString("%1 at %2%, page %3").arg(code).arg(percent).arg(index);
+                    // A layout given less than its minimum cuts a title short or pushes controls out of their card.
+                    const auto check = [&problems, &where](QWidget *widget, const QString &name) {
+                        const int needs = widget->layout()->totalMinimumSize().width();
+                        if (needs > widget->width()) problems << QString("%1: %2 needs %3, has %4").arg(where, name).arg(needs).arg(widget->width());
+                    };
+                    check(&dialog, "the window");
+                    auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+                    QVERIFY(scroll);
+                    if (scroll->horizontalScrollBar()->maximum() > 0) problems << where + ": the page scrolls sideways";
+                    for (auto *widget : scroll->widget()->findChildren<QWidget *>()) {
+                        if (!widget->layout() || !widget->isVisible()) continue;
+                        auto *card = qobject_cast<SettingCard *>(widget);
+                        check(widget, card ? card->titleLabel->text() : QString(widget->metaObject()->className()));
+                    }
+                }
+            }
+        }
+        QVERIFY2(problems.isEmpty(), qPrintable(problems.join('\n')));
+    }
+
     // The logo's context menu opens the developer page; the pin page links to its shortcut tabs.
     void developerPageAndPinShortcutLinks() {
         SettingsDialog dialog(config_, config_->get_hotkey());
@@ -1624,6 +2279,12 @@ private slots:
             dialog.on_nav_changed(index, route);
             QTest::qWait(200);
             QVERIFY(dialog.grab().save(QDir(out).filePath(QString("%1_%2.png").arg(index, 2, 10, QChar('0')).arg(route))));
+            // A page taller than the window is saved scrolled to the end as well.
+            auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+            if (!scroll || scroll->verticalScrollBar()->maximum() == 0) continue;
+            scroll->verticalScrollBar()->setValue(scroll->verticalScrollBar()->maximum());
+            QTest::qWait(200);
+            QVERIFY(dialog.grab().save(QDir(out).filePath(QString("%1_%2_end.png").arg(index, 2, 10, QChar('0')).arg(route))));
         }
         WelcomeWizard wizard(config_);
         wizard.setAttribute(Qt::WA_DontShowOnScreen);

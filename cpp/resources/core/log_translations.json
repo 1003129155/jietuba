@@ -117,6 +117,7 @@
 "[WARN] 无法移动窗口到目标位置，可能会超出显示器边界": "[WARN] Cannot move window to target position, it may exceed screen bounds",
 "[WARN] 检测到窗口不可见，强制显示": "[WARN] Window not visible, forcing display",
 "[WARN] 没有拼接结果，无法钉图": "[WARN] No stitched result, cannot pin",
+"[WARN] 没有拼接结果，无法识别文字": "[WARN] No stitched result, cannot recognize text",
 "[WARN] 没有拼接结果，跳过保存": "[WARN] No stitched result, skipping save",
 "[WARN] 清理资源时出错: {e}": "[WARN] Error cleaning up resources: {e}",
 "[WARN] 第 {screenshot_count} 张拼接出错: {e}": "[WARN] Stitch #{screenshot_count} raised an error: {e}",
@@ -382,6 +383,7 @@
 "屏幕标注图层: {geometry}": "Screen annotation layer: {geometry}",
 "屏幕标注工具: {tool_id}": "Screen annotation tool: {tool_id}",
 "屏幕标注工具栏未能排除出截图: {error_code}": "Could not keep the screen annotation toolbar out of captures: {error_code}",
+"录制工具栏未能排除出截图: {error_code}": "Could not keep the recording toolbar out of captures: {error_code}",
 "屏幕标注已清空: {count} 个屏幕": "Screen annotation cleared: {count} screens",
 "屏幕标注开始": "Screen annotation started",
 "屏幕标注结束": "Screen annotation ended",
@@ -874,6 +876,7 @@
 "🗑️ [日志清理] 已删除 {deleted_count} 个过期日志文件（保留 {retention_days} 天）": "🗑️ [Log cleanup] Deleted {deleted_count} expired log file(s) (retention: {retention_days} days)",
 "🗑️ 历史已清空 (keep_grouped={keep_grouped})": "🗑️ History cleared (keep_grouped={keep_grouped})",
 "🗑️ 已清理未置顶且未分组的历史": "🗑️ Cleared history that is neither pinned nor grouped",
+"存储方式已切换: single_file={on}": "Storage mode switched: single_file={on}",
 "🚨 检测到窗口在所有显示器外，执行强制修复...": "🚨 Window detected outside all screens, performing forced fix...",
 "🛑 [Logger] 日志系统关闭": "🛑 [Logger] Logging system shut down",
 "🛑 停止监听": "🛑 Stopped monitoring"

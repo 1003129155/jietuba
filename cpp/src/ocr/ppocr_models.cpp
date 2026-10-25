@@ -71,7 +71,7 @@ std::optional<QJsonObject> runtime_entry() {
     return std::nullopt;
 }
 
-QJsonArray installed() { return take_json(jb_ppocr_models_discover(native_path(models_root()).constData())).array(); }
+QJsonArray installed(const QString &root) { return take_json(jb_ppocr_models_discover(native_path(root).constData())).array(); }
 
 std::optional<QJsonObject> resolve(const QString &model_id) {
     const auto document = take_json(jb_ppocr_models_resolve(native_path(models_root()).constData(), model_id.toUtf8().constData()));

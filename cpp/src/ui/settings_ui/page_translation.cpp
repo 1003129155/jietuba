@@ -1,9 +1,11 @@
+#include "core/resource_manager.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
 #include "settings/tool_settings.h"
 #include "translation/languages.h"
 #include "translation/registry.h"
 #include "translation/service.h"
+#include "translation/speech_service.h"
 #include "translation/worker.h"
 #include "ui/fluent_lite/buttons.h"
 #include "ui/fluent_lite/inputs.h"
@@ -13,12 +15,16 @@
 #include "ui/settings_ui/components.h"
 #include "ui/settings_ui/dialog.h"
 #include "ui/settings_ui/pages.h"
+#include <QDesktopServices>
+#include <QDate>
 #include <QFrame>
 #include <QLocale>
 #include <QMenu>
 #include <QRegularExpression>
 #include <QThread>
 #include <QToolTip>
+#include <QUrl>
+#include <algorithm>
 #include <set>
 
 // The translation settings page. No provider is named here: each provider's credentials,
@@ -261,6 +267,156 @@ void build_test_row(SettingsDialog *dialog, ProviderSection *section, const QStr
     section->addSettingCard(card);
 }
 
+// SAPI rates for the labelled speeds: each rate step is about 12% faster.
+const std::pair<const char *, int> SPEECH_RATES[] = {{"0.5\u00d7", -6}, {"0.75\u00d7", -3}, {"1\u00d7", 0}, {"1.25\u00d7", 2}, {"1.5\u00d7", 4}, {"2\u00d7", 6}};
+const int SPEECH_VOLUMES[] = {100, 80, 60, 40, 20};
+
+QString speech_sample(const QLocale &locale) {
+    const QString key = voice_language_key(locale);
+    if (key == "zh") return QString::fromUtf8("你好，这是朗读音色的试听。");
+    if (key == "ja") return QString::fromUtf8("こんにちは。読み上げ音声のテストです。");
+    if (key == "ko") return QString::fromUtf8("안녕하세요. 읽기 음성 미리 듣기입니다.");
+    if (key == "en") return "Hello, this is a preview of the reading voice.";
+    return locale.nativeLanguageName();
+}
+
+// "Microsoft Huihui - Chinese (Simplified, PRC)" shows as "Huihui": the language is already the
+// row's title, and the shared vendor prefix would leave the narrow combo no room for the name.
+QString voice_label(const VoiceInfo &voice) {
+    QString label = voice.name.section(" - ", 0, 0).trimmed();
+    if (label.startsWith("Microsoft ", Qt::CaseInsensitive) && label.size() > 10) label = label.mid(10);
+    return label;
+}
+
+ComboBox *speech_style_combo(SettingsDialog *dialog, SettingCard *card, const QString &key, const std::vector<std::pair<QString, int>> &items) {
+    auto *combo = new ComboBox(card);
+    for (const auto &[label, value] : items) combo->addItem(label, value);
+    int index = combo->findData(dialog->config_manager->get_app_setting(key));
+    if (index < 0) index = combo->findData(dialog->config_manager->app_defaults().value(key));
+    combo->setCurrentIndex(std::max(0, index));
+    dialog->behavior_controls.emplace_back(key, combo);
+    card->addControl(combo);
+    return combo;
+}
+
+SpeechStyle pending_speech_style(SettingsDialog *dialog) {
+    SpeechStyle style;
+    if (auto *combo = qobject_cast<QComboBox *>(dialog->behavior_control("speech_rate"))) style.rate = combo->currentData().toInt();
+    if (auto *combo = qobject_cast<QComboBox *>(dialog->behavior_control("speech_volume"))) style.volume = combo->currentData().toInt();
+    return style;
+}
+
+// Reads a sample with the row's current voice and the page's current speed and volume, so a
+// choice can be heard before the autosave writes it; pressed again it stops. An icon button,
+// since a captioned one would leave the voice combo too little of the control column.
+PushButton *speech_preview_button(SettingsDialog *dialog, SettingCard *card, QComboBox *combo, const QLocale &locale) {
+    const QString preview_text = dialog->tr_text("Preview"), stop_text = dialog->tr_text("Stop");
+    const IconSource preview_icon = ResourceManager::get_icon_path(QString::fromUtf8("录制声音.svg"));
+    const IconSource stop_icon = ResourceManager::get_icon_path(QString::fromUtf8("结束录制.svg"));
+    auto *button = new PushButton({}, card, preview_icon);
+    button->setFixedSize(dialog_scaled(32), dialog_scaled(32));
+    button->setIconSize(QSize(dialog_scaled(16), dialog_scaled(16)));
+    button->setToolTip(preview_text);
+    button->setAccessibleName(preview_text);
+    const quint64 owner = SpeechService::new_owner();
+    QPointer<SpeechService> service = SpeechService::instance();
+    QObject::connect(button, &QPushButton::clicked, button, [dialog, combo, locale, service, owner] {
+        if (!service) return;
+        if (service->is_speaking(owner)) service->stop(owner);
+        else service->preview(owner, speech_sample(locale), locale.name(), combo->currentData().toString(), pending_speech_style(dialog));
+    });
+    QObject::connect(service, &SpeechService::state_changed, button, [button, service, owner, preview_text, stop_text, preview_icon, stop_icon] {
+        const bool speaking = service && service->is_speaking(owner);
+        button->setIcon(speaking ? stop_icon : preview_icon);
+        button->setToolTip(speaking ? stop_text : preview_text);
+        button->setAccessibleName(speaking ? stop_text : preview_text);
+    });
+    QObject::connect(button, &QObject::destroyed, service, [service, owner] {
+        if (service) service->stop(owner);
+    });
+    return button;
+}
+
+QStringList voice_tokens(const std::vector<VoiceInfo> &voices) {
+    QStringList tokens;
+    for (const auto &voice : voices) tokens << voice.token.toLower() + "|" + voice.name + "|" + voice.locale.name();
+    tokens.sort();
+    return tokens;
+}
+
+// One row per language with a voice installed, in the order of the translation languages.
+SettingsCardGroup *build_speech_group(SettingsDialog *dialog, QWidget *page, std::vector<VoiceInfo> voices) {
+    auto *group = new SettingsCardGroup(dialog->tr_text("Read Aloud"), page, "translate");
+    // What the rows were built from, so a later visit can tell whether voices came or went.
+    group->setProperty("voice_tokens", voice_tokens(voices));
+    dialog->set_attr("speech_group", group);
+    std::stable_sort(voices.begin(), voices.end(), [](const VoiceInfo &a, const VoiceInfo &b) { return voice_label(a).compare(voice_label(b), Qt::CaseInsensitive) < 0; });
+    QStringList keys;
+    QMap<QString, QString> titles;
+    for (const auto &[code, name] : translation_languages()) {
+        const QString key = voice_language_key(code);
+        if (!titles.contains(key)) titles[key] = name;
+    }
+    for (const auto &voice : voices) {
+        const QString key = voice_language_key(voice.locale);
+        if (!keys.contains(key)) keys << key;
+        if (!titles.contains(key)) titles[key] = voice.locale.nativeLanguageName();
+    }
+    const auto order = [](const QString &key) {
+        const auto &languages = translation_languages();
+        const auto it = std::find_if(languages.begin(), languages.end(), [&key](const auto &entry) { return voice_language_key(entry.first) == key; });
+        return static_cast<int>(it - languages.begin());
+    };
+    std::stable_sort(keys.begin(), keys.end(), [&order](const QString &a, const QString &b) { return order(a) != order(b) ? order(a) < order(b) : a < b; });
+
+    dialog->speech_voice_combos.clear();
+    for (const auto &key : keys) {
+        auto *card = new SettingCard(FluentIcon::Language, titles.value(key), {}, group);
+        auto *combo = new ComboBox(card);
+        combo->addItem(dialog->tr_text("Auto"), QString());
+        for (const auto &voice : voices)
+            if (voice_language_key(voice.locale) == key) combo->addItem(voice_label(voice), voice.token);
+        const auto select_voice = [dialog, combo, key] {
+            auto &preferences = dialog->speech_voice_preferences;
+            preferences.removeIf([&key](const QString &entry) { return entry.section('=', 0, 0) == key; });
+            const QString token = combo->currentData().toString();
+            if (!token.isEmpty()) preferences << key + "=" + token;
+        };
+        QObject::connect(combo, &QComboBox::currentIndexChanged, dialog, select_voice);
+        QObject::connect(combo, &QComboBox::activated, dialog, [dialog, select_voice] {
+            // Auto can already be displayed for an unavailable preference.
+            select_voice();
+            dialog->schedule_save();
+        });
+        card->addControl(combo);
+        card->addControl(speech_preview_button(dialog, card, combo, QLocale(key)), Qt::AlignRight);
+        group->addSettingCard(card);
+        dialog->speech_voice_combos.emplace_back(key, combo);
+    }
+    select_speech_voices(dialog, dialog->config_manager->get_speech_voices());
+
+    auto *rate_card = new SettingCard(FluentIcon::StopWatch, dialog->tr_text("Speech Rate"), {}, group);
+    std::vector<std::pair<QString, int>> rates;
+    for (const auto &[label, rate] : SPEECH_RATES) rates.emplace_back(QString::fromUtf8(label), rate);
+    speech_style_combo(dialog, rate_card, "speech_rate", rates);
+    group->addSettingCard(rate_card);
+    auto *volume_card = new SettingCard(FluentIcon::FontSize, dialog->tr_text("Volume"), {}, group);
+    std::vector<std::pair<QString, int>> volumes;
+    for (const int volume : SPEECH_VOLUMES) volumes.emplace_back(QString("%1%").arg(volume), volume);
+    speech_style_combo(dialog, volume_card, "speech_volume", volumes);
+    group->addSettingCard(volume_card);
+
+    auto *add_card = new SettingCard(FluentIcon::Download, dialog->tr_text("Add Voices"), dialog->tr_text("Install voices for more languages in Windows Settings."),
+                                     group);
+    auto *open_button = new PushButton(dialog->tr_text("Open Settings"), add_card);
+    open_button->setFixedHeight(dialog_scaled(32));
+    adjust_button_width(open_button, 60);
+    QObject::connect(open_button, &QPushButton::clicked, dialog, [] { QDesktopServices::openUrl(QUrl("ms-settings:speech")); });
+    add_card->addControl(open_button, Qt::AlignRight);
+    group->addSettingCard(add_card);
+    return group;
+}
+
 // Shows or hides a card with its leading separator (only lead_each sections have one).
 void set_card_visible(QWidget *card, bool visible) {
     card->setVisible(visible);
@@ -321,7 +477,9 @@ void update_provider_groups(SettingsDialog *dialog) {
     if (auto *section = dialog->attr_widget("switch_options_section")) section->setVisible(!supported.isEmpty());
     if (auto *label = dialog->attr<QLabel>("translation_notice_label")) {
         auto html = notice_html(dialog, metadata);
-        const auto usage = quota_usage_text(dialog, provider_id);
+        // Until the first query returns, the count comes from the settings rather than as 0.
+        const auto read = dialog->translation_usage.constFind(provider_id);
+        const auto usage = quota_usage_text(dialog, provider_id, read == dialog->translation_usage.cend() ? std::nullopt : std::optional<qint64>(*read));
         if (!usage.isEmpty()) html = html.isEmpty() ? usage : html + "<br/>" + usage;
         label->setText(html);
         label->setVisible(!html.isEmpty());
@@ -331,7 +489,7 @@ void update_provider_groups(SettingsDialog *dialog) {
 }
 }
 
-QString quota_usage_text(SettingsDialog *dialog, const QString &provider_id) {
+QString quota_usage_text(SettingsDialog *dialog, const QString &provider_id, std::optional<qint64> usage) {
     if (provider_id.isEmpty() || !dialog->translation_registry || !dialog->config_manager) return {};
     std::unique_ptr<TranslationProvider> provider;
     try {
@@ -342,12 +500,62 @@ QString quota_usage_text(SettingsDialog *dialog, const QString &provider_id) {
     if (provider->quota_limit_chars <= 0) return {};
     const auto custom = dialog->config_manager->get_translation_quota_limit(provider_id);
     const auto limit = custom > 0 ? custom : provider->quota_limit_chars;
-    const auto used = dialog->config_manager->get_translation_usage_chars(provider_id);
+    const auto used = usage ? *usage : dialog->config_manager->get_translation_usage_chars(provider_id);
     const auto text = dialog->config_manager->get_translation_quota_enabled(provider_id) ? dialog->tr_text("Used this month: %1 / %2 characters (quota guard on)")
                                                                                         : dialog->tr_text("Used this month: %1 / %2 characters (quota guard off)");
     // Grouped with commas whatever the interface language.
     const QLocale grouping(QLocale::English, QLocale::UnitedStates);
     return text.arg(grouping.toString(used), grouping.toString(limit));
+}
+
+QStringList speech_voice_choices(const SettingsDialog *dialog) {
+    QStringList result = dialog->speech_voice_preferences;
+    result.sort();
+    return result;
+}
+
+SettingsCardGroup *rebuild_speech_group(SettingsDialog *dialog, std::vector<VoiceInfo> voices) {
+    auto *old_group = dialog->attr<SettingsCardGroup>("speech_group");
+    if (!old_group) return nullptr;
+    if (voice_tokens(voices) == old_group->property("voice_tokens").toStringList()) return nullptr;
+    QWidget *page = old_group->parentWidget();
+    auto *layout = qobject_cast<QBoxLayout *>(page->layout());
+    if (!layout) return nullptr;
+    // Choices not saved yet survive the rebuild.
+    const QStringList choices = speech_voice_choices(dialog);
+    const SpeechStyle style = pending_speech_style(dialog);
+    const int index = layout->indexOf(old_group);
+    delete old_group;
+    auto &controls = dialog->behavior_controls;
+    controls.erase(std::remove_if(controls.begin(), controls.end(), [](const auto &entry) { return !entry.second; }), controls.end());
+    auto *group = build_speech_group(dialog, page, std::move(voices));
+    layout->insertWidget(index, group);
+    select_speech_voices(dialog, choices);
+    for (const auto &[key, value] : {std::pair<const char *, int>{"speech_rate", style.rate}, {"speech_volume", style.volume}})
+        if (auto *combo = qobject_cast<QComboBox *>(dialog->behavior_control(key)); combo && combo->findData(value) >= 0) combo->setCurrentIndex(combo->findData(value));
+    return group;
+}
+
+void select_speech_voices(SettingsDialog *dialog, const QStringList &saved) {
+    dialog->speech_voice_preferences = saved;
+    for (const auto &[key, combo] : dialog->speech_voice_combos) {
+        if (!combo) continue;
+        QString token;
+        for (const auto &entry : saved)
+            if (entry.section('=', 0, 0) == key) token = entry.section('=', 1);
+        const QSignalBlocker blocker(combo);
+        int index = 0;
+        for (int i = 1; i < combo->count(); ++i)
+            if (combo->itemData(i).toString().compare(token, Qt::CaseInsensitive) == 0) index = i;
+        combo->setCurrentIndex(index);
+    }
+}
+
+void reset_speech_voices(SettingsDialog *dialog) {
+    auto choices = speech_voice_choices(dialog);
+    for (const auto &[key, combo] : dialog->speech_voice_combos)
+        choices.removeIf([&key](const QString &entry) { return entry.section('=', 0, 0) == key; });
+    select_speech_voices(dialog, choices);
 }
 
 QWidget *create_translation_page(SettingsDialog *dialog) {
@@ -447,6 +655,25 @@ QWidget *create_translation_page(SettingsDialog *dialog) {
 
     QObject::connect(provider_combo, &QComboBox::currentIndexChanged, dialog, [dialog] { update_provider_groups(dialog); });
     update_provider_groups(dialog);
+
+    // ════ Read aloud ════
+    layout->addWidget(build_speech_group(dialog, page, {}));
+    const auto categories = SpeechService::voice_categories();
+    dialog->add_external_refresh([categories] { return installed_speech_voices(categories); }, [dialog](const std::vector<VoiceInfo> &voices) {
+        if (auto *group = rebuild_speech_group(dialog, voices)) dialog->adopt_controls(group);
+    });
+    const auto file = config->settings().fileName();
+    const auto format = config->settings().format();
+    dialog->add_external_refresh([file, format, providers] {
+        QSettings settings(file, format);
+        QMap<QString, qint64> usage;
+        const auto prefix = "translation/usage/" + QDate::currentDate().toString("yyyyMM") + "/";
+        for (const auto &provider : providers) usage[provider.provider_id] = settings.value(prefix + provider.provider_id, 0).toLongLong();
+        return usage;
+    }, [dialog](const QMap<QString, qint64> &usage) {
+        dialog->translation_usage = usage;
+        update_provider_groups(dialog);
+    });
 
     layout->addStretch();
     scroll->setWidget(page);

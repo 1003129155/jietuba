@@ -6,10 +6,7 @@
 #include "ui/settings_ui/dialog.h"
 #include "ui/settings_ui/pages.h"
 
-// The screenshot page's "Quick Actions" group: how capturing and annotating behave, and switches
-// that skip a confirmation or result window.
-// The result windows' check boxes write the same keys: once checked there the window stops
-// appearing and only this page turns it back, so each description says what happens while it is on.
+// The screenshot page's "Quick Actions" group: how annotating behaves.
 namespace jietuba {
 void add_quick_actions_group(SettingsDialog *dialog, QWidget *view, QVBoxLayout *layout) {
     auto *config = dialog->config_manager;
@@ -20,12 +17,6 @@ void add_quick_actions_group(SettingsDialog *dialog, QWidget *view, QVBoxLayout 
         grp_capture->addSettingCard(card);
         return card;
     };
-    dialog->behavior_controls.emplace_back("capture_fullscreen_crosshair",
-                                           add(FluentIcon::Layout, "Fullscreen Crosshair", "Show horizontal and vertical guide lines across the screen while capturing.",
-                                               config->get_capture_fullscreen_crosshair()));
-    dialog->behavior_controls.emplace_back("capture_include_cursor",
-                                           add(FluentIcon::Camera, "Include Mouse Pointer", "Draw the mouse pointer into the screenshot where it was when capturing started.",
-                                               config->get_capture_include_cursor()));
     dialog->set_attr("cross_tool_selection_toggle", add(FluentIcon::Edit, "Enable Ctrl Cross-Tool Selection",
                                                         "Hold Ctrl and click any editable annotation to adjust it without switching tools.",
                                                         config->get_cross_tool_selection_enabled()));
@@ -43,12 +34,6 @@ void add_quick_actions_group(SettingsDialog *dialog, QWidget *view, QVBoxLayout 
     grp_capture->addSettingCard(shift_line_card);
     dialog->set_attr("text_always_on_top_toggle", add(FluentIcon::Font, "Keep Text Annotations on Top", "Keep text above other annotations, including ones drawn later.",
                                                       config->get_text_always_on_top_enabled()));
-    dialog->set_attr("ocr_copy_directly_toggle", add(FluentIcon::Document, "Copy Recognized Text Directly",
-                                                     "Copy the recognized text straight to the clipboard instead of opening the result window.",
-                                                     config->get_ocr_copy_directly_enabled()));
-    dialog->set_attr("barcode_copy_single_toggle", add(FluentIcon::Search, "Copy a Single Code Directly",
-                                                       "When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.",
-                                                       config->get_barcode_copy_single_enabled()));
     layout->addWidget(grp_capture);
 }
 }

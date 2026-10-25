@@ -235,6 +235,18 @@ QMenu *show_setting_menu(QWidget *parent, const SettingMenuOptions &o) {
         }
     }
 
+    if (o.on_set_open_position) {
+        QMenu *open_pos_menu = menu->addMenu(tr("Window Position"));
+        open_pos_menu->setStyleSheet(o.menu_style);
+        for (const auto &[key, label] : {std::make_pair(QString("cursor"), tr("Follow Mouse")), std::make_pair(QString("previous"), tr("Last Position"))}) {
+            QAction *act = open_pos_menu->addAction(label);
+            act->setCheckable(true);
+            act->setChecked(o.open_position == key);
+            const auto on_set = o.on_set_open_position;
+            QObject::connect(act, &QAction::triggered, open_pos_menu, [on_set, k = key] { on_set(k); });
+        }
+    }
+
     menu->addSeparator();
     QAction *add_act = menu->addAction(tr("Add Content"));
     QObject::connect(add_act, &QAction::triggered, menu, o.on_add_item);

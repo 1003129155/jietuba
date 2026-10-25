@@ -357,6 +357,23 @@ bool ClipboardManager::clear_unpinned_ungrouped(bool vacuum) {
     return true;
 }
 
+bool ClipboardManager::single_file() const {
+    const auto backend = this->backend();
+    return backend && jb_clipboard_single_file(backend.get());
+}
+
+bool ClipboardManager::set_single_file(bool on) {
+    const auto backend = this->backend();
+    if (!backend) return false;
+    char error[ERROR_LEN] = {};
+    if (!jb_clipboard_set_single_file(backend.get(), on, error, ERROR_LEN)) {
+        log_error(QString::fromUtf8(error), "Clipboard");
+        return false;
+    }
+    log_info(T("存储方式已切换: single_file={on}", {{"on", on}}), "Clipboard");
+    return true;
+}
+
 std::optional<qint64> ClipboardManager::add_item(const QString &content, const QString &content_type, const std::optional<QString> &title) {
     const auto backend = this->backend();
     if (!backend) return std::nullopt;

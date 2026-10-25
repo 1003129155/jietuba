@@ -6,6 +6,7 @@
 #include "core/logger.h"
 #include <QFileInfo>
 #include <QGuiApplication>
+#include <QOperatingSystemVersion>
 #include <QTimer>
 #include <cmath>
 #include <thread>
@@ -240,6 +241,11 @@ bool is_game_in_foreground() {
 
 bool set_window_exclude_from_capture(quintptr hwnd, bool exclude) {
 #ifdef Q_OS_WIN
+    // Earlier versions take the value as WDA_MONITOR, which records the window as a black box.
+    if (exclude && QOperatingSystemVersion::current() < QOperatingSystemVersion::Windows10_2004) {
+        SetLastError(ERROR_NOT_SUPPORTED);
+        return false;
+    }
     return SetWindowDisplayAffinity(to_hwnd(hwnd), exclude ? WDA_EXCLUDEFROMCAPTURE : WDA_NONE) != FALSE;
 #else
     Q_UNUSED(hwnd); Q_UNUSED(exclude);
@@ -356,6 +362,15 @@ std::optional<QString> get_autostart_program() {
     const QString command = QString::fromWCharArray(data.c_str()).trimmed();
     return command.startsWith('"') ? command.mid(1, command.indexOf('"', 1) - 1) : command;
 }
+
+bool startup_approved_disabled(const wchar_t *approved_key, const QString &name) {
+    BYTE data[16] = {};
+    DWORD size = sizeof(data);
+    const auto status = RegGetValueW(HKEY_CURRENT_USER, approved_key, reinterpret_cast<LPCWSTR>(name.utf16()), RRF_RT_REG_BINARY, nullptr, data, &size);
+    return status == ERROR_SUCCESS && size > 0 && (data[0] & 1) != 0;
+}
+
+bool autostart_disabled_by_system() { return get_autostart_program() && startup_approved_disabled(STARTUP_APPROVED_REG_KEY, AUTOSTART_APP_NAME); }
 
 void set_autostart(bool enabled) {
     // The Run entry is shared with the Python version; tests never write it.

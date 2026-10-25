@@ -12,7 +12,7 @@ void PinOcrThread::run() {
     QElapsedTimer clock;
     clock.start();
     try {
-        result = recognize_text(image_);
+        result = recognize_text(image_, &cancelled_);
         layout = OcrTextLayout(*result, to_image_);
         log_debug(T("OCR处理完成，总耗时: {elapsed:.3f}秒", {{"elapsed", clock.nsecsElapsed() / 1e9}}), "OCR");
     } catch (const std::exception &e) {
@@ -126,6 +126,7 @@ void PinOCRManager::cleanup() {
     if (ocr_thread) {
         if (ocr_thread->isRunning()) {
             log_warning(T("窗口关闭，OCR 线程仍在运行，将其安全分离..."), "OCR");
+            ocr_thread->cancel();
             // Detached from the window; it deletes itself when done.
             QObject::disconnect(ocr_thread, &QThread::finished, nullptr, nullptr);
             ocr_thread->setParent(nullptr);

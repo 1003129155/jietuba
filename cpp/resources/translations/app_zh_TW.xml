@@ -9,6 +9,10 @@
         <translation>區域辨識文字</translation>
     </message>
     <message>
+        <source>Scan QR code / barcode</source>
+        <translation>掃碼（二維碼 / 條碼）</translation>
+    </message>
+    <message>
         <source>Region Translation</source>
         <translation>區域翻譯</translation>
     </message>
@@ -769,6 +773,10 @@ Replace it?</source>
     <message>
         <source>Register in Windows startup via registry.</source>
         <translation>透過登錄檔註冊 Windows 開機啟動。</translation>
+    </message>
+    <message>
+        <source>Turned off in Task Manager's Startup apps, so Windows will not start it at sign-in. Turn it back on there.</source>
+        <translation>已在工作管理員的「啟動應用程式」中被停用，登入時 Windows 不會啟動它。可到那裡重新啟用。</translation>
     </message>
     <message>
         <source>Run as Administrator</source>
@@ -1535,6 +1543,14 @@ Replace it?</source>
         <translation>讓工具列及其面板不會被螢幕錄影、截圖、螢幕分享、遠端畫面等擷取，你自己照常看得見。錄教學等需要錄進工具列時可關掉。</translation>
     </message>
     <message>
+        <source>Screen Recording</source>
+        <translation>螢幕錄影</translation>
+    </message>
+    <message>
+        <source>Keeps the recording toolbar, its panels and menus out of the recording while they sit inside the recording area, such as when recording the full screen; you still see them. Turn off to record them too.</source>
+        <translation>錄製全螢幕等情況下，工具列及其面板、選單落在錄製區域內時不會被錄進去，你自己照常看得見。需要錄進工具列時可關掉。</translation>
+    </message>
+    <message>
         <source>Where It Was Last</source>
         <translation>上次的位置</translation>
     </message>
@@ -2043,6 +2059,14 @@ Replace it?</source>
     <message>
         <source>Pin to desktop</source>
         <translation>釘到桌面</translation>
+    </message>
+    <message>
+        <source>Save to file</source>
+        <translation>儲存到檔案</translation>
+    </message>
+    <message>
+        <source>Recognize text (OCR)</source>
+        <translation>文字辨識（OCR）</translation>
     </message>
     <message>
         <source>Finish and save</source>
@@ -3783,6 +3807,18 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>資料儲存位置</translation>
     </message>
     <message>
+        <source>Single-File Database</source>
+        <translation>單一檔案資料庫</translation>
+    </message>
+    <message>
+        <source>Recommended when the data folder is in OneDrive or another sync folder: the database stays one complete file. Saving is slightly slower.</source>
+        <translation>資料夾放在 OneDrive 等同步資料夾時建議開啟：資料庫始終是一個完整的檔案。儲存會稍慢一些。</translation>
+    </message>
+    <message>
+        <source>Cannot switch the storage mode: the clipboard database is open in another program. Close it and try again.</source>
+        <translation>無法切換儲存方式：剪貼簿資料庫正被其他程式開啟。請關閉後再試一次。</translation>
+    </message>
+    <message>
         <source>Unknown</source>
         <translation>未知</translation>
     </message>
@@ -3797,10 +3833,6 @@ Items in the group will be moved back to clipboard history.</source>
     <message>
         <source>Delete all clipboard history records</source>
         <translation>刪除所有剪貼簿歷史記錄</translation>
-    </message>
-    <message>
-        <source>← Get storage size</source>
-        <translation>← 獲取資料佔用大小</translation>
     </message>
     <message>
         <source>Clear History</source>
@@ -7195,4 +7227,79 @@ Replace it?</source>
         <source>The name "%1" is already used by path "%2". Do you want to set a new name for the current path?</source>
         <translation>名稱“%1”已被路徑“%2”使用。要為目前路徑設定新名稱嗎？</translation>
     </message>
-</context></TS>
+</context>
+<context>
+    <name>ClipboardWindow</name>
+    <message>
+        <source>Window Position</source>
+        <translation>視窗位置</translation>
+    </message>
+    <message>
+        <source>Follow Mouse</source>
+        <translation>跟隨滑鼠</translation>
+    </message>
+    <message>
+        <source>Last Position</source>
+        <translation>上次位置</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Window Position</source>
+        <translation>視窗位置</translation>
+    </message>
+    <message>
+        <source>Follow Mouse</source>
+        <translation>跟隨滑鼠</translation>
+    </message>
+    <message>
+        <source>Last Position</source>
+        <translation>上次位置</translation>
+    </message>
+    <message>
+        <source>Where the clipboard window appears when it opens</source>
+        <translation>剪貼簿視窗開啟時出現的位置</translation>
+    </message>
+</context>
+<!-- ========== Read Aloud Settings ========== -->
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Read Aloud</source>
+        <translation>朗讀</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>自動</translation>
+    </message>
+    <message>
+        <source>Preview</source>
+        <translation>試聽</translation>
+    </message>
+    <message>
+        <source>Stop</source>
+        <translation>停止</translation>
+    </message>
+    <message>
+        <source>Speech Rate</source>
+        <translation>語速</translation>
+    </message>
+    <message>
+        <source>Volume</source>
+        <translation>音量</translation>
+    </message>
+    <message>
+        <source>Add Voices</source>
+        <translation>新增語音</translation>
+    </message>
+    <message>
+        <source>Install voices for more languages in Windows Settings.</source>
+        <translation>在 Windows 設定中為更多語言安裝朗讀語音。</translation>
+    </message>
+    <message>
+        <source>Open Settings</source>
+        <translation>開啟設定</translation>
+    </message>
+</context>
+</TS>

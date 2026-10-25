@@ -8,9 +8,10 @@
 // Runs one image through the OCR engine on a worker thread and reports (lines,
 // failure reason key).
 //
-// Recognition is one uninterruptible native call: cancel only stops the result
-// from being reported. Process teardown with a thread still inside it aborts the
-// process, so every thread is registered and shutdown_recognition waits for them.
+// Cancelling stops the result from being reported, and stops PP-OCR at its next tile
+// or line; the Snipping Tool OCR is one call that runs to the end. Process teardown
+// with a thread still inside it aborts the process, so every thread is registered and
+// shutdown_recognition waits for them.
 //
 // Failures report a reason key, not a sentence: sentences need the translator
 // installed on the GUI thread, which the worker must not touch.
@@ -36,7 +37,7 @@ class RecognizeThread : public QThread {
     Q_OBJECT
 public:
     explicit RecognizeThread(const QImage &image) : image_(image) {}
-    // Drops this recognition's result; the recognition itself cannot be interrupted.
+    // Drops this recognition's result and stops PP-OCR early.
     void cancel() { cancelled_ = true; }
 signals:
     // Lines rather than text: layout needs line positions to judge wrapping. The

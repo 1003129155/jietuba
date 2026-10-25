@@ -31,9 +31,11 @@ class ToolSettingsManager;
 class RecordToolbar : public QWidget {
     Q_OBJECT
 public:
-    static constexpr int BASE_HEIGHT = 48;
-    static constexpr int BASE_BTN = 32;
-    static constexpr int BASE_ICON = 20;
+    // The capture toolbar's height and visible button cell (its 38 x 40 cell less the 3 px inset).
+    static constexpr int BASE_HEIGHT = 40;
+    static constexpr int BASE_BTN_W = 32;
+    static constexpr int BASE_BTN_H = 34;
+    static constexpr int BASE_ICON = 24;
     static constexpr int BASE_SEP_HEIGHT = 24;
     static constexpr int BASE_HANDLE_WIDTH = 28;
     static constexpr int BASE_HANDLE_ICON = 18;
@@ -43,7 +45,10 @@ public:
     // Recomputes the toolbar and panel sizes; recording state and tool choice stay.
     void apply_scale();
     // The recording rectangle, for panel placement.
-    void set_record_rect(const QRect &rect) { record_rect_ = rect; }
+    void set_record_rect(const QRect &rect);
+    // Leaves the window (the toolbar, a panel, menu or dialog of it) out of screen capture while
+    // it is over the recording area and the setting is on; checked again as it shows and moves.
+    void track_capture_exclusion(QWidget *window);
     // Whether the toolbar sits below the recording area; settings panels reuse it.
     void set_toolbar_side(bool below);
     // Repositions every visible panel (after the window moves).
@@ -119,6 +124,7 @@ private:
     std::vector<QWidget *> unique_panels() const;
     // Sets the icon and remembers its SVG: icons are rasterised per size and redrawn on scale changes.
     void set_button_icon(QPushButton *button, const QString &svg);
+    void update_capture_exclusion(QWidget *window);
     void apply_scale_sizes();
     void build_ui();
     // The drawing tools' settings panels, shared with the screenshot UI.
@@ -157,6 +163,7 @@ private:
     std::optional<QString> current_tool_;
     std::vector<std::pair<QString, QPushButton *>> tool_buttons_;
     QRect record_rect_;
+    std::vector<QPointer<QWidget>> capture_tracked_;
     bool toolbar_below_record_rect_ = true;
     ToolSettingsManager *config_;
     QString mode_;

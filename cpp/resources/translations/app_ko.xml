@@ -12,6 +12,10 @@
         <translation>영역 텍스트 인식</translation>
     </message>
     <message>
+        <source>Scan QR code / barcode</source>
+        <translation>코드 스캔 (QR 코드 / 바코드)</translation>
+    </message>
+    <message>
         <source>Region Translation</source>
         <translation>영역 번역</translation>
     </message>
@@ -762,6 +766,10 @@ Replace it?</source>
     <message>
         <source>Register in Windows startup via registry.</source>
         <translation>레지스트리를 통해 Windows 시작 프로그램에 등록합니다.</translation>
+    </message>
+    <message>
+        <source>Turned off in Task Manager's Startup apps, so Windows will not start it at sign-in. Turn it back on there.</source>
+        <translation>작업 관리자의 '시작 앱'에서 사용 안 함으로 설정되어 로그인할 때 시작되지 않습니다. 그곳에서 다시 사용으로 바꾸세요.</translation>
     </message>
     <message>
         <source>Run as Administrator</source>
@@ -1521,6 +1529,14 @@ Replace it?</source>
         <translation>도구 모음과 패널이 녹화, 스크린샷, 화면 공유, 원격 화면 등에 캡처되지 않게 합니다. 본인에게는 보입니다. 튜토리얼 녹화처럼 찍혀야 하면 끄세요.</translation>
     </message>
     <message>
+        <source>Screen Recording</source>
+        <translation>녹화</translation>
+    </message>
+    <message>
+        <source>Keeps the recording toolbar, its panels and menus out of the recording while they sit inside the recording area, such as when recording the full screen; you still see them. Turn off to record them too.</source>
+        <translation>전체 화면 녹화처럼 도구 모음과 패널, 메뉴가 녹화 영역 안에 있을 때 녹화되지 않게 합니다. 본인에게는 보입니다. 함께 녹화하려면 끄세요.</translation>
+    </message>
+    <message>
         <source>Where It Was Last</source>
         <translation>마지막 위치</translation>
     </message>
@@ -2059,6 +2075,14 @@ Replace it?</source>
     <message>
         <source>Pin to desktop</source>
         <translation>바탕 화면에 고정</translation>
+    </message>
+    <message>
+        <source>Save to file</source>
+        <translation>파일로 저장</translation>
+    </message>
+    <message>
+        <source>Recognize text (OCR)</source>
+        <translation>텍스트 인식(OCR)</translation>
     </message>
     <message>
         <source>Finish and save</source>
@@ -3762,6 +3786,18 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>데이터 저장 위치</translation>
     </message>
     <message>
+        <source>Single-File Database</source>
+        <translation>단일 파일 데이터베이스</translation>
+    </message>
+    <message>
+        <source>Recommended when the data folder is in OneDrive or another sync folder: the database stays one complete file. Saving is slightly slower.</source>
+        <translation>데이터 폴더를 OneDrive 등 동기화 폴더에 둘 때 권장합니다. 데이터베이스가 항상 하나의 완전한 파일로 유지됩니다. 저장은 약간 느려집니다.</translation>
+    </message>
+    <message>
+        <source>Cannot switch the storage mode: the clipboard database is open in another program. Close it and try again.</source>
+        <translation>저장 방식을 전환할 수 없습니다. 클립보드 데이터베이스가 다른 프로그램에서 열려 있습니다. 닫은 후 다시 시도하세요.</translation>
+    </message>
+    <message>
         <source>Unknown</source>
         <translation>알 수 없음</translation>
     </message>
@@ -3776,10 +3812,6 @@ Items in the group will be moved back to clipboard history.</source>
     <message>
         <source>Delete all clipboard history records</source>
         <translation>모든 클립보드 기록을 삭제합니다</translation>
-    </message>
-    <message>
-        <source>← Get storage size</source>
-        <translation>← 저장소 크기 가져오기</translation>
     </message>
     <message>
         <source>Clear History</source>
@@ -6811,6 +6843,80 @@ Replace it?</source>
     <message>
         <source>The name &quot;%1&quot; is already used by path &quot;%2&quot;. Do you want to set a new name for the current path?</source>
         <translation>이름 &quot;%1&quot;은(는) 경로 &quot;%2&quot;에서 사용 중입니다. 현재 경로에 새 이름을 지정할까요?</translation>
+    </message>
+</context>
+<context>
+    <name>ClipboardWindow</name>
+    <message>
+        <source>Window Position</source>
+        <translation>창 위치</translation>
+    </message>
+    <message>
+        <source>Follow Mouse</source>
+        <translation>마우스 위치</translation>
+    </message>
+    <message>
+        <source>Last Position</source>
+        <translation>마지막 위치</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Window Position</source>
+        <translation>창 위치</translation>
+    </message>
+    <message>
+        <source>Follow Mouse</source>
+        <translation>마우스 위치</translation>
+    </message>
+    <message>
+        <source>Last Position</source>
+        <translation>마지막 위치</translation>
+    </message>
+    <message>
+        <source>Where the clipboard window appears when it opens</source>
+        <translation>클립보드 창이 열릴 때 표시되는 위치</translation>
+    </message>
+</context>
+<!-- ========== Read Aloud Settings ========== -->
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Read Aloud</source>
+        <translation>소리 내어 읽기</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>자동</translation>
+    </message>
+    <message>
+        <source>Preview</source>
+        <translation>미리 듣기</translation>
+    </message>
+    <message>
+        <source>Stop</source>
+        <translation>중지</translation>
+    </message>
+    <message>
+        <source>Speech Rate</source>
+        <translation>읽기 속도</translation>
+    </message>
+    <message>
+        <source>Volume</source>
+        <translation>음량</translation>
+    </message>
+    <message>
+        <source>Add Voices</source>
+        <translation>음성 추가</translation>
+    </message>
+    <message>
+        <source>Install voices for more languages in Windows Settings.</source>
+        <translation>Windows 설정에서 다른 언어의 읽기 음성을 설치할 수 있습니다.</translation>
+    </message>
+    <message>
+        <source>Open Settings</source>
+        <translation>설정 열기</translation>
     </message>
 </context>
 </TS>

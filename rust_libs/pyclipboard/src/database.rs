@@ -115,6 +115,8 @@ impl Database {
     pub fn new(db_path: &str) -> Result<Self, String> {
         let conn = Connection::open(db_path)
             .map_err(|e| format!("打开数据库失败: {}", e))?;
+        let is_new: bool = conn.query_row("SELECT COUNT(*) = 0 FROM sqlite_master", [], |row| row.get(0))
+            .map_err(|e| format!("打开数据库失败: {}", e))?;
 
         conn.execute(
             "CREATE TABLE IF NOT EXISTS clipboard (
@@ -187,10 +189,14 @@ impl Database {
         // 外键必须开，否则 ON DELETE CASCADE 不生效
         conn.execute_batch(
             "PRAGMA foreign_keys = ON;
-             PRAGMA journal_mode = WAL;
              PRAGMA synchronous = NORMAL;
              PRAGMA cache_size = 10000;"
         ).map_err(|e| format!("设置参数失败: {}", e))?;
+        // 日志模式记在库文件里，跟着库走：新库用 WAL，已有的库保持原样，由 set_single_file 切换。
+        // 这样同步盘上多台电脑共用一个库时，不会各按各的设置来回改
+        if is_new {
+            let _ = conn.query_row("PRAGMA journal_mode = WAL", [], |row| row.get::<_, String>(0));
+        }
 
         let db = Self {
             conn,
@@ -199,6 +205,37 @@ impl Database {
         db.upgrade_filter_groups()?;
         db.fill_sub_kinds()?;
         Ok(db)
+    }
+
+    /// 用这张图片、并且存了原始格式的记录，最新的一条
+    pub fn image_item_id(&self, image_id: &str) -> Result<Option<i64>, String> {
+        self.conn.query_row(
+            "SELECT id FROM clipboard WHERE image_id = ?1 AND content_type = 'image'
+             AND EXISTS (SELECT 1 FROM clipboard_formats WHERE event_id = clipboard.id)
+             ORDER BY id DESC LIMIT 1",
+            params![image_id],
+            |row| row.get(0),
+        ).optional().map_err(|e| format!("查询图片记录失败: {}", e))
+    }
+
+    /// 库是否只用一个文件（非 WAL）：同步盘、备份在运行中拿到的总是完整的一份，代价是每次提交都要刷盘
+    pub fn single_file(&self) -> bool {
+        self.journal_mode().is_some_and(|mode| mode != "wal")
+    }
+
+    /// 在 WAL 和单文件（DELETE）之间切换，切换结果写在库文件里。别的程序开着这个库时切不了，报错且模式不变
+    pub fn set_single_file(&self, on: bool) -> Result<(), String> {
+        let wanted = if on { "delete" } else { "wal" };
+        let fail = |detail: String| format!("切换存储方式失败（数据库可能正被其他程序使用）: {}", detail);
+        let mode: String = self.conn
+            .query_row(&format!("PRAGMA journal_mode = {wanted}"), [], |row| row.get(0))
+            .map_err(|e| fail(e.to_string()))?;
+        if mode.eq_ignore_ascii_case(wanted) { Ok(()) } else { Err(fail(mode)) }
+    }
+
+    fn journal_mode(&self) -> Option<String> {
+        self.conn.query_row("PRAGMA journal_mode", [], |row| row.get::<_, String>(0)).ok()
+            .map(|mode| mode.to_ascii_lowercase())
     }
 
     /// 筛选分组统一成 group_type = FILTER 加规则：开发库里的图片、文件筛选分组和没有规则的文字筛选分组
@@ -436,7 +473,7 @@ impl Database {
         self.remove_image_files(image_ids);
 
         if vacuum {
-            // VACUUM 整理出的新内容先写进 WAL，要等 checkpoint 合并回主库，库文件才变小
+            // WAL 模式下 VACUUM 整理出的新内容先写进 WAL，要等 checkpoint 合并回主库，库文件才变小
             self.conn.execute_batch("VACUUM;")
                 .map_err(|e| format!("VACUUM 失败: {}", e))?;
             let _ = self.conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
@@ -852,18 +889,41 @@ impl Database {
     ) -> Result<(), String> {
         let tx = self.conn.unchecked_transaction()
             .map_err(|e| format!("替换 formats 失败: {}", e))?;
-        tx.execute(
+        self.write_formats(event_id, formats)?;
+        tx.commit().map_err(|e| format!("替换 formats 失败: {}", e))
+    }
+
+    fn write_formats(&self, event_id: i64, formats: &[(u32, String, Vec<u8>, bool)]) -> Result<(), String> {
+        self.conn.execute(
             "DELETE FROM clipboard_formats WHERE event_id = ?",
             params![event_id],
         ).map_err(|e| format!("删除 formats 失败: {}", e))?;
         for (format_id, format_name, data, is_compressed) in formats {
-            tx.execute(
+            self.conn.execute(
                 "INSERT OR IGNORE INTO clipboard_formats (event_id, format_id, format_name, data, compressed)
                  VALUES (?1, ?2, ?3, ?4, ?5)",
                 params![event_id, *format_id as i64, format_name, data, is_compressed],
             ).map_err(|e| format!("插入 format 失败: {}", e))?;
         }
-        tx.commit().map_err(|e| format!("替换 formats 失败: {}", e))
+        Ok(())
+    }
+
+    /// 存一次复制：记录、格式和超出 limit 的清理在一个事务里，只提交一次。
+    /// 记录或格式写失败整条回滚；清理失败不影响这条记录。被清掉的图片文件在提交之后才删
+    pub fn store_capture(
+        &self,
+        item: &PyClipboardItem,
+        formats: &[(u32, String, Vec<u8>, bool)],
+        limit: i64,
+    ) -> Result<i64, String> {
+        let tx = self.conn.unchecked_transaction()
+            .map_err(|e| format!("保存失败: {}", e))?;
+        let id = self.insert_item(item)?;
+        self.write_formats(id, formats)?;
+        let removed_images = self.delete_old_items(limit).map(|(_, ids)| ids).unwrap_or_default();
+        tx.commit().map_err(|e| format!("保存失败: {}", e))?;
+        self.remove_image_files(removed_images);
+        Ok(id)
     }
 
     /// 读取某个 event 的所有原始格式数据，压缩过的解压后返回；数据为 NULL 的读成空。
@@ -908,8 +968,15 @@ impl Database {
     /// Returns:
     ///     删除的记录数
     pub fn cleanup_old_items(&self, limit: i64) -> Result<i64, String> {
+        let (deleted, image_ids) = self.delete_old_items(limit)?;
+        self.remove_image_files(image_ids);
+        Ok(deleted)
+    }
+
+    /// 删掉超出 limit 的记录，返回删除条数和它们的图片 id，图片文件由调用方删
+    fn delete_old_items(&self, limit: i64) -> Result<(i64, Vec<String>), String> {
         if limit <= 0 {
-            return Ok(0);
+            return Ok((0, Vec::new()));
         }
 
         // 只数历史区（未分组）的记录
@@ -919,7 +986,7 @@ impl Database {
             |row| row.get(0)
         ).map_err(|e| format!("查询失败: {}", e))?;
         if total <= limit {
-            return Ok(0);
+            return Ok((0, Vec::new()));
         }
 
         // 按 item_order 升序取最旧的；查图片和删除用同一个条件，只删这些记录的图片
@@ -928,9 +995,7 @@ impl Database {
         let image_ids = self.image_ids(&format!("SELECT image_id FROM clipboard WHERE id IN ({oldest})"), params![to_delete])?;
         let deleted = self.conn.execute(&format!("DELETE FROM clipboard WHERE id IN ({oldest})"), params![to_delete])
             .map_err(|e| format!("清理失败: {}", e))?;
-        self.remove_image_files(image_ids);
-
-        Ok(deleted as i64)
+        Ok((deleted as i64, image_ids))
     }
 }
 
@@ -1246,6 +1311,101 @@ mod maintenance_tests {
         assert_eq!(names, vec!["甲", "丙", "乙"]);
         // 上下颠倒的邻居重新编号也放不下，报错而不是乱放
         assert!(db.move_group_between(ids[0], Some(ids[1]), Some(ids[2])).is_err());
+    }
+
+    fn text_formats(text: &str) -> Vec<(u32, String, Vec<u8>, bool)> {
+        vec![(13, "CF_UNICODETEXT".to_string(), text.as_bytes().to_vec(), false)]
+    }
+
+    fn count(db: &Database) -> i64 {
+        db.conn.query_row("SELECT COUNT(*) FROM clipboard", [], |row| row.get(0)).unwrap()
+    }
+
+    fn journal_dir(name: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("pyclipboard_{}_{}", name, std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn new_databases_use_wal_and_existing_ones_keep_their_mode() {
+        let dir = journal_dir("journal_keep");
+        let path = dir.join("clipboard.db");
+        let open = || Database::new(path.to_str().unwrap()).unwrap();
+        assert!(!open().single_file());
+        {
+            let db = open();
+            db.set_single_file(true).unwrap();
+            assert!(db.single_file());
+            db.store_capture(&PyClipboardItem::new(0, "单文件".to_string(), "text".to_string()), &text_formats("单文件"), 0).unwrap();
+            assert!(!dir.join("clipboard.db-wal").exists());
+            assert!(!dir.join("clipboard.db-shm").exists());
+        }
+        {
+            let db = open();
+            assert!(db.single_file());
+            assert_eq!(search(&db, "单文件"), vec!["单文件"]);
+            db.set_single_file(false).unwrap();
+        }
+        assert!(!open().single_file());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn switching_fails_and_keeps_the_mode_while_another_connection_has_the_database() {
+        let dir = journal_dir("journal_busy");
+        let path = dir.join("clipboard.db");
+        {
+            let db = Database::new(path.to_str().unwrap()).unwrap();
+            let other = rusqlite::Connection::open(&path).unwrap();
+            other.query_row("SELECT COUNT(*) FROM clipboard", [], |row| row.get::<_, i64>(0)).unwrap();
+            assert!(db.set_single_file(true).is_err());
+            assert!(!db.single_file());
+            drop(other);
+            db.set_single_file(true).unwrap();
+            assert!(db.single_file());
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_capture_whose_formats_fail_is_not_kept() {
+        let db = Database::new(":memory:").unwrap();
+        db.conn.execute_batch(
+            "CREATE TRIGGER no_formats BEFORE INSERT ON clipboard_formats BEGIN SELECT RAISE(ABORT, 'x'); END;"
+        ).unwrap();
+        let item = PyClipboardItem::new(0, "会回滚".to_string(), "text".to_string());
+        assert!(db.store_capture(&item, &text_formats("会回滚"), 0).is_err());
+        assert_eq!(count(&db), 0);
+    }
+
+    #[test]
+    fn a_failed_cleanup_still_keeps_the_capture_and_its_images() {
+        let dir = std::env::temp_dir().join(format!("pyclipboard_capture_cleanup_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        {
+            let db = Database::new(dir.join("clipboard.db").to_str().unwrap()).unwrap();
+            let image_file = |id: &str| db.get_images_dir().join(format!("{}.png", id));
+            let mut old = PyClipboardItem::new(0, "旧图".to_string(), "image".to_string());
+            old.image_id = Some("old".to_string());
+            std::fs::write(image_file("old"), b"png").unwrap();
+            db.store_capture(&old, &[], 1).unwrap();
+
+            db.conn.execute_batch(
+                "CREATE TRIGGER no_delete BEFORE DELETE ON clipboard BEGIN SELECT RAISE(ABORT, 'x'); END;"
+            ).unwrap();
+            let id = db.store_capture(&PyClipboardItem::new(0, "新的".to_string(), "text".to_string()), &text_formats("新的"), 1).unwrap();
+            assert_eq!(count(&db), 2);
+            assert_eq!(db.get_formats(id).unwrap().len(), 1);
+            assert!(image_file("old").exists());
+
+            db.conn.execute_batch("DROP TRIGGER no_delete;").unwrap();
+            db.store_capture(&PyClipboardItem::new(0, "再一条".to_string(), "text".to_string()), &[], 1).unwrap();
+            assert_eq!(count(&db), 1);
+            assert!(!image_file("old").exists());
+        }
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

@@ -4,6 +4,7 @@
 #include "canvas/scene.h"
 #include "capture/capture_service.h"
 #include "gif/record_window.h"
+#include "ocr/ocr_manager.h"
 #include "ui/screenshot_window.h"
 #include "ui/toolbar.h"
 #include "pin/pin_manager.h"
@@ -14,22 +15,30 @@
 #include "stitch/incremental.h"
 #include "stitch/scroll_toolbar.h"
 #include "stitch/scroll_window.h"
+#include "text_recognition/result_window.h"
+#include "ui/fluent_lite/buttons.h"
+#include "ui/fluent_lite/inputs.h"
+#include "ui/save_image_dialog.h"
 #include <QApplication>
+#include <QComboBox>
 #include <QCursor>
 #include <QDialog>
 #include <QDir>
+#include <QFileInfo>
 #include <QLabel>
 #include <QMenu>
 #include <QPainter>
 #include <QPushButton>
 #include <QRandomGenerator>
 #include <QRegularExpression>
+#include <QScopeGuard>
 #include <QWheelEvent>
 #include <QScreen>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QTimer>
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -129,6 +138,12 @@ QSize clipboard_bitmap_size() {
         if (size.isEmpty()) QTest::qWait(50);
     }
     return size;
+}
+
+template <typename T> T *visible_top_level() {
+    for (auto *widget : QApplication::topLevelWidgets())
+        if (auto *typed = dynamic_cast<T *>(widget); typed && typed->isVisible()) return typed;
+    return nullptr;
 }
 
 void clear_clipboard() {
@@ -239,6 +254,75 @@ private slots:
         QCOMPARE(PinManager::instance()->count(), 0);
     }
 
+    // The button ends the capture and hands the whole long image to the result window, like the
+    // capture toolbar's button: nothing is pinned, saved or copied as an image.
+    void recognizingTextReadsTheLongImage() {
+        auto *window = open();
+        QVERIFY(window);
+        QVERIFY(scroll_in_steps({150, 300}));
+        std::atomic_int width = 0, height = 0;
+        set_recognizer_for_test([&](const QImage &image) {
+            width = image.width();
+            height = image.height();
+            return OcrResult{100, "ok", {OcrLine{{QPointF(0, 0), QPointF(80, 0), QPointF(80, 16), QPointF(0, 16)}, "long text"}}, 0.0};
+        });
+        const auto restore = qScopeGuard([] { set_recognizer_for_test({}); });
+        config_->set_ocr_copy_directly_enabled(false);
+        clear_clipboard();
+        QSignalSpy finished(window, &ScrollCaptureWindow::finished);
+        window->toolbar->ocr_btn->click();
+        QCOMPARE(finished.count(), 1);
+        TextRecognitionWindow *result = nullptr;
+        QTRY_VERIFY(result = visible_top_level<TextRecognitionWindow>());
+        QTRY_VERIFY(height > 0);
+        // The page from the top to the last view: 300 + 300 rows.
+        QCOMPARE(width.load(), PAGE_W);
+        QVERIFY2(std::abs(height - (VIEW_H + 300)) <= 2, qPrintable(QString::number(height)));
+        result->close();
+        QCOMPARE(PinManager::instance()->count(), 0);
+        QCOMPARE(clipboard_bitmap_size(), QSize());
+    }
+
+    // Save ends the capture and asks where to save the whole long image, named like an auto-saved
+    // one, as the capture toolbar's Save does: nothing is pinned or copied.
+    void savingAsksWhereToPutTheLongImage() {
+        auto *window = open();
+        QVERIFY(window);
+        QVERIFY(scroll_in_steps({150, 300}));
+        config_->set_save_dialog_style("modern");
+        clear_clipboard();
+        const QString folder = dir_.filePath("saved");
+        QVERIFY(QDir().mkpath(folder));
+        // The save window is modal, so it is answered from a timer inside its own loop.
+        QString suggested;
+        QTimer answer;
+        answer.setInterval(20);
+        connect(&answer, &QTimer::timeout, this, [&] {
+            auto *dialog = qobject_cast<SaveImageDialog *>(QApplication::activeModalWidget());
+            if (!dialog || !dialog->isVisible()) return;
+            answer.stop();
+            suggested = dialog->name_edit->text();
+            dialog->directory_edit->setText(QDir::toNativeSeparators(folder));
+            dialog->name_edit->setText("long");
+            dialog->format_combo->setCurrentIndex(dialog->format_combo->findData("PNG"));
+            dialog->save_button->click();
+        });
+        answer.start();
+        QSignalSpy finished(window, &ScrollCaptureWindow::finished);
+        window->toolbar->save_btn->click();
+        QCOMPARE(finished.count(), 1);
+        const QString path = QDir(folder).filePath("long.png");
+        QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(path), 5000);
+        QVERIFY2(suggested.startsWith(i18n_tr("Long Screenshot", "ScrollCaptureWindow") + "_"), qPrintable(suggested));
+        QVERIFY2(QRegularExpression("_\\d{8}_\\d{6}$").match(suggested).hasMatch(), qPrintable(suggested));
+        const QImage saved(path);
+        // The page from the top to the last view: 300 + 300 rows.
+        QCOMPARE(saved.width(), PAGE_W);
+        QVERIFY2(std::abs(saved.height() - (VIEW_H + 300)) <= 2, qPrintable(QString::number(saved.height())));
+        QCOMPARE(PinManager::instance()->count(), 0);
+        QCOMPARE(clipboard_bitmap_size(), QSize());
+    }
+
     void scrollingBackDoesNotDuplicateTheTop() {
         auto *window = open();
         QVERIFY(window);
@@ -324,7 +408,13 @@ private slots:
     }
 
     // The preview grows inside a strip a screen long that stays put, its bottom on the region's.
+    // A preview taller than the region reaches the toolbar above it when the toolbar is wider than
+    // the region, and then moves aside to keep the buttons clear; this region is tall enough.
     void thePreviewGrowsWithoutMovingItsWindow() {
+        const QRect saved = area_;
+        const auto restore = qScopeGuard([this, saved] { area_ = saved; });
+        const auto available = QGuiApplication::primaryScreen()->availableGeometry();
+        area_ = QRect(available.center() - QPoint(PAGE_W / 2, 300), QSize(PAGE_W, 600));
         auto *window = open();
         QVERIFY(window);
         auto *panel = window->preview_panel.data();
@@ -335,6 +425,7 @@ private slots:
         const int before = panel->panel_size().height();
         QVERIFY(scroll_in_steps({100, 200, 300, 400, 500}));
         QTRY_VERIFY_WITH_TIMEOUT(panel->panel_size().height() > before, 5000);
+        QVERIFY2(panel->panel_geometry().top() > window->geometry().top(), "the preview outgrew the region");
         QCOMPARE(panel->geometry(), strip);
         QCOMPARE(panel->panel_geometry().bottom(), window->geometry().bottom());
         window->toolbar->cancel_btn->click();

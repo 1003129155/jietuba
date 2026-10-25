@@ -182,6 +182,13 @@ void EditItemCommand::apply_state(const QVariantMap &state) {
         arrow->_control_modified = modified.isValid() && !modified.isNull() ? python_truth(modified) : control.metaType().id() == QMetaType::QPointF;
         if (control.metaType().id() == QMetaType::QPointF) arrow->_control_pos = control.toPointF();
         else arrow->_control_pos = QPointF((arrow->start_pos.x() + arrow->end_pos.x()) / 2., (arrow->start_pos.y() + arrow->end_pos.y()) / 2.);
+        // States that do not record bend points (style changes) leave them as they are.
+        if (state.contains("bend_points")) {
+            const auto bends = state.value("bend_points").toList();
+            const auto is_point = [](const QVariant &value) { return value.metaType().id() == QMetaType::QPointF; };
+            if (bends.size() == 2 && is_point(bends[0]) && is_point(bends[1])) arrow->_bend_points = std::array<QPointF, 2>{{bends[0].toPointF(), bends[1].toPointF()}};
+            else arrow->_bend_points.reset();
+        }
         const auto style = state.value("arrow_style"); if (style.isValid() && !style.isNull()) arrow->_arrow_style = style.toString();
     }
     const auto pen_state = state.value("pen_state");

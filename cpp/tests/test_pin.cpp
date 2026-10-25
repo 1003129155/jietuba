@@ -2741,6 +2741,7 @@ private slots:
         add(new EllipseItem(QRectF(60, 60, 80, 40), QPen(Qt::red, 3)));
         auto *arrow = new ArrowItem(QPointF(60, 150), QPointF(200, 180), QPen(Qt::blue, 4), "double");
         arrow->set_control_point(QPointF(130, 120));
+        arrow->set_bend_point(1, QPointF(170, 190));
         add(arrow);
         auto *text = new TextItem("note", QPointF(70, 200), QFont("Arial", 14), Qt::darkGreen);
         text->setTextWidth(120);
@@ -2772,6 +2773,8 @@ private slots:
         QCOMPARE(arrows.size(), 1);
         QCOMPARE(arrows.first()->arrow_style(), QString("double"));
         QVERIFY(arrows.first()->is_curved());
+        QVERIFY(arrows.first()->has_bend_points());
+        QCOMPARE(arrows.first()->bend_points(), arrow->bend_points());
         const auto texts = items_of<TextItem>(canvas->scene);
         QCOMPARE(texts.size(), 1);
         QCOMPARE(texts.first()->toPlainText(), QString("note"));

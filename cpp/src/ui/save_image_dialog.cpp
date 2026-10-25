@@ -473,12 +473,14 @@ void SavePreviewView::set_zoom(double zoom, const QPointF &anchor) {
 QRectF SavePreviewView::image_rect() const { return QRectF(offset_, QSizeF(image_.size()) * zoom_); }
 
 // Along an axis where the image fits the free area it is centred there; otherwise it
-// keeps covering the view.
+// keeps covering the view, or stays inside it when smaller. A fitted extent can exceed
+// the area by a rounding error, which must not count as overflowing it.
 void SavePreviewView::clamp_offset() {
     const QSizeF size = QSizeF(image_.size()) * zoom_;
     const auto area = fit_area();
     const auto axis = [](double offset, double extent, double start, double span, double view) {
-        return extent <= span ? start + (span - extent) / 2 : std::clamp(offset, view - extent, 0.0);
+        if (extent <= span + 0.5) return start + (span - extent) / 2;
+        return std::clamp(offset, std::min(view - extent, 0.0), std::max(view - extent, 0.0));
     };
     offset_ = QPointF(axis(offset_.x(), size.width(), area.left(), area.width(), width()),
                       axis(offset_.y(), size.height(), area.top(), area.height(), height()));
@@ -628,6 +630,8 @@ SaveImageDialog::SaveImageDialog(const QImage &image, const QString &base_name, 
     // ── Preview, with the view mode floating at its top ──
     preview = new SavePreviewView(this);
     view_mode = new SegmentedWidget(preview);
+    // A zoomed or panned image passes under it.
+    view_mode->setFloating(true);
     view_mode->setLarge(true);
     view_mode->addItem("encoded", tr_text("Adjusted"));
     view_mode->addItem("original", tr_text("Original Image"));
