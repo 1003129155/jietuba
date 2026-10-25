@@ -2038,6 +2038,10 @@ Replace it?</translation>
         <translation>Pin to desktop</translation>
     </message>
     <message>
+        <source>Save to file</source>
+        <translation>Save to file</translation>
+    </message>
+    <message>
         <source>Recognize text (OCR)</source>
         <translation>Recognize text (OCR)</translation>
     </message>

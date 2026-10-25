@@ -2077,6 +2077,10 @@ Replace it?</source>
         <translation>바탕 화면에 고정</translation>
     </message>
     <message>
+        <source>Save to file</source>
+        <translation>파일로 저장</translation>
+    </message>
+    <message>
         <source>Recognize text (OCR)</source>
         <translation>텍스트 인식(OCR)</translation>
     </message>

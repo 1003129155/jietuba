@@ -5,6 +5,7 @@
 #include "core/input_hub.h"
 #include "core/logger.h"
 #include "core/platform_utils.h"
+#include "core/save.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
 #include "pin/pin_manager.h"
@@ -14,7 +15,9 @@
 #include "stitch/jietuba_long_stitch_unified.h"
 #include "stitch/scroll_toolbar.h"
 #include "text_recognition/result_window.h"
+#include "tools/action.h"
 #include <QApplication>
+#include <QDateTime>
 #include <QGuiApplication>
 #include <QLinearGradient>
 #include <QPainter>
@@ -345,6 +348,7 @@ void ScrollCaptureWindow::setup_floating_toolbar() {
     connect(toolbar, &FloatingToolbar::direction_changed, this, &ScrollCaptureWindow::toggle_direction);
     connect(toolbar, &FloatingToolbar::auto_scroll_clicked, this, &ScrollCaptureWindow::toggle_auto_scroll);
     connect(toolbar, &FloatingToolbar::crop_requested, this, &ScrollCaptureWindow::crop);
+    connect(toolbar, &FloatingToolbar::save_clicked, this, &ScrollCaptureWindow::on_save);
     connect(toolbar, &FloatingToolbar::ocr_clicked, this, &ScrollCaptureWindow::on_text_recognize);
     connect(toolbar, &FloatingToolbar::pin_clicked, this, &ScrollCaptureWindow::on_pin);
     connect(toolbar, &FloatingToolbar::finish_clicked, this, &ScrollCaptureWindow::on_finish);
@@ -1055,6 +1059,25 @@ void ScrollCaptureWindow::on_text_recognize() {
     hide();
     if (copy_directly) copy_text_recognition(image);
     else show_text_recognition(image, anchor);
+    emit finished();
+    close();
+}
+
+void ScrollCaptureWindow::on_save() {
+    capture_pending_now();
+    const auto image = result_qimage();
+    if (image.isNull()) {
+        log_stitch(T("[WARN] 没有拼接结果，跳过保存"));
+        return;
+    }
+    const auto base_name = file_prefix() + "_" + QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
+    ToolSettingsManager *config = config_manager ? config_manager : get_tool_settings_manager();
+    cleanup();
+    hide();
+    // The save window runs once this click has returned, owning nothing of the closing window.
+    QTimer::singleShot(0, qApp, [image, base_name, config] {
+        ActionTools::save_image_interactively(nullptr, image, base_name, config, std::make_shared<SaveService>(*config));
+    });
     emit finished();
     close();
 }

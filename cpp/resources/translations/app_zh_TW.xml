@@ -2061,6 +2061,10 @@ Replace it?</source>
         <translation>釘到桌面</translation>
     </message>
     <message>
+        <source>Save to file</source>
+        <translation>儲存到檔案</translation>
+    </message>
+    <message>
         <source>Recognize text (OCR)</source>
         <translation>文字辨識（OCR）</translation>
     </message>

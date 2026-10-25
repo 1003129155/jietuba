@@ -40,6 +40,9 @@ public:
     void handle_text_recognize();
     // Lists QR codes and barcodes in the selection after closing the capture.
     void handle_scan_code();
+    // The save window, or the system Save As dialog when the setting asks for it.
+    static void save_image_interactively(QWidget *parent, const QImage &image, const QString &base_name, ToolSettingsManager *config,
+                                         const std::shared_ptr<SaveService> &service);
     CanvasScene *scene;
     ToolSettingsManager *config_manager;
     QPointer<QWidget> parent_window;
@@ -51,9 +54,6 @@ private:
     static bool has_annotations(const QList<QGraphicsItem *> &drawing_items);
     // Quick save skips deliver_screenshot, so "also save the original" is handled here.
     void save_original_beside(const QRectF &selection_rect, const QString &saved_path);
-    // The save window, or the system Save As dialog when the setting asks for it.
-    static void save_image_interactively(QWidget *parent, const QImage &image, const QString &base_name, ToolSettingsManager *config,
-                                         const std::shared_ptr<SaveService> &service);
     // The selection without annotations, which would cover text and codes; warns and
     // returns a null image without a confirmed selection or on export failure.
     QImage selection_base_image();

@@ -2074,6 +2074,10 @@ Replace it?</source>
         <translation>ピン留め</translation>
     </message>
     <message>
+        <source>Save to file</source>
+        <translation>ファイルに保存</translation>
+    </message>
+    <message>
         <source>Recognize text (OCR)</source>
         <translation>文字認識（OCR）</translation>
     </message>

@@ -16,10 +16,15 @@
 #include "stitch/scroll_toolbar.h"
 #include "stitch/scroll_window.h"
 #include "text_recognition/result_window.h"
+#include "ui/fluent_lite/buttons.h"
+#include "ui/fluent_lite/inputs.h"
+#include "ui/save_image_dialog.h"
 #include <QApplication>
+#include <QComboBox>
 #include <QCursor>
 #include <QDialog>
 #include <QDir>
+#include <QFileInfo>
 #include <QLabel>
 #include <QMenu>
 #include <QPainter>
@@ -33,6 +38,7 @@
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QTimer>
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -273,6 +279,46 @@ private slots:
         QCOMPARE(width.load(), PAGE_W);
         QVERIFY2(std::abs(height - (VIEW_H + 300)) <= 2, qPrintable(QString::number(height)));
         result->close();
+        QCOMPARE(PinManager::instance()->count(), 0);
+        QCOMPARE(clipboard_bitmap_size(), QSize());
+    }
+
+    // Save ends the capture and asks where to save the whole long image, named like an auto-saved
+    // one, as the capture toolbar's Save does: nothing is pinned or copied.
+    void savingAsksWhereToPutTheLongImage() {
+        auto *window = open();
+        QVERIFY(window);
+        QVERIFY(scroll_in_steps({150, 300}));
+        config_->set_save_dialog_style("modern");
+        clear_clipboard();
+        const QString folder = dir_.filePath("saved");
+        QVERIFY(QDir().mkpath(folder));
+        // The save window is modal, so it is answered from a timer inside its own loop.
+        QString suggested;
+        QTimer answer;
+        answer.setInterval(20);
+        connect(&answer, &QTimer::timeout, this, [&] {
+            auto *dialog = qobject_cast<SaveImageDialog *>(QApplication::activeModalWidget());
+            if (!dialog || !dialog->isVisible()) return;
+            answer.stop();
+            suggested = dialog->name_edit->text();
+            dialog->directory_edit->setText(QDir::toNativeSeparators(folder));
+            dialog->name_edit->setText("long");
+            dialog->format_combo->setCurrentIndex(dialog->format_combo->findData("PNG"));
+            dialog->save_button->click();
+        });
+        answer.start();
+        QSignalSpy finished(window, &ScrollCaptureWindow::finished);
+        window->toolbar->save_btn->click();
+        QCOMPARE(finished.count(), 1);
+        const QString path = QDir(folder).filePath("long.png");
+        QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(path), 5000);
+        QVERIFY2(suggested.startsWith(i18n_tr("Long Screenshot", "ScrollCaptureWindow") + "_"), qPrintable(suggested));
+        QVERIFY2(QRegularExpression("_\\d{8}_\\d{6}$").match(suggested).hasMatch(), qPrintable(suggested));
+        const QImage saved(path);
+        // The page from the top to the last view: 300 + 300 rows.
+        QCOMPARE(saved.width(), PAGE_W);
+        QVERIFY2(std::abs(saved.height() - (VIEW_H + 300)) <= 2, qPrintable(QString::number(saved.height())));
         QCOMPARE(PinManager::instance()->count(), 0);
         QCOMPARE(clipboard_bitmap_size(), QSize());
     }
