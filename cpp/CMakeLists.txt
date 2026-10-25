@@ -521,6 +521,14 @@ if(BUILD_TESTING)
         target_sources(jietuba_test_sandbox PRIVATE tests/leak_check.cpp)
         target_compile_definitions(jietuba_test_sandbox PRIVATE JIETUBA_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
     endif()
+    # With a shared Qt, its DLLs are copied beside the executables and qt.conf points at its plugins, so
+    # tests run without Qt's bin on PATH. ctest starts them in the default error mode, where a missing
+    # DLL blocks the test on a system dialog until its timeout.
+    get_target_property(jietuba_qt_core_type Qt6::Core TYPE)
+    if(WIN32 AND jietuba_qt_core_type STREQUAL "SHARED_LIBRARY")
+        set(jietuba_test_runtime ON)
+        set(jietuba_runtime_dlls "$<TARGET_RUNTIME_DLLS:jietuba_cpp>")
+    endif()
     get_property(jietuba_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
     foreach(target IN LISTS jietuba_targets)
         if(target MATCHES "_tests$")
@@ -529,8 +537,19 @@ if(BUILD_TESTING)
             if(JIETUBA_LEAK_CHECK)
                 target_compile_options(${target} PRIVATE "/FI${CMAKE_CURRENT_SOURCE_DIR}/tests/leak_check.h")
             endif()
+            if(jietuba_test_runtime)
+                list(APPEND jietuba_runtime_dlls "$<TARGET_RUNTIME_DLLS:${target}>")
+                add_dependencies(${target} jietuba_test_runtime)
+            endif()
         endif()
     endforeach()
+    if(jietuba_test_runtime)
+        add_custom_target(jietuba_test_runtime
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<REMOVE_DUPLICATES:${jietuba_runtime_dlls}>" "$<TARGET_FILE_DIR:jietuba_cpp>"
+            COMMAND_EXPAND_LISTS VERBATIM)
+        add_dependencies(jietuba_cpp jietuba_test_runtime)
+        file(GENERATE OUTPUT "$<TARGET_FILE_DIR:jietuba_cpp>/qt.conf" CONTENT "[Paths]\nPrefix=${QT6_INSTALL_PREFIX}\n")
+    endif()
     # ctest -j: the clipboard tests share the system clipboard, so they take turns. So do these others
     # that write it; a write waits only briefly for another holder, and a paste is then dropped.
     set(jietuba_clipboard_writers python_core_parity translation_ui pin_window screenshot_window)
