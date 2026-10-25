@@ -595,6 +595,40 @@ private slots:
         dialog.hide();
     }
 
+    // What people change most comes first: the capture itself and where it is saved. Each recognition
+    // switch sits in the OCR group, and the capture-time switches in the first group.
+    void theCapturePageGroupsFollowTheOrderOfUse() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.on_nav_changed(1, "capture");
+        const auto group_of = [](QWidget *widget) -> SettingCardGroup * {
+            for (QWidget *w = widget; w; w = w->parentWidget())
+                if (auto *group = qobject_cast<SettingCardGroup *>(w)) return group;
+            return nullptr;
+        };
+        const auto behavior_control = [&dialog](const QString &key) -> QWidget * {
+            for (const auto &[name, widget] : dialog.behavior_controls)
+                if (name == key) return widget;
+            return nullptr;
+        };
+        const QList<QWidget *> markers = {dialog.attr_widget("capture_engine_combo"), dialog.attr_widget("save_toggle"), dialog.attr_widget("cross_tool_selection_toggle"),
+                                          dialog.attr_widget("smart_mode_combo"), dialog.attr_widget("magnifier_enabled_toggle"), dialog.attr_widget("ocr_engine_combo"),
+                                          behavior_control("recording_hide_toolbar_in_captures"), dialog.attr_widget("watermark_auto_toggle")};
+        QList<int> positions;
+        for (auto *marker : markers) {
+            QVERIFY(marker);
+            auto *group = group_of(marker);
+            QVERIFY(group);
+            positions << group->parentWidget()->layout()->indexOf(group);
+        }
+        for (int i = 1; i < positions.size(); ++i) QVERIFY2(positions[i - 1] < positions[i], qPrintable(QString("group %1 is not below group %2").arg(i).arg(i - 1)));
+        QCOMPARE(group_of(behavior_control("capture_include_cursor")), group_of(markers[0]));
+        QCOMPARE(group_of(behavior_control("capture_fullscreen_crosshair")), group_of(markers[0]));
+        QCOMPARE(group_of(dialog.attr_widget("ocr_copy_directly_toggle")), group_of(markers[5]));
+        QCOMPARE(group_of(dialog.attr_widget("barcode_copy_single_toggle")), group_of(markers[5]));
+        dialog.hide();
+    }
+
     // The picker style is an appearance choice; the theme and mask colours open the picker it names.
     void colorPickerStyleLoadsSavesAndPicksAppearanceColours() {
         const auto restore = qScopeGuard([this] { config_->set_app_setting("color_picker_style", "modern"); });
@@ -2058,6 +2092,12 @@ private slots:
             dialog.on_nav_changed(index, route);
             QTest::qWait(200);
             QVERIFY(dialog.grab().save(QDir(out).filePath(QString("%1_%2.png").arg(index, 2, 10, QChar('0')).arg(route))));
+            // A page taller than the window is saved scrolled to the end as well.
+            auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+            if (!scroll || scroll->verticalScrollBar()->maximum() == 0) continue;
+            scroll->verticalScrollBar()->setValue(scroll->verticalScrollBar()->maximum());
+            QTest::qWait(200);
+            QVERIFY(dialog.grab().save(QDir(out).filePath(QString("%1_%2_end.png").arg(index, 2, 10, QChar('0')).arg(route))));
         }
         WelcomeWizard wizard(config_);
         wizard.setAttribute(Qt::WA_DontShowOnScreen);

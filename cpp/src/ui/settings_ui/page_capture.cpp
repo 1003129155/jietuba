@@ -129,7 +129,7 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     layout->setContentsMargins(0, 0, dialog_scaled(10), 0);
     layout->setSpacing(dialog_scaled(14));
 
-    // ── Capture engine ──
+    // ── Capture ──
     auto *grp_engine = new SettingsCardGroup(dialog->tr_text("Screenshot"), view, "capture");
     auto *engine_card = new SettingCard(FluentIcon::Camera, dialog->tr_text("Capture Engine"),
                                         dialog->tr_text("Auto uses the HDR engine when a display has HDR turned on."), grp_engine);
@@ -142,39 +142,17 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     dialog->set_attr("capture_engine_combo", capture_engine_combo);
     engine_card->addControl(capture_engine_combo);
     grp_engine->addSettingCard(engine_card);
+    const auto behavior_switch = [&](FluentIcon icon, const char *title, const char *content, bool checked, const QString &key) {
+        auto *card = new SwitchSettingCard(icon, dialog->tr_text(title), dialog->tr_text(content), grp_engine);
+        card->setChecked(checked);
+        dialog->behavior_controls.emplace_back(key, card);
+        grp_engine->addSettingCard(card);
+    };
+    behavior_switch(FluentIcon::Camera, "Include Mouse Pointer", "Draw the mouse pointer into the screenshot where it was when capturing started.",
+                    config->get_capture_include_cursor(), "capture_include_cursor");
+    behavior_switch(FluentIcon::Layout, "Fullscreen Crosshair", "Show horizontal and vertical guide lines across the screen while capturing.",
+                    config->get_capture_fullscreen_crosshair(), "capture_fullscreen_crosshair");
     layout->addWidget(grp_engine);
-
-    // ── Recording ──
-    auto *grp_record = new SettingsCardGroup(dialog->tr_text("Screen Recording"), view, "capture");
-    auto *record_hide_card = new SwitchSettingCard(FluentIcon::Camera, dialog->tr_text("Toolbar Invisible to Screen Capture"),
-                                                   dialog->tr_text("Keeps the recording toolbar, its panels and menus out of the recording while they sit inside the recording area, such as when recording the full screen; you still see them. Turn off to record them too."),
-                                                   grp_record);
-    record_hide_card->setChecked(config->get_recording_hide_toolbar_in_captures());
-    dialog->behavior_controls.emplace_back("recording_hide_toolbar_in_captures", record_hide_card);
-    grp_record->addSettingCard(record_hide_card);
-    layout->addWidget(grp_record);
-
-    // ── Smart selection ──
-    auto *grp_smart = new SettingsCardGroup(dialog->tr_text("Smart Selection"), view, "capture");
-    // Three levels in one combo rather than a master switch plus a drill-down switch: the
-    // configuration has only off / window / element, and two switches would add the invalid
-    // "master off, drill-down on" combination.
-    auto *mode_card = new SettingCard(FluentIcon::Camera, dialog->tr_text("Detection Precision"),
-                                      dialog->tr_text("Snap the selection to the window or control under the cursor. "
-                                                      "Control detection reads the accessibility tree and takes longer on large windows."),
-                                      grp_smart);
-    auto *smart_mode_combo = new ComboBox(mode_card);
-    for (const auto &[label, mode] : {std::make_pair("Off", "off"), std::make_pair("Window", "window"), std::make_pair("Control", "element")})
-        smart_mode_combo->addItem(dialog->tr_text(label), QString(mode));
-    smart_mode_combo->setCurrentIndex(SMART_SELECTION_MODES.indexOf(config->get_smart_selection_mode()));
-    dialog->set_attr("smart_mode_combo", smart_mode_combo);
-    mode_card->addControl(smart_mode_combo);
-    grp_smart->addSettingCard(mode_card);
-    switch_card(dialog, grp_smart, FluentIcon::Sync, "Selection Switch Animation", "Slide the selection when it moves from one window or control to another.",
-                config->get_smart_selection_animation(), "smart_animation_toggle");
-    layout->addWidget(grp_smart);
-
-    add_quick_actions_group(dialog, view, layout);
 
     // ── Saving ──
     auto *grp_save = new SettingsCardGroup(dialog->tr_text("Save Settings"), view, "capture");
@@ -195,15 +173,6 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     pin_save_card->setChecked(config->get_screenshot_pin_save_enabled());
     dialog->set_attr("screenshot_pin_save_toggle", pin_save_card);
     grp_save->addSettingCard(pin_save_card);
-    // Writes the file path to the clipboard (CF_HDROP). Only an auto-saved capture has a path,
-    // decided in deliver_screenshot; the switches are stored independently, with no UI coupling.
-    switch_card(dialog, grp_save, FluentIcon::CommandPrompt, "Write File Path to Clipboard",
-                "Lets tools that only recognize a file path (e.g. some terminal apps) paste the screenshot too. Only takes effect when the screenshot is auto-saved.",
-                config->get_clipboard_file_reference_enabled(), "clipboard_file_reference_toggle");
-    switch_card(dialog, grp_save, FluentIcon::History, "Also Save the Original",
-                "When a screenshot with annotations (including mosaic) or a watermark is saved to the save folder, "
-                "a copy without them is saved too, with _original at the end of its file name.",
-                config->get_screenshot_save_original_enabled(), "screenshot_save_original_toggle");
     // The save folder: the path is the card description, the buttons go in the control column.
     auto *path_card = new SettingCard(FluentIcon::Folder, dialog->tr_text("Save Folder"), config->get_screenshot_save_path(), grp_save);
     dialog->set_attr("save_path_lbl", path_card->contentLabel);
@@ -223,6 +192,15 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     dialog->set_attr("screenshot_format_combo", format_combo);
     fmt_card->addControl(format_combo);
     grp_save->addSettingCard(fmt_card);
+    switch_card(dialog, grp_save, FluentIcon::History, "Also Save the Original",
+                "When a screenshot with annotations (including mosaic) or a watermark is saved to the save folder, "
+                "a copy without them is saved too, with _original at the end of its file name.",
+                config->get_screenshot_save_original_enabled(), "screenshot_save_original_toggle");
+    // Writes the file path to the clipboard (CF_HDROP). Only an auto-saved capture has a path,
+    // decided in deliver_screenshot; the switches are stored independently, with no UI coupling.
+    switch_card(dialog, grp_save, FluentIcon::CommandPrompt, "Write File Path to Clipboard",
+                "Lets tools that only recognize a file path (e.g. some terminal apps) paste the screenshot too. Only takes effect when the screenshot is auto-saved.",
+                config->get_clipboard_file_reference_enabled(), "clipboard_file_reference_toggle");
     // The window behind Save in the capture toolbar, the pin menu and the clipboard.
     auto *style_card = new SettingCard(FluentIcon::Save, dialog->tr_text("Save Dialog"),
                                        dialog->tr_text("Used when saving a screenshot, a pin or a clipboard image."), grp_save);
@@ -235,13 +213,31 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     grp_save->addSettingCard(style_card);
     layout->addWidget(grp_save);
 
-    // ── Watermark ── (text and style are edited in the capture toolbar's watermark panel)
-    auto *grp_watermark = new SettingsCardGroup(dialog->tr_text("Watermark"), view, "capture");
-    switch_card(dialog, grp_watermark, FluentIcon::Sparkle, "Add the Last Watermark Automatically",
-                "If the last screenshot ended with a watermark, the next one gets the same watermark "
-                "with the time updated; otherwise none is added. Screenshots taken with mouse shortcuts follow the same rule.",
-                config->get_screenshot_watermark_auto(), "watermark_auto_toggle");
-    layout->addWidget(grp_watermark);
+    auto *hint = new CaptionLabel(dialog->tr_text("💡 Hint: Even with auto-save off, it will be copied to clipboard."), view);
+    hint->setStyleSheet("padding: 5px;");
+    layout->addWidget(hint);
+
+    add_quick_actions_group(dialog, view, layout);
+
+    // ── Smart selection ──
+    auto *grp_smart = new SettingsCardGroup(dialog->tr_text("Smart Selection"), view, "capture");
+    // Three levels in one combo rather than a master switch plus a drill-down switch: the
+    // configuration has only off / window / element, and two switches would add the invalid
+    // "master off, drill-down on" combination.
+    auto *mode_card = new SettingCard(FluentIcon::Camera, dialog->tr_text("Detection Precision"),
+                                      dialog->tr_text("Snap the selection to the window or control under the cursor. "
+                                                      "Control detection reads the accessibility tree and takes longer on large windows."),
+                                      grp_smart);
+    auto *smart_mode_combo = new ComboBox(mode_card);
+    for (const auto &[label, mode] : {std::make_pair("Off", "off"), std::make_pair("Window", "window"), std::make_pair("Control", "element")})
+        smart_mode_combo->addItem(dialog->tr_text(label), QString(mode));
+    smart_mode_combo->setCurrentIndex(SMART_SELECTION_MODES.indexOf(config->get_smart_selection_mode()));
+    dialog->set_attr("smart_mode_combo", smart_mode_combo);
+    mode_card->addControl(smart_mode_combo);
+    grp_smart->addSettingCard(mode_card);
+    switch_card(dialog, grp_smart, FluentIcon::Sync, "Selection Switch Animation", "Slide the selection when it moves from one window or control to another.",
+                config->get_smart_selection_animation(), "smart_animation_toggle");
+    layout->addWidget(grp_smart);
 
     // ── Magnifier ──
     auto *grp_magnifier = new SettingsCardGroup(dialog->tr_text("Magnifier"), view, "capture");
@@ -295,6 +291,14 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     dialog->set_attr("ocr_result_position_combo", position_combo);
     ocr_position_card->addControl(position_combo);
     grp_ocr->addSettingCard(ocr_position_card);
+    // The result windows' check boxes write the same keys: once checked there the window stops
+    // appearing and only this page turns it back, so each description says what happens while it is on.
+    switch_card(dialog, grp_ocr, FluentIcon::Document, "Copy Recognized Text Directly",
+                "Copy the recognized text straight to the clipboard instead of opening the result window.",
+                config->get_ocr_copy_directly_enabled(), "ocr_copy_directly_toggle");
+    switch_card(dialog, grp_ocr, FluentIcon::Search, "Copy a Single Code Directly",
+                "When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.",
+                config->get_barcode_copy_single_enabled(), "barcode_copy_single_toggle");
     auto *unavailable_card = new SettingCard(FluentIcon::Info, dialog->tr_text("OCR unavailable: install the Snipping Tool from the Microsoft Store, or download the full version"), {}, grp_ocr);
     dialog->set_attr("ocr_unavailable_card", unavailable_card);
     grp_ocr->addSettingCard(unavailable_card);
@@ -302,9 +306,23 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     ensure_ocr_refresh(dialog);
     layout->addWidget(grp_ocr);
 
-    auto *hint = new CaptionLabel(dialog->tr_text("💡 Hint: Even with auto-save off, it will be copied to clipboard."), view);
-    hint->setStyleSheet("padding: 5px;");
-    layout->addWidget(hint);
+    // ── Recording ──
+    auto *grp_record = new SettingsCardGroup(dialog->tr_text("Screen Recording"), view, "capture");
+    auto *record_hide_card = new SwitchSettingCard(FluentIcon::Camera, dialog->tr_text("Toolbar Invisible to Screen Capture"),
+                                                   dialog->tr_text("Keeps the recording toolbar, its panels and menus out of the recording while they sit inside the recording area, such as when recording the full screen; you still see them. Turn off to record them too."),
+                                                   grp_record);
+    record_hide_card->setChecked(config->get_recording_hide_toolbar_in_captures());
+    dialog->behavior_controls.emplace_back("recording_hide_toolbar_in_captures", record_hide_card);
+    grp_record->addSettingCard(record_hide_card);
+    layout->addWidget(grp_record);
+
+    // ── Watermark ── (text and style are edited in the capture toolbar's watermark panel)
+    auto *grp_watermark = new SettingsCardGroup(dialog->tr_text("Watermark"), view, "capture");
+    switch_card(dialog, grp_watermark, FluentIcon::Sparkle, "Add the Last Watermark Automatically",
+                "If the last screenshot ended with a watermark, the next one gets the same watermark "
+                "with the time updated; otherwise none is added. Screenshots taken with mouse shortcuts follow the same rule.",
+                config->get_screenshot_watermark_auto(), "watermark_auto_toggle");
+    layout->addWidget(grp_watermark);
     layout->addStretch();
     scroll->setWidget(view);
     return scroll;
