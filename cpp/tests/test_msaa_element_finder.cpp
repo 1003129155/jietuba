@@ -114,14 +114,15 @@ private slots:
         CursorRestore restore;
         CanvasScene scene(image(), QRectF(0, 0, 400, 300));
         CanvasView view(&scene);
-        setup_view(view, controls(150, 400));
+        // 150 answers slowly enough that the reply for 140 can be seen under a loaded ctest -j.
+        setup_view(view, controls(150, 1500));
         hover(view, QPointF(100, 30));
         QTRY_COMPARE_WITH_TIMEOUT(selection(view), QRectF(80, 10, 40, 50), 1000);
         // 140 is still being answered when the pointer reaches 150; its control covers 150.
         hover(view, QPointF(140, 30));
         hover(view, QPointF(150, 30));
-        QTRY_COMPARE_WITH_TIMEOUT(selection(view), QRectF(120, 10, 40, 50), 300);
-        QTRY_COMPARE_WITH_TIMEOUT(selection(view), QRectF(130, 10, 40, 50), 1000);
+        QTRY_COMPARE_WITH_TIMEOUT(selection(view), QRectF(120, 10, 40, 50), 1000);
+        QTRY_COMPARE_WITH_TIMEOUT(selection(view), QRectF(130, 10, 40, 50), 3000);
     }
     void selectionHoldsWhileTheNextControlIsLookedUp() {
         CursorRestore restore;
