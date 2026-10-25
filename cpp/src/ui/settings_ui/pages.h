@@ -1,6 +1,7 @@
 #pragma once
 #include "translation/provider.h"
 #include "translation/service.h"
+#include "translation/speech_service.h"
 #include "ui/fluent_lite/theme.h"
 #include <QColor>
 #include <QMap>
@@ -20,6 +21,7 @@ class QVBoxLayout;
 namespace jietuba {
 class HotkeyEdit;
 class ProviderRegistry;
+class SettingsCardGroup;
 class SettingsDialog;
 class ToolSettingsManager;
 
@@ -91,6 +93,15 @@ void refresh_latest_log_label(SettingsDialog *dialog);
 // page_translation: this month's usage and the guard state of a provider declaring a free
 // quota; empty for other providers.
 QString quota_usage_text(SettingsDialog *dialog, const QString &provider_id, std::optional<qint64> usage = std::nullopt);
+// The voice preferences ("lang=token"), including voices currently not installed.
+QStringList speech_voice_choices(const SettingsDialog *dialog);
+// Selects each language's saved voice; a language without one, or whose voice is gone, shows Auto.
+void select_speech_voices(SettingsDialog *dialog, const QStringList &saved);
+void reset_speech_voices(SettingsDialog *dialog);
+// The settings window stays alive hidden between uses, so voices installed or removed meanwhile
+// rebuild the read-aloud group. Returns the new group, or nullptr when nothing changed or the
+// page is not built.
+SettingsCardGroup *rebuild_speech_group(SettingsDialog *dialog, std::vector<VoiceInfo> voices);
 
 // provider_fields: reading and writing provider settings declared by Field; no layout.
 // The settings page and the welcome page lay them out differently, but which fields exist

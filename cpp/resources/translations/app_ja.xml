@@ -6887,4 +6887,44 @@ Replace it?</source>
         <translation>クリップボードウィンドウを開いたときに表示する位置</translation>
     </message>
 </context>
+<!-- ========== Read Aloud Settings ========== -->
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Read Aloud</source>
+        <translation>読み上げ</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>自動</translation>
+    </message>
+    <message>
+        <source>Preview</source>
+        <translation>試聴</translation>
+    </message>
+    <message>
+        <source>Stop</source>
+        <translation>停止</translation>
+    </message>
+    <message>
+        <source>Speech Rate</source>
+        <translation>読み上げ速度</translation>
+    </message>
+    <message>
+        <source>Volume</source>
+        <translation>音量</translation>
+    </message>
+    <message>
+        <source>Add Voices</source>
+        <translation>音声の追加</translation>
+    </message>
+    <message>
+        <source>Install voices for more languages in Windows Settings.</source>
+        <translation>Windows の設定で他の言語の読み上げ音声を追加できます。</translation>
+    </message>
+    <message>
+        <source>Open Settings</source>
+        <translation>設定を開く</translation>
+    </message>
+</context>
 </TS>

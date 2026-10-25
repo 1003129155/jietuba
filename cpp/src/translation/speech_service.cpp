@@ -1,10 +1,14 @@
 #include "translation/speech_service.h"
 #include "core/logger.h"
+#include "settings/tool_settings.h"
 #include <QCoreApplication>
 #include <QSet>
+#include <QSettings>
 #include <QStringList>
+#include <algorithm>
 #include <chrono>
 #include <limits>
+#include <stdexcept>
 
 #include <windows.h>
 #include <sapi.h>
@@ -97,8 +101,64 @@ double monotonic() {
     return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
+QStringList &categories_override() {
+    static QStringList categories;
+    return categories;
+}
+
+QString chosen_voice_token(const QString &language_key) {
+    if (language_key.isEmpty()) return {};
+    for (const auto &entry : get_tool_settings_manager()->get_speech_voices())
+        if (entry.section('=', 0, 0) == language_key) return entry.section('=', 1);
+    return {};
+}
+
+SpeechStyle saved_style() {
+    auto *config = get_tool_settings_manager();
+    return {config->get_speech_rate(), config->get_speech_volume()};
+}
+
 SpeechService *g_instance = nullptr;
 quint64 g_last_owner = 0;
+}
+
+QString voice_language_key(const QLocale &locale) {
+    if (locale.language() == QLocale::C || locale.language() == QLocale::AnyLanguage) return {};
+    return QLocale::languageToCode(locale.language(), QLocale::ISO639Part1);
+}
+
+QString voice_language_key(const QString &lang_code) {
+    if (lang_code.isEmpty()) return {};
+    return voice_language_key(QLocale(QString(lang_code).replace('-', '_')));
+}
+
+std::vector<VoiceInfo> registered_voices(const QStringList &categories, bool *has_enumerator) {
+    std::vector<VoiceInfo> found;
+    QSet<QString> seen;
+    if (has_enumerator) *has_enumerator = false;
+    // The same lookup as token_description.
+    const QString ui_language = QString::number(GetUserDefaultUILanguage(), 16);
+    for (const auto &category : categories) {
+        QSettings registry(category, QSettings::NativeFormat);
+        if (has_enumerator) {
+            registry.beginGroup("TokenEnums");
+            if (!registry.childGroups().isEmpty()) *has_enumerator = true;
+            registry.endGroup();
+        }
+        registry.beginGroup("Tokens");
+        for (const auto &key : registry.childGroups()) {
+            registry.beginGroup(key);
+            QString name = registry.value(ui_language).toString();
+            if (name.isEmpty()) name = registry.value("Default").toString();
+            const auto locale = locale_from_lcid(registry.value("Attributes/Language").toString());
+            registry.endGroup();
+            if (name.isEmpty() || !locale || seen.contains(name)) continue;
+            seen.insert(name);
+            found.push_back({name, *locale, category + "\\Tokens\\" + key});
+        }
+        registry.endGroup();
+    }
+    return found;
 }
 
 QString guess_text_language(const QString &text) {
@@ -210,7 +270,17 @@ bool SapiBackend::voices(std::vector<VoiceInfo> &found, QString &error) {
     return true;
 }
 
-bool SapiBackend::speak(const VoiceInfo &voice, const QString &text, QString &error) {
+std::vector<VoiceInfo> installed_speech_voices(const QStringList &categories) {
+    bool has_enumerator = false;
+    auto found = registered_voices(categories, &has_enumerator);
+    if (!has_enumerator) return found;
+    QString error;
+    auto backend = SapiBackend::create(error);
+    if (!backend || !backend->voices(found, error)) throw std::runtime_error(error.toStdString());
+    return found;
+}
+
+bool SapiBackend::speak(const VoiceInfo &voice, const QString &text, const SpeechStyle &style, QString &error) {
     ComPtr<ISpObjectToken> token;
     for (const auto &[id, candidate] : impl_->tokens)
         if (id == voice.token) token = candidate;
@@ -221,6 +291,12 @@ bool SapiBackend::speak(const VoiceInfo &voice, const QString &text, QString &er
     HRESULT hr = impl_->voice->SetVoice(token.Get());
     if (FAILED(hr)) {
         error = com_error("SetVoice", hr);
+        return false;
+    }
+    hr = impl_->voice->SetRate(std::clamp(style.rate, -10, 10));
+    if (SUCCEEDED(hr)) hr = impl_->voice->SetVolume(static_cast<USHORT>(std::clamp(style.volume, 0, 100)));
+    if (FAILED(hr)) {
+        error = com_error("SetRate/SetVolume", hr);
         return false;
     }
     hr = impl_->voice->Speak(reinterpret_cast<const wchar_t *>(text.utf16()), SPEAK_TEXT_FLAGS, nullptr);
@@ -304,6 +380,13 @@ void SpeechService::set_backend_factory(SpeechBackendFactory factory) { backend_
 
 void SpeechService::set_clock(std::function<double()> now) { clock() = std::move(now); }
 
+void SpeechService::set_voice_categories(const QStringList &categories) { categories_override() = categories; }
+
+QStringList SpeechService::voice_categories() {
+    if (!categories_override().isEmpty()) return categories_override();
+    return {QString::fromWCharArray(SPCAT_VOICES), QString::fromWCharArray(ONECORE_VOICES)};
+}
+
 void SpeechService::reset_instance() {
     auto *service = g_instance;
     g_instance = nullptr;
@@ -342,6 +425,7 @@ SpeechBackend *SpeechService::ensure_backend() {
 void SpeechService::load_voices() {
     auto *backend = ensure_backend();
     voices_.clear();
+    all_voices_.clear();
     voices_loaded_at_ = monotonic();
     if (!backend) return;
     std::vector<VoiceInfo> voices;
@@ -350,6 +434,7 @@ void SpeechService::load_voices() {
         log_warning("Speech voice enumeration failed: " + error, "Speech");
         return;
     }
+    all_voices_ = voices;
     QStringList names;
     for (const auto &voice : voices) {
         voices_[static_cast<int>(voice.locale.language())].push_back(voice);
@@ -359,6 +444,34 @@ void SpeechService::load_voices() {
 }
 
 std::optional<VoiceInfo> SpeechService::voice_for(const QString &lang_code) {
+    if (lang_code.isEmpty()) return std::nullopt;
+    const QString chosen = chosen_voice_token(voice_language_key(lang_code));
+    if (!chosen.isEmpty()) {
+        // A chosen voice since uninstalled, or one of another language, falls back to the automatic choice.
+        const auto voice = voice_by_token(chosen);
+        if (voice && voice_language_key(voice->locale) == voice_language_key(lang_code)) return voice;
+    }
+    return automatic_voice(lang_code);
+}
+
+std::optional<VoiceInfo> SpeechService::voice_by_token(const QString &token) {
+    if (!voices_loaded_at_) load_voices();
+    const auto find = [this, &token]() -> std::optional<VoiceInfo> {
+        for (const auto &voice : all_voices_)
+            // Token ids are registry paths, which ignore case.
+            if (voice.token.compare(token, Qt::CaseInsensitive) == 0) return voice;
+        return std::nullopt;
+    };
+    auto voice = find();
+    // Picked in the settings from a voice installed after the engine listed them.
+    if (!voice && monotonic() - *voices_loaded_at_ >= VOICE_RESCAN_SECONDS) {
+        load_voices();
+        voice = find();
+    }
+    return voice;
+}
+
+std::optional<VoiceInfo> SpeechService::automatic_voice(const QString &lang_code) {
     if (lang_code.isEmpty()) return std::nullopt;
     if (!voices_loaded_at_) load_voices();
     const QLocale wanted(QString(lang_code).replace('-', '_'));
@@ -382,11 +495,34 @@ void SpeechService::toggle(quint64 owner, const QString &text, const QString &la
 
 bool SpeechService::speak(quint64 owner, const QString &raw_text, const QString &lang_code) {
     const QString text = raw_text.trimmed();
-    const auto voice = text.isEmpty() ? std::nullopt : voice_for(lang_code);
+    if (text.isEmpty()) return false;
+    return start_or_relist(owner, text, [this, &lang_code] { return voice_for(lang_code); }, saved_style());
+}
+
+bool SpeechService::preview(quint64 owner, const QString &raw_text, const QString &lang_code, const QString &token, const SpeechStyle &style) {
+    const QString text = raw_text.trimmed();
+    if (text.isEmpty()) return false;
+    return start_or_relist(owner, text, [this, &lang_code, &token] { return token.isEmpty() ? automatic_voice(lang_code) : voice_by_token(token); }, style);
+}
+
+bool SpeechService::start_or_relist(quint64 owner, const QString &text, const std::function<std::optional<VoiceInfo>()> &choose, const SpeechStyle &style) {
+    const auto voice = choose();
+    if (start(owner, text, voice, style)) return true;
+    if (!voice || !backend_) return false;
+    load_voices();
+    const auto again = choose();
+    // Still listed: it failed for another reason, and trying it again would fail the same way.
+    if (again && again->token.compare(voice->token, Qt::CaseInsensitive) == 0) return false;
+    // The list changed under the speak buttons, which enable themselves by can_speak.
+    emit state_changed();
+    return again && start(owner, text, again, style);
+}
+
+bool SpeechService::start(quint64 owner, const QString &text, const std::optional<VoiceInfo> &voice, const SpeechStyle &style) {
     if (!voice || !backend_) return false;
     QString error;
     // The purge-first flag replaces whatever is being read without waiting for it to stop.
-    if (!backend_->speak(*voice, text, error)) {
+    if (!backend_->speak(*voice, text, style, error)) {
         log_warning(QString("Speech failed to start with %1: %2").arg(voice->name, error), "Speech");
         // Setting the voice may have failed, leaving the previous reading running.
         purge();

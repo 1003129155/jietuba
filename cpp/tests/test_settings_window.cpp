@@ -6,6 +6,7 @@
 #include "ocr/ppocr_models.h"
 #include "settings/settings_transfer.h"
 #include "settings/tool_settings.h"
+#include "translation/speech_service.h"
 #include "core/ui_scale.h"
 #include "ui/color_picker_dialog.h"
 #include "ui/fluent_lite/cards.h"
@@ -106,6 +107,27 @@ QStringList texts_of(const std::vector<HotkeyEdit *> &edits) {
     return texts;
 }
 }
+
+// Reads nothing aloud; records what it was asked to read.
+class RecordingSpeech : public SpeechBackend {
+public:
+    bool voices(std::vector<VoiceInfo> &found, QString &) override { return found = voice_list, true; }
+    bool speak(const VoiceInfo &voice, const QString &text, const SpeechStyle &style, QString &) override {
+        spoken.push_back({voice.name, text, style});
+        done = false;
+        return true;
+    }
+    bool purge(QString &) override { return done = true; }
+    bool poll(SpeechStatus &status, QString &) override { return status = {done, 0, 0}, true; }
+    bool close(QString &error) override { return purge(error); }
+    struct Spoken {
+        QString voice, text;
+        SpeechStyle style;
+    };
+    std::vector<VoiceInfo> voice_list;
+    std::vector<Spoken> spoken;
+    bool done = true;
+};
 
 // Records the URLs the dialog asks the desktop to open.
 class UrlCatcher : public QObject {
@@ -1552,6 +1574,204 @@ private slots:
         QCOMPARE(dialog.content_stack->currentIndex(), 0);
         QVERIFY(dialog.attr<HotkeyEdit>("screen_annotation_hotkey_edit"));
         config_->set_global_hotkeys("screen_annotation", {"", "", "", ""});
+    }
+
+    // The read-aloud rows list the registered voices without starting the speech engine, save a
+    // choice per language next to choices for languages not installed now, preview the row's
+    // current voice and style, and reset to the automatic choice.
+    void readAloudVoicesSaveResetAndPreview() {
+        const QString root = QString("HKEY_CURRENT_USER\\Software\\jietuba_tests\\settings_speech_%1").arg(QCoreApplication::applicationPid());
+        const QStringList categories{root + "\\Classic", root + "\\Modern"};
+        const std::tuple<QString, QString, QString, QString> tokens[] = {{categories[0], "ZhA", "Microsoft Alpha - Chinese", "804"},
+                                                                         {categories[1], "ZhB", "Microsoft Beta - Chinese", "804"},
+                                                                         {categories[1], "En", "Microsoft Gamma - English", "409"}};
+        auto backend = std::make_shared<RecordingSpeech>();
+        for (const auto &[category, key, name, language] : tokens) {
+            QSettings registry(category, QSettings::NativeFormat);
+            registry.setValue("Tokens/" + key + "/Default", name);
+            registry.setValue("Tokens/" + key + "/Attributes/Language", language);
+            backend->voice_list.push_back({name, *locale_from_lcid(language), category + "\\Tokens\\" + key});
+        }
+        int engines = 0;
+        SpeechService::set_voice_categories(categories);
+        SpeechService::set_backend_factory([backend, &engines](QString &) {
+            ++engines;
+            return backend;
+        });
+        config_->set_speech_voices({"ko=elsewhere"});
+        const auto restore = qScopeGuard([this, root] {
+            SpeechService::reset_instance();
+            SpeechService::set_backend_factory(nullptr);
+            SpeechService::set_voice_categories({});
+            QSettings(root, QSettings::NativeFormat).remove("");
+            QSettings("HKEY_CURRENT_USER\\Software\\jietuba_tests", QSettings::NativeFormat).remove(root.section('\\', -1));
+            config_->set_speech_voices({});
+            config_->set_speech_rate(0);
+            config_->set_speech_volume(100);
+        });
+
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.on_nav_changed(4, "translation");
+        QTRY_COMPARE(dialog.speech_voice_combos.size(), size_t(2));
+        QCOMPARE(engines, 0);
+        QStringList keys;
+        for (const auto &[key, combo] : dialog.speech_voice_combos) keys << key;
+        QCOMPARE(keys, QStringList({"zh", "en"}));
+        QPointer<QComboBox> chinese = dialog.speech_voice_combos.front().second;
+        QStringList items;
+        for (int index = 0; index < chinese->count(); ++index) items << chinese->itemText(index);
+        QCOMPARE(items, QStringList({settings_tr("Auto"), "Alpha", "Beta"}));
+        QCOMPARE(chinese->currentIndex(), 0);
+
+        chinese->setCurrentIndex(2);
+        auto *rate = qobject_cast<QComboBox *>(dialog.behavior_control("speech_rate"));
+        auto *volume = qobject_cast<QComboBox *>(dialog.behavior_control("speech_volume"));
+        QVERIFY(rate && volume);
+        rate->setCurrentIndex(rate->findData(4));
+        volume->setCurrentIndex(volume->findData(60));
+        QTRY_COMPARE(config_->get_speech_voices(), QStringList({"ko=elsewhere", "zh=" + categories[1] + "\\Tokens\\ZhB"}));
+        QCOMPARE(config_->get_speech_rate(), 4);
+        QCOMPARE(config_->get_speech_volume(), 60);
+
+        QPushButton *preview = nullptr;
+        for (auto *button : chinese->parentWidget()->findChildren<QPushButton *>())
+            if (button->toolTip() == settings_tr("Preview")) preview = button;
+        QVERIFY(preview);
+        // The other combos change before the save, so the preview reads what is shown.
+        rate->setCurrentIndex(rate->findData(-3));
+        chinese->setCurrentIndex(1);
+        preview->click();
+        QCOMPARE(engines, 1);
+        QCOMPARE(backend->spoken.size(), size_t(1));
+        QCOMPARE(backend->spoken.back().voice, QString("Microsoft Alpha - Chinese"));
+        QVERIFY(backend->spoken.back().text.contains(QString::fromUtf8("朗读")));
+        QCOMPARE(backend->spoken.back().style.rate, -3);
+        QCOMPARE(backend->spoken.back().style.volume, 60);
+        QCOMPARE(preview->toolTip(), settings_tr("Stop"));
+        preview->click();
+        QCOMPARE(preview->toolTip(), settings_tr("Preview"));
+        QCOMPARE(backend->spoken.size(), size_t(1));
+
+        QPushButton *reset = nullptr;
+        for (auto *button : dialog.findChildren<QPushButton *>())
+            if (button->text() == settings_tr("Reset This Page")) reset = button;
+        QVERIFY(reset);
+        answer_next(true);
+        reset->click();
+        QCOMPARE(chinese->currentIndex(), 0);
+        QCOMPARE(rate->currentData().toInt(), 0);
+        QTRY_COMPARE(config_->get_speech_voices(), QStringList({"ko=elsewhere"}));
+        QCOMPARE(config_->get_speech_rate(), 0);
+        QCOMPARE(config_->get_speech_volume(), 100);
+
+        // The window is kept hidden between uses: voices installed or removed meanwhile show when
+        // it comes back, and the rebuilt rows save like the first ones.
+        dialog.hide();
+        QSettings(categories[0], QSettings::NativeFormat).remove("Tokens/ZhA");
+        {
+            QSettings registry(categories[1], QSettings::NativeFormat);
+            registry.setValue("Tokens/Ja/Default", "Microsoft Delta - Japanese");
+            registry.setValue("Tokens/Ja/Attributes/Language", "411");
+        }
+        dialog.show();
+        QTRY_VERIFY(!chinese);
+        keys.clear();
+        for (const auto &[key, combo] : dialog.speech_voice_combos) keys << key;
+        keys.sort();
+        QCOMPARE(keys, QStringList({"en", "ja", "zh"}));
+        QVERIFY(!chinese);
+        for (const auto &[key, combo] : dialog.speech_voice_combos)
+            if (key == "zh") chinese = combo;
+        QVERIFY(chinese);
+        QCOMPARE(chinese->count(), 2);
+        QCOMPARE(chinese->itemText(1), QString("Beta"));
+        chinese->setCurrentIndex(1);
+        rate = qobject_cast<QComboBox *>(dialog.behavior_control("speech_rate"));
+        QVERIFY(rate);
+        rate->setCurrentIndex(rate->findData(2));
+        QTRY_COMPARE(config_->get_speech_voices(), QStringList({"ko=elsewhere", "zh=" + categories[1] + "\\Tokens\\ZhB"}));
+        QCOMPARE(config_->get_speech_rate(), 2);
+    }
+
+    void voiceRefreshPreservesPendingEditsAndUnavailablePreferences() {
+        const QString root = QString("HKEY_CURRENT_USER\\Software\\jietuba_tests\\refresh_speech_%1").arg(QCoreApplication::applicationPid());
+        const QString category = root + "\\Voices";
+        const QString token_a = category + "\\Tokens\\A", token_b = category + "\\Tokens\\B";
+        const auto add_voice = [category](const QString &key, const QString &name) {
+            QSettings registry(category, QSettings::NativeFormat);
+            registry.setValue("Tokens/" + key + "/Default", name);
+            registry.setValue("Tokens/" + key + "/Attributes/Language", "804");
+        };
+        add_voice("A", "Voice A");
+        add_voice("B", "Voice B");
+        SpeechService::set_voice_categories({category});
+        config_->set_speech_voices({"zh=" + token_a});
+        const auto restore = qScopeGuard([this, root] {
+            SpeechService::reset_instance();
+            SpeechService::set_voice_categories({});
+            QSettings("HKEY_CURRENT_USER\\Software\\jietuba_tests", QSettings::NativeFormat).remove(root.section('\\', -1));
+            config_->set_speech_voices({});
+            config_->set_speech_rate(0);
+            config_->set_speech_volume(100);
+        });
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.on_nav_changed(4, "translation");
+        QTRY_COMPARE(dialog.speech_voice_combos.size(), size_t(1));
+        QPointer<QComboBox> chinese = dialog.speech_voice_combos.front().second;
+        QCOMPARE(chinese->currentData().toString(), token_a);
+        QVERIFY(!dialog.has_unsaved_changes());
+
+        // A refresh uses the selections present when its result arrives, including unsaved edits.
+        add_voice("C", "Voice C");
+        dialog.refresh_external_state();
+        chinese->setCurrentIndex(chinese->findData(token_b));
+        auto *rate = qobject_cast<QComboBox *>(dialog.behavior_control("speech_rate"));
+        auto *volume = qobject_cast<QComboBox *>(dialog.behavior_control("speech_volume"));
+        rate->setCurrentIndex(rate->findData(4));
+        volume->setCurrentIndex(volume->findData(60));
+        QTRY_VERIFY(!chinese);
+        chinese = dialog.speech_voice_combos.front().second;
+        QCOMPARE(chinese->currentData().toString(), token_b);
+        QCOMPARE(qobject_cast<QComboBox *>(dialog.behavior_control("speech_rate"))->currentData().toInt(), 4);
+        QCOMPARE(qobject_cast<QComboBox *>(dialog.behavior_control("speech_volume"))->currentData().toInt(), 60);
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_speech_voices(), QStringList{"zh=" + token_b});
+        QSignalSpy saved(&dialog, &SettingsDialog::settings_applied);
+
+        QSettings(category, QSettings::NativeFormat).remove("Tokens/B");
+        dialog.refresh_external_state();
+        QTRY_VERIFY(!chinese);
+        chinese = dialog.speech_voice_combos.front().second;
+        QCOMPARE(chinese->currentIndex(), 0);
+        QVERIFY(!dialog.has_unsaved_changes());
+        QTest::qWait(350);
+        QCOMPARE(config_->get_speech_voices(), QStringList{"zh=" + token_b});
+        QCOMPARE(saved.count(), 0);
+
+        // Removing a whole language also keeps its preference, which returns with the voice.
+        QSettings(category, QSettings::NativeFormat).remove("Tokens");
+        dialog.refresh_external_state();
+        QTRY_VERIFY(dialog.speech_voice_combos.empty());
+        QVERIFY(!dialog.has_unsaved_changes());
+        add_voice("B", "Voice B");
+        dialog.refresh_external_state();
+        QTRY_COMPARE(dialog.speech_voice_combos.size(), size_t(1));
+        QCOMPARE(dialog.speech_voice_combos.front().second->currentData().toString(), token_b);
+        QVERIFY(!dialog.has_unsaved_changes());
+        QCOMPARE(saved.count(), 0);
+        add_voice("A", "Voice A");
+        QSettings(category, QSettings::NativeFormat).remove("Tokens/B");
+        chinese = dialog.speech_voice_combos.front().second;
+        dialog.refresh_external_state();
+        QTRY_VERIFY(!chinese);
+        chinese = dialog.speech_voice_combos.front().second;
+        QCOMPARE(chinese->currentIndex(), 0);
+        // Explicitly choosing the already displayed Auto clears the missing preference.
+        QVERIFY(QMetaObject::invokeMethod(chinese, "activated", Q_ARG(int, 0)));
+        QTRY_VERIFY(config_->get_speech_voices().isEmpty());
+        QCOMPARE(saved.count(), 1);
     }
 
     // The logo's context menu opens the developer page; the pin page links to its shortcut tabs.

@@ -714,6 +714,8 @@ void SettingsDialog::reset_translation_page() {
     select_data(attr<QComboBox>("translation_target_combo"), defaults.value("translation_target_lang"));
     if (auto *toggle = attr_widget("split_sentences_toggle")) set_checked(toggle, defaults.value("translation_split_sentences").toBool());
     if (auto *toggle = attr_widget("preserve_formatting_toggle")) set_checked(toggle, defaults.value("translation_preserve_formatting").toBool());
+    reset_speech_voices(this);
+    refresh_behavior_controls(true, {}, std::set<QString>{"speech_rate", "speech_volume"});
 }
 
 void SettingsDialog::reset_clipboard_page() {
@@ -880,6 +882,7 @@ void SettingsDialog::save_changes(QSet<QString> changed) {
     if (auto *toggle = attr_widget("split_sentences_toggle"); toggle && has("split_sentences_toggle")) config_manager->set_translation_split_sentences(checked_of(toggle));
     if (auto *toggle = attr_widget("preserve_formatting_toggle"); toggle && has("preserve_formatting_toggle"))
         config_manager->set_translation_preserve_formatting(checked_of(toggle));
+    if (has("speech_voice_combos")) config_manager->set_speech_voices(speech_voice_choices(this));
 
     // 6. Miscellaneous. Changing autostart or admin mode may ask for administrator permission;
     // that prompt is the confirmation.
@@ -1099,6 +1102,12 @@ void SettingsDialog::refresh_external_state() {
     for (const auto &refresh : external_refreshes_) refresh();
 }
 
+void SettingsDialog::adopt_controls(QWidget *root) {
+    configure_dialog_controls(*root);
+    disable_wheel_on_value_controls(root);
+    connect_save_tracking(root);
+}
+
 void SettingsDialog::hideEvent(QHideEvent *event) {
     apply_settings();
     // Title bar buttons go back to their normal state when hidden.
@@ -1127,6 +1136,7 @@ QVariantMap SettingsDialog::snapshot_settings() const {
     if (provider_field_widgets)
         for (const auto &f : provider_fields::all_fields(*translation_registry))
             if (QWidget *widget = provider_field_widgets->value(f.config_key)) snap[f.config_key] = provider_fields::widget_value(f, widget);
+    if (has_attr("speech_group")) snap["speech_voice_combos"] = speech_voice_choices(this);
     // Switches.
     for (const char *name : {"ocr_copy_directly_toggle", "barcode_copy_single_toggle", "cross_tool_selection_toggle", "text_always_on_top_toggle", "smart_animation_toggle",
                              "save_toggle", "screenshot_pin_save_toggle", "clipboard_file_reference_toggle", "screenshot_save_original_toggle", "watermark_auto_toggle",
@@ -1303,6 +1313,7 @@ void SettingsDialog::refresh_settings() {
     select_data(attr<QComboBox>("translation_target_combo"), config_manager->get_saved_translation_target_lang());
     if (auto *toggle = attr_widget("split_sentences_toggle")) set_checked(toggle, config_manager->get_translation_split_sentences());
     if (auto *toggle = attr_widget("preserve_formatting_toggle")) set_checked(toggle, config_manager->get_translation_preserve_formatting());
+    select_speech_voices(this, config_manager->get_speech_voices());
 
     if (auto *toggle = attr_widget("log_toggle")) set_checked(toggle, config_manager->get_log_enabled());
     if (auto *combo = attr<QComboBox>("log_level_combo")) combo->setCurrentText(config_manager->get_log_level());

@@ -6877,4 +6877,44 @@ Replace it?</source>
         <translation>剪贴板窗口打开时出现的位置</translation>
     </message>
 </context>
+<!-- ========== Read Aloud Settings ========== -->
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Read Aloud</source>
+        <translation>朗读</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>自动</translation>
+    </message>
+    <message>
+        <source>Preview</source>
+        <translation>试听</translation>
+    </message>
+    <message>
+        <source>Stop</source>
+        <translation>停止</translation>
+    </message>
+    <message>
+        <source>Speech Rate</source>
+        <translation>语速</translation>
+    </message>
+    <message>
+        <source>Volume</source>
+        <translation>音量</translation>
+    </message>
+    <message>
+        <source>Add Voices</source>
+        <translation>添加语音</translation>
+    </message>
+    <message>
+        <source>Install voices for more languages in Windows Settings.</source>
+        <translation>在 Windows 设置中为更多语言安装朗读语音。</translation>
+    </message>
+    <message>
+        <source>Open Settings</source>
+        <translation>打开设置</translation>
+    </message>
+</context>
 </TS>

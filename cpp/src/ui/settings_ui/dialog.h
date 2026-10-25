@@ -17,6 +17,7 @@
 #include <type_traits>
 #include <vector>
 
+class QComboBox;
 class QLabel;
 class QStackedWidget;
 class QPushButton;
@@ -125,6 +126,8 @@ public:
     }
     // Queues the registered queries; repeated requests are coalesced by each job.
     Q_INVOKABLE void refresh_external_state();
+    // Prepares controls added after their page was built: scaling, the wheel guard and autosave.
+    void adopt_controls(QWidget *root);
     // In-app shortcut editors by configuration key, in creation order, and their conflict group.
     std::vector<std::pair<QString, InAppKeyEdit *>> inapp_edits;
     QMap<QString, QString> inapp_groups;
@@ -148,6 +151,10 @@ public:
     std::optional<QMap<QString, QPointer<QWidget>>> provider_field_widgets;
     QMap<QString, QPointer<QWidget>> provider_sections;
     QMap<QString, QPointer<QLabel>> provider_status_labels;
+    // Reading voice choice per language key ("zh"); an empty item data is the automatic choice.
+    std::vector<std::pair<QString, QPointer<QComboBox>>> speech_voice_combos;
+    // Preferences include temporarily missing voices, independently of which rows are visible.
+    QStringList speech_voice_preferences;
     QMap<QString, qint64> translation_usage;
     QMap<QString, QPointer<QWidget>> request_option_cards;
 

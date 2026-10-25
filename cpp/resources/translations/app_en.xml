@@ -6822,4 +6822,44 @@ Replace it?</translation>
         <translation>Where the clipboard window appears when it opens</translation>
     </message>
 </context>
+<!-- ========== Read Aloud Settings ========== -->
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Read Aloud</source>
+        <translation>Read Aloud</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>Auto</translation>
+    </message>
+    <message>
+        <source>Preview</source>
+        <translation>Preview</translation>
+    </message>
+    <message>
+        <source>Stop</source>
+        <translation>Stop</translation>
+    </message>
+    <message>
+        <source>Speech Rate</source>
+        <translation>Speech Rate</translation>
+    </message>
+    <message>
+        <source>Volume</source>
+        <translation>Volume</translation>
+    </message>
+    <message>
+        <source>Add Voices</source>
+        <translation>Add Voices</translation>
+    </message>
+    <message>
+        <source>Install voices for more languages in Windows Settings.</source>
+        <translation>Install voices for more languages in Windows Settings.</translation>
+    </message>
+    <message>
+        <source>Open Settings</source>
+        <translation>Open Settings</translation>
+    </message>
+</context>
 </TS>

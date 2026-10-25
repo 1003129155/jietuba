@@ -6875,4 +6875,44 @@ Replace it?</source>
         <translation>클립보드 창이 열릴 때 표시되는 위치</translation>
     </message>
 </context>
+<!-- ========== Read Aloud Settings ========== -->
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Read Aloud</source>
+        <translation>소리 내어 읽기</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>자동</translation>
+    </message>
+    <message>
+        <source>Preview</source>
+        <translation>미리 듣기</translation>
+    </message>
+    <message>
+        <source>Stop</source>
+        <translation>중지</translation>
+    </message>
+    <message>
+        <source>Speech Rate</source>
+        <translation>읽기 속도</translation>
+    </message>
+    <message>
+        <source>Volume</source>
+        <translation>음량</translation>
+    </message>
+    <message>
+        <source>Add Voices</source>
+        <translation>음성 추가</translation>
+    </message>
+    <message>
+        <source>Install voices for more languages in Windows Settings.</source>
+        <translation>Windows 설정에서 다른 언어의 읽기 음성을 설치할 수 있습니다.</translation>
+    </message>
+    <message>
+        <source>Open Settings</source>
+        <translation>설정 열기</translation>
+    </message>
+</context>
 </TS>

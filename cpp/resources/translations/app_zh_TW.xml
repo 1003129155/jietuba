@@ -7257,4 +7257,45 @@ Replace it?</source>
         <source>Where the clipboard window appears when it opens</source>
         <translation>剪貼簿視窗開啟時出現的位置</translation>
     </message>
-</context></TS>
+</context>
+<!-- ========== Read Aloud Settings ========== -->
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Read Aloud</source>
+        <translation>朗讀</translation>
+    </message>
+    <message>
+        <source>Auto</source>
+        <translation>自動</translation>
+    </message>
+    <message>
+        <source>Preview</source>
+        <translation>試聽</translation>
+    </message>
+    <message>
+        <source>Stop</source>
+        <translation>停止</translation>
+    </message>
+    <message>
+        <source>Speech Rate</source>
+        <translation>語速</translation>
+    </message>
+    <message>
+        <source>Volume</source>
+        <translation>音量</translation>
+    </message>
+    <message>
+        <source>Add Voices</source>
+        <translation>新增語音</translation>
+    </message>
+    <message>
+        <source>Install voices for more languages in Windows Settings.</source>
+        <translation>在 Windows 設定中為更多語言安裝朗讀語音。</translation>
+    </message>
+    <message>
+        <source>Open Settings</source>
+        <translation>開啟設定</translation>
+    </message>
+</context>
+</TS>

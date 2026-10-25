@@ -15,6 +15,8 @@
 #include <QTest>
 #include <QTextCursor>
 
+#include <windows.h>
+
 using namespace jietuba;
 
 namespace {
@@ -25,15 +27,22 @@ public:
         for (const auto &name : locales) add_voice(name);
     }
     void add_voice(const QString &locale_name) { voice_list.push_back({"Fake " + locale_name, QLocale(locale_name), locale_name}); }
+    void remove_voice(const QString &locale_name) {
+        voice_list.erase(std::remove_if(voice_list.begin(), voice_list.end(), [&](const VoiceInfo &voice) { return voice.token == locale_name; }), voice_list.end());
+    }
 
     bool voices(std::vector<VoiceInfo> &found, QString &error) override {
         if (!fail_voices.isEmpty()) return error = fail_voices, false;
         found = voice_list;
         return true;
     }
-    bool speak(const VoiceInfo &voice, const QString &text, QString &error) override {
+    bool speak(const VoiceInfo &voice, const QString &text, const SpeechStyle &style, QString &error) override {
         if (!fail_speak.isEmpty()) return error = fail_speak, false;
+        // Like SAPI, a token no longer registered cannot be set.
+        if (std::none_of(voice_list.begin(), voice_list.end(), [&](const VoiceInfo &listed) { return listed.token == voice.token; }))
+            return error = "voice not installed", false;
         spoken.push_back({voice.name, text});
+        styles.push_back(style);
         done = false;
         position = 0;
         return true;
@@ -56,6 +65,7 @@ public:
 
     std::vector<VoiceInfo> voice_list;
     std::vector<std::pair<QString, QString>> spoken;
+    std::vector<SpeechStyle> styles;
     int purges = 0;
     bool done = true;
     qint64 position = 0;
@@ -70,6 +80,22 @@ constexpr qint32 SPEECH_FAILURE = -2147200925;
 QString spoken_text(const FakeSpeechBackend &backend) { return backend.spoken.empty() ? QString() : backend.spoken.back().second; }
 
 QString spoken_voice(const FakeSpeechBackend &backend) { return backend.spoken.empty() ? QString() : backend.spoken.back().first; }
+
+// Voice tokens written under HKEY_CURRENT_USER for one test and removed afterwards.
+class RegistryVoices {
+public:
+    RegistryVoices() : name_(QString("speech_%1").arg(QCoreApplication::applicationPid())), root_(QString(PARENT) + "\\" + name_) {}
+    ~RegistryVoices() { QSettings(PARENT, QSettings::NativeFormat).remove(name_); }
+    QString category(const QString &name) const { return root_ + "\\" + name; }
+    void add(const QString &category, const QString &key, const QVariantMap &values) {
+        QSettings registry(this->category(category), QSettings::NativeFormat);
+        for (auto it = values.begin(); it != values.end(); ++it) registry.setValue("Tokens/" + key + "/" + it.key(), it.value());
+    }
+    void add_enumerator(const QString &category) { QSettings(this->category(category), QSettings::NativeFormat).setValue("TokenEnums/Extra/CLSID", "{0}"); }
+private:
+    static constexpr const char *PARENT = "HKEY_CURRENT_USER\\Software\\jietuba_tests";
+    QString name_, root_;
+};
 
 // Types at the end of the box the way a user edit arrives.
 void append_text(QTextEdit *edit, const QString &text) {
@@ -127,6 +153,7 @@ private slots:
         SpeechService::reset_instance();
         SpeechService::set_backend_factory(nullptr);
         SpeechService::set_clock(nullptr);
+        SpeechService::set_voice_categories({});
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
     }
 
@@ -180,6 +207,138 @@ private slots:
         QVERIFY(!service()->can_speak("ZH"));  // not re-enumerated on every refresh
         advance(SpeechService::VOICE_RESCAN_SECONDS);
         QVERIFY(service()->can_speak("ZH"));
+    }
+
+    void languageKeys_data() {
+        QTest::addColumn<QString>("code");
+        QTest::addColumn<QString>("key");
+        QTest::newRow("upper") << "ZH" << "zh";
+        QTest::newRow("script") << "ZH-HANT" << "zh";
+        QTest::newRow("territory") << "EN-US" << "en";
+        QTest::newRow("underscore") << "ja_JP" << "ja";
+        QTest::newRow("empty") << "" << "";
+    }
+
+    void languageKeys() {
+        QFETCH(QString, code);
+        QFETCH(QString, key);
+        QCOMPARE(voice_language_key(code), key);
+    }
+
+    // ---- Chosen voice and style ----
+
+    void chosenVoiceIsUsedForItsLanguage() {
+        backend_->add_voice("en_GB");
+        get_tool_settings_manager()->set_speech_voices({"fi=fi_FI", "en=en_GB"});
+        // The choice is per language, so it outranks a voice of the text's own territory.
+        QCOMPARE(service()->voice_for("EN-US")->name, QString("Fake en_GB"));
+        QCOMPARE(service()->voice_for("EN")->name, QString("Fake en_GB"));
+        QCOMPARE(service()->voice_for("FI")->name, QString("Fake fi_FI"));
+    }
+
+    void missingOrForeignChoiceFallsBack() {
+        get_tool_settings_manager()->set_speech_voices({"en=uninstalled"});
+        QCOMPARE(service()->voice_for("EN")->name, QString("Fake en_US"));
+        // A token of another language's voice never reads this one.
+        get_tool_settings_manager()->set_speech_voices({"en=fi_FI"});
+        QCOMPARE(service()->voice_for("EN")->name, QString("Fake en_US"));
+        get_tool_settings_manager()->set_speech_voices({"zh=fi_FI"});
+        QVERIFY(!service()->can_speak("ZH"));
+    }
+
+    void choiceInstalledLaterIsFoundAfterRescan() {
+        get_tool_settings_manager()->set_speech_voices({"en=en_GB"});
+        QCOMPARE(service()->voice_for("EN")->name, QString("Fake en_US"));
+        backend_->add_voice("en_GB");
+        advance(1);
+        QCOMPARE(service()->voice_for("EN")->name, QString("Fake en_US"));
+        advance(SpeechService::VOICE_RESCAN_SECONDS);
+        QCOMPARE(service()->voice_for("EN")->name, QString("Fake en_GB"));
+    }
+
+    void uninstalledVoiceFallsBackAfterRelisting() {
+        backend_->add_voice("en_GB");
+        get_tool_settings_manager()->set_speech_voices({"en=en_GB"});
+        QCOMPARE(service()->voice_for("EN")->name, QString("Fake en_GB"));
+        backend_->remove_voice("en_GB");
+        QSignalSpy changed(service(), &SpeechService::state_changed);
+        QVERIFY(service()->speak(SpeechService::new_owner(), "hello", "EN"));
+        QCOMPARE(spoken_voice(*backend_), QString("Fake en_US"));
+        QVERIFY(!changed.isEmpty());
+        service()->stop();
+        // A previewed choice that is gone reads nothing rather than another voice.
+        QVERIFY(!service()->preview(SpeechService::new_owner(), "hello", "EN", "en_GB", {}));
+        // With the whole language gone nothing reads it, and the speak buttons turn off.
+        backend_->remove_voice("en_US");
+        QVERIFY(service()->can_speak("EN"));
+        QVERIFY(!service()->speak(SpeechService::new_owner(), "hello", "EN"));
+        QVERIFY(!service()->can_speak("EN"));
+    }
+
+    void savedStyleReachesTheEngine() {
+        QVERIFY(service()->speak(SpeechService::new_owner(), "hello", "EN"));
+        QCOMPARE(backend_->styles.back().rate, 0);
+        QCOMPARE(backend_->styles.back().volume, 100);
+        get_tool_settings_manager()->set_speech_rate(4);
+        get_tool_settings_manager()->set_speech_volume(60);
+        QVERIFY(service()->speak(SpeechService::new_owner(), "hello", "EN"));
+        QCOMPARE(backend_->styles.back().rate, 4);
+        QCOMPARE(backend_->styles.back().volume, 60);
+    }
+
+    void previewUsesTheGivenVoiceAndStyle() {
+        backend_->add_voice("en_GB");
+        get_tool_settings_manager()->set_speech_voices({"en=en_GB"});
+        get_tool_settings_manager()->set_speech_rate(4);
+        const auto owner = SpeechService::new_owner();
+        // An empty token is the automatic choice, whatever is saved.
+        QVERIFY(service()->preview(owner, " hi ", "EN", "", {-3, 40}));
+        QCOMPARE(spoken_voice(*backend_), QString("Fake en_US"));
+        QCOMPARE(spoken_text(*backend_), QString("hi"));
+        QCOMPARE(backend_->styles.back().rate, -3);
+        QCOMPARE(backend_->styles.back().volume, 40);
+        QVERIFY(service()->is_speaking(owner));
+        QVERIFY(service()->preview(owner, "hi", "EN", "fi_FI", {}));
+        QCOMPARE(spoken_voice(*backend_), QString("Fake fi_FI"));
+        QVERIFY(!service()->preview(owner, "hi", "EN", "uninstalled", {}));
+        QVERIFY(!service()->preview(owner, "  ", "EN", "", {}));
+    }
+
+    // ---- Voices listed for the settings ----
+
+    void registryListingMatchesWhatSapiReads() {
+        RegistryVoices registry;
+        const QString ui_value = QString::number(GetUserDefaultUILanguage(), 16);
+        registry.add("Classic", "A", {{"Default", "Voice A - Chinese"}, {"Attributes/Language", "804"}});
+        // The name in the interface language wins over the default value.
+        registry.add("Classic", "B", {{"Default", "Default B"}, {ui_value, "Voice B"}, {"Attributes/Language", "409;9"}});
+        registry.add("Classic", "NoLanguage", {{"Default", "Broken"}});
+        registry.add("Classic", "NoName", {{"Attributes/Language", "409"}});
+        registry.add("Modern", "A2", {{"Default", "Voice A - Chinese"}, {"Attributes/Language", "804"}});
+        registry.add("Modern", "C", {{"Default", "Voice C"}, {"Attributes/Language", "411"}});
+        QStringList listed;
+        for (const auto &voice : installed_speech_voices({registry.category("Classic"), registry.category("Modern")}))
+            listed << voice.name + "|" + voice.locale.name() + "|" + voice.token;
+        listed.sort();
+        QCOMPARE(listed, QStringList({"Voice A - Chinese|zh_CN|" + registry.category("Classic") + "\\Tokens\\A",
+                                      "Voice B|en_US|" + registry.category("Classic") + "\\Tokens\\B",
+                                      "Voice C|ja_JP|" + registry.category("Modern") + "\\Tokens\\C"}));
+    }
+
+    void settingsEnumerationUsesAnIndependentSapiBackend() {
+        RegistryVoices registry;
+        registry.add_enumerator("Classic");
+        QString error;
+        auto backend = SapiBackend::create(error);
+        if (!backend) QSKIP(qPrintable("SAPI unavailable: " + error));
+        std::vector<VoiceInfo> expected;
+        QVERIFY(backend->voices(expected, error));
+        const auto found = installed_speech_voices({registry.category("Classic")});
+        QStringList actual_tokens, expected_tokens;
+        for (const auto &voice : found) actual_tokens << voice.token;
+        for (const auto &voice : expected) expected_tokens << voice.token;
+        QCOMPARE(actual_tokens, expected_tokens);
+        QCOMPARE(service()->voice_for("EN")->name, QString("Fake en_US"));
     }
 
     // ---- Reading state ----
@@ -696,7 +855,7 @@ private slots:
         if (voices.empty()) QSKIP("no SAPI voices installed");
         QVERIFY2(backend->use_memory_output(error), qPrintable(error));
 
-        QVERIFY2(backend->speak(voices.front(), "<pitch middle='x'>1 < 2 & 3", error), qPrintable(error));
+        QVERIFY2(backend->speak(voices.front(), "<pitch middle='x'>1 < 2 & 3", {}, error), qPrintable(error));
         SpeechStatus status;
         // The first synthesis on a freshly started machine loads the voice, which can take far longer than later ones.
         QVERIFY(QTest::qWaitFor([&] { return backend->poll(status, error) && status.done; }, 60000));
@@ -714,7 +873,7 @@ private slots:
         if (voices.empty()) QSKIP("no SAPI voices installed");
         QVERIFY2(backend->use_memory_output(error), qPrintable(error));
 
-        QVERIFY(backend->speak(voices.front(), QString("one two three four five six seven eight nine ten ").repeated(50), error));
+        QVERIFY(backend->speak(voices.front(), QString("one two three four five six seven eight nine ten ").repeated(50), {}, error));
         SpeechStatus status;
         QVERIFY(backend->poll(status, error));
         QVERIFY(!status.done);
@@ -738,6 +897,45 @@ private slots:
         qInfo() << "SAPI voices:" << names;
     }
 
+    // The settings list reads the registry itself; it must name the same voices by the same
+    // tokens as SAPI, or a saved choice would never be found when reading.
+    void sapiListsTheRegisteredVoices() {
+        bool has_enumerator = false;
+        const auto registered = registered_voices(SpeechService::voice_categories(), &has_enumerator);
+        if (has_enumerator) QSKIP("a token enumerator adds voices only SAPI lists");
+        QString error;
+        auto backend = SapiBackend::create(error);
+        if (!backend) QSKIP(qPrintable("SAPI unavailable: " + error));
+        std::vector<VoiceInfo> voices;
+        QVERIFY(backend->voices(voices, error));
+        QStringList from_sapi, from_registry;
+        for (const auto &voice : voices) from_sapi << voice.token.toLower() + "|" + voice.name + "|" + voice.locale.name();
+        for (const auto &voice : registered) from_registry << voice.token.toLower() + "|" + voice.name + "|" + voice.locale.name();
+        from_sapi.sort();
+        from_registry.sort();
+        QCOMPARE(from_registry, from_sapi);
+    }
+
+    void sapiAppliesTheStyle() {
+        QString error;
+        auto backend = SapiBackend::create(error);
+        if (!backend) QSKIP(qPrintable("SAPI unavailable: " + error));
+        std::vector<VoiceInfo> voices;
+        backend->voices(voices, error);
+        if (voices.empty()) QSKIP("no SAPI voices installed");
+        QVERIFY2(backend->use_memory_output(error), qPrintable(error));
+        // Out-of-range values are clamped rather than rejected.
+        QVERIFY2(backend->speak(voices.front(), "one two three", {25, 250}, error), qPrintable(error));
+        SpeechStatus status;
+        QVERIFY(QTest::qWaitFor([&] { return backend->poll(status, error) && status.done; }, 60000));
+        const qint64 fast = backend->memory_output_size();
+        QVERIFY2(backend->use_memory_output(error), qPrintable(error));
+        QVERIFY2(backend->speak(voices.front(), "one two three", {-10, 50}, error), qPrintable(error));
+        QVERIFY(QTest::qWaitFor([&] { return backend->poll(status, error) && status.done; }, 60000));
+        // Slower speech is longer audio.
+        QVERIFY2(backend->memory_output_size() > fast, qPrintable(QString("%1 vs %2").arg(backend->memory_output_size()).arg(fast)));
+    }
+
     void sapiCallsFailCleanlyAfterClose() {
         QString error;
         auto backend = SapiBackend::create(error);
@@ -750,7 +948,7 @@ private slots:
         SpeechStatus status;
         QVERIFY(!backend->poll(status, error));
         QVERIFY(!backend->purge(error));
-        if (!voices.empty()) QVERIFY(!backend->speak(voices.front(), "hello", error));
+        if (!voices.empty()) QVERIFY(!backend->speak(voices.front(), "hello", {}, error));
         QVERIFY(!backend->voices(voices, error));
     }
 };
