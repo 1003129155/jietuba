@@ -50,6 +50,7 @@ QStringList recognized_game_executables(const QString &children_key = {});
 bool is_game_in_foreground();
 
 // Capture exclusion (Windows 10 2004+): the window stays visible but is absent from screenshots.
+// Fails on earlier versions, where the window then shows in captures as before.
 constexpr unsigned WDA_NONE = 0x00000000;
 constexpr unsigned WDA_EXCLUDEFROMCAPTURE = 0x00000011;
 bool set_window_exclude_from_capture(quintptr hwnd, bool exclude);

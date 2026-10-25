@@ -6,6 +6,7 @@
 #include "core/logger.h"
 #include <QFileInfo>
 #include <QGuiApplication>
+#include <QOperatingSystemVersion>
 #include <QTimer>
 #include <cmath>
 #include <thread>
@@ -240,6 +241,11 @@ bool is_game_in_foreground() {
 
 bool set_window_exclude_from_capture(quintptr hwnd, bool exclude) {
 #ifdef Q_OS_WIN
+    // Earlier versions take the value as WDA_MONITOR, which records the window as a black box.
+    if (exclude && QOperatingSystemVersion::current() < QOperatingSystemVersion::Windows10_2004) {
+        SetLastError(ERROR_NOT_SUPPORTED);
+        return false;
+    }
     return SetWindowDisplayAffinity(to_hwnd(hwnd), exclude ? WDA_EXCLUDEFROMCAPTURE : WDA_NONE) != FALSE;
 #else
     Q_UNUSED(hwnd); Q_UNUSED(exclude);
