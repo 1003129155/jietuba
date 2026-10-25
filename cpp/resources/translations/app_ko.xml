@@ -768,6 +768,10 @@ Replace it?</source>
         <translation>레지스트리를 통해 Windows 시작 프로그램에 등록합니다.</translation>
     </message>
     <message>
+        <source>Turned off in Task Manager's Startup apps, so Windows will not start it at sign-in. Turn it back on there.</source>
+        <translation>작업 관리자의 '시작 앱'에서 사용 안 함으로 설정되어 로그인할 때 시작되지 않습니다. 그곳에서 다시 사용으로 바꾸세요.</translation>
+    </message>
+    <message>
         <source>Run as Administrator</source>
         <translation>관리자 권한으로 실행</translation>
     </message>

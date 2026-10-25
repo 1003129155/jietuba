@@ -775,6 +775,10 @@ Replace it?</source>
         <translation>透過登錄檔註冊 Windows 開機啟動。</translation>
     </message>
     <message>
+        <source>Turned off in Task Manager's Startup apps, so Windows will not start it at sign-in. Turn it back on there.</source>
+        <translation>已在工作管理員的「啟動應用程式」中被停用，登入時 Windows 不會啟動它。可到那裡重新啟用。</translation>
+    </message>
+    <message>
         <source>Run as Administrator</source>
         <translation>以管理員身份執行</translation>
     </message>

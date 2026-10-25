@@ -357,6 +357,15 @@ std::optional<QString> get_autostart_program() {
     return command.startsWith('"') ? command.mid(1, command.indexOf('"', 1) - 1) : command;
 }
 
+bool startup_approved_disabled(const wchar_t *approved_key, const QString &name) {
+    BYTE data[16] = {};
+    DWORD size = sizeof(data);
+    const auto status = RegGetValueW(HKEY_CURRENT_USER, approved_key, reinterpret_cast<LPCWSTR>(name.utf16()), RRF_RT_REG_BINARY, nullptr, data, &size);
+    return status == ERROR_SUCCESS && size > 0 && (data[0] & 1) != 0;
+}
+
+bool autostart_disabled_by_system() { return get_autostart_program() && startup_approved_disabled(STARTUP_APPROVED_REG_KEY, AUTOSTART_APP_NAME); }
+
 void set_autostart(bool enabled) {
     // The Run entry is shared with the Python version; tests never write it.
     if (!test_sandbox_dir().isEmpty()) return;

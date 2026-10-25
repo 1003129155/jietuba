@@ -769,6 +769,10 @@ Replace it?</translation>
         <translation>Register in Windows startup via registry.</translation>
     </message>
     <message>
+        <source>Turned off in Task Manager's Startup apps, so Windows will not start it at sign-in. Turn it back on there.</source>
+        <translation>Turned off in Task Manager's Startup apps, so Windows will not start it at sign-in. Turn it back on there.</translation>
+    </message>
+    <message>
         <source>Run as Administrator</source>
         <translation>Run as Administrator</translation>
     </message>

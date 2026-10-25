@@ -88,4 +88,10 @@ bool get_autostart();
 std::optional<QString> get_autostart_program();
 // Writes or removes the Run entry; failures are logged.
 void set_autostart(bool enabled);
+// Task Manager's Startup apps switch is kept apart from the Run entry, under this key and the
+// same value name. Its first byte is odd while the entry is disabled; no value means enabled.
+inline constexpr wchar_t STARTUP_APPROVED_REG_KEY[] = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\Run";
+bool startup_approved_disabled(const wchar_t *approved_key, const QString &name);
+// The Run entry exists but Windows will not start it.
+bool autostart_disabled_by_system();
 }

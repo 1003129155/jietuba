@@ -773,6 +773,10 @@ Replace it?</source>
         <translation>通过注册表注册 Windows 开机启动。</translation>
     </message>
     <message>
+        <source>Turned off in Task Manager's Startup apps, so Windows will not start it at sign-in. Turn it back on there.</source>
+        <translation>已在任务管理器的「启动应用」中被禁用，登录时 Windows 不会启动它。可到那里重新启用。</translation>
+    </message>
+    <message>
         <source>Run as Administrator</source>
         <translation>以管理员身份运行</translation>
     </message>

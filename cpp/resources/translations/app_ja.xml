@@ -775,6 +775,10 @@ Replace it?</source>
         <translation>レジストリを使用してWindows起動時に登録します。</translation>
     </message>
     <message>
+        <source>Turned off in Task Manager's Startup apps, so Windows will not start it at sign-in. Turn it back on there.</source>
+        <translation>タスク マネージャーの「スタートアップ アプリ」で無効になっているため、サインイン時に起動しません。そこで有効に戻してください。</translation>
+    </message>
+    <message>
         <source>Run as Administrator</source>
         <translation>管理者として実行</translation>
     </message>
