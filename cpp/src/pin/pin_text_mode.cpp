@@ -30,8 +30,8 @@ const QColor TEXT_COLOR(31, 31, 31);
 constexpr int MIN_PIXEL_SIZE = 12, MAX_PIXEL_SIZE = 72;
 // Long enough to read a sentence, unlike the one-second zoom percentage.
 constexpr int HINT_MS = 2000;
-// Recognized line boxes hug the glyphs, so the font is a little smaller than the box.
-constexpr double FONT_TO_LINE = 0.8;
+// Either engine's line boxes run about a tenth taller than the font's pixel size.
+constexpr double FONT_TO_LINE = 0.9;
 }
 
 QString pin_layout_text(const OcrTextLayout &layout, ToolSettingsManager *settings) {

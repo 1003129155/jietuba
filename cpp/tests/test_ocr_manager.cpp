@@ -1,6 +1,8 @@
 #include "ocr/ocr_manager.h"
 #include "ocr/ppocr_models.h"
+#include "pin/ocr_text_layout.h"
 #include "pin/pin_ocr_manager.h"
+#include "pin/pin_text_mode.h"
 #include "settings/tool_settings.h"
 #include "text_recognition/recognizer.h"
 #include "translation/translation_manager.h"
@@ -625,6 +627,38 @@ private slots:
         TranslationOcrThread translation(capture);
         const qint64 translation_ms = stopping_time(translation, [&] { translation.cancel(); });
         QVERIFY2(translation_ms < 500, qPrintable(QString("translation: %1 ms").arg(translation_ms)));
+    }
+
+    // Text mode shows recognized text about as large as it was drawn, whichever engine read it. Before
+    // the cases that load a broken model or runtime: the Snipping Tool engine does not load after them.
+    void theTextModeSizeFollowsTheDrawnText() {
+        QStringList engines;
+        if (ppocr_) engines << OCRManager::ENGINE_PP_RUST;
+        if (get_available_engines().contains(OCRManager::ENGINE_ONEOCR)) engines << OCRManager::ENGINE_ONEOCR;
+        if (engines.isEmpty()) QSKIP("needs an OCR engine");
+        const auto restore = qScopeGuard([] { set_ocr_engine(OCRManager::ENGINE_AUTO); });
+        const std::pair<const char *, QStringList> scripts[] = {
+            {"Microsoft YaHei UI", {QString::fromUtf8("推迟关闭截图窗口的改动已经全部撤回"), QString::fromUtf8("点钉图后截图窗口又是立刻关掉")}},
+            {"Segoe UI", {"Pinned text should read at the size", "it had on the screen it came from"}},
+            {"Arial", {"action.cpp and pin_window tests pass", "rebuilt and verified again"}},
+        };
+        double total = 0;
+        int count = 0;
+        for (const auto &engine : engines) {
+            QVERIFY(set_ocr_engine(engine));
+            for (const auto &[family, lines] : scripts)
+                for (const int size : {12, 14, 16, 20, 28, 40}) {
+                    const auto result = recognize_text(render_text(lines, family, size, Qt::black, Qt::white));
+                    const OcrTextLayout layout(result);
+                    QVERIFY2(!layout.empty(), qPrintable(QString("%1 %2 %3px: code %4 %5").arg(engine, family).arg(size).arg(result.code).arg(result.reason)));
+                    const double error = static_cast<double>(pin_text_pixel_size(layout, 1.0) - size) / size;
+                    QVERIFY2(std::abs(error) <= 0.2, qPrintable(QString("%1 %2 %3px: %4").arg(engine, family).arg(size).arg(pin_text_pixel_size(layout, 1.0))));
+                    total += error;
+                    ++count;
+                }
+        }
+        // Neither smaller nor larger on the whole.
+        QVERIFY2(std::abs(total / count) <= 0.05, qPrintable(QString::number(total / count)));
     }
 
     // The engine follows the chosen model and reloads when it changes; Auto takes the catalog's
