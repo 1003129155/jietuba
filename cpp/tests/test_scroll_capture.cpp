@@ -456,6 +456,39 @@ private slots:
         QCursor::setPos(restore);
     }
 
+    // The panel fades once the pointer has rested on it for a moment, and what lies beneath
+    // shows through. Read from the screen, so the compositor's result counts.
+    void thePreviewFadesWhileThePointerRestsOnIt() {
+        const QRect screen = QGuiApplication::primaryScreen()->geometry();
+        QWidget backdrop(nullptr, Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
+        QPalette palette;
+        palette.setColor(QPalette::Window, Qt::red);
+        backdrop.setPalette(palette);
+        backdrop.setAutoFillBackground(true);
+        backdrop.setGeometry(area_);
+        backdrop.show();
+        PreviewPanel panel;
+        QImage blue(600, panel.panel_size().height(), QImage::Format_RGB32);
+        blue.fill(Qt::blue);
+        panel.update_preview(blue, "horizontal");
+        panel.place(area_.topLeft(), screen);
+        panel.show();
+        panel.raise();
+        QVERIFY(QTest::qWaitForWindowExposed(&panel));
+        const QPoint probe = area_.topLeft() + QPoint(95, 100);
+        const auto red_on_screen = [probe] { return QGuiApplication::primaryScreen()->grabWindow(0, probe.x(), probe.y(), 1, 1).toImage().pixelColor(0, 0).red(); };
+        QTRY_VERIFY(red_on_screen() < 60);
+        const QPoint restore = QCursor::pos();
+        const auto put_back = qScopeGuard([restore] { QCursor::setPos(restore); });
+        QCursor::setPos(probe + QPoint(20, 20));
+        // A pointer passing over leaves it alone.
+        QTest::qWait(100);
+        QVERIFY(red_on_screen() < 60);
+        QTRY_VERIFY(red_on_screen() > 150);
+        QCursor::setPos(area_.bottomRight() + QPoint(40, 40));
+        QTRY_VERIFY(red_on_screen() < 60);
+    }
+
     // ---- Automatic scrolling ----
 
     // The scroller's rhythm with stand-ins for capture, wheel and cursor: scroll, capture,

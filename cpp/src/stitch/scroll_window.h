@@ -1,8 +1,10 @@
 #pragma once
 #include "stitch/incremental.h"
+#include <QElapsedTimer>
 #include <QImage>
 #include <QLabel>
 #include <QPointer>
+#include <QPropertyAnimation>
 #include <QRect>
 #include <QTimer>
 #include <QWidget>
@@ -41,6 +43,9 @@ struct GrabbedFrame {
 // inside it, so growing never resizes the window: a translucent window shows one
 // composited frame between a resize and its repaint, with the old picture in the new
 // rectangle, and the content jumps.
+//
+// The panel fades once the pointer rests on it: it lets clicks through but still hides
+// what lies beneath, such as a horizontal scroll bar that answers only to clicks.
 class PreviewPanel : public QWidget {
     Q_OBJECT
 public:
@@ -74,7 +79,13 @@ private:
     void paint_content(QPainter &painter);
     // A clipped side: fades out, with an arrow pointing outwards.
     void paint_clipped_edge(QPainter &painter, bool at_start);
+    // Polled: a click-through window gets no hover events.
+    void update_hover_fade();
 
+    QTimer hover_timer_;
+    QElapsedTimer hover_since_;
+    QPropertyAnimation *fade_ = nullptr;
+    bool faded_ = false;
     int fixed_side_;
     // In window coordinates.
     QRect panel_rect_;

@@ -17,6 +17,7 @@
 #include "text_recognition/result_window.h"
 #include "tools/action.h"
 #include <QApplication>
+#include <QCursor>
 #include <QDateTime>
 #include <QGuiApplication>
 #include <QLinearGradient>
@@ -74,6 +75,13 @@ constexpr int PREVIEW_SIDE = 190;
 const QColor BOX_COLOR(82, 196, 26);
 constexpr int BASE_FADE = 28;
 constexpr int BASE_MARGIN = 24;
+// A panel the pointer rests on keeps a quarter of its strength: what lies beneath stays
+// readable and the panel is still seen to be there. The delay leaves a pointer that only
+// passes over it alone.
+constexpr double HOVER_OPACITY = 0.25;
+constexpr int HOVER_DELAY_MS = 200;
+constexpr int HOVER_POLL_MS = 50;
+constexpr int HOVER_FADE_MS = 300;
 
 // No change along the stitch direction (a white screen, mid repaint): nothing to stitch,
 // and two matching grabs of it do not count as settled. Vertically every row is the
@@ -103,7 +111,7 @@ void make_click_through(QWidget *widget) {
 QString screen_repr(const QScreen *screen) { return screen ? screen->name() : QString("None"); }
 }
 
-PreviewPanel::PreviewPanel(QWidget *parent) : QWidget(parent) {
+PreviewPanel::PreviewPanel(QWidget *parent) : QWidget(parent), hover_timer_(this) {
     setWindowFlags(Qt::WindowStaysOnTopHint | Qt::FramelessWindowHint | Qt::Tool);
     setAttribute(Qt::WA_TranslucentBackground);
     fixed_side_ = scaled(PREVIEW_SIDE);
@@ -112,6 +120,25 @@ PreviewPanel::PreviewPanel(QWidget *parent) : QWidget(parent) {
     resize(fixed_side_, fixed_side_);
     build_ui();
     setup_mouse_transparent();
+    fade_ = new QPropertyAnimation(this, "windowOpacity", this);
+    fade_->setDuration(HOVER_FADE_MS);
+    fade_->setEasingCurve(QEasingCurve::InOutQuad);
+    hover_timer_.setInterval(HOVER_POLL_MS);
+    connect(&hover_timer_, &QTimer::timeout, this, &PreviewPanel::update_hover_fade);
+    hover_timer_.start();
+}
+
+void PreviewPanel::update_hover_fade() {
+    const bool over = isVisible() && panel_geometry().contains(QCursor::pos());
+    if (!over) hover_since_.invalidate();
+    else if (!hover_since_.isValid()) hover_since_.start();
+    const bool fade = over && hover_since_.elapsed() >= HOVER_DELAY_MS;
+    if (fade == faded_) return;
+    faded_ = fade;
+    fade_->stop();
+    fade_->setStartValue(windowOpacity());
+    fade_->setEndValue(fade ? HOVER_OPACITY : 1.0);
+    fade_->start();
 }
 
 void PreviewPanel::setup_mouse_transparent() {
