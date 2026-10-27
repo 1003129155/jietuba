@@ -1287,6 +1287,10 @@ Replace it?</source>
         <translation>切換文字選擇</translation>
     </message>
     <message>
+        <source>Edit Text</source>
+        <translation>編輯文字</translation>
+    </message>
+    <message>
         <source>Behavior</source>
         <translation>行為</translation>
     </message>
@@ -1851,6 +1855,10 @@ Replace it?</source>
         <translation>文字模式</translation>
     </message>
     <message>
+        <source>Edit text</source>
+        <translation>編輯文字</translation>
+    </message>
+    <message>
         <source>Recognizing...</source>
         <translation>辨識中...</translation>
     </message>
@@ -1861,6 +1869,10 @@ Replace it?</source>
     <message>
         <source>Text selection off</source>
         <translation>文字選擇已關閉</translation>
+    </message>
+    <message>
+        <source>Press Esc to stop editing</source>
+        <translation>按 Esc 結束編輯</translation>
     </message>
     <message>
         <source>Border</source>

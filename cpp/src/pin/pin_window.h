@@ -92,10 +92,12 @@ public:
     void toggle_thumbnail_mode();
     void toggle_text_mode();
     void leave_text_mode();
+    // In text mode only: the text takes the keyboard.
+    void edit_text();
     // Leaves the drawing tool, unchecking it on the toolbar.
     void stop_drawing();
     // Top-left hint shared by zoom, opacity and other short messages.
-    void show_hint_label(const QString &text);
+    void show_hint_label(const QString &text, int duration_ms = 1000);
     void toggle_toolbar();
     // Only PinHoverControls::sync calls these two.
     void show_toolbar();

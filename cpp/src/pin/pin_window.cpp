@@ -531,7 +531,8 @@ bool PinWindow::blocked_by_modal() const {
 bool PinWindow::handle_mouse_alternative_key(QInputEvent *event) {
     const int key = event_key(event);
     if (key != Qt::Key_Plus && key != Qt::Key_Equal && key != Qt::Key_Minus) return false;
-    if (blocked_by_modal() || thumbnail_mode()) return false;
+    // In text mode the wheel scrolls and sizes the text, so the keys standing in for it do nothing.
+    if (blocked_by_modal() || thumbnail_mode() || text_mode()) return false;
     QList<Qt::KeyboardModifiers> modifier_options = {event->modifiers()};
     // An explicit Shift binding first, then Shift used to type '+'.
     if (key == Qt::Key_Plus) modifier_options.append(event->modifiers() & ~Qt::ShiftModifier);
@@ -678,13 +679,13 @@ void PinWindow::show_zoom_percent() {
     show_hint_label(QString("%1%").arg(python_round(scale_factor * 100)));
 }
 
-void PinWindow::show_hint_label(const QString &text) {
+void PinWindow::show_hint_label(const QString &text, int duration_ms) {
     zoom_label_->setText(text);
     zoom_label_->adjustSize();
     zoom_label_->move(8, 8);
     zoom_label_->raise();
     zoom_label_->show();
-    zoom_hide_timer_->start();
+    zoom_hide_timer_->start(duration_ms);
 }
 
 void PinWindow::enterEvent(QEnterEvent *event) {
@@ -737,6 +738,10 @@ void PinWindow::toggle_text_mode() {
 
 void PinWindow::leave_text_mode() {
     if (text_mode_) text_mode_->exit();
+}
+
+void PinWindow::edit_text() {
+    if (text_mode_) text_mode_->start_editing();
 }
 
 void PinWindow::stop_drawing() {

@@ -57,7 +57,9 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPushButton>
+#include <QScopeGuard>
 #include <QScreen>
+#include <QScrollBar>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QSlider>
@@ -1490,7 +1492,7 @@ private slots:
         pin->toggle_text_mode();
         const QStringList want = {"Copy (CTRL+C)", "Save as", "Translate (Text Recognition)", "-", "[x] Always on top",
                                   "[ ] Mouse click-through", "[ ] Lock (L)", "[x] Border",
-                                  "[x] Text mode (T)", "[ ] Thumbnail mode (R)", "-", "Close"};
+                                  "[x] Text mode (T)", "Edit text (ENTER)", "[ ] Thumbnail mode (R)", "-", "Close"};
         QCOMPARE(pin_menu(pin), want);
     }
 
@@ -2152,32 +2154,128 @@ private slots:
         QCOMPARE(pin->geometry(), QRect(before.topLeft() + QPoint(30, 40), before.size()));
     }
 
-    void keysTypeIntoTextModeAndEscLeavesItBeforeClosing() {
+    void textModeReadsUntilEnterAndEscStepsBackOneLayer() {
         auto *pin = make_pin();
         give_text(pin, {{box(10, 10, 80, 20), "hello", 0.9}});
         PinShortcutController::instance()->reload_bindings();
-        pin->toggle_text_mode();
-        auto *editor = pin->text_mode_controller()->editor();
-        QTRY_COMPARE(QApplication::focusWidget(), editor);
-        // Over the pin, L is typed rather than locking it.
         QCursor::setPos(pin->mapToGlobal(QPoint(100, 60)));
-        editor->moveCursor(QTextCursor::End);
-        QTest::keyClick(editor, Qt::Key_L);
+        press_key(pin, Qt::Key_T);
+        auto *mode = pin->text_mode_controller();
+        auto *editor = mode->editor();
+        QVERIFY(pin->text_mode() && !mode->editing());
+        QVERIFY(editor->isReadOnly());
+        QCOMPARE(editor->focusPolicy(), Qt::NoFocus);
+        QCOMPARE(hint_text(pin), QString());
+        // Reading, the pin's own keys still work.
+        press_key(pin, Qt::Key_L);
+        QVERIFY(pin->locked());
+        press_key(pin, Qt::Key_L);
         QVERIFY(!pin->locked());
-        QCOMPARE(editor->toPlainText(), QString("hellol"));
+        press_key(pin, Qt::Key_Return);
+        QVERIFY(mode->editing());
+        QVERIFY(!editor->isReadOnly());
+        QTRY_COMPARE(QApplication::focusWidget(), editor);
+        QCOMPARE(hint_text(pin), QString("Press Esc to stop editing"));
+        // Editing, plain keys are typed at the end instead.
+        QTest::keyClick(editor, Qt::Key_L);
+        QTest::keyClick(editor, Qt::Key_T);
+        QCOMPARE(editor->toPlainText(), QString("hellolt"));
+        QVERIFY(!pin->locked() && pin->text_mode());
+        // Each Esc steps back one layer: editing, text, then the pin itself.
         QTest::keyClick(editor, Qt::Key_Escape);
+        QVERIFY(pin->text_mode() && !mode->editing());
+        QVERIFY(editor->isReadOnly());
+        QVERIFY(QApplication::focusWidget() != editor);
+        press_key(pin, Qt::Key_Escape);
         QVERIFY(!pin->text_mode());
         QVERIFY(!pin->is_closed());
-        // Away from every pin the editor takes Esc itself.
-        pin->toggle_text_mode();
-        QCursor::setPos(0, 0);
-        QTest::keyClick(editor, Qt::Key_Escape);
-        QVERIFY(!pin->text_mode());
-        QVERIFY(!pin->is_closed());
-        // Back on the image Esc closes as before.
-        QCursor::setPos(pin->mapToGlobal(QPoint(100, 60)));
         press_key(pin, Qt::Key_Escape);
         QVERIFY(pin->is_closed());
+    }
+
+    void awayFromEveryPinTheEditorStopsEditingOnEsc() {
+        auto *pin = make_pin();
+        give_text(pin, {{box(10, 10, 80, 20), "hello", 0.9}});
+        pin->toggle_text_mode();
+        pin->edit_text();
+        auto *editor = pin->text_mode_controller()->editor();
+        QTRY_COMPARE(QApplication::focusWidget(), editor);
+        QCursor::setPos(0, 0);
+        QTest::keyClick(editor, Qt::Key_Escape);
+        QVERIFY(pin->text_mode() && !pin->text_mode_controller()->editing());
+    }
+
+    void editingStopsWhenAnotherWindowTakesTheKeyboard() {
+        auto *pin = make_pin();
+        give_text(pin, {{box(10, 10, 80, 20), "hello", 0.9}});
+        pin->toggle_text_mode();
+        auto *mode = pin->text_mode_controller();
+        pin->edit_text();
+        // The pin's own menu keeps it editing.
+        QFocusEvent popup(QEvent::FocusOut, Qt::PopupFocusReason);
+        QApplication::sendEvent(mode->editor(), &popup);
+        QVERIFY(mode->editing());
+        QFocusEvent away(QEvent::FocusOut, Qt::ActiveWindowFocusReason);
+        QApplication::sendEvent(mode->editor(), &away);
+        QVERIFY(!mode->editing());
+        QVERIFY(pin->text_mode());
+    }
+
+    void readingSelectsByDoubleClickAndCopiesTheTextsOwnSelection() {
+        auto *pin = make_pin();
+        give_text(pin, {{box(10, 10, 80, 20), "first", 0.9}, {box(10, 70, 80, 20), "second", 0.9}});
+        // A selection on the image's text layer, which text mode hides.
+        QKeyEvent select_all(QEvent::KeyPress, Qt::Key_A, Qt::ControlModifier);
+        QVERIFY(pin->text_selection()->key_press(&select_all));
+        PinShortcutController::instance()->reload_bindings();
+        QCursor::setPos(pin->mapToGlobal(QPoint(100, 60)));
+        pin->toggle_text_mode();
+        auto *editor = pin->text_mode_controller()->editor();
+        auto cursor = editor->textCursor();
+        cursor.setPosition(QString("first\nsec").size());
+        const QPoint inside_second = editor->cursorRect(cursor).center();
+        QTest::mouseDClick(editor->viewport(), Qt::LeftButton, {}, inside_second);
+        QCOMPARE(editor->textCursor().selectedText(), QString("second"));
+        QVERIFY(!pin->text_mode_controller()->editing());
+        press_key(pin, Qt::Key_C, Qt::ControlModifier);
+        QCOMPARE(clipboard_text(), QString("second"));
+        // Enter keeps the selection, so typing replaces it.
+        press_key(pin, Qt::Key_Return);
+        QTest::keyClicks(editor, "2");
+        QCOMPARE(editor->toPlainText(), QString("first\n2"));
+    }
+
+    void editingKeepsTheSizeAndLongTextScrolls() {
+        auto *pin = make_pin(QSize(300, 60), QPoint(100, 100));
+        give_text(pin, {{box(4, 2, 200, 20), "one line", 0.9}});
+        pin->toggle_text_mode();
+        const auto reading = pin->geometry();
+        auto *editor = pin->text_mode_controller()->editor();
+        pin->edit_text();
+        for (int i = 0; i < 8; ++i) editor->insertPlainText("\nmore");
+        QCOMPARE(pin->geometry(), reading);
+        QTRY_VERIFY(editor->verticalScrollBar()->isVisible());
+        pin->toggle_text_mode();
+        QCOMPARE(pin->geometry(), QRect(100, 100, 300, 60));
+    }
+
+    void editTextIsOfferedInTheTextModeMenu() {
+        auto *pin = make_pin();
+        give_text(pin, {{box(10, 10, 80, 20), "hello", 0.9}});
+        pin->toggle_text_mode();
+        pin_menu(pin, "Edit text");
+        QTRY_VERIFY(pin->text_mode_controller()->editing());
+        // Still editing once the menu's activation changes have settled.
+        QTest::qWait(50);
+        QVERIFY(pin->text_mode_controller()->editing());
+        // A cleared binding shows no key and no hint.
+        config_->set_inapp_shortcut("inapp_pin_text_edit", "");
+        auto restore = qScopeGuard([this] { config_->set_inapp_shortcut("inapp_pin_text_edit", "enter"); });
+        pin->toggle_text_mode();
+        hide_hint(pin);
+        pin->toggle_text_mode();
+        QCOMPARE(hint_text(pin), QString());
+        QVERIFY(pin_menu(pin).contains("Edit text"));
     }
 
     void textModeAndTextSelectionKeys() {
@@ -2190,12 +2288,16 @@ private slots:
         QCOMPARE(hint_text(pin), QString("Text selection off"));
         press_key(pin, Qt::Key_P);
         QVERIFY(pin->text_selection_enabled());
+        // While reading T goes back to the image.
         press_key(pin, Qt::Key_T);
         QVERIFY(pin->text_mode());
+        press_key(pin, Qt::Key_T);
+        QVERIFY(!pin->text_mode());
+        press_key(pin, Qt::Key_T);
+        press_key(pin, Qt::Key_Return);
         auto *editor = pin->text_mode_controller()->editor();
         QTRY_COMPARE(QApplication::focusWidget(), editor);
-        // Inside the text both keys are typed.
-        editor->moveCursor(QTextCursor::End);
+        // While editing both keys are typed.
         QTest::keyClick(editor, Qt::Key_T);
         QTest::keyClick(editor, Qt::Key_P);
         QVERIFY(pin->text_mode());

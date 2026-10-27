@@ -52,6 +52,7 @@ SETTING(inapp_toggle_toolbar, "inapp/inapp_toggle_toolbar", QString, "space", Im
 SETTING(inapp_pin_lock, "inapp/inapp_pin_lock", QString, "l", Import, Gen, Gen)
 SETTING(inapp_pin_text_mode, "inapp/inapp_pin_text_mode", QString, "t", Import, Gen, Gen)
 SETTING(inapp_pin_text_selection, "inapp/inapp_pin_text_selection", QString, "p", Import, Gen, Gen)
+SETTING(inapp_pin_text_edit, "inapp/inapp_pin_text_edit", QString, "enter", Import, Gen, Gen)
 SETTING(inapp_zoom_in, "inapp/inapp_zoom_in", QString, "pageup", Import, Gen, Gen)
 SETTING(inapp_zoom_out, "inapp/inapp_zoom_out", QString, "pagedown", Import, Gen, Gen)
 SETTING(inapp_translate, "inapp/inapp_translate", QString, "shift+c", Import, Gen, Gen)

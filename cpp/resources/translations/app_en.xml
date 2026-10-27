@@ -1158,6 +1158,10 @@ Replace it?</translation>
         <translation>Toggle Text Selection</translation>
     </message>
     <message>
+        <source>Edit Text</source>
+        <translation>Edit Text</translation>
+    </message>
+    <message>
         <source>Behavior</source>
         <translation>Behavior</translation>
     </message>
@@ -1824,6 +1828,10 @@ Replace it?</translation>
         <translation>Text mode</translation>
     </message>
     <message>
+        <source>Edit text</source>
+        <translation>Edit text</translation>
+    </message>
+    <message>
         <source>Recognizing...</source>
         <translation>Recognizing...</translation>
     </message>
@@ -1834,6 +1842,10 @@ Replace it?</translation>
     <message>
         <source>Text selection off</source>
         <translation>Text selection off</translation>
+    </message>
+    <message>
+        <source>Press Esc to stop editing</source>
+        <translation>Press Esc to stop editing</translation>
     </message>
     <message>
         <source>Border</source>

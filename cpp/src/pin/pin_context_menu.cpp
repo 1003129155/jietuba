@@ -8,6 +8,7 @@
 #include <QAction>
 #include <QMenu>
 #include <QPointer>
+#include <QTimer>
 
 namespace jietuba {
 namespace {
@@ -120,6 +121,8 @@ void PinContextMenu::add_menu_items(QMenu *menu, const PinMenuState &state) {
         add_switch(menu, pin_tr("Border"), state.border_enabled, [win] { win->toggle_border_effect(); });
         if (!is_text) add_switch(menu, shortcut_text(pin_tr("Text selection"), "inapp_pin_text_selection"), state.text_selection_enabled, [win] { win->toggle_text_selection(); });
         add_switch(menu, shortcut_text(pin_tr("Text mode"), "inapp_pin_text_mode"), is_text, [win] { win->toggle_text_mode(); });
+        // Started once the menu has closed: closing it moves window activation, which would end editing at once.
+        if (is_text) add(menu, shortcut_text(pin_tr("Edit text"), "inapp_pin_text_edit"), [win] { QTimer::singleShot(0, win, &PinWindow::edit_text); });
     }
     add_switch(menu, shortcut_text(pin_tr("Thumbnail mode"), "inapp_thumbnail"), state.thumbnail_mode, [win] { win->toggle_thumbnail_mode(); });
     menu->addSeparator();

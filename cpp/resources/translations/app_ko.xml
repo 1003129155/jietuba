@@ -1273,6 +1273,10 @@ Replace it?</source>
         <translation>텍스트 선택 전환</translation>
     </message>
     <message>
+        <source>Edit Text</source>
+        <translation>텍스트 편집</translation>
+    </message>
+    <message>
         <source>Behavior</source>
         <translation>동작</translation>
     </message>
@@ -1863,6 +1867,10 @@ Replace it?</source>
         <translation>텍스트 모드</translation>
     </message>
     <message>
+        <source>Edit text</source>
+        <translation>텍스트 편집</translation>
+    </message>
+    <message>
         <source>Recognizing...</source>
         <translation>인식 중...</translation>
     </message>
@@ -1873,6 +1881,10 @@ Replace it?</source>
     <message>
         <source>Text selection off</source>
         <translation>텍스트 선택 꺼짐</translation>
+    </message>
+    <message>
+        <source>Press Esc to stop editing</source>
+        <translation>Esc 키로 편집 종료</translation>
     </message>
     <message>
         <source>Border</source>

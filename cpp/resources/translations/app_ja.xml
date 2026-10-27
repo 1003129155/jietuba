@@ -1280,6 +1280,10 @@ Replace it?</source>
         <translation>テキスト選択切替</translation>
     </message>
     <message>
+        <source>Edit Text</source>
+        <translation>テキスト編集</translation>
+    </message>
+    <message>
         <source>Behavior</source>
         <translation>動作</translation>
     </message>
@@ -1892,6 +1896,10 @@ Replace it?</source>
         <translation>テキストモード</translation>
     </message>
     <message>
+        <source>Edit text</source>
+        <translation>テキストを編集</translation>
+    </message>
+    <message>
         <source>Recognizing...</source>
         <translation>認識中...</translation>
     </message>
@@ -1902,6 +1910,10 @@ Replace it?</source>
     <message>
         <source>Text selection off</source>
         <translation>テキスト選択オフ</translation>
+    </message>
+    <message>
+        <source>Press Esc to stop editing</source>
+        <translation>Esc で編集を終了</translation>
     </message>
     <message>
         <source>Border</source>

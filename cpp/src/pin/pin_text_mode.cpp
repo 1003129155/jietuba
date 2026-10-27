@@ -28,6 +28,8 @@ QString pin_tr(const char *text) { return i18n_tr(text, "PinWindow"); }
 const QColor PAGE_COLOR(255, 255, 255);
 const QColor TEXT_COLOR(31, 31, 31);
 constexpr int MIN_PIXEL_SIZE = 12, MAX_PIXEL_SIZE = 72;
+// Long enough to read a sentence, unlike the one-second zoom percentage.
+constexpr int HINT_MS = 2000;
 // Recognized line boxes hug the glyphs, so the font is a little smaller than the box.
 constexpr double FONT_TO_LINE = 0.8;
 }
@@ -60,6 +62,9 @@ PinTextEdit::PinTextEdit(PinWindow *pin, QWidget *parent) : QTextEdit(parent), p
     auto palette = this->palette();
     palette.setColor(QPalette::Base, PAGE_COLOR);
     palette.setColor(QPalette::Text, TEXT_COLOR);
+    // Read-only the editor never has focus, which would grey out a mouse selection.
+    for (const auto role : {QPalette::Highlight, QPalette::HighlightedText})
+        palette.setColor(QPalette::Inactive, role, palette.color(QPalette::Active, role));
     setPalette(palette);
 }
 
@@ -84,14 +89,24 @@ void PinTextEdit::contextMenuEvent(QContextMenuEvent *event) {
 
 void PinTextEdit::keyPressEvent(QKeyEvent *event) {
     // Esc reaches here when no pin is under the pointer to take it as a shortcut.
+    if (event->key() == Qt::Key_Escape && event->modifiers() == Qt::NoModifier) {
+        pin_->text_mode_controller()->stop_editing();
+        event->accept();
+        return;
+    }
     // A text mode binding with Ctrl or Alt is never typed, so it switches back from here too.
-    const bool leave_key = (event->modifiers() & (Qt::ControlModifier | Qt::AltModifier)) && PinShortcutController::instance()->matches(event, "inapp_pin_text_mode");
-    if (leave_key || (event->key() == Qt::Key_Escape && event->modifiers() == Qt::NoModifier)) {
+    if ((event->modifiers() & (Qt::ControlModifier | Qt::AltModifier)) && PinShortcutController::instance()->matches(event, "inapp_pin_text_mode")) {
         pin_->leave_text_mode();
         event->accept();
         return;
     }
     QTextEdit::keyPressEvent(event);
+}
+
+void PinTextEdit::focusOutEvent(QFocusEvent *event) {
+    QTextEdit::focusOutEvent(event);
+    // Another window or widget took the keyboard; the pin's own menu and input popups do not end editing.
+    if (event->reason() == Qt::ActiveWindowFocusReason || event->reason() == Qt::MouseFocusReason) pin_->text_mode_controller()->stop_editing();
 }
 
 PinTextPanel::PinTextPanel(PinWindow *pin) : QWidget(pin), pin_(pin) {
@@ -160,7 +175,35 @@ void PinTextMode::show_text() {
     win_->raise_control_buttons();
     win_->hover_controls->sync();
     win_->activateWindow();
+    // Keys stay with the pin until editing starts.
+    if (win_->view) win_->view->setFocus(Qt::OtherFocusReason);
+}
+
+void PinTextMode::start_editing() {
+    if (!active_ || !editor_) return;
+    if (!editing_) {
+        editing_ = true;
+        set_read_only(false);
+        if (!editor_->textCursor().hasSelection()) editor_->moveCursor(QTextCursor::End);
+        win_->show_hint_label(pin_tr("Press Esc to stop editing"), HINT_MS);
+    }
+    win_->activateWindow();
     editor_->setFocus(Qt::OtherFocusReason);
+}
+
+void PinTextMode::stop_editing() {
+    if (!editing_) return;
+    editing_ = false;
+    const bool had_focus = editor_ && editor_->hasFocus();
+    set_read_only(true);
+    if (had_focus && win_->view) win_->view->setFocus(Qt::OtherFocusReason);
+}
+
+void PinTextMode::set_read_only(bool read_only) {
+    editor_->setReadOnly(read_only);
+    editor_->setTextInteractionFlags(read_only ? Qt::TextSelectableByMouse : Qt::TextEditorInteraction);
+    // Read-only it never holds focus, so keys reach the pin's shortcuts.
+    editor_->setFocusPolicy(read_only ? Qt::NoFocus : Qt::StrongFocus);
 }
 
 void PinTextMode::build(const OcrTextLayout &layout) {
@@ -177,6 +220,7 @@ void PinTextMode::build(const OcrTextLayout &layout) {
     box->setContentsMargins(margin, margin, margin, margin);
     box->addWidget(editor_);
     editor_->setPlainText(pin_layout_text(layout, win_->config_manager));
+    set_read_only(true);
 }
 
 void PinTextMode::fit_height() {
@@ -198,6 +242,7 @@ void PinTextMode::fit_height() {
 void PinTextMode::exit() {
     waiting_ = false;
     if (!active_) return;
+    stop_editing();
     active_ = false;
     panel_->hide();
     if (prev_geometry_) {
