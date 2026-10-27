@@ -465,9 +465,12 @@ void ScrollCaptureWindow::position_preview_panel() {
             }
         }
     } else {
-        // Horizontal capture: above or below first, right edges aligned.
-        // 1: above.
-        const int y_top = capture_top - size.height() - margin;
+        // Horizontal capture: above, then below, right edges aligned. Above comes first since
+        // the page's horizontal scrollbar usually runs along the region's bottom.
+        // 1: above, over the toolbar when it is above too. Decided by the toolbar's side, not
+        // by overlap, so the panel does not jump down once it grows into the toolbar.
+        int y_top = capture_top - size.height() - margin;
+        if (toolbar_rect && toolbar_rect->bottom() < capture_top) y_top = std::min(y_top, toolbar_rect->y() - size.height() - margin);
         if (y_top >= screen_top + margin) {
             int px = capture_right - size.width();
             px = std::max(screen_left + margin, std::min(px, screen_right - size.width() - margin));

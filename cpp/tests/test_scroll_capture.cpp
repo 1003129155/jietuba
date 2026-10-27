@@ -616,6 +616,30 @@ private slots:
         page_ = synthetic_page();
     }
 
+    // Horizontally the preview goes above the toolbar, leaving the page's scrollbar below the
+    // region uncovered, and stays put as it grows past the toolbar's width.
+    void theHorizontalPreviewGoesAboveTheToolbar() {
+        page_ = synthetic_page().transformed(QTransform().rotate(-90)).copy(0, 0, PAGE_H, VIEW_H);
+        const auto restore = qScopeGuard([this] { page_ = synthetic_page(); });
+        auto *window = open();
+        QVERIFY(window);
+        window->toolbar->direction_btn->click();
+        auto *panel = window->preview_panel.data();
+        const QRect bar = window->toolbar->geometry();
+        QVERIFY(bar.bottom() < window->geometry().top());
+        QTRY_VERIFY(panel->panel_geometry().bottom() < bar.top());
+        const QRect before = panel->panel_geometry();
+        for (int left = 150; left <= PAGE_H - PAGE_W; left += 150) {
+            const int shots = window->screenshots;
+            page_window_->scroll_to_x(left);
+            QTRY_VERIFY_WITH_TIMEOUT(window->screenshots > shots, 5000);
+        }
+        QTRY_VERIFY_WITH_TIMEOUT(panel->panel_geometry().left() < bar.left(), 5000);
+        QCOMPARE(panel->panel_geometry().top(), before.top());
+        QCOMPARE(panel->panel_geometry().right(), before.right());
+        window->toolbar->cancel_btn->click();
+    }
+
     // A frame that overlaps nothing is dropped; the warning waits a moment, then shows until a frame joins again.
     void anUnjoinableFrameWarnsUntilScrolledBack() {
         auto *window = open();
