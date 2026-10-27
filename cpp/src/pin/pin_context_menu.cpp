@@ -91,15 +91,22 @@ void PinContextMenu::add_menu_items(QMenu *menu, const PinMenuState &state) {
         action->setChecked(on);
     };
     const bool is_thumbnail = state.thumbnail_mode, is_text = state.text_mode;
-    // In text mode Copy takes the selected text, or all of it.
-    add(menu, shortcut_text(pin_tr("Copy"), "inapp_copy_pin"), [win] { win->copy_to_clipboard(); });
+    if (state.text_only) {
+        // Copy takes the selected text, or all of it as shown.
+        add(menu, shortcut_text(pin_tr("Copy text"), "inapp_copy_pin"), [win] { win->copy_to_clipboard(); });
+        add(menu, pin_tr("Copy plain text"), [win] { win->copy_plain_text(); });
+        add(menu, pin_tr("Copy image"), [win] { win->copy_image(); });
+    } else {
+        // In text mode Copy takes the selected text, or all of it.
+        add(menu, shortcut_text(pin_tr("Copy"), "inapp_copy_pin"), [win] { win->copy_to_clipboard(); });
+    }
     add(menu, pin_tr("Save as"), [win] { win->save_image(); });
     // Always available; without a result the OCR manager recognizes on demand. In text mode it
-    // translates the text as edited.
-    if (!is_thumbnail) add(menu, pin_tr("Translate (Text Recognition)"), [win] { win->on_translate_clicked(); });
-    // The image's own items are hidden in thumbnail and text mode.
-    if (!is_thumbnail && !is_text) {
-        add(menu, shortcut_text(pin_tr("Reset size"), "inapp_pin_reset_size"), [win] { win->reset_to_original_size(); });
+    // translates the text as edited, a text pin its own text.
+    if (!is_thumbnail) add(menu, state.text_only ? pin_tr("Translate") : pin_tr("Translate (Text Recognition)"), [win] { win->on_translate_clicked(); });
+    // The image's own items are hidden in thumbnail and text mode; a text pin is not turned.
+    if (!is_thumbnail && !is_text) add(menu, shortcut_text(pin_tr("Reset size"), "inapp_pin_reset_size"), [win] { win->reset_to_original_size(); });
+    if (!is_thumbnail && !is_text && !state.text_only) {
         auto *transform_menu = new QMenu(pin_tr("Image transform"), menu);
         transform_menu->setStyleSheet(menu_style());
         setup_font(transform_menu);
@@ -123,7 +130,9 @@ void PinContextMenu::add_menu_items(QMenu *menu, const PinMenuState &state) {
     if (!is_thumbnail) {
         add_switch(menu, pin_tr("Border"), state.border_enabled, [win] { win->toggle_border_effect(); });
         if (!is_text) add_switch(menu, shortcut_text(pin_tr("Text selection"), "inapp_pin_text_selection"), state.text_selection_enabled, [win] { win->toggle_text_selection(); });
-        add_switch(menu, shortcut_text(pin_tr("Text mode"), "inapp_pin_text_mode"), is_text, [win] { win->toggle_text_mode(); });
+        if (state.has_formatting) add_switch(menu, pin_tr("Keep text formatting"), state.formatted, [win] { win->toggle_text_formatting(); });
+        // A text pin is text already.
+        if (!state.text_only) add_switch(menu, shortcut_text(pin_tr("Text mode"), "inapp_pin_text_mode"), is_text, [win] { win->toggle_text_mode(); });
         // Started once the menu has closed: closing it moves window activation, which would end editing at once.
         if (is_text) add(menu, shortcut_text(pin_tr("Edit text"), "inapp_pin_text_edit"), [win] { QTimer::singleShot(0, win, &PinWindow::edit_text); });
     }

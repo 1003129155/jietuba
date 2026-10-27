@@ -6,7 +6,8 @@
 
 class QWidget;
 
-// Pins from the clipboard: a history item, the system clipboard's image or the newest image in history.
+// Pins from the clipboard: a history item, the system clipboard's image or text, or the newest image in history.
+// The pin settings choose what the hotkey takes and whether text keeps its formatting.
 namespace jietuba::clipboard {
 class ClipboardController;
 class ClipboardManager;
@@ -19,7 +20,10 @@ bool create_pin_from_clipboard_item(qint64 item_id, ClipboardController *control
 bool create_pin_from_clipboard_item(qint64 item_id, ClipboardManager *manager, QWidget *clipboard_window = nullptr, std::optional<QPoint> center = std::nullopt);
 // Both paths end here, so placement and the working set trim live in one place.
 bool create_pin_from_image(const QImage &image, QWidget *clipboard_window = nullptr, std::optional<QPoint> center = std::nullopt);
-// Pins the system clipboard's image, otherwise the newest image in history. The clipboard
-// comes first so the hotkey keeps working with clipboard history turned off.
+// A text-only pin, formatted as in html unless the settings turn formatting off; false for blank text.
+bool create_pin_from_text(const QString &text, const QString &html, QWidget *clipboard_window = nullptr, std::optional<QPoint> center = std::nullopt);
+// Pins the system clipboard's image, else its text, otherwise the newest image in history; the
+// settings can leave out images or text. The clipboard comes first so the hotkey keeps working
+// with clipboard history turned off.
 bool pin_latest_clipboard_image(std::optional<QPoint> center = std::nullopt);
 }

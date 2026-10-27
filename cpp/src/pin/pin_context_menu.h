@@ -17,6 +17,10 @@ struct PinMenuState {
     bool text_selection_enabled = true;
     bool thumbnail_mode = false;
     bool text_mode = false;
+    bool text_only = false;
+    // Text with formatting to switch, and whether it shows.
+    bool has_formatting = false;
+    bool formatted = false;
     bool annotations_hidden = false;
     // Whether Esc can close the pin right now.
     bool close_shortcut_enabled = true;

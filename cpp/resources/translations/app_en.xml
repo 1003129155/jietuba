@@ -1062,6 +1062,34 @@ Replace it?</translation>
         <translation>Show the close and toolbar buttons in the top-right corner when the mouse is over a pinned image. When off, use the right-click menu or shortcuts.</translation>
     </message>
     <message>
+        <source>Types to Pin</source>
+        <translation>Types to Pin</translation>
+    </message>
+    <message>
+        <source>What this hotkey takes from the clipboard. When both are on and the clipboard holds both, such as copied spreadsheet cells, the image is pinned.</source>
+        <translation>What this hotkey takes from the clipboard. When both are on and the clipboard holds both, such as copied spreadsheet cells, the image is pinned.</translation>
+    </message>
+    <message>
+        <source>Image</source>
+        <translation>Image</translation>
+    </message>
+    <message>
+        <source>Screenshots and copied pictures.</source>
+        <translation>Screenshots and copied pictures.</translation>
+    </message>
+    <message>
+        <source>Copied text, formatted when Keep Text Formatting is on.</source>
+        <translation>Copied text, formatted when Keep Text Formatting is on.</translation>
+    </message>
+    <message>
+        <source>Keep Text Formatting</source>
+        <translation>Keep Text Formatting</translation>
+    </message>
+    <message>
+        <source>Text copied from web pages and documents keeps its bold, lists, tables and code style; colors that would not read on the white page are dropped. Off: pinned as plain text, and each pin can still switch it from the right-click menu. Also applies to pinning text from the clipboard window.</source>
+        <translation>Text copied from web pages and documents keeps its bold, lists, tables and code style; colors that would not read on the white page are dropped. Off: pinned as plain text, and each pin can still switch it from the right-click menu. Also applies to pinning text from the clipboard window.</translation>
+    </message>
+    <message>
         <source>Mouse Shortcuts</source>
         <translation>Mouse Shortcuts</translation>
     </message>
@@ -1274,8 +1302,8 @@ Replace it?</translation>
         <translation>Resize by Dragging Edges</translation>
     </message>
     <message>
-        <source>Drag near the edge or corner of a pinned image to resize it. The aspect ratio is kept.</source>
-        <translation>Drag near the edge or corner of a pinned image to resize it. The aspect ratio is kept.</translation>
+        <source>Drag near the edge or corner of a pin to resize it. Images keep their aspect ratio.</source>
+        <translation>Drag near the edge or corner of a pin to resize it. Images keep their aspect ratio.</translation>
     </message>
     <message>
         <source>Shrink Oversized Images</source>
@@ -1834,6 +1862,22 @@ Replace it?</translation>
     <message>
         <source>Edit text</source>
         <translation>Edit text</translation>
+    </message>
+    <message>
+        <source>Keep text formatting</source>
+        <translation>Keep text formatting</translation>
+    </message>
+    <message>
+        <source>Copy text</source>
+        <translation>Copy text</translation>
+    </message>
+    <message>
+        <source>Copy plain text</source>
+        <translation>Copy plain text</translation>
+    </message>
+    <message>
+        <source>Copy image</source>
+        <translation>Copy image</translation>
     </message>
     <message>
         <source>Hide annotations</source>

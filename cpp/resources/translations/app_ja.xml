@@ -1184,6 +1184,34 @@ Replace it?</source>
         <translation>ピン留め画像にマウスを乗せたとき、右上に閉じるボタンとツールバーボタンを表示します。オフの場合は右クリックメニューかショートカットで操作します。</translation>
     </message>
     <message>
+        <source>Types to Pin</source>
+        <translation>ピン留めする種類</translation>
+    </message>
+    <message>
+        <source>What this hotkey takes from the clipboard. When both are on and the clipboard holds both, such as copied spreadsheet cells, the image is pinned.</source>
+        <translation>このホットキーでクリップボードからピン留めする内容です。両方オンで、クリップボードに両方ある場合（コピーした表のセルなど）は画像をピン留めします。</translation>
+    </message>
+    <message>
+        <source>Image</source>
+        <translation>画像</translation>
+    </message>
+    <message>
+        <source>Screenshots and copied pictures.</source>
+        <translation>スクリーンショットやコピーした画像。</translation>
+    </message>
+    <message>
+        <source>Copied text, formatted when Keep Text Formatting is on.</source>
+        <translation>コピーしたテキスト。「テキストの書式を保持」がオンなら書式付きです。</translation>
+    </message>
+    <message>
+        <source>Keep Text Formatting</source>
+        <translation>テキストの書式を保持</translation>
+    </message>
+    <message>
+        <source>Text copied from web pages and documents keeps its bold, lists, tables and code style; colors that would not read on the white page are dropped. Off: pinned as plain text, and each pin can still switch it from the right-click menu. Also applies to pinning text from the clipboard window.</source>
+        <translation>Web ページや文書からコピーしたテキストの太字、リスト、表、コードの書式を保ちます。白い背景で読めない色は外します。オフにするとプレーンテキストでピン留めし、ピンごとに右クリックメニューで切り替えられます。クリップボードウィンドウからのピン留めにも適用されます。</translation>
+    </message>
+    <message>
         <source>Mouse Shortcuts</source>
         <translation>マウスショートカット</translation>
     </message>
@@ -1396,8 +1424,8 @@ Replace it?</source>
         <translation>端をドラッグしてサイズ変更</translation>
     </message>
     <message>
-        <source>Drag near the edge or corner of a pinned image to resize it. The aspect ratio is kept.</source>
-        <translation>ピン画像の端や角をドラッグしてサイズを変更します。縦横比は保たれます。</translation>
+        <source>Drag near the edge or corner of a pin to resize it. Images keep their aspect ratio.</source>
+        <translation>ピンの端や角をドラッグしてサイズを変更します。画像は縦横比が保たれます。</translation>
     </message>
     <message>
         <source>Shrink Oversized Images</source>
@@ -1593,7 +1621,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Pin Clipboard Image</source>
-        <translation>クリップボード画像をピン留め</translation>
+        <translation>クリップボードをピン留め</translation>
     </message>
     <message>
         <source>Volcengine machine translation: about 2M free characters/month. Overuse is billed at pay-as-you-go rates, so a local quota guard (default on) prevents surprise charges.</source>
@@ -1902,6 +1930,22 @@ Replace it?</source>
     <message>
         <source>Edit text</source>
         <translation>テキストを編集</translation>
+    </message>
+    <message>
+        <source>Keep text formatting</source>
+        <translation>テキストの書式を保持</translation>
+    </message>
+    <message>
+        <source>Copy text</source>
+        <translation>テキストをコピー</translation>
+    </message>
+    <message>
+        <source>Copy plain text</source>
+        <translation>プレーンテキストをコピー</translation>
+    </message>
+    <message>
+        <source>Copy image</source>
+        <translation>画像をコピー</translation>
     </message>
     <message>
         <source>Hide annotations</source>
@@ -2251,7 +2295,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Pin Clipboard Image</source>
-        <translation>クリップボード画像をピン留め</translation>
+        <translation>クリップボードをピン留め</translation>
     </message>
     <message>
         <source>Hotkey Registration Failed</source>

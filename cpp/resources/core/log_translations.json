@@ -437,6 +437,7 @@
 "已终止旧实例 (PID {old_pid})": "Terminated previous instance (PID {old_pid})",
 "已释放 OCR 引擎: {engine}": "Released OCR engine: {engine}",
 "已钉住系统剪贴板中的图片": "Pinned the image currently on the system clipboard",
+"已钉住系统剪贴板中的文字": "Pinned the text currently on the system clipboard",
 "帧列表为空，中止导出": "Frame list is empty, aborting export",
 "帧渲染失败 index={index}: {e}": "Frame render failed index={index}: {e}",
 "应用序号重排": "Apply number renumbering",

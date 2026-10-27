@@ -385,9 +385,10 @@ private slots:
             if (!value.toObject()["group"].isNull()) QVERIFY(manager.move_to_group(*id, group_ids[value.toObject()["group"].toInt()]));
             item_ids << *id;
         }
-        // The item menu's Multi-select entry and Save as for text and file rows are C++ only (notes/PARITY.md); the
-        // reference menus never have them.
+        // The item menu's Multi-select entry, Save as for text and file rows and pinning text are C++ only
+        // (notes/PARITY.md); the reference menus never have them.
         int multi_select_entries = 0;
+        QString menu_item_type;
         std::function<QJsonArray(const QList<MenuAction> &)> menu_json = [&](const QList<MenuAction> &actions) {
             QJsonArray result;
             for (const auto &action : actions) {
@@ -396,7 +397,7 @@ private slots:
                     ++multi_select_entries;
                     continue;
                 }
-                if (key == "save_item_as") continue;
+                if (key == "save_item_as" || (key == "pin_image" && menu_item_type == "text")) continue;
                 if (key.startsWith("move_to_group_")) key = QString("move_to_group_{G%1}").arg(group_ids.indexOf(key.mid(14).toLongLong()));
                 result.append(QJsonObject{{"label", action.label}, {"key", key}, {"enabled", action.enabled}, {"checkable", action.checkable}, {"checked", action.checked},
                                           {"separator", action.is_separator}, {"translate", action.translate_label}, {"children", menu_json(action.children)}});
@@ -428,13 +429,16 @@ private slots:
                     }
                     QList<qint64> ids;
                     for (const auto &index : query["items"].toArray()) ids << (index.toInt() < item_ids.size() ? item_ids[index.toInt()] : 999999);
+                    const auto item_type = [&](qint64 id) { return item_ids.contains(id) ? menus["items"].toArray()[item_ids.indexOf(id)].toObject()["type"].toString() : QString(); };
                     if (kind == "item") {
                         const auto data = controller.build_context_menu_data(ids.first());
                         multi_select_entries = 0;
+                        menu_item_type = item_type(ids.first());
                         if (data) actual = menu_json(data->actions);
                         QCOMPARE(multi_select_entries, data ? 1 : 0);
                     } else {
                         const auto data = controller.build_marked_context_menu_data(ids);
+                        menu_item_type = data ? item_type(data->item_id) : QString();
                         if (data) actual = QJsonObject{{"item", item_ids.indexOf(data->item_id)}, {"actions", menu_json(data->actions)}};
                     }
                 }

@@ -1,6 +1,7 @@
 #include "pin/pin_window.h"
 #include "canvas/scene.h"
 #include "canvas/items/background_item.h"
+#include "canvas/selection_model.h"
 #include "core/clipboard_utils.h"
 #include "core/i18n.h"
 #include "core/logger.h"
@@ -15,6 +16,7 @@
 #include "pin/pin_canvas_view.h"
 #include "pin/pin_click_through_bar.h"
 #include "pin/pin_shortcut.h"
+#include "pin/pin_text_content.h"
 #include "pin/pin_text_mode.h"
 #include "pin/pin_toolbar.h"
 #include "settings/tool_settings.h"
@@ -35,6 +37,7 @@
 #include <QDateTime>
 #include <QFileInfo>
 #include <QKeyEvent>
+#include <QMimeData>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QRegularExpression>
@@ -305,8 +308,9 @@ void PinWindow::show_resize_cursor(QWidget *widget, const std::optional<std::pai
         widget->setCursor(resize_cursor(*edge));
         resize_cursor_owner_ = widget;
     } else if (resize_cursor_owner_) {
-        // While editing the drawing tool owns the cursor.
-        if (!(canvas && canvas->is_editing())) resize_cursor_owner_->setCursor(Qt::ArrowCursor);
+        // While editing the drawing tool owns the cursor; the text page's margin moves the pin.
+        if (text_mode_ && resize_cursor_owner_ == text_mode_->panel()) resize_cursor_owner_->setCursor(Qt::SizeAllCursor);
+        else if (!(canvas && canvas->is_editing())) resize_cursor_owner_->setCursor(Qt::ArrowCursor);
         resize_cursor_owner_ = nullptr;
     }
 }
@@ -315,6 +319,13 @@ void PinWindow::update_border_resize(const QPoint &global_pos) {
     const auto [sx, sy] = *resize_edge_;
     const auto delta = global_pos - resize_start_pos_;
     const auto start = resize_start_geometry_;
+    if (text_mode()) {
+        // Text rewraps, so width and height change on their own; the opposite edges stay put.
+        const int width = sx ? std::max(std::min(MIN_SIDE, start.width()), start.width() + sx * delta.x()) : start.width();
+        const int height = sy ? std::max(std::min(MIN_SIDE, start.height()), start.height() + sy * delta.y()) : start.height();
+        setGeometry(sx < 0 ? start.right() + 1 - width : start.x(), sy < 0 ? start.bottom() + 1 - height : start.y(), width, height);
+        return;
+    }
     const auto base = display_base_size();
     const double start_scale = static_cast<double>(start.width()) / base.width();
     std::vector<double> candidates;
@@ -373,7 +384,9 @@ void PinWindow::refresh_background_for_scale() {
     const int th = std::max(1, static_cast<int>(python_round(orig_size_.height() * bg_scale_y)));
     const auto target_size = std::make_pair(tw, th);
     if (last_background_scale_size_ == target_size) return;
-    const auto scaled = base_pixmap_.scaled(tw, th, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    // Text is drawn again at the size shown, in screen pixels, rather than an image resampled.
+    const auto scaled = text_content_ ? QPixmap::fromImage(text_content_->render(QSize(tw, th), devicePixelRatioF()))
+                                      : base_pixmap_.scaled(tw, th, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
     // Only the rendered pixmap changes, not update_image(): that would feed this
     // display-resolution copy into the content cache, and mosaic reductions would then
     // sample display pixels instead of the original's, misplacing mosaics after zooming.
@@ -705,6 +718,7 @@ void PinWindow::keyPressEvent(QKeyEvent *event) {
 }
 
 bool PinWindow::eventFilter(QObject *watched, QEvent *event) {
+    if (text_mode_ && watched == text_mode_->panel() && handle_border_resize(watched, event)) return true;
     if (view && watched == view->viewport()) {
         if (handle_border_resize(watched, event)) return true;
         const auto type = event->type();
@@ -743,6 +757,45 @@ void PinWindow::leave_text_mode() {
 
 void PinWindow::edit_text() {
     if (text_mode_) text_mode_->start_editing();
+}
+
+void PinWindow::set_text_content(std::unique_ptr<PinTextContent> content) {
+    text_content_ = std::move(content);
+    ocr_mgr_->load_text(text_content_->layout());
+    ocr_mgr_->set_text_selection_enabled(true);
+    // At 100% too: the first image has the screen's logical pixels only.
+    last_background_scale_size_.reset();
+    refresh_background_for_scale();
+}
+
+void PinWindow::toggle_text_formatting() {
+    if (!text_content_ || !text_content_->has_formatting()) return;
+    text_content_->set_formatted(!text_content_->formatted());
+    replace_base_image(text_content_->render(text_content_->size()));
+    ocr_mgr_->load_text(text_content_->layout());
+}
+
+void PinWindow::replace_base_image(const QImage &image) {
+    orig_size_ = image.size();
+    base_pixmap_ = QPixmap::fromImage(image);
+    if (canvas) {
+        canvas->base_size = orig_size_;
+        const QRectF rect(QPointF(0, 0), QSizeF(orig_size_));
+        canvas->scene->scene_rect = rect;
+        canvas->scene->setSceneRect(rect);
+        canvas->scene->background->setTransform(QTransform());
+        canvas->scene->background->update_image(image);
+        canvas->scene->selection_model->initialize_confirmed_rect(rect);
+    }
+    const auto base = display_base_size();
+    setGeometry(x(), y(), std::max(1, static_cast<int>(python_round(base.width() * scale_factor))),
+                std::max(1, static_cast<int>(python_round(base.height() * scale_factor))));
+    last_background_scale_size_.reset();
+    update_view_transform();
+    refresh_background_for_scale();
+    if (canvas) canvas->invalidate_cache();
+    image_transform_->refresh_border(this);
+    update_display();
 }
 
 void PinWindow::set_annotations_hidden(bool hidden) {
@@ -804,8 +857,8 @@ void PinWindow::hide_toolbar() {
 
 void PinWindow::on_translate_clicked() {
     if (!translation_helper_) return;
-    if (text_mode()) {
-        translation_helper_->translate_text(text_mode_->text());
+    if (text_mode() || text_only()) {
+        translation_helper_->translate_text(text_only() ? text_content_->text() : text_mode_->text());
         return;
     }
     if (ocr_has_result()) {
@@ -843,8 +896,12 @@ void PinWindow::show_context_menu(const QPoint &global_pos) {
     state.text_selection_enabled = text_selection_enabled();
     state.thumbnail_mode = thumbnail_mode();
     state.text_mode = text_mode();
-    state.close_shortcut_enabled = !(canvas && canvas->is_editing()) && !lock_blocks("key_close") && !click_through_ && !text_mode();
+    state.text_only = text_only();
+    state.has_formatting = text_content_ && text_content_->has_formatting();
+    state.formatted = text_content_ && text_content_->formatted();
     state.annotations_hidden = annotations_hidden_;
+    // In text mode Esc leaves the text first.
+    state.close_shortcut_enabled = !(canvas && canvas->is_editing()) && !lock_blocks("key_close") && !click_through_ && !text_mode();
     // An open menu counts as hover, so the toolbar is not hidden behind it and its switches stay accurate.
     hover_controls->set_menu_open(true);
     const QPointer<PinWindow> alive(this);
@@ -1065,12 +1122,28 @@ void PinWindow::copy_to_clipboard() {
         copy_ocr_text(true, text_mode_->text_to_copy());
         return;
     }
+    if (text_only()) {
+        if (!(text_selection() && text_selection()->copy_selected_text())) copy_ocr_text(true, text_content_->text(), text_content_->html());
+        return;
+    }
+    copy_image();
+}
+
+void PinWindow::copy_image() {
     with_edit_paused([this] { deliver_image_async(get_current_image()); });
+}
+
+void PinWindow::copy_plain_text() {
+    if (text_content_) copy_ocr_text(true, text_content_->text());
 }
 
 void PinWindow::copy_all_text() {
     if (text_mode()) {
         copy_ocr_text(true, text_mode_->text());
+        return;
+    }
+    if (text_only()) {
+        copy_ocr_text(true, text_content_->text(), text_content_->html());
         return;
     }
     if (ocr_has_result() && text_selection() && text_selection()->has_text()) {
@@ -1081,13 +1154,20 @@ void PinWindow::copy_all_text() {
         show_hint_label(pin_tr("OCR recognition could not be started"));
 }
 
-void PinWindow::copy_ocr_text(bool success, const QString &result) {
+void PinWindow::copy_ocr_text(bool success, const QString &result, const QString &html) {
     // A failure reason is already logged by recognize_then.
     if (!success || result.trimmed().isEmpty()) {
         show_hint_label(pin_tr("No text was recognized"));
         return;
     }
-    QApplication::clipboard()->setText(result);
+    if (html.isEmpty()) {
+        QApplication::clipboard()->setText(result);
+    } else {
+        auto *mime = new QMimeData;
+        mime->setText(result);
+        mime->setHtml(html);
+        QApplication::clipboard()->setMimeData(mime);
+    }
     log_info(T("已复制钉图文字: {count} 字符", {{"count", static_cast<int>(result.toUcs4().size())}}), "PinWindow");
     show_hint_label(pin_tr("Text copied"));
 }

@@ -25,6 +25,7 @@ class PinBorderOverlay;
 class PinCanvas;
 class PinCanvasView;
 class PinClickThroughBar;
+class PinTextContent;
 class PinTextMode;
 class PinToolbar;
 class ToolSettingsManager;
@@ -59,6 +60,9 @@ public:
     bool thumbnail_mode() const { return thumbnail_ && thumbnail_->active(); }
     // Shown as editable text instead of the image.
     bool text_mode() const;
+    // Pinned from text: its image is the text drawn on a page, drawn afresh at each zoom.
+    bool text_only() const { return text_content_ != nullptr; }
+    PinTextContent *text_content() const { return text_content_.get(); }
     PinTextMode *text_mode_controller() const { return text_mode_.get(); }
     bool is_closed() const { return is_closed_; }
     bool is_dragging() const { return is_dragging_; }
@@ -94,6 +98,11 @@ public:
     void leave_text_mode();
     // In text mode only: the text takes the keyboard.
     void edit_text();
+    // Makes a pin made with content's first image a text pin: its text is selectable from the start,
+    // without recognizing it.
+    void set_text_content(std::unique_ptr<PinTextContent> content);
+    // Shows or hides a text pin's formatting; the pin keeps its zoom and fits the text laid out anew.
+    void toggle_text_formatting();
     // Annotations stay in the scene, covered by the image; drawing shows them again.
     bool annotations_hidden() const { return annotations_hidden_; }
     void set_annotations_hidden(bool hidden);
@@ -144,7 +153,11 @@ public:
     void with_edit_paused(const std::function<void()> &func);
     void save_image();
     void save_image_with_system_dialog();
+    // A text pin copies its selected text, or all of it.
     void copy_to_clipboard();
+    void copy_image();
+    // A text pin's text without its formatting.
+    void copy_plain_text();
     // All recognized text; recognizes first when there is no result yet.
     void copy_all_text();
     void close_window();
@@ -216,8 +229,11 @@ private:
     void show_zoom_percent();
     void start_ocr_for_translation();
     void on_ocr_translation_finished(bool success, const QString &result);
-    void copy_ocr_text(bool success, const QString &result);
+    // With html the clipboard gets the formatted text as well.
+    void copy_ocr_text(bool success, const QString &result, const QString &html = {});
     void set_window_opacity(double opacity);
+    // A new image of another size, keeping the zoom, the top-left corner and the annotations where they are.
+    void replace_base_image(const QImage &image);
 
     bool square_corners_ = false;
     bool is_closed_ = false;
@@ -261,6 +277,7 @@ private:
     std::unique_ptr<PinOCRManager> ocr_mgr_;
     std::unique_ptr<PinThumbnailMode> thumbnail_;
     std::unique_ptr<PinTextMode> text_mode_;
+    std::unique_ptr<PinTextContent> text_content_;
     std::unique_ptr<PinImageTransform> image_transform_;
     bool annotations_hidden_ = false;
 };

@@ -1182,6 +1182,34 @@ Replace it?</source>
         <translation>鼠标移到钉图上时，在右上角显示关闭和工具栏按钮。关闭后可用右键菜单或快捷键操作。</translation>
     </message>
     <message>
+        <source>Types to Pin</source>
+        <translation>钉图类型</translation>
+    </message>
+    <message>
+        <source>What this hotkey takes from the clipboard. When both are on and the clipboard holds both, such as copied spreadsheet cells, the image is pinned.</source>
+        <translation>这个快捷键从剪贴板钉住哪些内容。两项都开、剪贴板里也都有时（如复制的表格单元格），钉图片。</translation>
+    </message>
+    <message>
+        <source>Image</source>
+        <translation>图片</translation>
+    </message>
+    <message>
+        <source>Screenshots and copied pictures.</source>
+        <translation>截图和复制的图片。</translation>
+    </message>
+    <message>
+        <source>Copied text, formatted when Keep Text Formatting is on.</source>
+        <translation>复制的文字；开着「保留文字格式」时带格式。</translation>
+    </message>
+    <message>
+        <source>Keep Text Formatting</source>
+        <translation>保留文字格式</translation>
+    </message>
+    <message>
+        <source>Text copied from web pages and documents keeps its bold, lists, tables and code style; colors that would not read on the white page are dropped. Off: pinned as plain text, and each pin can still switch it from the right-click menu. Also applies to pinning text from the clipboard window.</source>
+        <translation>从网页、文档复制的文字保留粗体、列表、表格和代码样式，白底上看不清的颜色会去掉。关闭后钉成纯文字，每张钉图仍可在右键菜单里切换。从剪贴板窗口钉文字时同样适用。</translation>
+    </message>
+    <message>
         <source>Mouse Shortcuts</source>
         <translation>鼠标快捷键</translation>
     </message>
@@ -1394,8 +1422,8 @@ Replace it?</source>
         <translation>拖动边缘调整大小</translation>
     </message>
     <message>
-        <source>Drag near the edge or corner of a pinned image to resize it. The aspect ratio is kept.</source>
-        <translation>在钉图的边缘或角上拖动即可调整大小，宽高比保持不变。</translation>
+        <source>Drag near the edge or corner of a pin to resize it. Images keep their aspect ratio.</source>
+        <translation>在钉图的边缘或角上拖动即可调整大小，图片保持宽高比。</translation>
     </message>
     <message>
         <source>Shrink Oversized Images</source>
@@ -1859,6 +1887,22 @@ Replace it?</source>
     <message>
         <source>Edit text</source>
         <translation>编辑文字</translation>
+    </message>
+    <message>
+        <source>Keep text formatting</source>
+        <translation>保留文字格式</translation>
+    </message>
+    <message>
+        <source>Copy text</source>
+        <translation>复制文字</translation>
+    </message>
+    <message>
+        <source>Copy plain text</source>
+        <translation>复制纯文本</translation>
+    </message>
+    <message>
+        <source>Copy image</source>
+        <translation>复制图片</translation>
     </message>
     <message>
         <source>Hide annotations</source>

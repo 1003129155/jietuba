@@ -143,8 +143,8 @@ bool PinNormalShortcutHandler::handle_key(QInputEvent *event) {
         else pin->toggle_thumbnail_mode();
         return true;
     }
-    // A thumbnail shows no text, so the key goes on.
-    if (match(event, "inapp_pin_text_mode") && !pin->thumbnail_mode()) {
+    // A thumbnail shows no text and a text-only pin has no image, so the key goes on.
+    if (match(event, "inapp_pin_text_mode") && !pin->thumbnail_mode() && !pin->text_only()) {
         pin->toggle_text_mode();
         return true;
     }
@@ -158,7 +158,7 @@ bool PinNormalShortcutHandler::handle_key(QInputEvent *event) {
         return true;
     }
     if (key == Qt::Key_Escape) {
-        if (pin->text_mode()) pin->leave_text_mode();
+        if (pin->text_mode() && !pin->text_only()) pin->leave_text_mode();
         else if (!clear_text_selection(pin)) pin->close_unless_locked();
         return true;
     }

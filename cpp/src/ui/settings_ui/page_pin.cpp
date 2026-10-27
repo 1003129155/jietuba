@@ -10,6 +10,7 @@
 #include "ui/settings_ui/dialog.h"
 #include "ui/settings_ui/pages.h"
 #include <cmath>
+#include <tuple>
 
 namespace jietuba {
 namespace {
@@ -56,11 +57,12 @@ void percent_card(SettingsDialog *dialog, SettingsCardGroup *grp, FluentIcon ico
     grp->addSettingCard(card);
 }
 
-void add_switch_card(SettingsDialog *dialog, SettingsCardGroup *grp, const IconSource &icon, const char *title, const char *desc, const QString &key) {
+SwitchSettingCard *add_switch_card(SettingsDialog *dialog, SettingsCardGroup *grp, const IconSource &icon, const char *title, const char *desc, const QString &key) {
     auto *card = new SwitchSettingCard(icon, dialog->tr_text(title), dialog->tr_text(desc), grp);
     card->setChecked(dialog->config_manager->get_app_setting(key).toBool());
     dialog->behavior_controls.emplace_back(key, card);
     grp->addSettingCard(card);
+    return card;
 }
 
 void build_behavior_section(SettingsDialog *dialog, SettingsCardGroup *grp) {
@@ -85,6 +87,14 @@ void build_behavior_section(SettingsDialog *dialog, SettingsCardGroup *grp) {
                                          dialog->tr_text("Opacity of newly pinned images. Each image can still be adjusted with the mouse."), grp);
     opacity_combo(dialog, opacity_card, "pin_default_opacity", DEFAULT_OPACITY_STEPS);
     grp->addSettingCard(opacity_card);
+
+    // Text pinned from the clipboard window follows it too, whatever the hotkey takes.
+    auto *formatting_card = add_switch_card(dialog, grp, FluentIcon::Paste, "Keep Text Formatting",
+                                            "Text copied from web pages and documents keeps its bold, lists, tables and code style; colors that would not read on the "
+                                            "white page are dropped. Off: pinned as plain text, and each pin can still switch it from the right-click menu. Also "
+                                            "applies to pinning text from the clipboard window.",
+                                            "pin_text_formatting");
+    dialog->set_attr("pin_text_formatting_toggle", formatting_card);
 }
 
 // Each wheel notch adds or removes a fixed percentage of the original size; step, anchor and edge dragging are here.
@@ -101,7 +111,7 @@ void build_zoom_section(SettingsDialog *dialog, SettingsCardGroup *grp) {
     choice_combo(dialog, anchor_card, "pin_zoom_anchor", anchors);
     grp->addSettingCard(anchor_card);
     add_switch_card(dialog, grp, FluentIcon::Layout, "Resize by Dragging Edges",
-                    "Drag near the edge or corner of a pinned image to resize it. The aspect ratio is kept.", "pin_border_resize");
+                    "Drag near the edge or corner of a pin to resize it. Images keep their aspect ratio.", "pin_border_resize");
     add_switch_card(dialog, grp, FluentIcon::FontSize, "Shrink Oversized Images", "Images larger than the screen are scaled down to fit and centered when pinned.",
                     "pin_auto_shrink");
 }
@@ -157,6 +167,26 @@ void build_lock_section(SettingsDialog *dialog, SettingsCardGroup *grp) {
 }
 
 // Recording and conflict checks live on the shortcut pages; this has only entries, so there is one editor of each.
+// The global pin hotkey: one switch per kind of clipboard content under a title card. With every
+// switch off the hotkey pins nothing.
+void build_hotkey_section(SettingsDialog *dialog, SettingsCardGroup *grp) {
+    grp->addSettingCard(new SettingCard(FluentIcon::Pin, dialog->tr_text("Types to Pin"),
+                                        dialog->tr_text("What this hotkey takes from the clipboard. When both are on and the clipboard holds both, "
+                                                        "such as copied spreadsheet cells, the image is pinned."),
+                                        grp));
+    const std::tuple<const char *, const char *, const char *> kinds[] = {
+        {"Image", "Screenshots and copied pictures.", "pin_clipboard_image"},
+        {"Text", "Copied text, formatted when Keep Text Formatting is on.", "pin_clipboard_text"},
+    };
+    for (const auto &[title, content, key] : kinds) {
+        auto *card = new SubSwitchSettingCard(dialog->tr_text(title), dialog->tr_text(content), grp);
+        card->setChecked(dialog->config_manager->get_app_setting(key).toBool());
+        dialog->behavior_controls.emplace_back(key, card);
+        dialog->set_attr(QString(key) + "_toggle", card);
+        grp->addSettingCard(card);
+    }
+}
+
 void build_shortcuts_section(SettingsDialog *dialog, SettingsCardGroup *grp) {
     const std::tuple<IconSource, const char *, const char *, bool> entries[] = {
         {FluentIcon::CommandPrompt, "Keyboard Shortcuts", "Copy, lock, thumbnail, toolbar and other keys for pinned images.", false},
@@ -177,9 +207,10 @@ const std::set<QString> PIN_BEHAVIOR_KEYS = {
     "pin_default_opacity", "pin_rounded_corners", "pin_auto_border", "pin_hover_buttons", "pin_click_through_opacity",
     "pin_zoom_step", "pin_fine_zoom_step", "pin_opacity_step", "pin_zoom_anchor", "pin_border_resize", "pin_auto_shrink",
     "pin_lock_block_move", "pin_lock_block_click_close", "pin_lock_block_key_close", "pin_lock_hint",
+    "pin_clipboard_image", "pin_clipboard_text", "pin_text_formatting",
 };
 
-// Pin settings: behaviour, zoom and size, appearance, click-through, lock; shortcuts jump to the shortcut pages' pin tab.
+// Pin settings: behaviour, zoom and size, appearance, click-through, lock, the pin hotkey; shortcuts jump to the shortcut pages' pin tab.
 QWidget *create_pin_page(SettingsDialog *dialog) {
     auto *scroll = page_scroll_area(dialog);
     scroll->setWidgetResizable(true);
@@ -195,6 +226,7 @@ QWidget *create_pin_page(SettingsDialog *dialog) {
         {"Appearance", build_appearance_section},
         {"Mouse Click-Through", build_click_through_section},
         {"Lock", build_lock_section},
+        {"Pin Clipboard Image", build_hotkey_section},
         {"Shortcuts", build_shortcuts_section},
     };
     for (const auto &[title, build] : sections) {

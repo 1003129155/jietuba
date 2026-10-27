@@ -1,5 +1,6 @@
 #include "save_dialog_answerer.h"
 #include "ocr/ocr_manager.h"
+#include "canvas/items/background_item.h"
 #include "canvas/items/arrow_item.h"
 #include "canvas/items/drawing_items.h"
 #include "canvas/items/mosaic_item.h"
@@ -24,6 +25,7 @@
 #include "pin/pin_manager.h"
 #include "pin/pin_ocr_manager.h"
 #include "pin/pin_shortcut.h"
+#include "pin/pin_text_content.h"
 #include "pin/pin_text_mode.h"
 #include "pin/pin_text_selection.h"
 #include "pin/pin_toolbar.h"
@@ -54,6 +56,7 @@
 #include <QFontDatabase>
 #include <QLabel>
 #include <QMenu>
+#include <QMimeData>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPushButton>
@@ -65,6 +68,10 @@
 #include <QSlider>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QTextBlock>
+#include <QTextLayout>
+#include <QTextList>
+#include <QTextTable>
 #include <QTimer>
 #include <QWheelEvent>
 #include <algorithm>
@@ -126,6 +133,18 @@ void send_mouse_global(PinWindow *pin, QEvent::Type type, const QPoint &global, 
     auto *viewport = pin->view->viewport();
     QMouseEvent event(type, QPointF(viewport->mapFromGlobal(global)), QPointF(global), button, buttons, Qt::NoModifier);
     QApplication::sendEvent(viewport, &event);
+}
+
+// For a pin's child other than the view's viewport, such as the text page or the text's viewport.
+void send_mouse_to(QWidget *widget, QEvent::Type type, const QPoint &local, Qt::MouseButton button, Qt::MouseButtons buttons) {
+    QMouseEvent event(type, QPointF(local), QPointF(widget->mapToGlobal(local)), button, buttons, Qt::NoModifier);
+    QApplication::sendEvent(widget, &event);
+}
+
+void drag_on(QWidget *widget, const QPoint &start, const QPoint &end) {
+    send_mouse_to(widget, QEvent::MouseButtonPress, start, Qt::LeftButton, Qt::LeftButton);
+    send_mouse_to(widget, QEvent::MouseMove, end, Qt::NoButton, Qt::LeftButton);
+    send_mouse_to(widget, QEvent::MouseButtonRelease, end, Qt::LeftButton, Qt::NoButton);
 }
 
 void drag(PinWindow *pin, const QPoint &start, const QPoint &end, Qt::MouseButton button = Qt::LeftButton) {
@@ -296,6 +315,14 @@ void press_key(PinWindow *pin, Qt::Key key, Qt::KeyboardModifiers modifiers = Qt
 
 QString clipboard_text() { return QApplication::clipboard()->text(); }
 
+// The format of the first run of text holding part.
+QTextCharFormat format_of(const QTextDocument *document, const QString &part) {
+    for (auto block = document->begin(); block.isValid(); block = block.next())
+        for (auto it = block.begin(); !it.atEnd(); ++it)
+            if (it.fragment().text().contains(part)) return it.fragment().charFormat();
+    return {};
+}
+
 // The default pin layout with keys folded into "...".
 QJsonArray folded_layout(const QStringList &keys) {
     QJsonArray layout;
@@ -327,6 +354,16 @@ private:
     }
 
     PinWindow *make_pin(const QVariantMap &settings) { return make_pin(QSize(200, 120), QPoint(100, 100), settings); }
+
+    PinWindow *make_text_pin(const QString &text, const QString &html = {}, bool formatted = true) {
+        auto *pin = PinManager::instance()->create_text_pin(std::make_unique<PinTextContent>(text, html, formatted), QPoint(100, 100), config_);
+        pins_.append(pin);
+        return pin;
+    }
+
+    static bool same_pixels(const QImage &a, const QImage &b) {
+        return a.convertToFormat(QImage::Format_ARGB32_Premultiplied) == b.convertToFormat(QImage::Format_ARGB32_Premultiplied);
+    }
 
     bool desktop() const { return QGuiApplication::platformName() == "windows"; }
 
@@ -2259,6 +2296,39 @@ private slots:
         QVERIFY(pin->text_mode());
     }
 
+    void textLeftWhileEditingTakesItsKeysAgainOnReturn() {
+        auto *pin = make_pin();
+        give_text(pin, {{box(10, 10, 80, 20), "hello", 0.9}});
+        PinShortcutController::instance()->reload_bindings();
+        auto *mode = pin->text_mode_controller();
+        // Keys go where the system sends them: the focus widget of the active window.
+        const auto type = [](Qt::Key key) {
+            auto *focus = QApplication::focusWidget();
+            QVERIFY(focus);
+            QTest::keyClick(focus, key);
+        };
+        pin->toggle_text_mode();
+        QVERIFY(QTest::qWaitForWindowActive(pin));
+        type(Qt::Key_Return);
+        QVERIFY(mode->editing());
+        QWidget elsewhere;
+        elsewhere.show();
+        elsewhere.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&elsewhere));
+        QVERIFY(!mode->editing());
+        pin->activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(pin));
+        QVERIFY(QApplication::focusWidget() != mode->editor());
+        type(Qt::Key_Return);
+        QVERIFY(mode->editing());
+        type(Qt::Key_Escape);
+        QVERIFY(!mode->editing());
+        type(Qt::Key_Escape);
+        QVERIFY(!pin->text_mode());
+        type(Qt::Key_Escape);
+        QVERIFY(pin->is_closed());
+    }
+
     void readingSelectsByDoubleClickAndCopiesTheTextsOwnSelection() {
         auto *pin = make_pin();
         give_text(pin, {{box(10, 10, 80, 20), "first", 0.9}, {box(10, 70, 80, 20), "second", 0.9}});
@@ -2297,6 +2367,65 @@ private slots:
         QCOMPARE(pin->geometry(), QRect(100, 100, 300, 60));
     }
 
+    void textModeEdgesResizeWidthAndHeightApart() {
+        auto *pin = make_pin(QSize(200, 120), QPoint(100, 100));
+        give_text(pin, {{box(10, 10, 80, 20), "hello", 0.9}});
+        pin->toggle_text_mode();
+        auto *panel = pin->text_mode_controller()->panel();
+        send_mouse_to(panel, QEvent::MouseMove, QPoint(199, 60), Qt::NoButton, Qt::NoButton);
+        QCOMPARE(panel->cursor().shape(), Qt::SizeHorCursor);
+        // Unlike an image, the right edge widens the pin alone.
+        drag_on(panel, QPoint(199, 60), QPoint(259, 60));
+        QCOMPARE(pin->geometry(), QRect(100, 100, 260, 120));
+        // The bottom-left corner moves the left edge and the bottom; the right edge and the top stay.
+        drag_on(panel, QPoint(0, 119), QPoint(-30, 159));
+        QCOMPARE(pin->geometry(), QRect(70, 100, 290, 160));
+        // Inside the margin, past the edge band, the page moves the pin again.
+        send_mouse_to(panel, QEvent::MouseMove, QPoint(100, 7), Qt::NoButton, Qt::NoButton);
+        QCOMPARE(panel->cursor().shape(), Qt::SizeAllCursor);
+        // It stops at the smallest pin size.
+        drag_on(panel, QPoint(289, 60), QPoint(-1000, 60));
+        QCOMPARE(pin->geometry(), QRect(70, 100, MIN_SIDE, 160));
+        // The image comes back at its own size.
+        pin->toggle_text_mode();
+        QCOMPARE(pin->size(), QSize(200, 120));
+        // Locked, the edges do nothing.
+        pin->toggle_text_mode();
+        const auto size = pin->size();
+        pin->set_locked(true);
+        drag_on(panel, QPoint(size.width() - 1, 60), QPoint(size.width() + 60, 60));
+        QCOMPARE(pin->size(), size);
+    }
+
+    void readingDragsThePinOffTheTextAndSelectsOnIt() {
+        // Glyphs need a font to have any width.
+        arial_family();
+        auto *pin = make_pin(QSize(200, 120), QPoint(100, 100));
+        give_text(pin, {{box(10, 10, 80, 20), "hello", 0.9}});
+        pin->toggle_text_mode();
+        auto *editor = pin->text_mode_controller()->editor();
+        auto *viewport = editor->viewport();
+        auto cursor = editor->textCursor();
+        cursor.setPosition(1);
+        const QPoint on_text = editor->cursorRect(cursor).center();
+        const QPoint blank(viewport->width() / 2, viewport->height() - 4);
+        send_mouse_to(viewport, QEvent::MouseMove, blank, Qt::NoButton, Qt::NoButton);
+        QCOMPARE(viewport->cursor().shape(), Qt::SizeAllCursor);
+        send_mouse_to(viewport, QEvent::MouseMove, on_text, Qt::NoButton, Qt::NoButton);
+        QCOMPARE(viewport->cursor().shape(), Qt::IBeamCursor);
+        drag_on(viewport, blank, blank + QPoint(40, -20));
+        QCOMPARE(pin->pos(), QPoint(140, 80));
+        QVERIFY(!editor->textCursor().hasSelection());
+        // On the text it selects and the pin stays.
+        drag_on(viewport, on_text, on_text + QPoint(20, 0));
+        QCOMPARE(pin->pos(), QPoint(140, 80));
+        QVERIFY(editor->textCursor().hasSelection());
+        // Editing, the blank places the caret instead.
+        pin->edit_text();
+        drag_on(viewport, blank, blank + QPoint(40, -20));
+        QCOMPARE(pin->pos(), QPoint(140, 80));
+    }
+
     void editTextIsOfferedInTheTextModeMenu() {
         auto *pin = make_pin();
         give_text(pin, {{box(10, 10, 80, 20), "hello", 0.9}});
@@ -2314,6 +2443,247 @@ private slots:
         pin->toggle_text_mode();
         QCOMPARE(hint_text(pin), QString());
         QVERIFY(pin_menu(pin).contains("Edit text"));
+    }
+
+    // ---- Text pins ----
+
+    void aTextPinPageIsAsWideAsItsLongestLineUpTo800() {
+        // Glyphs need a font to have any width.
+        arial_family();
+        const QSize one = PinTextContent("short", {}, true).size();
+        const QSize two = PinTextContent("short\nshort", {}, true).size();
+        QCOMPARE(two.width(), one.width());
+        QVERIFY(two.height() > one.height());
+        // A longer line wraps at 800 pixels of text, plus 8 on each side.
+        const QSize wrapped = PinTextContent(QString("word ").repeated(400), {}, true).size();
+        QCOMPARE(wrapped.width(), 816);
+        QVERIFY(wrapped.height() > 2 * one.height());
+        // The pin is its page, shrunk to the screen as an image would be.
+        auto *pin = make_text_pin("short");
+        QCOMPARE(pin->orig_size(), one);
+        QCOMPARE(pin->size(), one);
+        auto *tall = make_text_pin(QString("line\n").repeated(500));
+        QVERIFY(tall->scale_factor < 1.0);
+        QVERIFY(tall->screen()->geometry().contains(tall->geometry()));
+    }
+
+    void aTextPinIsAPinOfItsText() {
+        arial_family();
+        auto *pin = make_text_pin("first line\nsecond");
+        QVERIFY(pin->text_only() && !pin->text_mode());
+        PinShortcutController::instance()->reload_bindings();
+        QCursor::setPos(pin->mapToGlobal(pin->rect().center()));
+        // Nothing to recognize: the text is selectable from the start.
+        QVERIFY(pin->text_selection_enabled() && pin->ocr_has_result());
+        QCOMPARE(pin->text_selection()->layout().all_text(), QString("first line\nsecond"));
+        // It is text already; R folds it to a thumbnail as any pin.
+        press_key(pin, Qt::Key_T);
+        QVERIFY(!pin->text_mode());
+        press_key(pin, Qt::Key_R);
+        QVERIFY(pin->thumbnail_mode());
+        press_key(pin, Qt::Key_R);
+        QVERIFY(!pin->thumbnail_mode());
+        const QStringList want = {"Copy text (CTRL+C)", "Copy plain text", "Copy image", "Save as", "Translate", "Reset size", "-", "[ ] Toolbar (SPACE)",
+                                  "[ ] Hide annotations (H)", "[x] Always on top", "[ ] Mouse click-through", "[ ] Lock (L)", "[x] Border",
+                                  "[x] Text selection (P)", "[ ] Thumbnail mode (R)", "-", "Close (ESC)"};
+        QCOMPARE(pin_menu(pin), want);
+        // Copied as text, plain text or the page as shown.
+        pin->copy_to_clipboard();
+        QCOMPARE(clipboard_text(), QString("first line\nsecond"));
+        QApplication::clipboard()->clear();
+        pin->copy_plain_text();
+        QCOMPARE(clipboard_text(), QString("first line\nsecond"));
+        // The image goes to the system clipboard, which a test leaves alone; this is what it gets.
+        QCOMPARE(pin->get_current_image().size(), pin->orig_size() * pin->devicePixelRatioF());
+        // Esc closes it.
+        press_key(pin, Qt::Key_Escape);
+        QVERIFY(pin->is_closed());
+    }
+
+    void aTextPinIsDrawnAfreshAtEachZoom() {
+        arial_family();
+        auto *pin = make_text_pin("sharp at any size");
+        auto *background = pin->canvas->scene->background;
+        const auto shown = [pin] { return pin->canvas->scene->background->pixmap(); };
+        // Drawn for the screen at 100%, not the page's own pixels.
+        QCOMPARE(shown().deviceIndependentSize(), QSizeF(pin->size()));
+        QVERIFY(same_pixels(shown().toImage(), pin->text_content()->render(pin->size(), pin->devicePixelRatioF())));
+        wheel(pin, 120, Qt::NoModifier, false, 4);
+        QVERIFY(pin->scale_factor > 1.0);
+        QTRY_COMPARE(shown().deviceIndependentSize(), QSizeF(pin->size()));
+        QVERIFY(same_pixels(shown().toImage(), pin->text_content()->render(pin->size(), pin->devicePixelRatioF())));
+        // The scene keeps the page's own size, so annotations stay where they were drawn.
+        QCOMPARE(pin->canvas->scene->sceneRect().size(), QSizeF(pin->orig_size()));
+        QCOMPARE(background->image().size(), pin->orig_size());
+        // The right edge scales the whole pin, as with an image.
+        const QSize before = pin->size();
+        drag(pin, QPoint(before.width() - 1, before.height() / 2), QPoint(before.width() + 99, before.height() / 2));
+        QCOMPARE(pin->width(), before.width() + 100);
+        QVERIFY(std::abs(pin->height() - pin->orig_size().height() * (before.width() + 100.0) / pin->orig_size().width()) <= 1);
+    }
+
+    void aTextPinSelectsItsCharactersWhereTheyAreDrawn() {
+        arial_family();
+        auto *pin = make_text_pin("hello world");
+        const auto &layout = pin->text_selection()->layout();
+        QCOMPARE(layout.lines().size(), size_t(1));
+        // Each character starts after the advance of those before it, inside the page and document margins.
+        const auto &line = layout.lines()[0];
+        const QFontMetricsF metrics(pin->text_content()->document()->defaultFont());
+        const QString text = "hello world";
+        for (int index = 0; index < text.size(); ++index) {
+            const double expected = 8 + 4 + metrics.horizontalAdvance(text.left(index));
+            QVERIFY2(std::abs(line.bounds.left() + line.starts[index] - expected) < 0.5, qPrintable(QString::number(index)));
+        }
+        // Dragging over "world" copies it.
+        const double world_start = line.bounds.left() + line.starts[6], world_end = line.bounds.left() + line.ends[10];
+        const double y = line.bounds.center().y();
+        drag(pin, pin->view->mapFromScene(QPointF(world_start + 1, y)), pin->view->mapFromScene(QPointF(world_end + 2, y)));
+        QCOMPARE(pin->text_selection()->selected_text(), QString("world"));
+        pin->copy_to_clipboard();
+        QCOMPARE(clipboard_text(), QString("world"));
+    }
+
+    void aWrappedParagraphCopiesAsTheTextRuns() {
+        arial_family();
+        const QString paragraph = QString("word ").repeated(300).trimmed();
+        auto *pin = make_text_pin(paragraph + "\n\nnext");
+        auto *selection = pin->text_selection();
+        const auto &lines = selection->layout().lines();
+        QVERIFY(lines.size() > 3);
+        // Lines broken by wrapping join with nothing between them; a blank line stays.
+        QCOMPARE(selection->layout().all_text(), paragraph + "\n\nnext");
+        const auto first = lines[0].bounds, second = lines[1].bounds;
+        drag(pin, pin->view->mapFromScene(QPointF(first.left() + 1, first.center().y())), pin->view->mapFromScene(second.center()));
+        const QString selected = selection->selected_text();
+        QVERIFY(selected.size() > lines[0].text.size());
+        QVERIFY(!selected.contains('\n'));
+        QVERIFY(paragraph.startsWith(selected));
+    }
+
+    void aRichTextPinKeepsItsFormattingReadableOnTheWhitePage() {
+        arial_family();
+        const QString html =
+            "<body style=\"background-color:#0d1117\">"
+            "<p>plain <b>bold</b> <code>code()</code></p>"
+            "<ul><li>item</li></ul>"
+            "<p><span style=\"color:#e6edf3;background-color:#161b22\">dark</span> <span style=\"color:#c00000\">red</span> "
+            "<span style=\"background-color:#fff59d\">marked</span> <span style=\"color:#fff59d;background-color:#fff59d\">hidden</span></p>"
+            "<p>before<img src=\"https://example.com/a.png\" width=\"40\" height=\"40\">after</p>"
+            "<table><tr><td style=\"background-color:#000000;color:#ffffff\">cell</td><td>next</td></tr></table></body>";
+        const QString text = "plain bold code()\nitem\ndark red marked hidden\nbeforeafter\ncell\tnext";
+        auto *pin = make_text_pin(text, html);
+        auto *content = pin->text_content();
+        QVERIFY(content->formatted());
+        const auto *document = content->document();
+        // Structure and styles stay.
+        QCOMPARE(format_of(document, "bold").fontWeight(), int(QFont::Bold));
+        QVERIFY(format_of(document, "code()").font().families().contains("Consolas"));
+        QVERIFY(document->find("item").block().textList());
+        QVERIFY(document->find("cell").currentTable());
+        // Colors that read on white stay.
+        QCOMPARE(format_of(document, "red").foreground().color(), QColor("#c00000"));
+        QCOMPARE(format_of(document, "marked").background().color(), QColor("#fff59d"));
+        // A dark page's colors go, leaving the page's own text and background.
+        for (const char *part : {"dark", "cell"}) {
+            QVERIFY2(!format_of(document, part).hasProperty(QTextFormat::ForegroundBrush), part);
+            QVERIFY2(!format_of(document, part).hasProperty(QTextFormat::BackgroundBrush), part);
+        }
+        QVERIFY(!document->rootFrame()->frameFormat().hasProperty(QTextFormat::BackgroundBrush));
+        const auto cell = document->find("cell");
+        QVERIFY(!cell.currentTable()->cellAt(cell).format().hasProperty(QTextFormat::BackgroundBrush));
+        // Text the color of its kept background turns dark on it.
+        QVERIFY(!format_of(document, "hidden").hasProperty(QTextFormat::ForegroundBrush));
+        QVERIFY(format_of(document, "hidden").hasProperty(QTextFormat::BackgroundBrush));
+        // The picture, which the pin cannot load, is gone.
+        QVERIFY(document->toPlainText().contains("beforeafter"));
+        QVERIFY(!document->toPlainText().contains(QChar::ObjectReplacementCharacter));
+        // Cells of a row join with a tab.
+        QVERIFY(pin->text_selection()->layout().all_text().endsWith("cell\tnext"));
+        // Copied, it carries the formatting along with the text it came with.
+        pin->copy_to_clipboard();
+        const auto *mime = QApplication::clipboard()->mimeData();
+        QVERIFY(mime->hasHtml());
+        QCOMPARE(mime->text(), text);
+        QVERIFY(mime->html().contains("<b>bold</b>") || mime->html().contains("font-weight:700;\">bold"));
+        pin->copy_plain_text();
+        QVERIFY(!QApplication::clipboard()->mimeData()->hasHtml());
+        QCOMPARE(clipboard_text(), text);
+
+        // Formatting that leaves no text of its own shows the plain text, copied plain.
+        auto *picture = make_text_pin("alt text", "<img src=\"a.png\">");
+        QVERIFY(!picture->text_content()->formatted() && !picture->text_content()->has_formatting());
+        QCOMPARE(picture->text_content()->document()->toPlainText(), QString("alt text"));
+        picture->copy_to_clipboard();
+        QVERIFY(!QApplication::clipboard()->mimeData()->hasHtml());
+        QCOMPARE(clipboard_text(), QString("alt text"));
+        QVERIFY(!pin_menu(picture).join('\n').contains("Keep text formatting"));
+    }
+
+    void aRichTextPinIsSizedByItsFormattedText() {
+        arial_family();
+        // Lines that refused to wrap where they came from wrap at the width limit.
+        const QString code = QString("word ").repeated(400);
+        const QSize pre = PinTextContent(code, "<pre>" + code + "</pre>", true).size();
+        QCOMPARE(pre.width(), 816);
+        QVERIFY(pre.height() > 3 * PinTextContent("word", {}, true).size().height());
+        // A heading takes more room than the same text plain.
+        const QSize plain = PinTextContent("Title", {}, true).size();
+        const QSize heading = PinTextContent("Title", "<h1>Title</h1>", true).size();
+        QVERIFY(heading.width() > plain.width());
+        QVERIFY(heading.height() > plain.height());
+    }
+
+    void aTextPinSwitchesItsFormattingFromTheMenu() {
+        arial_family();
+        const QString html = "<h1>Title</h1><p>body <b>bold</b></p>";
+        const QString text = "Title\nbody bold";
+        auto *pin = make_text_pin(text, html);
+        auto *content = pin->text_content();
+        QVERIFY(pin_menu(pin).contains("[x] Keep text formatting"));
+        // Zoomed to 150%, with an annotation at the top left.
+        pin->reset_to_original_size();
+        wheel(pin, 120, Qt::NoModifier, false, 5);
+        const double scale = pin->scale_factor;
+        QVERIFY(scale > 1.0);
+        auto *mark = pin->canvas->scene->addRect(QRectF(2, 2, 10, 10));
+        mark->setZValue(10);
+        const QPoint corner = pin->pos();
+        // Off: the same text plain, laid out as a new pin of it would be, at the same zoom and place.
+        pin_menu(pin, "Keep text formatting");
+        QVERIFY(!content->formatted() && content->has_formatting());
+        QCOMPARE(format_of(content->document(), "bold").fontWeight(), int(QFont::Normal));
+        QCOMPARE(pin->orig_size(), PinTextContent(text, {}, true).size());
+        QCOMPARE(pin->canvas->scene->sceneRect().size(), QSizeF(pin->orig_size()));
+        QCOMPARE(pin->scale_factor, scale);
+        QVERIFY(std::abs(pin->width() - pin->orig_size().width() * scale) <= 1);
+        QVERIFY(std::abs(pin->height() - pin->orig_size().height() * scale) <= 1);
+        QCOMPARE(pin->pos(), corner);
+        QCOMPARE(mark->rect(), QRectF(2, 2, 10, 10));
+        QVERIFY(same_pixels(pin->canvas->scene->background->pixmap().toImage(), content->render(pin->size(), pin->devicePixelRatioF())));
+        // Selecting follows the new layout.
+        QCOMPARE(pin->text_selection()->layout().all_text(), text);
+        pin->copy_to_clipboard();
+        QVERIFY(!QApplication::clipboard()->mimeData()->hasHtml());
+        QVERIFY(pin_menu(pin).contains("[ ] Keep text formatting"));
+        // On again: the formatting and its size are back.
+        pin_menu(pin, "Keep text formatting");
+        QVERIFY(content->formatted());
+        QCOMPARE(format_of(content->document(), "bold").fontWeight(), int(QFont::Bold));
+        QCOMPARE(pin->orig_size(), PinTextContent(text, html, true).size());
+    }
+
+    void aTextPinPinnedPlainCanShowItsFormatting() {
+        arial_family();
+        const QString html = "<p><b>bold</b> plain</p>";
+        auto *pin = make_text_pin("bold plain", html, false);
+        auto *content = pin->text_content();
+        QVERIFY(!content->formatted() && content->has_formatting());
+        QCOMPARE(pin->orig_size(), PinTextContent("bold plain", {}, true).size());
+        QVERIFY(pin_menu(pin).contains("[ ] Keep text formatting"));
+        pin->toggle_text_formatting();
+        QVERIFY(content->formatted());
+        QCOMPARE(format_of(content->document(), "bold").fontWeight(), int(QFont::Bold));
     }
 
     void textModeAndTextSelectionKeys() {

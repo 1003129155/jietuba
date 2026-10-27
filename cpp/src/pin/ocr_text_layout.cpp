@@ -176,7 +176,24 @@ std::optional<std::pair<int, int>> OcrTextLayout::selection(int index) const {
     return selected_[index];
 }
 
+void OcrTextLayout::set_flow(std::vector<QString> breaks) {
+    if (breaks.size() + 1 == lines_.size()) breaks_ = std::move(breaks);
+}
+
 QString OcrTextLayout::selected_text() const {
+    if (!breaks_.empty()) {
+        // A selection skipping lines between its pieces starts a new line there.
+        QString text;
+        std::optional<int> previous;
+        for (int index = 0; index < static_cast<int>(lines_.size()); ++index) {
+            const auto range = selection(index);
+            if (!range) continue;
+            if (previous) text += *previous + 1 == index ? breaks_[*previous] : QString("\n");
+            text += lines_[index].slice(range->first, range->second);
+            previous = index;
+        }
+        return text;
+    }
     std::vector<std::tuple<QString, double, double>> pieces;
     for (int index = 0; index < static_cast<int>(lines_.size()); ++index) {
         const auto range = selection(index);
@@ -192,6 +209,11 @@ QString OcrTextLayout::selected_text() const {
 QString OcrTextLayout::all_text(const QString &separator) const {
     if (lines_.empty()) return {};
     if (lines_.size() == 1) return lines_[0].text;
+    if (!breaks_.empty()) {
+        QString text = lines_[0].text;
+        for (size_t index = 1; index < lines_.size(); ++index) text += breaks_[index - 1] + lines_[index].text;
+        return text;
+    }
     std::vector<std::tuple<QString, double, double>> blocks;
     for (const auto &line : lines_) blocks.emplace_back(line.text, line.reading_bounds.center().y(), line.reading_bounds.height());
     return join_lines(blocks, 0.8, separator);

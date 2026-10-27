@@ -55,6 +55,9 @@ public:
     bool has_selection() const;
     // A line's selected characters as [first, last); nullopt when none.
     std::optional<std::pair<int, int>> selection(int index) const;
+    // Lines laid out from a document: line i joins line i + 1 with breaks[i], as the text runs,
+    // rather than by where they sit. Needs one break fewer than there are lines.
+    void set_flow(std::vector<QString> breaks);
     // Selected text in reading order: pieces on one line joined with spaces, lines with newlines.
     QString selected_text() const;
     // All text in reading order: blocks on one line joined with spaces, lines with separator.
@@ -71,6 +74,7 @@ private:
     std::vector<OcrLayoutLine> lines_;
     // Per line [first, last); first == last when nothing is selected there.
     std::vector<std::pair<int, int>> selected_;
+    std::vector<QString> breaks_;
     QRectF bounds_;
 };
 }

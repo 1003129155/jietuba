@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QPoint>
 #include <QPointer>
+#include <memory>
 #include <optional>
 #include <utility>
 
@@ -11,6 +12,7 @@ class QGraphicsItem;
 class QWidget;
 
 namespace jietuba {
+class PinTextContent;
 class PinWindow;
 class ToolSettingsManager;
 
@@ -24,6 +26,8 @@ public:
     // annotations, moved by selection_offset; number_next syncs the number counter.
     PinWindow *create_pin(const QImage &image, const QPoint &position, ToolSettingsManager *config_manager, const QList<QGraphicsItem *> &drawing_items = {},
                           const std::optional<QPoint> &selection_offset = std::nullopt, std::optional<int> number_next = std::nullopt);
+    // A pin of content's page at position, sized and shrunk to its screen as an image would be.
+    PinWindow *create_text_pin(std::unique_ptr<PinTextContent> content, const QPoint &position, ToolSettingsManager *config_manager);
     // Drops a pin from the list without closing it.
     void remove_pin(PinWindow *pin_window);
     void close_all();

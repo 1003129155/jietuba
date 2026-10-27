@@ -1177,6 +1177,34 @@ Replace it?</source>
         <translation>고정된 이미지 위에 마우스를 올리면 오른쪽 위에 닫기 및 도구 모음 버튼을 표시합니다. 끄면 오른쪽 클릭 메뉴나 단축키를 사용하세요.</translation>
     </message>
     <message>
+        <source>Types to Pin</source>
+        <translation>고정할 종류</translation>
+    </message>
+    <message>
+        <source>What this hotkey takes from the clipboard. When both are on and the clipboard holds both, such as copied spreadsheet cells, the image is pinned.</source>
+        <translation>이 단축키로 클립보드에서 고정할 내용입니다. 둘 다 켜져 있고 클립보드에 둘 다 있으면(복사한 표 셀 등) 이미지를 고정합니다.</translation>
+    </message>
+    <message>
+        <source>Image</source>
+        <translation>이미지</translation>
+    </message>
+    <message>
+        <source>Screenshots and copied pictures.</source>
+        <translation>스크린샷과 복사한 이미지.</translation>
+    </message>
+    <message>
+        <source>Copied text, formatted when Keep Text Formatting is on.</source>
+        <translation>복사한 텍스트. &apos;텍스트 서식 유지&apos;를 켜면 서식도 유지합니다.</translation>
+    </message>
+    <message>
+        <source>Keep Text Formatting</source>
+        <translation>텍스트 서식 유지</translation>
+    </message>
+    <message>
+        <source>Text copied from web pages and documents keeps its bold, lists, tables and code style; colors that would not read on the white page are dropped. Off: pinned as plain text, and each pin can still switch it from the right-click menu. Also applies to pinning text from the clipboard window.</source>
+        <translation>웹 페이지나 문서에서 복사한 텍스트의 굵게, 목록, 표, 코드 서식을 유지합니다. 흰 바탕에서 읽기 어려운 색은 제거합니다. 끄면 일반 텍스트로 고정하며, 고정한 텍스트마다 오른쪽 클릭 메뉴에서 바꿀 수 있습니다. 클립보드 창에서 고정할 때도 적용됩니다.</translation>
+    </message>
+    <message>
         <source>Mouse Shortcuts</source>
         <translation>마우스 단축키</translation>
     </message>
@@ -1389,8 +1417,8 @@ Replace it?</source>
         <translation>가장자리를 끌어 크기 조절</translation>
     </message>
     <message>
-        <source>Drag near the edge or corner of a pinned image to resize it. The aspect ratio is kept.</source>
-        <translation>고정 이미지의 가장자리나 모서리를 끌어 크기를 조절합니다. 가로세로 비율은 유지됩니다.</translation>
+        <source>Drag near the edge or corner of a pin to resize it. Images keep their aspect ratio.</source>
+        <translation>고정 항목의 가장자리나 모서리를 끌어 크기를 조절합니다. 이미지는 비율이 유지됩니다.</translation>
     </message>
     <message>
         <source>Shrink Oversized Images</source>
@@ -1586,7 +1614,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Pin Clipboard Image</source>
-        <translation>클립보드 이미지 고정</translation>
+        <translation>클립보드 고정</translation>
     </message>
     <message>
         <source>Volcengine machine translation: about 2M free characters/month. Overuse is billed at pay-as-you-go rates, so a local quota guard (default on) prevents surprise charges.</source>
@@ -1873,6 +1901,22 @@ Replace it?</source>
     <message>
         <source>Edit text</source>
         <translation>텍스트 편집</translation>
+    </message>
+    <message>
+        <source>Keep text formatting</source>
+        <translation>텍스트 서식 유지</translation>
+    </message>
+    <message>
+        <source>Copy text</source>
+        <translation>텍스트 복사</translation>
+    </message>
+    <message>
+        <source>Copy plain text</source>
+        <translation>일반 텍스트 복사</translation>
+    </message>
+    <message>
+        <source>Copy image</source>
+        <translation>이미지 복사</translation>
     </message>
     <message>
         <source>Hide annotations</source>
@@ -2222,7 +2266,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Pin Clipboard Image</source>
-        <translation>클립보드 이미지 고정</translation>
+        <translation>클립보드 고정</translation>
     </message>
     <message>
         <source>Hotkey Registration Failed</source>

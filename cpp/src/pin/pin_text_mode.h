@@ -1,4 +1,5 @@
 #pragma once
+#include <QImage>
 #include <QPointer>
 #include <QRect>
 #include <QTextEdit>
@@ -15,8 +16,8 @@ QString pin_layout_text(const OcrTextLayout &layout, ToolSettingsManager *settin
 // The pixel size that shows text about as large as the recognized lines appear on the pin.
 int pin_text_pixel_size(const OcrTextLayout &layout, double view_scale);
 
-// Plain text only. The wheel scrolls and Ctrl+wheel sizes the text, never zooming the pin;
-// the context menu is the pin's.
+// The wheel scrolls and Ctrl+wheel sizes the text, never zooming the pin; the context menu is
+// the pin's. Read-only, a drag off the text moves the pin. Typing and pasting add plain text.
 class PinTextEdit : public QTextEdit {
     Q_OBJECT
 public:
@@ -27,11 +28,18 @@ protected:
     void contextMenuEvent(QContextMenuEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
     void focusOutEvent(QFocusEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
+    void mouseDoubleClickEvent(QMouseEvent *event) override;
 private:
+    // Whether a viewport point lies on a character rather than the blank around the text.
+    bool on_text(const QPoint &viewport_pos) const;
     PinWindow *pin_;
+    bool dragging_pin_ = false;
 };
 
-// An opaque page over the whole pin holding the editor; its margin moves the window.
+// An opaque page over the whole pin holding the editor; its margin moves the window, its edges resize it.
 class PinTextPanel : public QWidget {
     Q_OBJECT
 public:
@@ -65,11 +73,13 @@ public:
     // Follows the window's size.
     void sync_geometry();
     QString text() const;
+    // The page the window watches for edge resizing; null until text is first shown.
+    QWidget *panel() const { return panel_; }
     // The selected text, or all of it without a selection.
     QString text_to_copy() const;
 private:
     void show_text();
-    void build(const OcrTextLayout &layout);
+    void build(const QString &text, int pixel_size);
     void set_read_only(bool read_only);
     // On entry a pin too short for its text grows downwards to fit, within its screen.
     void fit_height();

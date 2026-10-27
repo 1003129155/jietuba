@@ -8,18 +8,23 @@
 #include "pin/pin_window.h"
 #include "settings/tool_settings.h"
 #include "text_recognition/layout.h"
+#include <QAbstractTextDocumentLayout>
 #include <QContextMenuEvent>
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QScreen>
 #include <QScrollBar>
+#include <QTextBlock>
 #include <QTextDocument>
 #include <QTextDocumentFragment>
 #include <QVBoxLayout>
 #include <QWheelEvent>
 #include <algorithm>
 #include <cmath>
+#include <memory>
+#include <optional>
+#include <vector>
 
 namespace jietuba {
 namespace {
@@ -32,6 +37,14 @@ constexpr int MIN_PIXEL_SIZE = 12, MAX_PIXEL_SIZE = 72;
 constexpr int HINT_MS = 2000;
 // Either engine's line boxes run about a tenth taller than the font's pixel size.
 constexpr double FONT_TO_LINE = 0.9;
+
+QFont text_font(int pixel_size) {
+    QFont font("Microsoft YaHei UI");
+    font.setPixelSize(pixel_size);
+    return font;
+}
+
+int panel_margin(int pixel_size) { return std::max(6, pixel_size / 2); }
 }
 
 QString pin_layout_text(const OcrTextLayout &layout, ToolSettingsManager *settings) {
@@ -55,6 +68,9 @@ int pin_text_pixel_size(const OcrTextLayout &layout, double view_scale) {
 
 PinTextEdit::PinTextEdit(PinWindow *pin, QWidget *parent) : QTextEdit(parent), pin_(pin) {
     setAcceptRichText(false);
+    setWordWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+    // A pin smaller than the editor's usual minimum still lays it out within the pin.
+    setMinimumSize(1, 1);
     setFrameShape(QFrame::NoFrame);
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     // The scroll bar would otherwise take the panel's move cursor.
@@ -66,14 +82,17 @@ PinTextEdit::PinTextEdit(PinWindow *pin, QWidget *parent) : QTextEdit(parent), p
     for (const auto role : {QPalette::Highlight, QPalette::HighlightedText})
         palette.setColor(QPalette::Inactive, role, palette.color(QPalette::Active, role));
     setPalette(palette);
+    // The cursor tells text from the blank that drags.
+    viewport()->setMouseTracking(true);
 }
 
 void PinTextEdit::wheelEvent(QWheelEvent *event) {
     if (event->modifiers() & Qt::ControlModifier) {
         if (const int delta = event->angleDelta().y()) {
             auto font = this->font();
-            font.setPixelSize(std::clamp(font.pixelSize() + (delta > 0 ? 1 : -1), MIN_PIXEL_SIZE, MAX_PIXEL_SIZE));
-            setFont(font);
+            const int old_size = font.pixelSize();
+            font.setPixelSize(std::clamp(old_size + (delta > 0 ? 1 : -1), MIN_PIXEL_SIZE, MAX_PIXEL_SIZE));
+            if (font.pixelSize() != old_size) setFont(font);
         }
     } else {
         QTextEdit::wheelEvent(event);
@@ -101,6 +120,50 @@ void PinTextEdit::keyPressEvent(QKeyEvent *event) {
         return;
     }
     QTextEdit::keyPressEvent(event);
+}
+
+bool PinTextEdit::on_text(const QPoint &viewport_pos) const {
+    const QPointF document_pos = QPointF(viewport_pos) + QPointF(horizontalScrollBar()->value(), verticalScrollBar()->value());
+    return document()->documentLayout()->hitTest(document_pos, Qt::ExactHit) >= 0;
+}
+
+void PinTextEdit::mousePressEvent(QMouseEvent *event) {
+    if (isReadOnly() && event->button() == Qt::LeftButton && !on_text(event->position().toPoint())) {
+        dragging_pin_ = true;
+        pin_->start_window_drag(event->globalPosition().toPoint());
+        event->accept();
+        return;
+    }
+    QTextEdit::mousePressEvent(event);
+}
+
+void PinTextEdit::mouseMoveEvent(QMouseEvent *event) {
+    if (dragging_pin_) {
+        pin_->update_window_drag(event->globalPosition().toPoint());
+        event->accept();
+        return;
+    }
+    if (event->buttons() == Qt::NoButton) viewport()->setCursor(!isReadOnly() || on_text(event->position().toPoint()) ? Qt::IBeamCursor : Qt::SizeAllCursor);
+    QTextEdit::mouseMoveEvent(event);
+}
+
+void PinTextEdit::mouseReleaseEvent(QMouseEvent *event) {
+    if (dragging_pin_ && event->button() == Qt::LeftButton) {
+        dragging_pin_ = false;
+        pin_->end_window_drag();
+        event->accept();
+        return;
+    }
+    QTextEdit::mouseReleaseEvent(event);
+}
+
+void PinTextEdit::mouseDoubleClickEvent(QMouseEvent *event) {
+    // Off the text it is a second press of a drag, not a word to select.
+    if (isReadOnly() && !on_text(event->position().toPoint())) {
+        event->accept();
+        return;
+    }
+    QTextEdit::mouseDoubleClickEvent(event);
 }
 
 void PinTextEdit::focusOutEvent(QFocusEvent *event) {
@@ -161,7 +224,8 @@ void PinTextMode::show_text() {
     if (!editor_) {
         const auto *selection = win_->text_selection();
         if (!selection || !selection->has_text()) return;
-        build(selection->layout());
+        const double view_scale = win_->view ? std::sqrt(std::abs(win_->view->transform().determinant())) : 1.0;
+        build(pin_layout_text(selection->layout(), win_->config_manager), pin_text_pixel_size(selection->layout(), view_scale > 0 ? view_scale : 1.0));
     }
     win_->stop_drawing();
     active_ = true;
@@ -194,7 +258,9 @@ void PinTextMode::start_editing() {
 void PinTextMode::stop_editing() {
     if (!editing_) return;
     editing_ = false;
-    const bool had_focus = editor_ && editor_->hasFocus();
+    // Also when another window took the keyboard: reactivating the pin gives its last focus widget
+    // the keys whatever its focus policy, and a read-only editor would swallow them.
+    const bool had_focus = editor_ && win_->focusWidget() == editor_;
     set_read_only(true);
     if (had_focus && win_->view) win_->view->setFocus(Qt::OtherFocusReason);
 }
@@ -204,39 +270,36 @@ void PinTextMode::set_read_only(bool read_only) {
     editor_->setTextInteractionFlags(read_only ? Qt::TextSelectableByMouse : Qt::TextEditorInteraction);
     // Read-only it never holds focus, so keys reach the pin's shortcuts.
     editor_->setFocusPolicy(read_only ? Qt::NoFocus : Qt::StrongFocus);
+    editor_->viewport()->setCursor(Qt::IBeamCursor);
 }
 
-void PinTextMode::build(const OcrTextLayout &layout) {
-    const double view_scale = win_->view ? std::sqrt(std::abs(win_->view->transform().determinant())) : 1.0;
-    const int pixel_size = pin_text_pixel_size(layout, view_scale > 0 ? view_scale : 1.0);
+void PinTextMode::build(const QString &text, int pixel_size) {
     panel_ = new PinTextPanel(win_);
     panel_->hide();
     editor_ = new PinTextEdit(win_, panel_);
-    QFont font("Microsoft YaHei UI");
-    font.setPixelSize(pixel_size);
-    editor_->setFont(font);
-    const int margin = std::max(6, pixel_size / 2);
+    editor_->setFont(text_font(pixel_size));
+    const int margin = panel_margin(pixel_size);
     auto *box = new QVBoxLayout(panel_);
     box->setContentsMargins(margin, margin, margin, margin);
     box->addWidget(editor_);
-    editor_->setPlainText(pin_layout_text(layout, win_->config_manager));
+    editor_->setPlainText(text);
     set_read_only(true);
+    // The window resizes from the page's edges.
+    panel_->installEventFilter(win_);
 }
 
 void PinTextMode::fit_height() {
     // Measured on a copy: the editor lays its own document out at its widget width, which a
     // hidden editor does not have yet.
     const auto margins = panel_->layout()->contentsMargins();
-    QTextDocument probe;
-    probe.setDefaultFont(editor_->font());
-    probe.setDocumentMargin(editor_->document()->documentMargin());
-    probe.setPlainText(editor_->toPlainText());
-    probe.setTextWidth(std::max(1, win_->width() - margins.left() - margins.right() - editor_->verticalScrollBar()->sizeHint().width()));
-    const int needed = static_cast<int>(std::ceil(probe.size().height())) + margins.top() + margins.bottom();
+    const std::unique_ptr<QTextDocument> probe(editor_->document()->clone());
+    // Grown to fit, the text needs no scroll bar, so it has the whole width; capped by the screen it scrolls anyway.
+    probe->setTextWidth(std::max(1, win_->width() - margins.left() - margins.right()));
+    const int needed = static_cast<int>(std::ceil(probe->size().height())) + margins.top() + margins.bottom();
     if (needed <= win_->height()) return;
     int height = needed;
     if (const auto *screen = win_->screen()) height = std::min(needed, std::max(win_->height(), screen->availableGeometry().bottom() + 1 - win_->y()));
-    win_->resize(win_->width(), height);
+    if (height != win_->height()) win_->resize(win_->width(), height);
 }
 
 void PinTextMode::exit() {
@@ -265,4 +328,6 @@ QString PinTextMode::text_to_copy() const {
     const auto cursor = editor_->textCursor();
     return cursor.hasSelection() ? cursor.selection().toPlainText() : editor_->toPlainText();
 }
+
+
 }

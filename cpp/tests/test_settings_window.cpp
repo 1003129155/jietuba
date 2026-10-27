@@ -610,6 +610,57 @@ private slots:
         QCOMPARE(toggle->isChecked(), default_value);
     }
 
+    // The hotkey's kinds have a group of their own, second to last above the pin keys, one switch
+    // each; formatting, which the clipboard window's pins follow too, stays with the behaviour.
+    void pinClipboardKindsAndFormattingSaveAndReset() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.on_nav_changed(11, "pin");
+        auto *image = dialog.attr<SwitchSettingCard>("pin_clipboard_image_toggle");
+        auto *text = dialog.attr<SwitchSettingCard>("pin_clipboard_text_toggle");
+        auto *formatting = dialog.attr<SwitchSettingCard>("pin_text_formatting_toggle");
+        QVERIFY(image && text && formatting);
+        const auto group_of = [](QWidget *widget) -> SettingCardGroup * {
+            for (QWidget *w = widget; w; w = w->parentWidget())
+                if (auto *group = qobject_cast<SettingCardGroup *>(w)) return group;
+            return nullptr;
+        };
+        auto *own = group_of(image);
+        QVERIFY(own && group_of(text) == own);
+        auto groups = own->parentWidget()->findChildren<SettingCardGroup *>(Qt::FindDirectChildrenOnly);
+        std::sort(groups.begin(), groups.end(), [](QWidget *a, QWidget *b) { return a->y() < b->y(); });
+        QCOMPARE(groups.indexOf(own), groups.size() - 2);
+        QVERIFY(!groups.last()->findChildren<QPushButton *>().isEmpty());
+        QVERIFY(group_of(formatting) == group_of(dialog.attr_widget("pin_auto_toolbar_toggle")));
+        // Stacked, one row per kind.
+        QVERIFY(text->mapTo(own, QPoint()).y() > image->mapTo(own, QPoint()).y());
+        QCOMPARE(text->switchButton->mapTo(own, QPoint()).x(), image->switchButton->mapTo(own, QPoint()).x());
+        // Both on by default, each turned off on its own.
+        QVERIFY(image->isChecked() && text->isChecked());
+        image->setChecked(false);
+        QVERIFY(text->isChecked() && text->isEnabled());
+        formatting->setChecked(false);
+        QVERIFY(dialog.apply_settings());
+        QVERIFY(!config_->get_pin_clipboard_image());
+        QVERIFY(config_->get_pin_clipboard_text());
+        QVERIFY(!config_->get_pin_text_formatting());
+        {
+            SettingsDialog again(config_, config_->get_hotkey());
+            again.on_nav_changed(11, "pin");
+            auto *loaded = again.attr<SwitchSettingCard>("pin_clipboard_image_toggle");
+            QVERIFY(loaded && !loaded->isChecked());
+        }
+        text->setChecked(false);
+        reset_page(dialog);
+        QVERIFY(image->isChecked() && text->isChecked());
+        QVERIFY(formatting->isChecked());
+        QVERIFY(dialog.apply_settings());
+        QVERIFY(config_->get_pin_clipboard_image());
+        QVERIFY(config_->get_pin_clipboard_text());
+        QVERIFY(config_->get_pin_text_formatting());
+        dialog.hide();
+    }
+
     void captureEngineComboLoadsSavesAndResets() {
         config_->set_capture_engine("hdr");
         SettingsDialog dialog(config_, config_->get_hotkey());

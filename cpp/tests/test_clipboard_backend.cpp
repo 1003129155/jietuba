@@ -10,6 +10,7 @@
 #include "core/save.h"
 #include "clipboard/ui/widgets/reorder_list.h"
 #include "pin/pin_manager.h"
+#include "pin/pin_text_content.h"
 #include "pin/pin_window.h"
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/segmented.h"
@@ -17,6 +18,7 @@
 #include <QFile>
 #include <QMimeData>
 #include <QMutex>
+#include <QScopeGuard>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
@@ -420,24 +422,99 @@ private slots:
         QVERIFY(!QFileInfo::exists(file));
     }
 
+    // Only the in-process clipboard of the offscreen platform: nothing here is recorded.
+    void thePinHotkeyTakesWhatTheSettingsAllow() {
+        const auto restore = qScopeGuard([this] {
+            env_.config->set_pin_clipboard_image(true);
+            env_.config->set_pin_clipboard_text(true);
+            env_.config->set_pin_text_formatting(true);
+        });
+        const auto pins = [] { return PinManager::instance()->get_all_pins(); };
+        const auto put = [](const QString &text, const QString &html, const QImage &image) {
+            auto *mime = new QMimeData;
+            if (!text.isEmpty()) mime->setText(text);
+            if (!html.isEmpty()) mime->setHtml(html);
+            if (!image.isNull()) mime->setImageData(image);
+            QApplication::clipboard()->setMimeData(mime);
+        };
+        const QString table = "<table><tr><td><b>a</b></td><td>b</td></tr></table>";
+        // Copied cells: the picture of them unless the settings take text only.
+        put("a\tb", table, solid(QSize(11, 7), Qt::yellow));
+        QVERIFY(pin_latest_clipboard_image());
+        QCOMPARE(pins().last()->orig_size(), QSize(11, 7));
+        env_.config->set_pin_clipboard_image(false);
+        QVERIFY(pin_latest_clipboard_image());
+        QVERIFY(pins().last()->text_only());
+        QVERIFY(pins().last()->text_content()->formatted());
+        QVERIFY(pins().last()->text_content()->document()->find("a").currentTable());
+        env_.config->set_pin_text_formatting(false);
+        QVERIFY(pin_latest_clipboard_image());
+        QVERIFY(!pins().last()->text_content()->formatted());
+        QCOMPARE(pins().last()->text_content()->text(), QString("a\tb"));
+        // Kept for the pin's menu to switch to.
+        QVERIFY(pins().last()->text_content()->has_formatting());
+        // Text only finds no text in a lone picture.
+        put({}, {}, solid(QSize(9, 6), Qt::cyan));
+        QVERIFY(!pin_latest_clipboard_image());
+        QCOMPARE(pins().size(), 3);
+        // Images only leaves text alone; with no image in history nothing is pinned.
+        env_.config->set_pin_clipboard_image(true);
+        env_.config->set_pin_clipboard_text(false);
+        env_.config->set_pin_text_formatting(true);
+        put("words", "<p><b>words</b></p>", {});
+        QVERIFY(!pin_latest_clipboard_image());
+        QCOMPARE(pins().size(), 3);
+        // Neither: the hotkey pins nothing, an image included.
+        env_.config->set_pin_clipboard_image(false);
+        put({}, {}, solid(QSize(9, 6), Qt::cyan));
+        QVERIFY(!pin_latest_clipboard_image());
+        QCOMPARE(pins().size(), 3);
+        // Both, text with formatting.
+        env_.config->set_pin_clipboard_image(true);
+        env_.config->set_pin_clipboard_text(true);
+        put("words", "<p><b>words</b></p>", {});
+        QVERIFY(pin_latest_clipboard_image());
+        QVERIFY(pins().last()->text_content()->formatted());
+        QCOMPARE(pins().last()->text_content()->text(), QString("words"));
+        // A history item without formatting pins plain.
+        const auto id = manager().add_item("words", "text");
+        QVERIFY(id);
+        QVERIFY(create_pin_from_clipboard_item(*id, &manager(), nullptr));
+        QVERIFY(!pins().last()->text_content()->formatted());
+    }
+
     void recordedImagesPinPreviewAndStitch() {
         start_watching();
         const auto first = record_image(solid(QSize(40, 30), Qt::red));
         const auto second = record_image(solid(QSize(20, 50), Qt::green));
         QVERIFY(first && second);
 
-        // The latest history image pins when the clipboard holds text.
+        const auto last_pin = [] { return PinManager::instance()->get_all_pins().last(); };
+        // Text on the clipboard pins as text.
         QApplication::clipboard()->setText("not an image");
         QVERIFY(pin_latest_clipboard_image(QPoint(200, 200)));
         QCOMPARE(PinManager::instance()->count(), 1);
-        QCOMPARE(PinManager::instance()->get_all_pins().last()->orig_size(), QSize(20, 50));
-        // The system clipboard's image comes first.
-        QApplication::clipboard()->setImage(solid(QSize(11, 7), Qt::yellow));
+        QVERIFY(last_pin()->text_only());
+        QCOMPARE(last_pin()->text_content()->text(), QString("not an image"));
+        // So does a text item from history.
+        QVERIFY(create_pin_from_clipboard_item(add_texts({"from history"}).first(), &manager(), nullptr));
+        QVERIFY(last_pin()->text_only());
+        QCOMPARE(last_pin()->text_content()->text(), QString("from history"));
+        // Without either on the clipboard the latest history image pins.
+        QApplication::clipboard()->clear();
+        QVERIFY(pin_latest_clipboard_image(QPoint(200, 200)));
+        QCOMPARE(last_pin()->orig_size(), QSize(20, 50));
+        // The system clipboard's image comes first, also over text with it, as copied spreadsheet cells carry.
+        auto *cells = new QMimeData;
+        cells->setText("a\tb");
+        cells->setImageData(solid(QSize(11, 7), Qt::yellow));
+        QApplication::clipboard()->setMimeData(cells);
         QVERIFY(pin_latest_clipboard_image());
-        QCOMPARE(PinManager::instance()->get_all_pins().last()->orig_size(), QSize(11, 7));
+        QVERIFY(!last_pin()->text_only());
+        QCOMPARE(last_pin()->orig_size(), QSize(11, 7));
         // With history off only the system clipboard counts.
         env_.config->set_clipboard_enabled(false);
-        QApplication::clipboard()->setText("text again");
+        QApplication::clipboard()->clear();
         QVERIFY(!pin_latest_clipboard_image());
         // A capture copied together with its file path is still an image.
         auto *capture = new QMimeData;
@@ -448,7 +525,7 @@ private slots:
         QCOMPARE(PinManager::instance()->get_all_pins().last()->orig_size(), QSize(9, 6));
         env_.config->set_clipboard_enabled(true);
         QVERIFY(create_pin_from_clipboard_item(first->id, &manager(), nullptr));
-        QCOMPARE(PinManager::instance()->count(), 4);
+        QCOMPARE(PinManager::instance()->count(), 6);
         QVERIFY(!create_pin_from_clipboard_item(999999, &manager(), nullptr));
 
         // The preview shows the stored image.
