@@ -347,19 +347,31 @@ private slots:
         QCOMPARE(PinManager::instance()->get_all_pins().last()->orig_size(), QSize(50, 30));
     }
 
-    void theClipboardHotkeyTogglesTheWindowAndACaptureClosesIt() {
+    void theClipboardHotkeyTogglesTheWindowAndACaptureKeepsIt() {
         QVERIFY(main_app_->clipboard_manager && main_app_->clipboard_manager->is_monitoring());
         main_app_->open_clipboard_window();
         QVERIFY(main_app_->clipboard_window);
         QTRY_VERIFY(main_app_->clipboard_window->isVisible());
         main_app_->open_clipboard_window();
         QVERIFY(!main_app_->clipboard_window->isVisible());
-        // A capture closes a clipboard window kept open, so it is not captured.
+        // A capture leaves an open clipboard window on screen, so it is captured too.
         main_app_->open_clipboard_window();
         QTRY_VERIFY(main_app_->clipboard_window->isVisible());
         main_app_->start_screenshot();
-        QVERIFY(!main_app_->clipboard_window->isVisible());
+        QVERIFY(main_app_->clipboard_window->isVisible());
         QTRY_VERIFY(main_app_->screenshot_window && main_app_->screenshot_window->session_active());
+        // Closing after a paste, it hides once the capture has the focus. Opened again it is owned by the
+        // capture, so it stays above it; the capture releases it when it ends, before it is destroyed.
+        QTRY_VERIFY(!main_app_->clipboard_window->isVisible());
+        main_app_->open_clipboard_window();
+        QTRY_VERIFY(main_app_->clipboard_window->isVisible());
+        const auto clipboard = reinterpret_cast<HWND>(main_app_->clipboard_window->winId());
+        QCOMPARE(GetWindow(clipboard, GW_OWNER), reinterpret_cast<HWND>(main_app_->screenshot_window->winId()));
+        main_app_->screenshot_window->cleanup_and_close();
+        QCOMPARE(GetWindow(clipboard, GW_OWNER), HWND(nullptr));
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QVERIFY(IsWindow(clipboard));
+        main_app_->clipboard_window->close();
     }
 
     void turningClipboardMonitoringOffAndOnFollowsTheSetting() {

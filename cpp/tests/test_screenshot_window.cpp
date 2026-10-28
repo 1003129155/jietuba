@@ -51,6 +51,7 @@
 #include <QEventLoop>
 #include <QFile>
 #include <QFileDialog>
+#include <QGraphicsTextItem>
 #include <QImageReader>
 #include <QLineEdit>
 #include <QMouseEvent>
@@ -85,6 +86,12 @@ void send_mouse(ScreenshotWindow *window, QEvent::Type type, Qt::MouseButton but
     auto *viewport = window->view->viewport();
     QMouseEvent event(type, QPointF(pos), QPointF(viewport->mapToGlobal(pos)), button, buttons, modifiers);
     QApplication::sendEvent(viewport, &event);
+}
+
+void click(ScreenshotWindow *window, const QPoint &pos) {
+    send_mouse(window, QEvent::MouseButtonPress, Qt::LeftButton, pos, Qt::LeftButton);
+    send_mouse(window, QEvent::MouseButtonRelease, Qt::LeftButton, pos, Qt::NoButton);
+    QApplication::processEvents();
 }
 
 void drag(ScreenshotWindow *window, const QPoint &start, const QPoint &end) {
@@ -276,6 +283,35 @@ private slots:
         QVERIFY(!again->toolbar->current_tool);
     }
 
+    // A text box being typed in, from a click with the text tool inside the selection.
+    QGraphicsTextItem *start_typing(ScreenshotWindow *window) {
+        window->activateWindow();
+        if (!QTest::qWaitForWindowActive(window)) return nullptr;
+        window->toolbar->select_tool("text");
+        click(window, QPoint(100, 100));
+        if (!window->is_text_editing() || QApplication::focusWidget() != window->view) return nullptr;
+        return window->view->get_active_text_item();
+    }
+
+    // Esc while typing leaves the text and keeps it; the next Esc ends the capture.
+    void escLeavesTheTextBeforeEndingTheCapture() {
+        auto *window = open_with_selection();
+        auto *text = start_typing(window);
+        QVERIFY(text);
+        QTest::keyClicks(window->view, "hi");
+        QCOMPARE(text->toPlainText(), QString("hi"));
+        const QRect on_screen = window->active_text_screen_rect();
+        QVERIFY(!on_screen.isEmpty());
+        QVERIFY(on_screen.contains(window->view->viewport()->mapToGlobal(QPoint(102, 102))));
+        QTest::keyClick(window->view, Qt::Key_Escape);
+        QVERIFY(window->session_active());
+        QVERIFY(!window->is_text_editing());
+        QVERIFY(window->active_text_screen_rect().isEmpty());
+        QCOMPARE(text->toPlainText(), QString("hi"));
+        QTest::keyClick(window->view, Qt::Key_Escape);
+        QVERIFY(!window->session_active());
+    }
+
     // A window shown over the capture, such as the clipboard history, keeps its keys.
     void keysOfAWindowOverTheCaptureStayThere() {
         auto *window = open_with_selection();
@@ -286,6 +322,45 @@ private slots:
         QVERIFY(window->session_active());
         QTest::keyClick(window, Qt::Key_Escape);
         QVERIFY(!window->session_active());
+    }
+
+    // Another window taking the focus while typing, as when picking from the clipboard history, does
+    // not end the text: the new empty box stays, and typing goes on once the capture is active again.
+    void typingSurvivesAnotherWindowTakingTheFocus() {
+        auto *window = open_with_selection();
+        QPointer<QGraphicsTextItem> text = start_typing(window);
+        QVERIFY(text);
+        QWidget picker;
+        picker.resize(100, 100);
+        picker.show();
+        picker.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&picker));
+        QVERIFY(!window->is_text_editing());
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QVERIFY(text && text->scene());
+        window->activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(window));
+        QTRY_VERIFY(window->is_text_editing());
+        QCOMPARE(window->view->get_active_text_item(), text.data());
+        QTest::keyClicks(window->view, "ok");
+        QCOMPARE(text->toPlainText(), QString("ok"));
+    }
+
+    // Pasted text takes the box's own font and colour, not the formatting it was copied with.
+    void pastedTextTakesTheFormattingOfTheBox() {
+        auto *window = open_with_selection();
+        auto *text = start_typing(window);
+        QVERIFY(text);
+        // The offscreen platform's clipboard is in-process, so this leaves the system clipboard alone.
+        auto *mime = new QMimeData;
+        mime->setHtml("<span style=\"color:#ff0000; font-size:40pt\">pasted</span>");
+        mime->setText("pasted");
+        QGuiApplication::clipboard()->setMimeData(mime);
+        QTest::keyClick(window->view, Qt::Key_V, Qt::ControlModifier);
+        QCOMPARE(text->toPlainText(), QString("pasted"));
+        QVERIFY(!text->toHtml().contains("ff0000"));
+        QVERIFY(!text->toHtml().contains("40pt"));
+        QGuiApplication::clipboard()->clear();
     }
 
     void theCancelButtonAndWindowCloseEndTheSession() {

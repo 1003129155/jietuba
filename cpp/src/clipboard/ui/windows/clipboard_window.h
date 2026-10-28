@@ -136,6 +136,9 @@ public:
     bool edit_selected();
     // This window or one it parents: a menu, a confirmation, quick edit.
     bool owns_window(const QWidget *window) const;
+    // A screen area the window must not cover when it next shows, such as the text being typed in a
+    // capture; empty for none.
+    void set_area_to_keep_clear(const QRect &area) { area_to_keep_clear_ = area; }
 
 signals:
     void item_pasted(qint64 item_id);
@@ -243,7 +246,10 @@ private:
     void position_on_show();
     void position_at_cursor();
     bool restore_previous_position();
+    // Moves the window above or below area_to_keep_clear_ when it covers it.
+    void keep_area_clear();
     void check_and_hide();
+    QRect area_to_keep_clear_;
     // The row as it looks, at most 240 wide, with the number of dragged rows when there are several.
     QPixmap drag_pixmap(qint64 item_id, int count, QPoint *hot_spot) const;
     bool is_draggable_area(QObject *widget) const;

@@ -31,6 +31,8 @@ public:
     QColor outline_color = QColor(DEFAULT_OUTLINE_COLOR), shadow_color = QColor(DEFAULT_SHADOW_COLOR), background_color = QColor(Qt::white);
     qreal outline_width = DEFAULT_OUTLINE_WIDTH;
     bool _provisional = false, _is_closed = false;
+    // Another window took the focus while typing; the edit goes on when the scene gives it back.
+    bool _window_away = false;
     QString _text_before_edit;
     qreal font_point_size() const;
     void set_font_point_size(qreal);
@@ -61,6 +63,8 @@ public:
 protected:
     void focusInEvent(QFocusEvent *) override;
     void focusOutEvent(QFocusEvent *) override;
+    // Pasted text takes the item's font and colour, not the formatting it was copied with.
+    void keyPressEvent(QKeyEvent *) override;
     void mouseDoubleClickEvent(QGraphicsSceneMouseEvent *) override;
     void hoverEnterEvent(QGraphicsSceneHoverEvent *) override;
     void hoverMoveEvent(QGraphicsSceneHoverEvent *) override;

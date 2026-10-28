@@ -1471,8 +1471,21 @@ void ClipboardWindow::showEvent(QShowEvent *event) {
 void ClipboardWindow::reveal_window() { setWindowOpacity(1); }
 
 void ClipboardWindow::position_on_show() {
-    if (config->get_clipboard_open_position() == "previous" && restore_previous_position()) return;
-    position_at_cursor();
+    if (config->get_clipboard_open_position() != "previous" || !restore_previous_position()) position_at_cursor();
+    keep_area_clear();
+}
+
+void ClipboardWindow::keep_area_clear() {
+    const QRect area = area_to_keep_clear_;
+    area_to_keep_clear_ = {};
+    if (area.isEmpty() || !geometry().intersects(area)) return;
+    QScreen *screen = QGuiApplication::screenAt(area.center());
+    if (!screen) return;
+    const QRect available = screen->availableGeometry();
+    constexpr int GAP = 10;
+    // Below the area, else above it; with room on neither side the window stays where it was.
+    if (area.bottom() + GAP + height() <= available.bottom()) move(x(), area.bottom() + GAP);
+    else if (area.top() - GAP - height() >= available.top()) move(x(), area.top() - GAP - height());
 }
 
 // A saved position whose screen is gone, or that no longer fits on it, falls back to the cursor.

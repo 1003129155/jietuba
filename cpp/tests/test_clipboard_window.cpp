@@ -1209,6 +1209,39 @@ private slots:
         env_.config->set_clipboard_open_position("cursor");
     }
 
+    // Opened over text being typed in a capture, the window keeps it in view: below it, or above it
+    // where there is no room below. The area holds for that one opening.
+    void theWindowKeepsTheTextBeingTypedInView() {
+        const QRect available = QGuiApplication::primaryScreen()->availableGeometry();
+        const QPoint cursor = available.topLeft() + QPoint(20, 20);
+        QCursor::setPos(cursor);
+        env_.config->set_clipboard_open_position("cursor");
+        auto *window = open_window();
+        window->resize(300, 200);
+        const auto reopen = [this](const QRect &area) {
+            window_->hide();
+            window_->set_area_to_keep_clear(area);
+            window_->show();
+            QApplication::processEvents();
+        };
+        // The text starts at the mouse and runs right, where the window would open.
+        const QRect text(cursor + QPoint(0, -5), QSize(200, 40));
+        reopen(text);
+        QVERIFY(!window->geometry().intersects(text));
+        QCOMPARE(window->pos(), QPoint(cursor.x() + 10, text.bottom() + 10));
+        // Tall text near the bottom: the window, flipped above the mouse, would still cover it.
+        const QRect tall(available.left() + 20, available.bottom() - 250, 200, 231);
+        QVERIFY2(tall.top() - 10 - window->height() >= available.top(), "screen too small for the case");
+        QCursor::setPos(QPoint(tall.left(), available.bottom() - 100));
+        reopen(tall);
+        QVERIFY(!window->geometry().intersects(tall));
+        QCOMPARE(window->y(), tall.top() - 10 - window->height());
+        // The next opening without an area is at the mouse again.
+        QCursor::setPos(cursor);
+        reopen(QRect());
+        QCOMPARE(window->pos(), cursor + QPoint(10, 10));
+    }
+
     void displayLineMenuUpdatesRowsAndSurvivesReopening() {
         const auto ids = add_texts({"one\ntwo\nthree\nfour"});
         auto *window = open_window();

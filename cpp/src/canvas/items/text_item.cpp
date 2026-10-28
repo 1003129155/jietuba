@@ -11,7 +11,11 @@
 #include <QTextCursor>
 #include <QPainter>
 #include <QStyleOptionGraphicsItem>
+#include <QClipboard>
 #include <QFocusEvent>
+#include <QGuiApplication>
+#include <QKeyEvent>
+#include <QMimeData>
 #include <algorithm>
 #include <cmath>
 
@@ -102,11 +106,24 @@ void TextItem::paint_interaction_frame(QPainter *p) {
 void TextItem::set_background(bool enabled, std::optional<QColor> color, std::optional<qreal> opacity) { has_background = enabled; if (color) background_color = *color; if (opacity) background_color.setAlpha(static_cast<int>(std::max(0., std::min(255., *opacity)))); update(); }
 void TextItem::focusInEvent(QFocusEvent *event) {
     if (_is_closed) return;
-    try { _text_before_edit = toPlainText(); QGraphicsTextItem::focusInEvent(event); } catch (const std::exception &e) { qWarning("TextItem.focusInEvent: %s", e.what()); }
+    try {
+        // Back from another window the same edit goes on: clearing it still undoes to the text it started from.
+        if (!_window_away) _text_before_edit = toPlainText();
+        _window_away = false;
+        QGraphicsTextItem::focusInEvent(event);
+    } catch (const std::exception &e) { qWarning("TextItem.focusInEvent: %s", e.what()); }
 }
 void TextItem::focusOutEvent(QFocusEvent *event) {
     if (_is_closed) return;
     try {
+        // Picking from another window (the clipboard history over a capture) or switching programs does
+        // not end typing: an empty new box and the selection are kept for when the window is active again.
+        if (event->reason() == Qt::ActiveWindowFocusReason) {
+            _window_away = true;
+            QGraphicsTextItem::focusOutEvent(event);
+            return;
+        }
+        _window_away = false;
         QGraphicsTextItem::focusOutEvent(event); auto cursor = textCursor(); cursor.clearSelection(); setTextCursor(cursor);
         auto *s = scene(); auto *context = dynamic_cast<TextUndoContext *>(s); auto *stack = context ? context->text_undo_stack() : nullptr;
         if (python_blank(toPlainText())) {
@@ -121,6 +138,21 @@ void TextItem::focusOutEvent(QFocusEvent *event) {
         if (_provisional) { _provisional = false; if (stack) stack->push(new AddItemCommand(s, ItemReference(this))); }
     } catch (const std::exception &e) { qWarning("TextItem.focusOutEvent: %s", e.what()); }
 }
+void TextItem::keyPressEvent(QKeyEvent *event) {
+    if (_is_closed) return;
+    if (!event->matches(QKeySequence::Paste) || !(textInteractionFlags() & Qt::TextEditable)) {
+        QGraphicsTextItem::keyPressEvent(event);
+        return;
+    }
+    const auto *mime = QGuiApplication::clipboard()->mimeData();
+    if (mime && mime->hasText()) {
+        auto cursor = textCursor();
+        cursor.insertText(mime->text());
+        setTextCursor(cursor);
+    }
+    event->accept();
+}
+
 void TextItem::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event) {
     if (_is_closed) return;
     try { if (textInteractionFlags() == Qt::NoTextInteraction) { setTextInteractionFlags(Qt::TextEditorInteraction); setFocus(); } QGraphicsTextItem::mouseDoubleClickEvent(event); } catch (const std::exception &e) { qWarning("TextItem.mouseDoubleClickEvent: %s", e.what()); }

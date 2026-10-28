@@ -102,7 +102,7 @@ bool ScreenshotShortcutHandler::handle_mouse(QMouseEvent *event) {
     if (event->button() == Qt::MiddleButton) {
         auto *view = w->view;
         auto action = w->matching_capture_mouse_action(event, "middle");
-        // While editing text only close applies, like Esc.
+        // While editing text only close applies.
         if (action && *action != "close" && w->is_text_editing()) action.reset();
         if (action && view && view->viewport()->rect().contains(view->viewport()->mapFromGlobal(event->globalPosition().toPoint())) &&
             w->action_handler->handle_capture_action(*action))
@@ -122,9 +122,11 @@ bool ScreenshotShortcutHandler::handle_key(QInputEvent *event) {
         if (key == Qt::Key_C || key == Qt::Key_D) return false;
         if ((key == Qt::Key_Z || key == Qt::Key_Y) && event->modifiers() == Qt::ControlModifier) return false;
     }
-    // Esc is fixed.
+    // Esc is fixed: it leaves the text being typed first, so the annotations made so far are kept.
     if (key == Qt::Key_Escape) {
-        w->cleanup_and_close();
+        auto *text_item = is_text_editing && w->view ? w->view->get_active_text_item() : nullptr;
+        if (text_item) w->view->end_text_edit(text_item);
+        else w->cleanup_and_close();
         return true;
     }
     if (match(event, "inapp_restore_last_region") && restore_last_region()) return true;
@@ -645,6 +647,13 @@ void ScreenshotWindow::cleanup_and_close() {
 void ScreenshotWindow::keyPressEvent(QKeyEvent *event) {
     // Shortcuts go through the ShortcutManager; this only passes text-editing keys on.
     QWidget::keyPressEvent(event);
+}
+
+QRect ScreenshotWindow::active_text_screen_rect() const {
+    auto *item = view ? view->get_active_text_item() : nullptr;
+    if (!item) return {};
+    const QRect in_view = view->mapFromScene(item->sceneBoundingRect()).boundingRect();
+    return QRect(view->viewport()->mapToGlobal(in_view.topLeft()), in_view.size());
 }
 
 bool ScreenshotWindow::is_text_editing() const {

@@ -72,6 +72,8 @@ public:
     void update_toolbar_position() override;
     void pin_from_global_hotkey();
     bool is_text_editing() const;
+    // The text being typed, in screen coordinates; empty when none.
+    QRect active_text_screen_rect() const;
     // The capture action whose mouse binding matches this event and gesture.
     std::optional<QString> matching_capture_mouse_action(QInputEvent *event, const QString &gesture) const;
     void start_gif_record_mode();
