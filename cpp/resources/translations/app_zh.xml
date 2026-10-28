@@ -1186,16 +1186,16 @@ Replace it?</source>
         <translation>钉图类型</translation>
     </message>
     <message>
-        <source>What this hotkey takes from the clipboard. When both are on and the clipboard holds both, such as copied spreadsheet cells, the image is pinned.</source>
-        <translation>这个快捷键从剪贴板钉住哪些内容。两项都开、剪贴板里也都有时（如复制的表格单元格），钉图片。</translation>
+        <source>What this hotkey takes from the clipboard. When it holds both a picture and text, such as copied spreadsheet cells, the picture is pinned.</source>
+        <translation>这个热键从剪贴板钉哪些内容。剪贴板里同时有图片和文字时（如复制的表格单元格），钉图片。</translation>
     </message>
     <message>
         <source>Image</source>
         <translation>图片</translation>
     </message>
     <message>
-        <source>Screenshots and copied pictures.</source>
-        <translation>截图和复制的图片。</translation>
+        <source>Screenshots, copied pictures and picture files. Animated GIF and WebP files play.</source>
+        <translation>截图、复制的图片和图片文件；GIF、WebP 动图会播放。</translation>
     </message>
     <message>
         <source>Copied text, formatted when Keep Text Formatting is on.</source>
@@ -2044,6 +2044,94 @@ Replace it?</source>
         <source>Click-through off</source>
         <translation>鼠标穿透已关闭</translation>
     </message>
+    <message>
+        <source>Folder</source>
+        <translation>文件夹</translation>
+    </message>
+    <message>
+        <source>...%1 items in all</source>
+        <translation>…共 %1 项</translation>
+    </message>
+    <message>
+        <source>Open</source>
+        <translation>打开</translation>
+    </message>
+    <message>
+        <source>Copy this file</source>
+        <translation>复制此文件</translation>
+    </message>
+    <message>
+        <source>Copy this file's path</source>
+        <translation>复制此文件路径</translation>
+    </message>
+    <message>
+        <source>Show in Explorer</source>
+        <translation>在资源管理器中查看</translation>
+    </message>
+    <message>
+        <source>Copy all files</source>
+        <translation>复制所有文件</translation>
+    </message>
+    <message>
+        <source>Copy all file paths</source>
+        <translation>复制所有文件路径</translation>
+    </message>
+    <message>
+        <source>Copy animation</source>
+        <translation>复制动图</translation>
+    </message>
+    <message>
+        <source>Copy current frame</source>
+        <translation>复制当前帧</translation>
+    </message>
+    <message>
+        <source>Play</source>
+        <translation>播放</translation>
+    </message>
+    <message>
+        <source>Pause</source>
+        <translation>暂停</translation>
+    </message>
+    <message>
+        <source>Next frame</source>
+        <translation>下一帧</translation>
+    </message>
+    <message>
+        <source>Previous frame</source>
+        <translation>上一帧</translation>
+    </message>
+    <message>
+        <source>Faster</source>
+        <translation>加快速度</translation>
+    </message>
+    <message>
+        <source>Slower</source>
+        <translation>减慢速度</translation>
+    </message>
+    <message>
+        <source>Normal speed</source>
+        <translation>恢复原速</translation>
+    </message>
+    <message>
+        <source>Speed: %1</source>
+        <translation>速度：%1</translation>
+    </message>
+    <message>
+        <source>Frame: %1</source>
+        <translation>帧：%1</translation>
+    </message>
+    <message>
+        <source>Save Animation</source>
+        <translation>保存动图</translation>
+    </message>
+    <message>
+        <source>Pin Many Images</source>
+        <translation>钉多张图片</translation>
+    </message>
+    <message>
+        <source>Pin %1 images at once? So many windows may slow the computer down.</source>
+        <translation>一次钉 %1 张图片吗？窗口太多可能让电脑变卡。</translation>
+    </message>
 </context>
 
 <!-- ========== Pin Click-Through Bar ========== -->
@@ -2305,6 +2393,10 @@ Replace it?</source>
     <message>
         <source>Screen Annotation</source>
         <translation>屏幕标注</translation>
+    </message>
+    <message>
+        <source>Nothing on the clipboard to pin</source>
+        <translation>剪贴板里没有可钉的内容</translation>
     </message>
 </context>
 
@@ -6995,6 +7087,14 @@ Replace it?</source>
     <message>
         <source>Open Settings</source>
         <translation>打开设置</translation>
+    </message>
+    <message>
+        <source>File</source>
+        <translation>文件</translation>
+    </message>
+    <message>
+        <source>Copied files and folders, shown with their icons, names and sizes.</source>
+        <translation>复制的文件和文件夹，显示图标、名称和大小。</translation>
     </message>
 </context>
 </TS>

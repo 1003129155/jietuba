@@ -12,6 +12,8 @@ class QGraphicsItem;
 class QWidget;
 
 namespace jietuba {
+struct AnimationSource;
+class PinFileCard;
 class PinTextContent;
 class PinWindow;
 class ToolSettingsManager;
@@ -28,6 +30,10 @@ public:
                           const std::optional<QPoint> &selection_offset = std::nullopt, std::optional<int> number_next = std::nullopt);
     // A pin of content's page at position, sized and shrunk to its screen as an image would be.
     PinWindow *create_text_pin(std::unique_ptr<PinTextContent> content, const QPoint &position, ToolSettingsManager *config_manager);
+    // A pin playing source, from its first frame at position.
+    PinWindow *create_animation_pin(AnimationSource source, const QPoint &position, ToolSettingsManager *config_manager);
+    // A pin of card's files at position; image is the card drawn at 100% when the caller has it.
+    PinWindow *create_file_pin(const PinFileCard &card, const QPoint &position, ToolSettingsManager *config_manager, const QImage &image = {});
     // Drops a pin from the list without closing it.
     void remove_pin(PinWindow *pin_window);
     void close_all();

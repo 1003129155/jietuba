@@ -11,10 +11,12 @@
 #include "core/shortcut_manager.h"
 #include "core/theme.h"
 #include "core/ui_scale.h"
+#include "pin/pin_animation.h"
 #include "pin/pin_border_overlay.h"
 #include "pin/pin_canvas.h"
 #include "pin/pin_canvas_view.h"
 #include "pin/pin_click_through_bar.h"
+#include "pin/pin_file_card.h"
 #include "pin/pin_shortcut.h"
 #include "pin/pin_text_content.h"
 #include "pin/pin_text_mode.h"
@@ -30,21 +32,31 @@
 #include "ui/paint_settings_panel.h"
 #include "ui/shape_settings_panel.h"
 #include "ui/text_settings_panel.h"
+#include "ui/wait_bar.h"
 #include "ui/watermark_settings_panel.h"
 #include <QApplication>
 #include <QClipboard>
 #include <QCursor>
 #include <QDateTime>
+#include <QDir>
 #include <QFileInfo>
+#include <QGraphicsRectItem>
 #include <QKeyEvent>
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QRegularExpression>
 #include <QScreen>
+#include <QStandardPaths>
+#include <QUrl>
+#include <QUuid>
 #include <QStyleOptionGraphicsItem>
 #include <QWheelEvent>
 #include <cmath>
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
 
 namespace jietuba {
 namespace {
@@ -75,8 +87,28 @@ std::optional<QString> locked_mouse_action(const QString &action) {
     return std::nullopt;
 }
 
+// Larger animations go on the clipboard as a file only.
+constexpr qint64 MAX_COPIED_ANIMATION_BYTES = 32 * 1024 * 1024;
+
+// The clipboard's own name for the file, so pasting works after the pin and its copy are gone: a
+// hard link, instant on the same disk, else a copy. Only the latest is kept.
+QString clipboard_file(const QString &path) {
+    QDir root(QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation)).filePath("jietuba_clipboard"));
+    root.removeRecursively();
+    const QDir folder(root.filePath(QUuid::createUuid().toString(QUuid::WithoutBraces)));
+    const QString target = folder.filePath(QFileInfo(path).fileName());
+    if (!folder.mkpath(".")) return path;
+    if (CreateHardLinkW(reinterpret_cast<LPCWSTR>(QDir::toNativeSeparators(target).utf16()), reinterpret_cast<LPCWSTR>(QDir::toNativeSeparators(path).utf16()), nullptr) ||
+        QFile::copy(path, target))
+        return target;
+    return path;
+}
+
 // Keeps repeated steps from drifting off the four-decimal grid.
 double round4(double value) { return std::round(value * 10000) / 10000; }
+
+// Stepping to a frame read in less than this shows no bar.
+constexpr int SEEK_BAR_DELAY_MS = 150;
 }
 
 PinWindow::PinWindow(const QImage &image, const QPoint &position, ToolSettingsManager *config_manager, const QList<QGraphicsItem *> &items,
@@ -150,7 +182,9 @@ PinWindow::PinWindow(const QImage &image, const QPoint &position, ToolSettingsMa
     update_button_positions();
     PinShortcutController::instance()->register_pin(this);
     // OCR starts 300 ms later, once the pin is fully shown; recognition runs on a worker thread.
-    QTimer::singleShot(300, this, [this] { ocr_mgr_->init_now(); });
+    QTimer::singleShot(300, this, [this] {
+        if (recognizable()) ocr_mgr_->init_now();
+    });
     log_info(T("创建成功: {width}x{height}, 位置: ({x}, {y})", {{"width", image.width()}, {"height", image.height()}, {"x", position.x()}, {"y", position.y()}}),
              "PinWindow");
     if (!drawing_items.isEmpty()) log_debug(T("继承了 {count} 个绘制项目（向量数据）", {{"count", static_cast<int>(drawing_items.size())}}), "PinWindow");
@@ -384,9 +418,19 @@ void PinWindow::refresh_background_for_scale() {
     const int th = std::max(1, static_cast<int>(python_round(orig_size_.height() * bg_scale_y)));
     const auto target_size = std::make_pair(tw, th);
     if (last_background_scale_size_ == target_size) return;
-    // Text is drawn again at the size shown, in screen pixels, rather than an image resampled.
-    const auto scaled = text_content_ ? QPixmap::fromImage(text_content_->render(QSize(tw, th), devicePixelRatioF()))
-                                      : base_pixmap_.scaled(tw, th, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    // Frames go up as they are and the view scales them while drawing: resampling every frame
+    // would hold the UI thread at each zoom other than 100%.
+    if (animation_) {
+        show_frame_unscaled();
+        last_background_scale_size_ = target_size;
+        return;
+    }
+    // Text and file cards are drawn again at the size shown, in screen pixels, rather than an image resampled.
+    QPixmap scaled;
+    if (text_content_) scaled = QPixmap::fromImage(text_content_->render(QSize(tw, th), devicePixelRatioF()));
+    else if (file_card_) scaled = QPixmap::fromImage(file_card_->render(QSize(tw, th), devicePixelRatioF()));
+    else if (prepared_display_.size() == QSize(tw, th)) scaled = QPixmap::fromImage(std::exchange(prepared_display_, QImage()));
+    else scaled = base_pixmap_.scaled(tw, th, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
     // Only the rendered pixmap changes, not update_image(): that would feed this
     // display-resolution copy into the content cache, and mosaic reductions would then
     // sample display pixels instead of the original's, misplacing mosaics after zooming.
@@ -410,6 +454,7 @@ void PinWindow::resizeEvent(QResizeEvent *event) {
         border_overlay->setGeometry(0, 0, width(), height());
         border_overlay->raise();
     }
+    if (seek_bar_) place_seek_bar();
     sync_click_through_bar();
     QWidget::resizeEvent(event);
 }
@@ -748,7 +793,7 @@ QColor PinWindow::frame_color() const {
 }
 
 void PinWindow::toggle_text_mode() {
-    if (text_mode_) text_mode_->toggle();
+    if (text_mode_ && recognizable()) text_mode_->toggle();
 }
 
 void PinWindow::leave_text_mode() {
@@ -773,6 +818,64 @@ void PinWindow::toggle_text_formatting() {
     text_content_->set_formatted(!text_content_->formatted());
     replace_base_image(text_content_->render(text_content_->size()));
     ocr_mgr_->load_text(text_content_->layout());
+}
+
+void PinWindow::open_animation(AnimationSource source) {
+    animation_ = new PinAnimation(std::move(source), [this](const QImage &frame) { show_animation_frame(frame); }, this);
+    connect(animation_, &PinAnimation::seek_progress, this, &PinWindow::show_seek_progress);
+    // The toolbar may already be up when the pin shows under the pointer.
+    hover_controls->sync();
+}
+
+void PinWindow::show_animation_frame(const QImage &frame) {
+    if (is_closed_ || frame.isNull()) return;
+    base_pixmap_ = QPixmap::fromImage(frame);
+    last_background_scale_size_.reset();
+    refresh_background_for_scale();
+    if (seek_bar_ && !animation_->seeking()) seek_bar_->dismiss();
+}
+
+void PinWindow::show_seek_progress(int done, int total) {
+    if (!seek_bar_) seek_bar_ = new WaitBar(this, QSize(scaled(260), scaled(14)));
+    place_seek_bar();
+    seek_bar_->set_progress(done, total);
+    seek_bar_->show_after(SEEK_BAR_DELAY_MS);
+}
+
+void PinWindow::place_seek_bar() {
+    // Narrower than the pin, centred on it.
+    seek_bar_->setFixedWidth(std::max(1, std::min(scaled(260), width() - 2 * scaled(12))));
+    seek_bar_->center_on(rect().center());
+}
+
+void PinWindow::set_prepared_display(const QImage &image) {
+    prepared_display_ = image;
+    last_background_scale_size_.reset();
+    refresh_background_for_scale();
+}
+
+void PinWindow::show_frame_unscaled() {
+    if (canvas && canvas->scene && canvas->scene->background) canvas->scene->background->set_display_pixmap(base_pixmap_, QTransform());
+}
+
+void PinWindow::open_files(const PinFileCard &card) {
+    file_card_ = std::make_unique<PinFileCard>(card);
+    // At 100% too: the first image has the screen's logical pixels only.
+    last_background_scale_size_.reset();
+    refresh_background_for_scale();
+}
+
+int PinWindow::file_at(const QPoint &global_pos) const {
+    if (!file_card_ || !view) return -1;
+    return file_card_->file_at(view->mapToScene(view->viewport()->mapFromGlobal(global_pos)));
+}
+
+void PinWindow::clear_file_highlight() {
+    if (file_highlight_ && canvas && canvas->scene) {
+        canvas->scene->removeItem(file_highlight_);
+        delete file_highlight_;
+    }
+    file_highlight_ = nullptr;
 }
 
 void PinWindow::replace_base_image(const QImage &image) {
@@ -856,7 +959,7 @@ void PinWindow::hide_toolbar() {
 }
 
 void PinWindow::on_translate_clicked() {
-    if (!translation_helper_) return;
+    if (!translation_helper_ || !recognizable()) return;
     if (text_mode() || text_only()) {
         translation_helper_->translate_text(text_only() ? text_content_->text() : text_mode_->text());
         return;
@@ -900,6 +1003,27 @@ void PinWindow::show_context_menu(const QPoint &global_pos) {
     state.has_formatting = text_content_ && text_content_->has_formatting();
     state.formatted = text_content_ && text_content_->formatted();
     state.annotations_hidden = annotations_hidden_;
+    if (animation_) {
+        state.content = PinMenuState::Content::Animation;
+        state.animation_paused = animation_->paused();
+        state.animation_speed = animation_->speed();
+        state.animation_frame = animation_->frame_index() + 1;
+        state.animation_frames = animation_->frame_count();
+    } else if (file_card_) {
+        state.content = PinMenuState::Content::Files;
+        state.file_index = file_at(global_pos);
+        if (state.file_index >= 0 && canvas) {
+            // Shows which file the first items act on; gone before the chosen item runs, so a copied image is clean.
+            QColor tint = get_theme().theme_color();
+            tint.setAlpha(40);
+            file_highlight_ = canvas->scene->addRect(QRectF(file_card_->cell_rect(state.file_index)), Qt::NoPen, tint);
+            file_highlight_->setZValue(0.5);
+            const QPointer<PinWindow> self(this);
+            state.on_hide = [self] {
+                if (self) self->clear_file_highlight();
+            };
+        }
+    }
     // In text mode Esc leaves the text first.
     state.close_shortcut_enabled = !(canvas && canvas->is_editing()) && !lock_blocks("key_close") && !click_through_ && !text_mode();
     // An open menu counts as hover, so the toolbar is not hidden behind it and its switches stay accurate.
@@ -907,7 +1031,9 @@ void PinWindow::show_context_menu(const QPoint &global_pos) {
     const QPointer<PinWindow> alive(this);
     context_menu_->show(global_pos, state);
     // The menu runs its own event loop, in which the pin may have been closed and deleted.
-    if (alive) hover_controls->set_menu_open(false);
+    if (!alive) return;
+    clear_file_highlight();
+    hover_controls->set_menu_open(false);
 }
 
 void PinWindow::toggle_stay_on_top() {
@@ -988,7 +1114,7 @@ void PinWindow::toggle_border_effect() {
 }
 
 void PinWindow::toggle_text_selection() {
-    if (!ocr_mgr_) return;
+    if (!ocr_mgr_ || !recognizable()) return;
     // Nothing on the pin changes until the pointer reaches text.
     show_hint_label(ocr_mgr_->toggle_text_selection() ? pin_tr("Text selection on") : pin_tr("Text selection off"));
 }
@@ -1083,6 +1209,10 @@ void PinWindow::with_edit_paused(const std::function<void()> &func) {
 }
 
 void PinWindow::save_image() {
+    if (animation_) {
+        save_animation();
+        return;
+    }
     if (use_modern_save_dialog(config_manager)) {
         QImage image;
         with_edit_paused([this, &image] { image = get_current_image(); });
@@ -1117,7 +1247,43 @@ void PinWindow::save_image_with_system_dialog() {
     });
 }
 
+void PinWindow::save_animation() {
+    const auto &source = animation_->source();
+    const auto suffix = QString::fromLatin1(source.format).toLower();
+    auto name = QFileInfo(source.file_path).fileName();
+    if (name.isEmpty()) name = QString("pinned_%1.%2").arg(QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss"), suffix);
+    const SaveService save_service(config_manager ? *config_manager : *get_tool_settings_manager());
+    auto [file_path, selected_filter] =
+        get_save_file_name(this, pin_tr("Save Animation"), save_service.suggest_path(name), QString("%1 (*.%2)").arg(suffix.toUpper(), suffix));
+    if (file_path.isEmpty()) return;
+    if (QFileInfo(file_path).suffix().isEmpty()) file_path += "." + suffix;
+    // The dialog has asked about replacing it.
+    QFile::remove(file_path);
+    if (QFile::copy(source.path(), file_path)) log_info(T("保存成功: {file_path}", {{"file_path", file_path}}), "PinWindow");
+    else log_error(T("保存失败: {file_path}", {{"file_path", file_path}}), "PinWindow");
+}
+
+void PinWindow::copy_animation() {
+    if (!animation_) return;
+    const auto &source = animation_->source();
+    auto *mime = new QMimeData;
+    mime->setUrls({QUrl::fromLocalFile(clipboard_file(source.path()))});
+    // Programs that paste the picture itself get its bytes, up to a size worth holding on the clipboard.
+    QFile file(source.path());
+    if (file.size() <= MAX_COPIED_ANIMATION_BYTES && file.open(QIODevice::ReadOnly)) mime->setData("image/" + QString::fromLatin1(source.format), file.readAll());
+    QApplication::clipboard()->setMimeData(mime);
+    log_info(T("已复制动图: {file_path}", {{"file_path", QDir::toNativeSeparators(source.path())}}), "PinWindow");
+}
+
+void PinWindow::copy_current_frame() {
+    if (animation_) deliver_image_async(animation_->current_frame());
+}
+
 void PinWindow::copy_to_clipboard() {
+    if (animation_) {
+        copy_animation();
+        return;
+    }
     if (text_mode()) {
         copy_ocr_text(true, text_mode_->text_to_copy());
         return;
@@ -1138,6 +1304,12 @@ void PinWindow::copy_plain_text() {
 }
 
 void PinWindow::copy_all_text() {
+    if (file_card_) {
+        PinFileCard::copy_paths(file_card_->files());
+        show_hint_label(pin_tr("Text copied"));
+        return;
+    }
+    if (animation_) return;
     if (text_mode()) {
         copy_ocr_text(true, text_mode_->text());
         return;
@@ -1184,6 +1356,9 @@ void PinWindow::close_window() {
 void PinWindow::cleanup() {
     log_debug(T("清理资源..."), "PinWindow");
     PinShortcutController::instance()->unregister_pin(this);
+    // The decoder thread stops before the window it draws on goes.
+    if (animation_) animation_->stop();
+    clear_file_highlight();
     if (hover_controls) hover_controls->stop();
     if (scale_timer_) scale_timer_->stop();
     if (zoom_hide_timer_) zoom_hide_timer_->stop();

@@ -171,12 +171,13 @@ void build_lock_section(SettingsDialog *dialog, SettingsCardGroup *grp) {
 // switch off the hotkey pins nothing.
 void build_hotkey_section(SettingsDialog *dialog, SettingsCardGroup *grp) {
     grp->addSettingCard(new SettingCard(FluentIcon::Pin, dialog->tr_text("Types to Pin"),
-                                        dialog->tr_text("What this hotkey takes from the clipboard. When both are on and the clipboard holds both, "
-                                                        "such as copied spreadsheet cells, the image is pinned."),
+                                        dialog->tr_text("What this hotkey takes from the clipboard. When it holds both a picture and text, "
+                                                        "such as copied spreadsheet cells, the picture is pinned."),
                                         grp));
     const std::tuple<const char *, const char *, const char *> kinds[] = {
-        {"Image", "Screenshots and copied pictures.", "pin_clipboard_image"},
+        {"Image", "Screenshots, copied pictures and picture files. Animated GIF and WebP files play.", "pin_clipboard_image"},
         {"Text", "Copied text, formatted when Keep Text Formatting is on.", "pin_clipboard_text"},
+        {"File", "Copied files and folders, shown with their icons, names and sizes.", "pin_clipboard_file"},
     };
     for (const auto &[title, content, key] : kinds) {
         auto *card = new SubSwitchSettingCard(dialog->tr_text(title), dialog->tr_text(content), grp);
@@ -207,7 +208,7 @@ const std::set<QString> PIN_BEHAVIOR_KEYS = {
     "pin_default_opacity", "pin_rounded_corners", "pin_auto_border", "pin_hover_buttons", "pin_click_through_opacity",
     "pin_zoom_step", "pin_fine_zoom_step", "pin_opacity_step", "pin_zoom_anchor", "pin_border_resize", "pin_auto_shrink",
     "pin_lock_block_move", "pin_lock_block_click_close", "pin_lock_block_key_close", "pin_lock_hint",
-    "pin_clipboard_image", "pin_clipboard_text", "pin_text_formatting",
+    "pin_clipboard_image", "pin_clipboard_text", "pin_clipboard_file", "pin_text_formatting",
 };
 
 // Pin settings: behaviour, zoom and size, appearance, click-through, lock, the pin hotkey; shortcuts jump to the shortcut pages' pin tab.

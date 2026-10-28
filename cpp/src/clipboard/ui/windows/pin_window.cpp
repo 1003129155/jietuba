@@ -1,23 +1,49 @@
 #include "clipboard/ui/windows/pin_window.h"
 #include "clipboard/controllers/clipboard_controller.h"
 #include "clipboard/core/manager.h"
+#include "core/i18n.h"
 #include "core/logger.h"
 #include "core/platform_utils.h"
+#include "core/ui_scale.h"
+#include "pin/pin_animation.h"
+#include "pin/pin_file_card.h"
 #include "pin/pin_manager.h"
 #include "pin/pin_text_content.h"
 #include "pin/pin_window.h"
 #include "settings/tool_settings.h"
+#include "ui/dialogs.h"
+#include "ui/toast.h"
 #include <QClipboard>
+#include <QFileInfo>
 #include <QGuiApplication>
+#include <QImageReader>
 #include <QMimeData>
 #include <QScreen>
+#include <QSet>
+#include <QThreadPool>
+#include <QTimer>
+#include <QUrl>
 #include <QWidget>
+#include <functional>
+#include <memory>
+#include <vector>
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <objbase.h>
 
 namespace jietuba::clipboard {
 namespace {
 // The newest image is not simply the first row: history sorts pinned items first and
 // manual reordering ignores insertion time, so one page is scanned for the latest created_at.
 constexpr int LATEST_IMAGE_SCAN_LIMIT = 50;
+// More picture files than this at once ask first: each becomes a window of its own.
+constexpr int MANY_PICTURES = 15;
+// Pins from one hotkey press step down and right from the pointer, so none hides another.
+constexpr int CASCADE_STEP = 24;
+
+QString pin_tr(const char *text) { return i18n_tr(text, "PinWindow"); }
 
 bool pin_item(qint64 item_id, const std::function<std::optional<ClipboardItem>(qint64)> &get_item, QWidget *clipboard_window, std::optional<QPoint> center) {
     const auto clipboard_item = get_item(item_id);
@@ -73,22 +99,174 @@ QPoint calculate_pin_position(const QSize &size, QWidget *clipboard_window, std:
     return {pin_x, pin_y};
 }
 
-// The system clipboard's image, else its text. An image wins over text, so copied spreadsheet
-// cells pin as the picture of the cells and a capture copied with its file path pins the capture.
-struct SystemClipboardContent {
+// PNG data, which a capture copied with its file path also carries: the picture itself, not the file.
+QImage clipboard_png(const QMimeData *mime) {
+    for (const char *format : {"image/png", "application/x-qt-windows-mime;value=\"PNG\""}) {
+        if (!mime->hasFormat(format)) continue;
+        const auto image = QImage::fromData(mime->data(format), "PNG");
+        if (!image.isNull()) return image;
+    }
+    return {};
+}
+
+// The copied local files, in order. Not checked on disk: thousands of files would hold the UI thread.
+QStringList clipboard_files(const QMimeData *mime) {
+    QStringList files;
+    if (!mime->hasUrls()) return files;
+    for (const auto &url : mime->urls())
+        if (url.isLocalFile()) files.append(url.toLocalFile());
+    return files;
+}
+
+// By name alone, so even ten thousand files are sorted at once; one that does not decode goes with
+// the cards. The image formats this build reads, written out: asking the plugins costs a first-use delay.
+bool picture_name(const QString &file) {
+    static const QSet<QString> suffixes = {"bmp", "dib", "gif", "ico", "cur", "jfif", "jpe", "jpeg", "jpg", "pbm", "pgm", "png", "ppm",
+                                           "svg", "svgz", "tif", "tiff", "wbmp", "webp", "xbm", "xpm"};
+    return suffixes.contains(QFileInfo(file).suffix().toLower());
+}
+
+// What one press pins: optionally a card of files, then each picture; in this order on screen.
+struct Opened {
+    std::optional<AnimationSource> animation;
     QImage image;
-    QString text, html;
+    // A card with its icons fetched, drawn as image.
+    std::optional<PinFileCard> card;
+    // A picture larger than its screen, scaled as its pin opens shrunk to fit.
+    QImage display;
 };
 
-SystemClipboardContent read_system_clipboard(bool images, bool texts) {
-    QClipboard *clipboard = QGuiApplication::clipboard();
-    if (!clipboard) return {};
-    if (images)
-        if (auto image = clipboard->image(); !image.isNull()) return {image, {}, {}};
-    const QMimeData *mime = clipboard->mimeData();
-    // hasText() also holds for a bare file list (its paths as text); only a real text format counts.
-    if (texts && mime && mime->hasFormat("text/plain")) return {{}, mime->text(), mime->hasHtml() ? mime->html() : QString()};
-    return {};
+// screen is the size of the screen the pin opens on, empty when pins keep their size.
+Opened decode_picture(const QString &file, const QSize &screen) {
+    if (auto animation = load_animation(file)) return {std::move(animation), {}, std::nullopt, {}};
+    QImageReader reader(file);
+    // Photos stand as the camera held them.
+    reader.setAutoTransform(true);
+    Opened opened{std::nullopt, reader.read(), std::nullopt, {}};
+    const QSize size = opened.image.size();
+    if (!screen.isEmpty() && (size.width() > screen.width() || size.height() > screen.height())) {
+        // The pin's own sizing, so the sizes match exactly.
+        const double scale = std::min(AUTO_SHRINK_RATIO * screen.width() / size.width(), AUTO_SHRINK_RATIO * screen.height() / size.height());
+        const int w = std::max(1, static_cast<int>(python_round(size.width() * scale)));
+        const int h = std::max(1, static_cast<int>(python_round(size.height() * scale)));
+        opened.display = opened.image.scaled(w, h, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    }
+    return opened;
+}
+
+Opened draw_card(const QStringList &files, const QSize &limit) {
+    // The shell's icons want COM on the thread asking for them.
+    const HRESULT com = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    PinFileCard card(files, limit);
+    card.load_icons();
+    QImage image = card.render(card.size());
+    if (SUCCEEDED(com)) CoUninitialize();
+    return {std::nullopt, std::move(image), std::move(card), {}};
+}
+
+// Pictures decode and cards are drawn on worker threads, so many or large ones never hold the UI
+// thread. Each pin opens on the UI thread in its own turn, in order, once it and those before it
+// are ready. Pictures that do not decode end on one card, unless they no longer exist.
+class PinBatch : public QObject {
+public:
+    PinBatch(const QStringList &card_files, const QStringList &pictures, bool cards, const QSize &card_limit, const QSize &screen, const QPoint &origin, bool pinned)
+        : QObject(qApp), pictures_(pictures), opened_(pictures.size() + (card_files.isEmpty() ? 0 : 1)), cards_(cards), card_limit_(card_limit),
+          origin_(origin), pinned_(pinned) {
+        // Below the UI thread and on half the cores, so neither the pins nor other programs wait for this.
+        pool_.setThreadPriority(QThread::LowPriority);
+        pool_.setMaxThreadCount(std::max(1, QThread::idealThreadCount() / 2));
+        int index = 0;
+        if (!card_files.isEmpty()) start(index++, [card_files, card_limit] { return draw_card(card_files, card_limit); });
+        for (const auto &file : pictures) start(index++, [file, screen] { return decode_picture(file, screen); });
+    }
+    ~PinBatch() override {
+        // Results still on their way are dropped with this object.
+        pool_.clear();
+        pool_.waitForDone();
+    }
+private:
+    void start(int index, std::function<Opened()> work) {
+        pool_.start([this, index, work] {
+            auto opened = std::make_shared<Opened>(work());
+            QMetaObject::invokeMethod(this, [this, index, opened] {
+                opened_[index] = std::move(*opened);
+                schedule_next();
+            }, Qt::QueuedConnection);
+        });
+    }
+    // Results that arrive together still open one pin per turn of the event loop, so input and painting
+    // get their turn between pins.
+    void schedule_next() {
+        if (scheduled_) return;
+        scheduled_ = true;
+        QTimer::singleShot(0, this, [this] {
+            scheduled_ = false;
+            open_next();
+        });
+    }
+    void open_next() {
+        if (next_ >= static_cast<int>(opened_.size()) || !opened_[next_]) return;
+        auto opened = std::move(*opened_[next_]);
+        opened_[next_].reset();
+        // Pictures follow the card, when there is one.
+        const int picture = next_++ - (static_cast<int>(opened_.size()) - pictures_.size());
+        const QPoint at = origin_ + QPoint(CASCADE_STEP, CASCADE_STEP) * placed_;
+        auto *settings = get_tool_settings_manager();
+        if (opened.card) {
+            get_pin_manager()->create_file_pin(*opened.card, calculate_pin_position(opened.card->size(), nullptr, at), settings, opened.image);
+            ++placed_;
+        } else if (opened.animation) {
+            const QPoint position = calculate_pin_position(opened.animation->first_frame.size(), nullptr, at);
+            get_pin_manager()->create_animation_pin(std::move(*opened.animation), position, settings);
+            ++placed_;
+        } else if (!opened.image.isNull()) {
+            create_pin_from_image(opened.image, nullptr, at, opened.display);
+            ++placed_;
+        } else if (cards_ && picture >= 0 && QFileInfo::exists(pictures_[picture])) {
+            undecoded_.append(pictures_[picture]);
+        }
+        if (next_ < static_cast<int>(opened_.size())) {
+            schedule_next();
+            return;
+        }
+        if (!undecoded_.isEmpty()) new PinBatch(undecoded_, {}, false, card_limit_, {}, origin_ + QPoint(CASCADE_STEP, CASCADE_STEP) * placed_, true);
+        if (placed_ == 0 && undecoded_.isEmpty() && !pinned_) show_toast(i18n_tr("Nothing on the clipboard to pin", "MainApp"));
+        deleteLater();
+    }
+    QThreadPool pool_;
+    QStringList pictures_;
+    std::vector<std::optional<Opened>> opened_;
+    bool cards_;
+    QSize card_limit_;
+    QPoint origin_;
+    // Something else from the same press was pinned already.
+    bool pinned_;
+    int next_ = 0, placed_ = 0;
+    bool scheduled_ = false;
+    QStringList undecoded_;
+};
+
+// Half the screen at most; past that the last card counts the rest.
+QSize card_limit(const QScreen *screen) { return screen ? screen->availableGeometry().size() / 2 : QSize(960, 540); }
+
+// Each picture file on its own pin, an animation playing, and the other files together as cards;
+// pictures turned off go with the cards. True when anything is being pinned or the user declined.
+bool pin_files(const QStringList &files, bool pictures, bool cards, const QPoint &origin) {
+    QStringList images, others;
+    for (const auto &file : files) {
+        if (pictures && picture_name(file)) images.append(file);
+        else if (cards) others.append(file);
+    }
+    if (images.isEmpty() && others.isEmpty()) return false;
+    if (images.size() > MANY_PICTURES &&
+        !show_confirm_dialog(nullptr, pin_tr("Pin Many Images"), pin_tr("Pin %1 images at once? So many windows may slow the computer down.").arg(images.size())))
+        return true;
+    const auto *screen = target_screen(nullptr, origin);
+    // The size pins shrink to fit, as the pins themselves work it out.
+    const QSize shrink_to = screen && get_tool_settings_manager()->get_app_setting("pin_auto_shrink").toBool() ? screen->geometry().size() : QSize();
+    new PinBatch(others, images, cards, card_limit(screen), shrink_to, origin, false);
+    log_debug(T("已钉住剪贴板中的 {count} 个文件", {{"count", static_cast<int>(files.size())}}), "Clipboard");
+    return true;
 }
 
 // The history image with the latest created_at.
@@ -117,13 +295,22 @@ bool create_pin_from_clipboard_item(qint64 item_id, ClipboardManager *manager, Q
     return pin_item(item_id, [manager](qint64 id) { return manager->get_item(id); }, clipboard_window, center);
 }
 
-bool create_pin_from_image(const QImage &image, QWidget *clipboard_window, std::optional<QPoint> center) {
+bool create_pin_from_image(const QImage &image, QWidget *clipboard_window, std::optional<QPoint> center, const QImage &display) {
     if (image.isNull()) return false;
     auto *config_manager = get_tool_settings_manager();
     const QPoint position = calculate_pin_position(image.size(), clipboard_window, center);
-    get_pin_manager()->create_pin(image, position, config_manager);
+    auto *pin = get_pin_manager()->create_pin(image, position, config_manager);
+    if (!display.isNull()) pin->set_prepared_display(display);
     // Capture pins trim the working set when the capture window finishes; the clipboard path has no capture window, so it trims here.
     request_trim_working_set(1500);
+    return true;
+}
+
+bool create_pin_from_files(const QStringList &files, QWidget *clipboard_window, std::optional<QPoint> center) {
+    if (files.isEmpty()) return false;
+    const auto *screen = target_screen(clipboard_window, center);
+    const QPoint origin = center ? *center : screen ? screen->geometry().center() : QPoint(100, 100);
+    new PinBatch(files, {}, false, card_limit(screen), {}, origin, false);
     return true;
 }
 
@@ -139,18 +326,37 @@ bool create_pin_from_text(const QString &text, const QString &html, QWidget *cli
 
 bool pin_latest_clipboard_image(std::optional<QPoint> center) {
     auto *settings = get_tool_settings_manager();
-    const bool images = settings->get_pin_clipboard_image(), texts = settings->get_pin_clipboard_text();
-    const auto content = read_system_clipboard(images, texts);
-    if (!content.image.isNull()) {
-        if (!create_pin_from_image(content.image, nullptr, center)) return false;
-        log_debug(T("已钉住系统剪贴板中的图片"), "Clipboard");
-        return true;
+    const bool images = settings->get_pin_clipboard_image(), texts = settings->get_pin_clipboard_text(), files = settings->get_pin_clipboard_file();
+    QClipboard *clipboard = QGuiApplication::clipboard();
+    // A cleared clipboard has no data at all; the newest image in history stands in for it.
+    const QMimeData *mime = clipboard ? clipboard->mimeData() : nullptr;
+    if (images && mime)
+        if (const auto png = clipboard_png(mime); !png.isNull()) {
+            create_pin_from_image(png, nullptr, center);
+            log_debug(T("已钉住系统剪贴板中的图片"), "Clipboard");
+            return true;
+        }
+    // A bitmap wins over the text beside it, as in copied spreadsheet cells, and over the file beside
+    // it, as in a capture copied with the path it is still being saved to.
+    if (images && mime)
+        if (const auto image = clipboard->image(); !image.isNull()) {
+            create_pin_from_image(image, nullptr, center);
+            log_debug(T("已钉住系统剪贴板中的图片"), "Clipboard");
+            return true;
+        }
+    const auto copied = mime ? clipboard_files(mime) : QStringList();
+    if (!copied.isEmpty() && (images || files)) {
+        const auto *screen = target_screen(nullptr, center);
+        const QPoint origin = center ? *center : screen ? screen->geometry().center() : QPoint(100, 100);
+        if (pin_files(copied, images, files, origin)) return true;
     }
-    if (create_pin_from_text(content.text, content.html, nullptr, center)) {
+    // hasText() also holds for a bare file list (its paths as text); only a real text format counts.
+    if (texts && mime && mime->hasFormat("text/plain") && create_pin_from_text(mime->text(), mime->hasHtml() ? mime->html() : QString(), nullptr, center)) {
         log_debug(T("已钉住系统剪贴板中的文字"), "Clipboard");
         return true;
     }
-    if (!images) return false;
+    // Copied files never bring back an older picture from history.
+    if (!images || !copied.isEmpty()) return false;
     const auto found = find_latest_history_image();
     if (!found) {
         log_debug(T("剪贴板和历史中都没有图片，钉图已跳过"), "Clipboard");

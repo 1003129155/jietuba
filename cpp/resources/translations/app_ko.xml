@@ -1181,16 +1181,16 @@ Replace it?</source>
         <translation>고정할 종류</translation>
     </message>
     <message>
-        <source>What this hotkey takes from the clipboard. When both are on and the clipboard holds both, such as copied spreadsheet cells, the image is pinned.</source>
-        <translation>이 단축키로 클립보드에서 고정할 내용입니다. 둘 다 켜져 있고 클립보드에 둘 다 있으면(복사한 표 셀 등) 이미지를 고정합니다.</translation>
+        <source>What this hotkey takes from the clipboard. When it holds both a picture and text, such as copied spreadsheet cells, the picture is pinned.</source>
+        <translation>이 단축키로 클립보드에서 고정할 내용입니다. 이미지와 텍스트가 함께 있으면(복사한 표 셀 등) 이미지를 고정합니다.</translation>
     </message>
     <message>
         <source>Image</source>
         <translation>이미지</translation>
     </message>
     <message>
-        <source>Screenshots and copied pictures.</source>
-        <translation>스크린샷과 복사한 이미지.</translation>
+        <source>Screenshots, copied pictures and picture files. Animated GIF and WebP files play.</source>
+        <translation>스크린샷, 복사한 이미지와 이미지 파일. 움직이는 GIF·WebP는 재생됩니다.</translation>
     </message>
     <message>
         <source>Copied text, formatted when Keep Text Formatting is on.</source>
@@ -2058,6 +2058,94 @@ Replace it?</source>
         <source>Click-through off</source>
         <translation>클릭 통과 꺼짐</translation>
     </message>
+    <message>
+        <source>Folder</source>
+        <translation>폴더</translation>
+    </message>
+    <message>
+        <source>...%1 items in all</source>
+        <translation>…총 %1개</translation>
+    </message>
+    <message>
+        <source>Open</source>
+        <translation>열기</translation>
+    </message>
+    <message>
+        <source>Copy this file</source>
+        <translation>이 파일 복사</translation>
+    </message>
+    <message>
+        <source>Copy this file's path</source>
+        <translation>이 파일 경로 복사</translation>
+    </message>
+    <message>
+        <source>Show in Explorer</source>
+        <translation>탐색기에서 보기</translation>
+    </message>
+    <message>
+        <source>Copy all files</source>
+        <translation>모든 파일 복사</translation>
+    </message>
+    <message>
+        <source>Copy all file paths</source>
+        <translation>모든 파일 경로 복사</translation>
+    </message>
+    <message>
+        <source>Copy animation</source>
+        <translation>애니메이션 복사</translation>
+    </message>
+    <message>
+        <source>Copy current frame</source>
+        <translation>현재 프레임 복사</translation>
+    </message>
+    <message>
+        <source>Play</source>
+        <translation>재생</translation>
+    </message>
+    <message>
+        <source>Pause</source>
+        <translation>일시 정지</translation>
+    </message>
+    <message>
+        <source>Next frame</source>
+        <translation>다음 프레임</translation>
+    </message>
+    <message>
+        <source>Previous frame</source>
+        <translation>이전 프레임</translation>
+    </message>
+    <message>
+        <source>Faster</source>
+        <translation>빠르게</translation>
+    </message>
+    <message>
+        <source>Slower</source>
+        <translation>느리게</translation>
+    </message>
+    <message>
+        <source>Normal speed</source>
+        <translation>기본 속도</translation>
+    </message>
+    <message>
+        <source>Speed: %1</source>
+        <translation>속도: %1</translation>
+    </message>
+    <message>
+        <source>Frame: %1</source>
+        <translation>프레임: %1</translation>
+    </message>
+    <message>
+        <source>Save Animation</source>
+        <translation>애니메이션 저장</translation>
+    </message>
+    <message>
+        <source>Pin Many Images</source>
+        <translation>여러 이미지 고정</translation>
+    </message>
+    <message>
+        <source>Pin %1 images at once? So many windows may slow the computer down.</source>
+        <translation>이미지 %1개를 한 번에 고정할까요? 창이 많으면 컴퓨터가 느려질 수 있습니다.</translation>
+    </message>
 </context>
 
 <!-- ========== Pin Click-Through Bar ========== -->
@@ -2319,6 +2407,10 @@ Replace it?</source>
     <message>
         <source>Screen Annotation</source>
         <translation>화면 주석</translation>
+    </message>
+    <message>
+        <source>Nothing on the clipboard to pin</source>
+        <translation>클립보드에 고정할 내용이 없습니다</translation>
     </message>
 </context>
 
@@ -6993,6 +7085,14 @@ Replace it?</source>
     <message>
         <source>Open Settings</source>
         <translation>설정 열기</translation>
+    </message>
+    <message>
+        <source>File</source>
+        <translation>파일</translation>
+    </message>
+    <message>
+        <source>Copied files and folders, shown with their icons, names and sizes.</source>
+        <translation>복사한 파일과 폴더. 아이콘, 이름, 크기를 표시합니다.</translation>
     </message>
 </context>
 </TS>

@@ -29,6 +29,7 @@
 #include "ui/toolbar.h"
 #include "ui/toolbar_layout.h"
 #include "ui/toolbar_layout_dialog.h"
+#include "ui/wait_bar.h"
 #include "ui/watermark_input_dialog.h"
 #include "ui/watermark_settings_panel.h"
 #include <QApplication>
@@ -204,6 +205,43 @@ private slots:
         QFETCH(QString, value);
         QFETCH(QString, expected);
         QCOMPARE(format_shortcut_text(value), expected);
+    }
+
+    // Over a window: shows after its delay unless dismissed first, tells done of total or runs back
+    // and forth, and lets clicks through.
+    void aWaitBarWaitsBeforeShowingAndTellsProgress() {
+        QWidget host;
+        host.resize(400, 200);
+        host.show();
+        WaitBar bar(&host, QSize(200, 10));
+        QVERIFY(bar.testAttribute(Qt::WA_TransparentForMouseEvents));
+        bar.set_progress(0, 0);
+        QCOMPARE(bar.maximum(), 0);
+        bar.set_progress(3, 4);
+        QCOMPARE(bar.maximum(), 100);
+        QCOMPARE(bar.value(), 75);
+        bar.set_progress(9, 4);
+        QCOMPARE(bar.value(), 100);
+        bar.center_on(QPoint(200, 100));
+        QCOMPARE(bar.geometry(), QRect(100, 95, 200, 10));
+        bar.show_after(50);
+        QVERIFY(bar.show_pending());
+        bar.dismiss();
+        QTest::qWait(100);
+        QVERIFY(!bar.isVisible());
+        bar.show_after(30);
+        QVERIFY(!bar.isVisible());
+        QTRY_VERIFY(bar.isVisible());
+        bar.dismiss();
+        QVERIFY(!bar.isVisible());
+    }
+
+    void aWaitBarWithoutAParentIsATopmostWindow() {
+        WaitBar bar;
+        QCOMPARE(bar.size(), QSize(260, 14));
+        QVERIFY(bar.isWindow());
+        QVERIFY(bar.windowFlags() & Qt::WindowStaysOnTopHint);
+        QVERIFY(bar.testAttribute(Qt::WA_TranslucentBackground));
     }
 
     void theCrossClearsAndTheTextKeepsTheBinding() {

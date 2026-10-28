@@ -1195,16 +1195,16 @@ Replace it?</source>
         <translation>釘圖類型</translation>
     </message>
     <message>
-        <source>What this hotkey takes from the clipboard. When both are on and the clipboard holds both, such as copied spreadsheet cells, the image is pinned.</source>
-        <translation>這個快速鍵從剪貼簿釘住哪些內容。兩項都開、剪貼簿裡也都有時（如複製的表格儲存格），釘圖片。</translation>
+        <source>What this hotkey takes from the clipboard. When it holds both a picture and text, such as copied spreadsheet cells, the picture is pinned.</source>
+        <translation>這個快速鍵從剪貼簿釘住哪些內容。剪貼簿裡同時有圖片和文字時（如複製的表格儲存格），釘圖片。</translation>
     </message>
     <message>
         <source>Image</source>
         <translation>圖片</translation>
     </message>
     <message>
-        <source>Screenshots and copied pictures.</source>
-        <translation>截圖和複製的圖片。</translation>
+        <source>Screenshots, copied pictures and picture files. Animated GIF and WebP files play.</source>
+        <translation>截圖、複製的圖片和圖片檔；GIF、WebP 動圖會播放。</translation>
     </message>
     <message>
         <source>Copied text, formatted when Keep Text Formatting is on.</source>
@@ -2046,6 +2046,94 @@ Replace it?</source>
         <source>Click-through off</source>
         <translation>滑鼠穿透已關閉</translation>
     </message>
+    <message>
+        <source>Folder</source>
+        <translation>資料夾</translation>
+    </message>
+    <message>
+        <source>...%1 items in all</source>
+        <translation>…共 %1 項</translation>
+    </message>
+    <message>
+        <source>Open</source>
+        <translation>開啟</translation>
+    </message>
+    <message>
+        <source>Copy this file</source>
+        <translation>複製此檔案</translation>
+    </message>
+    <message>
+        <source>Copy this file's path</source>
+        <translation>複製此檔案路徑</translation>
+    </message>
+    <message>
+        <source>Show in Explorer</source>
+        <translation>在檔案總管中顯示</translation>
+    </message>
+    <message>
+        <source>Copy all files</source>
+        <translation>複製所有檔案</translation>
+    </message>
+    <message>
+        <source>Copy all file paths</source>
+        <translation>複製所有檔案路徑</translation>
+    </message>
+    <message>
+        <source>Copy animation</source>
+        <translation>複製動圖</translation>
+    </message>
+    <message>
+        <source>Copy current frame</source>
+        <translation>複製目前幀</translation>
+    </message>
+    <message>
+        <source>Play</source>
+        <translation>播放</translation>
+    </message>
+    <message>
+        <source>Pause</source>
+        <translation>暫停</translation>
+    </message>
+    <message>
+        <source>Next frame</source>
+        <translation>下一幀</translation>
+    </message>
+    <message>
+        <source>Previous frame</source>
+        <translation>上一幀</translation>
+    </message>
+    <message>
+        <source>Faster</source>
+        <translation>加快速度</translation>
+    </message>
+    <message>
+        <source>Slower</source>
+        <translation>減慢速度</translation>
+    </message>
+    <message>
+        <source>Normal speed</source>
+        <translation>恢復原速</translation>
+    </message>
+    <message>
+        <source>Speed: %1</source>
+        <translation>速度：%1</translation>
+    </message>
+    <message>
+        <source>Frame: %1</source>
+        <translation>幀：%1</translation>
+    </message>
+    <message>
+        <source>Save Animation</source>
+        <translation>儲存動圖</translation>
+    </message>
+    <message>
+        <source>Pin Many Images</source>
+        <translation>釘多張圖片</translation>
+    </message>
+    <message>
+        <source>Pin %1 images at once? So many windows may slow the computer down.</source>
+        <translation>一次釘 %1 張圖片嗎？視窗太多可能讓電腦變慢。</translation>
+    </message>
 </context>
 <context>
     <name>PinClickThroughBar</name>
@@ -2329,6 +2417,10 @@ Replace it?</source>
     <message>
         <source>Screen Annotation</source>
         <translation>螢幕標註</translation>
+    </message>
+    <message>
+        <source>Nothing on the clipboard to pin</source>
+        <translation>剪貼簿裡沒有可釘的內容</translation>
     </message>
 </context>
 <context>
@@ -7376,6 +7468,14 @@ Replace it?</source>
     <message>
         <source>Open Settings</source>
         <translation>開啟設定</translation>
+    </message>
+    <message>
+        <source>File</source>
+        <translation>檔案</translation>
+    </message>
+    <message>
+        <source>Copied files and folders, shown with their icons, names and sizes.</source>
+        <translation>複製的檔案和資料夾，顯示圖示、名稱和大小。</translation>
     </message>
 </context>
 </TS>

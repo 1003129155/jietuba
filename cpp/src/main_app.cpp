@@ -37,6 +37,7 @@
 #include "ui/dialogs.h"
 #include "ui/screenshot_countdown.h"
 #include "ui/screenshot_window.h"
+#include "ui/toast.h"
 #include "ui/tray_menu.h"
 #include <QCursor>
 #include <QFile>
@@ -650,7 +651,7 @@ void MainApp::pin_clipboard_image() {
         return;
     }
     try {
-        clipboard::pin_latest_clipboard_image(QCursor::pos());
+        if (!clipboard::pin_latest_clipboard_image(QCursor::pos())) show_toast(tr_text("Nothing on the clipboard to pin"));
     } catch (const std::exception &e) {
         log_exception(e, T("钉住剪贴板图片失败"));
     }

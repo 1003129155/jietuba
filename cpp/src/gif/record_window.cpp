@@ -19,6 +19,7 @@
 #include "tools/controller.h"
 #include "tools/cursor_manager.h"
 #include "ui/dialogs.h"
+#include "ui/wait_bar.h"
 #include <QApplication>
 #include <QClipboard>
 #include <QDateTime>
@@ -27,12 +28,9 @@
 #include <QEventLoop>
 #include <QFileDialog>
 #include <QFileInfo>
-#include <QFrame>
 #include <QMimeData>
-#include <QProgressBar>
 #include <QScreen>
 #include <QUrl>
-#include <QVBoxLayout>
 
 namespace jietuba {
 namespace {
@@ -363,23 +361,9 @@ void GifRecordWindow::on_record_stop() {
 }
 
 void GifRecordWindow::show_stop_progress() {
-    auto *dlg = new QFrame(nullptr);
-    dlg->setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
-    dlg->setAttribute(Qt::WA_TranslucentBackground);
-    dlg->setFixedSize(260, 14);
-
-    auto *layout = new QVBoxLayout(dlg);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(0);
-
-    auto *bar = new QProgressBar(dlg);
-    bar->setRange(0, 0);
-    bar->setTextVisible(false);
-    bar->setFixedHeight(14);
-    bar->setStyleSheet(PROGRESS_BAR_STYLE);
-    layout->addWidget(bar);
-
-    dlg->move(rect_.center().x() - 130, rect_.center().y() - 7);
+    auto *bar = new WaitBar;
+    bar->set_progress(0, 0);
+    bar->center_on(rect_.center());
 
     // stop_async + stop_finished wait for the capture thread to exit.
     QEventLoop loop;
@@ -387,20 +371,15 @@ void GifRecordWindow::show_stop_progress() {
     recorder_->stop_async();
 
     // The bar shows after about 400 ms so capture has stopped and it is not recorded.
-    QTimer show_timer;
-    show_timer.setSingleShot(true);
-    connect(&show_timer, &QTimer::timeout, dlg, &QWidget::show);
-    show_timer.start(400);
+    bar->show_after(400);
 
     loop.exec();
 
-    show_timer.stop();
     disconnect(connection);
-    bar->setRange(0, 1);
-    bar->setValue(1);
-    dlg->hide();
+    bar->set_progress(1, 1);
+    bar->dismiss();
     QApplication::processEvents();
-    dlg->deleteLater();
+    bar->deleteLater();
 }
 
 void GifRecordWindow::on_pause_toggled(bool paused) {

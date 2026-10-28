@@ -3,16 +3,25 @@
 #include "core/i18n.h"
 #include "core/shortcut_manager.h"
 #include "core/theme.h"
+#include "pin/pin_animation.h"
+#include "pin/pin_file_card.h"
 #include "pin/pin_window.h"
 #include "settings/tool_settings.h"
 #include <QAction>
 #include <QMenu>
 #include <QPointer>
 #include <QTimer>
+#include <cmath>
 
 namespace jietuba {
 namespace {
 QString pin_tr(const char *text) { return i18n_tr(text, "PinWindow"); }
+
+// 1.0x, 1.5x, 0.25x.
+QString speed_text(double speed) {
+    const bool tenths = std::abs(speed * 10 - std::round(speed * 10)) < 1e-9;
+    return QString::number(speed, 'f', tenths ? 1 : 2) + "x";
+}
 }
 
 QString pin_shortcut_display(const QString &cfg_key) {
@@ -29,6 +38,7 @@ void PinContextMenu::show(const QPoint &global_pos, const PinMenuState &state) {
     setup_font(menu);
     menu->setStyleSheet(menu_style());
     add_menu_items(menu, state);
+    if (state.on_hide) QObject::connect(menu, &QMenu::aboutToHide, menu, state.on_hide);
     menu->exec(global_pos);
     delete menu.data();
 }
@@ -91,22 +101,61 @@ void PinContextMenu::add_menu_items(QMenu *menu, const PinMenuState &state) {
         action->setChecked(on);
     };
     const bool is_thumbnail = state.thumbnail_mode, is_text = state.text_mode;
+    const bool is_animation = state.content == PinMenuState::Content::Animation, is_files = state.content == PinMenuState::Content::Files;
+    if (is_files) {
+        // The right-clicked file, or all of them.
+        const QStringList files = win->file_card()->files();
+        if (state.file_index >= 0) {
+            const QString file = files.value(state.file_index);
+            add(menu, pin_tr("Open"), [file] { PinFileCard::open(file); });
+            add(menu, pin_tr("Copy this file"), [file] { PinFileCard::copy_files({file}); });
+            add(menu, pin_tr("Copy this file's path"), [file] { PinFileCard::copy_paths({file}); });
+            add(menu, pin_tr("Show in Explorer"), [file] { PinFileCard::reveal({file}); });
+        } else {
+            add(menu, pin_tr("Copy all files"), [files] { PinFileCard::copy_files(files); });
+            add(menu, pin_tr("Copy all file paths"), [files] { PinFileCard::copy_paths(files); });
+            add(menu, pin_tr("Show in Explorer"), [files] { PinFileCard::reveal(files); });
+        }
+        menu->addSeparator();
+    }
     if (state.text_only) {
         // Copy takes the selected text, or all of it as shown.
         add(menu, shortcut_text(pin_tr("Copy text"), "inapp_copy_pin"), [win] { win->copy_to_clipboard(); });
         add(menu, pin_tr("Copy plain text"), [win] { win->copy_plain_text(); });
         add(menu, pin_tr("Copy image"), [win] { win->copy_image(); });
+    } else if (is_animation) {
+        add(menu, shortcut_text(pin_tr("Copy animation"), "inapp_copy_pin"), [win] { win->copy_animation(); });
+        add(menu, pin_tr("Copy current frame"), [win] { win->copy_current_frame(); });
+    } else if (is_files) {
+        add(menu, shortcut_text(pin_tr("Copy image"), "inapp_copy_pin"), [win] { win->copy_to_clipboard(); });
+        // The paths, one per line.
+        add(menu, shortcut_text(pin_tr("Copy plain text"), "inapp_copy_pin_text"), [win] { win->copy_all_text(); });
     } else {
         // In text mode Copy takes the selected text, or all of it.
         add(menu, shortcut_text(pin_tr("Copy"), "inapp_copy_pin"), [win] { win->copy_to_clipboard(); });
     }
     add(menu, pin_tr("Save as"), [win] { win->save_image(); });
+    if (is_animation) {
+        auto *animation = win->animation();
+        menu->addSeparator();
+        add(menu, state.animation_paused ? pin_tr("Play") : pin_tr("Pause"), [animation] { animation->toggle_paused(); });
+        add(menu, pin_tr("Next frame"), [animation] { animation->step(1); });
+        add(menu, pin_tr("Previous frame"), [animation] { animation->step(-1); });
+        menu->addSeparator();
+        add(menu, pin_tr("Faster"), [animation] { animation->change_speed(1); });
+        add(menu, pin_tr("Slower"), [animation] { animation->change_speed(-1); });
+        add(menu, pin_tr("Normal speed"), [animation] { animation->change_speed(0); });
+        add(menu, pin_tr("Speed: %1").arg(speed_text(state.animation_speed)), [] {})->setEnabled(false);
+        const auto frame = state.animation_frames > 0 ? QString("%1/%2").arg(state.animation_frame).arg(state.animation_frames) : QString::number(state.animation_frame);
+        add(menu, pin_tr("Frame: %1").arg(frame), [] {})->setEnabled(false);
+    }
     // Always available; without a result the OCR manager recognizes on demand. In text mode it
-    // translates the text as edited, a text pin its own text.
-    if (!is_thumbnail) add(menu, state.text_only ? pin_tr("Translate") : pin_tr("Translate (Text Recognition)"), [win] { win->on_translate_clicked(); });
+    // translates the text as edited, a text pin its own text. An animation or a file list has no text to read.
+    if (!is_thumbnail && !is_animation && !is_files)
+        add(menu, state.text_only ? pin_tr("Translate") : pin_tr("Translate (Text Recognition)"), [win] { win->on_translate_clicked(); });
     // The image's own items are hidden in thumbnail and text mode; a text pin is not turned.
     if (!is_thumbnail && !is_text) add(menu, shortcut_text(pin_tr("Reset size"), "inapp_pin_reset_size"), [win] { win->reset_to_original_size(); });
-    if (!is_thumbnail && !is_text && !state.text_only) {
+    if (!is_thumbnail && !is_text && !state.text_only && !is_animation && !is_files) {
         auto *transform_menu = new QMenu(pin_tr("Image transform"), menu);
         transform_menu->setStyleSheet(menu_style());
         setup_font(transform_menu);
@@ -119,7 +168,7 @@ void PinContextMenu::add_menu_items(QMenu *menu, const PinMenuState &state) {
         menu->addMenu(transform_menu);
     }
     menu->addSeparator();
-    if (!is_thumbnail && !is_text) {
+    if (!is_thumbnail && !is_text && !is_animation) {
         add_switch(menu, shortcut_text(pin_tr("Toolbar"), "inapp_toggle_toolbar"), state.toolbar_visible, [win] { win->toggle_toolbar(); });
         add_switch(menu, shortcut_text(pin_tr("Hide annotations"), "inapp_pin_hide_annotations"), state.annotations_hidden, [win] { win->toggle_annotations_hidden(); });
     }
@@ -129,10 +178,10 @@ void PinContextMenu::add_menu_items(QMenu *menu, const PinMenuState &state) {
     add_switch(menu, shortcut_text(pin_tr("Lock"), "inapp_pin_lock"), state.locked, [win] { win->toggle_lock(); });
     if (!is_thumbnail) {
         add_switch(menu, pin_tr("Border"), state.border_enabled, [win] { win->toggle_border_effect(); });
-        if (!is_text) add_switch(menu, shortcut_text(pin_tr("Text selection"), "inapp_pin_text_selection"), state.text_selection_enabled, [win] { win->toggle_text_selection(); });
+        if (!is_text && !is_animation && !is_files) add_switch(menu, shortcut_text(pin_tr("Text selection"), "inapp_pin_text_selection"), state.text_selection_enabled, [win] { win->toggle_text_selection(); });
         if (state.has_formatting) add_switch(menu, pin_tr("Keep text formatting"), state.formatted, [win] { win->toggle_text_formatting(); });
         // A text pin is text already.
-        if (!state.text_only) add_switch(menu, shortcut_text(pin_tr("Text mode"), "inapp_pin_text_mode"), is_text, [win] { win->toggle_text_mode(); });
+        if (!state.text_only && !is_animation && !is_files) add_switch(menu, shortcut_text(pin_tr("Text mode"), "inapp_pin_text_mode"), is_text, [win] { win->toggle_text_mode(); });
         // Started once the menu has closed: closing it moves window activation, which would end editing at once.
         if (is_text) add(menu, shortcut_text(pin_tr("Edit text"), "inapp_pin_text_edit"), [win] { QTimer::singleShot(0, win, &PinWindow::edit_text); });
     }

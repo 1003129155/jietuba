@@ -296,6 +296,7 @@ SETTING(pin_hover_buttons, "pin/hover_buttons", bool, false, Import, Gen, Gen)
 // What the pin hotkey takes from the clipboard, one switch per kind; an image first when both are there.
 SETTING(pin_clipboard_image, "pin/clipboard_image", bool, true, Import, Gen, Gen)
 SETTING(pin_clipboard_text, "pin/clipboard_text", bool, true, Import, Gen, Gen)
+SETTING(pin_clipboard_file, "pin/clipboard_file", bool, true, Import, Gen, Gen)
 SETTING(pin_text_formatting, "pin/text_formatting", bool, true, Import, Gen, Gen)
 SETTING(capture_engine, "app/capture_engine", QString, "auto", Import, Own, Own)
 SETTING(long_stitch_engine, "app/long_stitch_engine", QString, "hash_rust", Import, Gen, Gen)

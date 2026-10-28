@@ -12,11 +12,10 @@
 #include <variant>
 #include <vector>
 
-class QProgressBar;
-
 // GIF composition with a progress overlay. FrameStore::export_gif decodes, scales,
 // overlays the cursor and encodes in parallel natively, reporting progress by callback.
 namespace jietuba {
+class WaitBar;
 constexpr int DEFAULT_GIF_WIDTH = 0;
 
 // A file path, the GIF bytes, or nothing (cancelled or failed).
@@ -67,12 +66,11 @@ public:
     static ComposeResult run_compose(ComposeOptions options, QWidget *parent = nullptr, std::optional<QPoint> center_pos = std::nullopt);
 private:
     void center_on(QWidget *parent, std::optional<QPoint> center_pos);
-    void on_progress(int done, int total);
     void on_finished(bool ok, const ComposeResult &result, bool unavailable);
     ComposeResult result_;
     bool ok_ = false;
     QEventLoop loop_;
-    QProgressBar *bar_;
+    WaitBar *bar_;
     QPointer<QThread> thread_;
     QPointer<ComposeWorker> worker_;
 };

@@ -18,17 +18,22 @@
 #include <optional>
 
 class QGraphicsItem;
+class QGraphicsRectItem;
 class QInputEvent;
 
 namespace jietuba {
+struct AnimationSource;
+class PinAnimation;
 class PinBorderOverlay;
 class PinCanvas;
 class PinCanvasView;
 class PinClickThroughBar;
+class PinFileCard;
 class PinTextContent;
 class PinTextMode;
 class PinToolbar;
 class ToolSettingsManager;
+class WaitBar;
 
 // Wheel and settings never take opacity below this, so a pin cannot vanish.
 constexpr double MIN_OPACITY = 0.15;
@@ -103,6 +108,23 @@ public:
     void set_text_content(std::unique_ptr<PinTextContent> content);
     // Shows or hides a text pin's formatting; the pin keeps its zoom and fits the text laid out anew.
     void toggle_text_formatting();
+    // Plays source over the first frame the pin was made from.
+    void open_animation(AnimationSource source);
+    PinAnimation *animation() const { return animation_; }
+    // A frame of the animation in place of the image.
+    void show_animation_frame(const QImage &frame);
+    // The image already scaled, off the UI thread, to the size the pin opens at when it shrinks to
+    // fit its screen; shown at once, so the first paint does not scale the original.
+    void set_prepared_display(const QImage &image);
+    // The pin was made from card's image, which it draws afresh at each zoom; its menu acts on the files.
+    void open_files(const PinFileCard &card);
+    const PinFileCard *file_card() const { return file_card_.get(); }
+    // The file whose card is under global_pos, -1 elsewhere.
+    int file_at(const QPoint &global_pos) const;
+    // Annotations and the toolbar: not on an animation, whose frames would replace what is drawn under them.
+    bool annotatable() const { return !animation_; }
+    // Text recognition, text selection, text mode and translation: not for an animation or a file list.
+    bool recognizable() const { return !animation_ && !file_card_; }
     // Annotations stay in the scene, covered by the image; drawing shows them again.
     bool annotations_hidden() const { return annotations_hidden_; }
     void set_annotations_hidden(bool hidden);
@@ -158,6 +180,9 @@ public:
     void copy_image();
     // A text pin's text without its formatting.
     void copy_plain_text();
+    // The animation as a file, with its bytes for programs that paste data.
+    void copy_animation();
+    void copy_current_frame();
     // All recognized text; recognizes first when there is no result yet.
     void copy_all_text();
     void close_window();
@@ -232,6 +257,14 @@ private:
     // With html the clipboard gets the formatted text as well.
     void copy_ocr_text(bool success, const QString &result, const QString &html = {});
     void set_window_opacity(double opacity);
+    // The animation's own file, in its format.
+    void save_animation();
+    // The current frame at its own size, scaled by the view as it draws.
+    void show_frame_unscaled();
+    // Stepping to a frame the animation reads up to again: a bar of how far, once it takes a while.
+    void show_seek_progress(int done, int total);
+    void place_seek_bar();
+    void clear_file_highlight();
     // A new image of another size, keeping the zoom, the top-left corner and the annotations where they are.
     void replace_base_image(const QImage &image);
 
@@ -280,5 +313,11 @@ private:
     std::unique_ptr<PinTextContent> text_content_;
     std::unique_ptr<PinImageTransform> image_transform_;
     bool annotations_hidden_ = false;
+    PinAnimation *animation_ = nullptr;
+    WaitBar *seek_bar_ = nullptr;
+    std::unique_ptr<PinFileCard> file_card_;
+    // The right-clicked file's card while the menu is open.
+    QGraphicsRectItem *file_highlight_ = nullptr;
+    QImage prepared_display_;
 };
 }

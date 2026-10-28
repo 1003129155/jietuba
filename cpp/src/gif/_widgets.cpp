@@ -63,18 +63,6 @@ void popup_menu(QMenu *menu, QWidget *anchor, bool below) {
     menu->popup(QPoint(x, y));
 }
 
-const QString PROGRESS_BAR_STYLE = R"(
-    QProgressBar {
-        background: rgba(0, 0, 0, 45);
-        border-radius: 7px;
-        border: none;
-    }
-    QProgressBar::chunk {
-        background: #2196F3;
-        border-radius: 7px;
-    }
-)";
-
 QIcon svg_icon(const QString &name, int size) { return ResourceManager::get_icon(ResourceManager::get_icon_path(name), size); }
 
 ClickMenuButton::ClickMenuButton(std::vector<std::pair<QString, QVariant>> options, int default_index, QWidget *parent)

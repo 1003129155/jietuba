@@ -1066,16 +1066,16 @@ Replace it?</translation>
         <translation>Types to Pin</translation>
     </message>
     <message>
-        <source>What this hotkey takes from the clipboard. When both are on and the clipboard holds both, such as copied spreadsheet cells, the image is pinned.</source>
-        <translation>What this hotkey takes from the clipboard. When both are on and the clipboard holds both, such as copied spreadsheet cells, the image is pinned.</translation>
+        <source>What this hotkey takes from the clipboard. When it holds both a picture and text, such as copied spreadsheet cells, the picture is pinned.</source>
+        <translation>What this hotkey takes from the clipboard. When it holds both a picture and text, such as copied spreadsheet cells, the picture is pinned.</translation>
     </message>
     <message>
         <source>Image</source>
         <translation>Image</translation>
     </message>
     <message>
-        <source>Screenshots and copied pictures.</source>
-        <translation>Screenshots and copied pictures.</translation>
+        <source>Screenshots, copied pictures and picture files. Animated GIF and WebP files play.</source>
+        <translation>Screenshots, copied pictures and picture files. Animated GIF and WebP files play.</translation>
     </message>
     <message>
         <source>Copied text, formatted when Keep Text Formatting is on.</source>
@@ -2019,6 +2019,94 @@ Replace it?</translation>
         <source>Click-through off</source>
         <translation>Click-through off</translation>
     </message>
+    <message>
+        <source>Folder</source>
+        <translation>Folder</translation>
+    </message>
+    <message>
+        <source>...%1 items in all</source>
+        <translation>...%1 items in all</translation>
+    </message>
+    <message>
+        <source>Open</source>
+        <translation>Open</translation>
+    </message>
+    <message>
+        <source>Copy this file</source>
+        <translation>Copy this file</translation>
+    </message>
+    <message>
+        <source>Copy this file's path</source>
+        <translation>Copy this file's path</translation>
+    </message>
+    <message>
+        <source>Show in Explorer</source>
+        <translation>Show in Explorer</translation>
+    </message>
+    <message>
+        <source>Copy all files</source>
+        <translation>Copy all files</translation>
+    </message>
+    <message>
+        <source>Copy all file paths</source>
+        <translation>Copy all file paths</translation>
+    </message>
+    <message>
+        <source>Copy animation</source>
+        <translation>Copy animation</translation>
+    </message>
+    <message>
+        <source>Copy current frame</source>
+        <translation>Copy current frame</translation>
+    </message>
+    <message>
+        <source>Play</source>
+        <translation>Play</translation>
+    </message>
+    <message>
+        <source>Pause</source>
+        <translation>Pause</translation>
+    </message>
+    <message>
+        <source>Next frame</source>
+        <translation>Next frame</translation>
+    </message>
+    <message>
+        <source>Previous frame</source>
+        <translation>Previous frame</translation>
+    </message>
+    <message>
+        <source>Faster</source>
+        <translation>Faster</translation>
+    </message>
+    <message>
+        <source>Slower</source>
+        <translation>Slower</translation>
+    </message>
+    <message>
+        <source>Normal speed</source>
+        <translation>Normal speed</translation>
+    </message>
+    <message>
+        <source>Speed: %1</source>
+        <translation>Speed: %1</translation>
+    </message>
+    <message>
+        <source>Frame: %1</source>
+        <translation>Frame: %1</translation>
+    </message>
+    <message>
+        <source>Save Animation</source>
+        <translation>Save Animation</translation>
+    </message>
+    <message>
+        <source>Pin Many Images</source>
+        <translation>Pin Many Images</translation>
+    </message>
+    <message>
+        <source>Pin %1 images at once? So many windows may slow the computer down.</source>
+        <translation>Pin %1 images at once? So many windows may slow the computer down.</translation>
+    </message>
 </context>
 
 <!-- ========== Pin Click-Through Bar ========== -->
@@ -2260,6 +2348,10 @@ Replace it?</translation>
     <message>
         <source>Screen Annotation</source>
         <translation>Screen Annotation</translation>
+    </message>
+    <message>
+        <source>Nothing on the clipboard to pin</source>
+        <translation>Nothing on the clipboard to pin</translation>
     </message>
 </context>
 
@@ -6940,6 +7032,14 @@ Replace it?</translation>
     <message>
         <source>Open Settings</source>
         <translation>Open Settings</translation>
+    </message>
+    <message>
+        <source>File</source>
+        <translation>File</translation>
+    </message>
+    <message>
+        <source>Copied files and folders, shown with their icons, names and sizes.</source>
+        <translation>Copied files and folders, shown with their icons, names and sizes.</translation>
     </message>
 </context>
 </TS>

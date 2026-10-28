@@ -485,6 +485,10 @@ if(BUILD_TESTING)
             translatingAPinRecognizesThenTranslates aNewPinTakesKeyboardFocus)
         set_tests_properties(pin_window_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
     endif()
+    qt_add_executable(jietuba_pin_media_tests tests/test_pin_media.cpp)
+    target_link_libraries(jietuba_pin_media_tests PRIVATE jietuba_lib Qt6::Test)
+    add_test(NAME pin_media COMMAND jietuba_pin_media_tests -o ${JIETUBA_TEST_REPORTS}/pin_media.txt,txt)
+    set_tests_properties(pin_media PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     # The offscreen run has two screens and changes them at run time through the offscreen platform's
     # native interface, a private header.
     find_package(Qt6 QUIET COMPONENTS GuiPrivate)

@@ -43,7 +43,7 @@ void PinHoverControls::set_menu_open(bool menu_open) {
 void PinHoverControls::on_editing_changed() { on_hover_changed(); }
 
 void PinHoverControls::toggle_toolbar() {
-    if (win_->thumbnail_mode() || win_->click_through() || win_->text_mode()) return;
+    if (win_->thumbnail_mode() || win_->click_through() || win_->text_mode() || !win_->annotatable()) return;
     toolbar_choice_ = !toolbar_visible();
     in_session_ = true;
     if (!hover_active()) session_timer_->start();
@@ -64,11 +64,11 @@ void PinHoverControls::sync() {
         else win->hide_toolbar();
     }
     const bool show_buttons = hover_buttons_enabled() && !win->click_through() && (pin_hovered_ || menu_open_ || buttons_timer_->isActive());
-    win->control_buttons()->set_visible(show_buttons, show_buttons && !auto_toolbar() && !win->thumbnail_mode() && !win->text_mode());
+    win->control_buttons()->set_visible(show_buttons, show_buttons && !auto_toolbar() && !win->thumbnail_mode() && !win->text_mode() && win->annotatable());
 }
 
 bool PinHoverControls::toolbar_wanted() const {
-    if (win_->thumbnail_mode() || win_->click_through() || win_->text_mode()) return false;
+    if (win_->thumbnail_mode() || win_->click_through() || win_->text_mode() || !win_->annotatable()) return false;
     if (toolbar_choice_) return *toolbar_choice_;
     if (win_->is_editing) return true;
     return auto_toolbar() && in_session_;

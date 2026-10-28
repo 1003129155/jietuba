@@ -618,15 +618,16 @@ private slots:
         dialog.on_nav_changed(11, "pin");
         auto *image = dialog.attr<SwitchSettingCard>("pin_clipboard_image_toggle");
         auto *text = dialog.attr<SwitchSettingCard>("pin_clipboard_text_toggle");
+        auto *files = dialog.attr<SwitchSettingCard>("pin_clipboard_file_toggle");
         auto *formatting = dialog.attr<SwitchSettingCard>("pin_text_formatting_toggle");
-        QVERIFY(image && text && formatting);
+        QVERIFY(image && text && files && formatting);
         const auto group_of = [](QWidget *widget) -> SettingCardGroup * {
             for (QWidget *w = widget; w; w = w->parentWidget())
                 if (auto *group = qobject_cast<SettingCardGroup *>(w)) return group;
             return nullptr;
         };
         auto *own = group_of(image);
-        QVERIFY(own && group_of(text) == own);
+        QVERIFY(own && group_of(text) == own && group_of(files) == own);
         auto groups = own->parentWidget()->findChildren<SettingCardGroup *>(Qt::FindDirectChildrenOnly);
         std::sort(groups.begin(), groups.end(), [](QWidget *a, QWidget *b) { return a->y() < b->y(); });
         QCOMPARE(groups.indexOf(own), groups.size() - 2);
@@ -634,14 +635,18 @@ private slots:
         QVERIFY(group_of(formatting) == group_of(dialog.attr_widget("pin_auto_toolbar_toggle")));
         // Stacked, one row per kind.
         QVERIFY(text->mapTo(own, QPoint()).y() > image->mapTo(own, QPoint()).y());
+        QVERIFY(files->mapTo(own, QPoint()).y() > text->mapTo(own, QPoint()).y());
         QCOMPARE(text->switchButton->mapTo(own, QPoint()).x(), image->switchButton->mapTo(own, QPoint()).x());
-        // Both on by default, each turned off on its own.
-        QVERIFY(image->isChecked() && text->isChecked());
+        QCOMPARE(files->switchButton->mapTo(own, QPoint()).x(), image->switchButton->mapTo(own, QPoint()).x());
+        // All on by default, each turned off on its own.
+        QVERIFY(image->isChecked() && text->isChecked() && files->isChecked());
         image->setChecked(false);
+        files->setChecked(false);
         QVERIFY(text->isChecked() && text->isEnabled());
         formatting->setChecked(false);
         QVERIFY(dialog.apply_settings());
         QVERIFY(!config_->get_pin_clipboard_image());
+        QVERIFY(!config_->get_pin_clipboard_file());
         QVERIFY(config_->get_pin_clipboard_text());
         QVERIFY(!config_->get_pin_text_formatting());
         {
@@ -652,11 +657,12 @@ private slots:
         }
         text->setChecked(false);
         reset_page(dialog);
-        QVERIFY(image->isChecked() && text->isChecked());
+        QVERIFY(image->isChecked() && text->isChecked() && files->isChecked());
         QVERIFY(formatting->isChecked());
         QVERIFY(dialog.apply_settings());
         QVERIFY(config_->get_pin_clipboard_image());
         QVERIFY(config_->get_pin_clipboard_text());
+        QVERIFY(config_->get_pin_clipboard_file());
         QVERIFY(config_->get_pin_text_formatting());
         dialog.hide();
     }

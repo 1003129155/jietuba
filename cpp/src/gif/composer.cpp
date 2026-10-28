@@ -1,13 +1,12 @@
 #include "gif/composer.h"
 #include "core/i18n.h"
 #include "core/logger.h"
-#include "gif/_widgets.h"
 #include "ui/dialogs.h"
+#include "ui/wait_bar.h"
 #include <QApplication>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
-#include <QProgressBar>
 #include <QScreen>
 #include <QTemporaryFile>
 
@@ -108,12 +107,8 @@ bool ComposeWorker::do_compose(const QString &out_path) {
 ComposerProgressDialog::ComposerProgressDialog(QWidget *) : QFrame(nullptr) {
     setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
     setAttribute(Qt::WA_TranslucentBackground);
-    setFixedSize(260, 14);
-    bar_ = new QProgressBar(this);
-    bar_->setRange(0, 100);
-    bar_->setTextVisible(false);
-    bar_->setGeometry(0, 0, 260, 14);
-    bar_->setStyleSheet(PROGRESS_BAR_STYLE);
+    bar_ = new WaitBar(this);
+    setFixedSize(bar_->size());
 }
 
 void ComposerProgressDialog::center_on(QWidget *parent, std::optional<QPoint> center_pos) {
@@ -138,20 +133,11 @@ void ComposerProgressDialog::start(ComposeOptions options) {
     connect(thread, &QThread::started, worker, &ComposeWorker::run);
     // Deleted in its own thread as the thread finishes: once the thread has ended, a deleteLater never runs.
     connect(thread, &QThread::finished, worker, &QObject::deleteLater);
-    connect(worker, &ComposeWorker::progress, this, &ComposerProgressDialog::on_progress);
+    connect(worker, &ComposeWorker::progress, bar_, &WaitBar::set_progress);
     connect(worker, &ComposeWorker::finished, this, &ComposerProgressDialog::on_finished);
     thread_ = thread;
     worker_ = worker;
     thread->start();
-}
-
-void ComposerProgressDialog::on_progress(int done, int total) {
-    if (total <= 0) {
-        if (bar_->maximum() != 0) bar_->setRange(0, 0);
-    } else {
-        if (bar_->maximum() == 0) bar_->setRange(0, 100);
-        bar_->setValue(static_cast<int>(static_cast<double>(done) / total * 100));
-    }
 }
 
 void ComposerProgressDialog::on_finished(bool ok, const ComposeResult &result, bool unavailable) {

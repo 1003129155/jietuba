@@ -1,6 +1,8 @@
 #include "pin/pin_manager.h"
 #include "core/logger.h"
 #include "core/platform_utils.h"
+#include "pin/pin_animation.h"
+#include "pin/pin_file_card.h"
 #include "pin/pin_text_content.h"
 #include "pin/pin_window.h"
 #include <QApplication>
@@ -46,6 +48,18 @@ PinWindow *PinManager::create_pin(const QImage &image, const QPoint &position, T
 PinWindow *PinManager::create_text_pin(std::unique_ptr<PinTextContent> content, const QPoint &position, ToolSettingsManager *config_manager) {
     auto *pin_window = create_pin(content->render(content->size()), position, config_manager);
     pin_window->set_text_content(std::move(content));
+    return pin_window;
+}
+
+PinWindow *PinManager::create_animation_pin(AnimationSource source, const QPoint &position, ToolSettingsManager *config_manager) {
+    auto *pin_window = create_pin(source.first_frame, position, config_manager);
+    pin_window->open_animation(std::move(source));
+    return pin_window;
+}
+
+PinWindow *PinManager::create_file_pin(const PinFileCard &card, const QPoint &position, ToolSettingsManager *config_manager, const QImage &image) {
+    auto *pin_window = create_pin(image.isNull() ? card.render(card.size()) : image, position, config_manager);
+    pin_window->open_files(card);
     return pin_window;
 }
 

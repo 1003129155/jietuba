@@ -879,5 +879,10 @@
 "存储方式已切换: single_file={on}": "Storage mode switched: single_file={on}",
 "🚨 检测到窗口在所有显示器外，执行强制修复...": "🚨 Window detected outside all screens, performing forced fix...",
 "🛑 [Logger] 日志系统关闭": "🛑 [Logger] Logging system shut down",
-"🛑 停止监听": "🛑 Stopped monitoring"
+"🛑 停止监听": "🛑 Stopped monitoring",
+"动图第 {index} 帧解码失败": "Could not decode animation frame {index}",
+"已复制 {count} 个文件": "Copied {count} file(s)",
+"已复制动图: {file_path}": "Copied animation: {file_path}",
+"已钉住剪贴板中的 {count} 个文件": "Pinned {count} file(s) from the clipboard",
+"动图复制失败: {file_path}": "Could not copy the animation: {file_path}"
 }

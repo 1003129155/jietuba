@@ -1188,16 +1188,16 @@ Replace it?</source>
         <translation>ピン留めする種類</translation>
     </message>
     <message>
-        <source>What this hotkey takes from the clipboard. When both are on and the clipboard holds both, such as copied spreadsheet cells, the image is pinned.</source>
-        <translation>このホットキーでクリップボードからピン留めする内容です。両方オンで、クリップボードに両方ある場合（コピーした表のセルなど）は画像をピン留めします。</translation>
+        <source>What this hotkey takes from the clipboard. When it holds both a picture and text, such as copied spreadsheet cells, the picture is pinned.</source>
+        <translation>このホットキーでクリップボードからピン留めする内容です。画像とテキストの両方がある場合（コピーした表のセルなど）は画像をピン留めします。</translation>
     </message>
     <message>
         <source>Image</source>
         <translation>画像</translation>
     </message>
     <message>
-        <source>Screenshots and copied pictures.</source>
-        <translation>スクリーンショットやコピーした画像。</translation>
+        <source>Screenshots, copied pictures and picture files. Animated GIF and WebP files play.</source>
+        <translation>スクリーンショット、コピーした画像、画像ファイル。GIF・WebP のアニメーションは再生されます。</translation>
     </message>
     <message>
         <source>Copied text, formatted when Keep Text Formatting is on.</source>
@@ -2087,6 +2087,94 @@ Replace it?</source>
         <source>Click-through off</source>
         <translation>マウス透過オフ</translation>
     </message>
+    <message>
+        <source>Folder</source>
+        <translation>フォルダー</translation>
+    </message>
+    <message>
+        <source>...%1 items in all</source>
+        <translation>…全 %1 件</translation>
+    </message>
+    <message>
+        <source>Open</source>
+        <translation>開く</translation>
+    </message>
+    <message>
+        <source>Copy this file</source>
+        <translation>このファイルをコピー</translation>
+    </message>
+    <message>
+        <source>Copy this file's path</source>
+        <translation>このファイルのパスをコピー</translation>
+    </message>
+    <message>
+        <source>Show in Explorer</source>
+        <translation>エクスプローラーで表示</translation>
+    </message>
+    <message>
+        <source>Copy all files</source>
+        <translation>すべてのファイルをコピー</translation>
+    </message>
+    <message>
+        <source>Copy all file paths</source>
+        <translation>すべてのファイルのパスをコピー</translation>
+    </message>
+    <message>
+        <source>Copy animation</source>
+        <translation>アニメーションをコピー</translation>
+    </message>
+    <message>
+        <source>Copy current frame</source>
+        <translation>現在のフレームをコピー</translation>
+    </message>
+    <message>
+        <source>Play</source>
+        <translation>再生</translation>
+    </message>
+    <message>
+        <source>Pause</source>
+        <translation>一時停止</translation>
+    </message>
+    <message>
+        <source>Next frame</source>
+        <translation>次のフレーム</translation>
+    </message>
+    <message>
+        <source>Previous frame</source>
+        <translation>前のフレーム</translation>
+    </message>
+    <message>
+        <source>Faster</source>
+        <translation>速く</translation>
+    </message>
+    <message>
+        <source>Slower</source>
+        <translation>遅く</translation>
+    </message>
+    <message>
+        <source>Normal speed</source>
+        <translation>標準の速度</translation>
+    </message>
+    <message>
+        <source>Speed: %1</source>
+        <translation>速度：%1</translation>
+    </message>
+    <message>
+        <source>Frame: %1</source>
+        <translation>フレーム：%1</translation>
+    </message>
+    <message>
+        <source>Save Animation</source>
+        <translation>アニメーションを保存</translation>
+    </message>
+    <message>
+        <source>Pin Many Images</source>
+        <translation>多数の画像をピン留め</translation>
+    </message>
+    <message>
+        <source>Pin %1 images at once? So many windows may slow the computer down.</source>
+        <translation>%1 枚の画像を一度にピン留めしますか？ウィンドウが多いと動作が重くなることがあります。</translation>
+    </message>
 </context>
 
 <!-- ========== Pin Click-Through Bar ========== -->
@@ -2348,6 +2436,10 @@ Replace it?</source>
     <message>
         <source>Screen Annotation</source>
         <translation>画面注釈</translation>
+    </message>
+    <message>
+        <source>Nothing on the clipboard to pin</source>
+        <translation>ピン留めできる内容がクリップボードにありません</translation>
     </message>
 </context>
 
@@ -7005,6 +7097,14 @@ Replace it?</source>
     <message>
         <source>Open Settings</source>
         <translation>設定を開く</translation>
+    </message>
+    <message>
+        <source>File</source>
+        <translation>ファイル</translation>
+    </message>
+    <message>
+        <source>Copied files and folders, shown with their icons, names and sizes.</source>
+        <translation>コピーしたファイルとフォルダー。アイコン、名前、サイズを表示します。</translation>
     </message>
 </context>
 </TS>
