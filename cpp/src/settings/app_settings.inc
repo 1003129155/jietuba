@@ -49,6 +49,7 @@ SETTING(inapp_copy_pin_text, "inapp/inapp_copy_pin_text", QString, "ctrl+shift+c
 SETTING(inapp_pin_reset_size, "inapp/inapp_pin_reset_size", QString, "", Import, Gen, Gen)
 SETTING(inapp_thumbnail, "inapp/inapp_thumbnail", QString, "r", Import, Gen, Gen)
 SETTING(inapp_toggle_toolbar, "inapp/inapp_toggle_toolbar", QString, "space", Import, Gen, Gen)
+SETTING(inapp_pin_hide_annotations, "inapp/inapp_pin_hide_annotations", QString, "h", Import, Gen, Gen)
 SETTING(inapp_pin_lock, "inapp/inapp_pin_lock", QString, "l", Import, Gen, Gen)
 SETTING(inapp_pin_text_mode, "inapp/inapp_pin_text_mode", QString, "t", Import, Gen, Gen)
 SETTING(inapp_pin_text_selection, "inapp/inapp_pin_text_selection", QString, "p", Import, Gen, Gen)

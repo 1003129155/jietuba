@@ -14,7 +14,7 @@ namespace jietuba {
 namespace {
 const QStringList PIN_KEYS = {
     "inapp_copy_pin", "inapp_copy_pin_text", "inapp_pin_reset_size",
-    "inapp_thumbnail", "inapp_toggle_toolbar", "inapp_delete", "inapp_pin_lock", "inapp_pin_text_mode",
+    "inapp_thumbnail", "inapp_toggle_toolbar", "inapp_pin_hide_annotations", "inapp_delete", "inapp_pin_lock", "inapp_pin_text_mode",
     "inapp_pin_text_selection", "inapp_pin_text_edit",
 };
 
@@ -132,6 +132,10 @@ bool PinNormalShortcutHandler::handle_key(QInputEvent *event) {
     // While editing L may be typed text, so only here.
     if (match(event, "inapp_pin_lock")) {
         pin->toggle_lock();
+        return true;
+    }
+    if (match(event, "inapp_pin_hide_annotations") && !pin->text_mode()) {
+        pin->toggle_annotations_hidden();
         return true;
     }
     if (match(event, "inapp_thumbnail")) {

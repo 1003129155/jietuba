@@ -112,7 +112,10 @@ void PinContextMenu::add_menu_items(QMenu *menu, const PinMenuState &state) {
         menu->addMenu(transform_menu);
     }
     menu->addSeparator();
-    if (!is_thumbnail && !is_text) add_switch(menu, shortcut_text(pin_tr("Toolbar"), "inapp_toggle_toolbar"), state.toolbar_visible, [win] { win->toggle_toolbar(); });
+    if (!is_thumbnail && !is_text) {
+        add_switch(menu, shortcut_text(pin_tr("Toolbar"), "inapp_toggle_toolbar"), state.toolbar_visible, [win] { win->toggle_toolbar(); });
+        add_switch(menu, shortcut_text(pin_tr("Hide annotations"), "inapp_pin_hide_annotations"), state.annotations_hidden, [win] { win->toggle_annotations_hidden(); });
+    }
     // Available in every mode.
     add_switch(menu, pin_tr("Always on top"), state.stay_on_top, [win] { win->toggle_stay_on_top(); });
     add_switch(menu, pin_tr("Mouse click-through"), state.click_through, [win] { win->toggle_click_through(); });

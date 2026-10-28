@@ -390,6 +390,10 @@ Replace it?</source>
         <translation>도구 모음 전환</translation>
     </message>
     <message>
+        <source>Hide Annotations</source>
+        <translation>그리기 숨기기</translation>
+    </message>
+    <message>
         <source>Magnifier Zoom In</source>
         <translation>돋보기 확대</translation>
     </message>
@@ -1869,6 +1873,18 @@ Replace it?</source>
     <message>
         <source>Edit text</source>
         <translation>텍스트 편집</translation>
+    </message>
+    <message>
+        <source>Hide annotations</source>
+        <translation>그리기 숨기기</translation>
+    </message>
+    <message>
+        <source>Annotations hidden</source>
+        <translation>그리기를 숨겼습니다</translation>
+    </message>
+    <message>
+        <source>Annotations shown</source>
+        <translation>그리기를 표시했습니다</translation>
     </message>
     <message>
         <source>Recognizing...</source>

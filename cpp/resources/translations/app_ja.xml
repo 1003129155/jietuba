@@ -397,6 +397,10 @@ Replace it?</source>
         <translation>ツールバー切替</translation>
     </message>
     <message>
+        <source>Hide Annotations</source>
+        <translation>描画を非表示</translation>
+    </message>
+    <message>
         <source>Magnifier Zoom In</source>
         <translation>拡大鏡ズームイン</translation>
     </message>
@@ -1898,6 +1902,18 @@ Replace it?</source>
     <message>
         <source>Edit text</source>
         <translation>テキストを編集</translation>
+    </message>
+    <message>
+        <source>Hide annotations</source>
+        <translation>描画を非表示</translation>
+    </message>
+    <message>
+        <source>Annotations hidden</source>
+        <translation>描画を非表示にしました</translation>
+    </message>
+    <message>
+        <source>Annotations shown</source>
+        <translation>描画を表示しました</translation>
     </message>
     <message>
         <source>Recognizing...</source>

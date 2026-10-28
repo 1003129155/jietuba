@@ -391,6 +391,10 @@ Replace it?</translation>
         <translation>Toggle Toolbar</translation>
     </message>
     <message>
+        <source>Hide Annotations</source>
+        <translation>Hide Annotations</translation>
+    </message>
+    <message>
         <source>Magnifier Zoom In</source>
         <translation>Magnifier Zoom In</translation>
     </message>
@@ -1830,6 +1834,18 @@ Replace it?</translation>
     <message>
         <source>Edit text</source>
         <translation>Edit text</translation>
+    </message>
+    <message>
+        <source>Hide annotations</source>
+        <translation>Hide annotations</translation>
+    </message>
+    <message>
+        <source>Annotations hidden</source>
+        <translation>Annotations hidden</translation>
+    </message>
+    <message>
+        <source>Annotations shown</source>
+        <translation>Annotations shown</translation>
     </message>
     <message>
         <source>Recognizing...</source>

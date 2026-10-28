@@ -21,6 +21,8 @@ public:
     // Set by the OCR manager once recognition starts; owned there.
     PinTextSelection *text_selection = nullptr;
     bool window_dragging = false;
+    // The image painted over the annotations, which stay in the scene untouched.
+    bool annotations_hidden = false;
 protected:
     void resizeEvent(QResizeEvent *event) override;
     // Arrow outside editing; the tool cursor while editing.
@@ -29,7 +31,8 @@ protected:
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
     void mouseDoubleClickEvent(QMouseEvent *event) override;
-    // The text selection's highlight, over the scene and outside its exported image.
+    // Hidden annotations under the image again, and the text selection's highlight; both over the
+    // scene and outside its exported image.
     void drawForeground(QPainter *painter, const QRectF &rect) override;
     // Outside editing the window zooms instead.
     void wheelEvent(QWheelEvent *event) override;

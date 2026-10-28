@@ -1486,10 +1486,38 @@ private slots:
         const QStringList want = {
             "Copy (CTRL+C)", "Save as", "Translate (Text Recognition)", "Reset size", "Image transform",
             "  Rotate right", "  Rotate left", "  Flip horizontal", "  Flip vertical", "  -", "  Reset transform", "-",
-            "[ ] Toolbar (SPACE)", "[x] Always on top", "[ ] Mouse click-through",
+            "[ ] Toolbar (SPACE)", "[ ] Hide annotations (H)", "[x] Always on top", "[ ] Mouse click-through",
             "[ ] Lock (L)", "[x] Border", "[ ] Text selection (P)",
             "[ ] Text mode (T)", "[ ] Thumbnail mode (R)", "-", "Close (ESC)"};
         QCOMPARE(pin_menu(pin), want);
+    }
+
+    void hiddenAnnotationsLeaveTheImageShownAndCopied() {
+        auto *pin = make_pin(QSize(60, 40));
+        PinShortcutController::instance()->reload_bindings();
+        QCursor::setPos(pin->mapToGlobal(QPoint(30, 20)));
+        auto *mark = pin->canvas->scene->addRect(QRectF(0, 0, 60, 40), Qt::NoPen, QBrush(Qt::red));
+        mark->setZValue(10);
+        const auto center_of = [pin] { return pin->get_current_image().pixelColor(30, 20); };
+        const auto shown_center = [pin] { return pin->view->grab().toImage().pixelColor(30, 20); };
+        QCOMPARE(center_of(), QColor(Qt::red));
+        QCOMPARE(shown_center(), QColor(Qt::red));
+        // H hides them on the pin and in what it copies; the annotation itself is untouched.
+        press_key(pin, Qt::Key_H);
+        QVERIFY(pin->annotations_hidden());
+        QCOMPARE(hint_text(pin), QString("Annotations hidden"));
+        QCOMPARE(center_of(), QColor(0x33, 0x66, 0x99));
+        QCOMPARE(shown_center(), QColor(0x33, 0x66, 0x99));
+        QVERIFY(mark->isVisible() && mark->scene());
+        QVERIFY(pin_menu(pin).contains("[x] Hide annotations (H)"));
+        press_key(pin, Qt::Key_H);
+        QVERIFY(!pin->annotations_hidden());
+        QCOMPARE(center_of(), QColor(Qt::red));
+        // Drawing shows them again.
+        pin->toggle_annotations_hidden();
+        QVERIFY(pin->canvas->activate_tool("pen"));
+        QVERIFY(!pin->annotations_hidden());
+        QCOMPARE(shown_center(), QColor(Qt::red));
     }
 
     // The image's own entries go; Esc leaves the text first, so Close shows no key.

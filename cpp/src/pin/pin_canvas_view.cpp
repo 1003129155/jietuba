@@ -79,6 +79,7 @@ void PinCanvasView::mouseDoubleClickEvent(QMouseEvent *event) {
 
 void PinCanvasView::drawForeground(QPainter *painter, const QRectF &rect) {
     CanvasView::drawForeground(painter, rect);
+    if (annotations_hidden) pin_window->paint_background(painter);
     if (text_selection) text_selection->paint(painter);
 }
 

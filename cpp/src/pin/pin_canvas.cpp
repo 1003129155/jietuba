@@ -216,6 +216,8 @@ bool PinCanvas::activate_tool(const QString &tool_name) {
 }
 
 void PinCanvas::notify_editing_changed() {
+    // Drawing over hidden annotations would hide the new ones too.
+    if (is_editing_) parent_window->set_annotations_hidden(false);
     if (parent_window->hover_controls) parent_window->hover_controls->on_editing_changed();
 }
 

@@ -39,6 +39,7 @@
 #include <QPainter>
 #include <QRegularExpression>
 #include <QScreen>
+#include <QStyleOptionGraphicsItem>
 #include <QWheelEvent>
 #include <cmath>
 
@@ -744,6 +745,31 @@ void PinWindow::edit_text() {
     if (text_mode_) text_mode_->start_editing();
 }
 
+void PinWindow::set_annotations_hidden(bool hidden) {
+    if (hidden == annotations_hidden_) return;
+    annotations_hidden_ = hidden;
+    if (view) {
+        view->annotations_hidden = hidden;
+        view->viewport()->update();
+    }
+}
+
+void PinWindow::toggle_annotations_hidden() {
+    set_annotations_hidden(!annotations_hidden_);
+    show_hint_label(annotations_hidden_ ? pin_tr("Annotations hidden") : pin_tr("Annotations shown"));
+}
+
+void PinWindow::paint_background(QPainter *painter) const {
+    auto *background = canvas && canvas->scene ? canvas->scene->background : nullptr;
+    if (!background) return;
+    painter->save();
+    painter->setTransform(background->sceneTransform(), true);
+    painter->setRenderHint(QPainter::SmoothPixmapTransform, true);
+    QStyleOptionGraphicsItem option;
+    background->paint(painter, &option, nullptr);
+    painter->restore();
+}
+
 void PinWindow::stop_drawing() {
     if (!(canvas && canvas->is_editing())) return;
     canvas->deactivate_tool();
@@ -818,6 +844,7 @@ void PinWindow::show_context_menu(const QPoint &global_pos) {
     state.thumbnail_mode = thumbnail_mode();
     state.text_mode = text_mode();
     state.close_shortcut_enabled = !(canvas && canvas->is_editing()) && !lock_blocks("key_close") && !click_through_ && !text_mode();
+    state.annotations_hidden = annotations_hidden_;
     // An open menu counts as hover, so the toolbar is not hidden behind it and its switches stay accurate.
     hover_controls->set_menu_open(true);
     const QPointer<PinWindow> alive(this);
@@ -952,7 +979,14 @@ void PinWindow::reset_image_transform() {
 QImage PinWindow::get_current_image() {
     const double dpr = devicePixelRatioF();
     QImage img;
-    if (canvas) {
+    if (canvas && annotations_hidden_) {
+        // What the pin shows: the image alone.
+        img = QImage(static_cast<int>(orig_size_.width() * dpr), static_cast<int>(orig_size_.height() * dpr), QImage::Format_ARGB32_Premultiplied);
+        img.fill(Qt::transparent);
+        img.setDevicePixelRatio(dpr);
+        QPainter painter(&img);
+        paint_background(&painter);
+    } else if (canvas) {
         img = canvas->get_current_image(dpr);
     } else {
         img = QImage(static_cast<int>(width() * dpr), static_cast<int>(height() * dpr), QImage::Format_ARGB32_Premultiplied);

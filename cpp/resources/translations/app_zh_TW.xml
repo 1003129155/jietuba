@@ -411,6 +411,10 @@ Replace it?</source>
         <translation>切換工具列</translation>
     </message>
     <message>
+        <source>Hide Annotations</source>
+        <translation>隱藏標註</translation>
+    </message>
+    <message>
         <source>Magnifier Zoom In</source>
         <translation>放大鏡放大</translation>
     </message>
@@ -1857,6 +1861,18 @@ Replace it?</source>
     <message>
         <source>Edit text</source>
         <translation>編輯文字</translation>
+    </message>
+    <message>
+        <source>Hide annotations</source>
+        <translation>隱藏標註</translation>
+    </message>
+    <message>
+        <source>Annotations hidden</source>
+        <translation>標註已隱藏</translation>
+    </message>
+    <message>
+        <source>Annotations shown</source>
+        <translation>標註已顯示</translation>
     </message>
     <message>
         <source>Recognizing...</source>

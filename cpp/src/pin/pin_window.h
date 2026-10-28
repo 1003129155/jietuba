@@ -94,6 +94,13 @@ public:
     void leave_text_mode();
     // In text mode only: the text takes the keyboard.
     void edit_text();
+    // Annotations stay in the scene, covered by the image; drawing shows them again.
+    bool annotations_hidden() const { return annotations_hidden_; }
+    void set_annotations_hidden(bool hidden);
+    // With a hint, as the shortcut and menu do.
+    void toggle_annotations_hidden();
+    // The image as the view shows it, without annotations; the painter is in image pixels.
+    void paint_background(QPainter *painter) const;
     // Leaves the drawing tool, unchecking it on the toolbar.
     void stop_drawing();
     // Top-left hint shared by zoom, opacity and other short messages.
@@ -255,5 +262,6 @@ private:
     std::unique_ptr<PinThumbnailMode> thumbnail_;
     std::unique_ptr<PinTextMode> text_mode_;
     std::unique_ptr<PinImageTransform> image_transform_;
+    bool annotations_hidden_ = false;
 };
 }
