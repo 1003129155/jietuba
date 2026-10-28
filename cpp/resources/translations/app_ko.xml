@@ -2783,16 +2783,16 @@ Replace it?</source>
         <translation>그룹 바 위치</translation>
     </message>
     <message>
-        <source>▶ Right</source>
-        <translation>▶ 오른쪽</translation>
+        <source>Right</source>
+        <translation>오른쪽</translation>
     </message>
     <message>
-        <source>◀ Left</source>
-        <translation>◀ 왼쪽</translation>
+        <source>Left</source>
+        <translation>왼쪽</translation>
     </message>
     <message>
-        <source>▲ Top</source>
-        <translation>▲ 위쪽</translation>
+        <source>Top</source>
+        <translation>위쪽</translation>
     </message>
     <message>
         <source>Max Display Lines</source>

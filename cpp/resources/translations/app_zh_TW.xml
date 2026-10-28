@@ -2808,16 +2808,16 @@ Replace it?</source>
         <translation>分組欄位置</translation>
     </message>
     <message>
-        <source>▶ Right</source>
-        <translation>▶ 右側</translation>
+        <source>Right</source>
+        <translation>右側</translation>
     </message>
     <message>
-        <source>◀ Left</source>
-        <translation>◀ 左側</translation>
+        <source>Left</source>
+        <translation>左側</translation>
     </message>
     <message>
-        <source>▲ Top</source>
-        <translation>▲ 頂部</translation>
+        <source>Top</source>
+        <translation>頂部</translation>
     </message>
     <message>
         <source>Max Display Lines</source>

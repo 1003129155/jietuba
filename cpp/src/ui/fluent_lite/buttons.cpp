@@ -93,11 +93,6 @@ void ColorSwatchButton::setSelected(bool selected) {
     _apply_theme();
 }
 
-void ColorSwatchButton::setTextColor(const QString &color) {
-    text_color_ = color;
-    _apply_theme();
-}
-
 QString ColorSwatchButton::style_sheet() const {
     const auto &t = ui_tokens(this);
     auto s = [this](double v) { return widget_scaled(this, v); };
@@ -110,7 +105,7 @@ QString ColorSwatchButton::style_sheet() const {
          font: 600 %7px %8; outline: none; }
         QPushButton:hover { border: %9; }
         )").arg(fill_, border).arg(s(INPUT_RADIUS)).arg(s(INPUT_CONTENT_HEIGHT)).arg(s(INPUT_PADDING_V))
-        .arg(text_color_.isEmpty() ? t.text : text_color_).arg(s(13)).arg(FONT_FAMILY, hover);
+        .arg(t.text).arg(s(13)).arg(FONT_FAMILY, hover);
 }
 
 PrimaryPushButton::PrimaryPushButton(const QString &text, QWidget *parent, const IconSource &icon) : PushButton(text, parent, icon) { _apply_theme(); }

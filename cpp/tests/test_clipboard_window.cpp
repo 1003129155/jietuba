@@ -48,6 +48,32 @@ public slots:
     void open(const QUrl &url) { urls << url; }
 };
 
+// The colour an icon is drawn in: that of its most opaque pixel.
+QColor icon_color(const QIcon &icon) {
+    const QImage image = icon.pixmap(32, 32).toImage();
+    QColor best(Qt::transparent);
+    for (int y = 0; y < image.height(); ++y)
+        for (int x = 0; x < image.width(); ++x)
+            if (const QColor color = image.pixelColor(x, y); color.alpha() > best.alpha()) best = color.toRgb();
+    best.setAlpha(255);
+    return best;
+}
+
+// Whether a chevron icon points up: its top row is the narrow tip, not the two wide ends.
+bool chevron_points_up(const QIcon &icon) {
+    const QImage image = icon.pixmap(32, 32).toImage();
+    for (int y = 0; y < image.height(); ++y) {
+        int left = image.width(), right = -1;
+        for (int x = 0; x < image.width(); ++x) {
+            if (image.pixelColor(x, y).alpha() < 128) continue;
+            left = std::min(left, x);
+            right = std::max(right, x);
+        }
+        if (right >= 0) return right - left < image.width() / 3;
+    }
+    return false;
+}
+
 // The clipboard window on a real database, offscreen: what a click, a key or a menu entry
 // does to the list, the database and the paste.
 class ClipboardWindowTests : public QObject {
@@ -853,8 +879,8 @@ private slots:
         QCOMPARE(env_.config->get_clipboard_image_size(), QString("large"));
         QVERIFY(!window->grab().isNull());
 
-        for (const char *position : {"◀ Left", "▲ Top", "▶ Right"}) {
-            QVERIFY(pick(QString::fromUtf8(position)));
+        for (const char *position : {"Left", "Top", "Right"}) {
+            QVERIFY(pick(position));
             QVERIFY(!window->grab().isNull());
         }
         QCOMPARE(env_.config->get_clipboard_group_bar_position(), QString("right"));
@@ -914,12 +940,12 @@ private slots:
 
         // The top layout switches groups with left and right.
         window->group_bar->switch_to_group(std::nullopt);
-        QVERIFY(gear_pick(QString::fromUtf8("▲ Top")));
+        QVERIFY(gear_pick("Top"));
         QTest::keyClick(window->list_widget, Qt::Key_Right);
         QCOMPARE(window->controller->current_group_id, std::optional<qint64>(*work));
         QTest::keyClick(window->list_widget, Qt::Key_Left);
         QVERIFY(!window->controller->current_group_id);
-        QVERIFY(gear_pick(QString::fromUtf8("▶ Right")));
+        QVERIFY(gear_pick("Right"));
         QTRY_COMPARE(window->group_bar->group_buttons.size(), 2);
 
         // The group menu edits, moves and deletes.
@@ -1152,6 +1178,45 @@ private slots:
         I18nManager::load_language("zh");
         I18nManager::load_language("en");
         QVERIFY(!window->grab().isNull());
+    }
+
+    void theBottomBarButtonsCarryIconsNotSymbols() {
+        // A symbol character or the style's own arrow is drawn differently on each Windows version.
+        const auto ids = add_texts({"a"});
+        auto *window = open_window();
+        auto *themes = get_theme_manager();
+        const QString original = themes->get_current_theme().name;
+        const auto restore = qScopeGuard([themes, original] {
+            themes->set_theme(original);
+            get_ui_scale().set_percent(100);
+        });
+        auto *toggle = window->time_filter_toggle_btn;
+        for (const char *name : {"light", "dark"}) {
+            QVERIFY(themes->set_theme(name));
+            const auto &colors = preset_theme(name)->colors;
+            QVERIFY(window->menu_btn->text().isEmpty());
+            QCOMPARE(icon_color(window->menu_btn->icon()), QColor(colors.text_secondary));
+            QCOMPARE(toggle->arrowType(), Qt::NoArrow);
+            QVERIFY(chevron_points_up(toggle->icon()));
+            QCOMPARE(icon_color(toggle->icon()), QColor(colors.text_secondary));
+            // Open, it points down to close the bar again.
+            toggle->click();
+            QVERIFY(window->time_filter_bar->isVisible());
+            QVERIFY(!chevron_points_up(toggle->icon()));
+            QCOMPARE(icon_color(toggle->icon()), QColor(colors.text_primary));
+            toggle->click();
+            QVERIFY(!window->time_filter_bar->isVisible());
+            QVERIFY(chevron_points_up(toggle->icon()));
+        }
+        QCOMPARE(window->menu_btn->iconSize(), QSize(16, 16));
+        get_ui_scale().set_percent(150);
+        QCOMPARE(window->menu_btn->iconSize(), QSize(24, 24));
+        QCOMPARE(toggle->iconSize(), QSize(18, 18));
+
+        window->toggle_item_mark(ids[0]);
+        auto *exit_button = window->selection_bar->exit_button;
+        QVERIFY(exit_button->text().isEmpty());
+        QCOMPARE(icon_color(exit_button->icon()), QColor("#FFFFFF"));
     }
 
     void geometrySurvivesReopening() {

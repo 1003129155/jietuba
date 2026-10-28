@@ -14,11 +14,13 @@
 #include "core/data_location.h"
 #include "core/logger.h"
 #include "core/platform_utils.h"
+#include "core/resource_manager.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
 #include "settings/tool_settings.h"
 #include "ui/dialogs.h"
 #include "ui/fluent_lite/inputs.h"
+#include "ui/fluent_lite/theme.h"
 #include <QApplication>
 #include <QCalendarWidget>
 #include <QCloseEvent>
@@ -561,8 +563,9 @@ void ClipboardWindow::setup_ui() {
         )");
     bottom_layout_ = new QHBoxLayout(bottom_bar);
 
+    // This button and the gear get SVG icons: the style's arrow and the ⚙ character differ
+    // between Windows versions (a chevron or a triangle, a colour or a plain gear).
     time_filter_toggle_btn = new QToolButton;
-    time_filter_toggle_btn->setArrowType(Qt::UpArrow);
     time_filter_toggle_btn->setCheckable(true);
     time_filter_toggle_btn->setCursor(Qt::PointingHandCursor);
     time_filter_toggle_btn->setFocusPolicy(Qt::NoFocus);
@@ -586,7 +589,7 @@ void ClipboardWindow::setup_ui() {
     clear_search_btn->hide();
     bottom_layout_->addWidget(clear_search_btn);
 
-    menu_btn = new QPushButton(QString::fromUtf8("⚙"));
+    menu_btn = new QPushButton;
     menu_btn->setCursor(Qt::PointingHandCursor);
     menu_btn->setFocusPolicy(Qt::NoFocus);
     apply_menu_btn_style();
@@ -676,7 +679,6 @@ void ClipboardWindow::show_main_menu() {
 void ClipboardWindow::toggle_time_filter_bar(bool checked) {
     if (!checked) clear_time_and_type_filters();
     time_filter_bar->setVisible(checked);
-    time_filter_toggle_btn->setArrowType(checked ? Qt::DownArrow : Qt::UpArrow);
     apply_time_filter_styles();
 }
 
@@ -836,7 +838,11 @@ void ClipboardWindow::apply_search_input_style(bool has_text) { search_input->se
 
 void ClipboardWindow::apply_clear_search_btn_style() { clear_search_btn->setStyleSheet(ThemeStyleGenerator(current_theme).generate_clear_search_btn_style()); }
 
-void ClipboardWindow::apply_menu_btn_style() { menu_btn->setStyleSheet(ThemeStyleGenerator(current_theme).generate_menu_btn_style()); }
+void ClipboardWindow::apply_menu_btn_style() {
+    menu_btn->setStyleSheet(ThemeStyleGenerator(current_theme).generate_menu_btn_style());
+    menu_btn->setIcon(tinted_icon(FluentIcon::Setting, current_theme.colors.text_secondary));
+    menu_btn->setIconSize(QSize(scaled(16), scaled(16)));
+}
 
 void ClipboardWindow::on_marks_changed() {
     item_delegate->set_marked_ids(selection_manager->marked_ids());
@@ -851,7 +857,14 @@ void ClipboardWindow::mark_items_to(qint64 item_id) { selection_manager->mark_ra
 
 void ClipboardWindow::apply_time_filter_styles() {
     const ThemeStyleGenerator generator(current_theme);
-    if (time_filter_toggle_btn) time_filter_toggle_btn->setStyleSheet(generator.generate_filter_toggle_btn_style());
+    if (time_filter_toggle_btn) {
+        time_filter_toggle_btn->setStyleSheet(generator.generate_filter_toggle_btn_style());
+        // Points down to close the bar while it is open.
+        const bool open = time_filter_toggle_btn->isChecked();
+        const auto &colors = current_theme.colors;
+        time_filter_toggle_btn->setIcon(tinted_icon(ResourceManager::get_icon_path(open ? "step_down.svg" : "step_up.svg"), open ? colors.text_primary : colors.text_secondary));
+        time_filter_toggle_btn->setIconSize(QSize(scaled(12), scaled(12)));
+    }
     if (start_date_edit) {
         const QString date_style = generator.generate_time_filter_date_edit_style();
         const QString calendar_style = generator.generate_time_filter_calendar_style();

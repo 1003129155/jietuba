@@ -189,22 +189,15 @@ QString ThemeStyleGenerator::generate_filter_toggle_btn_style() const {
     return QString(R"(
             QToolButton {
                 background: transparent;
-                color: %1;
                 border: none;
-                border-radius: %2;
-                font-size: %3;
+                border-radius: %1;
                 padding: 0px;
             }
-            QToolButton:hover {
-                background: %4;
-                color: %5;
-            }
-            QToolButton:checked {
-                background: %4;
-                color: %5;
+            QToolButton:hover, QToolButton:checked {
+                background: %2;
             }
         )")
-        .arg(c.text_secondary, px(4), px(17), c.bg_hover, c.text_primary);
+        .arg(px(4), c.bg_hover);
 }
 
 QString ThemeStyleGenerator::generate_time_filter_date_edit_style() const {
@@ -388,16 +381,13 @@ QString ThemeStyleGenerator::generate_menu_btn_style() const {
     return QString(R"(
             QPushButton {
                 background: transparent;
-                color: %1;
                 border: none;
-                font-size: %2;
-                font-weight: normal;
             }
             QPushButton:hover {
-                background: %3;
-                border-radius: %4;
+                background: %1;
+                border-radius: %2;
             }
         )")
-        .arg(c.text_secondary, px(18), c.bg_hover, px(4));
+        .arg(c.bg_hover, px(4));
 }
 }

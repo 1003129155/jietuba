@@ -1995,6 +1995,38 @@ private slots:
         QVERIFY2(problems.isEmpty(), qPrintable(problems.join('\n')));
     }
 
+    // The clipboard theme menu marks the chosen swatch with an icon, not a ✓ character.
+    void clipboardThemeMenuMarksTheChosenSwatch() {
+        const auto restore = qScopeGuard([this, theme = config_->get_clipboard_theme()] { config_->set_clipboard_theme(theme); });
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.build_all_pages();
+        dialog.show();
+        auto *theme_btn = dialog.attr<QPushButton>("_clip_theme_btn");
+        QVERIFY(theme_btn);
+        const auto open_swatches = [theme_btn] {
+            theme_btn->click();
+            auto *menu = qobject_cast<QMenu *>(QApplication::activePopupWidget());
+            return menu ? menu->findChildren<QPushButton *>() : QList<QPushButton *>();
+        };
+        const auto marked = [](const QList<QPushButton *> &swatches) {
+            QList<int> rows;
+            for (int row = 0; row < swatches.size(); ++row) {
+                if (!swatches[row]->text().isEmpty()) return QList<int>{-1};
+                if (!swatches[row]->icon().isNull()) rows << row;
+            }
+            return rows;
+        };
+        auto swatches = open_swatches();
+        QVERIFY(swatches.size() > 1);
+        QCOMPARE(marked(swatches).size(), 1);
+        const int last = static_cast<int>(swatches.size()) - 1;
+        QVERIFY(marked(swatches).first() != last);
+        swatches.last()->click();
+        QTRY_VERIFY(!QApplication::activePopupWidget());
+        QCOMPARE(marked(open_swatches()), QList<int>{last});
+        QApplication::activePopupWidget()->close();
+    }
+
     // The logo's context menu opens the developer page; the pin page links to its shortcut tabs.
     void developerPageAndPinShortcutLinks() {
         SettingsDialog dialog(config_, config_->get_hotkey());

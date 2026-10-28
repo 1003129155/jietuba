@@ -440,7 +440,7 @@ private slots:
         QVERIFY(three_lines);
         three_lines->trigger();
         QVERIFY(calls.contains("lines 3"));
-        QVERIFY(actions[QString::fromUtf8("◀ Left")]->isChecked());
+        QVERIFY(actions["Left"]->isChecked());
         QVERIFY(actions["Last Position"]->isChecked());
         QVERIFY(!actions["Follow Mouse"]->isChecked());
         QVERIFY(actions["Last Selected First"]->isChecked());
@@ -454,7 +454,7 @@ private slots:
                                   "Preserve Search on Reopen", "Opaque", "17px", "Large", "First Selected First", "Record Content", "Comma", "Add Content",
                                   "Clear History", "Follow Mouse"})
             actions[label]->trigger();
-        actions[QString::fromUtf8("▲ Top")]->trigger();
+        actions["Top"]->trigger();
         QVERIFY(calls.contains("html 0"));
         QVERIFY(calls.contains("auto 1"));
         QVERIFY(calls.contains("opacity 0"));
@@ -467,10 +467,16 @@ private slots:
         QVERIFY(calls.contains("clear"));
         QVERIFY(calls.contains("bar top"));
         QVERIFY(calls.contains("position cursor"));
-        // Theme swatches are buttons inside the menu.
+        // Theme swatches are buttons inside the menu; the current one is marked by an icon, not a ✓ character.
         QPushButton *swatch = nullptr;
-        for (auto *button : menu->findChildren<QPushButton *>()) swatch = button;
+        int marked = 0;
+        for (auto *button : menu->findChildren<QPushButton *>()) {
+            swatch = button;
+            QVERIFY(button->text().isEmpty());
+            if (!button->icon().isNull()) ++marked;
+        }
         QVERIFY(swatch);
+        QCOMPARE(marked, 1);
         swatch->click();
         QVERIFY(calls.last().startsWith("theme "));
         // The custom separator understands escapes and closes the menu.

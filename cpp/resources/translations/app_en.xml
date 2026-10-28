@@ -2705,16 +2705,16 @@ Replace it?</translation>
         <translation>Group Bar Position</translation>
     </message>
     <message>
-        <source>▶ Right</source>
-        <translation>▶ Right</translation>
+        <source>Right</source>
+        <translation>Right</translation>
     </message>
     <message>
-        <source>◀ Left</source>
-        <translation>◀ Left</translation>
+        <source>Left</source>
+        <translation>Left</translation>
     </message>
     <message>
-        <source>▲ Top</source>
-        <translation>▲ Top</translation>
+        <source>Top</source>
+        <translation>Top</translation>
     </message>
     <message>
         <source>Max Display Lines</source>

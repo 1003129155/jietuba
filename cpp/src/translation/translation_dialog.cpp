@@ -8,6 +8,7 @@
 #include "translation/languages.h"
 #include "translation/speech_service.h"
 #include "translation/ui/widgets.h"
+#include "ui/fluent_lite/theme.h"
 #include <QApplication>
 #include <QClipboard>
 #include <QCloseEvent>
@@ -434,7 +435,9 @@ void TranslationDialog::build_ui() {
     set_combo_data(target_language, target_lang, "ZH");
     connect(target_language, &QComboBox::currentIndexChanged, this, &TranslationDialog::on_target_lang_changed);
 
-    swap_button = new QPushButton(QString::fromUtf8("⇄"));
+    // An SVG rather than ⇄, which is not in the UI fonts and falls back differently on each Windows version.
+    swap_button = new QPushButton;
+    swap_button->setIconSize(QSize(dialog_scaled(18), dialog_scaled(18)));
     swap_button->setObjectName("swapButton");
     swap_button->setToolTip(tr_text("Swap languages"));
     swap_button->setCursor(Qt::PointingHandCursor);
@@ -794,6 +797,7 @@ void TranslationDialog::set_theme(const QString &theme_name) {
     theme_name_ = theme_name == "light" ? "light" : "dark";
     palette_ = theme_name_ == "light" ? &dashboard_light() : &dashboard_dark();
     setStyleSheet(style_sheet(*palette_));
+    swap_button->setIcon(tinted_icon(ResourceManager::get_icon_path("swap.svg"), palette_->accent));
     dashboard_title_bar->apply_palette(*palette_);
     for (auto *button : tool_buttons_) button->apply_palette(*palette_);
     translate_button->apply_palette(*palette_);
@@ -831,10 +835,7 @@ QString TranslationDialog::style_sheet(const DashboardPalette &p) {
             padding: @s5px;
             outline: none; selection-color: white; selection-background-color: @accent;
         }
-        QPushButton#swapButton {
-            color: @accent; background: @accent_tint; border: none;
-            border-radius: @s18px; font-size: @s19px; font-weight: 500;
-        }
+        QPushButton#swapButton { background: @accent_tint; border: none; border-radius: @s18px; }
         QPushButton#swapButton:hover { background: @fill_hover; }
         QFrame#sourcePane, QFrame#targetPane {
             background: @field; border: @strokepx solid transparent;
