@@ -2,7 +2,7 @@ use rusqlite::{Connection, OptionalExtension, params, params_from_iter};
 use rusqlite::types::Value;
 use crate::group_kind::{self, FilterRule};
 use crate::text_kind;
-use crate::types::{PyClipboardItem, PyPaginatedResult, PyGroup};
+use crate::types::{PyClipboardItem, PyGroup};
 use std::path::{Path, PathBuf};
 
 // 压缩阈值：超过 100KB 的 data 用 zstd 压缩
@@ -11,6 +11,9 @@ const COMPRESS_THRESHOLD: usize = 100 * 1024;
 /// 读一条记录要的列，顺序与 item_from_row 对应
 const ITEM_COLUMNS: &str = "id, title, content, html_content, content_type, image_id, thumbnail, is_pinned, \
                             paste_count, source_app, char_count, created_at, updated_at, COALESCE(sub_kind, '')";
+
+/// 历史的显示顺序，要和按类型取页的两个索引的排序列一致
+const HISTORY_ORDER: &str = "ORDER BY is_pinned DESC, item_order DESC";
 
 /// 要写进库的文本子类型：调用方给了（带取色标记）就用，文本没给就按内容判
 fn sub_kind_of(item: &PyClipboardItem) -> String {
@@ -177,8 +180,12 @@ impl Database {
              CREATE INDEX IF NOT EXISTS idx_clipboard_order ON clipboard(is_pinned DESC, item_order DESC);
              CREATE INDEX IF NOT EXISTS idx_clipboard_content ON clipboard(content);
              CREATE INDEX IF NOT EXISTS idx_clipboard_group ON clipboard(group_id);
-             CREATE INDEX IF NOT EXISTS idx_clipboard_image_id ON clipboard(image_id);"
+             CREATE INDEX IF NOT EXISTS idx_clipboard_image_id ON clipboard(image_id);
+             CREATE INDEX IF NOT EXISTS idx_clipboard_kind_order ON clipboard(content_type, is_pinned DESC, item_order DESC);
+             CREATE INDEX IF NOT EXISTS idx_clipboard_sub_kind_order ON clipboard(content_type, sub_kind, is_pinned DESC, item_order DESC);"
         ).map_err(|e| format!("创建索引失败: {}", e))?;
+        // 上面两个给按类型取一页用：带上排序列，沿索引取够一页就停。没有索引时要逐行读 content_type，
+        // 它排在大文本列之后，每行都要走完溢出页；只按类型建索引，又要先取出该类型的全部记录再排序。
         // 同一次复制的同一格式只存一条，INSERT OR IGNORE 靠它去重。
         // 有这个索引之前的旧库里可能已有重复行，建不起来时照常使用
         let _ = conn.execute(
@@ -351,7 +358,7 @@ impl Database {
         found.optional().map_err(|e| format!("查重失败: {}", e))
     }
 
-    /// 分页查询
+    /// 分页查询；不算总数，调用方按这一页是否取满判断还有没有下一页
     pub fn query_items(
         &self,
         offset: i64,
@@ -360,7 +367,7 @@ impl Database {
         filter: &FilterRule,
         start_time: Option<i64>,
         end_time: Option<i64>,
-    ) -> Result<PyPaginatedResult, String> {
+    ) -> Result<Vec<PyClipboardItem>, String> {
         filter.check()?;
         let mut where_clauses = vec![];
         let mut params_vec: Vec<Value> = vec![];
@@ -394,20 +401,14 @@ impl Database {
             format!("WHERE {}", where_clauses.join(" AND "))
         };
 
-        let total_count: i64 = self.conn
-            .query_row(&format!("SELECT COUNT(*) FROM clipboard {where_clause}"), params_from_iter(params_vec.iter()), |row| row.get(0))
-            .map_err(|e| format!("查询失败: {}", e))?;
-
         let mut stmt = self.conn.prepare(&format!(
-            "SELECT {ITEM_COLUMNS} FROM clipboard {where_clause} ORDER BY is_pinned DESC, item_order DESC LIMIT ? OFFSET ?"
+            "SELECT {ITEM_COLUMNS} FROM clipboard {where_clause} {HISTORY_ORDER} LIMIT ? OFFSET ?"
         )).map_err(|e| format!("准备查询失败: {}", e))?;
         params_vec.push(Value::from(limit));
         params_vec.push(Value::from(offset));
-        let items = stmt.query_map(params_from_iter(params_vec.iter()), item_from_row)
+        stmt.query_map(params_from_iter(params_vec.iter()), item_from_row)
             .and_then(|rows| rows.collect::<rusqlite::Result<Vec<_>>>())
-            .map_err(|e| format!("查询失败: {}", e))?;
-
-        Ok(PyPaginatedResult::new(total_count, items, offset, limit))
+            .map_err(|e| format!("查询失败: {}", e))
     }
 
     /// 出现过的来源应用及条数，按条数从多到少；本程序的几种 exe 合并成 OWN_APP
@@ -661,22 +662,14 @@ impl Database {
     }
 
     /// 按分组查询，group_id 为 None 时查未分组的；分组内按 item_order 升序（新内容在下）
-    pub fn query_by_group(&self, group_id: Option<i64>, offset: i64, limit: i64) -> Result<PyPaginatedResult, String> {
+    pub fn query_by_group(&self, group_id: Option<i64>, offset: i64, limit: i64) -> Result<Vec<PyClipboardItem>, String> {
         // IS 对 NULL 也成立，有分组、未分组走同一条语句
-        let total_count: i64 = self.conn.query_row(
-            "SELECT COUNT(*) FROM clipboard WHERE group_id IS ?1",
-            params![group_id],
-            |row| row.get(0),
-        ).map_err(|e| format!("查询失败: {}", e))?;
-
         let mut stmt = self.conn.prepare(&format!(
             "SELECT {ITEM_COLUMNS} FROM clipboard WHERE group_id IS ?1 ORDER BY is_pinned DESC, item_order ASC LIMIT ?2 OFFSET ?3"
         )).map_err(|e| format!("准备查询失败: {}", e))?;
-        let items = stmt.query_map(params![group_id, limit, offset], item_from_row)
+        stmt.query_map(params![group_id, limit, offset], item_from_row)
             .and_then(|rows| rows.collect::<rusqlite::Result<Vec<_>>>())
-            .map_err(|e| format!("查询失败: {}", e))?;
-
-        Ok(PyPaginatedResult::new(total_count, items, offset, limit))
+            .map_err(|e| format!("查询失败: {}", e))
     }
 
     /// 增加粘贴次数，返回新的次数；记录不存在时返回 0
@@ -1070,7 +1063,7 @@ mod maintenance_tests {
 
     fn search(db: &Database, keyword: &str) -> Vec<String> {
         let mut found: Vec<String> = db.query_items(0, 50, Some(keyword.to_string()), &FilterRule::default(), None, None)
-            .unwrap().items.into_iter().map(|item| item.content).collect();
+            .unwrap().into_iter().map(|item| item.content).collect();
         found.sort();
         found
     }
@@ -1093,7 +1086,7 @@ mod maintenance_tests {
         // 列表从新到旧：四 三 二 一；把「一」和「三」挪上去，传入顺序不影响结果
         db.move_items_to_top(&[ids[0], ids[2], 999]).unwrap();
         let order: Vec<String> = db.query_items(0, 10, None, &FilterRule::default(), None, None)
-            .unwrap().items.into_iter().map(|item| item.content).collect();
+            .unwrap().into_iter().map(|item| item.content).collect();
         assert_eq!(order, vec!["三", "一", "四", "二"]);
     }
 
@@ -1194,7 +1187,7 @@ mod maintenance_tests {
     }
 
     fn group_contents(db: &Database, group_id: Option<i64>) -> Vec<String> {
-        db.query_by_group(group_id, 0, 50).unwrap().items.into_iter().map(|item| item.content).collect()
+        db.query_by_group(group_id, 0, 50).unwrap().into_iter().map(|item| item.content).collect()
     }
 
     #[test]
@@ -1206,7 +1199,6 @@ mod maintenance_tests {
         add(&db, "没分组的");
         assert_eq!(group_contents(&db, Some(group)), vec!["分组里的"]);
         assert_eq!(group_contents(&db, None), vec!["没分组的"]);
-        assert_eq!(db.query_by_group(None, 0, 50).unwrap().total_count, 1);
     }
 
     fn add_file(db: &Database, path: &str) -> i64 {
@@ -1496,7 +1488,7 @@ mod maintenance_tests {
         assert_ne!(rich_id, plain);
         assert_eq!(db.insert_item(&rich).unwrap(), rich_id);
         // 合并后排到最前
-        let first = db.query_items(0, 1, None, &FilterRule::default(), None, None).unwrap().items[0].id;
+        let first = db.query_items(0, 1, None, &FilterRule::default(), None, None).unwrap()[0].id;
         assert_eq!(first, rich_id);
     }
 }
@@ -1520,7 +1512,7 @@ mod sub_kind_tests {
 
     fn matching(db: &Database, rule: FilterRule) -> Vec<String> {
         let mut found: Vec<String> = db.query_items(0, 50, None, &rule, None, None)
-            .unwrap().items.into_iter().map(|item| item.content).collect();
+            .unwrap().into_iter().map(|item| item.content).collect();
         found.sort();
         found
     }
@@ -1586,6 +1578,21 @@ mod sub_kind_tests {
         assert_eq!(matching(&db, rule(Some("url"), Some("chrome.exe"))), vec!["https://a.com"]);
         assert_eq!(matching(&db, rule(None, Some(group_kind::OWN_APP))), vec!["开发版取的", "截图吧取的"]);
         assert!(db.query_items(0, 50, None, &FilterRule::kind("email"), None, None).is_err());
+    }
+
+    #[test]
+    fn kind_pages_walk_an_index_in_display_order() {
+        let db = Database::new(":memory:").unwrap();
+        let own = FilterRule { kind: Some("image".to_string()), app: Some(group_kind::OWN_APP.to_string()) };
+        for rule in [FilterRule::kind("image"), FilterRule::kind("text"), FilterRule::kind("url"), own] {
+            let (conditions, params) = rule.sql_conditions();
+            let sql = format!("EXPLAIN QUERY PLAN SELECT {} FROM clipboard WHERE {} {} LIMIT 38", super::ITEM_COLUMNS, conditions.join(" AND "), super::HISTORY_ORDER);
+            let mut stmt = db.conn.prepare(&sql).unwrap();
+            let plan: Vec<String> = stmt.query_map(rusqlite::params_from_iter(params.iter()), |row| row.get(3))
+                .unwrap().collect::<Result<_, _>>().unwrap();
+            assert!(plan.iter().any(|step| step.starts_with("SEARCH clipboard USING INDEX idx_clipboard_")), "{rule:?}: {plan:?}");
+            assert!(!plan.iter().any(|step| step.contains("TEMP B-TREE")), "{rule:?}: {plan:?}");
+        }
     }
 
     #[test]
