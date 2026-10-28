@@ -16,10 +16,12 @@ class QPainter;
 class QUndoStack;
 
 namespace jietuba {
+class NumberItem;
 enum class HandleType {
     CORNER_TL, CORNER_TR, CORNER_BR, CORNER_BL, EDGE_T, EDGE_R, EDGE_B, EDGE_L,
     ROTATE, ARROW_START, ARROW_END, ARROW_CONTROL, CORNER_RADIUS,
-    NUMBER_INCREMENT, NUMBER_DECREMENT, NUMBER_DELETE, ITEM_DELETE, TEXT_SCALE, ARROW_BEND
+    NUMBER_INCREMENT, NUMBER_DECREMENT, NUMBER_DELETE, ITEM_DELETE, TEXT_SCALE, ARROW_BEND,
+    NUMBER_ARROW, NUMBER_LABEL, NUMBER_ARROW_TIP
 };
 QString handle_type_name(HandleType type);
 
@@ -34,6 +36,12 @@ struct EditHandle {
     QPointF offset;
     QRectF rect_at(const QPointF &center) const;
     QRectF hit_rect_at(const QPointF &center) const;
+};
+
+// Where a button sits on its item's frame: column and row 0 are the left and top edges, -1 the
+// right and bottom edges; 1 and -2 are one button further along that edge, for stacked buttons.
+struct ButtonSlot {
+    int column = 0, row = 0;
 };
 
 // Edit handles of the selected item: generation, hit testing, dragging with
@@ -65,9 +73,18 @@ public:
     static constexpr int NUMBER_BUTTON_GAP = 4;
     static inline const QColor NUMBER_BUTTON_COLOR = QColor(220, 45, 35);
     static inline const QColor NUMBER_BUTTON_HOVER_COLOR = QColor(245, 70, 55);
+    // Screen gap kept between two buttons that face each other across a small item.
+    static constexpr int BUTTON_FACING_GAP = 6;
 
     LayerEditor();
     static QCursor get_rotate_cursor();
+    // The frame buttons hang on: rect grown about its centre until buttons at these slots keep
+    // apart, so on a small or zoomed-out item they spread outside it instead of covering each other.
+    // units_per_pixel converts the screen-pixel button sizes into rect's units.
+    static QRectF button_frame(const QRectF &rect, const std::vector<ButtonSlot> &buttons, double units_per_pixel);
+    static QPointF button_anchor(const QRectF &frame, const ButtonSlot &slot);
+    // Screen offset of a stacked button from its corner.
+    static QPointF button_offset(const ButtonSlot &slot);
 
     bool start_edit(QGraphicsItem *layer);
     void stop_edit();
@@ -83,6 +100,8 @@ public:
     std::optional<std::vector<std::pair<QString, QPointF>>> scene_anchors(QGraphicsItem *layer) const;
 
     double scene_units_per_pixel() const;
+    // The same in layer's own coordinates, which its transform may scale.
+    double local_units_per_pixel(const QGraphicsItem *layer) const;
     QPointF screen_center(const EditHandle &handle) const;
     QRectF screen_rect(const EditHandle &handle) const;
     std::optional<EditHandle> hit_test(const QPointF &pos) const;
@@ -98,6 +117,9 @@ public:
     static bool is_number_adjust_handle(const std::optional<EditHandle> &handle);
     static bool is_delete_handle(const std::optional<EditHandle> &handle);
     bool adjust_number_with_handle(const EditHandle &handle, QUndoStack *undo_stack);
+    // The pointer and label buttons of a number, run on click.
+    static bool is_number_action_handle(const std::optional<EditHandle> &handle);
+    bool run_number_action(const EditHandle &handle, QUndoStack *undo_stack);
 
     void start_drag(const EditHandle &handle, const QPointF &pos);
     void drag_to(const QPointF &pos, bool keep_ratio = false);
@@ -119,7 +141,7 @@ public:
     std::optional<QPointF> drag_start_pos;
     std::optional<QVariantMap> initial_layer_state;
 private:
-    std::vector<EditHandle> generate_number_handles(const QRectF &rect) const;
+    std::vector<EditHandle> generate_number_handles(const NumberItem *number) const;
     std::vector<EditHandle> generate_arrow_handles(QGraphicsItem *layer) const;
     std::vector<EditHandle> generate_rect_handles(const QRectF &rect, QGraphicsItem *layer);
     void append_corner_radius_handles(std::vector<EditHandle> &handles, QGraphicsItem *layer) const;
@@ -156,5 +178,6 @@ private:
     bool arrow_base_control_modified_ = false;
     std::optional<std::array<QPointF, 2>> arrow_base_bend_points_, arrow_base_bend_scene_;
     std::optional<double> base_corner_radius_, base_font_point_size_;
+    std::optional<QPointF> base_arrow_tip_scene_;
 };
 }

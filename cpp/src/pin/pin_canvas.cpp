@@ -138,6 +138,7 @@ QGraphicsItem *PinCanvas::clone_graphics_item(QGraphicsItem *item) {
     if (auto *number = dynamic_cast<NumberItem *>(item)) {
         auto *cloned = new NumberItem(number->number, number->pos(), number->radius, QColor(number->color), number->style);
         cloned->number_order = number->number_order;
+        cloned->copy_extras_from(*number);
         return cloned;
     }
     log_warning(T("不支持的item类型: {item_type}", {{"item_type", QString::fromUtf8(typeid(*item).name())}}), "PinCanvas");

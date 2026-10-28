@@ -147,6 +147,8 @@ public:
     MosaicSettingsPanel *mosaic_panel = nullptr;
     WatermarkSettingsPanel *watermark_panel = nullptr;
 
+    // Unfolds the number panel's label and pointer part showing a selected number's state, or folds it.
+    void show_number_extras(const std::optional<QVariantMap> &state);
 signals:
     void tool_changed(const QString &tool_id);
     void save_clicked();

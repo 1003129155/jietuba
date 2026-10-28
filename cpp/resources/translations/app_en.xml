@@ -3838,6 +3838,10 @@ This action cannot be undone.</translation>
         <translation>Next Number</translation>
     </message>
     <message>
+        <source>Text Guide Line</source>
+        <translation>Text Guide Line</translation>
+    </message>
+    <message>
         <source>Line Style</source>
         <translation>Line Style</translation>
     </message>

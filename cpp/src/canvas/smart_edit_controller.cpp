@@ -8,7 +8,9 @@
 #include "canvas/scene.h"
 #include "canvas/undo.h"
 #include "settings/tool_settings.h"
+#include "tools/number.h"
 #include "ui/arrow_settings_panel.h"
+#include "ui/number_settings_panel.h"
 #include "ui/text_settings_panel.h"
 #include "ui/toolbar.h"
 #include <QGraphicsScene>
@@ -37,6 +39,8 @@ SmartEditController::SmartEditController(QGraphicsScene *s) : scene(s), layer_ed
     // Undo/redo resyncs handles with the restored geometry.
     if (auto *canvas = dynamic_cast<CanvasScene *>(scene))
         undo_connection_ = connect(canvas->undo_stack, &QUndoStack::indexChanged, this, [this](int) { on_undo_index_changed(); });
+    // Typing in a number's label ends on focus change; the panel folds if nothing was typed.
+    if (scene) connect(scene, &QGraphicsScene::focusItemChanged, this, [this] { if (scene) sync_number_panel_state(); });
 }
 
 void SmartEditController::cleanup() {
@@ -126,7 +130,7 @@ bool SmartEditController::handle_hover(const QPointF &, const QPointF &scene_pos
     if (!scene) return false;
     QGraphicsItem *first = nullptr;
     for (auto *item : scene->items(scene_pos))
-        if (is_drawable(item)) { first = item; break; }
+        if (auto *target = annotation_owner(item); is_drawable(target)) { first = target; break; }
     if (first) {
         if (can_show_hover_cursor(first)) {
             if (hovered_item.get() != first) {
@@ -155,7 +159,7 @@ bool SmartEditController::handle_press(const QPointF &, const QPointF &scene_pos
     is_dragging = false;
     QList<QGraphicsItem *> drawable_items;
     for (auto *item : scene->items(scene_pos))
-        if (is_drawable(item)) drawable_items.append(item);
+        if (auto *target = annotation_owner(item); is_drawable(target) && !drawable_items.contains(target)) drawable_items.append(target);
     if (!drawable_items.isEmpty()) {
         // Ctrl hits the first editable item; a plain click keeps looking down for
         // one the current tool accepts, so top text does not hide shapes below.
@@ -234,6 +238,7 @@ void SmartEditController::select_item(QGraphicsItem *item, bool auto_select) {
         repaint_handles();
     }
     if (dynamic_cast<ArrowItem *>(item)) sync_arrow_panel_state(item);
+    sync_number_panel_state();
 }
 
 void SmartEditController::clear_selection(bool suppress_block) {
@@ -255,6 +260,7 @@ void SmartEditController::clear_selection(bool suppress_block) {
         layer_editor->set_is_moving_item(false);
         repaint_handles();
     }
+    sync_number_panel_state();
 }
 
 void SmartEditController::delete_selected(bool suppress_block, bool renumber_numbers) {
@@ -263,6 +269,8 @@ void SmartEditController::delete_selected(bool suppress_block, bool renumber_num
     auto *item_scene = item->scene();
     auto *canvas = dynamic_cast<CanvasScene *>(item_scene);
     auto *tracked = dynamic_cast<TrackedItem *>(item);
+    // Typing in the number's label ends first, so the text is recorded before the number goes.
+    if (auto *number = dynamic_cast<NumberItem *>(item); number && number->label() && number->label()->hasFocus()) number->label()->clearFocus();
     QUndoCommand *command = nullptr;
     if (dynamic_cast<NumberItem *>(item)) {
         command = renumber_numbers ? static_cast<QUndoCommand *>(new RemoveNumberAndRenumberCommand(item_scene, ItemReference(tracked)))
@@ -292,6 +300,17 @@ bool SmartEditController::handle_edit_press(const QPointF &scene_pos, const QPoi
             mode = SelectionMode::CLICKING_HANDLE;
             scene->update();
             repaint_handles();
+            return true;
+        }
+    }
+    if (LayerEditor::is_number_action_handle(hit)) {
+        layer_editor->set_hovered_handle(hit);
+        if (layer_editor->run_number_action(*hit, canvas ? canvas->undo_stack : nullptr)) {
+            active_click_handle_ = hit;
+            mode = SelectionMode::CLICKING_HANDLE;
+            scene->update();
+            repaint_handles();
+            sync_number_panel_state();
             return true;
         }
     }
@@ -397,6 +416,7 @@ void SmartEditController::on_undo_index_changed() {
         else if (dynamic_cast<TextItem *>(item)) sync_text_panel_state(item);
         repaint_handles();
     }
+    sync_number_panel_state();
 }
 
 void SmartEditController::sync_arrow_panel_state(QGraphicsItem *item) {
@@ -404,6 +424,37 @@ void SmartEditController::sync_arrow_panel_state(QGraphicsItem *item) {
     auto *host = canvas_host_of_scene(scene);
     auto *toolbar = host ? host->canvas_toolbar() : nullptr;
     if (toolbar && toolbar->arrow_panel) toolbar->arrow_panel->set_arrow_style(static_cast<ArrowItem *>(item)->_arrow_style);
+}
+
+void SmartEditController::sync_number_panel_state() {
+    auto *host = canvas_host_of_scene(scene);
+    auto *toolbar = host ? host->canvas_toolbar() : nullptr;
+    auto *panel = toolbar ? toolbar->number_panel : nullptr;
+    if (!panel) return;
+    if (connected_number_panel_ != panel) {
+        connected_number_panel_ = panel;
+        connect(panel, &NumberSettingsPanel::label_font_changed, this, [this](const QString &family) { on_number_extras_changed({{"label_font", family}}); });
+        connect(panel, &NumberSettingsPanel::label_size_changed, this, [this](int level) { on_number_extras_changed({{"label_size", level}}); });
+        connect(panel, &NumberSettingsPanel::label_outline_changed, this, [this](bool on) { on_number_extras_changed({{"label_outline", on}}); });
+        connect(panel, &NumberSettingsPanel::label_guide_changed, this, [this](bool on) { on_number_extras_changed({{"label_guide", on}}); });
+        connect(panel, &NumberSettingsPanel::arrow_style_changed, this, [this](const QString &style) { on_number_extras_changed({{"arrow_style", style}}); });
+    }
+    auto *number = dynamic_cast<NumberItem *>(selected_item());
+    const bool shown = number && (number->arrow_tip() || !number->label_text().isEmpty() || (number->label() && number->label()->is_editing()));
+    toolbar->show_number_extras(shown ? std::optional<QVariantMap>(number->extras_state()) : std::nullopt);
+}
+
+void SmartEditController::on_number_extras_changed(const QVariantMap &change) {
+    if (auto *number = dynamic_cast<NumberItem *>(selected_item())) {
+        const auto before = number->extras_state();
+        number->apply_extras_state(change);
+        const auto after = number->extras_state();
+        if (before != after)
+            if (auto *canvas = dynamic_cast<CanvasScene *>(scene); canvas && canvas->undo_stack)
+                canvas->undo_stack->push_command(new EditItemCommand(ItemReference(number), before, after, "Number Label Style"));
+    }
+    // A temporary cross-tool edit changes only the item, never the number tool's defaults.
+    if (!is_cross_tool_selection()) NumberTool::remember_extras(change);
 }
 
 void SmartEditController::sync_text_panel_state(QGraphicsItem *item) {

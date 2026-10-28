@@ -903,6 +903,16 @@ void Toolbar::sync_all_panels_position() {
     if (more_popup_ && more_popup_->isVisible()) sync_panel_position(more_popup_, true);
 }
 
+void Toolbar::show_number_extras(const std::optional<QVariantMap> &state) {
+    if (!number_panel) return;
+    if (state)
+        number_panel->set_label_state(state->value("label_font").toString(), state->value("label_size").toInt(), state->value("label_outline").toBool(),
+                                      state->value("label_guide").toBool(), state->value("arrow_style").toString());
+    if (number_panel->label_section_visible() == state.has_value()) return;
+    number_panel->set_label_section_visible(state.has_value());
+    if (number_panel->isVisible()) sync_panel_position(number_panel);
+}
+
 void Toolbar::sync_panel_position(QWidget *panel, bool align_right) {
     if (!panel) return;
     const auto toolbar_global_pos = mapToGlobal(QPoint(0, 0));

@@ -74,7 +74,12 @@
       "style": "solid",
       "font_size": 10,
       "opacity": 1.0,
-      "stroke_width": 12
+      "stroke_width": 12,
+      "label_font": "",
+      "label_size": 2,
+      "label_outline": false,
+      "label_guide": false,
+      "arrow_style": "single"
     },
     "eraser": {
       "stroke_width": 25,
@@ -169,7 +174,12 @@
       "style": "str",
       "font_size": "int",
       "opacity": "float",
-      "stroke_width": "int"
+      "stroke_width": "int",
+      "label_font": "str",
+      "label_size": "int",
+      "label_outline": "bool",
+      "label_guide": "bool",
+      "arrow_style": "str"
     },
     "eraser": {
       "stroke_width": "int",

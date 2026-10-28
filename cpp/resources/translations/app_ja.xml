@@ -3929,6 +3929,10 @@ This action cannot be undone.</source>
         <translation>次の番号</translation>
     </message>
     <message>
+        <source>Text Guide Line</source>
+        <translation>文字の引き出し線</translation>
+    </message>
+    <message>
         <source>Line Style</source>
         <translation>線のスタイル</translation>
     </message>

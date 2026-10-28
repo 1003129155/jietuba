@@ -3916,6 +3916,10 @@ This action cannot be undone.</source>
         <translation>다음 번호</translation>
     </message>
     <message>
+        <source>Text Guide Line</source>
+        <translation>텍스트 지시선</translation>
+    </message>
+    <message>
         <source>Line Style</source>
         <translation>선 스타일</translation>
     </message>

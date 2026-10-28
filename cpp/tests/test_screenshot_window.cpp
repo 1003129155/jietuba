@@ -692,6 +692,36 @@ private slots:
         QCOMPARE(get_last_region(), std::optional<QRect>(QRect(50, 40, 200, 150)));
     }
 
+    // A number outside the selection whose label is inside comes along to the pin, once, label and guide line included.
+    void pinningCarriesANumbersLabelOnce() {
+        auto *window = open_with_selection();
+        auto *number = new NumberItem(1, QPointF(100, 240), 20.0, Qt::red);
+        window->scene->addItem(number);
+        window->scene->undo_stack->push(new AddItemCommand(window->scene, ItemReference(number)));
+        number->apply_extras_state({{"label_guide", true}});
+        number->set_label("note", QPointF(0, -100));
+        QVERIFY(!number->sceneBoundingRect().intersects(QRectF(50, 40, 200, 150)));
+        QVERIFY(number->label()->sceneBoundingRect().intersects(QRectF(50, 40, 200, 150)));
+        clear_clipboard();
+        window->toolbar->pin_btn->click();
+        const auto pins = PinManager::instance()->get_all_pins();
+        QCOMPARE(pins.size(), 1);
+        NumberItem *copied = nullptr;
+        int numbers = 0, loose_texts = 0;
+        for (auto *item : pins.first()->canvas->scene->items()) {
+            if (auto *candidate = dynamic_cast<NumberItem *>(item)) {
+                copied = candidate;
+                ++numbers;
+            }
+            if (dynamic_cast<QGraphicsTextItem *>(item) && !item->parentItem()) ++loose_texts;
+        }
+        QCOMPARE(numbers, 1);
+        QCOMPARE(loose_texts, 0);
+        QCOMPARE(copied->label_text(), QString("note"));
+        QVERIFY(copied->label_guide() && copied->guide() && copied->guide()->isVisible());
+        QVERIFY(wait_for_clipboard_writes(10.0));
+    }
+
     void thePinShortcutPinsOnlyAConfirmedSelection() {
         auto *window = open();
         window->pin_from_global_hotkey();
@@ -1137,6 +1167,55 @@ private slots:
         // The mosaic shows its mode and strength in the panel.
         ctrl_click(QPoint(155, 155));
         QCOMPARE(window->toolbar->current_tool, std::optional<QString>("mosaic"));
+    }
+
+    // The number panel unfolds its label and pointer part for a number with either, and its controls
+    // restyle that number in undoable steps and become the next number's style.
+    void numberPanelUnfoldsForLabelsAndRestylesThem() {
+        auto *window = open_with_selection();
+        window->toolbar->number_btn->click();
+        click(window, Qt::LeftButton, QPoint(120, 100));
+        NumberItem *number = nullptr;
+        for (auto *item : window->scene->items())
+            if ((number = dynamic_cast<NumberItem *>(item))) break;
+        QVERIFY(number);
+        auto *controller = window->view->smart_edit_controller.get();
+        controller->select_item(number);
+        auto *panel = window->toolbar->number_panel;
+        QVERIFY(panel && !panel->label_section_visible());
+        const int narrow = panel->sizeHint().width();
+        number->begin_label_edit();
+        QApplication::processEvents();
+        QVERIFY(panel->label_section_visible());
+        QVERIFY(panel->width() > narrow);
+        auto *stack = window->scene->undo_stack;
+        const int before = stack->count();
+        panel->label_outline_btn->click();
+        QVERIFY(number->label_outline());
+        QCOMPARE(stack->count(), before + 1);
+        panel->label_size_combo->setCurrentIndex(4);
+        QCOMPARE(number->label_size_level(), 4);
+        panel->label_arrow_combo->setCurrentIndex(panel->label_arrow_combo->findData("line"));
+        QCOMPARE(number->arrow_style(), QString("line"));
+        // Undo restores the number and the panel shows it.
+        stack->undo();
+        QCOMPARE(number->arrow_style(), QString("single"));
+        QCOMPARE(panel->label_arrow_combo->currentData().toString(), QString("single"));
+        // An empty label ended folds the part away.
+        number->label()->clearFocus();
+        QApplication::processEvents();
+        QVERIFY(!panel->label_section_visible());
+        // The choices are the next number's style.
+        QVERIFY(config_->get_setting("number", "label_outline").toBool());
+        click(window, Qt::LeftButton, QPoint(200, 160));
+        click(window, Qt::LeftButton, QPoint(200, 160));
+        NumberItem *next = nullptr;
+        for (auto *item : window->scene->items())
+            if (auto *candidate = dynamic_cast<NumberItem *>(item); candidate && candidate != number) next = candidate;
+        QVERIFY(next);
+        QVERIFY(next->label_outline());
+        QCOMPARE(next->label_size_level(), 4);
+        QCOMPARE(next->arrow_style(), QString("line"));
     }
 
     // ---- Keyboard actions of the capture window ----

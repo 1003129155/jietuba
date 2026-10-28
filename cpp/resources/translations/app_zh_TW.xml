@@ -3936,6 +3936,10 @@ This action cannot be undone.</source>
         <translation>下一個序號</translation>
     </message>
     <message>
+        <source>Text Guide Line</source>
+        <translation>文字指示線</translation>
+    </message>
+    <message>
         <source>Line Style</source>
         <translation>線條樣式</translation>
     </message>
