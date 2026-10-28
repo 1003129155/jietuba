@@ -8,6 +8,7 @@
 #include <utility>
 
 class QGraphicsItem;
+class QWidget;
 
 namespace jietuba {
 class PinWindow;
@@ -38,12 +39,11 @@ public:
     void set_all_thumbnail_mode(bool active);
     // (saved, failed).
     std::pair<int, int> save_all_to_directory(const QString &directory, const QString &prefix = "pins");
-    // True during a capture session, when every pin sits below the capture layer.
-    bool topmost_suppressed() const { return topmost_suppressed_; }
-    // Topmost pins become normal windows (NOTOPMOST) through SetWindowPos directly.
-    void suppress_topmost();
-    // Suppressed pins return to TOPMOST.
-    void restore_topmost();
+    // A capture session is open. Its window shows after the pins and stays above them, so the pins keep
+    // their place; a pin made meanwhile goes right below the capture window instead of on top of it.
+    void begin_capture(QWidget *capture_window);
+    void end_capture();
+    bool capture_open() const { return capture_window_ != nullptr; }
     // At application exit.
     void cleanup();
     QList<QPointer<PinWindow>> pin_windows;
@@ -54,9 +54,7 @@ signals:
 private:
     PinManager();
     void on_pin_closed(PinWindow *pin_window);
-    bool topmost_suppressed_ = false;
-    // Suppressed pins, restored exactly.
-    QList<QPointer<PinWindow>> suppressed_pins_;
+    QPointer<QWidget> capture_window_;
 };
 
 inline PinManager *get_pin_manager() { return PinManager::instance(); }

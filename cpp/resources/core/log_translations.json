@@ -414,7 +414,6 @@
 "已删除管理员计划任务": "Administrator task removed",
 "已加载语言 (QM): {lang_name} ({lang_code})": "Loaded language (QM): {lang_name} ({lang_code})",
 "已加载语言 (XML): {lang_name} ({lang_code})": "Loaded language (XML): {lang_name} ({lang_code})",
-"已压制 {count} 个钉图的置顶状态": "Suppressed always-on-top state for {count} pin(s)",
 "已启用，找到 {window_count} 个窗口": "Enabled, found {window_count} windows",
 "已复制: {text_preview}": "Copied: {text_preview}",
 "已复制到剪切板 (Qt)": "Copied to clipboard (Qt)",

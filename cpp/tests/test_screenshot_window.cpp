@@ -236,8 +236,8 @@ private slots:
         QCOMPARE(window->geometry(), QRect(0, 0, W, H));
         QVERIFY(!window->toolbar->isVisible());
         QVERIFY(!window->scene->selection_model->is_confirmed());
-        // Topmost pins sink below the capture while it is open.
-        QVERIFY(PinManager::instance()->topmost_suppressed());
+        // Pins made while it is open go below it.
+        QVERIFY(PinManager::instance()->capture_open());
 
         drag(window, QPoint(50, 40), QPoint(250, 190));
         QVERIFY(window->scene->selection_model->is_confirmed());
@@ -259,7 +259,7 @@ private slots:
         QVERIFY(!window->session_active());
         QVERIFY(!window->isVisible());
         QVERIFY(!window->scene && !window->view);
-        QVERIFY(!PinManager::instance()->topmost_suppressed());
+        QVERIFY(!PinManager::instance()->capture_open());
         // A second end before the deletion is harmless.
         window->cleanup_and_close();
         QCOMPARE(ended.count(), 1);

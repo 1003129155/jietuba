@@ -28,10 +28,10 @@ PinWindow *PinManager::create_pin(const QImage &image, const QPoint &position, T
     auto *pin_window = new PinWindow(image, position, config_manager, drawing_items, selection_offset, number_next);
     connect(pin_window, &PinWindow::closed, this, [this, pin_window] { on_pin_closed(pin_window); });
     pin_windows.append(pin_window);
-    // A capture can pin an image while its session stays open.
-    if (topmost_suppressed_) {
-        SetWindowPos(reinterpret_cast<HWND>(pin_window->winId()), HWND_NOTOPMOST, 0, 0, 0, 0, SWP_FLAGS);
-        suppressed_pins_.append(pin_window);
+    // A capture can pin an image while its session stays open: the pin goes below the capture window,
+    // still in the topmost band, and the keys stay with the capture.
+    if (capture_window_) {
+        SetWindowPos(reinterpret_cast<HWND>(pin_window->winId()), reinterpret_cast<HWND>(capture_window_->winId()), 0, 0, 0, 0, SWP_FLAGS);
     } else {
         // The next keys are usually meant for the new pin. Under a capture they are still the capture's;
         // a capture that closes after pinning hands the focus over itself.
@@ -154,28 +154,9 @@ std::pair<int, int> PinManager::save_all_to_directory(const QString &directory, 
     return {saved, failed};
 }
 
-void PinManager::suppress_topmost() {
-    if (topmost_suppressed_) return;
-    topmost_suppressed_ = true;
-    suppressed_pins_.clear();
-    for (auto *pin : get_all_pins()) {
-        if (pin->windowFlags() & Qt::WindowStaysOnTopHint) {
-            SetWindowPos(reinterpret_cast<HWND>(pin->winId()), HWND_NOTOPMOST, 0, 0, 0, 0, SWP_FLAGS);
-            suppressed_pins_.append(pin);
-        }
-    }
-    if (!suppressed_pins_.isEmpty()) log_debug(T("已压制 {count} 个钉图的置顶状态", {{"count", static_cast<int>(suppressed_pins_.size())}}), "PinManager");
-}
+void PinManager::begin_capture(QWidget *capture_window) { capture_window_ = capture_window; }
 
-void PinManager::restore_topmost() {
-    if (!topmost_suppressed_) return;
-    topmost_suppressed_ = false;
-    for (const auto &pin : suppressed_pins_) {
-        if (!pin || !pin_windows.contains(pin)) continue;
-        SetWindowPos(reinterpret_cast<HWND>(pin->winId()), HWND_TOPMOST, 0, 0, 0, 0, SWP_FLAGS);
-    }
-    suppressed_pins_.clear();
-}
+void PinManager::end_capture() { capture_window_ = nullptr; }
 
 void PinManager::cleanup() {
     log_debug(T("清理管理器..."), "PinManager");

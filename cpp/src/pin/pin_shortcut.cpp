@@ -194,9 +194,8 @@ void PinShortcutController::unregister_pin(PinWindow *pin_window) { pin_windows_
 bool PinShortcutController::matches(QInputEvent *event, const QString &cfg_key) const { return normal_handler_->match(event, cfg_key); }
 
 PinWindow *PinShortcutController::find_pin_under_cursor() {
-    // During a capture pins sit below the capture layer. Keys the capture window does
-    // not take (such as copy before confirming) keep going down and must not reach an invisible pin.
-    if (PinManager::instance()->topmost_suppressed()) return nullptr;
+    // During a capture the pins are covered by it.
+    if (PinManager::instance()->capture_open()) return nullptr;
     const auto cursor_pos = QCursor::pos();
     // Drops closed windows.
     QList<QPointer<PinWindow>> alive;
@@ -213,7 +212,7 @@ PinWindow *PinShortcutController::find_pin_under_cursor() {
 }
 
 PinWindow *PinShortcutController::focused_pin() {
-    if (PinManager::instance()->topmost_suppressed()) return nullptr;
+    if (PinManager::instance()->capture_open()) return nullptr;
     for (const auto &pin : pin_windows_)
         if (pin && pin->has_keyboard_focus() && !pin->click_through()) return pin;
     return nullptr;

@@ -328,8 +328,9 @@ ScreenshotWindow::~ScreenshotWindow() {
 }
 
 void ScreenshotWindow::begin_session_ui() {
-    // Pin windows stay out of the topmost band during the capture, so equal TopMost windows do not fight over Z order.
-    PinManager::instance()->suppress_topmost();
+    // The pins keep their place below the capture window, which shows after them; one pinned during the
+    // capture goes right below it.
+    PinManager::instance()->begin_capture(this);
     shortcut_handler_ = std::make_unique<ScreenshotShortcutHandler>(this);
     ShortcutManager::instance()->register_handler(shortcut_handler_.get());
     session_active_ = true;
@@ -415,7 +416,7 @@ void ScreenshotWindow::release_session_resources() {
         // The handler may be the one dispatching this key (Esc), so it is destroyed only after the dispatch returns.
         QTimer::singleShot(0, qApp, [handler = std::shared_ptr<ScreenshotShortcutHandler>(shortcut_handler_.release())] {});
     }
-    PinManager::instance()->restore_topmost();
+    PinManager::instance()->end_capture();
     // The toolbar goes with this window; nothing it emits meanwhile may reach the released scene.
     if (toolbar) toolbar->blockSignals(true);
     original_image = QImage();

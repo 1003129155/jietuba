@@ -481,7 +481,7 @@ if(BUILD_TESTING)
     if(WIN32)
         # Window styles only exist on real windows; the translation window needs a real screen's width beside the pin;
         # only Windows shows a pin without activating it.
-        add_test(NAME pin_window_desktop COMMAND jietuba_pin_tests -o ${JIETUBA_TEST_REPORTS}/pin_window_desktop.txt,txt -platform windows clickThroughStyleSurvivesStayOnTopToggles topmostSuppressionUsesTheRealWindowStyle
+        add_test(NAME pin_window_desktop COMMAND jietuba_pin_tests -o ${JIETUBA_TEST_REPORTS}/pin_window_desktop.txt,txt -platform windows clickThroughStyleSurvivesStayOnTopToggles aPinMadeDuringACaptureGoesRightBelowIt
             translatingAPinRecognizesThenTranslates aNewPinTakesKeyboardFocus)
         set_tests_properties(pin_window_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
     endif()

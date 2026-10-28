@@ -1130,10 +1130,10 @@ private slots:
         capture.show();
         capture.activateWindow();
         QVERIFY(QTest::qWaitForWindowActive(&capture));
-        manager->suppress_topmost();
+        manager->begin_capture(&capture);
         auto *under_capture = manager->create_pin(solid(QSize(80, 60)), QPoint(350, 350), config_);
         QTest::qWait(100);
-        manager->restore_topmost();
+        manager->end_capture();
         QVERIFY(capture.isActiveWindow());
         QCOMPARE(under_capture->border_overlay->border_color, UNFOCUSED_BORDER_COLOR);
     }
@@ -1249,44 +1249,51 @@ private slots:
         QVERIFY(first->canvas->is_editing());
     }
 
-    void topmostSuppressionIsAnIdempotentSwitch() {
+    void aCaptureLeavesThePinsAsTheyAre() {
         auto *manager = PinManager::instance();
         auto *pin = manager->create_pin(solid(QSize(80, 60)), QPoint(10, 20), config_);
-        manager->restore_topmost();
-        QVERIFY(!manager->topmost_suppressed());
-        for (int round = 0; round < 3; ++round) {
-            manager->suppress_topmost();
-            manager->suppress_topmost();
-            QVERIFY(manager->topmost_suppressed());
-            manager->restore_topmost();
-            QVERIFY(!manager->topmost_suppressed());
-        }
+        QWidget capture;
+        QVERIFY(!manager->capture_open());
+        manager->begin_capture(&capture);
+        QVERIFY(manager->capture_open());
+        manager->end_capture();
+        QVERIFY(!manager->capture_open());
         QVERIFY(pin->windowFlags() & Qt::WindowStaysOnTopHint);
     }
 
-    void topmostSuppressionUsesTheRealWindowStyle() {
+    // The pins keep their band and their order under a capture; one pinned during it goes right below
+    // the capture window, still topmost, so nothing has to be put back afterwards.
+    void aPinMadeDuringACaptureGoesRightBelowIt() {
         if (!desktop()) QSKIP("needs -platform windows");
         auto *manager = PinManager::instance();
-        auto *topmost = manager->create_pin(solid(QSize(80, 60)), QPoint(10, 20), config_);
+        auto *lower = manager->create_pin(solid(QSize(80, 60)), QPoint(10, 20), config_);
+        auto *upper = manager->create_pin(solid(QSize(80, 60)), QPoint(30, 40), config_);
         auto *plain = manager->create_pin(solid(QSize(80, 60)), QPoint(200, 20), config_);
         plain->toggle_stay_on_top();
-        QVERIFY(ex_style(topmost) & WS_EX_TOPMOST);
-        QVERIFY(!(ex_style(plain) & WS_EX_TOPMOST));
-        manager->suppress_topmost();
-        QVERIFY(!(ex_style(topmost) & WS_EX_TOPMOST));
-        // A pin created during a capture sinks too and comes back with the rest.
+        const auto hwnd = [](QWidget *window) { return reinterpret_cast<HWND>(window->winId()); };
+        // Higher in the z-order: reached first walking down from the top.
+        const auto above = [](HWND upper_window, HWND lower_window) {
+            for (HWND window = GetWindow(upper_window, GW_HWNDNEXT); window; window = GetWindow(window, GW_HWNDNEXT))
+                if (window == lower_window) return true;
+            return false;
+        };
+        QVERIFY(above(hwnd(upper), hwnd(lower)));
+        QWidget capture;
+        capture.setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
+        capture.setGeometry(300, 300, 300, 200);
+        capture.show();
+        capture.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&capture));
+        manager->begin_capture(&capture);
+        QVERIFY(ex_style(lower) & WS_EX_TOPMOST);
+        QVERIFY(above(hwnd(&capture), hwnd(upper)));
         auto *late = manager->create_pin(solid(QSize(80, 60)), QPoint(400, 20), config_);
-        QVERIFY(!(ex_style(late) & WS_EX_TOPMOST));
-        manager->restore_topmost();
-        QVERIFY(ex_style(topmost) & WS_EX_TOPMOST);
         QVERIFY(ex_style(late) & WS_EX_TOPMOST);
+        QCOMPARE(GetWindow(hwnd(&capture), GW_HWNDNEXT), hwnd(late));
+        manager->end_capture();
+        QVERIFY(above(hwnd(upper), hwnd(lower)));
+        QVERIFY(above(hwnd(late), hwnd(upper)));
         QVERIFY(!(ex_style(plain) & WS_EX_TOPMOST));
-
-        // A pin closed meanwhile is skipped.
-        manager->suppress_topmost();
-        topmost->close_window();
-        manager->restore_topmost();
-        QVERIFY(ex_style(late) & WS_EX_TOPMOST);
     }
 
     // ---- Hover controls ----
@@ -1656,10 +1663,11 @@ private slots:
         press_key(upper, Qt::Key_Escape);
         QVERIFY(!upper->is_closed());
         upper->set_click_through(false);
-        // During a capture pins sit below it.
-        PinManager::instance()->suppress_topmost();
+        // During a capture the pins are covered by it.
+        QWidget capture;
+        PinManager::instance()->begin_capture(&capture);
         QCOMPARE(controller->find_pin_under_cursor(), nullptr);
-        PinManager::instance()->restore_topmost();
+        PinManager::instance()->end_capture();
         // Closed pins are dropped.
         upper->close_window();
         QCOMPARE(controller->find_pin_under_cursor(), lower);
