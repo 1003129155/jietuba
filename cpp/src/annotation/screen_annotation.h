@@ -17,13 +17,14 @@ class AnnotationView;
 class CursorHighlight;
 class ScreenAnnotation;
 
-// Keys of the session while drawing, priority 80 like the GIF drawing layer: Esc returns to
-// pass-through, undo and redo run across the screens, and the capture tool keys pick tools.
+// Keys of the session while drawing: Esc returns to pass-through, undo and redo run across the
+// screens, and the capture tool keys pick tools.
 class ScreenAnnotationShortcutHandler : public ShortcutHandler {
 public:
     explicit ScreenAnnotationShortcutHandler(ScreenAnnotation *owner);
-    int priority() const override { return 80; }
     QString handler_name() const override { return "ScreenAnnotation"; }
+    // The drawing layers, the toolbar and its floating panels.
+    bool owns_window(const QWidget *window) const override;
     bool is_active() override;
     bool handle_mouse(QMouseEvent *event) override { return handle_key(event); }
     bool handle_key(QInputEvent *event) override;
@@ -83,7 +84,7 @@ public:
     // The layer drawn on last (keys, toolbar syncing); the one under the pointer before that.
     AnnotationView *active_view() const;
     // Whether widget's window is a layer, the toolbar or one of its floating windows.
-    bool owns_window(QWidget *widget) const;
+    bool owns_window(const QWidget *widget) const;
 signals:
     void mode_changed(ScreenAnnotation::Mode mode);
 private:

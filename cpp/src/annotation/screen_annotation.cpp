@@ -54,9 +54,9 @@ ScreenAnnotationShortcutHandler::ScreenAnnotationShortcutHandler(ScreenAnnotatio
     mouse_bindings_ = load_inapp_mouse_bindings(keys);
 }
 
-bool ScreenAnnotationShortcutHandler::is_active() {
-    return owner_->mode() == ScreenAnnotation::Mode::Drawing && owner_->owns_window(QApplication::activeWindow());
-}
+bool ScreenAnnotationShortcutHandler::owns_window(const QWidget *window) const { return owner_->owns_window(window); }
+
+bool ScreenAnnotationShortcutHandler::is_active() { return owner_->mode() == ScreenAnnotation::Mode::Drawing; }
 
 bool ScreenAnnotationShortcutHandler::match(QInputEvent *event, const QString &cfg_key) const {
     return match_inapp_binding(event, cfg_key, bindings_, mouse_bindings_);
@@ -565,7 +565,7 @@ AnnotationView *ScreenAnnotation::active_view() const {
     return view_under_cursor();
 }
 
-bool ScreenAnnotation::owns_window(QWidget *widget) const {
+bool ScreenAnnotation::owns_window(const QWidget *widget) const {
     if (!widget || !active()) return false;
     auto *window = widget->window();
     if (auto *view = dynamic_cast<AnnotationView *>(window); view && std::find(views_.begin(), views_.end(), view) != views_.end()) return true;

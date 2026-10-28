@@ -615,7 +615,7 @@
 "正在初始化截图工具 OCR...": "Initializing Snipping Tool OCR...",
 "没有可翻译的文字": "No text available to translate",
 "没有钉图窗口需要关闭": "No pin windows need to be closed",
-"注册 handler: {handler_name} (优先级 {priority})，当前共 {handler_count} 个": "Registered handler: {handler_name} (priority {priority}), {handler_count} total",
+"注册 handler: {handler_name}，当前共 {handler_count} 个": "Registered handler: {handler_name}, {handler_count} total",
 "注册系统热键出错: {e}": "Error registering system hotkey: {e}",
 "注销 handler: {handler_name}": "Unregistered handler: {handler_name}",
 "注销快捷键控制器": "Unregistering shortcut controller",

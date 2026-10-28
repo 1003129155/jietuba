@@ -33,7 +33,7 @@ void PinHandlerBase::reload_bindings() {
 
 PinWindow *PinHandlerBase::find_target_pin(QInputEvent *event) const { return controller_->find_target_pin(event); }
 
-bool PinHandlerBase::is_active() { return controller_->focused_pin() || controller_->find_pin_under_cursor(); }
+bool PinHandlerBase::owns_window(const QWidget *window) const { return controller_->pin_of_window(window) != nullptr; }
 
 bool PinHandlerBase::typing_in_dialog(QInputEvent *event) {
     if (event->type() != QEvent::KeyPress) return false;
@@ -219,7 +219,21 @@ PinWindow *PinShortcutController::focused_pin() {
     return nullptr;
 }
 
+PinWindow *PinShortcutController::pin_of_window(const QWidget *window) const {
+    for (const auto &pin : pin_windows_) {
+        if (!pin || pin->is_closed()) continue;
+        for (auto *widget = window; widget; widget = widget->parentWidget())
+            if (widget == pin.data() || (pin->toolbar && widget == pin->toolbar)) return pin;
+    }
+    return nullptr;
+}
+
 PinWindow *PinShortcutController::find_target_pin(QInputEvent *event) {
+    if (auto *window = ShortcutManager::instance()->dispatch_window()) {
+        // Click-through pins take no shortcuts: the user is working in the window below.
+        auto *pin = pin_of_window(window);
+        return pin && !pin->click_through() ? pin : nullptr;
+    }
     // With the pointer moved off after selecting text, Ctrl+C must still copy that pin's text.
     if (!(event && is_mouse_shortcut_event(event)))
         if (auto *pin = focused_pin()) return pin;

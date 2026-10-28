@@ -106,6 +106,13 @@ std::vector<QWidget *> RecordToolbar::unique_panels() const {
     return panels;
 }
 
+bool RecordToolbar::owns_window(const QWidget *window) const {
+    const auto panels = unique_panels();
+    for (auto *widget = window; widget; widget = widget->parentWidget())
+        if (widget == this || std::find(panels.begin(), panels.end(), widget) != panels.end()) return true;
+    return false;
+}
+
 void RecordToolbar::apply_scale() {
     apply_scale_sizes();
     if (paint_panel) paint_panel->apply_scale();

@@ -61,6 +61,8 @@ bool GifDrawingScene::is_drawing(QGraphicsItem *item) const {
 GifDrawingShortcutHandler::GifDrawingShortcutHandler(GifDrawingView *view)
     : view_(view), bindings_(load_inapp_bindings({"inapp_delete"})), mouse_bindings_(load_inapp_mouse_bindings({"inapp_delete"})) {}
 
+bool GifDrawingShortcutHandler::owns_window(const QWidget *window) const { return view_ && view_->in_shortcut_scope(window); }
+
 bool GifDrawingShortcutHandler::is_active() { return view_ && view_->isVisible() && !view_->passthrough(); }
 
 bool GifDrawingShortcutHandler::match(QInputEvent *event, const QString &cfg_key) const {

@@ -43,10 +43,11 @@ void press_combo(std::initializer_list<WORD> keys) {
     for (auto it = std::rbegin(keys); it != std::rend(keys); ++it) send_key(*it, false);
 }
 
-// Records what reaches it and consumes what it is told to.
+// Records what reaches it and consumes what it is told to; owns one window.
 class RecordingHandler : public ShortcutHandler {
 public:
-    RecordingHandler(int priority, QString name) : priority_(priority), name_(std::move(name)) {}
+    RecordingHandler(QString name, const QWidget *window) : name_(std::move(name)), window_(window) {}
+    bool owns_window(const QWidget *window) const override { return window == window_; }
     bool is_active() override { return active; }
     bool handle_key(QInputEvent *event) override {
         keys << event_key(event);
@@ -70,7 +71,6 @@ public:
         captured << text;
         return consume_hotkeys;
     }
-    int priority() const override { return priority_; }
     QString handler_name() const override { return name_; }
     bool active = true, consume_keys = false, consume_mouse = false, consume_hotkeys = false, throw_on_key = false;
     QList<int> keys, hotkey_ids;
@@ -78,9 +78,17 @@ public:
     QStringList mouse_tokens, captured;
     QList<bool> mouse_callbacks_bound;
 private:
-    int priority_;
     QString name_;
+    const QWidget *window_;
 };
+
+// Global hotkeys and side buttons are offered to the owner of the foreground window.
+bool show_in_front(QWidget &window) {
+    window.resize(120, 80);
+    window.show();
+    window.activateWindow();
+    return QTest::qWaitForWindowActive(&window) && GetForegroundWindow() == reinterpret_cast<HWND>(window.winId());
+}
 
 int hotkey_id_of(const QString &hotkey) {
     const auto parsed = ShortcutManager::parse_hotkey(hotkey);
@@ -181,28 +189,42 @@ private slots:
         const int id = hotkey_id_of("ctrl+alt+shift+f9");
         QVERIFY(id > 0);
         QVERIFY(!manager_->on_wm_hotkey(id + 1000));
-        RecordingHandler handler(50, "recording");
+        QWidget front;
+        QVERIFY(show_in_front(front));
+        RecordingHandler handler("recording", &front);
         manager_->register_handler(&handler);
         manager_->register_handler(&handler);
         handler.consume_hotkeys = true;
         QVERIFY(manager_->on_wm_hotkey(id));
         QCOMPARE(fired, 1);
         QCOMPARE(handler.hotkey_ids, QList<int>{id});
-        // An inactive handler is skipped.
+        // An inactive handler is skipped, and so is one owning no window in front or under the pointer.
         handler.active = false;
         QVERIFY(manager_->on_wm_hotkey(id));
         QCOMPARE(fired, 2);
         handler.active = true;
+        QWidget hidden;
+        RecordingHandler elsewhere("elsewhere", &hidden);
+        elsewhere.consume_hotkeys = true;
+        manager_->register_handler(&elsewhere);
+        handler.consume_hotkeys = false;
+        QVERIFY(manager_->on_wm_hotkey(id));
+        QCOMPARE(fired, 3);
+        QVERIFY(elsewhere.hotkey_ids.isEmpty());
+        manager_->unregister_handler(&elsewhere);
+        handler.consume_hotkeys = true;
+        QVERIFY(manager_->on_wm_hotkey(id));
+        QCOMPARE(fired, 3);
         handler.consume_hotkeys = false;
         // Suppressed: swallowed before any handler sees it.
         manager_->set_global_hotkeys_suppressed(true);
         QVERIFY(manager_->global_hotkeys_suppressed());
         QVERIFY(manager_->on_wm_hotkey(id));
-        QCOMPARE(fired, 2);
-        QCOMPARE(handler.hotkey_ids.size(), 1);
+        QCOMPARE(fired, 3);
+        QCOMPARE(handler.hotkey_ids.size(), 3);
         manager_->set_global_hotkeys_suppressed(false);
         QVERIFY(manager_->on_wm_hotkey(id));
-        QCOMPARE(fired, 3);
+        QCOMPARE(fired, 4);
         manager_->unregister_handler(&handler);
         manager_->unregister_handler(&handler);
         manager_->unregister_all_hotkeys();
@@ -217,7 +239,9 @@ private slots:
         QVERIFY(!manager_->register_hotkey(MOUSE_BUTTON_BACK, [] {}));
         emit input_hub()->side_button("x1");
         QTRY_COMPARE(back, 1);
-        RecordingHandler handler(50, "recording");
+        QWidget front;
+        QVERIFY(show_in_front(front));
+        RecordingHandler handler("recording", &front);
         manager_->register_handler(&handler);
         // An unbound button still reaches handlers, without a callback.
         emit input_hub()->side_button("x2");
@@ -261,7 +285,9 @@ private slots:
         QCOMPARE(fired, 1);
         emit input_hub()->hotkey(name);
         QTRY_COMPARE(fired, 2);
-        RecordingHandler interceptor(100, "interceptor");
+        QWidget front;
+        QVERIFY(show_in_front(front));
+        RecordingHandler interceptor("interceptor", &front);
         interceptor.consume_hotkeys = true;
         manager_->register_handler(&interceptor);
         emit input_hub()->hotkey(name);
@@ -287,7 +313,7 @@ private slots:
 
     // While an editor records, the keys the hook took reach the handlers in the recorder's spelling.
     void capturedKeysReachTheRecorder() {
-        RecordingHandler recorder(200, "recorder");
+        RecordingHandler recorder("recorder", nullptr);
         recorder.consume_hotkeys = true;
         manager_->register_handler(&recorder);
         manager_->begin_key_capture();
@@ -300,12 +326,14 @@ private slots:
         manager_->unregister_handler(&recorder);
     }
 
-    // In-app keys go through the handlers by priority, except into focused text fields.
-    void inAppKeysSkipTextInputs() {
-        RecordingHandler low(10, "low"), high(90, "high");
-        manager_->register_handler(&low);
+    // In-app keys go to the handlers owning the window they are sent to, in registration order,
+    // except into focused text fields.
+    void inAppKeysGoToTheWindowOwner() {
+        QWidget window, other;
+        RecordingHandler high("high", &window), low("low", &window), elsewhere("elsewhere", &other);
         manager_->register_handler(&high);
-        QWidget window;
+        manager_->register_handler(&elsewhere);
+        manager_->register_handler(&low);
         auto *line = new QLineEdit(&window);
         auto *spin = new QSpinBox(&window);
         auto *combo = new QComboBox(&window);
@@ -325,6 +353,12 @@ private slots:
         key_press(plain, Qt::Key_A);
         QCOMPARE(high.keys, QList<int>{Qt::Key_A});
         QVERIFY(low.keys.isEmpty());
+        QVERIFY(elsewhere.keys.isEmpty());
+        // An inactive owner is skipped.
+        high.active = false;
+        key_press(plain, Qt::Key_G);
+        QVERIFY(low.keys.contains(Qt::Key_G));
+        high.active = true;
         high.consume_keys = false;
         // Unconsumed keys propagate to the parent and pass the filter again there.
         key_press(plain, Qt::Key_B);
@@ -356,15 +390,21 @@ private slots:
         text->clearFocus();
         key_press(view, Qt::Key_E);
         QCOMPARE(high.keys.size(), before + 1);
+        // Keys sent to another window go to its owner alone.
+        before = high.keys.size();
+        key_press(&other, Qt::Key_H);
+        QCOMPARE(elsewhere.keys, QList<int>{Qt::Key_H});
+        QCOMPARE(high.keys.size(), before);
         manager_->unregister_handler(&low);
         manager_->unregister_handler(&high);
+        manager_->unregister_handler(&elsewhere);
     }
 
     // The middle button runs in-app shortcuts; a press claimed there also claims its release.
     void theMiddleButtonGoesToHandlers() {
-        RecordingHandler handler(50, "mouse");
-        manager_->register_handler(&handler);
         QWidget target;
+        RecordingHandler handler("mouse", &target);
+        manager_->register_handler(&handler);
         target.resize(100, 100);
         target.show();
         const auto send = [&target](QEvent::Type type, Qt::MouseButton button) {
@@ -508,7 +548,9 @@ private slots:
     void aRecordingEditorGetsSideButtonsWhilePaused() {
         int back = 0;
         QVERIFY(manager_->register_hotkey(MOUSE_BUTTON_BACK, [&back] { ++back; }));
-        RecordingHandler recorder(200, "recorder");
+        QWidget front;
+        QVERIFY(show_in_front(front));
+        RecordingHandler recorder("recorder", &front);
         recorder.consume_hotkeys = true;
         manager_->register_handler(&recorder);
         manager_->set_global_hotkeys_suppressed(true);

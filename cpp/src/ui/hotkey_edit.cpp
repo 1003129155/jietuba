@@ -23,6 +23,8 @@ QStringList modifier_parts(Qt::KeyboardModifiers modifiers) {
 bool is_modifier_key(int key) { return key == Qt::Key_Control || key == Qt::Key_Shift || key == Qt::Key_Alt || key == Qt::Key_Meta; }
 }
 
+bool HotkeyEditHandler::owns_window(const QWidget *window) const { return line_edit_ && window == line_edit_->window(); }
+
 bool HotkeyEditHandler::handle_key(QInputEvent *event) {
     if (event->type() == QEvent::KeyPress) line_edit_->capture_key(static_cast<QKeyEvent *>(event));
     return true;

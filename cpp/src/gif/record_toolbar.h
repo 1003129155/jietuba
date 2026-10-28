@@ -53,6 +53,8 @@ public:
     void set_toolbar_side(bool below);
     // Repositions every visible panel (after the window moves).
     void reposition_panels();
+    // The toolbar, its settings panels, or a menu or dialog of them.
+    bool owns_window(const QWidget *window) const;
     // The tallest settings panel plus its gap, reserved when placing the toolbar.
     int get_max_panel_height() const;
     // External highlight (for example when Esc leaves drawing).

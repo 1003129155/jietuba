@@ -18,9 +18,9 @@ public:
     explicit PinHandlerBase(PinShortcutController *controller);
     // Rereads the bindings after a settings change.
     void reload_bindings();
-    // Some pin could take the input; handle_key checks the target pin's editing state, as keys
-    // and mouse buttons can target different pins.
-    bool is_active() override;
+    // Pin windows and their toolbars; handle_key checks the target pin's editing state.
+    bool owns_window(const QWidget *window) const override;
+    bool is_active() override { return true; }
     // The middle button runs through the same chain as keys.
     bool handle_mouse(QMouseEvent *event) override { return handle_key(event); }
     // Intercepts the smart translation hotkey (keyboard or side button) and translates
@@ -48,20 +48,19 @@ private:
     QHash<QString, MouseBinding> mouse_bindings_;
 };
 
-// The target pin is being edited: copy, Esc leaves editing, delete. Priority 50.
+// The target pin is being edited: copy, Esc leaves editing, delete. Asked before
+// the normal handler.
 class PinEditShortcutHandler : public PinHandlerBase {
 public:
     using PinHandlerBase::PinHandlerBase;
-    int priority() const override { return 50; }
     QString handler_name() const override { return "PinEdit"; }
     bool handle_key(QInputEvent *event) override;
 };
 
-// The target pin is not being edited: copy, thumbnail, lock, Esc closes. Priority 40.
+// The target pin is not being edited: copy, thumbnail, lock, Esc closes.
 class PinNormalShortcutHandler : public PinHandlerBase {
 public:
     using PinHandlerBase::PinHandlerBase;
-    int priority() const override { return 40; }
     QString handler_name() const override { return "PinNormal"; }
     bool handle_key(QInputEvent *event) override;
 };
@@ -81,8 +80,11 @@ public:
     PinWindow *find_pin_under_cursor();
     // The pin whose window or toolbar is active, as its border shows.
     PinWindow *focused_pin();
-    // Keys and hotkeys (event null) go to the focused pin, else to the pin under the pointer;
-    // a mouse button goes to the pin it is pressed on.
+    // The pin owning the window: the pin itself, its toolbar, or a menu or dialog of them.
+    PinWindow *pin_of_window(const QWidget *window) const;
+    // Input being dispatched goes to the pin owning its window. Outside dispatch, keys and hotkeys
+    // (event null) go to the focused pin, else to the pin under the pointer; a mouse button goes to
+    // the pin it is pressed on.
     PinWindow *find_target_pin(QInputEvent *event);
     // Whether the event is the current binding of cfg_key.
     bool matches(QInputEvent *event, const QString &cfg_key) const;

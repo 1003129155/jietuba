@@ -39,15 +39,15 @@ class ManageDialog;
 
 inline const QString QUICK_EDIT_SHORTCUT = "inapp_clipboard_quick_edit";
 
-// Keys of the clipboard window (priority 60), while it is the active window.
+// Keys of the clipboard window, its popups and dialogs.
 class ClipboardShortcutHandler : public ShortcutHandler {
 public:
     explicit ClipboardShortcutHandler(ClipboardWindow *window);
     // Re-reads the configurable keys; called each time the window shows.
     void reload_bindings();
+    bool owns_window(const QWidget *window) const override;
     bool is_active() override;
     bool handle_key(QInputEvent *event) override;
-    int priority() const override { return 60; }
     QString handler_name() const override { return "ClipboardWindow"; }
     QString pick_keys;
 
@@ -134,6 +134,8 @@ public:
     void mark_items_to(qint64 item_id);
     // The quick edit key: text opens quick edit, other items in a group open the group editor.
     bool edit_selected();
+    // This window or one it parents: a menu, a confirmation, quick edit.
+    bool owns_window(const QWidget *window) const;
 
 signals:
     void item_pasted(qint64 item_id);
@@ -241,7 +243,6 @@ private:
     void position_on_show();
     void position_at_cursor();
     bool restore_previous_position();
-    bool owns_window(const QWidget *window) const;
     void check_and_hide();
     // The row as it looks, at most 240 wide, with the number of dragged rows when there are several.
     QPixmap drag_pixmap(qint64 item_id, int count, QPoint *hot_spot) const;

@@ -23,12 +23,13 @@ class Toolbar;
 class ToolSettingsManager;
 class ScreenshotWindow;
 
-// Capture window shortcuts; highest priority (100).
+// Capture window shortcuts.
 class ScreenshotShortcutHandler : public ShortcutHandler {
 public:
     explicit ScreenshotShortcutHandler(ScreenshotWindow *window);
-    int priority() const override { return 100; }
     QString handler_name() const override { return "ScreenshotWindow"; }
+    // The capture window and the dialogs it parents; other windows shown over the capture keep their keys.
+    bool owns_window(const QWidget *candidate) const override;
     // The manager filters before dialogs get keys, so a dialog blocking the capture
     // window (colour, save, toolbar layout) keeps the keyboard: Esc there must not end
     // the capture and Enter must not confirm it.

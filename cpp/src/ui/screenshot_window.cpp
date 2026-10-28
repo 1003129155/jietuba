@@ -71,6 +71,12 @@ ScreenshotShortcutHandler::ScreenshotShortcutHandler(ScreenshotWindow *window) :
     move_keys_ = load_move_keys();
 }
 
+bool ScreenshotShortcutHandler::owns_window(const QWidget *candidate) const {
+    for (auto *widget = candidate; widget; widget = widget->parentWidget())
+        if (widget == window) return true;
+    return false;
+}
+
 bool ScreenshotShortcutHandler::is_active() {
     auto *w = window;
     return w && !w->is_closing && w->isVisible() && blocking_modal(w) == nullptr;

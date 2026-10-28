@@ -276,6 +276,18 @@ private slots:
         QVERIFY(!again->toolbar->current_tool);
     }
 
+    // A window shown over the capture, such as the clipboard history, keeps its keys.
+    void keysOfAWindowOverTheCaptureStayThere() {
+        auto *window = open_with_selection();
+        QWidget picker;
+        picker.resize(100, 100);
+        picker.show();
+        QTest::keyClick(&picker, Qt::Key_Escape);
+        QVERIFY(window->session_active());
+        QTest::keyClick(window, Qt::Key_Escape);
+        QVERIFY(!window->session_active());
+    }
+
     void theCancelButtonAndWindowCloseEndTheSession() {
         auto *window = open_with_selection();
         QSignalSpy ended(window, &ScreenshotWindow::session_ended);

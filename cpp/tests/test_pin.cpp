@@ -1640,26 +1640,25 @@ private slots:
         QCOMPARE(pin->size(), thumbnail);
     }
 
-    void keysSkipPinsThatAreNotReallyUnderThePointer() {
+    // The pointer lookup, used by the translation hotkey, finds the pin really under the pointer.
+    void thePointerLookupSkipsPinsNotReallyUnderIt() {
         auto *lower = make_pin(QSize(200, 120), QPoint(100, 100));
         auto *upper = make_pin(QSize(200, 120), QPoint(150, 130));
         auto *controller = PinShortcutController::instance();
         QCursor::setPos(500, 500);
         QCOMPARE(controller->find_pin_under_cursor(), nullptr);
-        press_key(lower, Qt::Key_Escape);
-        QVERIFY(!lower->is_closed() && !upper->is_closed());
         // The newest pin is on top where they overlap.
         QCursor::setPos(200, 180);
         QCOMPARE(controller->find_pin_under_cursor(), upper);
-        // Click-through pins take no keys.
+        // Click-through pins take no shortcuts.
         upper->set_click_through(true);
         QCOMPARE(controller->find_pin_under_cursor(), lower);
-        upper->set_click_through(false);
-        // During a capture pins sit below it and take no keys.
-        PinManager::instance()->suppress_topmost();
-        QCOMPARE(controller->find_pin_under_cursor(), nullptr);
         press_key(upper, Qt::Key_Escape);
         QVERIFY(!upper->is_closed());
+        upper->set_click_through(false);
+        // During a capture pins sit below it.
+        PinManager::instance()->suppress_topmost();
+        QCOMPARE(controller->find_pin_under_cursor(), nullptr);
         PinManager::instance()->restore_topmost();
         // Closed pins are dropped.
         upper->close_window();
@@ -1669,7 +1668,7 @@ private slots:
         QCOMPARE(controller->find_pin_under_cursor(), lower);
     }
 
-    // Keys go to the pin with keyboard focus, as its border shows, wherever the pointer is.
+    // Keys go to the pin they are typed into, as its border shows, wherever the pointer is.
     void keysGoToTheFocusedPinWhereverThePointerIs() {
         auto *focused = make_pin(QSize(200, 120), QPoint(100, 100));
         auto *other = make_pin(QSize(200, 120), QPoint(400, 100));
@@ -1698,14 +1697,17 @@ private slots:
         focused->set_click_through(true);
         QCOMPARE(controller->focused_pin(), nullptr);
         focused->set_click_through(false);
-        // Without a focused pin the pin under the pointer takes them.
+        // Keys typed into another window leave the pins alone, the one under the pointer too.
         QWidget elsewhere;
         elsewhere.show();
         elsewhere.activateWindow();
         QVERIFY(QTest::qWaitForWindowActive(&elsewhere));
         QCOMPARE(controller->focused_pin(), nullptr);
-        press_key(focused, Qt::Key_L);
-        QVERIFY(other->locked() && !focused->locked());
+        QCursor::setPos(other->mapToGlobal(QPoint(100, 60)));
+        QTest::keyClick(&elsewhere, Qt::Key_L);
+        QTest::keyClick(&elsewhere, Qt::Key_Escape);
+        QVERIFY(!other->locked() && !focused->locked());
+        QVERIFY(!other->is_closed() && !focused->is_closed());
     }
 
     void editModeKeysLeaveTheToolBeforeClosing() {

@@ -6,6 +6,7 @@
 #include <QApplication>
 #include <QComboBox>
 #include <QCoreApplication>
+#include <QCursor>
 #include <QGraphicsScene>
 #include <QGraphicsTextItem>
 #include <QGraphicsView>
@@ -14,6 +15,7 @@
 #include <QMouseEvent>
 #include <QPlainTextEdit>
 #include <QTextEdit>
+#include <QWidget>
 #include <stdexcept>
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -151,9 +153,7 @@ ShortcutManager *ShortcutManager::instance() {
 void ShortcutManager::register_handler(ShortcutHandler *handler) {
     if (std::find(handlers_.begin(), handlers_.end(), handler) != handlers_.end()) return;
     handlers_.push_back(handler);
-    std::stable_sort(handlers_.begin(), handlers_.end(), [](ShortcutHandler *a, ShortcutHandler *b) { return a->priority() > b->priority(); });
-    log_debug(T("注册 handler: {handler_name} (优先级 {priority})，当前共 {handler_count} 个",
-                {{"handler_name", handler->handler_name()}, {"priority", handler->priority()}, {"handler_count", static_cast<int>(handlers_.size())}}),
+    log_debug(T("注册 handler: {handler_name}，当前共 {handler_count} 个", {{"handler_name", handler->handler_name()}, {"handler_count", static_cast<int>(handlers_.size())}}),
               "Shortcut");
 }
 
@@ -203,39 +203,59 @@ bool ShortcutManager::is_text_input_active(QInputEvent *event) const {
     return false;
 }
 
+bool ShortcutManager::dispatch_to_owners(QWidget *window, const char *method, const std::function<bool(ShortcutHandler *)> &handle) {
+    if (!window) return false;
+    // A copy: a handler may unregister itself or others while handling.
+    const auto handlers = handlers_;
+    // Restored afterwards: a handler may dispatch other input while it runs.
+    QWidget *const outer = dispatch_window_;
+    for (auto *handler : handlers) {
+        try {
+            if (!handler->owns_window(window) || !handler->is_active()) continue;
+            dispatch_window_ = window;
+            const bool taken = handle(handler);
+            dispatch_window_ = outer;
+            if (taken) return true;
+        } catch (const std::exception &e) {
+            dispatch_window_ = outer;
+            log_exception(e, handler_context(handler, method));
+        }
+    }
+    return false;
+}
+
+QList<QWidget *> ShortcutManager::hotkey_target_windows() const {
+    QList<QWidget *> windows;
+    if (auto *foreground = QWidget::find(reinterpret_cast<WId>(GetForegroundWindow()))) windows.append(foreground->window());
+    // With another program in front, the window under the pointer may still hold a selection of its own.
+    if (auto *under_pointer = QApplication::widgetAt(QCursor::pos()))
+        if (!windows.contains(under_pointer->window())) windows.append(under_pointer->window());
+    return windows;
+}
+
 bool ShortcutManager::filter_inapp_mouse(QObject *watched, QEvent *event) {
     // Every click in the application passes here, so non-middle buttons leave first.
     auto *mouse = static_cast<QMouseEvent *>(event);
     if (mouse->button() != Qt::MiddleButton) return false;
-    // A hotkey editor must receive the press itself to record it; it may also sit
-    // over a pin, whose handler checks only the pointer position, not focus.
-    if (watched->property("_captures_inapp_mouse_shortcut").toBool()) return false;
+    // The window gets the press first and forwards it to the widget under the pointer; dispatching at the
+    // widget lets a hotkey editor see its own press and record it.
+    auto *widget = qobject_cast<QWidget *>(watched);
+    if (!widget) return false;
+    if (widget->property("_captures_inapp_mouse_shortcut").toBool()) return false;
     if (event->type() != QEvent::MouseButtonPress) return inapp_mouse_claimed_;
-    inapp_mouse_claimed_ = dispatch_inapp_mouse(mouse);
+    inapp_mouse_claimed_ = dispatch_to_owners(widget->window(), "handle_mouse", [mouse](ShortcutHandler *handler) {
+        if (!handler->handle_mouse(mouse)) return false;
+        log_debug(T("鼠标键被 {handler_name} 消费 (button={button})", {{"handler_name", handler->handler_name()}, {"button", static_cast<int>(mouse->button())}}), "Shortcut");
+        return true;
+    });
     return inapp_mouse_claimed_;
-}
-
-bool ShortcutManager::dispatch_inapp_mouse(QMouseEvent *event) {
-    const auto handlers = handlers_;
-    for (auto *handler : handlers) {
-        try {
-            if (handler->is_active() && handler->handle_mouse(event)) {
-                log_debug(T("鼠标键被 {handler_name} 消费 (button={button})", {{"handler_name", handler->handler_name()}, {"button", static_cast<int>(event->button())}}),
-                          "Shortcut");
-                return true;
-            }
-        } catch (const std::exception &e) {
-            log_exception(e, handler_context(handler, "handle_mouse"));
-        }
-    }
-    return false;
 }
 
 bool ShortcutManager::eventFilter(QObject *watched, QEvent *event) {
     // Installed on the application: only the type is checked here, everything else passes.
     const auto type = event->type();
     try {
-        if (type == QEvent::KeyPress) return filter_key(static_cast<QInputEvent *>(event));
+        if (type == QEvent::KeyPress) return filter_key(watched, static_cast<QInputEvent *>(event));
         if (type == QEvent::MouseButtonPress || type == QEvent::MouseButtonRelease || type == QEvent::MouseButtonDblClick)
             return filter_inapp_mouse(watched, event);
     } catch (const std::exception &e) {
@@ -244,21 +264,17 @@ bool ShortcutManager::eventFilter(QObject *watched, QEvent *event) {
     return false;
 }
 
-bool ShortcutManager::filter_key(QInputEvent *event) {
+bool ShortcutManager::filter_key(QObject *watched, QInputEvent *event) {
+    // The window forwards the key to its focus widget, which passes here again.
+    auto *widget = qobject_cast<QWidget *>(watched);
+    if (!widget) return false;
     // A focused text input gets the key first.
     if (is_text_input_active(event)) return false;
-    const auto handlers = handlers_;
-    for (auto *handler : handlers) {
-        try {
-            if (handler->is_active() && handler->handle_key(event)) {
-                log_debug(T("按键被 {handler_name} 消费 (key=0x{key_hex:X})", {{"handler_name", handler->handler_name()}, {"key_hex", event_key(event)}}), "Shortcut");
-                return true;
-            }
-        } catch (const std::exception &e) {
-            log_exception(e, handler_context(handler, "handle_key"));
-        }
-    }
-    return false;
+    return dispatch_to_owners(widget->window(), "handle_key", [event](ShortcutHandler *handler) {
+        if (!handler->handle_key(event)) return false;
+        log_debug(T("按键被 {handler_name} 消费 (key=0x{key_hex:X})", {{"handler_name", handler->handler_name()}, {"key_hex", event_key(event)}}), "Shortcut");
+        return true;
+    });
 }
 
 bool ShortcutManager::on_wm_hotkey(int hotkey_id) {
@@ -281,31 +297,25 @@ bool ShortcutManager::on_wm_hotkey(int hotkey_id) {
 }
 
 bool ShortcutManager::dispatch_hotkey(int hotkey_id, const std::function<void()> &callback) {
-    const auto handlers = handlers_;
-    for (auto *handler : handlers) {
-        try {
-            if (handler->is_active() && handler->handle_hotkey(hotkey_id, callback)) {
-                log_debug(T("系统热键被 {handler_name} 拦截 (id={hotkey_id})", {{"handler_name", handler->handler_name()}, {"hotkey_id", hotkey_id}}), "Shortcut");
-                return true;
-            }
-        } catch (const std::exception &e) {
-            log_exception(e, handler_context(handler, "handle_hotkey"));
-        }
+    for (auto *window : hotkey_target_windows()) {
+        const bool taken = dispatch_to_owners(window, "handle_hotkey", [&](ShortcutHandler *handler) {
+            if (!handler->handle_hotkey(hotkey_id, callback)) return false;
+            log_debug(T("系统热键被 {handler_name} 拦截 (id={hotkey_id})", {{"handler_name", handler->handler_name()}, {"hotkey_id", hotkey_id}}), "Shortcut");
+            return true;
+        });
+        if (taken) return true;
     }
     return false;
 }
 
 bool ShortcutManager::dispatch_mouse_hotkey(const QString &token, const std::function<void()> &callback) {
-    const auto handlers = handlers_;
-    for (auto *handler : handlers) {
-        try {
-            if (handler->is_active() && handler->handle_mouse_hotkey(token, callback)) {
-                log_debug(T("鼠标侧键热键被 {handler_name} 拦截 (token={token})", {{"handler_name", handler->handler_name()}, {"token", token}}), "Shortcut");
-                return true;
-            }
-        } catch (const std::exception &e) {
-            log_exception(e, handler_context(handler, "handle_mouse_hotkey"));
-        }
+    for (auto *window : hotkey_target_windows()) {
+        const bool taken = dispatch_to_owners(window, "handle_mouse_hotkey", [&](ShortcutHandler *handler) {
+            if (!handler->handle_mouse_hotkey(token, callback)) return false;
+            log_debug(T("鼠标侧键热键被 {handler_name} 拦截 (token={token})", {{"handler_name", handler->handler_name()}, {"token", token}}), "Shortcut");
+            return true;
+        });
+        if (taken) return true;
     }
     return false;
 }

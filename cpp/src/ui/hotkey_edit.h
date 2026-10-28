@@ -14,15 +14,16 @@ class QHBoxLayout;
 namespace jietuba {
 class HotkeyLineEdit;
 
-// The hotkey editor's handler, priority 200 (highest); registered while focused.
-// handle_key keeps capture and pin handlers from taking the keys; handle_hotkey keeps
-// registered global hotkeys from running the capture or clipboard callbacks;
-// handle_captured_key takes the Win combinations and PrtSc the hook captured.
+// The hotkey editor's handler; registered while focused, so its window is the foreground one.
+// handle_key passes the structural keys to the editor; handle_hotkey keeps registered global
+// hotkeys from running the capture or clipboard callbacks; handle_captured_key takes the Win
+// combinations and PrtSc the hook captured.
 class HotkeyEditHandler : public ShortcutHandler {
 public:
     explicit HotkeyEditHandler(HotkeyLineEdit *line_edit) : line_edit_(line_edit) {}
-    int priority() const override { return 200; }
     QString handler_name() const override { return "HotkeyEditCapture"; }
+    // The window the editor sits in.
+    bool owns_window(const QWidget *window) const override;
     bool is_active() override { return active; }
     // Forwards the key to the editor, then swallows it from lower handlers.
     bool handle_key(QInputEvent *event) override;

@@ -78,6 +78,7 @@ GifRecordWindow::GifRecordWindow(const QRect &capture_rect, QObject *parent) : Q
 
     record_toolbar_ = new RecordToolbar;
     connect_record_toolbar();
+    drawing_view_->set_shortcut_scope([toolbar = QPointer<RecordToolbar>(record_toolbar_)](const QWidget *window) { return toolbar && toolbar->owns_window(window); });
 
     playback_ = new PlaybackController(this);
     connect(playback_, &PlaybackController::close_requested, this, &GifRecordWindow::close_all);

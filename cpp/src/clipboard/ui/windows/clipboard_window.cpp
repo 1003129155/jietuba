@@ -68,12 +68,12 @@ void ClipboardShortcutHandler::reload_bindings() {
     pick_keys = clipboard_pick_keys(get_tool_settings_manager()->get_inapp_clipboard_pick_mode());
 }
 
+bool ClipboardShortcutHandler::owns_window(const QWidget *window) const { return window_ && window_->owns_window(window); }
+
 bool ClipboardShortcutHandler::is_active() {
     ClipboardWindow *w = window_;
-    if (!w || !w->isVisible()) return false;
-    // Visible is not focused: kept open after pasting, the window stays on screen and would take keys from pins, the canvas and other focused windows.
-    // A popup menu does not take activation, so this window is still active while it is open; keys belong to the menu.
-    return w->isActiveWindow() && !QApplication::activePopupWidget();
+    // An open popup menu takes its own keys.
+    return w && w->isVisible() && !QApplication::activePopupWidget();
 }
 
 bool ClipboardShortcutHandler::handle_key(QInputEvent *event) {
