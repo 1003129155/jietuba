@@ -24,8 +24,8 @@ namespace {
 const QColor PAGE_COLOR(255, 255, 255);
 const QColor TEXT_COLOR(31, 31, 31);
 // Body-text size, lines wrapping past the width limit; the margin is the page's own, outside the
-// document's 4 pixels, so text sits 10 pixels in and the blank around it drags the pin.
-constexpr int PIXEL_SIZE = 16, MAX_TEXT_WIDTH = 800, PAGE_MARGIN = 6;
+// document's 4 pixels, so text sits 20 pixels in and the blank around it drags the pin.
+constexpr int PIXEL_SIZE = 16, MAX_TEXT_WIDTH = 800, PAGE_MARGIN = 16;
 
 // Code keeps a fixed-pitch face; Qt's own is Courier New.
 const char RICH_STYLE[] = "code, pre, tt, kbd, samp { font-family: Consolas, 'Courier New', monospace; }";

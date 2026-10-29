@@ -2661,9 +2661,9 @@ private slots:
         const QSize two = PinTextContent("short\nshort", {}, true).size();
         QCOMPARE(two.width(), one.width());
         QVERIFY(two.height() > one.height());
-        // A longer line wraps at 800 pixels of text, plus 6 on each side.
+        // A longer line wraps at 800 pixels of text, plus 16 on each side.
         const QSize wrapped = PinTextContent(QString("word ").repeated(400), {}, true).size();
-        QCOMPARE(wrapped.width(), 812);
+        QCOMPARE(wrapped.width(), 832);
         QVERIFY(wrapped.height() > 2 * one.height());
         // The pin is its page, shrunk to the screen as an image would be.
         auto *pin = make_text_pin("short");
@@ -2739,7 +2739,7 @@ private slots:
         const QFontMetricsF metrics(pin->text_content()->document()->defaultFont());
         const QString text = "hello world";
         for (int index = 0; index < text.size(); ++index) {
-            const double expected = 6 + 4 + metrics.horizontalAdvance(text.left(index));
+            const double expected = 16 + 4 + metrics.horizontalAdvance(text.left(index));
             QVERIFY2(std::abs(line.bounds.left() + line.starts[index] - expected) < 0.5, qPrintable(QString::number(index)));
         }
         // Dragging over "world" copies it.
@@ -2760,8 +2760,8 @@ private slots:
             return pin->view->mapFromScene(QPointF(line.bounds.left() + along, line.bounds.top() + across));
         };
         const double y = line.bounds.height() / 2;
-        // The text sits 10 pixels in, as wide as its characters.
-        QCOMPARE(line.bounds.topLeft(), QPointF(10, 10));
+        // The text sits 20 pixels in, as wide as its characters.
+        QCOMPARE(line.bounds.topLeft(), QPointF(20, 20));
         // Right outside its box the pin drags, so a one-line pin keeps a frame to drag by.
         for (const QPoint blank : {at(-2, y), at(line.ends.back() + 2, y), at(line.ends[1], -2), at(line.ends[1], line.bounds.height() + 2)}) {
             send_mouse(pin, QEvent::MouseMove, blank, Qt::NoButton, Qt::NoButton);
@@ -2900,7 +2900,7 @@ private slots:
         // Lines that refused to wrap where they came from wrap at the width limit.
         const QString code = QString("word ").repeated(400);
         const QSize pre = PinTextContent(code, "<pre>" + code + "</pre>", true).size();
-        QCOMPARE(pre.width(), 812);
+        QCOMPARE(pre.width(), 832);
         QVERIFY(pre.height() > 3 * PinTextContent("word", {}, true).size().height());
         // A heading takes more room than the same text plain.
         const QSize plain = PinTextContent("Title", {}, true).size();
