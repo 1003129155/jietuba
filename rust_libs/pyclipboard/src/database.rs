@@ -1,5 +1,6 @@
 use rusqlite::{Connection, OptionalExtension, params, params_from_iter};
 use rusqlite::types::Value;
+use crate::file_kind;
 use crate::group_kind::{self, FilterRule};
 use crate::text_kind;
 use crate::types::{PyClipboardItem, PyGroup};
@@ -15,10 +16,23 @@ const ITEM_COLUMNS: &str = "id, title, content, html_content, content_type, imag
 /// 历史的显示顺序，要和按类型取页的两个索引的排序列一致
 const HISTORY_ORDER: &str = "ORDER BY is_pinned DESC, item_order DESC";
 
-/// 要写进库的文本子类型：调用方给了（带取色标记）就用，文本没给就按内容判
+/// 文本和文件子类型判定规则的版本，存在 PRAGMA user_version；text_kind 或 file_kind 的规则改了就加一，
+/// 打开库时重判全部文本和文件
+const SUB_KIND_RULES_VERSION: i64 = 2;
+
+/// 按内容判出的子类型；图片没有子类型
+fn detect_sub_kind(content_type: &str, content: &str, color_marked: bool) -> &'static str {
+    match content_type {
+        "text" => text_kind::detect(content, color_marked),
+        "file" => file_kind::detect(&file_kind::paths(content)),
+        _ => text_kind::PLAIN,
+    }
+}
+
+/// 要写进库的子类型：调用方给了（带取色标记）就用，没给就按内容判
 fn sub_kind_of(item: &PyClipboardItem) -> String {
-    if item.content_type == "text" && item.sub_kind.is_empty() {
-        text_kind::detect(&item.content, false).to_string()
+    if item.sub_kind.is_empty() {
+        detect_sub_kind(&item.content_type, &item.content, false).to_string()
     } else {
         item.sub_kind.clone()
     }
@@ -256,31 +270,33 @@ impl Database {
         Ok(())
     }
 
-    /// 补判 sub_kind 为 NULL 的行；判定规则升过版本时先把文本全部置回 NULL 重判。
+    /// 补判 sub_kind 为 NULL 的行；判定规则升过版本时先把文本和文件全部置回 NULL 重判。
     /// 取色标记随原始格式存在 clipboard_formats 里，重判时照样认得出
     fn fill_sub_kinds(&self) -> Result<(), String> {
         let fail = |e: rusqlite::Error| format!("补判内容类型失败: {}", e);
         let tx = self.conn.unchecked_transaction().map_err(fail)?;
         let version: i64 = tx.query_row("PRAGMA user_version", [], |row| row.get(0)).map_err(fail)?;
-        if version < text_kind::RULES_VERSION {
-            tx.execute("UPDATE clipboard SET sub_kind = NULL WHERE content_type = 'text'", []).map_err(fail)?;
-            tx.execute_batch(&format!("PRAGMA user_version = {}", text_kind::RULES_VERSION)).map_err(fail)?;
+        if version < SUB_KIND_RULES_VERSION {
+            tx.execute("UPDATE clipboard SET sub_kind = NULL WHERE content_type IN ('text', 'file')", []).map_err(fail)?;
+            tx.execute_batch(&format!("PRAGMA user_version = {SUB_KIND_RULES_VERSION}")).map_err(fail)?;
         }
-        tx.execute("UPDATE clipboard SET sub_kind = '' WHERE sub_kind IS NULL AND content_type != 'text'", []).map_err(fail)?;
-        let pending: Vec<(i64, String, bool)> = {
+        tx.execute("UPDATE clipboard SET sub_kind = '' WHERE sub_kind IS NULL AND content_type NOT IN ('text', 'file')", [])
+            .map_err(fail)?;
+        let pending: Vec<(i64, String, String, bool)> = {
             let mut stmt = tx.prepare(
-                "SELECT id, content, EXISTS(SELECT 1 FROM clipboard_formats f WHERE f.event_id = clipboard.id AND f.format_name = ?1)
+                "SELECT id, content_type, content,
+                        EXISTS(SELECT 1 FROM clipboard_formats f WHERE f.event_id = clipboard.id AND f.format_name = ?1)
                  FROM clipboard WHERE sub_kind IS NULL",
             ).map_err(fail)?;
-            let rows = stmt.query_map(params![text_kind::COLOR_MARKER_FORMAT], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+            let rows = stmt.query_map(params![text_kind::COLOR_MARKER_FORMAT], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)))
                 .and_then(|rows| rows.collect::<rusqlite::Result<Vec<_>>>())
                 .map_err(fail)?;
             rows
         };
         {
             let mut update = tx.prepare("UPDATE clipboard SET sub_kind = ?1 WHERE id = ?2").map_err(fail)?;
-            for (id, content, color_marked) in pending {
-                update.execute(params![text_kind::detect(&content, color_marked), id]).map_err(fail)?;
+            for (id, content_type, content, color_marked) in pending {
+                update.execute(params![detect_sub_kind(&content_type, &content, color_marked), id]).map_err(fail)?;
             }
         }
         tx.commit().map_err(fail)
@@ -841,11 +857,19 @@ impl Database {
 
         let tx = self.conn.unchecked_transaction()
             .map_err(|e| format!("更新内容失败: {}", e))?;
-        // 原始格式连同取色标记一起删了，子类型只按文字重判
+        // 原始格式连同取色标记一起删了，子类型只按新内容重判
         tx.execute(
             "UPDATE clipboard SET title = ?, content = ?, html_content = NULL, char_count = ?, updated_at = ?,
-             sub_kind = CASE WHEN content_type = 'text' THEN ? ELSE sub_kind END WHERE id = ?",
-            params![title, content, content.chars().count() as i64, now, text_kind::detect(content, false), id],
+             sub_kind = CASE content_type WHEN 'text' THEN ? WHEN 'file' THEN ? ELSE sub_kind END WHERE id = ?",
+            params![
+                title,
+                content,
+                content.chars().count() as i64,
+                now,
+                detect_sub_kind("text", content, false),
+                detect_sub_kind("file", content, false),
+                id
+            ],
         ).map_err(|e| format!("更新内容失败: {}", e))?;
         tx.execute(
             "DELETE FROM clipboard_formats WHERE event_id = ?",
@@ -1496,6 +1520,7 @@ mod maintenance_tests {
 #[cfg(test)]
 mod sub_kind_tests {
     use super::Database;
+    use crate::file_kind;
     use crate::group_kind::{self, FilterRule};
     use crate::text_kind;
     use crate::types::PyClipboardItem;
@@ -1547,6 +1572,49 @@ mod sub_kind_tests {
         assert_eq!(db.get_item_by_id(id).unwrap().unwrap().source_app.as_deref(), Some("jietuba_lite.exe"));
     }
 
+    fn add_files(db: &Database, paths: &[&str]) -> i64 {
+        let content = serde_json::json!({ "files": paths }).to_string();
+        db.insert_item(&PyClipboardItem::new(0, content, "file".to_string())).unwrap()
+    }
+
+    #[test]
+    fn new_file_items_get_their_file_kind() {
+        let db = Database::new(":memory:").unwrap();
+        assert_eq!(sub_kind(&db, add_files(&db, &[r"C:\报价单.xlsm"])), "spreadsheet");
+        assert_eq!(sub_kind(&db, add_files(&db, &[r"C:\a.md", r"D:\b.markdown"])), "markdown");
+        assert_eq!(sub_kind(&db, add_files(&db, &[r"C:\资料"])), file_kind::FOLDER);
+        assert_eq!(sub_kind(&db, add_files(&db, &[r"C:\a.png", r"C:\b.pdf"])), "");
+        assert_eq!(sub_kind(&db, add_files(&db, &[r"C:\model.3mf"])), "");
+    }
+
+    #[test]
+    fn editing_a_file_item_redetects_it() {
+        let db = Database::new(":memory:").unwrap();
+        let id = add_files(&db, &[r"C:\a.png"]);
+        let content = serde_json::json!({ "files": [r"C:\a.docx"] }).to_string();
+        db.update_item(id, None, &content).unwrap();
+        assert_eq!(sub_kind(&db, id), "document");
+        // 文本按文字判，不会被当成文件路径列表
+        let text = add_from(&db, "一句话", None);
+        db.update_item(text, None, &content).unwrap();
+        assert_eq!(sub_kind(&db, text), text_kind::PLAIN);
+    }
+
+    #[test]
+    fn history_filters_by_file_kind() {
+        let db = Database::new(":memory:").unwrap();
+        add_files(&db, &[r"C:\a.xlsx"]);
+        add_files(&db, &[r"C:\b.pdf"]);
+        add_files(&db, &[r"C:\资料"]);
+        add_from(&db, r"C:\c.xlsx", None);
+        let files = |kind: &str| matching(&db, FilterRule::kind(kind)).len();
+        assert_eq!(files("file:spreadsheet"), 1);
+        assert_eq!(files("file:pdf"), 1);
+        assert_eq!(files("file:folder"), 1);
+        assert_eq!(files("file"), 3);
+        assert_eq!(files("path"), 1);
+    }
+
     #[test]
     fn editing_the_text_redetects_it() {
         let db = Database::new(":memory:").unwrap();
@@ -1584,7 +1652,7 @@ mod sub_kind_tests {
     fn kind_pages_walk_an_index_in_display_order() {
         let db = Database::new(":memory:").unwrap();
         let own = FilterRule { kind: Some("image".to_string()), app: Some(group_kind::OWN_APP.to_string()) };
-        for rule in [FilterRule::kind("image"), FilterRule::kind("text"), FilterRule::kind("url"), own] {
+        for rule in [FilterRule::kind("image"), FilterRule::kind("text"), FilterRule::kind("url"), FilterRule::kind("file:pdf"), own] {
             let (conditions, params) = rule.sql_conditions();
             let sql = format!("EXPLAIN QUERY PLAN SELECT {} FROM clipboard WHERE {} {} LIMIT 38", super::ITEM_COLUMNS, conditions.join(" AND "), super::HISTORY_ORDER);
             let mut stmt = db.conn.prepare(&sql).unwrap();
@@ -1665,39 +1733,47 @@ mod sub_kind_tests {
                      group_type INTEGER NOT NULL DEFAULT 0);
                  INSERT INTO clipboard (id, content, content_type, created_at, updated_at) VALUES
                      (1, 'https://a.com', 'text', 1, 1), (2, '12, 34, 56', 'text', 1, 1),
-                     (3, '[1x1]', 'image', 1, 1), (4, '普通', 'text', 1, 1);
+                     (3, '[1x1]', 'image', 1, 1), (4, '普通', 'text', 1, 1),
+                     (5, '{\"files\": [\"C:\\\\a.pptx\"]}', 'file', 1, 1), (6, '{\"files\": [\"C:\\\\资料\"]}', 'file', 1, 1);
                  INSERT INTO clipboard_formats (event_id, format_id, format_name, data) VALUES (2, 49999, 'Jietuba.Color', X'31');
                  INSERT INTO groups (name, created_at, item_order, group_type) VALUES
                      ('文字', 1, 1, 3), ('图片', 1, 2, 4), ('文件', 1, 3, 5), ('收藏', 1, 4, 0);"
             ).unwrap();
         }
-        let kinds = |db: &Database| -> Vec<String> { (1..=4).map(|id| sub_kind(db, id)).collect() };
+        let kinds = |db: &Database| -> Vec<String> { (1..=6).map(|id| sub_kind(db, id)).collect() };
+        let expected = vec!["url", "color", "", "", "presentation", file_kind::FOLDER];
         let rules = |db: &Database| -> Vec<(i64, Option<FilterRule>)> {
             db.get_groups().unwrap().into_iter().map(|group| (group.group_type, group.filter_rule)).collect()
         };
         {
             let db = Database::new(path.to_str().unwrap()).unwrap();
-            assert_eq!(kinds(&db), vec!["url", "color", "", ""]);
+            assert_eq!(kinds(&db), expected);
             assert_eq!(rules(&db), vec![
                 (group_kind::FILTER, Some(FilterRule::kind("text"))),
                 (group_kind::FILTER, Some(FilterRule::kind("image"))),
                 (group_kind::FILTER, Some(FilterRule::kind("file"))),
                 (group_kind::NORMAL, None),
             ]);
-            // 旧版本又写进来一条没判过的
+            // 旧版本又写进来没判过的文本和文件
             db.conn.execute("INSERT INTO clipboard (content, created_at, updated_at) VALUES ('#abc', 1, 1)", []).unwrap();
+            db.conn.execute(
+                "INSERT INTO clipboard (content, content_type, created_at, updated_at) VALUES (?, 'file', 1, 1)",
+                [serde_json::json!({ "files": [r"C:\a.pdf"] }).to_string()],
+            ).unwrap();
         }
         {
             let db = Database::new(path.to_str().unwrap()).unwrap();
-            assert_eq!(sub_kind(&db, 5), text_kind::COLOR);
-            assert_eq!(kinds(&db), vec!["url", "color", "", ""]);
-            // 规则版本落后时全部文本重判，取色标记仍从原始格式里认出
+            assert_eq!(sub_kind(&db, 7), text_kind::COLOR);
+            assert_eq!(sub_kind(&db, 8), "pdf");
+            assert_eq!(kinds(&db), expected);
+            // 规则版本落后时全部文本和文件重判，取色标记仍从原始格式里认出；图片不动
             db.conn.execute("UPDATE clipboard SET sub_kind = 'path' WHERE id IN (1, 2)", []).unwrap();
-            db.conn.execute_batch("PRAGMA user_version = 0").unwrap();
+            db.conn.execute("UPDATE clipboard SET sub_kind = 'video' WHERE id IN (5, 6)", []).unwrap();
+            db.conn.execute_batch("PRAGMA user_version = 1").unwrap();
         }
         {
             let db = Database::new(path.to_str().unwrap()).unwrap();
-            assert_eq!(kinds(&db), vec!["url", "color", "", ""]);
+            assert_eq!(kinds(&db), expected);
         }
         let _ = std::fs::remove_dir_all(&dir);
     }

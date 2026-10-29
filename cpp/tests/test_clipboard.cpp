@@ -1,4 +1,5 @@
 #include "clipboard/controllers/clipboard_controller.h"
+#include "clipboard/core/kind_catalog.h"
 #include "clipboard/core/manager.h"
 #include "clipboard/core/text_transform.h"
 #include "clipboard/services/file_payload_service.h"
@@ -195,6 +196,37 @@ private slots:
             QCOMPARE(make_unique_group_name(value.toObject()["base"].toString(), used), value.toObject()["expected"].toString());
         }
         QCOMPARE(build_delete_group_confirm_message([](const char *text) { return "<" + QString::fromUtf8(text) + ">"; }), g["delete_message"].toString());
+    }
+
+    void theKindCatalogNamesWhatTheCoreLists() {
+        // Kinds are decided in the Rust core and presented from the catalog; a kind added on one side only fails here.
+        QStringList catalog;
+        for (const auto &kind : kind_catalog()) {
+            catalog.append(kind.key);
+            QVERIFY2(!kind.filter_icon.isEmpty(), qPrintable(kind.key));
+        }
+        QStringList native = native_filter_kinds();
+        QVERIFY(native.contains("file:spreadsheet"));
+        catalog.sort();
+        native.sort();
+        QCOMPARE(catalog, native);
+    }
+
+    void theTypeListsOfferTheSameKindsAsBefore() {
+        QStringList offered;
+        for (const KindInfo *kind : offered_kinds()) offered << kind->key;
+        QCOMPARE(offered, QStringList({"text", "url", "color", "path", "image", "file"}));
+        QCOMPARE(kind_key("text", ""), QString("text"));
+        QCOMPARE(kind_key("text", "url"), QString("url"));
+        QCOMPARE(kind_key("image", ""), QString("image"));
+        QCOMPARE(kind_key("file", ""), QString("file"));
+        QCOMPARE(kind_key("file", "spreadsheet"), QString("file:spreadsheet"));
+        // A filter group on a file kind gets that kind's icon; an unknown kind falls back to the text one.
+        const int filter = static_cast<int>(GroupType::FILTER);
+        QCOMPARE(get_default_group_icon(filter, FilterRule{QString("file:pdf"), std::nullopt}), QString::fromUtf8("📕"));
+        QCOMPARE(get_default_group_icon(filter, FilterRule{QString("nope"), std::nullopt}), QString::fromUtf8("📝"));
+        // Icons of kinds the form does not offer are not defaults yet: a 📊 the user chose stays.
+        QCOMPARE(get_toggled_default_group_icon(QString::fromUtf8("📊"), static_cast<int>(GroupType::NORMAL), std::nullopt), QString::fromUtf8("📊"));
     }
 
     void specialPasteEntriesMatchTheReference() {

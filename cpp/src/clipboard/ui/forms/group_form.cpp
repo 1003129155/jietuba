@@ -1,4 +1,5 @@
 #include "clipboard/ui/forms/group_form.h"
+#include "clipboard/core/kind_catalog.h"
 #include "clipboard/core/manager.h"
 #include "clipboard/services/group_service.h"
 #include "clipboard/ui/dialogs/manage_dialog.h"
@@ -44,9 +45,8 @@ void build_filter_rule_section(ManageDialog *dialog, const FilterRule &rule, int
     layout->setVerticalSpacing(dialog_scaled(8));
 
     auto *kind_combo = new ComboBox;
-    const std::pair<QString, const char *> kinds[] = {{QString(), "All Types"},     {"text", "Text"},  {SUB_KIND_URL, "Link"}, {SUB_KIND_COLOR, "Color"},
-                                                      {SUB_KIND_PATH, "Path"}, {"image", "Image"}, {"file", "File"}};
-    for (const auto &[kind, label] : kinds) kind_combo->addItem(ManageDialog::tr_text(label), kind);
+    kind_combo->addItem(ManageDialog::tr_text("All Types"), QString());
+    for (const KindInfo *kind : offered_kinds()) kind_combo->addItem(ManageDialog::tr_text(kind->label), kind->key);
     kind_combo->setCurrentIndex(std::max(0, kind_combo->findData(rule.kind.value_or(QString()))));
 
     auto *app_combo = new ComboBox;

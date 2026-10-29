@@ -222,6 +222,7 @@ bool jb_clipboard_group_accepts(int64_t group_type, const char *content_type, co
 bool jb_clipboard_parse_color(const char *text, uint8_t *out_rgba);
 const char *jb_clipboard_color_marker_format();
 char *jb_clipboard_text_paths(const char *text);
+char *jb_clipboard_filter_kinds();
 bool jb_clipboard_set_text(const char *text, char *error, size_t error_len);
 char *jb_clipboard_db_path(const JbClipboard *clipboard);
 char *jb_clipboard_images_dir(const JbClipboard *clipboard);

@@ -204,6 +204,15 @@ pub unsafe extern "C" fn jb_clipboard_text_paths(text: *const c_char) -> *mut c_
     })
 }
 
+/// Every kind a filter rule can name, as a JSON array (free with jb_clipboard_text_free): the content types,
+/// the text sub-kinds, then `file:` plus each file sub-kind.
+#[no_mangle]
+pub extern "C" fn jb_clipboard_filter_kinds() -> *mut c_char {
+    guard(std::ptr::null_mut(), || {
+        owned_text(&serde_json::to_string(&group_kind::filter_kinds()).unwrap_or_else(|_| "[]".to_string()))
+    })
+}
+
 /// Whether a group of `group_type` stores items of `content_type` with text sub-kind `sub_kind` (null for none).
 #[no_mangle]
 pub unsafe extern "C" fn jb_clipboard_group_accepts(group_type: i64, content_type: *const c_char, sub_kind: *const c_char) -> bool {
