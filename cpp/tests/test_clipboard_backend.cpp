@@ -444,11 +444,14 @@ private slots:
         QCOMPARE(pins().last()->orig_size(), QSize(11, 7));
         env_.config->set_pin_clipboard_image(false);
         QVERIFY(pin_latest_clipboard_image());
+        // Text pins open once a worker has laid the text out.
+        QTRY_COMPARE(pins().size(), 2);
         QVERIFY(pins().last()->text_only());
         QVERIFY(pins().last()->text_content()->formatted());
         QVERIFY(pins().last()->text_content()->document()->find("a").currentTable());
         env_.config->set_pin_text_formatting(false);
         QVERIFY(pin_latest_clipboard_image());
+        QTRY_COMPARE(pins().size(), 3);
         QVERIFY(!pins().last()->text_content()->formatted());
         QCOMPARE(pins().last()->text_content()->text(), QString("a\tb"));
         // Kept for the pin's menu to switch to.
@@ -474,12 +477,14 @@ private slots:
         env_.config->set_pin_clipboard_text(true);
         put("words", "<p><b>words</b></p>", {});
         QVERIFY(pin_latest_clipboard_image());
+        QTRY_COMPARE(pins().size(), 4);
         QVERIFY(pins().last()->text_content()->formatted());
         QCOMPARE(pins().last()->text_content()->text(), QString("words"));
         // A history item without formatting pins plain.
         const auto id = manager().add_item("words", "text");
         QVERIFY(id);
         QVERIFY(create_pin_from_clipboard_item(*id, &manager(), nullptr));
+        QTRY_COMPARE(pins().size(), 5);
         QVERIFY(!pins().last()->text_content()->formatted());
     }
 
@@ -493,11 +498,12 @@ private slots:
         // Text on the clipboard pins as text.
         QApplication::clipboard()->setText("not an image");
         QVERIFY(pin_latest_clipboard_image(QPoint(200, 200)));
-        QCOMPARE(PinManager::instance()->count(), 1);
+        QTRY_COMPARE(PinManager::instance()->count(), 1);
         QVERIFY(last_pin()->text_only());
         QCOMPARE(last_pin()->text_content()->text(), QString("not an image"));
         // So does a text item from history.
         QVERIFY(create_pin_from_clipboard_item(add_texts({"from history"}).first(), &manager(), nullptr));
+        QTRY_COMPARE(PinManager::instance()->count(), 2);
         QVERIFY(last_pin()->text_only());
         QCOMPARE(last_pin()->text_content()->text(), QString("from history"));
         // Without either on the clipboard the latest history image pins.

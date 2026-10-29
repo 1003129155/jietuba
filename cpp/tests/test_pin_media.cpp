@@ -676,6 +676,8 @@ private slots:
     void textStillPinsWhenNoFilesAreCopied() {
         QApplication::clipboard()->setText("just words");
         QVERIFY(clipboard::pin_latest_clipboard_image());
+        // Laid out off the UI thread, it opens a moment later.
+        QTRY_COMPARE(pins().size(), 1);
         QVERIFY(pins()[0]->text_only());
         QApplication::clipboard()->clear();
         QVERIFY(!clipboard::pin_latest_clipboard_image());

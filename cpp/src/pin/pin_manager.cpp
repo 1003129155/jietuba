@@ -46,7 +46,7 @@ PinWindow *PinManager::create_pin(const QImage &image, const QPoint &position, T
 }
 
 PinWindow *PinManager::create_text_pin(std::unique_ptr<PinTextContent> content, const QPoint &position, ToolSettingsManager *config_manager) {
-    auto *pin_window = create_pin(content->render(content->size()), position, config_manager);
+    auto *pin_window = create_pin(content->take_page(), position, config_manager);
     pin_window->set_text_content(std::move(content));
     return pin_window;
 }

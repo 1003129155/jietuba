@@ -402,7 +402,8 @@ void PinWindow::refresh_background_for_scale() {
     if (!canvas || !canvas->scene) return;
     auto *background_item = canvas->scene->background;
     if (!background_item || view_scale_x_ <= 0 || view_scale_y_ <= 0) return;
-    if (base_pixmap_.isNull()) return;
+    // A text pin keeps no copy of its page: it draws the text again instead.
+    if (base_pixmap_.isNull() && !text_content_) return;
     // Pre-scaled so pixel density matches the display; after 90/270 rotation each scene
     // axis maps to the other display axis.
     const auto cr = content_rect();
@@ -426,16 +427,27 @@ void PinWindow::refresh_background_for_scale() {
         last_background_scale_size_ = target_size;
         return;
     }
-    // Text and file cards are drawn again at the size shown, in screen pixels, rather than an image resampled.
+    const QTransform to_scene = QTransform::fromScale(1.0 / bg_scale_x, 1.0 / bg_scale_y);
+    // Text is drawn again at the size shown, in screen pixels, on a worker thread; until then the view
+    // scales what it has.
+    if (text_content_) {
+        last_background_scale_size_ = target_size;
+        const auto generation = text_generation_;
+        text_content_->render_async(QSize(tw, th), devicePixelRatioF(), this, [this, generation, target_size, to_scene](QImage image) {
+            if (is_closed_ || generation != text_generation_ || last_background_scale_size_ != target_size || !canvas || !canvas->scene) return;
+            canvas->scene->background->set_display_pixmap(QPixmap::fromImage(std::move(image)), to_scene);
+        });
+        return;
+    }
+    // File cards are drawn again at the size shown, in screen pixels, rather than an image resampled.
     QPixmap scaled;
-    if (text_content_) scaled = QPixmap::fromImage(text_content_->render(QSize(tw, th), devicePixelRatioF()));
-    else if (file_card_) scaled = QPixmap::fromImage(file_card_->render(QSize(tw, th), devicePixelRatioF()));
+    if (file_card_) scaled = QPixmap::fromImage(file_card_->render(QSize(tw, th), devicePixelRatioF()));
     else if (prepared_display_.size() == QSize(tw, th)) scaled = QPixmap::fromImage(std::exchange(prepared_display_, QImage()));
     else scaled = base_pixmap_.scaled(tw, th, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
     // Only the rendered pixmap changes, not update_image(): that would feed this
     // display-resolution copy into the content cache, and mosaic reductions would then
     // sample display pixels instead of the original's, misplacing mosaics after zooming.
-    background_item->set_display_pixmap(scaled, QTransform::fromScale(1.0 / bg_scale_x, 1.0 / bg_scale_y));
+    background_item->set_display_pixmap(scaled, to_scene);
     last_background_scale_size_ = target_size;
 }
 
@@ -807,11 +819,21 @@ void PinWindow::edit_text() {
 
 void PinWindow::set_text_content(std::unique_ptr<PinTextContent> content) {
     text_content_ = std::move(content);
+    ++text_generation_;
+    // Text is drawn again whenever a picture of it is needed, so no copy of its page is kept.
+    base_pixmap_ = QPixmap();
+    draw_text_page_on_demand();
     ocr_mgr_->load_text(text_content_->layout());
     ocr_mgr_->set_text_selection_enabled(true);
     // At 100% too: the first image has the screen's logical pixels only.
     last_background_scale_size_.reset();
     refresh_background_for_scale();
+}
+
+void PinWindow::draw_text_page_on_demand() {
+    // Mosaic samples the page; it is drawn for that from the text rather than kept.
+    if (canvas && canvas->scene && canvas->scene->background)
+        canvas->scene->background->set_image_source([this] { return text_content_ ? text_content_->render(orig_size_) : QImage(); });
 }
 
 QPixmap PinWindow::original_background(double device_pixel_ratio) const {
@@ -822,11 +844,33 @@ QPixmap PinWindow::original_background(double device_pixel_ratio) const {
     return base_pixmap_;
 }
 
+bool PinWindow::text_formatted() const { return text_content_ && wanted_formatting_.value_or(text_content_->formatted()); }
+
 void PinWindow::toggle_text_formatting() {
     if (!text_content_ || !text_content_->has_formatting()) return;
-    text_content_->set_formatted(!text_content_->formatted());
-    replace_base_image(text_content_->render(text_content_->size()));
-    ocr_mgr_->load_text(text_content_->layout());
+    wanted_formatting_ = !text_formatted();
+    if (!formatting_pending_) relay_out_text();
+}
+
+void PinWindow::relay_out_text() {
+    // Laid out again on a worker thread, which a long text needs; the pin shows the old one meanwhile.
+    formatting_pending_ = true;
+    const bool formatted = *wanted_formatting_;
+    PinTextContent::build_async(text_content_->text(), text_content_->source_html(), formatted, this, [this, formatted](std::unique_ptr<PinTextContent> content) {
+        formatting_pending_ = false;
+        if (is_closed_) return;
+        // Switched back meanwhile: lay out what is wanted now.
+        if (*wanted_formatting_ != formatted) {
+            relay_out_text();
+            return;
+        }
+        wanted_formatting_.reset();
+        text_content_ = std::move(content);
+        ++text_generation_;
+        replace_base_image(text_content_->take_page(), text_content_->take_page_pixmap());
+        draw_text_page_on_demand();
+        ocr_mgr_->load_text(text_content_->layout());
+    }, true);
 }
 
 void PinWindow::open_animation(AnimationSource source) {
@@ -887,16 +931,17 @@ void PinWindow::clear_file_highlight() {
     file_highlight_ = nullptr;
 }
 
-void PinWindow::replace_base_image(const QImage &image) {
+void PinWindow::replace_base_image(const QImage &image, const QPixmap &pixmap) {
     orig_size_ = image.size();
-    base_pixmap_ = QPixmap::fromImage(image);
+    if (!text_content_) base_pixmap_ = QPixmap::fromImage(image);
     if (canvas) {
         canvas->base_size = orig_size_;
         const QRectF rect(QPointF(0, 0), QSizeF(orig_size_));
         canvas->scene->scene_rect = rect;
         canvas->scene->setSceneRect(rect);
         canvas->scene->background->setTransform(QTransform());
-        canvas->scene->background->update_image(image);
+        if (pixmap.isNull()) canvas->scene->background->update_image(image);
+        else canvas->scene->background->update_image(image, pixmap);
         canvas->scene->selection_model->initialize_confirmed_rect(rect);
     }
     const auto base = display_base_size();
@@ -1010,7 +1055,7 @@ void PinWindow::show_context_menu(const QPoint &global_pos) {
     state.text_mode = text_mode();
     state.text_only = text_only();
     state.has_formatting = text_content_ && text_content_->has_formatting();
-    state.formatted = text_content_ && text_content_->formatted();
+    state.formatted = text_formatted();
     state.annotations_hidden = annotations_hidden_;
     if (animation_) {
         state.content = PinMenuState::Content::Animation;

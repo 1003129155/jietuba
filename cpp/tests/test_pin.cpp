@@ -362,6 +362,15 @@ private:
         return pin;
     }
 
+    // A text's page as a worker thread lays it out, as the pin does when its formatting switches. The
+    // offscreen platform's fonts there lack synthetic bold, so the UI thread's page can differ.
+    static QSize worker_page_size(const QString &text, const QString &html, bool formatted) {
+        QSize size;
+        QObject context;
+        PinTextContent::build_async(text, html, formatted, &context, [&size](std::unique_ptr<PinTextContent> content) { size = content->size(); });
+        return QTest::qWaitFor([&size] { return size.isValid(); }, 5000) ? size : QSize();
+    }
+
     static bool same_pixels(const QImage &a, const QImage &b) {
         return a.convertToFormat(QImage::Format_ARGB32_Premultiplied) == b.convertToFormat(QImage::Format_ARGB32_Premultiplied);
     }
@@ -1593,6 +1602,20 @@ private slots:
         QCOMPARE(background->pixmap().width(), pin->width());
     }
 
+    void aTextPinIsDrawnAgainForExportAndMosaic() {
+        arial_family();
+        auto *pin = make_text_pin(QString("exported at its own size\n").repeated(4).trimmed());
+        auto *content = pin->text_content();
+        auto *background = pin->canvas->scene->background;
+        // No page is kept: mosaic samples one drawn from the text when asked.
+        QVERIFY(content->take_page().isNull());
+        QVERIFY(same_pixels(background->image(), content->render(pin->orig_size())));
+        wheel(pin, -120, Qt::NoModifier, false, 3);
+        QVERIFY(pin->scale_factor < 1.0);
+        QTRY_COMPARE(background->pixmap().deviceIndependentSize(), QSizeF(pin->size()));
+        QVERIFY(same_pixels(pin->get_current_image(), content->render(pin->orig_size(), pin->devicePixelRatioF())));
+    }
+
     // The image's own entries go; Esc leaves the text first, so Close shows no key.
     void aTextModeMenuDropsTheImageEntries() {
         auto *pin = make_pin();
@@ -2602,8 +2625,8 @@ private slots:
         auto *pin = make_text_pin("sharp at any size");
         auto *background = pin->canvas->scene->background;
         const auto shown = [pin] { return pin->canvas->scene->background->pixmap(); };
-        // Drawn for the screen at 100%, not the page's own pixels.
-        QCOMPARE(shown().deviceIndependentSize(), QSizeF(pin->size()));
+        // Drawn for the screen at 100%, not the page's own pixels, on a worker thread.
+        QTRY_COMPARE(shown().deviceIndependentSize(), QSizeF(pin->size()));
         QVERIFY(same_pixels(shown().toImage(), pin->text_content()->render(pin->size(), pin->devicePixelRatioF())));
         wheel(pin, 120, Qt::NoModifier, false, 4);
         QVERIFY(pin->scale_factor > 1.0);
@@ -2804,7 +2827,6 @@ private slots:
         const QString html = "<h1>Title</h1><p>body <b>bold</b></p>";
         const QString text = "Title\nbody bold";
         auto *pin = make_text_pin(text, html);
-        auto *content = pin->text_content();
         QVERIFY(pin_menu(pin).contains("[x] Keep text formatting"));
         // Zoomed to 150%, with an annotation at the top left.
         pin->reset_to_original_size();
@@ -2814,18 +2836,22 @@ private slots:
         auto *mark = pin->canvas->scene->addRect(QRectF(2, 2, 10, 10));
         mark->setZValue(10);
         const QPoint corner = pin->pos();
-        // Off: the same text plain, laid out as a new pin of it would be, at the same zoom and place.
+        // Off: the same text plain, laid out as a new pin of it would be, at the same zoom and place,
+        // once the worker has laid it out.
         pin_menu(pin, "Keep text formatting");
-        QVERIFY(!content->formatted() && content->has_formatting());
+        QVERIFY(!pin->text_formatted());
+        QTRY_VERIFY(!pin->text_content()->formatted());
+        auto *content = pin->text_content();
+        QVERIFY(content->has_formatting());
         QCOMPARE(format_of(content->document(), "bold").fontWeight(), int(QFont::Normal));
-        QCOMPARE(pin->orig_size(), PinTextContent(text, {}, true).size());
+        QCOMPARE(pin->orig_size(), worker_page_size(text, {}, true));
         QCOMPARE(pin->canvas->scene->sceneRect().size(), QSizeF(pin->orig_size()));
         QCOMPARE(pin->scale_factor, scale);
         QVERIFY(std::abs(pin->width() - pin->orig_size().width() * scale) <= 1);
         QVERIFY(std::abs(pin->height() - pin->orig_size().height() * scale) <= 1);
         QCOMPARE(pin->pos(), corner);
         QCOMPARE(mark->rect(), QRectF(2, 2, 10, 10));
-        QVERIFY(same_pixels(pin->canvas->scene->background->pixmap().toImage(), content->render(pin->size(), pin->devicePixelRatioF())));
+        QTRY_VERIFY(same_pixels(pin->canvas->scene->background->pixmap().toImage(), content->render(pin->size(), pin->devicePixelRatioF())));
         // Selecting follows the new layout.
         QCOMPARE(pin->text_selection()->layout().all_text(), text);
         pin->copy_to_clipboard();
@@ -2833,9 +2859,30 @@ private slots:
         QVERIFY(pin_menu(pin).contains("[ ] Keep text formatting"));
         // On again: the formatting and its size are back.
         pin_menu(pin, "Keep text formatting");
-        QVERIFY(content->formatted());
-        QCOMPARE(format_of(content->document(), "bold").fontWeight(), int(QFont::Bold));
-        QCOMPARE(pin->orig_size(), PinTextContent(text, html, true).size());
+        QTRY_VERIFY(pin->text_content()->formatted());
+        QCOMPARE(format_of(pin->text_content()->document(), "bold").fontWeight(), int(QFont::Bold));
+        QCOMPARE(pin->orig_size(), worker_page_size(text, html, true));
+    }
+
+    void formattingSwitchedAgainWhileLayingOutEndsAsLastAsked() {
+        arial_family();
+        const QString html = "<h1>Title</h1><p>body</p>";
+        auto *pin = make_text_pin("Title\nbody", html);
+        const auto *first = pin->text_content();
+        pin->toggle_text_formatting();
+        pin->toggle_text_formatting();
+        QVERIFY(pin->text_formatted());
+        // The plain layout comes back unwanted, and the formatted one is laid out again.
+        QTRY_VERIFY(pin->text_content() != first);
+        QVERIFY(pin->text_content()->formatted());
+        QCOMPARE(pin->orig_size(), worker_page_size("Title\nbody", html, true));
+        // What is still on its way for a closed pin is dropped.
+        pin->toggle_text_formatting();
+        wheel(pin, 120);
+        pin->refresh_background_for_scale();
+        pin->close_window();
+        QTest::qWait(300);
+        flush_deletes();
     }
 
     void aTextPinPinnedPlainCanShowItsFormatting() {
@@ -2847,8 +2894,8 @@ private slots:
         QCOMPARE(pin->orig_size(), PinTextContent("bold plain", {}, true).size());
         QVERIFY(pin_menu(pin).contains("[ ] Keep text formatting"));
         pin->toggle_text_formatting();
-        QVERIFY(content->formatted());
-        QCOMPARE(format_of(content->document(), "bold").fontWeight(), int(QFont::Bold));
+        QTRY_VERIFY(pin->text_content()->formatted());
+        QCOMPARE(format_of(pin->text_content()->document(), "bold").fontWeight(), int(QFont::Bold));
     }
 
     void textModeAndTextSelectionKeys() {

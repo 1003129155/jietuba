@@ -18,6 +18,7 @@
 #include <QGuiApplication>
 #include <QImageReader>
 #include <QMimeData>
+#include <QPointer>
 #include <QScreen>
 #include <QSet>
 #include <QThreadPool>
@@ -316,11 +317,13 @@ bool create_pin_from_files(const QStringList &files, QWidget *clipboard_window, 
 
 bool create_pin_from_text(const QString &text, const QString &html, QWidget *clipboard_window, std::optional<QPoint> center) {
     if (text.trimmed().isEmpty()) return false;
-    auto *settings = get_tool_settings_manager();
-    // Unformatted, the pin keeps the formatting for its menu to switch to.
-    auto content = std::make_unique<PinTextContent>(text, html, settings->get_pin_text_formatting());
-    const QPoint position = calculate_pin_position(content->size(), clipboard_window, center);
-    get_pin_manager()->create_text_pin(std::move(content), position, settings);
+    // Laid out and drawn on a worker thread, so a long text never holds the UI; the pin opens once it
+    // is ready. Unformatted, the pin keeps the formatting for its menu to switch to.
+    const QPointer<QWidget> window(clipboard_window);
+    PinTextContent::build_async(text, html, get_tool_settings_manager()->get_pin_text_formatting(), qApp, [window, center](std::unique_ptr<PinTextContent> content) {
+        const QPoint position = calculate_pin_position(content->size(), window, center);
+        get_pin_manager()->create_text_pin(std::move(content), position, get_tool_settings_manager());
+    });
     return true;
 }
 

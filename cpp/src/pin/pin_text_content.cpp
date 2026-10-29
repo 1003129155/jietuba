@@ -1,14 +1,19 @@
 #include "pin/pin_text_content.h"
 #include "pin/ocr_text_layout.h"
 #include <QAbstractTextDocumentLayout>
+#include <QCoreApplication>
 #include <QPainter>
+#include <QPointer>
 #include <QTextBlock>
 #include <QTextCursor>
 #include <QTextDocument>
 #include <QTextFrame>
 #include <QTextLayout>
 #include <QTextTable>
+#include <QThread>
+#include <QThreadPool>
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <functional>
 #include <optional>
@@ -189,39 +194,16 @@ QString line_break(const LaidLine &from, const LaidLine &to) {
     for (auto block = from.block.next(); block.isValid() && block != to.block; block = block.next()) ++paragraphs;
     return QString("\n").repeated(paragraphs);
 }
+
+// The document wrapped as on the page, and the width it wraps at.
+int wrap_page(QTextDocument &document) {
+    const int width = std::min(static_cast<int>(std::ceil(document.size().width())), MAX_TEXT_WIDTH);
+    document.setTextWidth(width);
+    return width;
 }
 
-PinTextContent::PinTextContent(const QString &text, const QString &html, bool formatted) : text_(text), html_(html), formatted_(formatted) {
-    if (!html_.isEmpty() && !formatted_) {
-        QTextDocument probe;
-        if (!load_text(probe, text_, html_)) html_.clear();
-    }
-    lay_out();
-}
-
-PinTextContent::~PinTextContent() = default;
-
-void PinTextContent::lay_out() {
-    document_ = std::make_unique<QTextDocument>();
-    const bool rich = load_text(*document_, text_, formatted_ ? html_ : QString());
-    if (formatted_ && !rich) html_.clear();
-    formatted_ = rich;
-    const int width = std::min(static_cast<int>(std::ceil(document_->size().width())), MAX_TEXT_WIDTH);
-    document_->setTextWidth(width);
-    size_ = QSize(width + 2 * PAGE_MARGIN, static_cast<int>(std::ceil(document_->size().height())) + 2 * PAGE_MARGIN);
-}
-
-void PinTextContent::set_formatted(bool formatted) {
-    if (formatted == formatted_ || !has_formatting()) return;
-    formatted_ = formatted;
-    lay_out();
-}
-
-QString PinTextContent::text() const { return text_; }
-
-QString PinTextContent::html() const { return formatted_ ? document_->toHtml() : QString(); }
-
-QImage PinTextContent::render(const QSize &size, double device_pixel_ratio) const {
+// The page of document stretched to size, in pixels of the given ratio.
+QImage draw_page(const QTextDocument &document, const QSize &page, const QSize &size, double device_pixel_ratio) {
     QImage image(std::max(1, static_cast<int>(std::lround(size.width() * device_pixel_ratio))),
                  std::max(1, static_cast<int>(std::lround(size.height() * device_pixel_ratio))), QImage::Format_ARGB32_Premultiplied);
     image.fill(PAGE_COLOR);
@@ -229,22 +211,22 @@ QImage PinTextContent::render(const QSize &size, double device_pixel_ratio) cons
         // Enlarged through the pixel ratio, not a painter scale: fonts are then drawn at the larger size
         // as they are on a high-DPI screen, while a scaled painter draws glyphs as paths and loses
         // synthetic bold. The page's rounding across, under a pixel, is left blank.
-        image.setDevicePixelRatio(static_cast<double>(image.width()) / size_.width());
+        image.setDevicePixelRatio(static_cast<double>(image.width()) / page.width());
         QPainter painter(&image);
         painter.setRenderHint(QPainter::Antialiasing, true);
         painter.translate(PAGE_MARGIN, PAGE_MARGIN);
         QAbstractTextDocumentLayout::PaintContext context;
         context.palette.setColor(QPalette::Text, TEXT_COLOR);
-        document_->documentLayout()->draw(&painter, context);
+        document.documentLayout()->draw(&painter, context);
     }
     image.setDevicePixelRatio(device_pixel_ratio);
     return image;
 }
 
-OcrTextLayout PinTextContent::layout() const {
-    auto *document_layout = document_->documentLayout();
+OcrTextLayout layout_of(const QTextDocument &document) {
+    auto *document_layout = document.documentLayout();
     std::vector<LaidLine> lines;
-    for (auto block = document_->begin(); block.isValid(); block = block.next()) {
+    for (auto block = document.begin(); block.isValid(); block = block.next()) {
         const auto *block_layout = block.layout();
         if (!block_layout) continue;
         const QPointF origin = document_layout->blockBoundingRect(block).topLeft() + QPointF(PAGE_MARGIN, PAGE_MARGIN);
@@ -291,5 +273,93 @@ OcrTextLayout PinTextContent::layout() const {
         layout.set_flow(std::move(breaks));
     }
     return layout;
+}
+
+// Below the UI thread, so neither the pins nor other programs wait for it.
+QThreadPool &workers() {
+    static QThreadPool pool;
+    static const bool ready = [] {
+        pool.setMaxThreadCount(2);
+        pool.setThreadPriority(QThread::LowPriority);
+        // Drawing text ends before the application takes the fonts down.
+        if (qApp) QObject::connect(qApp, &QCoreApplication::aboutToQuit, qApp, [] {
+            pool.clear();
+            pool.waitForDone();
+        });
+        return true;
+    }();
+    Q_UNUSED(ready);
+    return pool;
+}
+
+// Runs done on the application's thread while context lives.
+template <typename Value> void deliver(const QPointer<QObject> &context, std::function<void(Value)> done, std::shared_ptr<Value> value) {
+    QMetaObject::invokeMethod(qApp, [context, done = std::move(done), value] {
+        if (context) done(std::move(*value));
+    }, Qt::QueuedConnection);
+}
+}
+
+// What the worker lays out again to draw the page, so it never shares a document with the UI thread.
+struct PinTextContent::Source {
+    QString text, html;
+    int text_width = 0;
+    QSize page;
+    // Requests older than this one are dropped.
+    std::atomic<quint64> latest{0};
+};
+
+PinTextContent::PinTextContent(const QString &text, const QString &html, bool formatted) : text_(text), html_(html), formatted_(formatted) {
+    if (!html_.isEmpty() && !formatted_) {
+        QTextDocument probe;
+        if (!load_text(probe, text_, html_)) html_.clear();
+    }
+    document_ = std::make_unique<QTextDocument>();
+    const bool rich = load_text(*document_, text_, formatted_ ? html_ : QString());
+    if (formatted_ && !rich) html_.clear();
+    formatted_ = rich;
+    const int width = wrap_page(*document_);
+    size_ = QSize(width + 2 * PAGE_MARGIN, static_cast<int>(std::ceil(document_->size().height())) + 2 * PAGE_MARGIN);
+    layout_ = layout_of(*document_);
+    page_ = draw_page(*document_, size_, size_, 1.0);
+    source_ = std::make_shared<Source>();
+    source_->text = text_;
+    source_->html = formatted_ ? html_ : QString();
+    source_->text_width = width;
+    source_->page = size_;
+}
+
+PinTextContent::~PinTextContent() {
+    // Drawing still waiting for this text is no longer wanted.
+    ++source_->latest;
+}
+
+void PinTextContent::build_async(const QString &text, const QString &html, bool formatted, QObject *context, std::function<void(std::unique_ptr<PinTextContent>)> done,
+                                 bool page_pixmap) {
+    QThread *const target = context->thread();
+    workers().start([text, html, formatted, page_pixmap, target, context = QPointer<QObject>(context), done = std::move(done)] {
+        auto content = std::make_shared<std::unique_ptr<PinTextContent>>(std::make_unique<PinTextContent>(text, html, formatted));
+        // Converting a long page takes the UI thread a frame or more.
+        if (page_pixmap) (*content)->page_pixmap_ = QPixmap::fromImage((*content)->page_);
+        (*content)->document_->moveToThread(target);
+        deliver<std::unique_ptr<PinTextContent>>(context, done, content);
+    });
+}
+
+QString PinTextContent::html() const { return formatted_ ? document_->toHtml() : QString(); }
+
+QImage PinTextContent::render(const QSize &size, double device_pixel_ratio) const { return draw_page(*document_, size_, size, device_pixel_ratio); }
+
+void PinTextContent::render_async(const QSize &size, double device_pixel_ratio, QObject *context, std::function<void(QImage)> done) const {
+    const auto source = source_;
+    const quint64 ticket = ++source->latest;
+    workers().start([source, ticket, size, device_pixel_ratio, context = QPointer<QObject>(context), done = std::move(done)] {
+        if (source->latest != ticket) return;
+        QTextDocument document;
+        load_text(document, source->text, source->html);
+        document.setTextWidth(source->text_width);
+        if (source->latest != ticket) return;
+        deliver<QImage>(context, done, std::make_shared<QImage>(draw_page(document, source->page, size, device_pixel_ratio)));
+    });
 }
 }

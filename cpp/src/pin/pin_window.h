@@ -106,8 +106,10 @@ public:
     // Makes a pin made with content's first image a text pin: its text is selectable from the start,
     // without recognizing it.
     void set_text_content(std::unique_ptr<PinTextContent> content);
-    // Shows or hides a text pin's formatting; the pin keeps its zoom and fits the text laid out anew.
+    // Shows or hides a text pin's formatting; the pin keeps its zoom and fits the text laid out anew,
+    // once that is done. Until then text_formatted() tells the state asked for.
     void toggle_text_formatting();
+    bool text_formatted() const;
     // Plays source over the first frame the pin was made from.
     void open_animation(AnimationSource source);
     PinAnimation *animation() const { return animation_; }
@@ -265,8 +267,11 @@ private:
     void show_seek_progress(int done, int total);
     void place_seek_bar();
     void clear_file_highlight();
-    // A new image of another size, keeping the zoom, the top-left corner and the annotations where they are.
-    void replace_base_image(const QImage &image);
+    // A new image of another size, keeping the zoom, the top-left corner and the annotations where they
+    // are; pixmap is the image made into one already, when it is not null.
+    void replace_base_image(const QImage &image, const QPixmap &pixmap = {});
+    void relay_out_text();
+    void draw_text_page_on_demand();
     // The background as exported, at the original's resolution; null when what is shown is that already.
     QPixmap original_background(double device_pixel_ratio) const;
 
@@ -313,6 +318,10 @@ private:
     std::unique_ptr<PinThumbnailMode> thumbnail_;
     std::unique_ptr<PinTextMode> text_mode_;
     std::unique_ptr<PinTextContent> text_content_;
+    // Counts the contents shown, so a page drawn for an earlier one is dropped.
+    quint64 text_generation_ = 0;
+    std::optional<bool> wanted_formatting_;
+    bool formatting_pending_ = false;
     std::unique_ptr<PinImageTransform> image_transform_;
     bool annotations_hidden_ = false;
     PinAnimation *animation_ = nullptr;
