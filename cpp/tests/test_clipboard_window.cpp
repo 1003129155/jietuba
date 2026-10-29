@@ -30,6 +30,7 @@
 #include <QSignalSpy>
 #include <QTest>
 #include <QToolButton>
+#include <QWheelEvent>
 #include <algorithm>
 #include <atomic>
 #include <memory>
@@ -1511,6 +1512,48 @@ private slots:
         // Enter uses the row under the cursor.
         QVERIFY(key(Qt::Key_Return));
         QTRY_COMPARE(env_.pastes.size(), 1);
+    }
+
+    void theWheelPointsAtTheRowItBringsUnderAStillMouse() {
+        QStringList texts;
+        for (int i = 0; i < 30; ++i) texts << QString("entry %1").arg(i);
+        add_texts(texts);
+        auto *window = open_window();
+        auto *list = window->list_widget;
+        auto *viewport = list->viewport();
+        auto *bar = list->verticalScrollBar();
+        auto *preview = PreviewPopup::instance();
+        QTRY_VERIFY(bar->maximum() > 0);
+        const QPoint pos = viewport->rect().center();
+        const auto wheel = [&](int delta) {
+            QWheelEvent event(QPointF(pos), QPointF(viewport->mapToGlobal(pos)), QPoint(), QPoint(0, delta), Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+            QApplication::sendEvent(viewport, &event);
+            QCoreApplication::processEvents();
+        };
+        const auto row_under_mouse = [&] { return list->itemAt(pos); };
+        const auto cursor = [&] { return window->item_delegate->cursor_id(); };
+        QMouseEvent move(QEvent::MouseMove, QPointF(pos), QPointF(viewport->mapToGlobal(pos)), Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+        QApplication::sendEvent(viewport, &move);
+        QListWidgetItem *first = row_under_mouse();
+        QCOMPARE(cursor(), std::optional<qint64>(first->data(Qt::UserRole).toLongLong()));
+        QTRY_VERIFY(preview->isVisible());
+
+        // At the top a wheel up scrolls nothing, so the cursor the keys moved stays.
+        QTest::keyClick(list, Qt::Key_Down);
+        const auto by_keys = cursor();
+        QVERIFY(by_keys != std::optional<qint64>(first->data(Qt::UserRole).toLongLong()));
+        wheel(120);
+        QCOMPARE(bar->value(), 0);
+        QCOMPARE(cursor(), by_keys);
+
+        // A wheel that scrolls: the row now under the mouse takes the cursor and the preview.
+        wheel(-120);
+        QVERIFY(bar->value() > 0);
+        QListWidgetItem *scrolled = row_under_mouse();
+        QVERIFY(scrolled && scrolled != first);
+        QCOMPARE(cursor(), std::optional<qint64>(scrolled->data(Qt::UserRole).toLongLong()));
+        QTRY_COMPARE(preview->content_widget->toPlainText(), scrolled->data(ROLE_ITEM_DATA).value<ClipboardItem>().content);
+        QVERIFY(preview->isVisible());
     }
 
     void unmarkingARowLeavesOnlyTheCursorOnIt() {

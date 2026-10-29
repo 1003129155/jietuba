@@ -43,6 +43,7 @@
 #include <QStandardPaths>
 #include <QStyle>
 #include <QUrl>
+#include <QWheelEvent>
 
 namespace jietuba::clipboard {
 namespace {
@@ -811,6 +812,10 @@ void ClipboardWindow::on_search_changed() {
 void ClipboardWindow::on_pointer_moved(const QPoint &viewport_pos, const QPoint &global_pos) {
     // Qt reports the row under a still mouse again when the list scrolls; only a moved mouse points at something.
     if (pointer_pos_ == global_pos) return;
+    point_at(viewport_pos, global_pos);
+}
+
+void ClipboardWindow::point_at(const QPoint &viewport_pos, const QPoint &global_pos) {
     pointer_pos_ = global_pos;
     QListWidgetItem *list_item = list_widget->itemAt(viewport_pos);
     if (!list_item) {
@@ -1599,6 +1604,17 @@ bool ClipboardWindow::eventFilter(QObject *obj, QEvent *event) {
     if (on_viewport && event_type == QEvent::Leave) {
         pointer_row_ = -1;
         PreviewPopup::instance()->hide_preview();
+    }
+    // Scrolling with the wheel is the mouse at work: the row it brings under the still mouse is pointed at.
+    if (event_type == QEvent::Wheel && list_widget && obj == list_widget->viewport()) {
+        const auto *wheel = static_cast<QWheelEvent *>(event);
+        const QPoint viewport_pos = wheel->position().toPoint();
+        const QPoint global_pos = wheel->globalPosition().toPoint();
+        const int scroll = list_widget->verticalScrollBar()->value();
+        // Queued: the list scrolls only after this filter lets the event through.
+        QMetaObject::invokeMethod(this, [this, viewport_pos, global_pos, scroll] {
+            if (list_widget->verticalScrollBar()->value() != scroll) point_at(viewport_pos, global_pos);
+        }, Qt::QueuedConnection);
     }
     if (event_type == QEvent::FocusIn && obj == list_widget && !group_bar->sidebar_mode()) group_bar->clear_sidebar_focus();
 

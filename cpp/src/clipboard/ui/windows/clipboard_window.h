@@ -192,8 +192,9 @@ private:
     void append_items(const QList<ClipboardItem> &items);
     void on_scroll(int value);
     void on_search_changed();
-    // The mouse over the list: real movement moves the cursor and previews the row; nothing else does.
+    // The mouse over the list: real movement and wheel scrolling move the cursor and preview the row; nothing else does.
     void on_pointer_moved(const QPoint &viewport_pos, const QPoint &global_pos);
+    void point_at(const QPoint &viewport_pos, const QPoint &global_pos);
     void update_search_background(const QString &text);
     void apply_search_input_style(bool has_text = false);
     void apply_clear_search_btn_style();
