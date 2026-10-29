@@ -132,7 +132,7 @@ QWidget *global_row(QWidget *parent, const QString &title, const QString &tone, 
     auto *layout = new QHBoxLayout(row);
     layout->setContentsMargins(0, dialog_scaled(8), 0, dialog_scaled(8));
     layout->setSpacing(dialog_scaled(14));
-    layout->addWidget(new IconBadge(icon, tone, row));
+    layout->addWidget(new IconBadge(icon, tone, row, 28, 16));
     layout->addWidget(row_label(row, title), 1);
     // Column by column: the first two slots keep their old column, the added ones go to its right.
     auto *grid = new QGridLayout;
