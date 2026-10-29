@@ -179,6 +179,8 @@ public:
     QTransform from_current_image(const QSize &size) const;
     // Leaves editing for func and restores the tool afterwards.
     void with_edit_paused(const std::function<void()> &func);
+    // Calls then once smart erase on the pin has its pixels, right away when it has; never after the pin is gone.
+    void when_pixels_ready(std::function<void()> then);
     void save_image();
     void save_image_with_system_dialog();
     // A text pin copies its selected text, or all of it.

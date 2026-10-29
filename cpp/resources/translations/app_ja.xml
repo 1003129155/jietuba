@@ -4193,6 +4193,10 @@ This action cannot be undone.</source>
         <translation>ぼかし</translation>
     </message>
     <message>
+        <source>Smart Erase</source>
+        <translation>消去</translation>
+    </message>
+    <message>
         <source>Mosaic Style</source>
         <translation>モザイクの種類</translation>
     </message>

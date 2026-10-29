@@ -4,6 +4,8 @@
 #include "canvas/items/arrow_item.h"
 #include "canvas/items/drawing_items.h"
 #include "canvas/items/mosaic_item.h"
+#include "canvas/items/smart_erase_fill.h"
+#include "pool_block.h"
 #include "canvas/items/spotlight_item.h"
 #include "canvas/items/text_item.h"
 #include "canvas/items/watermark_item.h"
@@ -3605,6 +3607,87 @@ private slots:
         while (canvas->undo_stack->canUndo()) canvas->undo_stack->undo();
         QCOMPARE(items_of<EllipseItem>(canvas->scene).size(), 0);
         canvas->initialize_from_items({}, QPoint());
+    }
+
+    // The pin shows the capture's smart erase at once instead of rebuilding it. Moved in the pin, it
+    // rebuilds from the pin's own image, one patch pixel per image pixel.
+    void pinsKeepTheCapturesSmartErase() {
+        const QColor grey(128, 128, 128);
+        QImage background(400, 300, QImage::Format_RGB32);
+        background.fill(grey);
+        {
+            QPainter painter(&background);
+            painter.fillRect(QRect(160, 110, 30, 20), Qt::red);
+            painter.fillRect(QRect(240, 180, 20, 20), Qt::red);
+        }
+        CanvasScene capture(background, QRectF(0, 0, 400, 300), true);
+        QPainterPath box;
+        box.addRect(QRectF(150, 100, 50, 40));
+        auto *item = new MosaicItem(box, 20, 8, background.scaled(50, 38), QRectF(0, 0, 400, 300), true, MosaicKind::SmartErase);
+        capture.addItem(item);
+        QTRY_VERIFY(item->smart_erase_fill()->ready());
+        const int runs = smart_erase_runs();
+        const QRect crop(100, 80, 200, 150);
+        auto *pin = new PinWindow(background.copy(crop), QPoint(100, 100), config_, {item}, crop.topLeft());
+        pins_.append(pin);
+        auto *copy = items_of<MosaicItem>(pin->canvas->scene).first();
+        const auto shown_at = [pin](const QPointF &scene_pos) {
+            return pin->view->viewport()->grab().toImage().pixelColor(pin->view->mapFromScene(scene_pos));
+        };
+        // No event loop has run, and nothing was computed again.
+        QVERIFY(copy->smart_erase_fill()->ready());
+        QCOMPARE(smart_erase_runs(), runs);
+        QCOMPARE(copy->smart_erase_fill()->patch()->scene_rect, item->smart_erase_fill()->patch()->scene_rect.translated(-100, -80));
+        QCOMPARE(shown_at(QPointF(75, 40)), grey);
+        // Zooming the pin scales the view, not the item.
+        wheel(pin, 120, Qt::NoModifier, false, 2);
+        QVERIFY(pin->scale_factor > 1.0);
+        QVERIFY(copy->smart_erase_fill()->ready());
+
+        copy->setPos(copy->pos() + QPointF(80, 70));
+        QVERIFY(!copy->smart_erase_fill()->ready());
+        QTRY_VERIFY(copy->smart_erase_fill()->ready());
+        const auto &patch = copy->smart_erase_fill()->patch();
+        QVERIFY(patch);
+        QCOMPARE(patch->image.size(), patch->scene_rect.size().toSize());
+        QCOMPARE(shown_at(QPointF(150, 110)), grey);
+        QCOMPARE(shown_at(QPointF(75, 40)), QColor(Qt::red));
+    }
+
+    // Pinned while the capture still rebuilds, the copy shares that rebuild instead of starting its own, and
+    // gets its pixels even when the capture is closed before it ends.
+    void aPinSharesTheCapturesRunningSmartErase() {
+        const QColor grey(128, 128, 128);
+        QImage background(400, 300, QImage::Format_RGB32);
+        background.fill(grey);
+        {
+            QPainter painter(&background);
+            painter.fillRect(QRect(160, 110, 30, 20), Qt::red);
+        }
+        auto capture = std::make_unique<CanvasScene>(background, QRectF(0, 0, 400, 300), true);
+        QPainterPath box;
+        box.addRect(QRectF(150, 100, 50, 40));
+        auto *item = new MosaicItem(box, 20, 8, background.scaled(50, 38), QRectF(0, 0, 400, 300), true, MosaicKind::SmartErase);
+        capture->addItem(item);
+        const int runs = smart_erase_runs();
+        const QRect crop(100, 80, 200, 150);
+        MosaicItem *copy = nullptr;
+        {
+            PoolBlock block;
+            QVERIFY(item->smart_erase_in_progress());
+            auto *pin = new PinWindow(background.copy(crop).convertToFormat(QImage::Format_ARGB32_Premultiplied), QPoint(100, 100), config_, {item},
+                                      crop.topLeft());
+            pins_.append(pin);
+            copy = items_of<MosaicItem>(pin->canvas->scene).first();
+            QVERIFY(copy->smart_erase_fill()->running());
+            capture.reset();
+        }
+        QTRY_VERIFY(copy->smart_erase_fill()->ready());
+        QCOMPARE(smart_erase_runs(), runs + 1);
+        const auto &patch = copy->smart_erase_fill()->patch();
+        QVERIFY(patch);
+        QCOMPARE(patch->scene_rect.topLeft(), QPointF(49, 19));
+        QCOMPARE(patch->image.pixelColor(35, 25), grey);
     }
 
     // The pin undoes in the order the capture added its annotations, not by stacking order.

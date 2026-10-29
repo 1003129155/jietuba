@@ -73,6 +73,8 @@ void PinCanvas::initialize_from_items(const QList<QGraphicsItem *> &drawing_item
             // Then rotation and scale as an edit, when there are any.
             const auto final_state = build_final_state(item, base_state);
             if (base_state != final_state) undo_stack->push_command(new EditItemCommand(reference_of(cloned_item), base_state, final_state));
+            // After the moves above, which would drop it.
+            if (auto *mosaic = dynamic_cast<MosaicItem *>(cloned_item)) mosaic->adopt_smart_erase(*dynamic_cast<MosaicItem *>(item), QPointF(offset_x, offset_y));
             ++inherited_count;
         } catch (const std::exception &e) {
             log_warning(T("继承项目失败: {e}", {{"e", QString::fromUtf8(e.what())}}), "PinCanvas");
@@ -97,7 +99,7 @@ QGraphicsItem *PinCanvas::clone_graphics_item(QGraphicsItem *item) {
     if (auto *stroke = dynamic_cast<StrokeItem *>(item)) return new StrokeItem(stroke->path(), QPen(stroke->pen()), stroke->is_highlighter);
     if (auto *mosaic = dynamic_cast<MosaicItem *>(item))
         return new MosaicItem(mosaic->path(), mosaic->brush_width(), mosaic->block_size(), mosaic->reduced_image(), mosaic->background_rect(), mosaic->fill_mode(),
-                              mosaic->smooth());
+                              mosaic->kind());
     // Before RectItem: a hole is a rectangle too and would become a plain one. The
     // darkness belongs to the whole curtain, so it moves to the pin scene's curtain.
     if (auto *spotlight = dynamic_cast<SpotlightItem *>(item)) {

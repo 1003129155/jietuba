@@ -4180,6 +4180,10 @@ This action cannot be undone.</source>
         <translation>블러</translation>
     </message>
     <message>
+        <source>Smart Erase</source>
+        <translation>스마트 지우기</translation>
+    </message>
+    <message>
         <source>Mosaic Style</source>
         <translation>모자이크 종류</translation>
     </message>

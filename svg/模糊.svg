@@ -1,0 +1,11 @@
+<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="soft" cx="12" cy="12" r="9.2" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#000000" stop-opacity="0.72"/>
+      <stop offset="0.4" stop-color="#000000" stop-opacity="0.58"/>
+      <stop offset="0.72" stop-color="#000000" stop-opacity="0.24"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <circle cx="12" cy="12" r="9.2" fill="url(#soft)"/>
+</svg>

@@ -392,6 +392,7 @@ void SmartEditController::finalize_move_edit() {
     if (canvas && canvas->undo_stack)
         if (auto *tracked = dynamic_cast<TrackedItem *>(selected_item()))
             canvas->undo_stack->push_command(new EditItemCommand(ItemReference(tracked), *move_initial_state, *new_state));
+    if (auto *mosaic = dynamic_cast<MosaicItem *>(selected_item())) mosaic->edit_finished();
     layer_editor->start_edit(selected_item());
     repaint_handles();
     move_initial_state.reset();

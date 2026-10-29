@@ -48,6 +48,13 @@ bool jb_ppocr_models_finish_runtime_download(const char *root, char *error, size
 bool jb_ppocr_models_remove(const char *root, const char *id, char *error, size_t error_len);
 void jb_ppocr_models_clean_staging(const char *root);
 
+// smart_erase: fills the masked pixels of a rectangle from their surroundings. Pixels are BGRA
+// when bgra, else RGBA; mask and out cover the rectangle, packed. Returns the solver (0 unchanged,
+// 1 surface, 2 periodic, 3 membrane, 4 patches), -1 cancelled, -2 invalid, -3 nothing to sample.
+int32_t jb_smart_erase(const uint8_t *pixels, size_t len, uint32_t width, uint32_t height, size_t stride, bool bgra, uint32_t hole_x, uint32_t hole_y,
+                       uint32_t hole_width, uint32_t hole_height, const uint8_t *mask, bool (*cancelled)(const void *context), const void *context,
+                       uint8_t *out, size_t out_len);
+
 // longstitch's incremental StitchSession.
 struct JbStitchSession;
 struct JbPushResult {

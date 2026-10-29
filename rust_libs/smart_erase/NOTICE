@@ -1,0 +1,15 @@
+smart_erase
+
+The reconstruction in src/ is derived from the Smart Erase solver of Snow Draw Engine
+(https://github.com/mg-chao/snow-apps, directory snow-draw-engine-gpui, commit b4a7467f),
+Copyright (C) 2026 mg-chao, licensed under the Apache License, Version 2.0 (LICENSE-APACHE).
+
+Changes from the original:
+- Works on raw RGBA or BGRA rows instead of image buffers, with no dependencies.
+- The periodic fill is rejected when the two sides of the hole disagree along the period.
+- Holes whose surrounding ring has no edges are filled by a membrane (Laplace) solve.
+- Working regions above about one million pixels are solved at a reduced scale.
+- The flat-surface fit tries a narrow ring before the wide one.
+- The patch search stops a candidate early and runs in parallel bands; voting and blurs use
+  worker threads.
+- The GPU path and profiling were removed.

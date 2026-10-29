@@ -10,6 +10,7 @@ mod gif;
 mod hdr;
 mod longstitch;
 mod panic;
+mod smart_erase;
 mod text;
 mod video;
 mod ppocr;

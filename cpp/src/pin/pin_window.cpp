@@ -2,6 +2,7 @@
 #include "canvas/scene.h"
 #include "canvas/items/background_item.h"
 #include "canvas/selection_model.h"
+#include "canvas/smart_erase_wait.h"
 #include "core/clipboard_utils.h"
 #include "core/i18n.h"
 #include "core/logger.h"
@@ -1359,20 +1360,28 @@ void PinWindow::with_edit_paused(const std::function<void()> &func) {
     if (was_editing && active_tool_id) canvas->activate_tool(*active_tool_id);
 }
 
+void PinWindow::when_pixels_ready(std::function<void()> then) {
+    auto *scene = canvas ? canvas->scene : nullptr;
+    when_smart_erase_ready(scene, scene ? scene->sceneRect() : QRectF(), this, std::move(then));
+}
+
 void PinWindow::save_image() {
     if (animation_) {
         save_animation();
         return;
     }
-    if (use_modern_save_dialog(config_manager)) {
-        QImage image;
-        with_edit_paused([this, &image] { image = get_current_image(); });
-        const auto base_name = QString("pinned_%1").arg(QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss"));
-        const auto [outcome, path] = SaveImageDialog::run(this, image, base_name, config_manager);
-        if (outcome == SaveImageDialog::Outcome::SAVED) log_info(T("保存成功: {file_path}", {{"file_path", path}}), "PinWindow");
-        if (outcome != SaveImageDialog::Outcome::CLASSIC) return;
-    }
-    save_image_with_system_dialog();
+    // The save window opens once a smart erase still rebuilding is done; the pin shows it at work meanwhile.
+    when_pixels_ready([this] {
+        if (use_modern_save_dialog(config_manager)) {
+            QImage image;
+            with_edit_paused([this, &image] { image = get_current_image(); });
+            const auto base_name = QString("pinned_%1").arg(QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss"));
+            const auto [outcome, path] = SaveImageDialog::run(this, image, base_name, config_manager);
+            if (outcome == SaveImageDialog::Outcome::SAVED) log_info(T("保存成功: {file_path}", {{"file_path", path}}), "PinWindow");
+            if (outcome != SaveImageDialog::Outcome::CLASSIC) return;
+        }
+        save_image_with_system_dialog();
+    });
 }
 
 void PinWindow::save_image_with_system_dialog() {
@@ -1391,10 +1400,12 @@ void PinWindow::save_image_with_system_dialog() {
         image_format = match.hasMatch() ? match.captured(1).toUpper() : QString("PNG");
         file_path = file_path + "." + image_format.toLower();
     }
-    with_edit_paused([this, file_path, image_format] {
-        const auto image = get_current_image();
-        if (SaveService::save_qimage_to_path(image, file_path, image_format)) log_info(T("保存成功: {file_path}", {{"file_path", file_path}}), "PinWindow");
-        else log_error(T("保存失败: {file_path}", {{"file_path", file_path}}), "PinWindow");
+    when_pixels_ready([this, file_path, image_format] {
+        with_edit_paused([this, file_path, image_format] {
+            const auto image = get_current_image();
+            if (SaveService::save_qimage_to_path(image, file_path, image_format)) log_info(T("保存成功: {file_path}", {{"file_path", file_path}}), "PinWindow");
+            else log_error(T("保存失败: {file_path}", {{"file_path", file_path}}), "PinWindow");
+        });
     });
 }
 
@@ -1454,7 +1465,7 @@ void PinWindow::copy_to_clipboard() {
 }
 
 void PinWindow::copy_image() {
-    with_edit_paused([this] { deliver_image_async(get_current_image()); });
+    when_pixels_ready([this] { with_edit_paused([this] { deliver_image_async(get_current_image()); }); });
 }
 
 void PinWindow::copy_plain_text() {

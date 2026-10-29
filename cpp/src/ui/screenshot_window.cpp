@@ -394,18 +394,33 @@ void ScreenshotWindow::teardown_session() {
     is_closing = true;
     if (initial_selection_gate_) initial_selection_gate_->cancel();
     hide();
+    // A handed-over capture has told the hub already.
+    const bool ended = handover_ != nullptr;
     try {
         release_session_resources();
     } catch (...) {
         // Copying may have hidden the window early; the input hub must hear the session
         // end even when cleanup fails, or quick capture stays blocked.
-        emit session_ended();
+        if (!ended) emit session_ended();
         throw;
     }
-    emit session_ended();
+    if (!ended) emit session_ended();
+}
+
+QObject *ScreenshotWindow::hand_over() {
+    if (!handover_ && session_active_) {
+        handover_ = new QObject(this);
+        hide();
+        PinManager::instance()->end_capture();
+        emit session_ended();
+    }
+    return handover_ ? handover_ : this;
 }
 
 void ScreenshotWindow::release_session_resources() {
+    // What still waits on the scene is dropped before the scene goes.
+    delete handover_;
+    handover_ = nullptr;
     remember_watermark();
     // Visible to capture APIs again.
     if (exclude_from_capture_set) {

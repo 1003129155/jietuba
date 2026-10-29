@@ -101,7 +101,7 @@ endif()
 file(GLOB_RECURSE JIETUBA_NATIVE_INPUTS CONFIGURE_DEPENDS
     native/src/*.rs native/Cargo.toml native/Cargo.lock native/*/src/*.rs native/*/Cargo.toml)
 # Crate by crate: a glob over the whole of rust_libs would also walk its target directory.
-foreach(crate longstitch gifrecorder video_recorder hdrcapture ppocr_rust pyclipboard)
+foreach(crate longstitch gifrecorder video_recorder hdrcapture ppocr_rust pyclipboard smart_erase)
     file(GLOB_RECURSE crate_inputs CONFIGURE_DEPENDS
         ${JIETUBA_RUST_LIBS}/${crate}/src/*.rs ${JIETUBA_RUST_LIBS}/${crate}/*.toml ${JIETUBA_RUST_LIBS}/${crate}/build.rs)
     list(APPEND JIETUBA_NATIVE_INPUTS ${crate_inputs})
@@ -254,6 +254,10 @@ if(BUILD_TESTING)
     target_compile_definitions(jietuba_stitch_tests PRIVATE JIETUBA_STITCH_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures")
     add_test(NAME python_stitch_parity COMMAND jietuba_stitch_tests -o ${JIETUBA_TEST_REPORTS}/python_stitch_parity.txt,txt)
     set_tests_properties(python_stitch_parity PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    qt_add_executable(jietuba_smart_erase_tests tests/test_smart_erase.cpp)
+    target_link_libraries(jietuba_smart_erase_tests PRIVATE jietuba_lib Qt6::Test)
+    add_test(NAME smart_erase COMMAND jietuba_smart_erase_tests -o ${JIETUBA_TEST_REPORTS}/smart_erase.txt,txt)
+    set_tests_properties(smart_erase PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     if(WIN32)
         # Real desktop capture; skips where no HDR session can be built.
         qt_add_executable(jietuba_hdr_capture_tests tests/test_hdr_capture.cpp)
@@ -412,6 +416,9 @@ if(BUILD_TESTING)
         # The eyedropper's click catcher needs real windows and a real pointer.
         add_test(NAME ui_widgets_desktop COMMAND jietuba_ui_widgets_tests -o ${JIETUBA_TEST_REPORTS}/ui_widgets_desktop.txt,txt -platform windows eyedropperCatcherTakesTheClickOnTheDesktop)
         set_tests_properties(ui_widgets_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
+        # Verify the kind buttons with the desktop's icons and fonts.
+        add_test(NAME mosaic_panel_desktop COMMAND jietuba_ui_widgets_tests -o ${JIETUBA_TEST_REPORTS}/mosaic_panel_desktop.txt,txt -platform windows mosaicPanelKindsAreIconsNamedByTooltips)
+        set_tests_properties(mosaic_panel_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
     endif()
     qt_add_executable(jietuba_save_image_dialog_tests tests/test_save_image_dialog.cpp)
     target_link_libraries(jietuba_save_image_dialog_tests PRIVATE jietuba_lib Qt6::Test)

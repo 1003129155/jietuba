@@ -478,6 +478,7 @@ std::pair<std::optional<QVariantMap>, std::optional<QVariantMap>> LayerEditor::e
         if (auto *tracked = dynamic_cast<TrackedItem *>(active_layer()))
             undo_stack->push(new EditItemCommand(ItemReference(tracked), *old_state, *new_state));
     }
+    if (auto *mosaic = dynamic_cast<MosaicItem *>(active_layer())) mosaic->edit_finished();
     return {old_state, new_state};
 }
 

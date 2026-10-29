@@ -4200,6 +4200,10 @@ This action cannot be undone.</source>
         <translation>模糊</translation>
     </message>
     <message>
+        <source>Smart Erase</source>
+        <translation>智慧擦除</translation>
+    </message>
+    <message>
         <source>Mosaic Style</source>
         <translation>馬賽克種類</translation>
     </message>

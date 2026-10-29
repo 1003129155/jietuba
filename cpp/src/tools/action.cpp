@@ -2,6 +2,7 @@
 #include "barcode/barcode.h"
 #include "canvas/scene.h"
 #include "canvas/selection_model.h"
+#include "canvas/smart_erase_wait.h"
 #include "core/background_tasks.h"
 #include "core/clipboard_utils.h"
 #include "core/i18n.h"
@@ -18,6 +19,7 @@
 #include "translation/translation_manager.h"
 #include "ui/dialogs.h"
 #include "ui/save_image_dialog.h"
+#include "ui/wait_bar.h"
 #include <QApplication>
 #include <QDateTime>
 #include <QFileInfo>
@@ -29,24 +31,50 @@
 namespace jietuba {
 namespace {
 QString action_tr(const char *text) { return i18n_tr(text, "ActionTools"); }
+// A capture handed over shows that it is still at work only when that takes a while.
+constexpr int WAIT_BAR_DELAY_MS = 200;
 }
 
 ActionTools::ActionTools(CanvasScene *scene, ToolSettingsManager *config_manager, QWidget *parent_window)
     : scene(scene), config_manager(config_manager), parent_window(parent_window), export_service(scene),
       save_service(std::make_shared<SaveService>(config_manager ? *config_manager : *get_tool_settings_manager())) {}
 
+void ActionTools::finish_when_ready(const QRectF &selection_rect, std::function<void()> finish) {
+    auto *host = dynamic_cast<ActionHost *>(parent_window.data());
+    if (!host || !smart_erase_pending(scene, selection_rect)) {
+        finish();
+        return;
+    }
+    // Scene coordinates are screen coordinates.
+    auto *bar = new WaitBar(nullptr, QSize(scaled(260), scaled(14)));
+    bar->set_progress(0, 0);
+    bar->center_on(selection_rect.center().toPoint());
+    bar->show_after(WAIT_BAR_DELAY_MS);
+    QObject *context = host->hand_over();
+    QObject::connect(context, &QObject::destroyed, bar, &QObject::deleteLater);
+    when_smart_erase_ready(scene, selection_rect, context, [bar, finish = std::move(finish)] {
+        bar->dismiss();
+        bar->deleteLater();
+        finish();
+    });
+}
+
 void ActionTools::copy_save_and_close(bool close_after) {
     temporarily_exit_editing();
     const auto selection_rect = scene->selection_model->rect();
     remember_last_region(selection_rect);
-    const auto image = export_service.export_image(selection_rect);
-    // The image is in hand, so the window can go before the rest.
-    if (parent_window && close_after) parent_window->hide();
-    QImage original;
-    if (has_annotations(scene->get_drawing_items_in_rect(selection_rect))) original = export_service.export_base_image_only(selection_rect);
-    deliver_screenshot(image, config_manager, true, "capture", {}, original, save_service);
-    log_debug(T("已交给后台复制到剪贴板"), "Action");
-    if (parent_window && close_after) cleanup_and_close();
+    const auto finish = [this, selection_rect, close_after] {
+        const auto image = export_service.export_image(selection_rect);
+        // The image is in hand, so the window can go before the rest.
+        if (parent_window && close_after) parent_window->hide();
+        QImage original;
+        if (has_annotations(scene->get_drawing_items_in_rect(selection_rect))) original = export_service.export_base_image_only(selection_rect);
+        deliver_screenshot(image, config_manager, true, "capture", {}, original, save_service);
+        log_debug(T("已交给后台复制到剪贴板"), "Action");
+        if (parent_window && close_after) cleanup_and_close();
+    };
+    if (close_after) finish_when_ready(selection_rect, finish);
+    else finish();
 }
 
 void ActionTools::handle_confirm() { copy_save_and_close(); }
@@ -58,17 +86,20 @@ void ActionTools::handle_save(bool close_after) {
     auto selection_rect = scene->selection_model->rect();
     remember_last_region(selection_rect);
     if (selection_rect.isEmpty()) selection_rect = scene->sceneRect();
-    const auto image = export_service.export_image(selection_rect);
     const auto base_name = QString("screenshot_%1").arg(QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss"));
     if (!parent_window || !close_after) {
-        save_image_interactively(parent_window, image, base_name, config_manager, save_service);
+        save_image_interactively(parent_window, export_service.export_image(selection_rect), base_name, config_manager, save_service);
         return;
     }
-    // The capture ends before the save window opens. That window runs once the click
-    // asking for it has returned, owning nothing of the capture, which is being deleted.
-    cleanup_and_close();
-    QTimer::singleShot(0, qApp, [image, base_name, config = config_manager, service = save_service] {
-        save_image_interactively(nullptr, image, base_name, config, service);
+    // A smart erase still rebuilding: the capture goes at once and the save window opens when it is done.
+    finish_when_ready(selection_rect, [this, selection_rect, base_name] {
+        const auto image = export_service.export_image(selection_rect);
+        // The capture ends before the save window opens. That window runs once the click
+        // asking for it has returned, owning nothing of the capture, which is being deleted.
+        cleanup_and_close();
+        QTimer::singleShot(0, qApp, [image, base_name, config = config_manager, service = save_service] {
+            save_image_interactively(nullptr, image, base_name, config, service);
+        });
     });
 }
 
@@ -105,17 +136,19 @@ void ActionTools::handle_pin(bool close_after) {
     log_debug(T("位置: ({pos_x}, {pos_y})", {{"pos_x", position.x()}, {"pos_y", position.y()}}), "PinAction");
     log_debug(T("底图: {width}x{height}", {{"width", base_image.width()}, {"height", base_image.height()}}), "PinAction");
     log_debug(T("继承绘制项目: {count} 个", {{"count", static_cast<int>(drawing_items.size())}}), "PinAction");
-    const auto result_image = export_service.export_image(selection_rect);
-    // The image is in hand, so the capture window can go early. The pin takes the focus first, so it
-    // never falls back to the previous window in between.
-    if (parent_window && close_after) {
-        pin_window->activateWindow();
-        parent_window->hide();
-    }
+    // The pin takes the focus before the capture window goes, so it never falls back to the previous window in between.
+    if (parent_window && close_after) pin_window->activateWindow();
     const auto original = has_annotations(drawing_items) ? base_image : QImage();
-    deliver_screenshot(result_image, config_manager, true, "pin", {}, original, save_service);
-    log_debug(T("已交给后台复制到剪贴板"), "PinAction");
-    if (parent_window && close_after) cleanup_and_close();
+    // The pin finishes a smart erase still rebuilding by itself; only the copy for the clipboard waits.
+    const auto finish = [this, selection_rect, original, close_after] {
+        const auto result_image = export_service.export_image(selection_rect);
+        if (parent_window && close_after) parent_window->hide();
+        deliver_screenshot(result_image, config_manager, true, "pin", {}, original, save_service);
+        log_debug(T("已交给后台复制到剪贴板"), "PinAction");
+        if (parent_window && close_after) cleanup_and_close();
+    };
+    if (close_after) finish_when_ready(selection_rect, finish);
+    else finish();
 }
 
 bool ActionTools::handle_capture_action(const QString &action) {
@@ -135,14 +168,20 @@ bool ActionTools::handle_capture_action(const QString &action) {
         temporarily_exit_editing();
         const auto rect = scene->selection_model->rect();
         remember_last_region(rect);
-        const auto image = export_service.export_image(rect);
-        const auto [success, path] = save_service->save_qimage(image, config_manager->get_screenshot_save_path(), "", config_manager->get_screenshot_format());
-        if (success) {
-            save_original_beside(rect, path.value_or(QString()));
-            cleanup_and_close();
-        } else {
-            show_warning_dialog(parent_window, action_tr("Save Failed"), path.value_or(QString()));
-        }
+        finish_when_ready(rect, [this, rect] {
+            const auto image = export_service.export_image(rect);
+            const auto [success, path] = save_service->save_qimage(image, config_manager->get_screenshot_save_path(), "", config_manager->get_screenshot_format());
+            if (success) {
+                save_original_beside(rect, path.value_or(QString()));
+                cleanup_and_close();
+            } else if (parent_window && parent_window->isVisible()) {
+                show_warning_dialog(parent_window, action_tr("Save Failed"), path.value_or(QString()));
+            } else {
+                // Handed over: the capture cannot come back, so it ends before the warning.
+                cleanup_and_close();
+                show_warning_dialog(nullptr, action_tr("Save Failed"), path.value_or(QString()));
+            }
+        });
     } else {
         return false;
     }

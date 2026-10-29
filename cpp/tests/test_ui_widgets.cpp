@@ -1132,6 +1132,76 @@ private slots:
         panel.arrow_style_combo->hidePopup();
     }
 
+    void mosaicPanelSwitchesKindsAndDisablesStrengthForSmartErase() {
+        MosaicSettingsPanel panel;
+        QSignalSpy styles(&panel, &MosaicSettingsPanel::style_changed);
+        const auto strength_enabled = [&panel] {
+            return std::all_of(panel.block_size_buttons.begin(), panel.block_size_buttons.end(), [](QPushButton *button) { return button->isEnabled(); });
+        };
+        const auto strength_disabled = [&panel] {
+            return std::none_of(panel.block_size_buttons.begin(), panel.block_size_buttons.end(), [](QPushButton *button) { return button->isEnabled(); });
+        };
+        QVERIFY(panel.kind_buttons[MosaicTool::STYLE_PIXELATE]->isChecked());
+        QVERIFY(strength_enabled());
+        const int width = panel.sizeHint().width();
+        panel.kind_buttons[MosaicTool::STYLE_SMART_ERASE]->click();
+        QCOMPARE(styles.size(), 1);
+        QCOMPARE(styles.last().first().toString(), MosaicTool::STYLE_SMART_ERASE);
+        QVERIFY(strength_disabled());
+        // The levels stay in place, so the panel keeps its width.
+        QCOMPARE(panel.sizeHint().width(), width);
+        // The current kind again is no change.
+        panel.kind_buttons[MosaicTool::STYLE_SMART_ERASE]->click();
+        QCOMPARE(styles.size(), 1);
+        panel.kind_buttons[MosaicTool::STYLE_BLUR]->click();
+        QCOMPARE(styles.size(), 2);
+        QCOMPARE(panel.style(), MosaicTool::STYLE_BLUR);
+        QVERIFY(strength_enabled());
+        // Mirroring a selected item does not emit.
+        panel.set_style(MosaicTool::STYLE_SMART_ERASE);
+        QCOMPARE(styles.size(), 2);
+        QVERIFY(panel.kind_buttons[MosaicTool::STYLE_SMART_ERASE]->isChecked());
+        QVERIFY(!panel.kind_buttons[MosaicTool::STYLE_BLUR]->isChecked());
+        QVERIFY(strength_disabled());
+        panel.set_style("unknown");
+        QCOMPARE(panel.style(), MosaicTool::STYLE_PIXELATE);
+        QVERIFY(panel.kind_buttons[MosaicTool::STYLE_PIXELATE]->isChecked());
+        QVERIFY(strength_enabled());
+    }
+
+    // The kinds are icon buttons sized like the mode buttons and following the panel scale; each is named
+    // by its tooltip, so no language changes the panel's width.
+    void mosaicPanelKindsAreIconsNamedByTooltips() {
+        const QString language = I18nManager::get_current_language();
+        const auto restore = qScopeGuard([language] {
+            get_ui_scale().set_percent(100);
+            I18nManager::load_language(language);
+        });
+        const QMap<QString, QStringList> names = {{"zh", {QString::fromUtf8("马赛克"), QString::fromUtf8("模糊"), QString::fromUtf8("智能擦除")}},
+                                                  {"en", {"Mosaic", "Blur", "Smart Erase"}}};
+        const QStringList kinds = {MosaicTool::STYLE_PIXELATE, MosaicTool::STYLE_BLUR, MosaicTool::STYLE_SMART_ERASE};
+        for (const int percent : {100, 150}) {
+            get_ui_scale().set_percent(percent);
+            int width = -1;
+            for (auto it = names.begin(); it != names.end(); ++it) {
+                QVERIFY(I18nManager::load_language(it.key()));
+                MosaicSettingsPanel panel;
+                QCOMPARE(panel.freehand_btn->size(), QSize(scaled(MosaicSettingsPanel::BASE_BTN), scaled(MosaicSettingsPanel::BASE_BTN)));
+                for (int index = 0; index < kinds.size(); ++index) {
+                    auto *button = panel.kind_buttons.value(kinds[index]);
+                    QVERIFY(button);
+                    QVERIFY(button->text().isEmpty());
+                    QVERIFY(!button->icon().isNull());
+                    QCOMPARE(button->size(), panel.freehand_btn->size());
+                    QCOMPARE(button->iconSize(), panel.freehand_btn->iconSize());
+                    QCOMPARE(button->toolTip(), it.value()[index]);
+                }
+                if (width < 0) width = panel.sizeHint().width();
+                QCOMPARE(panel.sizeHint().width(), width);
+            }
+        }
+    }
+
     // ---- Colour dialog ----
 
     // Black has no saturation and greys no hue; the field and the hue track keep theirs.

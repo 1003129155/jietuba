@@ -1,4 +1,7 @@
 #include "save_dialog_answerer.h"
+#include "pool_block.h"
+#include "canvas/items/mosaic_item.h"
+#include "tools/mosaic.h"
 #include "canvas/items/drawing_items.h"
 #include "canvas/items/stroke_item.h"
 #include "canvas/items/arrow_item.h"
@@ -980,6 +983,41 @@ private slots:
         QVERIFY(!window->action_handler->handle_capture_action("copy"));
         QVERIFY(window->action_handler->handle_capture_action("close"));
         QVERIFY(!window->session_active());
+    }
+
+    // A smart erase still rebuilding: the capture is gone and the session over at once, and the file
+    // carries the rebuilt pixels once they are in.
+    void quickSaveHandsOverWhileSmartEraseRebuilds() {
+        QImage image = capture_image();
+        {
+            QPainter painter(&image);
+            painter.fillRect(QRect(120, 90, 40, 30), Qt::red);
+        }
+        if (window_) window_->cleanup_and_close();
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        window_ = new ScreenshotWindow(config_, image, QRectF(0, 0, W, H));
+        QApplication::processEvents();
+        auto *window = window_.data();
+        drag(window, QPoint(50, 40), QPoint(250, 190));
+        config_->update_settings("mosaic", {{"draw_mode", MosaicTool::MODE_RECT}, {"style", MosaicTool::STYLE_SMART_ERASE}});
+        window->toolbar->select_tool("mosaic");
+        QSignalSpy ended(window, &ScreenshotWindow::session_ended);
+        {
+            PoolBlock block;
+            drag(window, QPoint(110, 80), QPoint(170, 130));
+            QVERIFY(window->action_handler->handle_capture_action("quick_save"));
+            QCOMPARE(ended.count(), 1);
+            QVERIFY(!window->session_active());
+            QVERIFY(!window->isVisible());
+            QTest::qWait(100);
+            QVERIFY(saved_files().isEmpty());
+        }
+        QTRY_COMPARE(saved_files().size(), 1);
+        QCOMPARE(ended.count(), 1);
+        const QImage saved(QDir(dir_.filePath("captures")).filePath(saved_files().first()));
+        QCOMPARE(saved.size(), QSize(200, 150));
+        // The red square, at (70, 50) in the selection, is rebuilt from the blue around it.
+        QCOMPARE(saved.pixelColor(90, 65), QColor(Qt::blue));
     }
 
     // Recognition, code scanning and screenshot translation close the capture and open their windows.

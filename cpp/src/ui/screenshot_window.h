@@ -67,8 +67,9 @@ public:
     ~ScreenshotWindow() override;
     // Ends the capture: releases the scene and image now and deletes the window later.
     void cleanup_and_close() override;
-    // The capture is open (from construction until cleanup_and_close).
-    bool session_active() const { return session_active_; }
+    QObject *hand_over() override;
+    // The capture is open (from construction until cleanup_and_close, or until handed over).
+    bool session_active() const { return session_active_ && !handover_; }
     void update_toolbar_position() override;
     void pin_from_global_hotkey();
     bool is_text_editing() const;
@@ -163,6 +164,8 @@ private:
     void on_redo();
 
     bool session_active_ = false;
+    // Set by hand_over; deleted with the scene.
+    QObject *handover_ = nullptr;
     bool fullscreen_crosshair_ = false;
     InitialSelectionGate *initial_selection_gate_ = nullptr;
     std::shared_ptr<SystemCursor> capture_cursor_;

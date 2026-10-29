@@ -42,6 +42,21 @@ int MosaicTool::get_block_size(const ToolContext &ctx) { return clamp_block_size
 QString MosaicTool::get_draw_mode(const ToolContext &ctx) { return read_setting(ctx, "draw_mode").toString(); }
 QString MosaicTool::get_style(const ToolContext &ctx) { return read_setting(ctx, "style").toString(); }
 
+MosaicKind MosaicTool::kind_of(const QString &style) {
+    if (style == STYLE_BLUR) return MosaicKind::Blur;
+    if (style == STYLE_SMART_ERASE) return MosaicKind::SmartErase;
+    return MosaicKind::Pixelate;
+}
+
+QString MosaicTool::style_of(MosaicKind kind) {
+    switch (kind) {
+    case MosaicKind::Blur: return STYLE_BLUR;
+    case MosaicKind::SmartErase: return STYLE_SMART_ERASE;
+    case MosaicKind::Pixelate: break;
+    }
+    return STYLE_PIXELATE;
+}
+
 MosaicItem *MosaicTool::selected_mosaic(CanvasView *view) {
     auto *controller = view ? view->smart_edit_controller.get() : nullptr;
     return controller ? dynamic_cast<MosaicItem *>(controller->selected_item()) : nullptr;
@@ -50,9 +65,9 @@ MosaicItem *MosaicTool::selected_mosaic(CanvasView *view) {
 bool MosaicTool::apply_style_change(const QString &style, CanvasView *view) {
     auto *item = selected_mosaic(view);
     if (!item) return false;
-    const bool smooth = style == STYLE_BLUR;
-    if (smooth == item->smooth()) return false;
-    item->set_smooth(smooth);
+    const auto kind = kind_of(style);
+    if (kind == item->kind()) return false;
+    item->set_kind(kind);
     return true;
 }
 
@@ -104,7 +119,8 @@ bool MosaicTool::on_press(const QPointF &pos, Qt::MouseButton button, ToolContex
     if (fill_mode) new_path.addRect(QRectF(pos, pos));
     else new_path = QPainterPath(pos);
     // The reduced image is the background's cached copy; QImage is implicitly shared.
-    auto *item = new MosaicItem(new_path, ctx.stroke_width, block_size, reduced, ctx.scene->scene_rect, fill_mode, get_style(ctx) == STYLE_BLUR);
+    auto *item = new MosaicItem(new_path, ctx.stroke_width, block_size, reduced, ctx.scene->scene_rect, fill_mode, kind_of(get_style(ctx)));
+    item->set_drawing(true);
     ctx.scene->addItem(item);
     path = new_path;
     start_pos = pos;
@@ -145,6 +161,7 @@ void MosaicTool::on_release(const QPointF &pos, ToolContext &ctx) {
     MosaicItem *item_to_select = nullptr;
     if (path && current_item) current_item->set_path(*path);
     if (current_item) {
+        current_item->set_drawing(false);
         // The item is already in the scene, so redo() is a no-op and pushing is the single commit point.
         ctx.undo_stack->push_command(new AddItemCommand(ctx.scene, ItemReference(current_item), i18n_tr("Add Mosaic", "UndoCommands")));
         // Boxes are selected right away like highlighter rectangles; freehand strokes are not.

@@ -19,6 +19,15 @@ const QColor SWATCH_LIGHT("#e8e8e8");
 constexpr int SWATCH_GRIDS[] = {8, 5, 3, 2};
 // Describes how strong the effect looks rather than pixel counts, and fits both kinds.
 const char *BLOCK_SIZE_TIPS[] = {"Strength: Subtle", "Strength: Medium", "Strength: Strong", "Strength: Maximum"};
+// Icon buttons like the mode buttons; the label is the tooltip. Mosaic shares the toolbar's mosaic tool icon.
+struct KindEntry {
+    const QString &value;
+    const char *label;
+    const char *icon;
+};
+const KindEntry KINDS[] = {{MosaicTool::STYLE_PIXELATE, "Mosaic", "马赛克.svg"},
+                           {MosaicTool::STYLE_BLUR, "Blur", "模糊.svg"},
+                           {MosaicTool::STYLE_SMART_ERASE, "Smart Erase", "智能擦除.svg"}};
 
 // Needs a clear diagonal: cells turn it into steps and blur softens it, so both
 // kinds stay distinguishable. A checkerboard would blur into uniform grey.
@@ -60,22 +69,27 @@ void MosaicSettingsPanel::paintEvent(QPaintEvent *) { paint_rounded_panel(this);
 
 void MosaicSettingsPanel::apply_scale() {
     // Mode, strength and brush size stay; only sizes change.
-    setStyleSheet(build_settings_panel_stylesheet(true, "1px", BASE_COMBO_WIDTH, BASE_COMBO_WIDTH, true));
+    setStyleSheet(build_settings_panel_stylesheet());
     const int mh = scaled(BASE_MARGIN_H), mv = scaled(BASE_MARGIN_V);
     layout()->setContentsMargins(mh, mv, mh, mv);
     layout()->setSpacing(scaled(BASE_SPACING));
     const int btn_sz = scaled(BASE_BTN);
     const int icon_sz = scaled(BASE_ICON);
-    for (auto *button : {freehand_btn, rect_btn}) {
+    QList<QPushButton *> icon_buttons{freehand_btn, rect_btn};
+    icon_buttons += kind_buttons.values();
+    for (auto *button : icon_buttons) {
         button->setFixedSize(btn_sz, btn_sz);
         button->setIconSize(QSize(icon_sz, icon_sz));
     }
     mode_widget->layout()->setSpacing(scaled(2));
     size_spin->setFixedWidth(scaled(BASE_SIZE_SPIN_WIDTH));
+    kind_layout_->setSpacing(scaled(2));
     // The swatch fills the button, so selection is an accent outline rather than a fill.
+    // Disabled (smart erase) shows no level as chosen.
     const auto level_button_qss = QString("QPushButton { padding: 0px; border: 1px solid transparent; border-radius: %1px; }"
                                           "QPushButton:hover { border-color: rgba(15, 23, 42, 0.25); }"
-                                          "QPushButton:checked { border: 2px solid %2; }")
+                                          "QPushButton:checked { border: 2px solid %2; }"
+                                          "QPushButton:checked:disabled { border: 1px solid transparent; background-color: transparent; }")
                                       .arg(scaled(6))
                                       .arg(accent_color().name());
     for (auto *button : block_size_buttons) {
@@ -118,7 +132,24 @@ void MosaicSettingsPanel::init_ui() {
     size_spin->setToolTip(mosaic_tr("Brush Size"));
     layout->addWidget(size_spin);
     layout->addWidget(make_separator());
-    layout->addStretch();
+
+    kind_group = new QButtonGroup(this);
+    kind_group->setExclusive(true);
+    auto *kind_widget = new QWidget;
+    kind_layout_ = new QHBoxLayout(kind_widget);
+    kind_layout_->setContentsMargins(0, 0, 0, 0);
+    for (const auto &kind : KINDS) {
+        auto *button = new QPushButton;
+        button->setCheckable(true);
+        button->setIcon(cached_icon(QString::fromUtf8(kind.icon)));
+        button->setStyleSheet("QPushButton { padding: 0px; }");
+        kind_group->addButton(button);
+        kind_buttons[kind.value] = button;
+        kind_layout_->addWidget(button);
+    }
+    retranslate_kinds();
+    layout->addWidget(kind_widget);
+    layout->addWidget(make_separator());
 
     // Four discrete levels: one click is one change, so downstream recomputation of the
     // whole reduced background (about 28 ms per level at 4K) never runs per drag step.
@@ -138,13 +169,6 @@ void MosaicSettingsPanel::init_ui() {
     }
     layout->addWidget(block_size_widget);
 
-    style_combo = new PillComboBox(nullptr, Qt::AlignHCenter);
-    style_combo->addItem(mosaic_tr("Mosaic"), STYLE_PIXELATE_VALUE);
-    style_combo->addItem(mosaic_tr("Blur"), STYLE_BLUR_VALUE);
-    style_combo->setToolTip(mosaic_tr("Mosaic Style"));
-    style_combo->setMaxVisibleItems(10);
-    layout->addWidget(style_combo);
-
     apply_scale();
     set_draw_mode(current_draw_mode);
     set_style(current_style);
@@ -161,9 +185,9 @@ void MosaicSettingsPanel::connect_signals() {
         current_size = value;
         emit size_changed(value);
     });
-    connect(style_combo, &QComboBox::currentIndexChanged, this, [this](int) {
-        auto style = style_combo->currentData().toString();
-        if (style.isEmpty()) style = STYLE_PIXELATE_VALUE;
+    connect(kind_group, &QButtonGroup::buttonClicked, this, [this](QAbstractButton *button) {
+        const auto style = kind_buttons.key(static_cast<QPushButton *>(button), STYLE_PIXELATE_VALUE);
+        if (style == current_style) return;
         current_style = style;
         refresh_block_size_icons();
         emit style_changed(style);
@@ -181,9 +205,16 @@ void MosaicSettingsPanel::on_block_size_clicked(QAbstractButton *button) {
 
 void MosaicSettingsPanel::refresh_block_size_icons() {
     const bool smooth = current_style == STYLE_BLUR_VALUE;
+    const bool has_strength = current_style != STYLE_SMART_ERASE_VALUE;
     const double ratio = devicePixelRatioF();
-    for (auto it = block_size_buttons.begin(); it != block_size_buttons.end(); ++it)
+    for (auto it = block_size_buttons.begin(); it != block_size_buttons.end(); ++it) {
         it.value()->setIcon(QIcon(render_block_size_swatch(it.key(), swatch_side_, smooth, ratio)));
+        it.value()->setEnabled(has_strength);
+    }
+}
+
+void MosaicSettingsPanel::retranslate_kinds() {
+    for (const auto &kind : KINDS) kind_buttons[kind.value]->setToolTip(mosaic_tr(kind.label));
 }
 
 void MosaicSettingsPanel::set_size(int size) {
@@ -205,13 +236,12 @@ void MosaicSettingsPanel::set_draw_mode(const QString &requested) {
 }
 
 void MosaicSettingsPanel::set_style(const QString &requested) {
-    const auto style = (requested == STYLE_PIXELATE_VALUE || requested == STYLE_BLUR_VALUE) ? requested : STYLE_PIXELATE_VALUE;
+    const auto style = kind_buttons.contains(requested) ? requested : STYLE_PIXELATE_VALUE;
     current_style = style;
-    const int idx = style_combo->findData(style);
-    if (idx >= 0) {
-        style_combo->blockSignals(true);
-        style_combo->setCurrentIndex(idx);
-        style_combo->blockSignals(false);
+    for (auto it = kind_buttons.begin(); it != kind_buttons.end(); ++it) {
+        it.value()->blockSignals(true);
+        it.value()->setChecked(it.key() == style);
+        it.value()->blockSignals(false);
     }
     refresh_block_size_icons();
 }
@@ -229,8 +259,7 @@ void MosaicSettingsPanel::retranslate() {
     size_spin->setToolTip(mosaic_tr("Brush Size"));
     int index = 0;
     for (auto *button : block_size_buttons) button->setToolTip(mosaic_tr(BLOCK_SIZE_TIPS[index++]));
-    style_combo->setItemText(0, mosaic_tr("Mosaic"));
-    style_combo->setItemText(1, mosaic_tr("Blur"));
-    style_combo->setToolTip(mosaic_tr("Mosaic Style"));
+    retranslate_kinds();
+    adjustSize();
 }
 }

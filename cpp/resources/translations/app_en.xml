@@ -4102,6 +4102,10 @@ This action cannot be undone.</translation>
         <translation>Blur</translation>
     </message>
     <message>
+        <source>Smart Erase</source>
+        <translation>Smart Erase</translation>
+    </message>
+    <message>
         <source>Mosaic Style</source>
         <translation>Mosaic Style</translation>
     </message>
