@@ -7,16 +7,23 @@
 #include "pin/pin_toolbar.h"
 #include "pin/pin_window.h"
 #include "canvas/smart_edit_controller.h"
+#include "canvas/undo.h"
+#include "settings/tool_settings.h"
 #include <QApplication>
 #include <QCursor>
 
 namespace jietuba {
 namespace {
-const QStringList PIN_KEYS = {
-    "inapp_copy_pin", "inapp_copy_pin_text", "inapp_pin_reset_size",
-    "inapp_thumbnail", "inapp_toggle_toolbar", "inapp_pin_hide_annotations", "inapp_delete", "inapp_pin_lock", "inapp_pin_text_mode",
-    "inapp_pin_text_selection", "inapp_pin_text_edit",
-};
+// Undo, redo and the tool keys are the capture window's bindings.
+QStringList pin_keys() {
+    QStringList keys = {
+        "inapp_copy_pin", "inapp_copy_pin_text", "inapp_pin_reset_size",
+        "inapp_thumbnail", "inapp_toggle_toolbar", "inapp_pin_hide_annotations", "inapp_delete", "inapp_pin_lock", "inapp_pin_text_mode",
+        "inapp_pin_text_selection", "inapp_pin_text_edit", "inapp_undo", "inapp_redo",
+    };
+    for (const auto &entry : ANNOTATION_TOOL_SHORTCUTS()) keys.append(entry.config_key);
+    return keys;
+}
 
 // Esc clears a text selection before it leaves a tool or closes the pin.
 bool clear_text_selection(PinWindow *pin) { return pin->text_selection() && pin->text_selection()->clear_selection(); }
@@ -25,8 +32,9 @@ bool clear_text_selection(PinWindow *pin) { return pin->text_selection() && pin-
 PinHandlerBase::PinHandlerBase(PinShortcutController *controller) : controller_(controller) { reload_bindings(); }
 
 void PinHandlerBase::reload_bindings() {
-    bindings_ = load_inapp_bindings(PIN_KEYS);
-    mouse_bindings_ = load_inapp_mouse_bindings(PIN_KEYS);
+    const auto keys = pin_keys();
+    bindings_ = load_inapp_bindings(keys);
+    mouse_bindings_ = load_inapp_mouse_bindings(keys);
     // Mouse reset belongs to the dedicated mouse settings (including migration).
     mouse_bindings_.remove("inapp_pin_reset_size");
 }
@@ -65,6 +73,15 @@ bool PinHandlerBase::handle_shared(PinWindow *pin, QInputEvent *event) {
         if (pin->thumbnail_mode() || pin->text_mode()) return false;
         if (pin->lock_blocks("move")) pin->show_locked_hint();
         else pin->reset_to_original_size();
+        return true;
+    }
+    // Annotations stay undoable after leaving the tool, as with the toolbar buttons; a thumbnail or
+    // text mode does not show them, so the key goes on.
+    const bool undo = match(event, "inapp_undo");
+    if (undo || match(event, "inapp_redo")) {
+        if (!pin->canvas || pin->thumbnail_mode() || pin->text_mode()) return false;
+        if (undo) pin->canvas->undo_stack->undo();
+        else pin->canvas->undo_stack->redo();
         return true;
     }
     return false;
@@ -109,6 +126,12 @@ bool PinEditShortcutHandler::handle_key(QInputEvent *event) {
     }
     if (match(event, "inapp_delete")) {
         if (pin->view && pin->view->smart_edit_controller) pin->view->smart_edit_controller->delete_selected();
+        return true;
+    }
+    // Only while editing: outside it the default tool letters P, R and T are pin keys.
+    for (const auto &entry : ANNOTATION_TOOL_SHORTCUTS()) {
+        if (!match(event, entry.config_key)) continue;
+        if (!event_is_auto_repeat(event) && pin->toolbar) pin->toolbar->select_tool(entry.tool_id, false);
         return true;
     }
     // Other keys are not swallowed while editing.

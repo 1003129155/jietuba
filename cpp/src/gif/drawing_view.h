@@ -67,6 +67,10 @@ public:
     // Follows the recording area's position and size.
     void update_rect(const QRect &rect);
     void activate_tool(const QString &tool_id);
+    // The owner's toolbar picks the tool, so its buttons and panels follow the keys; returns whether
+    // it has the tool. Without a selector only "cursor" is taken.
+    void set_tool_selector(std::function<bool(const QString &)> selector) { tool_selector_ = std::move(selector); }
+    bool request_tool(const QString &tool_id);
     // Windows whose keys are the layer's too: clicking the owner's toolbar activates it.
     void set_shortcut_scope(std::function<bool(const QWidget *)> owns) { shortcut_scope_ = std::move(owns); }
     bool in_shortcut_scope(const QWidget *window) const { return window == this || (shortcut_scope_ && shortcut_scope_(window)); }
@@ -89,6 +93,7 @@ private:
     void on_gif_tool_changed(const QString &tool_id);
     GifDrawingScene *gif_scene_;
     bool passthrough_ = true;
+    std::function<bool(const QString &)> tool_selector_;
     std::function<bool(const QWidget *)> shortcut_scope_;
     std::unique_ptr<GifDrawingShortcutHandler> shortcut_handler_;
 };

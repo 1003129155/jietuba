@@ -29,6 +29,7 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QMimeData>
+#include <QPointer>
 #include <QScreen>
 #include <QUrl>
 
@@ -76,6 +77,7 @@ GifRecordWindow::GifRecordWindow(const QRect &capture_rect, QObject *parent) : Q
 
     record_toolbar_ = new RecordToolbar;
     connect_record_toolbar();
+    drawing_view_->set_tool_selector([toolbar = QPointer<RecordToolbar>(record_toolbar_)](const QString &tool_id) { return toolbar && toolbar->select_tool(tool_id); });
     drawing_view_->set_shortcut_scope([toolbar = QPointer<RecordToolbar>(record_toolbar_)](const QWidget *window) { return toolbar && toolbar->owns_window(window); });
 
     playback_ = new PlaybackController(this);

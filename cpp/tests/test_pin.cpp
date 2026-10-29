@@ -1909,6 +1909,49 @@ private slots:
         QVERIFY(pin->is_closed());
     }
 
+    // While drawing, undo, redo and the tool keys work as in the capture window. After leaving the tool
+    // undo still reaches the annotations, and the tool letters are pin keys again.
+    void drawingKeysWorkOnPins() {
+        auto *pin = make_pin(QSize(300, 200));
+        pin->show();
+        QCursor::setPos(pin->mapToGlobal(QPoint(150, 100)));
+        PinShortcutController::instance()->reload_bindings();
+        pin->show_toolbar();
+        auto *canvas = pin->canvas;
+        const auto rects = [canvas] { return items_of<RectItem>(canvas->scene).size(); };
+        pin->toolbar->select_tool("rect");
+        drag_on(pin->view->viewport(), QPoint(40, 40), QPoint(140, 110));
+        QCOMPARE(rects(), 1);
+        press_key(pin, Qt::Key_Z, Qt::ControlModifier);
+        QCOMPARE(rects(), 0);
+        press_key(pin, Qt::Key_Y, Qt::ControlModifier);
+        QCOMPARE(rects(), 1);
+        press_key(pin, Qt::Key_A);
+        QCOMPARE(canvas->tool_controller->current_tool_id(), QString("arrow"));
+        QCOMPARE(pin->toolbar->current_tool.value_or(QString()), QString("arrow"));
+        // R is the rectangle here, not the thumbnail.
+        press_key(pin, Qt::Key_R);
+        QCOMPARE(canvas->tool_controller->current_tool_id(), QString("rect"));
+        QVERIFY(!pin->thumbnail_mode());
+        // S is the cursor tool, which leaves editing.
+        press_key(pin, Qt::Key_S);
+        QVERIFY(!canvas->is_editing());
+        QVERIFY(!pin->toolbar->current_tool);
+
+        press_key(pin, Qt::Key_Z, Qt::ControlModifier);
+        QCOMPARE(rects(), 0);
+        press_key(pin, Qt::Key_Y, Qt::ControlModifier);
+        QCOMPARE(rects(), 1);
+        press_key(pin, Qt::Key_A);
+        QVERIFY(!canvas->is_editing());
+        // A thumbnail does not show the annotations, so nothing is undone there.
+        press_key(pin, Qt::Key_R);
+        QVERIFY(pin->thumbnail_mode());
+        QCursor::setPos(pin->geometry().center());
+        press_key(pin, Qt::Key_Z, Qt::ControlModifier);
+        QCOMPARE(rects(), 1);
+    }
+
     // A modal dialog over the pin (watermark text, toolbar layout) owns the keyboard even with the pointer on the
     // pin: otherwise the first Esc leaves editing and the second closes the pin. The middle button still reaches it.
     void aModalDialogOwnsTheKeyboard() {

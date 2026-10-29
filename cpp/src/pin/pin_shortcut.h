@@ -38,7 +38,7 @@ protected:
     // A popup menu does not take activation and the pointer stays on the pin: keys belong to the menu,
     // otherwise Esc closes the pin together with its context menu.
     static bool menu_open(QInputEvent *event);
-    // Shortcuts that behave the same with and without editing.
+    // Shortcuts that behave the same with and without editing, undo and redo among them.
     bool handle_shared(PinWindow *pin, QInputEvent *event);
 private:
     QString selected_ocr_text() const;
@@ -48,7 +48,7 @@ private:
     QHash<QString, MouseBinding> mouse_bindings_;
 };
 
-// The target pin is being edited: copy, Esc leaves editing, delete. Asked before
+// The target pin is being edited: copy, undo, Esc leaves editing, delete, tool keys. Asked before
 // the normal handler.
 class PinEditShortcutHandler : public PinHandlerBase {
 public:
@@ -57,7 +57,7 @@ public:
     bool handle_key(QInputEvent *event) override;
 };
 
-// The target pin is not being edited: copy, thumbnail, lock, Esc closes.
+// The target pin is not being edited: copy, undo, thumbnail, lock, Esc closes.
 class PinNormalShortcutHandler : public PinHandlerBase {
 public:
     using PinHandlerBase::PinHandlerBase;

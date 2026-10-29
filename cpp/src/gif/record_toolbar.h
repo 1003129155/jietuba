@@ -59,6 +59,9 @@ public:
     int get_max_panel_height() const;
     // External highlight (for example when Esc leaves drawing).
     void highlight_tool(const std::optional<QString> &tool_id);
+    // Selects a tool as its button does, without toggling; "cursor" leaves drawing. False for a
+    // tool the toolbar does not have.
+    bool select_tool(const QString &tool_id);
     // Syncs the current colour and width from the tool controller into the panels.
     void sync_from_controller(const ToolController &tool_controller);
     // Sets the stroke width shown by every panel without emitting.

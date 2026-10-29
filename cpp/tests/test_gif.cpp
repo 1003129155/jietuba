@@ -609,6 +609,68 @@ private slots:
         QTRY_VERIFY(active_gif_window().isNull());
     }
 
+    // Undo, redo and the tool keys use the capture window's bindings. Tool keys and Esc go through the
+    // toolbar, so its buttons follow and one click picks a tool again after Esc.
+    void drawingKeysFollowTheCaptureBindings() {
+        auto *config = get_tool_settings_manager();
+        config->set_app_setting("recording_format", "gif");
+        config->set_inapp_shortcut("inapp_undo", "ctrl+shift+z");
+        const auto available = QGuiApplication::primaryScreen()->availableGeometry();
+        auto *window = new GifRecordWindow(QRect(available.center() - QPoint(160, 100), QSize(320, 200)));
+        config->set_inapp_shortcut("inapp_undo", "ctrl+z");
+        active_gif_window() = window;
+        RecordToolbar *toolbar = nullptr;
+        QTRY_VERIFY((toolbar = visible_top_level<RecordToolbar>()));
+        GifDrawingView *view = nullptr;
+        for (auto *widget : QApplication::allWidgets())
+            if (auto *found = qobject_cast<GifDrawingView *>(widget)) view = found;
+        QVERIFY(view);
+        auto *rect_button = button_with_tooltip(toolbar, "矩形");
+        auto *arrow_button = button_with_tooltip(toolbar, "箭头");
+        QVERIFY(rect_button && arrow_button);
+        const auto tool = [view] { return view->canvas_scene->tool_controller->current_tool_id(); };
+        const auto rects = [view] {
+            int count = 0;
+            for (auto *item : view->canvas_scene->items()) count += dynamic_cast<RectItem *>(item) != nullptr;
+            return count;
+        };
+        rect_button->click();
+        auto *viewport = view->viewport();
+        const auto send = [viewport](QEvent::Type type, const QPoint &pos, Qt::MouseButtons buttons) {
+            QMouseEvent event(type, QPointF(pos), QPointF(viewport->mapToGlobal(pos)), type == QEvent::MouseMove ? Qt::NoButton : Qt::LeftButton, buttons, Qt::NoModifier);
+            QApplication::sendEvent(viewport, &event);
+        };
+        send(QEvent::MouseButtonPress, QPoint(40, 40), Qt::LeftButton);
+        send(QEvent::MouseMove, QPoint(90, 80), Qt::LeftButton);
+        send(QEvent::MouseMove, QPoint(140, 120), Qt::LeftButton);
+        send(QEvent::MouseButtonRelease, QPoint(140, 120), Qt::NoButton);
+        QCOMPARE(rects(), 1);
+        QTest::keyClick(view, Qt::Key_Z, Qt::ControlModifier);
+        QCOMPARE(rects(), 1);
+        QTest::keyClick(view, Qt::Key_Z, Qt::ControlModifier | Qt::ShiftModifier);
+        QCOMPARE(rects(), 0);
+        QTest::keyClick(view, Qt::Key_Y, Qt::ControlModifier);
+        QCOMPARE(rects(), 1);
+
+        QTest::keyClick(view, Qt::Key_A);
+        QCOMPARE(tool(), QString("arrow"));
+        QVERIFY(arrow_button->isChecked() && !rect_button->isChecked());
+        // The layer has no highlighter.
+        QTest::keyClick(view, Qt::Key_M);
+        QCOMPARE(tool(), QString("arrow"));
+        QTest::keyClick(view, Qt::Key_Escape);
+        QCOMPARE(tool(), QString("cursor"));
+        QVERIFY(!arrow_button->isChecked());
+        arrow_button->click();
+        QCOMPARE(tool(), QString("arrow"));
+        // S is the cursor tool.
+        QTest::keyClick(view, Qt::Key_S);
+        QCOMPARE(tool(), QString("cursor"));
+        QVERIFY(!arrow_button->isChecked());
+        button_with_tooltip(toolbar, "关闭")->click();
+        QTRY_VERIFY(active_gif_window().isNull());
+    }
+
     // MP4 from the window: the save dialog, the worker started by this executable, pause,
     // stop, and the result row's actions.
     void mp4FromTheWindowSavesAndOffersTheResult() {

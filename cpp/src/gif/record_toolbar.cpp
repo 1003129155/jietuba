@@ -504,18 +504,25 @@ int RecordToolbar::get_max_panel_height() const {
 // ── Drawing tools ──
 
 void RecordToolbar::on_tool_clicked(const QString &tool_id) {
-    if (current_tool_ == tool_id) {
-        // Clicking the same tool again deselects it and returns to pass-through.
+    // Clicking the same tool again deselects it and returns to pass-through.
+    select_tool(current_tool_ == tool_id ? QString("cursor") : tool_id);
+}
+
+bool RecordToolbar::select_tool(const QString &tool_id) {
+    if (tool_id == "cursor") {
         current_tool_.reset();
         update_tool_checked();
         hide_all_panels();
         emit deactivate_requested();
-        return;
+        return true;
     }
+    if (std::none_of(tool_buttons_.begin(), tool_buttons_.end(), [&tool_id](const auto &entry) { return entry.first == tool_id; })) return false;
+    if (current_tool_ == tool_id) return true;
     current_tool_ = tool_id;
     update_tool_checked();
     show_panel_for_tool(tool_id);
     emit tool_selected(tool_id);
+    return true;
 }
 
 void RecordToolbar::update_tool_checked() {
