@@ -38,6 +38,7 @@ class GroupBar;
 class ManageDialog;
 
 inline const QString QUICK_EDIT_SHORTCUT = "inapp_clipboard_quick_edit";
+inline const QString SEARCH_SHORTCUT = "inapp_clipboard_search";
 
 // Keys of the clipboard window, its popups and dialogs.
 class ClipboardShortcutHandler : public ShortcutHandler {
@@ -137,6 +138,8 @@ public:
     void mark_items_to(qint64 item_id);
     // The quick edit key: text opens quick edit, other items in a group open the group editor.
     bool edit_selected();
+    // The search key: into the search box, or from it back to the list with the search kept.
+    void toggle_search();
     // This window or one it parents: a menu, a confirmation, quick edit.
     bool owns_window(const QWidget *window) const;
     // A screen area the window must not cover when it next shows, such as the text being typed in a

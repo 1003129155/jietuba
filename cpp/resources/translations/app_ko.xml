@@ -304,6 +304,10 @@
         <translation>빠른 편집</translation>
     </message>
     <message>
+        <source>Search</source>
+        <translation>검색</translation>
+    </message>
+    <message>
         <source>Save Edit</source>
         <translation>편집 저장</translation>
     </message>

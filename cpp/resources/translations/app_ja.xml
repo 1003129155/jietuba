@@ -311,6 +311,10 @@
         <translation>クイック編集</translation>
     </message>
     <message>
+        <source>Search</source>
+        <translation>検索</translation>
+    </message>
+    <message>
         <source>Save Edit</source>
         <translation>編集を保存</translation>
     </message>

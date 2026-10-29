@@ -325,6 +325,10 @@
         <translation>快速編輯</translation>
     </message>
     <message>
+        <source>Search</source>
+        <translation>搜尋</translation>
+    </message>
+    <message>
         <source>Save Edit</source>
         <translation>儲存編輯</translation>
     </message>

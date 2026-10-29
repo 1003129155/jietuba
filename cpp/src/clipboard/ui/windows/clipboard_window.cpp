@@ -66,7 +66,7 @@ ClipboardShortcutHandler::ClipboardShortcutHandler(ClipboardWindow *window) : wi
 
 void ClipboardShortcutHandler::reload_bindings() {
     // Read on each show, so changed settings apply next time.
-    bindings_ = load_inapp_bindings({QUICK_EDIT_SHORTCUT});
+    bindings_ = load_inapp_bindings({QUICK_EDIT_SHORTCUT, SEARCH_SHORTCUT});
     pick_keys = clipboard_pick_keys(get_tool_settings_manager()->get_inapp_clipboard_pick_mode());
 }
 
@@ -90,6 +90,10 @@ bool ClipboardShortcutHandler::handle_key(QInputEvent *event) {
 
     // Configured keys come before the fixed Enter and direct pick letters below.
     if (match_inapp_binding(event, QUICK_EDIT_SHORTCUT, bindings_) && w->edit_selected()) return true;
+    if (match_inapp_binding(event, SEARCH_SHORTCUT, bindings_)) {
+        w->toggle_search();
+        return true;
+    }
 
     if (key == Qt::Key_Escape) {
         // The cursor only points, so there is nothing else to undo before closing.
@@ -102,10 +106,6 @@ bool ClipboardShortcutHandler::handle_key(QInputEvent *event) {
     }
     // Delete is only in the context menu, so the Delete key next to Enter cannot remove items by mistake.
     if (key == Qt::Key_Delete) return true;
-    if (key == Qt::Key_F && modifiers == Qt::ControlModifier) {
-        w->search_input->setFocus();
-        return true;
-    }
     if (modifiers & DIRECT_PICK_BLOCKERS) return false;
 
     const QString character = pick_char(key);
@@ -1182,6 +1182,15 @@ void ClipboardWindow::file_special_paste(qint64 item_id, const QString &action_k
 
 void ClipboardWindow::edit_item(qint64 item_id) {
     controller->open_manage_dialog_for_item(item_id, controller->current_group_id, [this](ManageDialog *dialog) { connect_manage_dialog(dialog); });
+}
+
+void ClipboardWindow::toggle_search() {
+    if (QApplication::focusWidget() != search_input) {
+        search_input->setFocus();
+        return;
+    }
+    list_widget->setFocus();
+    if (!selection_manager->cursor_id()) selection_manager->move_cursor(1);
 }
 
 bool ClipboardWindow::edit_selected() {

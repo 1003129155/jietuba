@@ -305,6 +305,10 @@
         <translation>Quick Edit</translation>
     </message>
     <message>
+        <source>Search</source>
+        <translation>Search</translation>
+    </message>
+    <message>
         <source>Save Edit</source>
         <translation>Save Edit</translation>
     </message>

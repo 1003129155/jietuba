@@ -2215,6 +2215,26 @@ private slots:
         }
     }
 
+    void theClipboardSearchKeyIsAClipboardShortcutThatTakesNoTypingKeys() {
+        const auto restore = qScopeGuard([this] { config_->set_inapp_shortcut("inapp_clipboard_search", "ctrl+f"); });
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.build_all_pages();
+        auto *edit = dialog.inapp_edit("inapp_clipboard_search");
+        QVERIFY(edit);
+        QCOMPARE(edit->text(), QString("ctrl+f"));
+        // In the clipboard group, so it is checked against the other clipboard keys and direct pick.
+        QCOMPARE(dialog.inapp_groups.value("inapp_clipboard_search"), QString("clipboard"));
+        // It also works while typing in the search box, so a plain letter or caret key is not taken.
+        for (const auto &[key, text] : {std::pair{Qt::Key_A, "a"}, std::pair{Qt::Key_Left, ""}}) {
+            QKeyEvent typing(QEvent::KeyPress, key, Qt::NoModifier, QString(text));
+            QApplication::sendEvent(edit, &typing);
+            QCOMPARE(edit->text(), QString("ctrl+f"));
+        }
+        QKeyEvent with_ctrl(QEvent::KeyPress, Qt::Key_K, Qt::ControlModifier);
+        QApplication::sendEvent(edit, &with_ctrl);
+        QCOMPARE(edit->text(), QString("ctrl+k"));
+    }
+
     void undoAndRedoBelongToAnnotationTools() {
         SettingsDialog dialog(config_, config_->get_hotkey());
         auto *stack = dialog.findChild<QStackedWidget *>("InAppShortcutStack");

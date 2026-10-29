@@ -1010,6 +1010,35 @@ private slots:
         QCOMPARE(row_ids(), (QList<qint64>{ids[2], ids[1]}));
     }
 
+    void theSearchKeyGoesIntoTheSearchBoxAndBackOut() {
+        const auto restore = qScopeGuard([this] { env_.config->set_inapp_shortcut(SEARCH_SHORTCUT, "ctrl+f"); });
+        add_texts({"older", "newer"});
+        auto *window = open_window();
+        QTRY_COMPARE(window->list_widget->count(), 2);
+        window->activateWindow();
+        QTRY_VERIFY(window->isActiveWindow());
+        window->list_widget->setFocus();
+        // Ctrl+F by default: into the search box, and pressed there back to the list, with the search kept
+        // and the cursor on the first row when it had none.
+        QVERIFY(key(Qt::Key_F, Qt::ControlModifier));
+        QTRY_COMPARE(QApplication::focusWidget(), window->search_input);
+        window->search_input->setText("e");
+        QTest::qWait(400);
+        QTRY_COMPARE(window->list_widget->count(), 2);
+        window->selection_manager->clear_cursor();
+        QVERIFY(key(Qt::Key_F, Qt::ControlModifier));
+        QTRY_COMPARE(QApplication::focusWidget(), window->list_widget);
+        QCOMPARE(window->search_input->text(), QString("e"));
+        QCOMPARE(window->selection_manager->cursor_row(), 0);
+        // Another key takes its place; cleared, there is none.
+        env_.config->set_inapp_shortcut(SEARCH_SHORTCUT, "ctrl+k");
+        QVERIFY(!key(Qt::Key_F, Qt::ControlModifier));
+        QVERIFY(key(Qt::Key_K, Qt::ControlModifier));
+        QTRY_COMPARE(QApplication::focusWidget(), window->search_input);
+        env_.config->set_inapp_shortcut(SEARCH_SHORTCUT, "");
+        QVERIFY(!key(Qt::Key_K, Qt::ControlModifier));
+    }
+
     void theGroupBarSwitchesGroupsByMouseAndKeyboard() {
         const auto work = manager().create_group("Work", std::nullopt, QString::fromUtf8("💼"));
         const auto apps = manager().create_group("Apps", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILE));

@@ -309,6 +309,10 @@
         <translation>快速编辑</translation>
     </message>
     <message>
+        <source>Search</source>
+        <translation>搜索</translation>
+    </message>
+    <message>
         <source>Save Edit</source>
         <translation>保存编辑</translation>
     </message>

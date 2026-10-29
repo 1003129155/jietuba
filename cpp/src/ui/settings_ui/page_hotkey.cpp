@@ -65,6 +65,11 @@ const std::vector<InAppKey> CLIPBOARD_EDITOR_KEYS = {
     {"inapp_clipboard_edit_save_paste", "Save and Paste", "ctrl+shift+enter"},
 };
 
+// Pressed again in the search box it leaves it, so it must not take typing keys either.
+const std::vector<InAppKey> CLIPBOARD_SEARCH_KEYS = {
+    {"inapp_clipboard_search", "Search", "ctrl+f"},
+};
+
 const QString CURSOR_MOVE_ICON = QString::fromUtf8("移动窗口.svg");
 
 // (function, attribute of the slot 1 editor, title, tone, icon); slot n's attribute adds _n, like the setting.
@@ -324,6 +329,7 @@ const std::vector<InAppKey> &INAPP_KEYS() {
         result.insert(result.end(), PIN_KEYS.begin(), PIN_KEYS.end());
         result.insert(result.end(), CLIPBOARD_KEYS.begin(), CLIPBOARD_KEYS.end());
         result.insert(result.end(), CLIPBOARD_EDITOR_KEYS.begin(), CLIPBOARD_EDITOR_KEYS.end());
+        result.insert(result.end(), CLIPBOARD_SEARCH_KEYS.begin(), CLIPBOARD_SEARCH_KEYS.end());
         return result;
     }();
     return keys;
@@ -366,6 +372,7 @@ IconSource inapp_icon(const QString &cfg_key) {
         {"inapp_clipboard_quick_edit", FluentIcon::Edit},
         {"inapp_clipboard_edit_save", FluentIcon::Save},
         {"inapp_clipboard_edit_save_paste", FluentIcon::Send},
+        {"inapp_clipboard_search", FluentIcon::Search},
     };
     return icons.value(cfg_key);
 }
@@ -483,8 +490,10 @@ QWidget *create_hotkey_page(SettingsDialog *dialog) {
     // The clipboard window's handler takes only keys.
     QSet<QString> editor_keys;
     for (const auto &key : CLIPBOARD_EDITOR_KEYS) editor_keys.insert(key.cfg_key);
+    for (const auto &key : CLIPBOARD_SEARCH_KEYS) editor_keys.insert(key.cfg_key);
     auto keys = CLIPBOARD_KEYS;
     keys.insert(keys.end(), CLIPBOARD_EDITOR_KEYS.begin(), CLIPBOARD_EDITOR_KEYS.end());
+    keys.insert(keys.end(), CLIPBOARD_SEARCH_KEYS.begin(), CLIPBOARD_SEARCH_KEYS.end());
     stack->addWidget(build_tab(keys, "clipboard",
                                {[dialog, clipboard_pick_combo](QWidget *page) { return inapp_row(page, FluentIcon::Paste, dialog->tr_text("Direct Pick Keys"), clipboard_pick_combo); }},
                                false, editor_keys));
