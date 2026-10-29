@@ -2697,6 +2697,10 @@ Replace it?</translation>
 <context>
     <name>ClipboardWindow</name>
     <message>
+        <source>Favorites</source>
+        <translation>Favorites</translation>
+    </message>
+    <message>
         <source>Clipboard History</source>
         <translation>Clipboard History</translation>
     </message>
@@ -5096,6 +5100,10 @@ SOFTWARE.</translation></message>
 
 <context>
     <name>GroupBar</name>
+    <message>
+        <source>New Group</source>
+        <translation>New Group</translation>
+    </message>
     <message>
         <source>Clipboard History</source>
         <translation>Clipboard History</translation>

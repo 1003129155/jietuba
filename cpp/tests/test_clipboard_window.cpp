@@ -1473,21 +1473,24 @@ private slots:
         QCOMPARE(bar->clipboard_btn->text(), QString::fromUtf8("📋"));
         QCOMPARE(bar->group_buttons.first()->text(), QString::fromUtf8("💼"));
         QCOMPARE(bar->group_buttons.first()->toolTip(), QString("Work"));
-        // Close and add are line icons in the theme's secondary text color, with no symbol characters.
+        // Close and add are line icons with no symbol characters: close in the secondary text color, add in the accent.
         for (const char *name : {"light", "dark"}) {
             QVERIFY(themes->set_theme(name));
             for (QPushButton *button : {bar->close_btn, bar->add_group_btn}) {
                 QVERIFY(button->text().isEmpty());
                 QVERIFY(!button->icon().isNull());
-                QCOMPARE(icon_color(button->icon()), QColor(preset_theme(name)->colors.text_secondary));
             }
+            QCOMPARE(icon_color(bar->close_btn->icon()), QColor(preset_theme(name)->colors.text_secondary));
+            QCOMPARE(icon_color(bar->add_group_btn->icon()), QColor(preset_theme(name)->colors.accent_primary));
         }
+        QCOMPARE(bar->add_group_btn->toolTip(), QString("New Group"));
         // Side bar buttons are taller than wide, and follow the panel scale.
         QCOMPARE(bar->clipboard_btn->size(), QSize(41, 34));
         QCOMPARE(bar->add_group_btn->size(), QSize(41, 34));
         get_ui_scale().set_percent(150);
         QTRY_COMPARE(bar->clipboard_btn->size(), QSize(62, 51));
         QCOMPARE(bar->close_btn->iconSize(), QSize(21, 21));
+        QCOMPARE(bar->add_group_btn->iconSize(), QSize(27, 27));
         QTRY_COMPARE(bar->group_buttons.first()->size(), QSize(62, 51));
     }
 

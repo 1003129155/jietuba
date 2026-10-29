@@ -2797,6 +2797,10 @@ Replace it?</source>
 <context>
     <name>ClipboardWindow</name>
     <message>
+        <source>Favorites</source>
+        <translation>お気に入り</translation>
+    </message>
+    <message>
         <source>Clipboard History</source>
         <translation>クリップボード履歴</translation>
     </message>
@@ -5181,6 +5185,10 @@ SOFTWARE.</translation></message>
 
 <context>
     <name>GroupBar</name>
+    <message>
+        <source>New Group</source>
+        <translation>新しいグループ</translation>
+    </message>
     <message>
         <source>Clipboard History</source>
         <translation>クリップボード履歴</translation>

@@ -93,6 +93,44 @@ private slots:
 
     void init() { QVERIFY(env_.fresh_database()); }
 
+    void starterGroupsAreAddedOnceAndOnlyWithoutGroups() {
+        auto &manager = ClipboardManager::instance();
+        const auto translate = [](const char *text) { return QString::fromUtf8(text); };
+        const auto names = [&manager] {
+            QStringList list;
+            for (const auto &group : manager.get_groups()) list << group.name;
+            return list;
+        };
+        const auto restore = qScopeGuard([this] { env_.config->set_clipboard_starter_groups_seeded(false); });
+
+        // Someone who already has groups gets nothing new, and is not asked again.
+        env_.config->set_clipboard_starter_groups_seeded(false);
+        QVERIFY(manager.create_group("Work"));
+        seed_starter_groups(manager, env_.config, translate);
+        QCOMPARE(names(), QStringList{"Work"});
+        QVERIFY(env_.config->get_clipboard_starter_groups_seeded());
+
+        // A history without groups gets a normal group to move items into, then an image filter group.
+        QVERIFY(env_.fresh_database());
+        env_.config->set_clipboard_starter_groups_seeded(false);
+        seed_starter_groups(manager, env_.config, translate);
+        const auto groups = manager.get_groups();
+        QCOMPARE(groups.size(), 2);
+        QCOMPARE(groups[0].name, QString("Favorites"));
+        QCOMPARE(groups[0].group_type, static_cast<int>(GroupType::NORMAL));
+        QCOMPARE(groups[1].name, QString("Image"));
+        QVERIFY(groups[1].is_filter());
+        QCOMPARE(groups[1].filter_rule, std::optional<FilterRule>(FilterRule::of_kind("image")));
+        const auto note_id = manager.add_item("note");
+        QVERIFY(note_id);
+        QVERIFY(manager.move_to_group(*note_id, groups[0].id));
+
+        // Deleting every group does not bring them back.
+        for (const auto &group : groups) QVERIFY(manager.delete_group(group.id));
+        seed_starter_groups(manager, env_.config, translate);
+        QVERIFY(names().isEmpty());
+    }
+
     void cleanup() {
         if (auto *dialog = get_existing_manage_dialog()) {
             dialog->hide();

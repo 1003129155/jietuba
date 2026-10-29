@@ -1,5 +1,7 @@
 #include "clipboard/services/group_service.h"
 #include "clipboard/core/kind_catalog.h"
+#include "clipboard/core/manager.h"
+#include "settings/tool_settings.h"
 
 namespace jietuba::clipboard {
 const QString &GENERAL_GROUP_ICON() {
@@ -75,5 +77,15 @@ QString make_unique_group_name(const QString &base_name, const QSet<QString> &us
 
 QString build_delete_group_confirm_message(const std::function<QString(const char *)> &translate) {
     return translate("Are you sure you want to delete this group?") + "\n" + translate("Items in the group will be moved back to clipboard history.");
+}
+
+void seed_starter_groups(ClipboardManager &manager, ToolSettingsManager *config, const std::function<QString(const char *)> &translate) {
+    if (config->get_clipboard_starter_groups_seeded()) return;
+    // Someone who already made groups knows the feature; an unreadable database is retried next start.
+    if (manager.get_groups().isEmpty()) {
+        if (!manager.create_group(translate("Favorites"), std::nullopt, QString::fromUtf8("⭐"))) return;
+        manager.create_group(translate("Image"), std::nullopt, std::nullopt, static_cast<int>(GroupType::FILTER), FilterRule::of_kind("image"));
+    }
+    config->set_clipboard_starter_groups_seeded(true);
 }
 }

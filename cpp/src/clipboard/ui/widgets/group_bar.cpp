@@ -127,7 +127,9 @@ void GroupBar::apply_button_look() {
         btn->setIconSize(icon_size);
     }
     close_btn->setIcon(tinted_icon(FluentIcon::Cancel, colors.text_secondary));
-    add_group_btn->setIcon(tinted_icon(ResourceManager::get_icon_path("add.svg"), colors.text_secondary));
+    // Accent colored and larger than close: the plus is how most people find out groups exist.
+    add_group_btn->setIconSize(QSize(scaled(18), scaled(18)));
+    add_group_btn->setIcon(tinted_icon(ResourceManager::get_icon_path("add.svg"), colors.accent_primary));
     if (separator_) separator_->setStyleSheet(QString("background: %1;").arg(ThemeStyleGenerator(current_theme_).divider_color()));
 }
 
@@ -195,6 +197,7 @@ QPushButton *GroupBar::create_add_group_btn() {
     auto *btn = new QPushButton(this);
     btn->setCursor(Qt::PointingHandCursor);
     btn->setFocusPolicy(Qt::NoFocus);
+    btn->setToolTip(tr_text("New Group"));
     connect(btn, &QPushButton::clicked, this, &GroupBar::manage_groups_requested);
     return btn;
 }

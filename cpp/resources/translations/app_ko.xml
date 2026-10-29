@@ -2775,6 +2775,10 @@ Replace it?</source>
 <context>
     <name>ClipboardWindow</name>
     <message>
+        <source>Favorites</source>
+        <translation>즐겨찾기</translation>
+    </message>
+    <message>
         <source>Clipboard History</source>
         <translation>클립보드 기록</translation>
     </message>
@@ -5173,6 +5177,10 @@ SOFTWARE.</translation></message>
 
 <context>
     <name>GroupBar</name>
+    <message>
+        <source>New Group</source>
+        <translation>새 그룹</translation>
+    </message>
     <message>
         <source>Clipboard History</source>
         <translation>클립보드 기록</translation>

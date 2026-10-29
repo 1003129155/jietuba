@@ -2800,6 +2800,10 @@ Replace it?</source>
 <context>
     <name>ClipboardWindow</name>
     <message>
+        <source>Favorites</source>
+        <translation>收藏</translation>
+    </message>
+    <message>
         <source>Clipboard History</source>
         <translation>剪貼簿歷史</translation>
     </message>
@@ -5469,6 +5473,10 @@ SOFTWARE.</translation>
 </context>
 <context>
     <name>GroupBar</name>
+    <message>
+        <source>New Group</source>
+        <translation>新增分組</translation>
+    </message>
     <message>
         <source>Clipboard History</source>
         <translation>剪貼簿歷史</translation>

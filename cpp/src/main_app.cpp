@@ -1,5 +1,6 @@
 #include "main_app.h"
 #include "clipboard/core/manager.h"
+#include "clipboard/services/group_service.h"
 #include "clipboard/ui/dialogs/manage_dialog.h"
 #include "clipboard/ui/windows/clipboard_window.h"
 #include "clipboard/ui/windows/pin_window.h"
@@ -586,6 +587,7 @@ bool MainApp::set_clipboard_monitoring_enabled(bool enabled) {
             log_warning(T("剪贴板管理器不可用（pyclipboard 未安装）"), "Clipboard");
             return false;
         }
+        clipboard::seed_starter_groups(*manager, get_tool_settings_manager(), [](const char *text) { return i18n_tr(text, "ClipboardWindow"); });
         if (manager->is_monitoring()) return true;
         // Runs on the watcher thread; the signal is emitted on the GUI thread.
         manager->start_monitoring([this](const clipboard::ClipboardItem &item) {
