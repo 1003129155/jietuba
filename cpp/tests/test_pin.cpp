@@ -1633,6 +1633,17 @@ private slots:
         QCOMPARE(background->pixmap().size(), pin->size());
     }
 
+    // The pin and its background share the image's pixels, and a text's page becomes a pixmap without
+    // its pixels being copied.
+    void aPinKeepsOneCopyOfItsImage() {
+        auto *pin = make_pin(QSize(300, 200));
+        QCOMPARE(pin->canvas->scene->background->pixmap().cacheKey(), pin->base_pixmap().cacheKey());
+        arial_family();
+        const PinTextContent content("shared, not copied", {}, false);
+        const QImage page = content.render(content.size());
+        QCOMPARE(QPixmap::fromImage(page).toImage().constBits(), page.constBits());
+    }
+
     void aTextPinIsDrawnAgainForExportAndMosaic() {
         arial_family();
         auto *pin = make_text_pin(QString("exported at its own size\n").repeated(4).trimmed());

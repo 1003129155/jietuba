@@ -199,7 +199,6 @@ PinWindow::PinWindow(const QImage &image, const QPoint &position, ToolSettingsMa
     setAttribute(Qt::WA_TranslucentBackground, true);
     setMouseTracking(true);
     orig_size_ = image.size();
-    base_pixmap_ = QPixmap::fromImage(image);
     display_scaler_ = std::make_shared<PinDisplayScaler>();
     win_opacity_ = opacity_setting("pin_default_opacity");
     if (win_opacity_ < 1.0) setWindowOpacity(win_opacity_);
@@ -222,6 +221,8 @@ PinWindow::PinWindow(const QImage &image, const QPoint &position, ToolSettingsMa
     setGeometry(initial_geometry(position, image.size()));
     setup_control_buttons();
     canvas = new PinCanvas(this, orig_size_, image);
+    // The background's own pixmap: one copy of the pixels, which a large image takes milliseconds to make.
+    base_pixmap_ = canvas->scene->background->pixmap();
     if (!drawing_items.isEmpty()) canvas->initialize_from_items(drawing_items, selection_offset, number_next);
     cross_tool_selection_enabled_ = config_manager && config_manager->get_cross_tool_selection_enabled();
     view = new PinCanvasView(canvas->scene, this, canvas, cross_tool_selection_enabled_);

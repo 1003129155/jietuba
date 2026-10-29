@@ -220,6 +220,8 @@ QImage draw_page(const QTextDocument &document, const QSize &page, const QSize &
         document.documentLayout()->draw(&painter, context);
     }
     image.setDevicePixelRatio(device_pixel_ratio);
+    // The page is opaque: as RGB32 a pixmap shares its pixels instead of checking and copying them.
+    image.reinterpretAsFormat(QImage::Format_RGB32);
     return image;
 }
 
