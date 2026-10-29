@@ -468,6 +468,29 @@ private slots:
         QCOMPARE(saved_files().size(), 1);
     }
 
+    void aDoubleClickOnANumbersLabelSelectsItsText() {
+        config_->set_app_setting("mouse_capture_copy", "");
+        config_->set_app_setting("mouse_capture_quick_save", "doubleleft");
+        auto *window = open_with_selection();
+        window->toolbar->number_btn->click();
+        click(window, Qt::LeftButton, QPoint(120, 100));
+        NumberItem *number = nullptr;
+        for (auto *item : window->scene->items())
+            if ((number = dynamic_cast<NumberItem *>(item))) break;
+        QVERIFY(number);
+        window->view->smart_edit_controller->select_item(number);
+        number->set_label("note");
+        QSignalSpy ended(window, &ScreenshotWindow::session_ended);
+        const QPoint at = window->view->mapFromScene(number->label()->sceneBoundingRect().center());
+        send_mouse(window, QEvent::MouseButtonPress, Qt::LeftButton, at, Qt::LeftButton);
+        send_mouse(window, QEvent::MouseButtonRelease, Qt::LeftButton, at, Qt::NoButton);
+        send_mouse(window, QEvent::MouseButtonDblClick, Qt::LeftButton, at, Qt::LeftButton);
+        send_mouse(window, QEvent::MouseButtonRelease, Qt::LeftButton, at, Qt::NoButton);
+        QCOMPARE(ended.count(), 0);
+        QVERIFY(number->label()->is_editing());
+        QCOMPARE(number->label()->textCursor().selectedText(), QString("note"));
+    }
+
     void withoutADoubleClickBindingTheViewDoesNotWaitForOne() {
         config_->set_app_setting("mouse_capture_copy", "");
         QVERIFY(!open()->view->confirm_on_double_click);

@@ -156,7 +156,7 @@ public:
     QString label_text() const;
     // Shows text beside the number, or hides the label when text is blank.
     void set_label(const QString &text, const std::optional<QPointF> &anchor = {});
-    // Shows the label, placed out of the pointer's way when new, and starts typing in it.
+    // Shows the label, right of the circle when new, and starts typing in it.
     NumberLabel *begin_label_edit();
     // Called when typing in the label ends; records the change for undo.
     void finish_label_edit(const QVariantMap &before);
@@ -216,6 +216,7 @@ protected:
     void mousePressEvent(QGraphicsSceneMouseEvent *) override;
     void mouseMoveEvent(QGraphicsSceneMouseEvent *) override;
     void mouseReleaseEvent(QGraphicsSceneMouseEvent *) override;
+    void mouseDoubleClickEvent(QGraphicsSceneMouseEvent *) override;
     void hoverEnterEvent(QGraphicsSceneHoverEvent *) override;
     void hoverMoveEvent(QGraphicsSceneHoverEvent *) override;
     void hoverLeaveEvent(QGraphicsSceneHoverEvent *) override;

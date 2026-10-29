@@ -1134,6 +1134,19 @@ private slots:
         QCOMPARE(number->label_text(), QString());
     }
 
+    void labelAndPointerStartInTheirOwnPlacesWhereverTheOtherIs() {
+        // The label sits level with the circle on its right, the pointer goes right; overlapping is fine.
+        NumberItem labelled(1, QPointF(0, 0), 20.0, RED);
+        labelled.set_label("a");
+        labelled.toggle_arrow();
+        QCOMPARE(labelled.arrow_tip(), std::optional<QPointF>(QPointF(60, 0)));
+        QCOMPARE(labelled.label()->anchor(), QPointF(26, 0));
+        NumberItem pointed(1, QPointF(0, 0), 20.0, RED);
+        pointed.set_arrow_tip(QPointF(50, -50));
+        pointed.set_label("b");
+        QCOMPARE(pointed.label()->anchor(), QPointF(26, 0));
+    }
+
     // A real mouse reports a drag a pixel or two at a time: undo still goes back to where it began.
     void slowDragsOfANumberAndItsLabelUndoToWhereTheyBegan() {
         auto [scene, view] = canvas("number");
@@ -1154,23 +1167,89 @@ private slots:
         QCOMPARE(label->anchor(), QPointF(26, 0));
     }
 
-    void labelAndPointerStartOutOfEachOthersWay() {
-        NumberItem plain(1, QPointF(0, 0), 20.0, RED);
-        plain.set_label("a");
-        QCOMPARE(plain.label()->anchor(), QPointF(26, 0));
-        // A pointer turned on next to a label on the right goes left.
-        plain.toggle_arrow();
-        QCOMPARE(plain.arrow_tip(), std::optional<QPointF>(QPointF(-60, 0)));
-        // A label added beside a pointer that goes right sits below or above its line.
-        NumberItem right(1, QPointF(0, 0), 20.0, RED);
-        right.toggle_arrow();
-        QCOMPARE(right.arrow_tip(), std::optional<QPointF>(QPointF(60, 0)));
-        right.set_label("b");
-        QCOMPARE(right.label()->anchor(), QPointF(26, 30));
-        NumberItem down(1, QPointF(0, 0), 20.0, RED);
-        down.set_arrow_tip(QPointF(50, 50));
-        down.set_label("c");
-        QCOMPARE(down.label()->anchor(), QPointF(26, -30));
+    void theLabelFollowsTheMouseFromItsFirstPixel() {
+        auto [scene, view] = canvas("number");
+        auto *number = new NumberItem(1, QPointF(200, 200), 20.0, RED);
+        scene->addItem(number);
+        view->smart_edit_controller->select_item(number);
+        number->set_label("note");
+        auto *label = number->label();
+        const auto grab = label->sceneBoundingRect().center();
+        send(view, QEvent::MouseButtonPress, grab);
+        send(view, QEvent::MouseMove, grab + QPointF(0, 2));
+        QCOMPARE(label->anchor(), QPointF(26, 2));
+        // Let go that close, it was a click: the label goes back and typing starts.
+        send(view, QEvent::MouseButtonRelease, grab + QPointF(0, 2), Qt::NoButton);
+        QCOMPARE(label->anchor(), QPointF(26, 0));
+        QVERIFY(label->is_editing());
+    }
+
+    void whileTypingTheLabelTheMouseMovesItAndNeverMovesTheCaret() {
+        auto [scene, view] = canvas("number");
+        auto *number = new NumberItem(1, QPointF(200, 200), 20.0, RED);
+        scene->addItem(number);
+        scene->undo_stack->push(new AddItemCommand(scene, ItemReference(number)));
+        view->smart_edit_controller->select_item(number);
+        auto *editor = view->smart_edit_controller->layer_editor.get();
+        const auto button = handle_point(view, *handle_of(*editor, HandleType::NUMBER_LABEL));
+        send(view, QEvent::MouseButtonPress, button);
+        send(view, QEvent::MouseButtonRelease, button, Qt::NoButton);
+        auto *label = number->label();
+        for (const QChar ch : QString("note")) {
+            QKeyEvent typed(QEvent::KeyPress, Qt::Key_A, Qt::NoModifier, QString(ch));
+            QApplication::sendEvent(view->viewport(), &typed);
+        }
+        const int typed_at = scene->undo_stack->count();
+        const auto first_letter = [label] {
+            const auto box = label->sceneBoundingRect();
+            return QPointF(box.left() + 6, box.center().y());
+        };
+        // A click on the first letter leaves the caret at the end.
+        send(view, QEvent::MouseButtonPress, first_letter());
+        send(view, QEvent::MouseButtonRelease, first_letter(), Qt::NoButton);
+        QVERIFY(label->is_editing());
+        QCOMPARE(label->textCursor().position(), 4);
+        QVERIFY(!label->textCursor().hasSelection());
+        // A drag from inside the text moves the label, still typing, instead of selecting.
+        const auto grab = first_letter();
+        gesture(view, grab, grab + QPointF(0, 40));
+        QCOMPARE(label->anchor(), QPointF(26, 40));
+        QCOMPARE(number->pos(), QPointF(200, 200));
+        QVERIFY(label->is_editing());
+        QCOMPARE(label->textCursor().position(), 4);
+        QVERIFY(!label->textCursor().hasSelection());
+        QCOMPARE(label->toPlainText(), QString("note"));
+        // A double click selects all of it, without confirming the capture.
+        const auto middle = label->sceneBoundingRect().center();
+        send(view, QEvent::MouseButtonPress, middle);
+        send(view, QEvent::MouseButtonRelease, middle, Qt::NoButton);
+        send(view, QEvent::MouseButtonDblClick, middle);
+        send(view, QEvent::MouseButtonRelease, middle, Qt::NoButton);
+        QVERIFY(label->is_editing());
+        QCOMPARE(label->textCursor().selectedText(), QString("note"));
+        // The typing and the move end as one step.
+        send(view, QEvent::MouseButtonPress, QPointF(60, 60));
+        send(view, QEvent::MouseButtonRelease, QPointF(60, 60), Qt::NoButton);
+        QVERIFY(!label->is_editing());
+        QCOMPARE(scene->undo_stack->count(), typed_at + 1);
+        scene->undo_stack->undo();
+        QCOMPARE(number->label_text(), QString());
+        scene->undo_stack->redo();
+        QCOMPARE(number->label_text(), QString("note"));
+        QCOMPARE(label->anchor(), QPointF(26, 40));
+        // Not typing, a double click starts typing with everything selected.
+        send(view, QEvent::MouseButtonPress, label->sceneBoundingRect().center());
+        send(view, QEvent::MouseButtonRelease, label->sceneBoundingRect().center(), Qt::NoButton);
+        send(view, QEvent::MouseButtonPress, QPointF(60, 60));
+        send(view, QEvent::MouseButtonRelease, QPointF(60, 60), Qt::NoButton);
+        QVERIFY(!label->is_editing());
+        const auto again = label->sceneBoundingRect().center();
+        send(view, QEvent::MouseButtonPress, again);
+        send(view, QEvent::MouseButtonRelease, again, Qt::NoButton);
+        send(view, QEvent::MouseButtonDblClick, again);
+        send(view, QEvent::MouseButtonRelease, again, Qt::NoButton);
+        QVERIFY(label->is_editing());
+        QCOMPARE(label->textCursor().selectedText(), QString("note"));
     }
 
     // A number with a label and guide line is one annotation wherever the scene is searched by point or area.

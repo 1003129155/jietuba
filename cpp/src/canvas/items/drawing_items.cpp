@@ -261,8 +261,7 @@ void NumberItem::toggle_arrow() {
         set_arrow_tip(parked_arrow_tip_);
         return;
     }
-    const bool label_on_right = label_ && label_->isVisible() && label_->anchor().x() > 0;
-    set_arrow_tip(QPointF((label_on_right ? -1 : 1) * radius * ARROW_DEFAULT_LENGTH, 0));
+    set_arrow_tip(QPointF(radius * ARROW_DEFAULT_LENGTH, 0));
 }
 QPainterPath NumberItem::pointer_path() const {
     if (pointer_cache_) return *pointer_cache_;
@@ -344,12 +343,7 @@ void NumberItem::update_guide() {
     guide_->setPath(path);
     guide_->show();
 }
-QPointF NumberItem::default_label_anchor() const {
-    const qreal x = radius * (1 + LABEL_GAP);
-    // Off the line of a pointer that already goes to the right, and clear of the corner buttons.
-    if (!arrow_tip_ || arrow_tip_->x() <= 0 || pointer_path().isEmpty()) return {x, 0};
-    return {x, (arrow_tip_->y() > 0 ? -1.5 : 1.5) * radius};
-}
+QPointF NumberItem::default_label_anchor() const { return {radius * (1 + LABEL_GAP), 0}; }
 void NumberItem::set_label(const QString &text, const std::optional<QPointF> &anchor) {
     const bool blank = text.trimmed().isEmpty();
     if (blank && !label_) return;
@@ -464,8 +458,7 @@ void NumberLabel::begin_edit() {
     update();
 }
 void NumberLabel::update_cursor() {
-    if (is_editing()) setCursor(Qt::IBeamCursor);
-    else if (number_->hover_allowed()) setCursor(Qt::SizeAllCursor);
+    if (is_editing() || number_->hover_allowed()) setCursor(Qt::SizeAllCursor);
     else unsetCursor();
 }
 void NumberLabel::paint(QPainter *p, const QStyleOptionGraphicsItem *option, QWidget *widget) {
@@ -507,8 +500,9 @@ void NumberLabel::focusOutEvent(QFocusEvent *event) {
     update_cursor();
     number_->finish_label_edit(state_before_edit_);
 }
+// The mouse never reaches the text: a drag moves the label, typing or not, a click starts typing
+// with the caret at the end and leaves it there, and a double click selects all of it.
 void NumberLabel::mousePressEvent(QGraphicsSceneMouseEvent *event) {
-    if (is_editing()) { QGraphicsTextItem::mousePressEvent(event); return; }
     if (event->button() != Qt::LeftButton) { event->ignore(); return; }
     press_pos_ = event->scenePos();
     press_anchor_ = anchor_;
@@ -516,32 +510,36 @@ void NumberLabel::mousePressEvent(QGraphicsSceneMouseEvent *event) {
     event->accept();
 }
 void NumberLabel::mouseMoveEvent(QGraphicsSceneMouseEvent *event) {
-    if (is_editing() || !press_pos_) { QGraphicsTextItem::mouseMoveEvent(event); return; }
-    if (!dragged_ && (event->screenPos() - event->buttonDownScreenPos(Qt::LeftButton)).manhattanLength() < QApplication::startDragDistance()) return;
-    // Dragging the label moves it alone; the number stays.
-    dragged_ = true;
+    if (!press_pos_) return;
+    // Dragging the label moves it alone, from the first pixel; the number stays.
+    if ((event->screenPos() - event->buttonDownScreenPos(Qt::LeftButton)).manhattanLength() >= QApplication::startDragDistance()) dragged_ = true;
     set_anchor(*press_anchor_ + number_->mapFromScene(event->scenePos()) - number_->mapFromScene(*press_pos_));
 }
-void NumberLabel::mouseReleaseEvent(QGraphicsSceneMouseEvent *event) {
-    if (is_editing() || !press_pos_) { QGraphicsTextItem::mouseReleaseEvent(event); return; }
+void NumberLabel::mouseReleaseEvent(QGraphicsSceneMouseEvent *) {
+    if (!press_pos_) return;
+    // Let go within the drag distance it was a click, and the label goes back to where it was.
+    if (!dragged_) set_anchor(*press_anchor_);
     const bool clicked = !dragged_;
     press_pos_.reset();
     press_anchor_.reset();
     dragged_ = false;
-    if (clicked) begin_edit();
+    if (clicked && !is_editing()) begin_edit();
 }
-void NumberLabel::hoverEnterEvent(QGraphicsSceneHoverEvent *event) {
+void NumberLabel::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event) {
+    if (event->button() != Qt::LeftButton) { event->ignore(); return; }
+    if (!is_editing()) begin_edit();
+    auto cursor = textCursor();
+    cursor.select(QTextCursor::Document);
+    setTextCursor(cursor);
+    event->accept();
+}
+void NumberLabel::hoverEnterEvent(QGraphicsSceneHoverEvent *) {
     number_->set_hovered(true);
     update_cursor();
-    if (is_editing()) QGraphicsTextItem::hoverEnterEvent(event);
 }
-void NumberLabel::hoverMoveEvent(QGraphicsSceneHoverEvent *event) {
+void NumberLabel::hoverMoveEvent(QGraphicsSceneHoverEvent *) {
     number_->set_hovered(true);
     update_cursor();
-    if (is_editing()) QGraphicsTextItem::hoverMoveEvent(event);
 }
-void NumberLabel::hoverLeaveEvent(QGraphicsSceneHoverEvent *event) {
-    number_->set_hovered(false);
-    if (is_editing()) QGraphicsTextItem::hoverLeaveEvent(event);
-}
+void NumberLabel::hoverLeaveEvent(QGraphicsSceneHoverEvent *) { number_->set_hovered(false); }
 }
