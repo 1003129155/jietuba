@@ -2871,8 +2871,8 @@ Replace it?</source>
         <translation>붙여넣기 후 맨 위로 이동</translation>
     </message>
     <message>
-        <source>Show Time and Source</source>
-        <translation>시간 및 출처 표시</translation>
+        <source>Show Time</source>
+        <translation>시간 표시</translation>
     </message>
     <message>
         <source>Preserve Search on Reopen</source>

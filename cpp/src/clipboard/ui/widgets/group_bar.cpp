@@ -4,14 +4,17 @@
 #include "clipboard/ui/menus/action_menu.h"
 #include "clipboard/ui/theme/theme_styles.h"
 #include "clipboard/ui/windows/clipboard_window.h"
+#include "core/resource_manager.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
+#include "ui/fluent_lite/theme.h"
 #include <QAction>
 #include <QCursor>
 #include <QFrame>
 #include <QGraphicsOpacityEffect>
 #include <QHBoxLayout>
 #include <QMenu>
+#include <QPainter>
 #include <QPropertyAnimation>
 #include <QStyle>
 #include <QTimer>
@@ -20,8 +23,11 @@
 namespace jietuba::clipboard {
 namespace {
 // Sizes at 100%; pixels follow the toolbar and panel scale.
+// BUTTON is the length along the bar, which the controller's overflow capacity counts on; BAR is the thickness across it.
 constexpr int BUTTON = 34;
-constexpr int BAR = 40;
+constexpr int BAR = 42;
+constexpr int INDICATOR_THICKNESS = 2;
+constexpr int INDICATOR_INSET = 8;
 const char *const FOCUS_ANIMATION = "_sidebar_focus_anim";
 
 std::optional<qint64> button_group_id(const QPushButton *button) {
@@ -31,9 +37,35 @@ std::optional<qint64> button_group_id(const QPushButton *button) {
 }
 }
 
+void GroupButton::set_indicator(std::optional<Qt::Edge> edge, const QColor &color) {
+    edge_ = edge;
+    color_ = color;
+    update();
+}
+
+void GroupButton::paintEvent(QPaintEvent *event) {
+    QPushButton::paintEvent(event);
+    if (!edge_ || !isChecked()) return;
+    const int thickness = scaled(INDICATOR_THICKNESS), inset = scaled(INDICATOR_INSET);
+    QRect line;
+    switch (*edge_) {
+    case Qt::LeftEdge: line = QRect(0, inset, thickness, height() - 2 * inset); break;
+    case Qt::RightEdge: line = QRect(width() - thickness, inset, thickness, height() - 2 * inset); break;
+    default: line = QRect(inset, height() - thickness, width() - 2 * inset, thickness); break;
+    }
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(color_);
+    painter.drawRoundedRect(line, thickness / 2.0, thickness / 2.0);
+}
+
 GroupBar::GroupBar(ClipboardController *controller, ClipboardManager *manager, const Theme &theme, const QString &position, QWidget *parent)
     : QWidget(parent), position(position), controller_(controller), manager_(manager), current_theme_(theme) {
     setFocusPolicy(Qt::NoFocus);
+    // The window paints the bar's background and its line from the theme's style sheet.
+    setObjectName(BAR_OBJECT_NAME);
+    setAttribute(Qt::WA_StyledBackground, true);
     // Shared buttons are created once and survive layout rebuilds.
     close_btn = create_close_btn();
     clipboard_btn = create_clipboard_btn();
@@ -42,6 +74,7 @@ GroupBar::GroupBar(ClipboardController *controller, ClipboardManager *manager, c
     group_buttons_widget = new QWidget(this);
     group_buttons_widget->setFocusPolicy(Qt::NoFocus);
     set_own_style(group_buttons_widget, "background: transparent;");
+    apply_button_look();
 }
 
 // ================================================================
@@ -64,19 +97,41 @@ void GroupBar::set_position(const QString &new_position) {
 }
 
 void GroupBar::apply_scale() {
-    for (auto *btn : {close_btn, clipboard_btn, add_group_btn}) btn->setFixedSize(scaled(BUTTON), scaled(BUTTON));
-    close_btn->setStyleSheet(close_btn_style());
-    set_theme(current_theme_);
     build_bar();
     QTimer::singleShot(0, this, [this] { refresh_buttons(); });
 }
 
 void GroupBar::set_theme(const Theme &theme) {
     current_theme_ = theme;
-    const QString sidebar_style = sidebar_btn_style();
-    clipboard_btn->setStyleSheet(sidebar_style);
-    for (auto *btn : group_buttons) btn->setStyleSheet(sidebar_style);
-    add_group_btn->setStyleSheet(add_group_btn_style());
+    apply_button_look();
+}
+
+void GroupBar::apply_button_look() {
+    const auto &colors = current_theme_.colors;
+    const bool top = position == "top";
+    // The buttons fill the bar across its thickness, less the hairline on its inner edge.
+    const int across = scaled(BAR) - 1;
+    const QSize cell = top ? QSize(scaled(BUTTON), across) : QSize(across, scaled(BUTTON));
+    const std::optional<Qt::Edge> edge = top ? Qt::BottomEdge : position == "left" ? Qt::LeftEdge : Qt::RightEdge;
+    const QColor accent(colors.accent_primary);
+    const QString emoji_style = sidebar_btn_style();
+    QList<GroupButton *> emoji_buttons{clipboard_btn};
+    emoji_buttons.append(group_buttons);
+    for (auto *btn : emoji_buttons) {
+        btn->setFixedSize(cell);
+        btn->setStyleSheet(emoji_style);
+        btn->set_indicator(edge, accent);
+    }
+    const QString icon_style = icon_btn_style();
+    const QSize icon_size(scaled(14), scaled(14));
+    for (auto *btn : {close_btn, add_group_btn}) {
+        btn->setFixedSize(cell);
+        btn->setStyleSheet(icon_style);
+        btn->setIconSize(icon_size);
+    }
+    close_btn->setIcon(tinted_icon(FluentIcon::Cancel, colors.text_secondary));
+    add_group_btn->setIcon(tinted_icon(ResourceManager::get_icon_path("add.svg"), colors.text_secondary));
+    if (separator_) separator_->setStyleSheet(QString("background: %1;").arg(ThemeStyleGenerator(current_theme_).divider_color()));
 }
 
 void GroupBar::refresh_buttons() {
@@ -92,6 +147,7 @@ void GroupBar::refresh_buttons() {
         group_buttons_layout->addWidget(btn);
         group_buttons.append(btn);
     }
+    apply_button_look();
     group_buttons_layout->addSpacing(scaled(8));
 
     if (!hidden_groups.isEmpty()) {
@@ -100,21 +156,7 @@ void GroupBar::refresh_buttons() {
         overflow_btn->setCursor(Qt::PointingHandCursor);
         overflow_btn->setFocusPolicy(Qt::NoFocus);
         overflow_btn->setToolTip(tr_text("More groups ({n})").replace("{n}", QString::number(hidden_groups.size())));
-        overflow_btn->setStyleSheet(QString(R"(
-                QPushButton {
-                    background: transparent;
-                    color: #9CA3AF;
-                    border: none;
-                    font-size: %1px;
-                    font-weight: 600;
-                    padding: 0px;
-                    letter-spacing: 1px;
-                }
-                QPushButton:hover {
-                    color: #374151;
-                }
-            )")
-                                        .arg(scaled(24)));
+        overflow_btn->setStyleSheet(overflow_btn_style());
         connect(overflow_btn, &QPushButton::clicked, this, [this, hidden = hidden_groups] { show_overflow_group_menu(hidden); });
         group_buttons_layout->addWidget(overflow_btn);
     }
@@ -175,49 +217,42 @@ void GroupBar::switch_to_group(std::optional<qint64> group_id) {
 // Buttons
 // ================================================================
 
+// The close and add buttons carry SVG icons: the × and + characters come from whichever font Windows falls back to.
 QPushButton *GroupBar::create_close_btn() {
-    auto *btn = new QPushButton(QString::fromUtf8("×"), this);
-    btn->setFixedSize(scaled(BUTTON), scaled(BUTTON));
+    auto *btn = new QPushButton(this);
     btn->setCursor(Qt::PointingHandCursor);
     btn->setToolTip(tr_text("Close"));
     btn->setFocusPolicy(Qt::NoFocus);
-    btn->setStyleSheet(close_btn_style());
     connect(btn, &QPushButton::clicked, this, &GroupBar::close_requested);
     return btn;
 }
 
-QPushButton *GroupBar::create_clipboard_btn() {
-    auto *btn = new QPushButton(QString::fromUtf8("📋"), this);
-    btn->setFixedSize(scaled(BUTTON), scaled(BUTTON));
+GroupButton *GroupBar::create_clipboard_btn() {
+    auto *btn = new GroupButton(QString::fromUtf8("📋"), this);
     btn->setCursor(Qt::PointingHandCursor);
     btn->setToolTip(tr_text("Clipboard History"));
     btn->setCheckable(true);
     btn->setChecked(true);
     btn->setFocusPolicy(Qt::NoFocus);
-    btn->setStyleSheet(sidebar_btn_style());
     connect(btn, &QPushButton::clicked, this, [this, btn] { on_sidebar_button_clicked(btn, std::nullopt); });
     return btn;
 }
 
 QPushButton *GroupBar::create_add_group_btn() {
-    auto *btn = new QPushButton("+", this);
-    btn->setFixedSize(scaled(BUTTON), scaled(BUTTON));
+    auto *btn = new QPushButton(this);
     btn->setCursor(Qt::PointingHandCursor);
     btn->setFocusPolicy(Qt::NoFocus);
-    btn->setStyleSheet(add_group_btn_style());
     connect(btn, &QPushButton::clicked, this, &GroupBar::manage_groups_requested);
     return btn;
 }
 
-QPushButton *GroupBar::make_group_btn(const Group &group) {
-    auto *btn = new QPushButton(group.icon && !group.icon->isEmpty() ? *group.icon : QString::fromUtf8("📁"));
-    btn->setFixedSize(scaled(BUTTON), scaled(BUTTON));
+GroupButton *GroupBar::make_group_btn(const Group &group) {
+    auto *btn = new GroupButton(group.icon && !group.icon->isEmpty() ? *group.icon : QString::fromUtf8("📁"));
     btn->setCursor(Qt::PointingHandCursor);
     btn->setToolTip(group.name);
     btn->setCheckable(true);
     btn->setChecked(controller_->current_group_id == group.id);
     btn->setFocusPolicy(Qt::NoFocus);
-    btn->setStyleSheet(sidebar_btn_style());
     btn->setProperty("group_id", group.id);
     const qint64 group_id = group.id;
     connect(btn, &QPushButton::clicked, this, [this, btn, group_id] { on_sidebar_button_clicked(btn, group_id); });
@@ -264,16 +299,13 @@ void GroupBar::build_bar() {
         setMaximumHeight(bar);
         setMinimumWidth(0);
         setMaximumWidth(16777215);
-        setStyleSheet("QWidget { background: #FAFAFA; border-bottom: 1px solid #E0E0E0; }");
-        bar_layout->setContentsMargins(scaled(2), scaled(2), scaled(2), scaled(2));
+        bar_layout->setContentsMargins(scaled(2), 0, scaled(2), 0);
     } else {
         setMinimumWidth(bar);
         setMaximumWidth(bar);
         setMinimumHeight(0);
         setMaximumHeight(16777215);
-        const QString border_side = position == "left" ? "border-right" : "border-left";
-        setStyleSheet(QString("QWidget { background: #FAFAFA; %1: 1px solid #E0E0E0; }").arg(border_side));
-        bar_layout->setContentsMargins(scaled(2), scaled(8), scaled(2), scaled(8));
+        bar_layout->setContentsMargins(0, scaled(2), 0, scaled(2));
     }
     bar_layout->setSpacing(scaled(4));
 
@@ -286,10 +318,10 @@ void GroupBar::build_bar() {
     group_buttons_layout->setSpacing(scaled(4));
 
     auto *sep = new QFrame;
+    separator_ = sep;
     if (is_top) {
         bar_layout->addWidget(clipboard_btn);
         sep->setFixedWidth(1);
-        set_own_style(sep, "background: #E0E0E0;");
         bar_layout->addWidget(sep);
         bar_layout->addWidget(group_buttons_widget);
         group_buttons_layout->addWidget(add_group_btn);
@@ -298,7 +330,6 @@ void GroupBar::build_bar() {
     } else {
         bar_layout->addWidget(close_btn);
         sep->setFixedHeight(1);
-        set_own_style(sep, "background: #E0E0E0;");
         bar_layout->addWidget(sep);
         bar_layout->addWidget(clipboard_btn);
         bar_layout->addWidget(group_buttons_widget);
@@ -306,6 +337,7 @@ void GroupBar::build_bar() {
         bar_layout->addStretch();
     }
 
+    apply_button_look();
     if (position == "left") {
         content_layout_->insertWidget(0, this);
     } else if (is_top) {
@@ -321,23 +353,21 @@ void GroupBar::build_bar() {
 // Styles
 // ================================================================
 
-QString GroupBar::close_btn_style() const {
+QString GroupBar::icon_btn_style() const {
+    const auto &theme = current_theme_.colors;
     return QString(R"(
             QPushButton {
                 background: transparent;
-                color: #999999;
                 border: none;
-                font-size: %1px;
+                border-radius: %1px;
                 padding: 0px;
             }
             QPushButton:hover {
-                background: #FFEBEE;
-                color: #F44336;
-                border-radius: %2px;
+                background: %2;
             }
         )")
-        .arg(scaled(20))
-        .arg(scaled(4));
+        .arg(scaled(6))
+        .arg(theme.bg_hover);
 }
 
 QString GroupBar::sidebar_btn_style() const {
@@ -345,62 +375,50 @@ QString GroupBar::sidebar_btn_style() const {
     return QString(R"(
             QPushButton {
                 background: transparent;
-                color: %1;
-                border: %2px solid transparent;
-                font-size: %3px;
-                border-radius: %4px;
+                border: none;
+                font-size: %1px;
+                border-radius: %2px;
                 padding: 0px;
             }
             QPushButton:hover {
-                background: %5;
-            }
-            QPushButton:checked {
-                background: %6;
-                color: %7;
-                border: %2px solid %8;
+                background: %3;
             }
             QToolTip {
-                background: %9;
-                color: %10;
-                border: 1px solid %11;
-                border-radius: %4px;
-                padding: %4px %12px;
-                font-size: %13px;
+                background: %4;
+                color: %5;
+                border: 1px solid %6;
+                border-radius: %7px;
+                padding: %7px %8px;
+                font-size: %9px;
             }
         )")
-        .arg(theme.text_secondary)
-        .arg(scaled(2))
-        .arg(scaled(20))
+        .arg(scaled(18))
+        .arg(scaled(6))
+        .arg(theme.bg_hover, theme.bg_primary, theme.text_primary, theme.border_primary)
         .arg(scaled(4))
-        .arg(theme.bg_hover, theme.bg_selected, theme.accent_primary, theme.error, theme.bg_primary, theme.text_primary, theme.border_primary)
         .arg(scaled(8))
         .arg(scaled(12));
 }
 
-QString GroupBar::add_group_btn_style() const {
+QString GroupBar::overflow_btn_style() const {
     const auto &theme = current_theme_.colors;
-    const bool dark = current_theme_.name == "dark";
-    const QString bg_color = dark ? "rgba(60, 60, 60, 0.7)" : "rgba(255, 255, 255, 0.55)";
-    const QString hover_bg = dark ? "rgba(76, 175, 80, 0.2)" : "#E8F5E9";
     return QString(R"(
             QPushButton {
-                background-color: %1;
-                color: %2;
-                border: %3px dashed %2;
-                border-radius: %4px;
-                font-size: %5px;
-                font-weight: bold;
+                background: transparent;
+                color: %1;
+                border: none;
+                font-size: %2px;
+                font-weight: 600;
                 padding: 0px;
+                letter-spacing: 1px;
             }
             QPushButton:hover {
-                background: %6;
+                color: %3;
             }
         )")
-        .arg(bg_color, theme.success)
-        .arg(scaled(2))
-        .arg(scaled(4))
-        .arg(scaled(20))
-        .arg(hover_bg);
+        .arg(theme.text_tertiary)
+        .arg(scaled(24))
+        .arg(theme.text_primary);
 }
 
 QString GroupBar::menu_style() const { return ThemeStyleGenerator(current_theme_).generate_menu_style(); }
@@ -409,7 +427,11 @@ QString GroupBar::menu_style() const { return ThemeStyleGenerator(current_theme_
 // Side bar navigation state
 // ================================================================
 
-QList<QPushButton *> GroupBar::sidebar_buttons() const { return QList<QPushButton *>{clipboard_btn} + group_buttons; }
+QList<QPushButton *> GroupBar::sidebar_buttons() const {
+    QList<QPushButton *> buttons{clipboard_btn};
+    for (auto *btn : group_buttons) buttons.append(btn);
+    return buttons;
+}
 
 void GroupBar::on_sidebar_button_clicked(QPushButton *target, std::optional<qint64> group_id) {
     if (!sidebar_mode_) emit sidebar_entered();

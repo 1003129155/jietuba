@@ -2893,8 +2893,8 @@ Replace it?</source>
         <translation>貼り付け後に先頭へ移動</translation>
     </message>
     <message>
-        <source>Show Time and Source</source>
-        <translation>時刻とソースを表示</translation>
+        <source>Show Time</source>
+        <translation>時刻を表示</translation>
     </message>
     <message>
         <source>Preserve Search on Reopen</source>

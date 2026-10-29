@@ -64,19 +64,9 @@ QColor icon_color(const QIcon &icon) {
     return best;
 }
 
-// Whether a chevron icon points up: its top row is the narrow tip, not the two wide ends.
-bool chevron_points_up(const QIcon &icon) {
-    const QImage image = icon.pixmap(32, 32).toImage();
-    for (int y = 0; y < image.height(); ++y) {
-        int left = image.width(), right = -1;
-        for (int x = 0; x < image.width(); ++x) {
-            if (image.pixelColor(x, y).alpha() < 128) continue;
-            left = std::min(left, x);
-            right = std::max(right, x);
-        }
-        if (right >= 0) return right - left < image.width() / 3;
-    }
-    return false;
+// How far two colors are apart, the largest difference of any channel.
+int color_distance(const QColor &a, const QColor &b) {
+    return std::max({std::abs(a.red() - b.red()), std::abs(a.green() - b.green()), std::abs(a.blue() - b.blue())});
 }
 
 // The clipboard window on a real database, offscreen: what a click, a key or a menu entry
@@ -941,11 +931,16 @@ private slots:
     }
 
     void theGearMenuChangesTheWindow() {
-        add_texts({"a", "b"});
+        const auto ids = add_texts({"a", "b"});
         auto *window = open_window();
         auto pick = [this](const QString &entry) { return gear_pick(entry); };
-        QVERIFY(pick("Show Time and Source"));
+        const auto first = window->get_item_data(ids[0]);
+        QVERIFY(first);
+        QVERIFY(!window->item_delegate->meta_text(*first).isEmpty());
+        QVERIFY(pick("Show Time"));
         QVERIFY(!env_.config->get_clipboard_show_metadata());
+        // The time goes from every row.
+        QVERIFY(window->item_delegate->meta_text(*first).isEmpty());
         QVERIFY(pick("Close After Paste"));
         QVERIFY(env_.config->get_clipboard_close_after_paste());
         QVERIFY(pick("Auto Paste After Selection"));
@@ -1292,27 +1287,198 @@ private slots:
             const auto &colors = preset_theme(name)->colors;
             QVERIFY(window->menu_btn->text().isEmpty());
             QCOMPARE(icon_color(window->menu_btn->icon()), QColor(colors.text_secondary));
+            QVERIFY(toggle->text().isEmpty());
             QCOMPARE(toggle->arrowType(), Qt::NoArrow);
-            QVERIFY(chevron_points_up(toggle->icon()));
+            QVERIFY(!toggle->isChecked());
             QCOMPARE(icon_color(toggle->icon()), QColor(colors.text_secondary));
-            // Open, it points down to close the bar again.
+            // Open, the funnel takes the accent.
             toggle->click();
             QVERIFY(window->time_filter_bar->isVisible());
-            QVERIFY(!chevron_points_up(toggle->icon()));
-            QCOMPARE(icon_color(toggle->icon()), QColor(colors.text_primary));
+            QCOMPARE(icon_color(toggle->icon()), QColor(colors.text_accent));
             toggle->click();
             QVERIFY(!window->time_filter_bar->isVisible());
-            QVERIFY(chevron_points_up(toggle->icon()));
+            QCOMPARE(icon_color(toggle->icon()), QColor(colors.text_secondary));
+            QVERIFY(window->clear_search_btn->text().isEmpty());
+            QCOMPARE(icon_color(window->clear_search_btn->icon()), QColor(colors.text_tertiary));
         }
         QCOMPARE(window->menu_btn->iconSize(), QSize(16, 16));
+        QCOMPARE(toggle->iconSize(), QSize(16, 16));
         get_ui_scale().set_percent(150);
         QCOMPARE(window->menu_btn->iconSize(), QSize(24, 24));
-        QCOMPARE(toggle->iconSize(), QSize(18, 18));
+        QCOMPARE(toggle->iconSize(), QSize(24, 24));
 
         window->toggle_item_mark(ids[0]);
         auto *exit_button = window->selection_bar->exit_button;
         QVERIFY(exit_button->text().isEmpty());
         QCOMPARE(icon_color(exit_button->icon()), QColor("#FFFFFF"));
+    }
+
+    void theDividersAroundTheListStandOutOnEveryTheme() {
+        add_texts({"a"});
+        env_.config->set_clipboard_window_opacity(0);
+        auto *themes = get_theme_manager();
+        const QString original = themes->get_current_theme().name;
+        const auto restore = qScopeGuard([themes, original] { themes->set_theme(original); });
+        for (const char *position : {"top", "right"}) {
+            env_.config->set_clipboard_group_bar_position(position);
+            auto *window = open_window();
+            for (const auto &[name, theme] : PRESET_THEMES()) {
+                QVERIFY(themes->set_theme(name));
+                const QImage image = window->grab().toImage();
+                const auto at = [&](QWidget *widget, const QPoint &point) { return image.pixelColor(widget->mapTo(window, point)); };
+                const QColor bottom_line = at(window->bottom_bar, QPoint(window->bottom_bar->width() / 2, 0));
+                const QColor list = at(window->bottom_bar, QPoint(window->bottom_bar->width() / 2, -6));
+                const QColor group_line = QString(position) == "top" ? at(window->group_bar, QPoint(window->group_bar->width() / 2, window->group_bar->height() - 1))
+                                                                     : at(window->group_bar, QPoint(0, window->group_bar->height() / 2));
+                QCOMPARE(list, QColor(theme.colors.bg_primary));
+                // Clear on dark themes as on light ones, where the border colors fade into the ground.
+                QVERIFY2(color_distance(bottom_line, list) >= 30, qPrintable(name));
+                // Drawn once: the bar's children do not lay the same translucent line over it again.
+                QCOMPARE(group_line, bottom_line);
+            }
+            window_->close();
+            window_.reset();
+        }
+    }
+
+    void theFilterFunnelIsSelectedWhileTheFiltersAreOpen() {
+        add_texts({"a"});
+        auto *window = open_window();
+        auto *toggle = window->time_filter_toggle_btn;
+        const QPoint inside(2, toggle->height() / 2);
+        const QColor accent(window->current_theme.colors.accent_primary);
+        const auto fill = [&] { return toggle->grab().toImage().pixelColor(inside); };
+        QVERIFY(toggle->isCheckable());
+        QCOMPARE(toggle->toolTip(), ClipboardWindow::tr_text("Open filters"));
+        const QColor closed = fill();
+        toggle->click();
+        QVERIFY(toggle->isChecked());
+        QCOMPARE(toggle->toolTip(), ClipboardWindow::tr_text("Close filters"));
+        // Selected, the button holds a wash of the accent.
+        const QColor open = fill();
+        QVERIFY(open != closed);
+        QVERIFY(color_distance(open, accent) < color_distance(closed, accent));
+        // The filter bar's own close button clears the selection too.
+        window->clear_time_filter_btn->click();
+        QVERIFY(!toggle->isChecked());
+        QVERIFY(!window->time_filter_bar->isVisible());
+        QCOMPARE(fill(), closed);
+    }
+
+    void theGroupBarMarksTheCurrentGroupAlongItsOuterEdge() {
+        const auto work = manager().create_group("Work", std::nullopt, QString::fromUtf8("💼"));
+        QVERIFY(work);
+        const struct {
+            const char *position;
+            Qt::Edge edge;
+        } cases[] = {{"top", Qt::BottomEdge}, {"left", Qt::LeftEdge}, {"right", Qt::RightEdge}};
+        auto *themes = get_theme_manager();
+        const QString original = themes->get_current_theme().name;
+        const auto restore = qScopeGuard([themes, original] { themes->set_theme(original); });
+        QVERIFY(themes->set_theme("light"));
+        for (const auto &position_case : cases) {
+            const char *position = position_case.position;
+            const Qt::Edge edge = position_case.edge;
+            env_.config->set_clipboard_group_bar_position(position);
+            auto *window = open_window();
+            auto *bar = window->group_bar;
+            QTRY_COMPARE(bar->group_buttons.size(), 1);
+            const QColor accent(window->current_theme.colors.accent_primary);
+            // Where the line sits on a button, and whether it is drawn there.
+            const auto marked = [&](QPushButton *button) {
+                const QImage image = button->grab().toImage();
+                const QPoint at = edge == Qt::BottomEdge ? QPoint(image.width() / 2, image.height() - 1)
+                                  : edge == Qt::LeftEdge ? QPoint(0, image.height() / 2)
+                                                         : QPoint(image.width() - 1, image.height() / 2);
+                return image.pixelColor(at) == accent;
+            };
+            QVERIFY2(bar->clipboard_btn->indicator_edge() == edge, position);
+            QVERIFY2(bar->group_buttons.first()->indicator_edge() == edge, position);
+            // The records button is current to begin with; switching moves the line.
+            QVERIFY2(marked(bar->clipboard_btn), position);
+            QVERIFY2(!marked(bar->group_buttons.first()), position);
+            bar->group_buttons.first()->click();
+            QVERIFY2(!marked(bar->clipboard_btn), position);
+            QVERIFY2(marked(bar->group_buttons.first()), position);
+            // The line follows a theme change.
+            QVERIFY(themes->set_theme("dark"));
+            const QColor dark_accent(window->current_theme.colors.accent_primary);
+            QVERIFY2(dark_accent != accent, position);
+            const QImage image = bar->group_buttons.first()->grab().toImage();
+            const QPoint at = edge == Qt::BottomEdge ? QPoint(image.width() / 2, image.height() - 1)
+                              : edge == Qt::LeftEdge ? QPoint(0, image.height() / 2)
+                                                     : QPoint(image.width() - 1, image.height() / 2);
+            QCOMPARE(image.pixelColor(at), dark_accent);
+            QVERIFY(themes->set_theme("light"));
+            window_->close();
+            window_.reset();
+        }
+    }
+
+    void theGroupBarShowsEmojiAndLineIcons() {
+        const auto work = manager().create_group("Work", std::nullopt, QString::fromUtf8("💼"));
+        QVERIFY(work);
+        auto *window = open_window();
+        auto *bar = window->group_bar;
+        auto *themes = get_theme_manager();
+        const QString original = themes->get_current_theme().name;
+        const auto restore = qScopeGuard([themes, original] {
+            themes->set_theme(original);
+            get_ui_scale().set_percent(100);
+        });
+        QTRY_COMPARE(bar->group_buttons.size(), 1);
+        // The groups keep the emoji the user chose and are named by their tooltips.
+        QCOMPARE(bar->clipboard_btn->text(), QString::fromUtf8("📋"));
+        QCOMPARE(bar->group_buttons.first()->text(), QString::fromUtf8("💼"));
+        QCOMPARE(bar->group_buttons.first()->toolTip(), QString("Work"));
+        // Close and add are line icons in the theme's secondary text color, with no symbol characters.
+        for (const char *name : {"light", "dark"}) {
+            QVERIFY(themes->set_theme(name));
+            for (QPushButton *button : {bar->close_btn, bar->add_group_btn}) {
+                QVERIFY(button->text().isEmpty());
+                QVERIFY(!button->icon().isNull());
+                QCOMPARE(icon_color(button->icon()), QColor(preset_theme(name)->colors.text_secondary));
+            }
+        }
+        // Side bar buttons are taller than wide, and follow the panel scale.
+        QCOMPARE(bar->clipboard_btn->size(), QSize(41, 34));
+        QCOMPARE(bar->add_group_btn->size(), QSize(41, 34));
+        get_ui_scale().set_percent(150);
+        QTRY_COMPARE(bar->clipboard_btn->size(), QSize(62, 51));
+        QCOMPARE(bar->close_btn->iconSize(), QSize(21, 21));
+        QTRY_COMPARE(bar->group_buttons.first()->size(), QSize(62, 51));
+    }
+
+    void theSearchBoxHoldsItsOwnMagnifierAndTheBarFollowsTheScale() {
+        add_texts({"a"});
+        auto *window = open_window();
+        const auto restore = qScopeGuard([] { get_ui_scale().set_percent(100); });
+        // The magnifier is an icon in the box, not an emoji in the placeholder.
+        QVERIFY(!window->search_icon->pixmap().isNull());
+        QVERIFY(!window->search_input->placeholderText().contains(QString::fromUtf8("🔍")));
+        QCOMPARE(window->search_input->placeholderText(), ClipboardWindow::tr_text("Search"));
+        QVERIFY(window->search_box->isAncestorOf(window->search_input));
+        QVERIFY(window->search_box->isAncestorOf(window->search_icon));
+        QVERIFY(window->search_box->isAncestorOf(window->clear_search_btn));
+        // The box, the funnel and the gear are on the bottom bar in that order.
+        QVERIFY(window->search_box->geometry().right() < window->time_filter_toggle_btn->geometry().left());
+        QVERIFY(window->time_filter_toggle_btn->geometry().right() < window->menu_btn->geometry().left());
+        // The box takes a fainter ground while empty, a plain one once it has text.
+        const QString empty_style = window->search_box->styleSheet();
+        window->search_input->setText("a");
+        QVERIFY(window->search_box->styleSheet() != empty_style);
+        QVERIFY(window->clear_search_btn->isVisible());
+
+        QCOMPARE(window->bottom_bar->height(), 46);
+        QCOMPARE(window->search_box->height(), 30);
+        QCOMPARE(window->menu_btn->size(), QSize(32, 32));
+        QCOMPARE(window->search_icon->size(), QSize(16, 16));
+        get_ui_scale().set_percent(150);
+        QCOMPARE(window->bottom_bar->height(), 69);
+        QCOMPARE(window->search_box->height(), 45);
+        QCOMPARE(window->menu_btn->size(), QSize(48, 48));
+        QCOMPARE(window->time_filter_toggle_btn->size(), QSize(48, 48));
+        QCOMPARE(window->search_icon->size(), QSize(24, 24));
     }
 
     void geometrySurvivesReopening() {

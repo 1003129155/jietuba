@@ -2793,8 +2793,8 @@ Replace it?</translation>
         <translation>Move to Top After Paste</translation>
     </message>
     <message>
-        <source>Show Time and Source</source>
-        <translation>Show Time and Source</translation>
+        <source>Show Time</source>
+        <translation>Show Time</translation>
     </message>
     <message>
         <source>Preserve Search on Reopen</source>

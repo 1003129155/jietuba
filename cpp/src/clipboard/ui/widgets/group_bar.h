@@ -3,10 +3,13 @@
 #include "clipboard/ui/theme/themes.h"
 #include "core/i18n.h"
 #include <QBoxLayout>
+#include <QColor>
+#include <QPointer>
 #include <QPushButton>
 #include <QWidget>
 #include <optional>
 
+class QFrame;
 class QHBoxLayout;
 class QVBoxLayout;
 
@@ -14,6 +17,23 @@ namespace jietuba::clipboard {
 class ClipboardController;
 class ClipboardManager;
 class ManageDialog;
+
+// A group button; while checked it carries an accent line along its outer edge.
+class GroupButton : public QPushButton {
+    Q_OBJECT
+public:
+    using QPushButton::QPushButton;
+    // None draws no line.
+    void set_indicator(std::optional<Qt::Edge> edge, const QColor &color);
+    std::optional<Qt::Edge> indicator_edge() const { return edge_; }
+
+protected:
+    void paintEvent(QPaintEvent *event) override;
+
+private:
+    std::optional<Qt::Edge> edge_;
+    QColor color_;
+};
 
 // The group buttons beside the clipboard list (left, right or top), with keyboard
 // navigation through them and the group context menu.
@@ -47,9 +67,9 @@ public:
     QBoxLayout *bar_layout = nullptr;
     QWidget *group_buttons_widget;
     QBoxLayout *group_buttons_layout = nullptr;
-    QList<QPushButton *> group_buttons;
+    QList<GroupButton *> group_buttons;
     QPushButton *close_btn;
-    QPushButton *clipboard_btn;
+    GroupButton *clipboard_btn;
     QPushButton *add_group_btn;
     QString position;
 
@@ -64,15 +84,17 @@ signals:
 
 private:
     QPushButton *create_close_btn();
-    QPushButton *create_clipboard_btn();
+    GroupButton *create_clipboard_btn();
     QPushButton *create_add_group_btn();
-    QPushButton *make_group_btn(const Group &group);
+    GroupButton *make_group_btn(const Group &group);
+    // Sizes, styles, icons and indicators of every button, for the current position and theme.
+    void apply_button_look();
     void clear_bar_layout();
     void remove_from_host_layouts();
     void build_bar();
-    QString close_btn_style() const;
+    QString icon_btn_style() const;
     QString sidebar_btn_style() const;
-    QString add_group_btn_style() const;
+    QString overflow_btn_style() const;
     QString menu_style() const;
     QList<QPushButton *> sidebar_buttons() const;
     void on_sidebar_button_clicked(QPushButton *target, std::optional<qint64> group_id);
@@ -92,6 +114,7 @@ private:
     bool sidebar_mode_ = false;
     int sidebar_index_ = 0;
     std::optional<qint64> sidebar_prev_item_id_;
+    QPointer<QFrame> separator_;
     QHBoxLayout *content_layout_ = nullptr;
     QWidget *left_widget_ = nullptr;
     QVBoxLayout *left_layout_ = nullptr;

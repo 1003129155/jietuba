@@ -62,6 +62,8 @@ private:
     void clear_pending();
 
     QVBoxLayout *layout_ = nullptr;
+    // Under the title, where the content starts.
+    QWidget *title_line_ = nullptr;
     ClipboardManager *manager_ = nullptr;
     std::optional<qint64> current_item_id_;
     // A parentless top-level: late key or hover events can still arrive after the

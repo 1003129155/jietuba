@@ -97,7 +97,10 @@ public:
     QList<QAction *> type_filter_actions;
     QToolButton *clear_time_filter_btn = nullptr;
     QWidget *bottom_bar = nullptr;
+    // The funnel: checked while the time and type filters are open.
     QToolButton *time_filter_toggle_btn = nullptr;
+    QFrame *search_box = nullptr;
+    QLabel *search_icon = nullptr;
     LineEdit *search_input = nullptr;
     QPushButton *clear_search_btn = nullptr;
     SelectionBar *selection_bar = nullptr;
@@ -196,7 +199,8 @@ private:
     void on_pointer_moved(const QPoint &viewport_pos, const QPoint &global_pos);
     void point_at(const QPoint &viewport_pos, const QPoint &global_pos);
     void update_search_background(const QString &text);
-    void apply_search_input_style(bool has_text = false);
+    void apply_search_box_style(bool has_text = false);
+    void apply_search_icon();
     void apply_clear_search_btn_style();
     void apply_menu_btn_style();
     void on_marks_changed();

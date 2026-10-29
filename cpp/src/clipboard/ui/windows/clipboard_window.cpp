@@ -276,15 +276,20 @@ void ClipboardWindow::apply_scale() {
 
 void ClipboardWindow::apply_scale_metrics() {
     setMinimumSize(scaled(390), scaled(400));
-    for (const auto &[bar, layout] : {std::make_pair(time_filter_bar, time_filter_layout_), std::make_pair(bottom_bar, bottom_layout_)}) {
-        bar->setFixedHeight(scaled(36));
-        layout->setContentsMargins(scaled(8), scaled(4), scaled(8), scaled(4));
-    }
+    time_filter_bar->setFixedHeight(scaled(36));
+    time_filter_layout_->setContentsMargins(scaled(8), scaled(4), scaled(8), scaled(4));
     time_filter_layout_->setSpacing(scaled(4));
-    bottom_layout_->setSpacing(scaled(8));
+    // The bottom bar's 1px top line comes out of its height.
+    bottom_bar->setFixedHeight(scaled(46));
+    bottom_layout_->setContentsMargins(scaled(8), scaled(6), scaled(6), scaled(6));
+    bottom_layout_->setSpacing(scaled(4));
+    search_box->setFixedHeight(scaled(30));
+    static_cast<QHBoxLayout *>(search_box->layout())->setContentsMargins(scaled(10), 0, scaled(6), 0);
+    static_cast<QHBoxLayout *>(search_box->layout())->setSpacing(scaled(8));
     const std::tuple<QWidget *, int, int> sizes[] = {
         {start_date_edit, 108, 26}, {end_date_edit, 108, 26},         {apply_time_filter_btn, 36, 26}, {type_filter_btn, 80, 26},
-        {clear_time_filter_btn, 26, 26}, {time_filter_toggle_btn, 28, 28}, {clear_search_btn, 24, 24},  {menu_btn, 28, 28},
+        {clear_time_filter_btn, 26, 26}, {time_filter_toggle_btn, 32, 32}, {clear_search_btn, 20, 20},  {menu_btn, 32, 32},
+        {search_icon, 16, 16},
     };
     for (const auto &[widget, width, height] : sizes) widget->setFixedSize(scaled(width), scaled(height));
 }
@@ -300,14 +305,12 @@ void ClipboardWindow::on_language_changed() {
 }
 
 void ClipboardWindow::apply_theme() {
-    if (item_delegate) {
-        item_delegate->set_theme(current_theme);
-        item_delegate->set_window_opacity(window_opacity);
-    }
+    if (item_delegate) item_delegate->set_theme(current_theme);
     apply_opacity();
     group_bar->set_theme(current_theme);
     if (search_input) {
-        apply_search_input_style(!search_input->text().trimmed().isEmpty());
+        apply_search_box_style(!search_input->text().trimmed().isEmpty());
+        apply_search_icon();
         apply_clear_search_btn_style();
         apply_menu_btn_style();
         apply_time_filter_styles();
@@ -350,8 +353,9 @@ void ClipboardWindow::retranslate_ui() {
     apply_time_filter_btn->setToolTip(tr_text("Apply time filter"));
     type_filter_btn->setToolTip(tr_text("Filter Type"));
     clear_time_filter_btn->setToolTip(tr_text("Close filters"));
-    search_input->setPlaceholderText(QString::fromUtf8("🔍 ") + tr_text("Search"));
+    search_input->setPlaceholderText(tr_text("Search"));
     clear_search_btn->setToolTip(tr_text("Clear search"));
+    time_filter_toggle_btn->setToolTip(tr_text(time_filter_toggle_btn->isChecked() ? "Close filters" : "Open filters"));
     selection_bar->retranslate();
 
     type_filter_labels = type_filter_label_texts();
@@ -457,7 +461,7 @@ void ClipboardWindow::setup_ui() {
     list_widget->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(list_widget, &QWidget::customContextMenuRequested, this, [this](const QPoint &pos) { show_context_menu(pos); });
 
-    item_delegate = new ClipboardItemDelegate(list_widget, current_theme, font_size, window_opacity, config->get_clipboard_show_metadata(),
+    item_delegate = new ClipboardItemDelegate(list_widget, current_theme, font_size, config->get_clipboard_show_metadata(),
                                               static_cast<int>(config->get_clipboard_line_height_padding()), true, config->get_clipboard_image_size(), config->get_clipboard_display_lines());
     list_widget->setItemDelegate(item_delegate);
     list_widget->setMouseTracking(true);
@@ -483,6 +487,7 @@ void ClipboardWindow::setup_ui() {
     left_layout->addWidget(list_widget, 1);
 
     time_filter_bar = new QWidget;
+    time_filter_bar->setObjectName(BAR_OBJECT_NAME);
     time_filter_bar->hide();
     time_filter_layout_ = new QHBoxLayout(time_filter_bar);
 
@@ -555,46 +560,49 @@ void ClipboardWindow::setup_ui() {
     left_layout->addWidget(selection_bar);
 
     bottom_bar = new QWidget;
-    bottom_bar->setStyleSheet(R"(
-            QWidget {
-                background: #FAFAFA;
-                border-top: 1px solid #E0E0E0;
-            }
-        )");
+    bottom_bar->setObjectName(BAR_OBJECT_NAME);
     bottom_layout_ = new QHBoxLayout(bottom_bar);
 
-    // This button and the gear get SVG icons: the style's arrow and the ⚙ character differ
-    // between Windows versions (a chevron or a triangle, a colour or a plain gear).
+    // The search box holds its own magnifier and clear button; its rounded ground is the box, not the field.
+    search_box = new QFrame;
+    search_box->setObjectName("searchBox");
+    auto *search_layout = new QHBoxLayout(search_box);
+    search_icon = new QLabel;
+    search_layout->addWidget(search_icon);
+    search_input = new LineEdit(nullptr, false);
+    search_input->setPlaceholderText(tr_text("Search"));
+    connect(search_input, &QLineEdit::textChanged, this, [this] { on_search_changed(); });
+    connect(search_input, &QLineEdit::textChanged, this, [this](const QString &text) { update_search_background(text); });
+    search_layout->addWidget(search_input, 1);
+    selection_manager->set_search_input(search_input);
+    clear_search_btn = new QPushButton;
+    clear_search_btn->setCursor(Qt::PointingHandCursor);
+    clear_search_btn->setToolTip(tr_text("Clear search"));
+    clear_search_btn->setFocusPolicy(Qt::NoFocus);
+    connect(clear_search_btn, &QPushButton::clicked, this, [this] { clear_search(); });
+    clear_search_btn->hide();
+    search_layout->addWidget(clear_search_btn);
+    bottom_layout_->addWidget(search_box, 1);
+
+    // The filter funnel and the gear are SVG icons: symbol characters come from whichever font Windows falls back to.
     time_filter_toggle_btn = new QToolButton;
     time_filter_toggle_btn->setCheckable(true);
     time_filter_toggle_btn->setCursor(Qt::PointingHandCursor);
     time_filter_toggle_btn->setFocusPolicy(Qt::NoFocus);
+    time_filter_toggle_btn->setToolTip(tr_text("Open filters"));
     connect(time_filter_toggle_btn, &QToolButton::clicked, this, [this](bool checked) { toggle_time_filter_bar(checked); });
     bottom_layout_->addWidget(time_filter_toggle_btn);
-
-    search_input = new LineEdit(nullptr, false);
-    search_input->setPlaceholderText(QString::fromUtf8("🔍 ") + tr_text("Search"));
-    apply_search_input_style();
-    connect(search_input, &QLineEdit::textChanged, this, [this] { on_search_changed(); });
-    connect(search_input, &QLineEdit::textChanged, this, [this](const QString &text) { update_search_background(text); });
-    bottom_layout_->addWidget(search_input, 1);
-    selection_manager->set_search_input(search_input);
-
-    clear_search_btn = new QPushButton(QString::fromUtf8("×"));
-    clear_search_btn->setCursor(Qt::PointingHandCursor);
-    clear_search_btn->setToolTip(tr_text("Clear search"));
-    clear_search_btn->setFocusPolicy(Qt::NoFocus);
-    apply_clear_search_btn_style();
-    connect(clear_search_btn, &QPushButton::clicked, this, [this] { clear_search(); });
-    clear_search_btn->hide();
-    bottom_layout_->addWidget(clear_search_btn);
 
     menu_btn = new QPushButton;
     menu_btn->setCursor(Qt::PointingHandCursor);
     menu_btn->setFocusPolicy(Qt::NoFocus);
-    apply_menu_btn_style();
     connect(menu_btn, &QPushButton::clicked, this, [this] { show_main_menu(); });
     bottom_layout_->addWidget(menu_btn);
+
+    apply_search_box_style();
+    apply_search_icon();
+    apply_clear_search_btn_style();
+    apply_menu_btn_style();
 
     apply_time_filter_styles();
     left_layout->addWidget(bottom_bar);
@@ -648,7 +656,9 @@ void ClipboardWindow::show_main_menu() {
     options.on_toggle_show_metadata = [this](bool checked) {
         config->set_clipboard_show_metadata(checked);
         item_delegate->set_show_metadata(checked);
-        controller->load_history();
+        // The time narrows the first line, so wrapped rows may change height.
+        if (config->get_clipboard_display_lines() > 1) list_widget->doItemsLayout();
+        list_widget->viewport()->update();
     };
     options.on_toggle_preserve_search = [this](bool checked) { config->set_clipboard_preserve_search(checked); };
     options.on_set_opacity = [this](int percent) { set_window_opacity_percent(percent); };
@@ -679,6 +689,7 @@ void ClipboardWindow::show_main_menu() {
 void ClipboardWindow::toggle_time_filter_bar(bool checked) {
     if (!checked) clear_time_and_type_filters();
     time_filter_bar->setVisible(checked);
+    time_filter_toggle_btn->setToolTip(tr_text(checked ? "Close filters" : "Open filters"));
     apply_time_filter_styles();
 }
 
@@ -711,7 +722,6 @@ void ClipboardWindow::clear_time_and_type_filters() {
 void ClipboardWindow::set_window_opacity_percent(int percent) {
     window_opacity = percent;
     config->set_clipboard_window_opacity(percent);
-    item_delegate->set_window_opacity(percent);
     apply_opacity();
     refresh_list();
 }
@@ -743,7 +753,6 @@ void ClipboardWindow::on_font_size_changed(int size) {
 
 void ClipboardWindow::on_opacity_changed(int percent) {
     window_opacity = percent;
-    item_delegate->set_window_opacity(percent);
     apply_opacity();
     refresh_list();
 }
@@ -757,7 +766,6 @@ void ClipboardWindow::refresh_list() {
     item_delegate->set_show_metadata(config->get_clipboard_show_metadata());
     item_delegate->set_font_size(font_size);
     item_delegate->set_display_lines(config->get_clipboard_display_lines());
-    item_delegate->set_window_opacity(window_opacity);
     item_delegate->set_theme(current_theme);
     for (const auto &item : controller->current_items) {
         auto *list_item = new QListWidgetItem;
@@ -834,13 +842,22 @@ void ClipboardWindow::point_at(const QPoint &viewport_pos, const QPoint &global_
 
 void ClipboardWindow::update_search_background(const QString &text) {
     const bool has_text = !text.trimmed().isEmpty();
-    apply_search_input_style(has_text);
+    apply_search_box_style(has_text);
     clear_search_btn->setVisible(has_text);
 }
 
-void ClipboardWindow::apply_search_input_style(bool has_text) { search_input->setStyleSheet(ThemeStyleGenerator(current_theme).generate_search_input_style(has_text)); }
+void ClipboardWindow::apply_search_box_style(bool has_text) { search_box->setStyleSheet(ThemeStyleGenerator(current_theme).generate_search_box_style(has_text)); }
 
-void ClipboardWindow::apply_clear_search_btn_style() { clear_search_btn->setStyleSheet(ThemeStyleGenerator(current_theme).generate_clear_search_btn_style()); }
+void ClipboardWindow::apply_search_icon() {
+    const QSize size(scaled(16), scaled(16));
+    search_icon->setPixmap(tinted_icon(FluentIcon::Search, current_theme.colors.text_tertiary).pixmap(size, devicePixelRatioF()));
+}
+
+void ClipboardWindow::apply_clear_search_btn_style() {
+    clear_search_btn->setStyleSheet(ThemeStyleGenerator(current_theme).generate_clear_search_btn_style());
+    clear_search_btn->setIcon(tinted_icon(FluentIcon::Cancel, current_theme.colors.text_tertiary));
+    clear_search_btn->setIconSize(QSize(scaled(10), scaled(10)));
+}
 
 void ClipboardWindow::apply_menu_btn_style() {
     menu_btn->setStyleSheet(ThemeStyleGenerator(current_theme).generate_menu_btn_style());
@@ -863,11 +880,10 @@ void ClipboardWindow::apply_time_filter_styles() {
     const ThemeStyleGenerator generator(current_theme);
     if (time_filter_toggle_btn) {
         time_filter_toggle_btn->setStyleSheet(generator.generate_filter_toggle_btn_style());
-        // Points down to close the bar while it is open.
-        const bool open = time_filter_toggle_btn->isChecked();
+        // Open, the funnel takes the accent along with its background.
         const auto &colors = current_theme.colors;
-        time_filter_toggle_btn->setIcon(tinted_icon(ResourceManager::get_icon_path(open ? "step_down.svg" : "step_up.svg"), open ? colors.text_primary : colors.text_secondary));
-        time_filter_toggle_btn->setIconSize(QSize(scaled(12), scaled(12)));
+        time_filter_toggle_btn->setIcon(tinted_icon(FluentIcon::Filter, time_filter_toggle_btn->isChecked() ? colors.text_accent : colors.text_secondary));
+        time_filter_toggle_btn->setIconSize(QSize(scaled(16), scaled(16)));
     }
     if (start_date_edit) {
         const QString date_style = generator.generate_time_filter_date_edit_style();
@@ -921,13 +937,6 @@ void ClipboardWindow::set_type_filter(int index) {
 
 void ClipboardWindow::on_group_switched(std::optional<qint64> group_id) {
     group_bar->switch_to_group(group_id);
-    bool is_quick_launch = false;
-    if (group_id) {
-        for (const auto &group : controller->manager.get_groups())
-            if (group.id == *group_id) is_quick_launch = group.group_type == GroupType::FILE;
-    }
-    item_delegate->set_hide_file_icon(is_quick_launch);
-    if (config->get_clipboard_display_lines() > 1) list_widget->doItemsLayout();
     refresh_type_filter_button();
     list_widget->viewport()->update();
 }

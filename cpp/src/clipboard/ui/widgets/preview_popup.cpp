@@ -1,5 +1,6 @@
 #include "clipboard/ui/widgets/preview_popup.h"
 #include "clipboard/core/manager.h"
+#include "clipboard/ui/widgets/item_delegate.h"
 #include "core/logger.h"
 #include "core/text_utils.h"
 #include "core/ui_scale.h"
@@ -97,12 +98,21 @@ PreviewPopup::PreviewPopup() : QWidget(nullptr) {
 void PreviewPopup::setup_ui() {
     layout_ = new QVBoxLayout(this);
     layout_->setSpacing(0);
+    // The window is as big as what it shows; a window left to size itself is at least 200 x 100.
+    layout_->setSizeConstraint(QLayout::SetFixedSize);
 
     // Title row (text previews only; hidden for images).
     title_label = new QLabel;
     title_label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
     title_label->hide();
     layout_->addWidget(title_label);
+    title_line_ = new QWidget;
+    title_line_->setAutoFillBackground(true);
+    QPalette line_palette = title_line_->palette();
+    line_palette.setColor(QPalette::Window, QColor("#E0E0E0"));
+    title_line_->setPalette(line_palette);
+    title_line_->hide();
+    layout_->addWidget(title_line_);
 
     color_label = new QLabel;
     color_label->hide();
@@ -136,12 +146,17 @@ void PreviewPopup::apply_scale() {
                       .arg(scaled(8)));
     const int margin = scaled(2);
     layout_->setContentsMargins(margin, margin, margin, margin);
-    title_label->setStyleSheet(QString("font-size: %1px; color: #666; font-weight: bold; padding-left: %2px;").arg(scaled(12)).arg(scaled(4)));
+    // The content has no frame of its own; a line under the title marks where it starts. The title lines up with the text below it.
+    title_line_->setFixedHeight(1);
+    title_label->setStyleSheet(QString("font-size: %1px; color: #666; font-weight: bold; padding: %2px %3px %4px %3px;")
+                                   .arg(scaled(12))
+                                   .arg(scaled(4))
+                                   .arg(scaled(10))
+                                   .arg(scaled(6)));
     content_widget->setStyleSheet(QString(R"(
             QTextEdit {
                 background: #FAFAFA;
-                border: 1px solid #E0E0E0;
-                border-radius: %1px;
+                border: none;
                 padding: %1px %2px;
                 font-size: %3px;
                 color: #333;
@@ -228,15 +243,19 @@ void PreviewPopup::do_show() {
     } else if (item.content_type == "text") show_text_preview(item);
     else return;
 
-    adjustSize();
+    // Sizes the window to the layout now, so the position below uses the new size; adjustSize() would stretch it to 200 x 100.
+    layout_->activate();
     move(side_position(size(), pending_pos_, pending_avoid_rect_, pending_prefer_side_.isEmpty() ? QString("auto") : pending_prefer_side_));
     show();
 }
 
 void PreviewPopup::show_text_preview(const ClipboardItem &item) {
-    // The time above, the full content below.
-    title_label->setText(item.created_at.isValid() ? item.created_at.toString("yyyy-MM-dd HH:mm:ss") : tr_preview("📝 文本"));
+    // The time and source above, the full content below; the list rows leave the source out.
+    QString title = item.created_at.isValid() ? item.created_at.toString("yyyy-MM-dd HH:mm:ss") : tr_preview("📝 文本");
+    if (const QString source = row_source_text(item.source_app.value_or(QString())); !source.isEmpty()) title += QString::fromUtf8(" · ") + source;
+    title_label->setText(title);
     title_label->show();
+    title_line_->show();
     // Length limited to stay responsive.
     const QString content = left_chars(item.content, 2000);
     content_widget->setMinimumSize(0, 0);
@@ -266,6 +285,7 @@ void PreviewPopup::show_text_preview(const ClipboardItem &item) {
 
 void PreviewPopup::show_file_preview(const ClipboardItem &item) {
     title_label->hide();
+    title_line_->hide();
     image_label->hide();
 
     QJsonParseError error;
@@ -337,7 +357,7 @@ void PreviewPopup::adjust_content_size() {
     int max_line_width = 0;
     for (const auto &line : lines) max_line_width = std::max(max_line_width, font_metrics.horizontalAdvance(line));
 
-    // CSS padding 4px vertical + 8px horizontal, border 2px, document margin 2px (values at 100%).
+    // CSS padding 4px vertical + 8px horizontal, document margin 2px, and 2px to spare on each side (values at 100%).
     const int h_padding = scaled(8) * 2 + scaled(2) * 2 + scaled(4);
     const int v_padding = scaled(4) * 2 + scaled(2) * 2 + scaled(4);
     const int ideal_width = max_line_width + h_padding;
@@ -362,6 +382,7 @@ void PreviewPopup::adjust_content_size() {
 
 bool PreviewPopup::show_image_preview(const QImage &image) {
     title_label->hide();
+    title_line_->hide();
     content_widget->hide();
     // A label left visible would show the previous record's picture.
     image_label->hide();

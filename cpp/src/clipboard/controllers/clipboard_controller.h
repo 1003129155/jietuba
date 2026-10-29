@@ -142,8 +142,6 @@ private:
 
     qint64 current_offset_ = 0;
     int page_size_ = 38;
-    // More rows fit per page when time and source are hidden.
-    int page_size_without_metadata_ = 65;
     bool is_loading_ = false;
     bool has_more_ = true;
     int last_scroll_value_ = 0;
