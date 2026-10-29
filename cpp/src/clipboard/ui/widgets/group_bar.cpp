@@ -24,7 +24,7 @@ namespace {
 // BUTTON is the length along the bar, which the controller's overflow capacity counts on; BAR is the thickness across it.
 constexpr int BUTTON = 34;
 constexpr int BAR = 42;
-constexpr int INDICATOR_THICKNESS = 2;
+constexpr int INDICATOR_THICKNESS = 4;
 constexpr int INDICATOR_INSET = 8;
 
 std::optional<qint64> button_group_id(const QPushButton *button) {

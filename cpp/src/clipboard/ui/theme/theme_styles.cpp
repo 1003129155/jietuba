@@ -61,8 +61,27 @@ QString ThemeStyleGenerator::generate_list_widget_style(int opacity) const {
             QListWidget::item:hover {
                 background: transparent;
             }
+            QScrollBar:vertical {
+                background: transparent;
+                width: %5;
+                margin: %4 0px;
+            }
+            QScrollBar::handle:vertical {
+                background: %6;
+                border-radius: %7;
+                min-height: %8;
+            }
+            QScrollBar::handle:vertical:hover, QScrollBar::handle:vertical:pressed {
+                background: %3;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+                background: transparent;
+            }
         )")
-        .arg(hex_to_rgb(c.bg_primary), alpha_text(opacity), c.text_primary, px(4));
+        .arg(hex_to_rgb(c.bg_primary), alpha_text(opacity), c.text_primary, px(4), px(6), c.text_secondary, px(3), px(24));
 }
 
 QString ThemeStyleGenerator::generate_search_bar_style(int opacity) const {

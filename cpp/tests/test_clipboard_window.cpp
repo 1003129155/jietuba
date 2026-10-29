@@ -28,6 +28,8 @@
 #include <QScrollBar>
 #include <QTemporaryDir>
 #include <QSignalSpy>
+#include <QStyle>
+#include <QStyleOptionSlider>
 #include <QTest>
 #include <QToolButton>
 #include <QWheelEvent>
@@ -1407,7 +1409,67 @@ private slots:
         QCOMPARE(fill(), closed);
     }
 
+    void theScrollbarFollowsTheClipboardTheme_data() {
+        QTest::addColumn<int>("scale");
+        QTest::newRow("100-percent") << 100;
+        QTest::newRow("150-percent") << 150;
+    }
+
+    void theScrollbarFollowsTheClipboardTheme() {
+        QFETCH(int, scale);
+        auto *themes = get_theme_manager();
+        const QString original = themes->get_current_theme().name;
+        const auto restore = qScopeGuard([themes, original] {
+            themes->set_theme(original);
+            get_ui_scale().set_percent(100);
+        });
+        get_ui_scale().set_percent(scale);
+        QStringList texts;
+        for (int i = 0; i < 50; ++i) texts << QString("Item %1").arg(i);
+        add_texts(texts);
+        auto *window = open_window();
+        auto *list = window->list_widget;
+        auto *scrollbar = list->verticalScrollBar();
+        QTRY_VERIFY(scrollbar->maximum() > 0);
+        QTest::mouseMove(list->viewport(), QPoint(20, 20));
+        for (const char *name : {"dark", "light"}) {
+            QVERIFY(themes->set_theme(name));
+            QTRY_COMPARE(scrollbar->width(), scaled(6));
+            QStyleOptionSlider option;
+            option.initFrom(scrollbar);
+            option.orientation = Qt::Vertical;
+            option.minimum = scrollbar->minimum();
+            option.maximum = scrollbar->maximum();
+            option.pageStep = scrollbar->pageStep();
+            option.sliderPosition = scrollbar->sliderPosition();
+            option.sliderValue = scrollbar->value();
+            const QRect thumb = scrollbar->style()->subControlRect(QStyle::CC_ScrollBar, &option, QStyle::SC_ScrollBarSlider, scrollbar);
+            QVERIFY(!thumb.isEmpty());
+            const QImage image = scrollbar->grab().toImage();
+            const QPoint center = thumb.center() * image.devicePixelRatio();
+            const QColor handle = image.pixelColor(center);
+            QCOMPARE(handle, QColor(window->current_theme.colors.text_secondary));
+            QVERIFY(color_distance(handle, QColor(window->current_theme.colors.bg_primary)) >= 80);
+        }
+        auto *last_item = list->item(list->count() - 1);
+        list->scrollToItem(last_item, QAbstractItemView::PositionAtBottom);
+        QVERIFY(list->visualItemRect(last_item).intersects(list->viewport()->rect()));
+        window->search_input->setText("Item 49");
+        QTRY_COMPARE(list->count(), 1);
+        QTRY_COMPARE(scrollbar->maximum(), 0);
+        QTRY_VERIFY(!scrollbar->isVisible());
+    }
+
+    void theGroupBarMarksTheCurrentGroupAlongItsOuterEdge_data() {
+        QTest::addColumn<int>("scale");
+        QTest::newRow("100-percent") << 100;
+        QTest::newRow("150-percent") << 150;
+    }
+
     void theGroupBarMarksTheCurrentGroupAlongItsOuterEdge() {
+        QFETCH(int, scale);
+        const auto restore_scale = qScopeGuard([] { get_ui_scale().set_percent(100); });
+        get_ui_scale().set_percent(scale);
         const auto work = manager().create_group("Work", std::nullopt, QString::fromUtf8("💼"));
         QVERIFY(work);
         const struct {
@@ -1426,31 +1488,34 @@ private slots:
             auto *bar = window->group_bar;
             QTRY_COMPARE(bar->group_buttons.size(), 1);
             const QColor accent(window->current_theme.colors.accent_primary);
-            // Where the line sits on a button, and whether it is drawn there.
-            const auto marked = [&](QPushButton *button) {
+            // Measure the solid accent from the edge toward the button's center.
+            const auto mark_thickness = [&](QPushButton *button) {
                 const QImage image = button->grab().toImage();
-                const QPoint at = edge == Qt::BottomEdge ? QPoint(image.width() / 2, image.height() - 1)
-                                  : edge == Qt::LeftEdge ? QPoint(0, image.height() / 2)
-                                                         : QPoint(image.width() - 1, image.height() / 2);
-                return image.pixelColor(at) == accent;
+                const QColor current_accent(window->current_theme.colors.accent_primary);
+                const int depth = edge == Qt::BottomEdge ? image.height() : image.width();
+                int thickness = 0;
+                for (; thickness < depth; ++thickness) {
+                    const QPoint at = edge == Qt::BottomEdge ? QPoint(image.width() / 2, image.height() - 1 - thickness)
+                                      : edge == Qt::LeftEdge ? QPoint(thickness, image.height() / 2)
+                                                             : QPoint(image.width() - 1 - thickness, image.height() / 2);
+                    if (image.pixelColor(at) != current_accent) break;
+                }
+                return thickness;
             };
+            const int expected_thickness = qRound(scaled(4) * bar->clipboard_btn->devicePixelRatioF());
             QVERIFY2(bar->clipboard_btn->indicator_edge() == edge, position);
             QVERIFY2(bar->group_buttons.first()->indicator_edge() == edge, position);
             // The records button is current to begin with; switching moves the line.
-            QVERIFY2(marked(bar->clipboard_btn), position);
-            QVERIFY2(!marked(bar->group_buttons.first()), position);
+            QCOMPARE(mark_thickness(bar->clipboard_btn), expected_thickness);
+            QCOMPARE(mark_thickness(bar->group_buttons.first()), 0);
             bar->group_buttons.first()->click();
-            QVERIFY2(!marked(bar->clipboard_btn), position);
-            QVERIFY2(marked(bar->group_buttons.first()), position);
+            QCOMPARE(mark_thickness(bar->clipboard_btn), 0);
+            QCOMPARE(mark_thickness(bar->group_buttons.first()), expected_thickness);
             // The line follows a theme change.
             QVERIFY(themes->set_theme("dark"));
             const QColor dark_accent(window->current_theme.colors.accent_primary);
             QVERIFY2(dark_accent != accent, position);
-            const QImage image = bar->group_buttons.first()->grab().toImage();
-            const QPoint at = edge == Qt::BottomEdge ? QPoint(image.width() / 2, image.height() - 1)
-                              : edge == Qt::LeftEdge ? QPoint(0, image.height() / 2)
-                                                     : QPoint(image.width() - 1, image.height() / 2);
-            QCOMPARE(image.pixelColor(at), dark_accent);
+            QCOMPARE(mark_thickness(bar->group_buttons.first()), expected_thickness);
             QVERIFY(themes->set_theme("light"));
             window_->close();
             window_.reset();
