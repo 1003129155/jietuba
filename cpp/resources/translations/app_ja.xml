@@ -2136,6 +2136,22 @@ Replace it?</source>
         <translation>すべてのファイルのパスをコピー</translation>
     </message>
     <message>
+        <source>Copy selected files</source>
+        <translation>選択したファイルをコピー</translation>
+    </message>
+    <message>
+        <source>Copy selected file paths</source>
+        <translation>選択したファイルのパスをコピー</translation>
+    </message>
+    <message>
+        <source>Open Many Files</source>
+        <translation>複数のファイルを開く</translation>
+    </message>
+    <message>
+        <source>Open %1 files at once?</source>
+        <translation>%1 個のファイルを一度に開きますか？</translation>
+    </message>
+    <message>
         <source>Copy animation</source>
         <translation>アニメーションをコピー</translation>
     </message>

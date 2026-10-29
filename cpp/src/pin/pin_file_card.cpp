@@ -2,6 +2,7 @@
 #include "core/i18n.h"
 #include "core/logger.h"
 #include "core/theme.h"
+#include "ui/dialogs.h"
 #include <QApplication>
 #include <QClipboard>
 #include <QDesktopServices>
@@ -27,6 +28,9 @@
 namespace jietuba {
 namespace {
 QString pin_tr(const char *text) { return i18n_tr(text, "PinWindow"); }
+
+// Opening more files than this at once asks first.
+constexpr int MANY_OPENED = 15;
 
 QFont card_font(int pixel_size, bool bold = false) {
     QFont font("Microsoft YaHei UI");
@@ -236,4 +240,11 @@ void PinFileCard::reveal(const QStringList &files) {
 }
 
 void PinFileCard::open(const QString &file) { QDesktopServices::openUrl(QUrl::fromLocalFile(file)); }
+
+void PinFileCard::open(const QStringList &files, QWidget *parent) {
+    if (files.size() > MANY_OPENED &&
+        !show_confirm_dialog(parent, pin_tr("Open Many Files"), pin_tr("Open %1 files at once?").arg(files.size())))
+        return;
+    for (const auto &file : files) open(file);
+}
 }

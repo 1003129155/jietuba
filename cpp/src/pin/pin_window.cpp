@@ -17,6 +17,7 @@
 #include "pin/pin_canvas_view.h"
 #include "pin/pin_click_through_bar.h"
 #include "pin/pin_file_card.h"
+#include "pin/pin_file_selection.h"
 #include "pin/pin_shortcut.h"
 #include "pin/pin_text_content.h"
 #include "pin/pin_text_mode.h"
@@ -40,7 +41,6 @@
 #include <QDateTime>
 #include <QDir>
 #include <QFileInfo>
-#include <QGraphicsRectItem>
 #include <QKeyEvent>
 #include <QMimeData>
 #include <QMouseEvent>
@@ -261,6 +261,8 @@ PinWindow::PinWindow(const QImage &image, const QPoint &position, ToolSettingsMa
     }
     connect(qApp, &QGuiApplication::focusWindowChanged, this, [this] {
         if (border_overlay) border_overlay->set_border_color(frame_color());
+        // Selected files grey out with the pin inactive.
+        if (file_selection_) file_selection_->refresh();
     });
     show();
     update_button_positions();
@@ -814,6 +816,8 @@ bool PinWindow::handle_mouse_gesture(QMouseEvent *event) {
         } else if (!dragged) {
             auto action = state.action;
             if (!action && button == Qt::RightButton) action = QString("context_menu");
+            // A Ctrl+click held for the drag-out gesture still picks files.
+            if (!action && button == Qt::LeftButton) click_file(current, event->modifiers());
             if (action) {
                 if (matching_mouse_action(event, "double" + gesture)) {
                     pending_mouse_action_ = action;
@@ -998,6 +1002,7 @@ void PinWindow::show_frame_unscaled() {
 
 void PinWindow::open_files(const PinFileCard &card) {
     file_card_ = std::make_unique<PinFileCard>(card);
+    file_selection_ = std::make_unique<PinFileSelection>(this, file_card_.get());
     // At 100% too: the first image has the screen's logical pixels only.
     last_background_scale_size_.reset();
     refresh_background_for_scale();
@@ -1008,12 +1013,16 @@ int PinWindow::file_at(const QPoint &global_pos) const {
     return file_card_->file_at(view->mapToScene(view->viewport()->mapFromGlobal(global_pos)));
 }
 
-void PinWindow::clear_file_highlight() {
-    if (file_highlight_ && canvas && canvas->scene) {
-        canvas->scene->removeItem(file_highlight_);
-        delete file_highlight_;
-    }
-    file_highlight_ = nullptr;
+void PinWindow::click_file(const QPoint &global_pos, Qt::KeyboardModifiers modifiers) {
+    if (file_selection_) file_selection_->click(file_at(global_pos), modifiers);
+}
+
+bool PinWindow::open_file_at(const QPoint &global_pos) {
+    if (!file_selection_ || !file_selection_->in_effect()) return false;
+    const int index = file_at(global_pos);
+    if (index < 0) return false;
+    PinFileCard::open(file_card_->files()[index]);
+    return true;
 }
 
 void PinWindow::replace_base_image(const QImage &image, const QPixmap &pixmap) {
@@ -1150,18 +1159,12 @@ void PinWindow::show_context_menu(const QPoint &global_pos) {
         state.animation_frames = animation_->frame_count();
     } else if (file_card_) {
         state.content = PinMenuState::Content::Files;
-        state.file_index = file_at(global_pos);
-        if (state.file_index >= 0 && canvas) {
-            // Shows which file the first items act on; gone before the chosen item runs, so a copied image is clean.
-            QColor tint = get_theme().theme_color();
-            tint.setAlpha(40);
-            file_highlight_ = canvas->scene->addRect(QRectF(file_card_->cell_rect(state.file_index)), Qt::NoPen, tint);
-            file_highlight_->setZValue(0.5);
-            const QPointer<PinWindow> self(this);
-            state.on_hide = [self] {
-                if (self) self->clear_file_highlight();
-            };
-        }
+        const int index = file_at(global_pos);
+        // Off the cards the menu acts on every file, and so do the copy keys.
+        if (index < 0) file_selection_->clear();
+        else state.chosen_files = file_selection_->files_for(index);
+        state.files_selected = !file_selection_->selected_files().isEmpty();
+        state.chosen_selected = state.files_selected && file_selection_->is_selected(index);
     }
     // In text mode Esc leaves the text first.
     state.close_shortcut_enabled = !(canvas && canvas->is_editing()) && !lock_blocks("key_close") && !click_through_ && !text_mode();
@@ -1171,7 +1174,6 @@ void PinWindow::show_context_menu(const QPoint &global_pos) {
     context_menu_->show(global_pos, state);
     // The menu runs its own event loop, in which the pin may have been closed and deleted.
     if (!alive) return;
-    clear_file_highlight();
     hover_controls->set_menu_open(false);
 }
 
@@ -1429,6 +1431,13 @@ void PinWindow::copy_current_frame() {
 }
 
 void PinWindow::copy_to_clipboard() {
+    if (file_card_) {
+        const QStringList files = file_selection_->selected_files();
+        if (!files.isEmpty()) {
+            PinFileCard::copy_files(files);
+            return;
+        }
+    }
     if (animation_) {
         copy_animation();
         return;
@@ -1454,7 +1463,8 @@ void PinWindow::copy_plain_text() {
 
 void PinWindow::copy_all_text() {
     if (file_card_) {
-        PinFileCard::copy_paths(file_card_->files());
+        const QStringList selected = file_selection_->selected_files();
+        PinFileCard::copy_paths(selected.isEmpty() ? file_card_->files() : selected);
         show_hint_label(pin_tr("Text copied"));
         return;
     }
@@ -1483,8 +1493,8 @@ PinWindow::DragOut PinWindow::prepare_drag_out(const QPoint &global_pos) {
     auto *selection = text_mode() ? nullptr : text_selection();
     if (file_card_) {
         const int index = file_at(global_pos);
-        content.files = index >= 0 ? QStringList{file_card_->files().value(index)} : file_card_->files();
-        if (index >= 0) shown = QRectF(file_card_->cell_rect(index));
+        content.files = index >= 0 ? file_selection_->files_for(index) : file_card_->files();
+        if (index >= 0) shown = file_selection_->in_effect() && file_selection_->is_selected(index) ? file_selection_->selected_bounds() : QRectF(file_card_->cell_rect(index));
     } else if (animation_) {
         const auto &source = animation_->source();
         QString name = QFileInfo(source.file_path).fileName();
@@ -1586,7 +1596,6 @@ void PinWindow::cleanup() {
     PinShortcutController::instance()->unregister_pin(this);
     // The decoder thread stops before the window it draws on goes.
     if (animation_) animation_->stop();
-    clear_file_highlight();
     if (hover_controls) hover_controls->stop();
     if (display_scaler_) display_scaler_->cancel();
     if (zoom_hide_timer_) zoom_hide_timer_->stop();

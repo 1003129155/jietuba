@@ -2093,6 +2093,22 @@ Replace it?</source>
         <translation>复制所有文件路径</translation>
     </message>
     <message>
+        <source>Copy selected files</source>
+        <translation>复制选中的文件</translation>
+    </message>
+    <message>
+        <source>Copy selected file paths</source>
+        <translation>复制选中的文件路径</translation>
+    </message>
+    <message>
+        <source>Open Many Files</source>
+        <translation>打开多个文件</translation>
+    </message>
+    <message>
+        <source>Open %1 files at once?</source>
+        <translation>一次打开 %1 个文件吗？</translation>
+    </message>
+    <message>
         <source>Copy animation</source>
         <translation>复制动图</translation>
     </message>

@@ -12,6 +12,7 @@
 #include <QPointer>
 #include <QTimer>
 #include <cmath>
+#include <functional>
 
 namespace jietuba {
 namespace {
@@ -38,7 +39,6 @@ void PinContextMenu::show(const QPoint &global_pos, const PinMenuState &state) {
     setup_font(menu);
     menu->setStyleSheet(menu_style());
     add_menu_items(menu, state);
-    if (state.on_hide) QObject::connect(menu, &QMenu::aboutToHide, menu, state.on_hide);
     menu->exec(global_pos);
     delete menu.data();
 }
@@ -103,17 +103,21 @@ void PinContextMenu::add_menu_items(QMenu *menu, const PinMenuState &state) {
     const bool is_thumbnail = state.thumbnail_mode, is_text = state.text_mode;
     const bool is_animation = state.content == PinMenuState::Content::Animation, is_files = state.content == PinMenuState::Content::Files;
     if (is_files) {
-        // The right-clicked file, or all of them.
-        const QStringList files = win->file_card()->files();
-        if (state.file_index >= 0) {
-            const QString file = files.value(state.file_index);
-            add(menu, pin_tr("Open"), [file] { PinFileCard::open(file); });
-            add(menu, pin_tr("Copy this file"), [file] { PinFileCard::copy_files({file}); });
-            add(menu, pin_tr("Copy this file's path"), [file] { PinFileCard::copy_paths({file}); });
-            add(menu, pin_tr("Show in Explorer"), [file] { PinFileCard::reveal({file}); });
+        // The chosen files, or all of them; the copy keys act on the same files.
+        const QStringList chosen = state.chosen_files;
+        if (!chosen.isEmpty()) {
+            const bool one = chosen.size() == 1;
+            // A right-clicked file outside the selection is not what the copy keys take.
+            const auto keyed = [&state, &shortcut_text](const QString &text, const char *key) { return state.chosen_selected ? shortcut_text(text, key) : text; };
+            add(menu, pin_tr("Open"), [chosen, win] { PinFileCard::open(chosen, win); });
+            add(menu, keyed(one ? pin_tr("Copy this file") : pin_tr("Copy selected files"), "inapp_copy_pin"), [chosen] { PinFileCard::copy_files(chosen); });
+            add(menu, keyed(one ? pin_tr("Copy this file's path") : pin_tr("Copy selected file paths"), "inapp_copy_pin_text"),
+                [chosen] { PinFileCard::copy_paths(chosen); });
+            add(menu, pin_tr("Show in Explorer"), [chosen] { PinFileCard::reveal(chosen); });
         } else {
+            const QStringList files = win->file_card()->files();
             add(menu, pin_tr("Copy all files"), [files] { PinFileCard::copy_files(files); });
-            add(menu, pin_tr("Copy all file paths"), [files] { PinFileCard::copy_paths(files); });
+            add(menu, shortcut_text(pin_tr("Copy all file paths"), "inapp_copy_pin_text"), [files] { PinFileCard::copy_paths(files); });
             add(menu, pin_tr("Show in Explorer"), [files] { PinFileCard::reveal(files); });
         }
         menu->addSeparator();
@@ -127,9 +131,9 @@ void PinContextMenu::add_menu_items(QMenu *menu, const PinMenuState &state) {
         add(menu, shortcut_text(pin_tr("Copy animation"), "inapp_copy_pin"), [win] { win->copy_animation(); });
         add(menu, pin_tr("Copy current frame"), [win] { win->copy_current_frame(); });
     } else if (is_files) {
-        add(menu, shortcut_text(pin_tr("Copy image"), "inapp_copy_pin"), [win] { win->copy_to_clipboard(); });
-        // The paths, one per line.
-        add(menu, shortcut_text(pin_tr("Copy plain text"), "inapp_copy_pin_text"), [win] { win->copy_all_text(); });
+        // With files chosen, the copy key takes them instead.
+        const QString copy_image = pin_tr("Copy image");
+        add(menu, state.files_selected ? copy_image : shortcut_text(copy_image, "inapp_copy_pin"), [win] { win->copy_image(); });
     } else {
         // In text mode Copy takes the selected text, or all of it.
         add(menu, shortcut_text(pin_tr("Copy"), "inapp_copy_pin"), [win] { win->copy_to_clipboard(); });

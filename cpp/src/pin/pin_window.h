@@ -19,7 +19,6 @@
 #include <optional>
 
 class QGraphicsItem;
-class QGraphicsRectItem;
 class QInputEvent;
 
 namespace jietuba {
@@ -31,6 +30,7 @@ class PinCanvasView;
 class PinClickThroughBar;
 class PinDisplayScaler;
 class PinFileCard;
+class PinFileSelection;
 class PinTextContent;
 class PinTextMode;
 class PinToolbar;
@@ -122,6 +122,11 @@ public:
     const PinFileCard *file_card() const { return file_card_.get(); }
     // The file whose card is under global_pos, -1 elsewhere.
     int file_at(const QPoint &global_pos) const;
+    PinFileSelection *file_selection() const { return file_selection_.get(); }
+    // A click that stayed where it was pressed, on a file card.
+    void click_file(const QPoint &global_pos, Qt::KeyboardModifiers modifiers);
+    // A double click: opens the file under global_pos; false off the cards.
+    bool open_file_at(const QPoint &global_pos);
     // Annotations and the toolbar: not on an animation, whose frames would replace what is drawn under them.
     bool annotatable() const { return !animation_; }
     // Text recognition, text selection, text mode and translation: not for an animation or a file list.
@@ -187,8 +192,8 @@ public:
     // All recognized text; recognizes first when there is no result yet.
     void copy_all_text();
     // What dragging the content out from global_pos carries: what Copy would copy, but the highlighted text when the
-    // drag starts on it, and on a file card the file under the pointer or, off the cards, every file. The preview
-    // shows what goes, held at the point it was grabbed.
+    // drag starts on it, and on a file card the selected files when it starts on one of them, another file alone, or,
+    // off the cards, every file. The preview shows what goes, held at the point it was grabbed.
     struct DragOut {
         DragOutContent content;
         QPixmap preview;
@@ -276,7 +281,6 @@ private:
     // Stepping to a frame the animation reads up to again: a bar of how far, once it takes a while.
     void show_seek_progress(int done, int total);
     void place_seek_bar();
-    void clear_file_highlight();
     // A new image of another size, keeping the zoom, the top-left corner and the annotations where they
     // are; pixmap is the image made into one already, when it is not null.
     void replace_base_image(const QImage &image, const QPixmap &pixmap = {});
@@ -339,7 +343,6 @@ private:
     PinAnimation *animation_ = nullptr;
     WaitBar *seek_bar_ = nullptr;
     std::unique_ptr<PinFileCard> file_card_;
-    // The right-clicked file's card while the menu is open.
-    QGraphicsRectItem *file_highlight_ = nullptr;
+    std::unique_ptr<PinFileSelection> file_selection_;
 };
 }

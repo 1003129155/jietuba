@@ -6,6 +6,7 @@
 #include <QVector>
 
 class QPainter;
+class QWidget;
 
 namespace jietuba {
 // Copied files shown as a grid of cards: system icon, name and size. Only the cells that fit
@@ -48,6 +49,8 @@ public:
     // Each folder opens once with its files selected; runs off the UI thread.
     static void reveal(const QStringList &files);
     static void open(const QString &file);
+    // Each of them; opening many at once asks first.
+    static void open(const QStringList &files, QWidget *parent);
 private:
     void paint_card(QPainter &painter, int index, const QImage &icon) const;
     void paint_count(QPainter &painter, const QRect &cell) const;

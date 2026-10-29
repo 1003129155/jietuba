@@ -2095,6 +2095,22 @@ Replace it?</source>
         <translation>複製所有檔案路徑</translation>
     </message>
     <message>
+        <source>Copy selected files</source>
+        <translation>複製選取的檔案</translation>
+    </message>
+    <message>
+        <source>Copy selected file paths</source>
+        <translation>複製選取的檔案路徑</translation>
+    </message>
+    <message>
+        <source>Open Many Files</source>
+        <translation>開啟多個檔案</translation>
+    </message>
+    <message>
+        <source>Open %1 files at once?</source>
+        <translation>一次開啟 %1 個檔案嗎？</translation>
+    </message>
+    <message>
         <source>Copy animation</source>
         <translation>複製動圖</translation>
     </message>

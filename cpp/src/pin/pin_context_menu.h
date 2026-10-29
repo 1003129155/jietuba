@@ -1,7 +1,7 @@
 #pragma once
 #include <QPoint>
 #include <QString>
-#include <functional>
+#include <QStringList>
 
 class QMenu;
 
@@ -32,10 +32,10 @@ struct PinMenuState {
     double animation_speed = 1.0;
     // 1-based; frames is 0 until counted.
     int animation_frame = 0, animation_frames = 0;
-    // The file whose card was right-clicked, -1 for none.
-    int file_index = -1;
-    // Runs as the menu hides, before the chosen item.
-    std::function<void()> on_hide;
+    // The right-clicked file with those selected along with it; empty off the cards, where the menu acts on every file.
+    QStringList chosen_files;
+    // Whether files are selected, which the copy keys then take, and whether chosen_files are them.
+    bool files_selected = false, chosen_selected = false;
 };
 
 // Only the currently effective keyboard binding; cleared and mouse bindings show nothing.

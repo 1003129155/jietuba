@@ -6,6 +6,7 @@
 #include "pin/pin_canvas.h"
 #include "pin/pin_canvas_view.h"
 #include "pin/pin_file_card.h"
+#include "pin/pin_file_selection.h"
 #include "pin/pin_manager.h"
 #include "pin/pin_ocr_manager.h"
 #include "pin/pin_text_selection.h"
@@ -16,6 +17,8 @@
 #include <QApplication>
 #include <QBuffer>
 #include <QClipboard>
+#include <QDesktopServices>
+#include <QDialog>
 #include <QDir>
 #include <QDrag>
 #include <QElapsedTimer>
@@ -128,8 +131,9 @@ QStringList run_menu(PinWindow *pin, const QPoint &global_pos, const QString &tr
         QAction *chosen = nullptr;
         for (auto *action : menu->actions()) {
             entries << (action->isSeparator() ? QString("-") : action->isEnabled() ? action->text() : "[" + action->text() + "]");
-            // An exact match wins over one that only starts the same.
-            if (!trigger.isEmpty() && !action->isSeparator() && action->text().startsWith(trigger) && !(chosen && chosen->text() == trigger)) chosen = action;
+            // An exact match, the shortcut shown after it aside, wins over one that only starts the same.
+            const auto exact = [&trigger](const QString &text) { return text == trigger || text.startsWith(trigger + " ("); };
+            if (!trigger.isEmpty() && !action->isSeparator() && action->text().startsWith(trigger) && !(chosen && exact(chosen->text()))) chosen = action;
         }
         menu->close();
         if (chosen) chosen->trigger();
@@ -161,6 +165,19 @@ void send_left(PinWindow *pin, QEvent::Type type, const QPoint &local, Qt::Mouse
     auto *viewport = pin->view->viewport();
     QMouseEvent event(type, QPointF(local), QPointF(viewport->mapToGlobal(local)), type == QEvent::MouseMove ? Qt::NoButton : Qt::LeftButton, buttons, modifiers);
     QApplication::sendEvent(viewport, &event);
+}
+
+// A click that stays where it was pressed.
+void click_at(PinWindow *pin, const QPoint &local, Qt::KeyboardModifiers modifiers = Qt::NoModifier) {
+    send_left(pin, QEvent::MouseButtonPress, local, Qt::LeftButton, modifiers);
+    send_left(pin, QEvent::MouseButtonRelease, local, Qt::NoButton, modifiers);
+}
+
+// As Windows delivers it: the second press arrives as a double click.
+void double_click_at(PinWindow *pin, const QPoint &local) {
+    click_at(pin, local);
+    send_left(pin, QEvent::MouseButtonDblClick, local, Qt::LeftButton, Qt::NoModifier);
+    send_left(pin, QEvent::MouseButtonRelease, local, Qt::NoButton, Qt::NoModifier);
 }
 
 // Presses at start with the modifiers held and moves 30 pixels right. The offscreen platform
@@ -223,6 +240,12 @@ private:
     }
 
     QString three_frames(std::optional<int> loops = 0) { return write("three.gif", make_gif(QSize(6, 4), {0, 1, 2}, {5, 12, 7}, loops)); }
+
+    QStringList opened_;
+
+public slots:
+    // Stands in for the shell while a test opens files.
+    void record_opened(const QUrl &url) { opened_.append(url.toLocalFile()); }
 
 private slots:
     void initTestCase() {
@@ -834,23 +857,34 @@ private slots:
         const auto global = [pin](const QPointF &scene_pos) { return pin->view->viewport()->mapToGlobal(pin->view->mapFromScene(scene_pos)); };
         int open_highlights = -1;
         auto entries = run_menu(pin, global(card.cell_rect(1).center()), "Copy this file's path", [&] { open_highlights = highlights(pin); });
-        for (const char *entry : {"Open", "Copy this file", "Copy this file's path", "Show in Explorer", "Copy image", "Copy plain text", "Save as", "Toolbar",
-                                  "Hide annotations"})
+        for (const char *entry : {"Open", "Copy this file", "Copy this file's path", "Show in Explorer", "Copy image", "Save as", "Toolbar", "Hide annotations"})
             QVERIFY2(has_entry(entries, entry), entry);
-        for (const char *entry : {"Copy all files", "Translate", "Image transform", "Text selection", "Text mode"}) QVERIFY2(!has_entry(entries, entry), entry);
+        for (const char *entry : {"Copy all files", "Copy plain text", "Translate", "Image transform", "Text selection", "Text mode"})
+            QVERIFY2(!has_entry(entries, entry), entry);
         QCOMPARE(QApplication::clipboard()->text(), QDir::toNativeSeparators(b));
-        // The card was marked while the menu was open, and only then.
-        QCOMPARE(open_highlights, 1);
-        QCOMPARE(highlights(pin), 0);
-        // The empty cell beside the last card: all the files.
-        entries = run_menu(pin, global(card.cell_rect(3).center()), "Copy all file paths", [&] { open_highlights = highlights(pin); });
+        // The right-click selects nothing and puts nothing into the scene; the copy key still copies the image.
+        QCOMPARE(open_highlights, 0);
+        QVERIFY(pin->file_selection()->selected_files().isEmpty());
+        QVERIFY(entries.contains(QString("Copy this file")));
+        // On a selected file the menu acts on the selection, which the copy key takes.
+        const auto ctrl_click = [&](int index) { click_at(pin, pin->view->mapFromScene(QRectF(card.cell_rect(index)).center()), Qt::ControlModifier); };
+        ctrl_click(0);
+        ctrl_click(1);
+        entries = run_menu(pin, global(card.cell_rect(1).center()), "Copy selected file paths");
+        for (const char *entry : {"Open", "Copy selected files", "Show in Explorer"}) QVERIFY2(has_entry(entries, entry), entry);
+        QVERIFY(!has_entry(entries, "Copy this file"));
+        QVERIFY(entries.contains(QString("Copy image")));
+        QCOMPARE(QApplication::clipboard()->text(), QDir::toNativeSeparators(QStringList({a, b}).join('\n')));
+        // On another file, that file alone, and the selection stays.
+        entries = run_menu(pin, global(card.cell_rect(2).center()), "Copy this file's path");
+        QVERIFY(entries.contains(QString("Copy this file")));
+        QCOMPARE(QApplication::clipboard()->text(), QDir::toNativeSeparators(c));
+        QCOMPARE(pin->file_selection()->selected_files(), (QStringList{a, b}));
+        // The empty cell beside the last card: all the files, and nothing stays selected.
+        entries = run_menu(pin, global(card.cell_rect(3).center()), "Copy all file paths");
         QVERIFY(has_entry(entries, "Copy all files"));
         QVERIFY(!has_entry(entries, "Open"));
-        QCOMPARE(open_highlights, 0);
-        QCOMPARE(QApplication::clipboard()->text(), QDir::toNativeSeparators(QStringList({a, b, c}).join('\n')));
-        // So does Copy plain text.
-        QApplication::clipboard()->clear();
-        run_menu(pin, global(card.cell_rect(0).center()), "Copy plain text");
+        QVERIFY(pin->file_selection()->selected_files().isEmpty());
         QCOMPARE(QApplication::clipboard()->text(), QDir::toNativeSeparators(QStringList({a, b, c}).join('\n')));
         // One file: its card fills the pin, so the menu is always about it.
         auto *single = PinManager::instance()->create_file_pin(PinFileCard({a}, QSize(800, 600)), QPoint(300, 300), config_);
@@ -876,6 +910,106 @@ private slots:
         QCOMPARE(QApplication::clipboard()->text(), QDir::toNativeSeparators(a) + "\n" + QDir::toNativeSeparators(b));
         PinFileCard::copy_files({a, b});
         QCOMPARE(QApplication::clipboard()->mimeData()->urls(), QList<QUrl>({QUrl::fromLocalFile(a), QUrl::fromLocalFile(b)}));
+    }
+
+    void filesOnACardAreSelectedAndOpenedAsInAFolder() {
+        QStringList files;
+        for (const char *name : {"a.txt", "b.txt", "c.txt", "d.txt"}) files.append(write(name, name));
+        const QString a = files[0], b = files[1], c = files[2], d = files[3];
+        // Three columns, two rows: the last two cells are empty.
+        const PinFileCard card(files, QSize(3 * PinFileCard::CELL_WIDTH, 2 * PinFileCard::CELL_HEIGHT));
+        auto *pin = PinManager::instance()->create_file_pin(card, QPoint(100, 100), config_);
+        auto *selection = pin->file_selection();
+        const auto at = [pin, &card](int index) { return pin->view->mapFromScene(QRectF(card.cell_rect(index)).center()); };
+        const QImage clean = pin->get_current_image();
+        // A plain click selects nothing; Ctrl adds and drops; Shift takes the run from the last one Ctrl+clicked.
+        click_at(pin, at(1));
+        QVERIFY(selection->selected_files().isEmpty());
+        click_at(pin, at(1), Qt::ControlModifier);
+        QCOMPARE(selection->selected_files(), QStringList{b});
+        click_at(pin, at(3), Qt::ControlModifier);
+        QCOMPARE(selection->selected_files(), (QStringList{b, d}));
+        click_at(pin, at(1), Qt::ControlModifier);
+        QCOMPARE(selection->selected_files(), QStringList{d});
+        // The run starts at the file Ctrl+clicked last, and replaces what was selected.
+        click_at(pin, at(0), Qt::ShiftModifier);
+        QCOMPARE(selection->selected_files(), (QStringList{a, b}));
+        click_at(pin, at(3), Qt::ShiftModifier | Qt::ControlModifier);
+        QCOMPARE(selection->selected_files(), (QStringList{a, b, c, d}));
+        // A plain click on a file clears the selection.
+        click_at(pin, at(2));
+        QVERIFY(selection->selected_files().isEmpty());
+        click_at(pin, at(2), Qt::ControlModifier);
+        click_at(pin, at(0), Qt::ShiftModifier);
+        QCOMPARE(selection->selected_files(), (QStringList{a, b, c}));
+        // The highlight stays out of what is copied and saved.
+        QCOMPARE(pin->get_current_image(), clean);
+        // Moving the pin keeps the selection.
+        const QPoint before = pin->pos();
+        QVERIFY(!drag_from(pin, at(3), Qt::NoModifier));
+        QCOMPARE(pin->pos(), before + QPoint(30, 0));
+        QCOMPARE(selection->selected_files(), (QStringList{a, b, c}));
+        // The copy keys take the selection.
+        pin->copy_to_clipboard();
+        QCOMPARE(QApplication::clipboard()->mimeData()->urls(), QList<QUrl>({QUrl::fromLocalFile(a), QUrl::fromLocalFile(b), QUrl::fromLocalFile(c)}));
+        pin->copy_all_text();
+        QCOMPARE(QApplication::clipboard()->text(), QDir::toNativeSeparators(QStringList({a, b, c}).join('\n')));
+        // Enter opens them, a double click the file under the pointer.
+        QDesktopServices::setUrlHandler("file", this, "record_opened");
+        opened_.clear();
+        QTest::keyClick(pin->view, Qt::Key_Return);
+        QCOMPARE(opened_, (QStringList{a, b, c}));
+        opened_.clear();
+        double_click_at(pin, at(3));
+        QCOMPARE(opened_, QStringList{d});
+        QCOMPARE(pin->pos(), before + QPoint(30, 0));
+        // A plain click off the cards clears too; a locked pin still selects.
+        click_at(pin, at(5));
+        QVERIFY(selection->selected_files().isEmpty());
+        pin->set_locked(true);
+        click_at(pin, at(0), Qt::ControlModifier);
+        QCOMPARE(selection->selected_files(), QStringList{a});
+        pin->set_locked(false);
+        // Ctrl+A selects every file; while drawing the selection is hidden and has no effect.
+        QTest::keyClick(pin->view, Qt::Key_A, Qt::ControlModifier);
+        QCOMPARE(selection->selected_files(), files);
+        QVERIFY(pin->canvas->activate_tool("pen"));
+        QVERIFY(selection->selected_files().isEmpty());
+        opened_.clear();
+        QTest::keyClick(pin->view, Qt::Key_Return);
+        QVERIFY(opened_.isEmpty());
+        pin->canvas->deactivate_tool();
+        QCOMPARE(selection->selected_files(), files);
+        QDesktopServices::unsetUrlHandler("file");
+    }
+
+    void filesTheCardOnlyCountsCanBeSelectedTooAndManyAskBeforeOpening() {
+        QStringList files;
+        for (int i = 0; i < 20; ++i) files.append(write(QString("f%1.txt").arg(i), "x"));
+        // One row of two cells: the first file and the count of all twenty.
+        const PinFileCard card(files, QSize(2 * PinFileCard::CELL_WIDTH, PinFileCard::CELL_HEIGHT));
+        QCOMPARE(card.shown(), 1);
+        auto *pin = PinManager::instance()->create_file_pin(card, QPoint(100, 100), config_);
+        auto *selection = pin->file_selection();
+        // The count cell is no file.
+        click_at(pin, pin->view->mapFromScene(QRectF(card.cell_rect(1)).center()));
+        QVERIFY(selection->selected_files().isEmpty());
+        QTest::keyClick(pin->view, Qt::Key_A, Qt::ControlModifier);
+        QCOMPARE(selection->selected_files(), files);
+        QCOMPARE(selection->selected_bounds(), QRectF(QRect(QPoint(0, 0), card.size())));
+        QDesktopServices::setUrlHandler("file", this, "record_opened");
+        opened_.clear();
+        bool asked = false;
+        QTimer::singleShot(0, this, [&asked] {
+            if (auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget())) {
+                asked = true;
+                dialog->reject();
+            }
+        });
+        QTest::keyClick(pin->view, Qt::Key_Return);
+        QDesktopServices::unsetUrlHandler("file");
+        QVERIFY(asked);
+        QVERIFY(opened_.isEmpty());
     }
 
     // ---- Dragging content out ----
@@ -1071,7 +1205,7 @@ private slots:
         QCOMPARE(read_all(files[0]), bytes);
     }
 
-    void aFileCardDragsTheFileUnderThePointerOrEveryFile() {
+    void aFileCardDragsTheSelectedFilesTheFileUnderThePointerOrEveryFile() {
         const auto a = write("a.txt", "a");
         const auto b = write("b.txt", "b");
         const auto c = write("c.txt", "c");
@@ -1085,9 +1219,19 @@ private slots:
         DragOutMimeData one(on_b.content, root);
         QCOMPARE(one.formats(), QStringList{DragOutMimeData::FILES_MIME});
         QCOMPARE(one.file_paths(), QStringList{b});
-        // The preview is that card alone.
+        // The preview is that card alone, and the drag selects nothing.
         const QSize cell = pin->view->mapFromScene(QRectF(card.cell_rect(1))).boundingRect().size();
         QCOMPARE(on_b.preview.deviceIndependentSize().toSize().width(), std::min(cell.width(), 240));
+        QVERIFY(pin->file_selection()->selected_files().isEmpty());
+        // From a selected file, the whole selection goes.
+        pin->file_selection()->click(1, Qt::ControlModifier);
+        pin->file_selection()->click(3, Qt::ControlModifier);
+        DragOutMimeData selected(pin->prepare_drag_out(global(QRectF(card.cell_rect(3)).center())).content, root);
+        QCOMPARE(selected.file_paths(), (QStringList{b, d}));
+        // From another file, that file alone, and the selection stays.
+        DragOutMimeData other(pin->prepare_drag_out(global(QRectF(card.cell_rect(0)).center())).content, root);
+        QCOMPARE(other.file_paths(), QStringList{a});
+        QCOMPARE(pin->file_selection()->selected_files(), (QStringList{b, d}));
         // Off the cards, as the context menu does, every file.
         const QPointF blank = QRectF(card.cell_rect(5)).center();
         QCOMPARE(pin->file_at(global(blank)), -1);
@@ -1112,7 +1256,8 @@ private slots:
             {"SettingsDialog", "Screenshots, copied pictures and picture files. Animated GIF and WebP files play."},
             {"SettingsDialog", "What this hotkey takes from the clipboard. When it holds both a picture and text, such as copied spreadsheet cells, the picture is pinned."},
             {"ClipboardWindow", "Pin to Screen"}, {"ClipboardWindow", "Pin to Top"}, {"ClipboardWindow", "Unpin from Top"},
-            {"SettingsDialog", "Drag Out Content"},
+            {"SettingsDialog", "Drag Out Content"}, {"PinWindow", "Copy selected files"}, {"PinWindow", "Copy selected file paths"},
+            {"PinWindow", "Open Many Files"}, {"PinWindow", "Open %1 files at once?"},
         };
         for (const char *language : {"zh", "zh_TW", "en", "ja", "ko"}) {
             QTranslator translator;

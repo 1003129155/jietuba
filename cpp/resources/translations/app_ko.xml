@@ -2107,6 +2107,22 @@ Replace it?</source>
         <translation>모든 파일 경로 복사</translation>
     </message>
     <message>
+        <source>Copy selected files</source>
+        <translation>선택한 파일 복사</translation>
+    </message>
+    <message>
+        <source>Copy selected file paths</source>
+        <translation>선택한 파일 경로 복사</translation>
+    </message>
+    <message>
+        <source>Open Many Files</source>
+        <translation>여러 파일 열기</translation>
+    </message>
+    <message>
+        <source>Open %1 files at once?</source>
+        <translation>파일 %1개를 한 번에 열까요?</translation>
+    </message>
+    <message>
         <source>Copy animation</source>
         <translation>애니메이션 복사</translation>
     </message>

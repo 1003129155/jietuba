@@ -14,6 +14,7 @@
 #include "canvas/view.h"
 #include "core/logger.h"
 #include "pin/pin_canvas_view.h"
+#include "pin/pin_file_selection.h"
 #include "pin/pin_hover.h"
 #include "pin/pin_ocr_manager.h"
 #include "pin/pin_toolbar.h"
@@ -219,6 +220,7 @@ void PinCanvas::notify_editing_changed() {
     // Drawing over hidden annotations would hide the new ones too.
     if (is_editing_) parent_window->set_annotations_hidden(false);
     if (parent_window->hover_controls) parent_window->hover_controls->on_editing_changed();
+    if (auto *files = parent_window->file_selection()) files->refresh();
 }
 
 void PinCanvas::deactivate_tool() {

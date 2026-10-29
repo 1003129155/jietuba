@@ -2068,6 +2068,22 @@ Replace it?</translation>
         <translation>Copy all file paths</translation>
     </message>
     <message>
+        <source>Copy selected files</source>
+        <translation>Copy selected files</translation>
+    </message>
+    <message>
+        <source>Copy selected file paths</source>
+        <translation>Copy selected file paths</translation>
+    </message>
+    <message>
+        <source>Open Many Files</source>
+        <translation>Open Many Files</translation>
+    </message>
+    <message>
+        <source>Open %1 files at once?</source>
+        <translation>Open %1 files at once?</translation>
+    </message>
+    <message>
         <source>Copy animation</source>
         <translation>Copy animation</translation>
     </message>
