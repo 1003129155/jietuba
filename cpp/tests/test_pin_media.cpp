@@ -7,6 +7,8 @@
 #include "pin/pin_canvas_view.h"
 #include "pin/pin_file_card.h"
 #include "pin/pin_manager.h"
+#include "pin/pin_ocr_manager.h"
+#include "pin/pin_text_selection.h"
 #include "pin/pin_text_content.h"
 #include "pin/pin_window.h"
 #include "settings/tool_settings.h"
@@ -15,9 +17,11 @@
 #include <QBuffer>
 #include <QClipboard>
 #include <QDir>
+#include <QDrag>
 #include <QElapsedTimer>
 #include <QFile>
 #include <QGraphicsRectItem>
+#include <QImageReader>
 #include <QImageWriter>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -150,6 +154,39 @@ int highlights(PinWindow *pin) {
 
 bool has_entry(const QStringList &entries, const QString &start) {
     return std::any_of(entries.begin(), entries.end(), [&start](const QString &entry) { return entry.startsWith(start); });
+}
+
+// Left-button events on the view's viewport, through the pin's event filter as real input goes.
+void send_left(PinWindow *pin, QEvent::Type type, const QPoint &local, Qt::MouseButtons buttons, Qt::KeyboardModifiers modifiers) {
+    auto *viewport = pin->view->viewport();
+    QMouseEvent event(type, QPointF(local), QPointF(viewport->mapToGlobal(local)), type == QEvent::MouseMove ? Qt::NoButton : Qt::LeftButton, buttons, modifiers);
+    QApplication::sendEvent(viewport, &event);
+}
+
+// Presses at start with the modifiers held and moves 30 pixels right. The offscreen platform
+// ends a drag at once; the drag object stays until deferred deletes run.
+QDrag *drag_from(PinWindow *pin, const QPoint &start, Qt::KeyboardModifiers modifiers) {
+    send_left(pin, QEvent::MouseButtonPress, start, Qt::LeftButton, modifiers);
+    send_left(pin, QEvent::MouseMove, start + QPoint(30, 0), Qt::LeftButton, modifiers);
+    send_left(pin, QEvent::MouseButtonRelease, start + QPoint(30, 0), Qt::NoButton, modifiers);
+    const auto drags = pin->findChildren<QDrag *>();
+    return drags.isEmpty() ? nullptr : drags.front();
+}
+
+QPoint viewport_global(PinWindow *pin, const QPoint &local) { return pin->view->viewport()->mapToGlobal(local); }
+
+// The most opaque pixel of a drag preview, 0-255.
+int max_alpha(const QPixmap &pixmap) {
+    const QImage image = pixmap.toImage().convertToFormat(QImage::Format_ARGB32);
+    int alpha = 0;
+    for (int y = 0; y < image.height(); ++y)
+        for (int x = 0; x < image.width(); ++x) alpha = std::max(alpha, qAlpha(image.pixel(x, y)));
+    return alpha;
+}
+
+QByteArray read_all(const QString &path) {
+    QFile file(path);
+    return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
 }
 }
 
@@ -841,6 +878,225 @@ private slots:
         QCOMPARE(QApplication::clipboard()->mimeData()->urls(), QList<QUrl>({QUrl::fromLocalFile(a), QUrl::fromLocalFile(b)}));
     }
 
+    // ---- Dragging content out ----
+
+    void ctrlDraggingAPinDragsItsContentOutInsteadOfMovingIt() {
+        QCOMPARE(get_pin_mouse_binding(config_, "drag_out"), QString("ctrl+dragleft"));
+        QImage image(QSize(300, 200), QImage::Format_RGB32);
+        image.fill(Qt::darkGreen);
+        auto *pin = PinManager::instance()->create_pin(image, QPoint(100, 100), config_);
+        const QPoint before = pin->pos();
+        QDrag *drag = drag_from(pin, QPoint(40, 50), Qt::ControlModifier);
+        QVERIFY(drag);
+        QCOMPARE(pin->pos(), before);
+        QCOMPARE(drag->supportedActions(), Qt::CopyAction);
+        QVERIFY(drag->mimeData()->hasImage());
+        QVERIFY(drag->mimeData()->hasFormat(DragOutMimeData::FILES_MIME));
+        // A URL list would make Word insert a link instead of the picture.
+        QVERIFY(!drag->mimeData()->hasUrls());
+        // The pin shrunk to fit the preview, held at the point it was grabbed.
+        const QSize shown = pin->view->viewport()->size();
+        const double factor = 240.0 / std::max(shown.width(), shown.height());
+        QCOMPARE(drag->pixmap().deviceIndependentSize().toSize(), QSize(qRound(shown.width() * factor), qRound(shown.height() * factor)));
+        QCOMPARE(drag->hotSpot(), QPoint(qRound(40 * factor), qRound(50 * factor)));
+        // At 80% opacity, so where it will land shows through.
+        QVERIFY(std::abs(max_alpha(drag->pixmap()) - 204) <= 1);
+        const QColor middle = drag->pixmap().toImage().pixelColor(drag->pixmap().rect().center());
+        QVERIFY(middle.red() <= 1 && std::abs(middle.green() - 128) <= 1 && middle.blue() <= 1);
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        // A short press is no drag, and does nothing else either.
+        send_left(pin, QEvent::MouseButtonPress, QPoint(40, 50), Qt::LeftButton, Qt::ControlModifier);
+        send_left(pin, QEvent::MouseButtonRelease, QPoint(40, 50), Qt::NoButton, Qt::ControlModifier);
+        QVERIFY(pin->findChildren<QDrag *>().isEmpty());
+        QVERIFY(!pin->is_closed());
+        // Without Ctrl the pin moves as before.
+        QVERIFY(!drag_from(pin, QPoint(40, 50), Qt::NoModifier));
+        QCOMPARE(pin->pos(), before + QPoint(30, 0));
+    }
+
+    void theDragOutGestureCanBeChangedOrTurnedOff() {
+        auto *pin = PinManager::instance()->create_pin(QImage(QSize(300, 200), QImage::Format_RGB32), QPoint(100, 100), config_);
+        config_->set_app_setting("mouse_pin_drag_out", "shift+dragleft");
+        const QPoint before = pin->pos();
+        QVERIFY(!drag_from(pin, QPoint(40, 50), Qt::ControlModifier));
+        QCOMPARE(pin->pos(), before + QPoint(30, 0));
+        QVERIFY(drag_from(pin, QPoint(40, 50), Qt::ShiftModifier));
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        config_->set_app_setting("mouse_pin_drag_out", "");
+        QVERIFY(!drag_from(pin, QPoint(40, 50), Qt::ShiftModifier));
+    }
+
+    void ctrlDragDrawsWhileDrawingAndDragsOutOfALockedPin() {
+        auto *pin = PinManager::instance()->create_pin(QImage(QSize(300, 200), QImage::Format_RGB32), QPoint(100, 100), config_);
+        QVERIFY(pin->canvas->activate_tool("pen"));
+        QVERIFY(!drag_from(pin, QPoint(40, 50), Qt::ControlModifier));
+        pin->canvas->deactivate_tool();
+        // Locking keeps the pin where it is; dragging its content out leaves it there.
+        pin->set_locked(true);
+        const QPoint before = pin->pos();
+        QVERIFY(drag_from(pin, QPoint(40, 50), Qt::ControlModifier));
+        QCOMPARE(pin->pos(), before);
+    }
+
+    void anImagePinGivesItsAnnotatedImageAndAFileOnlyWhenAsked() {
+        QImage image(QSize(120, 80), QImage::Format_RGB32);
+        image.fill(Qt::blue);
+        auto *pin = PinManager::instance()->create_pin(image, QPoint(100, 100), config_);
+        pin->canvas->scene->addRect(QRectF(10, 10, 20, 20), Qt::NoPen, QBrush(Qt::red));
+        const QString root = dir_.filePath("image_drag");
+        DragOutMimeData data(pin->prepare_drag_out(viewport_global(pin, QPoint(60, 40))).content, root);
+        QCOMPARE(data.formats(), (QStringList{DragOutMimeData::FILES_MIME, "application/x-qt-image"}));
+        const QImage dragged = qvariant_cast<QImage>(data.imageData());
+        QCOMPARE(dragged.size(), QSize(120, 80));
+        QCOMPARE(dragged.pixelColor(20, 20), QColor(Qt::red));
+        QCOMPARE(dragged.pixelColor(90, 60), QColor(Qt::blue));
+        // Written for Explorer only once it asks.
+        QVERIFY(!QDir(root).exists());
+        const QStringList files = data.file_paths();
+        QCOMPARE(files.size(), 1);
+        QVERIFY(QFileInfo(files[0]).fileName().startsWith("pinned_"));
+        QCOMPARE(QFileInfo(files[0]).suffix(), QString("png"));
+        const QImage written(files[0]);
+        QCOMPARE(written.size(), QSize(120, 80));
+        QCOMPARE(written.pixelColor(20, 20), QColor(Qt::red));
+        // In the format auto-save uses.
+        config_->set_screenshot_format("JPG");
+        DragOutMimeData jpg(pin->prepare_drag_out(viewport_global(pin, QPoint(60, 40))).content, root);
+        const QString jpg_file = jpg.file_paths().value(0);
+        QCOMPARE(QFileInfo(jpg_file).suffix(), QString("jpg"));
+        QCOMPARE(QImageReader(jpg_file).format(), QByteArray("jpeg"));
+        QCOMPARE(QImage(jpg_file).size(), QSize(120, 80));
+    }
+
+    void aDragStartingOnHighlightedTextCarriesTheText() {
+        auto *pin = PinManager::instance()->create_pin(QImage(QSize(200, 120), QImage::Format_RGB32), QPoint(100, 100), config_);
+        OcrResult result;
+        result.code = 100;
+        result.data = {OcrLine{{QPointF(10, 10), QPointF(110, 10), QPointF(110, 30), QPointF(10, 30)}, "hello", 0.9}};
+        pin->ocr_manager()->load_text(OcrTextLayout(result));
+        pin->ocr_manager()->set_text_selection_enabled(true);
+        send_left(pin, QEvent::MouseButtonPress, QPoint(12, 20), Qt::LeftButton, Qt::NoModifier);
+        send_left(pin, QEvent::MouseMove, QPoint(108, 20), Qt::LeftButton, Qt::NoModifier);
+        send_left(pin, QEvent::MouseButtonRelease, QPoint(108, 20), Qt::NoButton, Qt::NoModifier);
+        QCOMPARE(pin->text_selection()->selected_text(), QString("hello"));
+        const QString root = dir_.filePath("text_drag");
+        auto on_selection = pin->prepare_drag_out(viewport_global(pin, QPoint(60, 20)));
+        // The preview is the highlighted text alone: the box of (10, 10)-(110, 30), held where it was grabbed.
+        const QSize shown = on_selection.preview.deviceIndependentSize().toSize();
+        QVERIFY2(std::abs(shown.width() - 100) <= 1 && std::abs(shown.height() - 20) <= 1, qPrintable(QString("%1x%2").arg(shown.width()).arg(shown.height())));
+        QVERIFY((on_selection.hot_spot - QPoint(50, 10)).manhattanLength() <= 2);
+        DragOutMimeData on_text(std::move(on_selection.content), root);
+        QCOMPARE(on_text.formats(), (QStringList{DragOutMimeData::FILES_MIME, "text/plain"}));
+        QCOMPARE(on_text.text(), QString("hello"));
+        QCOMPARE(read_all(on_text.file_paths().value(0)), QByteArray("hello"));
+        // Elsewhere the drag takes the image, selection or not.
+        DragOutMimeData off_text(pin->prepare_drag_out(viewport_global(pin, QPoint(60, 90))).content, root);
+        QVERIFY(off_text.hasImage());
+        QVERIFY(!off_text.hasText());
+        QVERIFY(pin->text_selection()->has_selection());
+        // A Ctrl+drag on the text leaves the selection as it was.
+        QDrag *drag = drag_from(pin, QPoint(60, 20), Qt::ControlModifier);
+        QVERIFY(drag);
+        QCOMPARE(drag->mimeData()->text(), QString("hello"));
+        QCOMPARE(pin->text_selection()->selected_text(), QString("hello"));
+    }
+
+    void aTextPinDragsItsSelectedTextWithThatPartAsThePreview() {
+        auto *pin = PinManager::instance()->create_text_pin(std::make_unique<PinTextContent>("first line\nsecond line", QString(), false), QPoint(100, 100), config_);
+        auto *selection = pin->text_selection();
+        QVERIFY(selection);
+        const auto &lines = selection->layout().lines();
+        QCOMPARE(static_cast<int>(lines.size()), 2);
+        // Across the first line, in the view's coordinates whatever the font.
+        const QRectF first = lines[0].bounds;
+        const auto at = [pin](const QPointF &scene_pos) { return pin->view->mapFromScene(scene_pos); };
+        send_left(pin, QEvent::MouseButtonPress, at(QPointF(first.left() + 1, first.center().y())), Qt::LeftButton, Qt::NoModifier);
+        send_left(pin, QEvent::MouseMove, at(QPointF(first.right() - 1, first.center().y())), Qt::LeftButton, Qt::NoModifier);
+        send_left(pin, QEvent::MouseButtonRelease, at(QPointF(first.right() - 1, first.center().y())), Qt::NoButton, Qt::NoModifier);
+        QCOMPARE(selection->selected_text(), QString("first line"));
+        const auto drag = pin->prepare_drag_out(viewport_global(pin, at(first.center())));
+        DragOutMimeData data(drag.content, dir_.filePath("text_selection_drag"));
+        QCOMPARE(data.text(), QString("first line"));
+        QVERIFY(!data.hasHtml());
+        // The first line's highlight, not the page.
+        const QSize shown = drag.preview.deviceIndependentSize().toSize();
+        const QRect line = pin->view->mapFromScene(first).boundingRect();
+        QVERIFY2(shown.width() <= line.width() + 1 && shown.width() >= line.width() / 2 && shown.height() <= line.height() + 1,
+                 qPrintable(QString("%1x%2 in %3x%4").arg(shown.width()).arg(shown.height()).arg(line.width()).arg(line.height())));
+        QVERIFY(shown.height() * 2 < pin->view->viewport()->height());
+        // Elsewhere on the page the whole text goes, with the whole page as the preview.
+        const auto whole = pin->prepare_drag_out(viewport_global(pin, at(QPointF(lines[1].bounds.center()))));
+        QCOMPARE(DragOutMimeData(whole.content, dir_.filePath("text_selection_drag")).text(), QString("first line\nsecond line"));
+        QVERIFY(whole.preview.deviceIndependentSize().height() > shown.height() * 2);
+    }
+
+    void aTextPinGivesItsTextItsFormattingAndATextFile() {
+        const QString text = QString::fromUtf8("加粗 words");
+        auto *pin = PinManager::instance()->create_text_pin(std::make_unique<PinTextContent>(text, QString::fromUtf8("<b>加粗</b> words"), true), QPoint(100, 100), config_);
+        const QString root = dir_.filePath("text_pin_drag");
+        DragOutMimeData data(pin->prepare_drag_out(viewport_global(pin, QPoint(5, 5))).content, root);
+        QCOMPARE(data.formats(), (QStringList{DragOutMimeData::FILES_MIME, "text/plain", "text/html"}));
+        QCOMPARE(data.text(), text);
+        QVERIFY(data.html().contains("<b>") || data.html().contains("font-weight"));
+        QVERIFY(data.html().contains(QString::fromUtf8("加粗")));
+        const QStringList files = data.file_paths();
+        QCOMPARE(files.size(), 1);
+        QCOMPARE(QFileInfo(files[0]).suffix(), QString("txt"));
+        QCOMPARE(read_all(files[0]), text.toUtf8());
+        // Shown without its formatting, it gives none.
+        auto *plain = PinManager::instance()->create_text_pin(std::make_unique<PinTextContent>(text, QString::fromUtf8("<b>加粗</b> words"), false), QPoint(100, 300), config_);
+        DragOutMimeData unformatted(plain->prepare_drag_out(viewport_global(plain, QPoint(5, 5))).content, root);
+        QCOMPARE(unformatted.formats(), (QStringList{DragOutMimeData::FILES_MIME, "text/plain"}));
+    }
+
+    void anAnimationGivesItsFileAndBytes() {
+        const auto original = three_frames();
+        const QByteArray bytes = read_all(original);
+        auto source = load_animation(original);
+        QVERIFY(source);
+        auto *pin = PinManager::instance()->create_animation_pin(std::move(*source), QPoint(100, 100), config_);
+        const QString root = dir_.filePath("animation_drag");
+        auto data = std::make_unique<DragOutMimeData>(pin->prepare_drag_out(viewport_global(pin, QPoint(2, 2))).content, root);
+        QCOMPARE(data->formats(), (QStringList{DragOutMimeData::FILES_MIME, "image/gif"}));
+        QCOMPARE(data->data("image/gif"), bytes);
+        QVERIFY(!QDir(root).exists());
+        const QStringList files = data->file_paths();
+        QCOMPARE(files.size(), 1);
+        QCOMPARE(QFileInfo(files[0]).fileName(), QString("three.gif"));
+        QVERIFY(files[0] != pin->animation()->source().path());
+        QCOMPARE(read_all(files[0]), bytes);
+        // A target copying after the drop still finds it once the pin and its own copy are gone.
+        pin->close_window();
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QCOMPARE(read_all(files[0]), bytes);
+    }
+
+    void aFileCardDragsTheFileUnderThePointerOrEveryFile() {
+        const auto a = write("a.txt", "a");
+        const auto b = write("b.txt", "b");
+        const auto c = write("c.txt", "c");
+        const auto d = write("d.txt", "d");
+        // Three columns, two rows: the last two cells are empty.
+        const PinFileCard card({a, b, c, d}, QSize(800, 400));
+        auto *pin = PinManager::instance()->create_file_pin(card, QPoint(100, 100), config_);
+        const auto global = [pin](const QPointF &scene_pos) { return pin->view->viewport()->mapToGlobal(pin->view->mapFromScene(scene_pos)); };
+        const QString root = dir_.filePath("file_drag");
+        const auto on_b = pin->prepare_drag_out(global(QRectF(card.cell_rect(1)).center()));
+        DragOutMimeData one(on_b.content, root);
+        QCOMPARE(one.formats(), QStringList{DragOutMimeData::FILES_MIME});
+        QCOMPARE(one.file_paths(), QStringList{b});
+        // The preview is that card alone.
+        const QSize cell = pin->view->mapFromScene(QRectF(card.cell_rect(1))).boundingRect().size();
+        QCOMPARE(on_b.preview.deviceIndependentSize().toSize().width(), std::min(cell.width(), 240));
+        // Off the cards, as the context menu does, every file.
+        const QPointF blank = QRectF(card.cell_rect(5)).center();
+        QCOMPARE(pin->file_at(global(blank)), -1);
+        DragOutMimeData every(pin->prepare_drag_out(global(blank)).content, root);
+        QCOMPARE(every.file_paths(), (QStringList{a, b, c, d}));
+        // Nothing is written: the files are handed out where they are.
+        QVERIFY(!QDir(root).exists());
+    }
+
     // ---- Interface text ----
 
     void everyNewTextIsTranslated() {
@@ -856,6 +1112,7 @@ private slots:
             {"SettingsDialog", "Screenshots, copied pictures and picture files. Animated GIF and WebP files play."},
             {"SettingsDialog", "What this hotkey takes from the clipboard. When it holds both a picture and text, such as copied spreadsheet cells, the picture is pinned."},
             {"ClipboardWindow", "Pin to Screen"}, {"ClipboardWindow", "Pin to Top"}, {"ClipboardWindow", "Unpin from Top"},
+            {"SettingsDialog", "Drag Out Content"},
         };
         for (const char *language : {"zh", "zh_TW", "en", "ja", "ko"}) {
             QTranslator translator;

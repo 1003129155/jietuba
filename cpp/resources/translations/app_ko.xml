@@ -1269,6 +1269,10 @@ Replace it?</source>
         <translation>선택한 텍스트 복사</translation>
     </message>
     <message>
+        <source>Drag Out Content</source>
+        <translation>드래그로 내용 꺼내기</translation>
+    </message>
+    <message>
         <source>No Modifier</source>
         <translation>없음</translation>
     </message>

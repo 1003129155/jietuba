@@ -29,7 +29,6 @@
 #include <QIcon>
 #include <QDesktopServices>
 #include <QDir>
-#include <QDrag>
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -1261,19 +1260,11 @@ void ClipboardWindow::start_item_drag(qint64 item_id) {
         if (const auto item = get_item_data(id); item && ItemDragMimeData::can_drag(*item, images_dir)) items.append(*item);
     if (items.isEmpty()) return;
     PreviewPopup::instance()->hide_preview();
-    auto *drag = new QDrag(list_widget);
-    drag->setMimeData(new ItemDragMimeData(items, images_dir, ItemDragMimeData::default_temp_root()));
     QPoint hot_spot;
     const QPixmap pixmap = drag_pixmap(item_id, static_cast<int>(items.size()), &hot_spot);
-    if (!pixmap.isNull()) {
-        drag->setPixmap(pixmap);
-        drag->setHotSpot(hot_spot);
-    }
     dragging_ = true;
-    // 只允许复制，按 Shift 也不能移动或删除历史记录中的原图。
-    drag->exec(Qt::CopyAction, Qt::CopyAction);
+    exec_drag_out(list_widget, new ItemDragMimeData(items, images_dir, ItemDragMimeData::default_temp_root()), pixmap, hot_spot);
     dragging_ = false;
-    drag->deleteLater();
     check_and_hide();
 }
 

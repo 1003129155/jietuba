@@ -1,4 +1,5 @@
 #pragma once
+#include "core/drag_out.h"
 #include "pin/pin_context_menu.h"
 #include "pin/pin_controls.h"
 #include "pin/pin_hover.h"
@@ -185,6 +186,15 @@ public:
     void copy_current_frame();
     // All recognized text; recognizes first when there is no result yet.
     void copy_all_text();
+    // What dragging the content out from global_pos carries: what Copy would copy, but the highlighted text when the
+    // drag starts on it, and on a file card the file under the pointer or, off the cards, every file. The preview
+    // shows what goes, held at the point it was grabbed.
+    struct DragOut {
+        DragOutContent content;
+        QPixmap preview;
+        QPoint hot_spot;
+    };
+    DragOut prepare_drag_out(const QPoint &global_pos);
     void close_window();
     void cleanup();
 
@@ -250,6 +260,9 @@ private:
     void run_mouse_action(const QString &action, const std::optional<QPoint> &position = std::nullopt);
     void finish_mouse_click();
     bool handle_mouse_gesture(QMouseEvent *event);
+    void start_drag_out(const QPoint &global_pos);
+    // The view's scene_rect, or all of it when empty, shrunk to fit the preview size.
+    QPixmap drag_preview(const QPoint &global_pos, const QRectF &scene_rect, QPoint *hot_spot);
     void show_zoom_percent();
     void start_ocr_for_translation();
     void on_ocr_translation_finished(bool success, const QString &result);
@@ -282,6 +295,7 @@ private:
         QPoint start;
         std::optional<QString> action;
         bool region;
+        bool drag_out;
     };
     std::optional<MouseGesture> mouse_gesture_;
     std::optional<Qt::MouseButton> mouse_swallow_release_;

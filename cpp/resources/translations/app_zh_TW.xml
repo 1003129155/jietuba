@@ -1283,6 +1283,10 @@ Replace it?</source>
         <translation>複製選取文字</translation>
     </message>
     <message>
+        <source>Drag Out Content</source>
+        <translation>拖出內容</translation>
+    </message>
+    <message>
         <source>No Modifier</source>
         <translation>無</translation>
     </message>

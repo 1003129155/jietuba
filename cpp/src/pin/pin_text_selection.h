@@ -36,6 +36,8 @@ public:
     void paint(QPainter *painter) const;
     bool has_selection() const { return active_ && layout_.has_selection(); }
     QString selected_text() const { return has_selection() ? layout_.selected_text() : QString(); }
+    // Whether the point, in global coordinates, is on the highlighted text.
+    bool on_selection(const QPoint &global_pos) const;
     // False when there is nothing selected.
     bool copy_selected_text();
     // True when there was a selection to clear.

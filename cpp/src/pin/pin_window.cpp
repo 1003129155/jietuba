@@ -55,7 +55,9 @@
 #include <QUuid>
 #include <QStyleOptionGraphicsItem>
 #include <QWheelEvent>
+#include <algorithm>
 #include <cmath>
+#include <future>
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -93,18 +95,30 @@ std::optional<QString> locked_mouse_action(const QString &action) {
 // Larger animations go on the clipboard as a file only.
 constexpr qint64 MAX_COPIED_ANIMATION_BYTES = 32 * 1024 * 1024;
 
-// The clipboard's own name for the file, so pasting works after the pin and its copy are gone: a
-// hard link, instant on the same disk, else a copy. Only the latest is kept.
+// A hard link, instant on the same disk, else a copy.
+bool link_or_copy(const QString &source, const QString &target) {
+    return CreateHardLinkW(reinterpret_cast<LPCWSTR>(QDir::toNativeSeparators(target).utf16()), reinterpret_cast<LPCWSTR>(QDir::toNativeSeparators(source).utf16()), nullptr) ||
+           QFile::copy(source, target);
+}
+
+// The clipboard's own name for the file, so pasting works after the pin and its copy are gone. Only the latest is kept.
 QString clipboard_file(const QString &path) {
     QDir root(QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation)).filePath("jietuba_clipboard"));
     root.removeRecursively();
     const QDir folder(root.filePath(QUuid::createUuid().toString(QUuid::WithoutBraces)));
     const QString target = folder.filePath(QFileInfo(path).fileName());
     if (!folder.mkpath(".")) return path;
-    if (CreateHardLinkW(reinterpret_cast<LPCWSTR>(QDir::toNativeSeparators(target).utf16()), reinterpret_cast<LPCWSTR>(QDir::toNativeSeparators(path).utf16()), nullptr) ||
-        QFile::copy(path, target))
-        return target;
-    return path;
+    return link_or_copy(path, target) ? target : path;
+}
+
+// Text dragged out: the text itself, and a UTF-8 file of it for Explorer.
+void set_drag_text(DragOutContent &content, const QString &text, const QString &file_name) {
+    content.text = text;
+    content.made_files = {{file_name, [text](const QString &path) {
+                               const QByteArray bytes = text.toUtf8();
+                               QFile file(path);
+                               return file.open(QIODevice::WriteOnly) && file.write(bytes) == bytes.size();
+                           }}};
 }
 
 // Keeps repeated steps from drifting off the four-decimal grid.
@@ -759,10 +773,12 @@ bool PinWindow::handle_mouse_gesture(QMouseEvent *event) {
     }
     if (kind == QEvent::MouseButtonPress && !gesture.isEmpty()) {
         const auto action = matching_mouse_action(event, gesture);
-        const bool region = matching_mouse_action(event, "drag" + gesture) == QString("region");
+        const auto drag_action = matching_mouse_action(event, "drag" + gesture);
+        const bool region = drag_action == QString("region");
+        const bool drag_out = drag_action == QString("drag_out");
         const bool defer_menu = gesture == "right" && matching_mouse_action(event, "doubleright").has_value();
-        if (action || (region && !thumbnail_mode()) || defer_menu) {
-            mouse_gesture_ = MouseGesture{button, event->globalPosition().toPoint(), action, region};
+        if (action || (region && !thumbnail_mode()) || drag_out || defer_menu) {
+            mouse_gesture_ = MouseGesture{button, event->globalPosition().toPoint(), action, region, drag_out};
             return true;
         }
     }
@@ -771,6 +787,11 @@ bool PinWindow::handle_mouse_gesture(QMouseEvent *event) {
     const auto current = event->globalPosition().toPoint();
     const bool dragged = (current - state.start).manhattanLength() >= QApplication::startDragDistance();
     if (kind == QEvent::MouseMove) {
+        if (state.drag_out && dragged) {
+            mouse_gesture_.reset();
+            start_drag_out(state.start);
+            return true;
+        }
         if (state.region && dragged) {
             if (!mouse_band_) mouse_band_ = new QRubberBand(QRubberBand::Rectangle, view->viewport());
             const auto r = QRect(view->viewport()->mapFromGlobal(state.start), view->viewport()->mapFromGlobal(current)).normalized();
@@ -1452,6 +1473,85 @@ void PinWindow::copy_all_text() {
     }
     if (!ocr_mgr_->recognize_then([this](bool success, const QString &result) { copy_ocr_text(success, result); }))
         show_hint_label(pin_tr("OCR recognition could not be started"));
+}
+
+PinWindow::DragOut PinWindow::prepare_drag_out(const QPoint &global_pos) {
+    DragOut drag;
+    auto &content = drag.content;
+    const QString base_name = QString("pinned_%1").arg(QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss"));
+    QRectF shown;
+    auto *selection = text_mode() ? nullptr : text_selection();
+    if (file_card_) {
+        const int index = file_at(global_pos);
+        content.files = index >= 0 ? QStringList{file_card_->files().value(index)} : file_card_->files();
+        if (index >= 0) shown = QRectF(file_card_->cell_rect(index));
+    } else if (animation_) {
+        const auto &source = animation_->source();
+        QString name = QFileInfo(source.file_path).fileName();
+        if (name.isEmpty()) name = base_name + "." + QString::fromLatin1(source.format).toLower();
+        // Linked into the drag's folder, so a target that copies after the drop still has it once the pin is closed.
+        content.made_files = {{name, [file = source.file](const QString &path) { return link_or_copy(file->path(), path); }}};
+        if (QFileInfo(source.path()).size() <= MAX_COPIED_ANIMATION_BYTES)
+            content.data = {{"image/" + QString::fromLatin1(source.format), prepare_in_background([file = source.file] {
+                                 QFile bytes(file->path());
+                                 return bytes.open(QIODevice::ReadOnly) ? bytes.readAll() : QByteArray();
+                             })}};
+    } else if (text_mode()) {
+        set_drag_text(content, text_mode_->text_to_copy(), base_name + ".txt");
+    } else if (selection && selection->on_selection(global_pos)) {
+        set_drag_text(content, selection->selected_text(), base_name + ".txt");
+        shown = selection->layout().selection_bounds();
+    } else if (text_only()) {
+        set_drag_text(content, text_content_->text(), base_name + ".txt");
+        // Writing out the formatting of a long text takes a while, so only for a target that takes it.
+        if (text_content_->formatted())
+            content.html = std::async(std::launch::deferred, [self = QPointer<PinWindow>(this)] {
+                               return self && self->text_content_ ? self->text_content_->html() : QString();
+                           }).share();
+    } else {
+        // Drawn now: a few milliseconds at 4K, and Qt reads the image anyway the moment the cursor enters a
+        // window that takes drops. The file for Explorer, in the format auto-save uses, is encoded off the UI thread meanwhile.
+        const QImage image = get_current_image();
+        content.image = ready_value(image);
+        const QString format = SaveService::format_for_size(config_manager ? config_manager->get_screenshot_format() : QString("PNG"), image.width(), image.height());
+        const auto encoded = prepare_in_background([image, format] { return SaveService::encode_image(image, format); });
+        content.made_files = {{base_name + "." + format.toLower(), [encoded](const QString &path) {
+                                   const QByteArray bytes = encoded.get();
+                                   QFile file(path);
+                                   return !bytes.isEmpty() && file.open(QIODevice::WriteOnly) && file.write(bytes) == bytes.size();
+                               }}};
+    }
+    drag.preview = drag_preview(global_pos, shown, &drag.hot_spot);
+    return drag;
+}
+
+void PinWindow::start_drag_out(const QPoint &global_pos) {
+    auto drag = prepare_drag_out(global_pos);
+    const QPointer<PinWindow> alive(this);
+    exec_drag_out(this, new DragOutMimeData(std::move(drag.content)), drag.preview, drag.hot_spot);
+    if (alive) hover_controls->recheck_pin_hovered();
+}
+
+QPixmap PinWindow::drag_preview(const QPoint &global_pos, const QRectF &scene_rect, QPoint *hot_spot) {
+    QWidget *source = view ? view->viewport() : static_cast<QWidget *>(this);
+    QRect rect = source->rect();
+    if (view && !scene_rect.isEmpty()) rect = view->mapFromScene(scene_rect).boundingRect().intersected(rect);
+    if (rect.isEmpty()) return {};
+    // Drawn straight at the preview's size: a large pin is never painted whole first.
+    const double factor = std::min(1.0, static_cast<double>(scaled(240)) / std::max(rect.width(), rect.height()));
+    const QSize size(std::max(1, qRound(rect.width() * factor)), std::max(1, qRound(rect.height() * factor)));
+    const double ratio = devicePixelRatioF();
+    QPixmap pixmap(QSize(qRound(size.width() * ratio), qRound(size.height() * ratio)));
+    pixmap.setDevicePixelRatio(ratio);
+    pixmap.fill(Qt::transparent);
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::SmoothPixmapTransform);
+    painter.scale(factor, factor);
+    source->render(&painter, QPoint(), QRegion(rect), QWidget::DrawChildren);
+    painter.end();
+    const QPoint offset = source->mapFromGlobal(global_pos) - rect.topLeft();
+    *hot_spot = QPoint(std::clamp(qRound(offset.x() * factor), 0, size.width() - 1), std::clamp(qRound(offset.y() * factor), 0, size.height() - 1));
+    return pixmap;
 }
 
 void PinWindow::copy_ocr_text(bool success, const QString &result, const QString &html) {

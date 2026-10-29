@@ -41,7 +41,7 @@ IconSource pin_mouse_icon(const QString &action) {
     static const QMap<QString, IconSource> icons{
         {"zoom", FluentIcon::Search}, {"fine_zoom", FluentIcon::Search}, {"opacity", FluentIcon::Transparent}, {"close", FluentIcon::Close},
         {"reset", inapp_icon("inapp_pin_reset_size")}, {"thumbnail", inapp_icon("inapp_thumbnail")}, {"region", QString::fromUtf8("选择.svg")},
-        {"copy_text", inapp_icon("inapp_copy_pin_text")},
+        {"drag_out", FluentIcon::Send}, {"copy_text", inapp_icon("inapp_copy_pin_text")},
     };
     return icons.value(action);
 }

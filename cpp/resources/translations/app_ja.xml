@@ -1276,6 +1276,10 @@ Replace it?</source>
         <translation>選択したテキストをコピー</translation>
     </message>
     <message>
+        <source>Drag Out Content</source>
+        <translation>内容をドラッグで取り出す</translation>
+    </message>
+    <message>
         <source>No Modifier</source>
         <translation>なし</translation>
     </message>

@@ -313,6 +313,12 @@ private slots:
         QCOMPARE(drags.size(), 1);
         QCOMPARE(drags.front()->mimeData()->text(), QString("third\nfirst"));
         QVERIFY(!drags.front()->pixmap().isNull());
+        // At 80% opacity, as a pin's.
+        const QImage preview = drags.front()->pixmap().toImage().convertToFormat(QImage::Format_ARGB32);
+        int alpha = 0;
+        for (int y = 0; y < preview.height(); ++y)
+            for (int x = 0; x < preview.width(); ++x) alpha = std::max(alpha, qAlpha(preview.pixel(x, y)));
+        QVERIFY2(std::abs(alpha - 204) <= 1, qPrintable(QString::number(alpha)));
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
         // An unmarked row goes alone.
         window->start_item_drag(ids[1]);

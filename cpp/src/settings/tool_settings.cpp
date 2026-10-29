@@ -400,6 +400,7 @@ const std::vector<MouseAction> &PIN_MOUSE_ACTIONS() {
         {"reset", "Reset Pinned Image Size", "", "click"},
         {"thumbnail", "Toggle Pin Thumbnail", "shift+doubleleft", "click"},
         {"region", "Select Thumbnail Region", "dragright", "drag"},
+        {"drag_out", "Drag Out Content", "ctrl+dragleft", "drag"},
         {"copy_text", "Copy Selected Text", "", "click"},
     };
     return actions;

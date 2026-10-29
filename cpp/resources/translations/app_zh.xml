@@ -1274,6 +1274,10 @@ Replace it?</source>
         <translation>复制选中文字</translation>
     </message>
     <message>
+        <source>Drag Out Content</source>
+        <translation>拖出内容</translation>
+    </message>
+    <message>
         <source>No Modifier</source>
         <translation>无</translation>
     </message>

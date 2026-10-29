@@ -175,6 +175,14 @@ double PinTextSelection::slack() const {
     return scale > 0 ? HIT_SLACK / scale : HIT_SLACK;
 }
 
+bool PinTextSelection::on_selection(const QPoint &global_pos) const {
+    if (!view_ || !has_selection()) return false;
+    const QPointF pos = view_->viewportTransform().inverted().map(QPointF(view_->viewport()->mapFromGlobal(global_pos)));
+    for (int i = 0; i < static_cast<int>(layout_.lines().size()); ++i)
+        if (layout_.selection_outline(i).containsPoint(pos, Qt::OddEvenFill)) return true;
+    return false;
+}
+
 QPointF PinTextSelection::image_pos(const QMouseEvent *event) const {
     return view_ ? view_->viewportTransform().inverted().map(event->position()) : event->position();
 }

@@ -1154,6 +1154,10 @@ Replace it?</translation>
         <translation>Copy Selected Text</translation>
     </message>
     <message>
+        <source>Drag Out Content</source>
+        <translation>Drag Out Content</translation>
+    </message>
+    <message>
         <source>No Modifier</source>
         <translation>None</translation>
     </message>
