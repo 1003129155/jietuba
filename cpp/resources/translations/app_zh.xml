@@ -2981,15 +2981,15 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>删除分组</translation>
     </message>
     <message>
-        <source>Unpin</source>
+        <source>Unpin from Top</source>
         <translation>取消置顶</translation>
     </message>
     <message>
-        <source>Pin</source>
+        <source>Pin to Top</source>
         <translation>置顶</translation>
     </message>
     <message>
-        <source>Pin as Overlay</source>
+        <source>Pin to Screen</source>
         <translation>生成钉图</translation>
     </message>
     <message>

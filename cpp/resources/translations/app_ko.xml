@@ -2988,16 +2988,16 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>그룹 삭제</translation>
     </message>
     <message>
-        <source>Unpin</source>
-        <translation>고정 해제</translation>
+        <source>Unpin from Top</source>
+        <translation>상단 고정 해제</translation>
     </message>
     <message>
-        <source>Pin</source>
-        <translation>고정</translation>
+        <source>Pin to Top</source>
+        <translation>상단에 고정</translation>
     </message>
     <message>
-        <source>Pin as Overlay</source>
-        <translation>고정 이미지 생성</translation>
+        <source>Pin to Screen</source>
+        <translation>화면에 고정</translation>
     </message>
     <message>
         <source>Save as</source>
@@ -3064,7 +3064,7 @@ Items in the group will be moved back to clipboard history.</source>
 Pinned items and items in groups will be kept.
 This action cannot be undone.</source>
         <translation>클립보드 기록을 비우시겠습니까?
-고정한 항목과 그룹 안의 항목은 유지됩니다.
+상단에 고정한 항목과 그룹 안의 항목은 유지됩니다.
 이 작업은 되돌릴 수 없습니다.</translation>
     </message>
     <message>
@@ -4005,7 +4005,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Also delete pinned and grouped content</source>
-        <translation>고정 및 그룹 내용도 함께 삭제</translation>
+        <translation>상단 고정 및 그룹 내용도 함께 삭제</translation>
     </message>
     <message>
         <source>Clipboard history cleared successfully</source>

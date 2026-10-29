@@ -2910,16 +2910,16 @@ Items in the group will be moved back to clipboard history.</translation>
         <translation>Delete Group</translation>
     </message>
     <message>
-        <source>Unpin</source>
-        <translation>Unpin</translation>
+        <source>Unpin from Top</source>
+        <translation>Unpin from Top</translation>
     </message>
     <message>
-        <source>Pin</source>
-        <translation>Pin</translation>
+        <source>Pin to Top</source>
+        <translation>Pin to Top</translation>
     </message>
     <message>
-        <source>Pin as Overlay</source>
-        <translation>Pin as Overlay</translation>
+        <source>Pin to Screen</source>
+        <translation>Pin to Screen</translation>
     </message>
     <message>
         <source>Save as</source>

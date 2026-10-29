@@ -408,8 +408,9 @@ const std::vector<MouseAction> &PIN_MOUSE_ACTIONS() {
 const std::vector<MouseAction> &CLIPBOARD_MOUSE_ACTIONS() {
     static const std::vector<MouseAction> actions = {
         {"paste", "Paste", "left", "click"},
-        {"pin", "Pin Image", "middle", "click"},
-        {"quick_edit", "Quick Edit Text", "middle", "click"},
+        // Middle click pins every kind of item, text too, so quick edit has no gesture of its own by default.
+        {"pin", "Pin to Screen", "middle", "click"},
+        {"quick_edit", "Quick Edit Text", "", "click"},
         {"menu", "Open Context Menu", "right", "click"},
     };
     return actions;

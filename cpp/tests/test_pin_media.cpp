@@ -1,4 +1,5 @@
 #include "clipboard/ui/windows/pin_window.h"
+#include "clipboard/core/manager.h"
 #include "pin/pin_animation.h"
 #include "canvas/items/background_item.h"
 #include "canvas/scene.h"
@@ -6,6 +7,7 @@
 #include "pin/pin_canvas_view.h"
 #include "pin/pin_file_card.h"
 #include "pin/pin_manager.h"
+#include "pin/pin_text_content.h"
 #include "pin/pin_window.h"
 #include "settings/tool_settings.h"
 #include "ui/wait_bar.h"
@@ -17,6 +19,9 @@
 #include <QFile>
 #include <QGraphicsRectItem>
 #include <QImageWriter>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QMenu>
 #include <QMimeData>
 #include <QSettings>
@@ -677,6 +682,41 @@ private slots:
 
     // ---- Animation and file pins ----
 
+    void historyItemsPinInOrderWithTheirFilesAsCopied() {
+        auto &manager = clipboard::ClipboardManager::instance();
+        const QString database = QDir::toNativeSeparators(dir_.filePath("history/clipboard.db"));
+        config_->set_clipboard_db_path(database);
+        QVERIFY(manager.reset_storage(database));
+        const auto images = manager.get_images_dir();
+        QVERIFY(images && QDir().mkpath(*images));
+        QImage stored(QSize(7, 5), QImage::Format_RGB32);
+        stored.fill(Qt::red);
+        QVERIFY(stored.save(QDir(*images).filePath("stored_one.png")));
+        clipboard::ClipboardItem image, blank, files, text;
+        image.content_type = "image";
+        image.image_id = "stored_one";
+        blank.content_type = text.content_type = "text";
+        blank.content = "  ";
+        text.content = "some words";
+        const auto notes = write("notes.txt", "notes");
+        const auto still = picture("still.png", QSize(3, 2), Qt::blue);
+        files.content_type = "file";
+        files.content = QString::fromUtf8(QJsonDocument(QJsonObject{{"files", QJsonArray{notes, still}}}).toJson());
+        QVERIFY(clipboard::create_pins_from_clipboard_items({image, blank, files, text}, nullptr, QPoint(400, 300)));
+        // The other files on a card first, then the stored image, the picture file and the text in their order.
+        QTRY_COMPARE(pins().size(), 4);
+        QVERIFY(pins()[0]->file_card());
+        QCOMPARE(pins()[0]->file_card()->files(), QStringList{notes});
+        QCOMPARE(pins()[1]->orig_size(), QSize(7, 5));
+        QCOMPARE(pins()[1]->canvas->scene->background->pixmap().toImage().pixelColor(1, 1), QColor(Qt::red));
+        QCOMPARE(pins()[2]->orig_size(), QSize(3, 2));
+        QVERIFY(pins()[3]->text_only());
+        QCOMPARE(pins()[3]->text_content()->text(), QString("some words"));
+        QTest::qWait(100);
+        QCOMPARE(pins().size(), 4);
+        QVERIFY(!clipboard::create_pins_from_clipboard_items({blank}, nullptr));
+    }
+
     void anAnimationPinPlaysWithoutTheImageTools() {
         auto source = load_animation(three_frames());
         QVERIFY(source);
@@ -815,12 +855,15 @@ private slots:
             {"SettingsDialog", "File"}, {"SettingsDialog", "Copied files and folders, shown with their icons, names and sizes."},
             {"SettingsDialog", "Screenshots, copied pictures and picture files. Animated GIF and WebP files play."},
             {"SettingsDialog", "What this hotkey takes from the clipboard. When it holds both a picture and text, such as copied spreadsheet cells, the picture is pinned."},
+            {"ClipboardWindow", "Pin to Screen"}, {"ClipboardWindow", "Pin to Top"}, {"ClipboardWindow", "Unpin from Top"},
         };
         for (const char *language : {"zh", "zh_TW", "en", "ja", "ko"}) {
             QTranslator translator;
             QVERIFY(translator.load(QString(":/translations/app_%1.qm").arg(language)));
             for (const auto &[context, text] : texts)
                 QVERIFY2(!translator.translate(context, text).isEmpty(), qPrintable(QString("%1 %2: %3").arg(language, context, text)));
+            // Side by side in the clipboard menu, putting an item on the screen and at the top of the list read apart.
+            QVERIFY2(translator.translate("ClipboardWindow", "Pin to Screen") != translator.translate("ClipboardWindow", "Pin to Top"), language);
         }
     }
 

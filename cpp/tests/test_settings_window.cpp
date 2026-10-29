@@ -999,6 +999,18 @@ private slots:
         QCOMPARE(std::get<2>(conflicts.front()).size(), 2);
     }
 
+    void quickEditLeavesTheMiddleClickToPinning() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.on_nav_changed(10, "mouse");
+        // Middle click pins text too, so quick edit has no gesture of its own and the defaults do not collide.
+        QVERIFY(mouse_binding_conflicts(&dialog).empty());
+        auto *quick_edit = qobject_cast<MouseBindingEditor *>(dialog.behavior_control("mouse_clipboard_quick_edit"));
+        QVERIFY(quick_edit);
+        QVERIFY(quick_edit->currentData().isEmpty());
+        quick_edit->setBinding("middle");
+        QCOMPARE(mouse_binding_conflicts(&dialog).size(), size_t(1));
+    }
+
     // A mouse binding that collides with another is put back on its saved value, with a warning.
     void aCollidingMouseBindingIsPutBack() {
         SettingsDialog dialog(config_, config_->get_hotkey());

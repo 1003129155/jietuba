@@ -385,10 +385,33 @@ private slots:
             if (!value.toObject()["group"].isNull()) QVERIFY(manager.move_to_group(*id, group_ids[value.toObject()["group"].toInt()]));
             item_ids << *id;
         }
-        // The item menu's Multi-select entry, Save as for text and file rows and pinning text are C++ only
-        // (notes/PARITY.md); the reference menus never have them.
+        // The item menu's Multi-select entry, Save as for text and file rows, pinning text and files to the screen,
+        // pinning images to the top and pinning selected items are C++ only (notes/PARITY.md); the reference menus
+        // never have them.
         int multi_select_entries = 0;
         QString menu_item_type;
+        // The C++ menu also words pinning to the screen and to the top apart and keeps the second with the
+        // grouping entries; put back as the reference has them.
+        const auto as_reference = [&menu_item_type](const QList<MenuAction> &actions) {
+            const QMap<QString, QString> labels{{"Pin to Screen", "Pin as Overlay"}, {"Pin to Top", "Pin"}, {"Unpin from Top", "Unpin"}};
+            std::optional<MenuAction> toggle;
+            QList<MenuAction> kept;
+            for (auto action : actions) {
+                action.label = labels.value(action.label, action.label);
+                if (action.key == "pin_marked" || (action.key == "pin_image" && menu_item_type != "image")) continue;
+                if (action.key == "toggle_pin") {
+                    if (menu_item_type != "image") toggle = action;
+                    continue;
+                }
+                kept.append(action);
+            }
+            if (toggle) {
+                qsizetype at = 0;
+                while (at < kept.size() && !QStringList{"open_file_location", "open_link", "sep_before_groups"}.contains(kept[at].key)) ++at;
+                kept.insert(at, *toggle);
+            }
+            return normalize_menu_actions(kept);
+        };
         std::function<QJsonArray(const QList<MenuAction> &)> menu_json = [&](const QList<MenuAction> &actions) {
             QJsonArray result;
             for (const auto &action : actions) {
@@ -397,7 +420,7 @@ private slots:
                     ++multi_select_entries;
                     continue;
                 }
-                if (key == "save_item_as" || (key == "pin_image" && menu_item_type == "text")) continue;
+                if (key == "save_item_as") continue;
                 if (key.startsWith("move_to_group_")) key = QString("move_to_group_{G%1}").arg(group_ids.indexOf(key.mid(14).toLongLong()));
                 result.append(QJsonObject{{"label", action.label}, {"key", key}, {"enabled", action.enabled}, {"checkable", action.checkable}, {"checked", action.checked},
                                           {"separator", action.is_separator}, {"translate", action.translate_label}, {"children", menu_json(action.children)}});
@@ -434,12 +457,12 @@ private slots:
                         const auto data = controller.build_context_menu_data(ids.first());
                         multi_select_entries = 0;
                         menu_item_type = item_type(ids.first());
-                        if (data) actual = menu_json(data->actions);
+                        if (data) actual = menu_json(as_reference(data->actions));
                         QCOMPARE(multi_select_entries, data ? 1 : 0);
                     } else {
                         const auto data = controller.build_marked_context_menu_data(ids);
                         menu_item_type = data ? item_type(data->item_id) : QString();
-                        if (data) actual = QJsonObject{{"item", item_ids.indexOf(data->item_id)}, {"actions", menu_json(data->actions)}};
+                        if (data) actual = QJsonObject{{"item", item_ids.indexOf(data->item_id)}, {"actions", menu_json(as_reference(data->actions))}};
                     }
                 }
                 QVERIFY2(actual == query["expected"], qPrintable(describe(query) + "\nactual: " + describe(actual)));

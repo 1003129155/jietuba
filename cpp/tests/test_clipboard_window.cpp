@@ -10,6 +10,10 @@
 #include "core/i18n.h"
 #include "core/platform_utils.h"
 #include "core/ui_scale.h"
+#include "pin/pin_file_card.h"
+#include "pin/pin_manager.h"
+#include "pin/pin_text_content.h"
+#include "pin/pin_window.h"
 #include "ui/fluent_lite/inputs.h"
 #include <QCursor>
 #include <QDateEdit>
@@ -129,6 +133,21 @@ class ClipboardWindowTests : public QObject {
         QVERIFY(picker->shown);
         if (picker_out) *picker_out = picker;
     }
+
+    QString write_file(const QString &name, const QByteArray &data = "x") {
+        QFile file(env_.dir.filePath(name));
+        if (!file.open(QIODevice::WriteOnly) || file.write(data) != data.size()) return {};
+        return QDir::toNativeSeparators(file.fileName());
+    }
+
+    QString write_picture(const QString &name, const QSize &size) {
+        QImage image(size, QImage::Format_RGB32);
+        image.fill(Qt::darkCyan);
+        const QString path = env_.dir.filePath(name);
+        return image.save(path) ? QDir::toNativeSeparators(path) : QString();
+    }
+
+    static QList<PinWindow *> pins() { return PinManager::instance()->get_all_pins(); }
 
 private slots:
     void initTestCase() {
@@ -378,7 +397,7 @@ private slots:
         QTest::qWait(QApplication::doubleClickInterval() + 20);
         QCOMPARE(recorded->dragged.size(), 2);
         QVERIFY(env_.pastes.isEmpty());
-        env_.config->set_app_setting("mouse_clipboard_quick_edit", "middle");
+        env_.config->set_app_setting("mouse_clipboard_quick_edit", "");
     }
 
     void aMarkStartsTheMultipleSelectionWhereClicksSelect() {
@@ -630,8 +649,8 @@ private slots:
         QVERIFY(!window->quick_edit_popup->is_open());
         QCOMPARE(manager().get_item(ids[0])->content, QString("edited"));
         QCOMPARE(window->get_item_data(ids[0])->content, QString("edited"));
-        // Middle click edits text; save and paste writes and pastes.
-        click(ids[0], Qt::MiddleButton);
+        // The menu opens it too; save and paste writes and pastes.
+        right_click_pick(ids[0], "Quick Edit");
         QVERIFY(window->quick_edit_popup->is_open());
         window->quick_edit_popup->editor->setPlainText("edited twice");
         window->quick_edit_popup->commit(true);
@@ -649,19 +668,89 @@ private slots:
         QVERIFY(!window->edit_selected());
     }
 
+    void middleClickPinsEveryKindOfItem() {
+        const auto close_pins = qScopeGuard([] { PinManager::instance()->close_all(); });
+        const QString notes = write_file("notes.txt");
+        const auto files = manager().add_item(file_payload({notes}), "file");
+        const auto texts = add_texts({"words"});
+        QVERIFY(files && !notes.isEmpty());
+        auto *window = open_window();
+        click(texts[0], Qt::MiddleButton);
+        QTRY_COMPARE(pins().size(), 1);
+        QVERIFY(pins()[0]->text_only());
+        QCOMPARE(pins()[0]->text_content()->text(), QString("words"));
+        QVERIFY(!window->quick_edit_popup || !window->quick_edit_popup->is_open());
+        click(*files, Qt::MiddleButton);
+        QTRY_COMPARE(pins().size(), 2);
+        QVERIFY(pins()[1]->file_card());
+        QCOMPARE(pins()[1]->file_card()->files(), QStringList{notes});
+    }
+
+    void aFileRowPinsItsFilesWhileTheyExist() {
+        const auto close_pins = qScopeGuard([] { PinManager::instance()->close_all(); });
+        const auto gone = manager().add_item(file_payload({QDir::toNativeSeparators(env_.dir.filePath("gone.txt"))}), "file");
+        const QString notes = write_file("kept.txt");
+        const QString shot = write_picture("shot.png", QSize(8, 6));
+        const auto here = manager().add_item(file_payload({notes, shot}), "file");
+        QVERIFY(gone && here);
+        open_window();
+        MenuPicker *picker = nullptr;
+        right_click_pick(*gone, "Pin to Screen", &picker);
+        QVERIFY(picker->seen.contains("Pin to Screen"));
+        QVERIFY(!picker->picked);
+        right_click_pick(*here, "Pin to Screen", &picker);
+        QVERIFY(picker->picked);
+        // As the pin hotkey pins copied files: the other files on a card first, each picture on its own pin.
+        QTRY_COMPARE(pins().size(), 2);
+        QVERIFY(pins()[0]->file_card());
+        QCOMPARE(pins()[0]->file_card()->files(), QStringList{notes});
+        QCOMPARE(pins()[1]->orig_size(), QSize(8, 6));
+        QTest::qWait(100);
+        QCOMPARE(pins().size(), 2);
+    }
+
+    void theSelectionPinsEachItemInTheOrderPicked() {
+        const auto close_pins = qScopeGuard([] { PinManager::instance()->close_all(); });
+        const auto ids = add_texts({"first words", "second words"});
+        const QString notes = write_file("listed.txt");
+        const auto file = manager().add_item(file_payload({notes}), "file");
+        QVERIFY(file);
+        auto *window = open_window();
+        window->toggle_item_mark(ids[0]);
+        window->toggle_item_mark(*file);
+        window->toggle_item_mark(ids[1]);
+        MenuPicker *picker = nullptr;
+        right_click_pick(ids[1], "Pin to Screen", &picker);
+        QVERIFY(picker->picked);
+        QVERIFY(!window->selection_manager->has_marks());
+        // The card opens first, then the texts as they were picked, each further down and right.
+        QTRY_COMPARE(pins().size(), 3);
+        QVERIFY(pins()[0]->file_card());
+        QCOMPARE(pins()[1]->text_content()->text(), QString("first words"));
+        QCOMPARE(pins()[2]->text_content()->text(), QString("second words"));
+        QVERIFY(pins()[2]->geometry().center().x() > pins()[1]->geometry().center().x());
+        QVERIFY(pins()[2]->geometry().center().y() > pins()[1]->geometry().center().y());
+    }
+
     void theItemMenuRunsItsEntries() {
         const auto group = manager().create_group("Work");
         const auto ids = add_texts({"lower text", "second"});
+        const auto image = manager().add_item("[10x10]", "image");
+        QVERIFY(image);
         auto *window = open_window();
 
         MenuPicker *picker = nullptr;
-        right_click_pick(ids[0], "Pin", &picker);
+        right_click_pick(ids[0], "Pin to Top", &picker);
         QVERIFY(picker->seen.contains("Paste"));
         QVERIFY(picker->seen.contains("Special Paste"));
         QVERIFY(picker->seen.contains("Quick Edit"));
+        QVERIFY(picker->seen.contains("Pin to Screen"));
         QVERIFY(manager().get_item(ids[0])->is_pinned);
-        right_click_pick(ids[0], "Unpin");
+        right_click_pick(ids[0], "Unpin from Top");
         QVERIFY(!manager().get_item(ids[0])->is_pinned);
+        // Images pin to the top as well.
+        right_click_pick(*image, "Pin to Top");
+        QVERIFY(manager().get_item(*image)->is_pinned);
 
         // Special paste and explicit paste press keys even with auto-paste off.
         window->controller->auto_paste_enabled = false;

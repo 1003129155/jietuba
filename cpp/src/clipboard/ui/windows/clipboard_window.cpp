@@ -1094,6 +1094,13 @@ void ClipboardWindow::show_marked_context_menu(const QList<qint64> &item_ids, co
         {"paste_marked_plain", [this, item_ids] { paste_marked(item_ids, true, "vertical", true); }},
         {"paste_marked_vertical", [this, item_ids] { paste_marked(item_ids, false, "vertical", true); }},
         {"paste_marked_horizontal", [this, item_ids] { paste_marked(item_ids, false, "horizontal", true); }},
+        {"pin_marked", [this, item_ids] {
+             QList<ClipboardItem> items;
+             for (qint64 item_id : item_ids)
+                 if (const auto item = controller->get_item(item_id)) items.append(*item);
+             selection_manager->clear_marks();
+             create_pins_from_clipboard_items(items, this);
+         }},
         {"remove_from_group", [this, item_ids] { move_marked_to_group(item_ids, std::nullopt); }},
         {"clear_marks", [this] { selection_manager->clear_marks(); }},
         {"delete_marked", [this, item_ids] { delete_marked(item_ids); }},
@@ -1685,7 +1692,7 @@ void ClipboardMouseController::cancel() {
 bool ClipboardMouseController::available(const QString &action, qint64 item_id) const {
     const auto item = window_->get_item_data(item_id);
     if (!item) return false;
-    if (action == "pin") return item->content_type == "image";
+    if (action == "pin") return can_pin(*item);
     if (action == "quick_edit") return is_quick_editable(*item);
     return true;
 }

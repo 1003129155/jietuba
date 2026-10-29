@@ -287,7 +287,6 @@ std::vector<std::tuple<QString, QString, QStringList>> mouse_binding_conflicts(S
     for (const auto &domain : domains) {
         // Bindings in first-seen order, with their owners in the page's row order.
         std::vector<std::pair<QString, QStringList>> owners_by_binding;
-        std::map<QString, QSet<QString>> actions_by_binding;
         const auto owners_of = [&owners_by_binding](const QString &binding) -> QStringList & {
             for (auto &entry : owners_by_binding)
                 if (entry.first == binding) return entry.second;
@@ -299,7 +298,6 @@ std::vector<std::tuple<QString, QString, QStringList>> mouse_binding_conflicts(S
             if (!control) continue;
             const QString binding = normalized_mouse_binding(control->currentData());
             if (binding.isEmpty()) continue;
-            actions_by_binding[binding].insert(action.key);
             owners_of(binding).append(QString("%1 (%2)").arg(dialog->tr_text(action.label), dialog->tr_text("Mouse Shortcuts")));
         }
         for (const auto &[key, edit] : dialog->inapp_edits) {
@@ -311,8 +309,6 @@ std::vector<std::tuple<QString, QString, QStringList>> mouse_binding_conflicts(S
                 owners_of(binding).append(QString("%1 (%2)").arg(inapp_label(dialog, key), dialog->tr_text("In-App Shortcuts")));
         }
         for (const auto &[binding, owners] : owners_by_binding) {
-            // Pin applies only to images and quick edit only to text, so they may share a gesture.
-            if (domain.prefix == "mouse_clipboard_" && owners.size() == 2 && actions_by_binding[binding] == QSet<QString>{"pin", "quick_edit"}) continue;
             if (owners.size() > 1) conflicts.emplace_back(dialog->tr_text(domain.context_source), mouse_binding_text(dialog, binding), owners);
         }
     }

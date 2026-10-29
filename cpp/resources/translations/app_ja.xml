@@ -3009,16 +3009,16 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>グループを削除</translation>
     </message>
     <message>
-        <source>Unpin</source>
-        <translation>ピン留めを解除</translation>
+        <source>Unpin from Top</source>
+        <translation>先頭固定を解除</translation>
     </message>
     <message>
-        <source>Pin</source>
-        <translation>ピン留め</translation>
+        <source>Pin to Top</source>
+        <translation>先頭に固定</translation>
     </message>
     <message>
-        <source>Pin as Overlay</source>
-        <translation>ピン留め画像を作成</translation>
+        <source>Pin to Screen</source>
+        <translation>画面にピン留め</translation>
     </message>
     <message>
         <source>Save as</source>
@@ -3085,7 +3085,7 @@ Items in the group will be moved back to clipboard history.</source>
 Pinned items and items in groups will be kept.
 This action cannot be undone.</source>
         <translation>クリップボード履歴をクリアしてもよろしいですか？
-ピン留めした項目とグループ内の項目は残ります。
+先頭に固定した項目とグループ内の項目は残ります。
 この操作は元に戻せません。</translation>
     </message>
     <message>
@@ -4018,7 +4018,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Also delete pinned and grouped content</source>
-        <translation>ピン留めとグループ内の内容も削除する</translation>
+        <translation>先頭固定とグループ内の内容も削除する</translation>
     </message>
     <message>
         <source>Clipboard history cleared successfully</source>

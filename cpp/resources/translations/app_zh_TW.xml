@@ -3011,15 +3011,15 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>刪除分組</translation>
     </message>
     <message>
-        <source>Unpin</source>
+        <source>Unpin from Top</source>
         <translation>取消置頂</translation>
     </message>
     <message>
-        <source>Pin</source>
+        <source>Pin to Top</source>
         <translation>置頂</translation>
     </message>
     <message>
-        <source>Pin as Overlay</source>
+        <source>Pin to Screen</source>
         <translation>生成釘圖</translation>
     </message>
     <message>

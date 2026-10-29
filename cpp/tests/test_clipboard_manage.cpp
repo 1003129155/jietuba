@@ -13,6 +13,10 @@
 #include "core/i18n.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
+#include "pin/pin_file_card.h"
+#include "pin/pin_manager.h"
+#include "pin/pin_text_content.h"
+#include "pin/pin_window.h"
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/segmented.h"
 #include "caption_check.h"
@@ -21,6 +25,7 @@
 #include <QFile>
 #include <QMimeData>
 #include <QKeyEvent>
+#include <QScopeGuard>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QSignalSpy>
@@ -821,6 +826,143 @@ private slots:
         QVERIFY(send_drop(dialog->image_drop_zone, &image_data));
         QVERIFY(dialog->image_drop_zone->findChild<ImagePreview *>());
         manager().stop_monitoring();
+    }
+
+    void theItemMenuPinsTextAndFilesToo() {
+        const auto close_pins = qScopeGuard([] { PinManager::instance()->close_all(); });
+        const auto notes = manager().create_group("Notes");
+        QVERIFY(notes);
+        QFile kept(env_.dir.filePath("kept.txt"));
+        QVERIFY(kept.open(QIODevice::WriteOnly) && kept.write("x") == 1);
+        kept.close();
+        const QString kept_path = QDir::toNativeSeparators(kept.fileName());
+        const auto words = manager().add_item("pinned words");
+        const auto files = manager().add_item(file_payload({kept_path}), "file");
+        const auto gone = manager().add_item(file_payload({QDir::toNativeSeparators(env_.dir.filePath("gone.txt"))}), "file");
+        for (const auto &id : {words, files, gone}) QVERIFY(id && manager().move_to_group(*id, *notes));
+        auto *dialog = open_dialog();
+        dialog->group_list->setCurrentRow(dialog->group_list->row_of_id(*notes));
+        QVERIFY(menu_pick(dialog->item_list, dialog->item_list->row_of_id(*words), "Pin to Screen"));
+        QTRY_COMPARE(PinManager::instance()->count(), 1);
+        QCOMPARE(PinManager::instance()->get_all_pins().last()->text_content()->text(), QString("pinned words"));
+        QVERIFY(menu_pick(dialog->item_list, dialog->item_list->row_of_id(*files), "Pin to Screen"));
+        QTRY_COMPARE(PinManager::instance()->count(), 2);
+        QCOMPARE(PinManager::instance()->get_all_pins().last()->file_card()->files(), QStringList{kept_path});
+        // Files no longer there leave the entry greyed out.
+        QStringList seen;
+        QVERIFY(!menu_pick(dialog->item_list, dialog->item_list->row_of_id(*gone), "Pin to Screen", &seen));
+        QVERIFY(seen.contains("Pin to Screen"));
+        QTest::qWait(100);
+        QCOMPARE(PinManager::instance()->count(), 2);
+    }
+
+    void theFooterPinsTheItemBeingEdited() {
+        const auto close_pins = qScopeGuard([] { PinManager::instance()->close_all(); });
+        const auto notes = manager().create_group("Notes");
+        QVERIFY(notes);
+        QFile kept(env_.dir.filePath("footer.txt"));
+        QVERIFY(kept.open(QIODevice::WriteOnly) && kept.write("x") == 1);
+        kept.close();
+        const QString kept_path = QDir::toNativeSeparators(kept.fileName());
+        const auto words = manager().add_item("footer words");
+        const auto files = manager().add_item(file_payload({kept_path}), "file");
+        const auto picture = manager().add_item("[20x10]", "image");
+        const auto gone = manager().add_item(file_payload({QDir::toNativeSeparators(env_.dir.filePath("gone.txt"))}), "file");
+        for (const auto &id : {words, files, picture, gone}) QVERIFY(id && manager().move_to_group(*id, *notes));
+        auto *dialog = open_dialog();
+        dialog->group_list->setCurrentRow(dialog->group_list->row_of_id(*notes));
+        // New content has nothing to pin yet.
+        dialog->add_item_btn->click();
+        QVERIFY(!dialog->pin_btn->isVisible());
+        dialog->open_item_editor(*words, *notes);
+        QVERIFY(dialog->pin_btn->isVisible());
+        dialog->pin_btn->click();
+        QTRY_COMPARE(PinManager::instance()->count(), 1);
+        QCOMPARE(PinManager::instance()->get_all_pins().last()->text_content()->text(), QString("footer words"));
+        dialog->open_item_editor(*files, *notes);
+        QVERIFY(dialog->pin_btn->isVisible());
+        dialog->pin_btn->click();
+        QTRY_COMPARE(PinManager::instance()->count(), 2);
+        QCOMPARE(PinManager::instance()->get_all_pins().last()->file_card()->files(), QStringList{kept_path});
+        // Images keep the button in their own form as well; without stored pixels neither pins anything.
+        dialog->open_item_editor(*picture, *notes);
+        QVERIFY(dialog->pin_btn->isVisible());
+        dialog->pin_btn->click();
+        dialog->open_item_editor(*gone, *notes);
+        QVERIFY(!dialog->pin_btn->isVisible());
+        dialog->import_export_btn->click();
+        QVERIFY(!dialog->pin_btn->isVisible());
+        QTest::qWait(100);
+        QCOMPARE(PinManager::instance()->count(), 2);
+    }
+
+    void thePinButtonFollowsTheWindowScale() {
+        const auto restore = qScopeGuard([] {
+            get_dialog_scale().set_percent(100);
+            get_ui_scale().set_percent(100);
+        });
+        const auto words = manager().add_item("scaled words");
+        QVERIFY(words);
+        const auto pin_height = [this, &words] {
+            auto *dialog = open_dialog();
+            dialog->open_item_editor(*words, std::nullopt);
+            const int height = dialog->pin_btn->sizeHint().height();
+            dialog->hide();
+            destroy_manage_dialog();
+            return height;
+        };
+        get_dialog_scale().set_percent(100);
+        const int normal = pin_height();
+        get_dialog_scale().set_percent(150);
+        QVERIFY(pin_height() > normal);
+        get_dialog_scale().set_percent(100);
+        get_ui_scale().set_percent(150);
+        QCOMPARE(pin_height(), normal);
+    }
+
+    void theFooterFitsEveryLanguageInTheNarrowestWindow() {
+        // Text widths need real fonts, which the offscreen platform does not have.
+        if (QGuiApplication::platformName() != "windows") QSKIP("needs -platform windows");
+        const auto notes = manager().create_group("Notes");
+        QVERIFY(notes);
+        const auto words = manager().add_item("some words");
+        QVERIFY(words && manager().move_to_group(*words, *notes));
+        const QString language = I18nManager::get_current_language();
+        const auto restore = qScopeGuard([language] {
+            get_dialog_scale().set_percent(100);
+            I18nManager::load_language(language);
+        });
+        for (const int percent : {100, 150, 200}) {
+            get_dialog_scale().set_percent(percent);
+            for (const char *code : {"zh", "zh_TW", "en", "ja", "ko"}) {
+                QVERIFY(I18nManager::load_language(code));
+                // The footer's texts are set when the window is built.
+                if (auto *old = get_existing_manage_dialog()) {
+                    old->hide();
+                    destroy_manage_dialog();
+                }
+                auto *dialog = open_dialog();
+                dialog->open_item_editor(*words, *notes);
+                const int narrowest = dialog->minimumWidth();
+                dialog->resize(dialog->minimumSize());
+                QApplication::processEvents();
+                const QString where = QString("%1 at %2%").arg(code).arg(percent);
+                QVERIFY2(dialog->width() == narrowest, qPrintable(QString("%1: the window is %2 wide, its minimum %3").arg(where).arg(dialog->width()).arg(narrowest)));
+                // Each button gets its whole width and the creation time all the lines it needs, inside the detail column.
+                const QRect column(dialog->detail_column->mapTo(dialog, QPoint(0, 0)), dialog->detail_column->size());
+                for (QWidget *part : std::initializer_list<QWidget *>{dialog->pin_btn, dialog->delete_btn, dialog->save_btn})
+                    QVERIFY2(part->width() >= part->sizeHint().width(),
+                             qPrintable(QString("%1: %2 is %3 wide, needs %4").arg(where, part->property("text").toString()).arg(part->width()).arg(part->sizeHint().width())));
+                QLabel *meta = dialog->detail_meta;
+                QVERIFY2(!meta->text().isEmpty() && meta->height() >= meta->heightForWidth(meta->width()),
+                         qPrintable(QString("%1: %2 is %3 high, needs %4").arg(where, meta->text()).arg(meta->height()).arg(meta->heightForWidth(meta->width()))));
+                QVERIFY2(meta->width() >= meta->fontMetrics().horizontalAdvance("2026-10-29 18:48"), qPrintable(QString("%1: %2 splits the time").arg(where, meta->text())));
+                for (QWidget *part : std::initializer_list<QWidget *>{meta, dialog->pin_btn, dialog->delete_btn, dialog->save_btn}) {
+                    QVERIFY2(part->isVisible(), qPrintable(where));
+                    QVERIFY2(column.contains(QRect(part->mapTo(dialog, QPoint(0, 0)), part->size())), qPrintable(QString("%1: %2 leaves the column").arg(where, part->property("text").toString())));
+                }
+            }
+        }
     }
 
     void itemsDroppedOnAGroupMoveThere() {

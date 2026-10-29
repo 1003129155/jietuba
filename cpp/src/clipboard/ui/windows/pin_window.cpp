@@ -24,6 +24,7 @@
 #include <QTimer>
 #include <QUrl>
 #include <QWidget>
+#include <algorithm>
 #include <functional>
 #include <memory>
 #include <vector>
@@ -49,6 +50,7 @@ bool pin_item(qint64 item_id, const std::function<std::optional<ClipboardItem>(q
     const auto clipboard_item = get_item(item_id);
     if (clipboard_item && clipboard_item->content_type == "text")
         return create_pin_from_text(clipboard_item->content, clipboard_item->html_content.value_or(QString()), clipboard_window, center);
+    if (clipboard_item && clipboard_item->content_type == "file") return create_pins_from_clipboard_items({*clipboard_item}, clipboard_window, center);
     if (!clipboard_item || clipboard_item->content_type != "image") {
         log_error(T("无法创建钉图：item_id={item_id} 不是图片", {{"item_id", item_id}}), "Clipboard");
         return false;
@@ -126,20 +128,44 @@ bool picture_name(const QString &file) {
     return suffixes.contains(QFileInfo(file).suffix().toLower());
 }
 
-// What one press pins: optionally a card of files, then each picture; in this order on screen.
+// What one batch pins: optionally a card of files, then each picture or text; in this order on screen.
 struct Opened {
     std::optional<AnimationSource> animation;
     QImage image;
     // A card with its icons fetched, drawn as image.
     std::optional<PinFileCard> card;
+    std::unique_ptr<PinTextContent> text;
 };
 
+// One pin of a batch after its card.
+struct Piece {
+    enum Kind { PictureFile, StoredImage, Text } kind;
+    // The file, the id of the image stored in history, or the text.
+    QString value;
+    QString html = {};
+};
+
+Opened still_picture(QImage image) {
+    Opened opened;
+    opened.image = std::move(image);
+    return opened;
+}
+
 Opened decode_picture(const QString &file) {
-    if (auto animation = load_animation(file)) return {std::move(animation), {}, std::nullopt};
+    if (auto animation = load_animation(file)) {
+        Opened opened;
+        opened.animation = std::move(animation);
+        return opened;
+    }
     QImageReader reader(file);
     // Photos stand as the camera held them.
     reader.setAutoTransform(true);
-    return {std::nullopt, reader.read(), std::nullopt};
+    return still_picture(reader.read());
+}
+
+Opened decode_stored_image(const QString &image_id) {
+    const auto data = ClipboardManager::instance().get_image_data(image_id);
+    return still_picture(data ? QImage::fromData(*data) : QImage());
 }
 
 Opened draw_card(const QStringList &files, const QSize &limit) {
@@ -149,23 +175,42 @@ Opened draw_card(const QStringList &files, const QSize &limit) {
     card.load_icons();
     QImage image = card.render(card.size());
     if (SUCCEEDED(com)) CoUninitialize();
-    return {std::nullopt, std::move(image), std::move(card)};
+    Opened opened;
+    opened.image = std::move(image);
+    opened.card = std::move(card);
+    return opened;
 }
 
-// Pictures decode and cards are drawn on worker threads, so many or large ones never hold the UI
-// thread. Each pin opens on the UI thread in its own turn, in order, once it and those before it
-// are ready. Pictures that do not decode end on one card, unless they no longer exist.
+// Pictures decode, texts are laid out and cards are drawn on worker threads, so many or large ones
+// never hold the UI thread. Each pin opens on the UI thread in its own turn, in order, once it and
+// those before it are ready. Picture files that do not decode end on one card, unless they no
+// longer exist.
 class PinBatch : public QObject {
 public:
-    PinBatch(const QStringList &card_files, const QStringList &pictures, bool cards, const QSize &card_limit, const QPoint &origin, bool pinned)
-        : QObject(qApp), pictures_(pictures), opened_(pictures.size() + (card_files.isEmpty() ? 0 : 1)), cards_(cards), card_limit_(card_limit),
-          origin_(origin), pinned_(pinned) {
+    PinBatch(const QStringList &card_files, const QList<Piece> &pieces, bool cards, const QSize &card_limit, const QPoint &origin, bool pinned)
+        : QObject(qApp), pieces_(pieces), opened_(pieces.size() + (card_files.isEmpty() ? 0 : 1)), cards_(cards), card_limit_(card_limit), origin_(origin),
+          pinned_(pinned) {
         // Below the UI thread and on half the cores, so neither the pins nor other programs wait for this.
         pool_.setThreadPriority(QThread::LowPriority);
         pool_.setMaxThreadCount(std::max(1, QThread::idealThreadCount() / 2));
         int index = 0;
         if (!card_files.isEmpty()) start(index++, [card_files, card_limit] { return draw_card(card_files, card_limit); });
-        for (const auto &file : pictures) start(index++, [file] { return decode_picture(file); });
+        const bool formatted = get_tool_settings_manager()->get_pin_text_formatting();
+        for (const auto &piece : pieces) {
+            const int at = index++;
+            if (piece.kind == Piece::Text) {
+                // Unformatted, the pin keeps the formatting for its menu to switch to.
+                PinTextContent::build_async(piece.value, piece.html, formatted, this, [this, at](std::unique_ptr<PinTextContent> content) {
+                    Opened opened;
+                    opened.text = std::move(content);
+                    arrive(at, std::move(opened));
+                });
+            } else if (piece.kind == Piece::StoredImage) {
+                start(at, [image_id = piece.value] { return decode_stored_image(image_id); });
+            } else {
+                start(at, [file = piece.value] { return decode_picture(file); });
+            }
+        }
     }
     ~PinBatch() override {
         // Results still on their way are dropped with this object.
@@ -176,11 +221,12 @@ private:
     void start(int index, std::function<Opened()> work) {
         pool_.start([this, index, work] {
             auto opened = std::make_shared<Opened>(work());
-            QMetaObject::invokeMethod(this, [this, index, opened] {
-                opened_[index] = std::move(*opened);
-                schedule_next();
-            }, Qt::QueuedConnection);
+            QMetaObject::invokeMethod(this, [this, index, opened] { arrive(index, std::move(*opened)); }, Qt::QueuedConnection);
         });
+    }
+    void arrive(int index, Opened opened) {
+        opened_[index] = std::move(opened);
+        schedule_next();
     }
     // Results that arrive together still open one pin per turn of the event loop, so input and painting
     // get their turn between pins.
@@ -196,8 +242,8 @@ private:
         if (next_ >= static_cast<int>(opened_.size()) || !opened_[next_]) return;
         auto opened = std::move(*opened_[next_]);
         opened_[next_].reset();
-        // Pictures follow the card, when there is one.
-        const int picture = next_++ - (static_cast<int>(opened_.size()) - pictures_.size());
+        // The pieces follow the card, when there is one.
+        const int piece = next_++ - (static_cast<int>(opened_.size()) - pieces_.size());
         const QPoint at = origin_ + QPoint(CASCADE_STEP, CASCADE_STEP) * placed_;
         auto *settings = get_tool_settings_manager();
         if (opened.card) {
@@ -207,11 +253,15 @@ private:
             const QPoint position = calculate_pin_position(opened.animation->first_frame.size(), nullptr, at);
             get_pin_manager()->create_animation_pin(std::move(*opened.animation), position, settings);
             ++placed_;
+        } else if (opened.text) {
+            const QPoint position = calculate_pin_position(opened.text->size(), nullptr, at);
+            get_pin_manager()->create_text_pin(std::move(opened.text), position, settings);
+            ++placed_;
         } else if (!opened.image.isNull()) {
             create_pin_from_image(opened.image, nullptr, at);
             ++placed_;
-        } else if (cards_ && picture >= 0 && QFileInfo::exists(pictures_[picture])) {
-            undecoded_.append(pictures_[picture]);
+        } else if (cards_ && piece >= 0 && pieces_[piece].kind == Piece::PictureFile && QFileInfo::exists(pieces_[piece].value)) {
+            undecoded_.append(pieces_[piece].value);
         }
         if (next_ < static_cast<int>(opened_.size())) {
             schedule_next();
@@ -222,7 +272,7 @@ private:
         deleteLater();
     }
     QThreadPool pool_;
-    QStringList pictures_;
+    QList<Piece> pieces_;
     std::vector<std::optional<Opened>> opened_;
     bool cards_;
     QSize card_limit_;
@@ -237,20 +287,29 @@ private:
 // Half the screen at most; past that the last card counts the rest.
 QSize card_limit(const QScreen *screen) { return screen ? screen->availableGeometry().size() / 2 : QSize(960, 540); }
 
+// card_files on one card, then a pin per piece, from origin down and right. Asks first when there
+// are many pictures. True when anything is being pinned or the user declined.
+bool start_batch(const QStringList &card_files, const QList<Piece> &pieces, bool cards, const QPoint &origin, QWidget *parent) {
+    if (card_files.isEmpty() && pieces.isEmpty()) return false;
+    const auto pictures = std::count_if(pieces.begin(), pieces.end(), [](const Piece &piece) { return piece.kind != Piece::Text; });
+    if (pictures > MANY_PICTURES &&
+        !show_confirm_dialog(parent, pin_tr("Pin Many Images"), pin_tr("Pin %1 images at once? So many windows may slow the computer down.").arg(pictures)))
+        return true;
+    const auto *screen = target_screen(nullptr, origin);
+    new PinBatch(card_files, pieces, cards, card_limit(screen), origin, false);
+    return true;
+}
+
 // Each picture file on its own pin, an animation playing, and the other files together as cards;
 // pictures turned off go with the cards. True when anything is being pinned or the user declined.
 bool pin_files(const QStringList &files, bool pictures, bool cards, const QPoint &origin) {
-    QStringList images, others;
+    QStringList others;
+    QList<Piece> images;
     for (const auto &file : files) {
-        if (pictures && picture_name(file)) images.append(file);
+        if (pictures && picture_name(file)) images.append({Piece::PictureFile, file});
         else if (cards) others.append(file);
     }
-    if (images.isEmpty() && others.isEmpty()) return false;
-    if (images.size() > MANY_PICTURES &&
-        !show_confirm_dialog(nullptr, pin_tr("Pin Many Images"), pin_tr("Pin %1 images at once? So many windows may slow the computer down.").arg(images.size())))
-        return true;
-    const auto *screen = target_screen(nullptr, origin);
-    new PinBatch(others, images, cards, card_limit(screen), origin, false);
+    if (!start_batch(others, images, cards, origin, nullptr)) return false;
     log_debug(T("已钉住剪贴板中的 {count} 个文件", {{"count", static_cast<int>(files.size())}}), "Clipboard");
     return true;
 }
@@ -291,12 +350,24 @@ bool create_pin_from_image(const QImage &image, QWidget *clipboard_window, std::
     return true;
 }
 
-bool create_pin_from_files(const QStringList &files, QWidget *clipboard_window, std::optional<QPoint> center) {
-    if (files.isEmpty()) return false;
+bool create_pins_from_clipboard_items(const QList<ClipboardItem> &items, QWidget *clipboard_window, std::optional<QPoint> center) {
+    QStringList others;
+    QList<Piece> pieces;
+    for (const auto &item : items) {
+        if (item.content_type == "image" && item.image_id && !item.image_id->isEmpty()) {
+            pieces.append({Piece::StoredImage, *item.image_id});
+        } else if (item.content_type == "text" && !item.content.trimmed().isEmpty()) {
+            pieces.append({Piece::Text, item.content, item.html_content.value_or(QString())});
+        } else if (item.content_type == "file") {
+            for (const auto &file : item_paths(item)) {
+                if (picture_name(file)) pieces.append({Piece::PictureFile, file});
+                else others.append(file);
+            }
+        }
+    }
     const auto *screen = target_screen(clipboard_window, center);
     const QPoint origin = center ? *center : screen ? screen->geometry().center() : QPoint(100, 100);
-    new PinBatch(files, {}, false, card_limit(screen), origin, false);
-    return true;
+    return start_batch(others, pieces, true, origin, clipboard_window);
 }
 
 bool create_pin_from_text(const QString &text, const QString &html, QWidget *clipboard_window, std::optional<QPoint> center) {
