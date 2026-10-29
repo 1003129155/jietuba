@@ -85,6 +85,8 @@ signals:
     // (like a toolbar click). Handled before select_item(), since switching tools clears the selection.
     void tool_switch_requested(const QString &tool_id);
 private:
+    // The selected item's state as a press finds it, for the move it may start.
+    void capture_press_state();
     void repaint_handles();
     void on_undo_index_changed();
     void sync_arrow_panel_state(QGraphicsItem *arrow_item);

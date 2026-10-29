@@ -1134,6 +1134,26 @@ private slots:
         QCOMPARE(number->label_text(), QString());
     }
 
+    // A real mouse reports a drag a pixel or two at a time: undo still goes back to where it began.
+    void slowDragsOfANumberAndItsLabelUndoToWhereTheyBegan() {
+        auto [scene, view] = canvas("number");
+        auto *number = new NumberItem(1, QPointF(200, 200), 20.0, RED);
+        scene->addItem(number);
+        scene->undo_stack->push(new AddItemCommand(scene, ItemReference(number)));
+        view->smart_edit_controller->select_item(number);
+        gesture(view, QPointF(200, 200), QPointF(215, 200), 15);
+        QCOMPARE(number->pos(), QPointF(215, 200));
+        scene->undo_stack->undo();
+        QCOMPARE(number->pos(), QPointF(200, 200));
+        number->set_label("note");
+        auto *label = number->label();
+        const auto grab = label->sceneBoundingRect().center();
+        gesture(view, grab, grab + QPointF(0, 15), 15);
+        QCOMPARE(label->anchor(), QPointF(26, 15));
+        scene->undo_stack->undo();
+        QCOMPARE(label->anchor(), QPointF(26, 0));
+    }
+
     void labelAndPointerStartOutOfEachOthersWay() {
         NumberItem plain(1, QPointF(0, 0), 20.0, RED);
         plain.set_label("a");

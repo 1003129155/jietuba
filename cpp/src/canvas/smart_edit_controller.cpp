@@ -167,6 +167,7 @@ bool SmartEditController::handle_press(const QPointF &, const QPointF &scene_pos
             auto *item = drawable_items[index];
             if (selected_item() == item) {
                 press_requires_manual_dispatch = index > 0;
+                capture_press_state();
                 return true;
             }
             if (can_select_item(item, modifiers)) {
@@ -176,6 +177,7 @@ bool SmartEditController::handle_press(const QPointF &, const QPointF &scene_pos
                     emit tool_switch_requested(*owner);
                 select_item(item);
                 press_requires_manual_dispatch = index > 0;
+                capture_press_state();
                 return true;
             }
         }
@@ -183,6 +185,11 @@ bool SmartEditController::handle_press(const QPointF &, const QPointF &scene_pos
         clear_selection();
     }
     return false;
+}
+
+void SmartEditController::capture_press_state() {
+    // Items follow the mouse from its first pixel, before a drag is told from a click.
+    move_initial_state = capture_layer_state(selected_item());
 }
 
 bool SmartEditController::handle_move(const QPointF &, const QPointF &scene_pos) {
