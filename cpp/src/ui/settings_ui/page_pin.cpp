@@ -95,6 +95,12 @@ void build_behavior_section(SettingsDialog *dialog, SettingsCardGroup *grp) {
                                             "applies to pinning text from the clipboard window.",
                                             "pin_text_formatting");
     dialog->set_attr("pin_text_formatting_toggle", formatting_card);
+
+    auto *repeats_card = add_switch_card(dialog, grp, FluentIcon::Pin, "Point Out Repeats",
+                                         "Pinning what an open pin already shows makes that pin shake instead of opening another one. Screenshots "
+                                         "are always pinned anew.",
+                                         "pin_point_out_repeats");
+    dialog->set_attr("pin_point_out_repeats_toggle", repeats_card);
 }
 
 // Each wheel notch adds or removes a fixed percentage of the original size; step, anchor and edge dragging are here.
@@ -208,7 +214,7 @@ const std::set<QString> PIN_BEHAVIOR_KEYS = {
     "pin_default_opacity", "pin_rounded_corners", "pin_auto_border", "pin_hover_buttons", "pin_click_through_opacity",
     "pin_zoom_step", "pin_fine_zoom_step", "pin_opacity_step", "pin_zoom_anchor", "pin_border_resize", "pin_auto_shrink",
     "pin_lock_block_move", "pin_lock_block_click_close", "pin_lock_block_key_close", "pin_lock_hint",
-    "pin_clipboard_image", "pin_clipboard_text", "pin_clipboard_file", "pin_text_formatting",
+    "pin_clipboard_image", "pin_clipboard_text", "pin_clipboard_file", "pin_text_formatting", "pin_point_out_repeats",
 };
 
 // Pin settings: behaviour, zoom and size, appearance, click-through, lock, the pin hotkey; shortcuts jump to the shortcut pages' pin tab.

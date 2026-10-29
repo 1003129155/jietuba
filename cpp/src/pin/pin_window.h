@@ -20,6 +20,7 @@
 
 class QGraphicsItem;
 class QInputEvent;
+class QPropertyAnimation;
 
 namespace jietuba {
 struct AnimationSource;
@@ -105,6 +106,9 @@ public:
     void leave_text_mode();
     // In text mode only: the text takes the keyboard.
     void edit_text();
+    // Wiggles in place for a moment, to be found among other windows.
+    void shake();
+    bool shaking() const { return shake_ != nullptr; }
     // Makes a pin made with content's first image a text pin: its text is selectable from the start,
     // without recognizing it.
     void set_text_content(std::unique_ptr<PinTextContent> content);
@@ -336,6 +340,7 @@ private:
     std::unique_ptr<PinThumbnailMode> thumbnail_;
     std::unique_ptr<PinTextMode> text_mode_;
     std::unique_ptr<PinTextContent> text_content_;
+    QPointer<QPropertyAnimation> shake_;
     // Counts the contents shown, so a page drawn for an earlier one is dropped.
     quint64 text_generation_ = 0;
     std::optional<bool> wanted_formatting_;

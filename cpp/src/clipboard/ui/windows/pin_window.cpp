@@ -266,7 +266,9 @@ private:
         const int piece = next_++ - (static_cast<int>(opened_.size()) - pieces_.size());
         const QPoint at = origin_ + QPoint(CASCADE_STEP, CASCADE_STEP) * placed_;
         auto *settings = get_tool_settings_manager();
-        if (opened.card) {
+        if (point_out_repeat(opened)) {
+            ++pointed_;
+        } else if (opened.card) {
             get_pin_manager()->create_file_pin(*opened.card, calculate_pin_position(opened.card->size(), nullptr, at), settings, opened.image);
             ++placed_;
         } else if (opened.animation) {
@@ -287,6 +289,14 @@ private:
         }
         finish_turn();
     }
+    // A piece an open pin already shows: that pin shakes instead.
+    static bool point_out_repeat(const Opened &opened) {
+        auto *manager = get_pin_manager();
+        if (opened.card) return manager->point_out(manager->file_pin_of(opened.card->files()));
+        if (opened.animation) return manager->point_out(manager->animation_pin_of(opened.animation->file_path));
+        if (opened.text) return manager->point_out(manager->text_pin_of(opened.text->text()));
+        return manager->point_out(manager->image_pin_of(opened.image));
+    }
     // The next pin's turn, or the end of the batch.
     void finish_turn() {
         if (next_ < static_cast<int>(opened_.size())) {
@@ -294,7 +304,7 @@ private:
             return;
         }
         if (!undecoded_.isEmpty()) new PinBatch(undecoded_, {}, false, card_limit_, origin_ + QPoint(CASCADE_STEP, CASCADE_STEP) * placed_, true);
-        if (placed_ == 0 && undecoded_.isEmpty() && !pinned_ && !declined_) show_toast(i18n_tr("Nothing on the clipboard to pin", "MainApp"));
+        if (placed_ == 0 && pointed_ == 0 && undecoded_.isEmpty() && !pinned_ && !declined_) show_toast(i18n_tr("Nothing on the clipboard to pin", "MainApp"));
         deleteLater();
     }
     QThreadPool pool_;
@@ -305,7 +315,7 @@ private:
     QPoint origin_;
     // Something else from the same press was pinned already.
     bool pinned_;
-    int next_ = 0, placed_ = 0;
+    int next_ = 0, placed_ = 0, pointed_ = 0;
     bool scheduled_ = false;
     // The answer about small pictures, once asked; declined_ when one was left out for it.
     std::optional<bool> small_wanted_;
@@ -371,6 +381,8 @@ bool create_pin_from_clipboard_item(qint64 item_id, ClipboardManager *manager, Q
 
 bool create_pin_from_image(const QImage &image, QWidget *clipboard_window, std::optional<QPoint> center) {
     if (image.isNull()) return false;
+    auto *manager = get_pin_manager();
+    if (manager->point_out(manager->image_pin_of(image))) return true;
     // Declining counts as handled, so no "nothing to pin" follows.
     if (PinManager::confirm_small_pin(image.deviceIndependentSize().toSize(), clipboard_window)) place_image_pin(image, clipboard_window, center);
     return true;
@@ -398,6 +410,8 @@ bool create_pins_from_clipboard_items(const QList<ClipboardItem> &items, QWidget
 
 bool create_pin_from_text(const QString &text, const QString &html, QWidget *clipboard_window, std::optional<QPoint> center) {
     if (text.trimmed().isEmpty()) return false;
+    auto *manager = get_pin_manager();
+    if (manager->point_out(manager->text_pin_of(text))) return true;
     // Laid out and drawn on a worker thread, so a long text never holds the UI; the pin opens once it
     // is ready. Unformatted, the pin keeps the formatting for its menu to switch to.
     const QPointer<QWidget> window(clipboard_window);

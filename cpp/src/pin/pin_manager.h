@@ -45,6 +45,14 @@ public:
     QList<PinWindow *> get_all_pins() const;
     int count() const { return static_cast<int>(pin_windows.size()); }
     bool has_pins() const { return !pin_windows.isEmpty(); }
+    // The open pin already showing this, or null, also with repeats not pointed out. Pictures compare
+    // their pixels, texts their text whatever the formatting, cards their files, animations their file.
+    PinWindow *image_pin_of(const QImage &image) const;
+    PinWindow *text_pin_of(const QString &text) const;
+    PinWindow *file_pin_of(const QStringList &files) const;
+    PinWindow *animation_pin_of(const QString &file) const;
+    // Brings pin to the front and shakes it; false for null.
+    bool point_out(PinWindow *pin);
     void show_all();
     void hide_all();
     // Each pin to the centre of the screen it is on.
@@ -69,6 +77,7 @@ signals:
 private:
     PinManager();
     void on_pin_closed(PinWindow *pin_window);
+    bool repeats_pointed_out() const;
     QPointer<QWidget> capture_window_;
 };
 

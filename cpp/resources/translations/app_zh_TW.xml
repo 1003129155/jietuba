@@ -1231,6 +1231,14 @@ Replace it?</source>
         <translation>保留文字格式</translation>
     </message>
     <message>
+        <source>Point Out Repeats</source>
+        <translation>提示重複釘圖</translation>
+    </message>
+    <message>
+        <source>Pinning what an open pin already shows makes that pin shake instead of opening another one. Screenshots are always pinned anew.</source>
+        <translation>要釘的內容已經釘在螢幕上時，讓那張釘圖抖一下，不再另開一張。截圖一律釘成新的。</translation>
+    </message>
+    <message>
         <source>Text copied from web pages and documents keeps its bold, lists, tables and code style; colors that would not read on the white page are dropped. Off: pinned as plain text, and each pin can still switch it from the right-click menu. Also applies to pinning text from the clipboard window.</source>
         <translation>從網頁、文件複製的文字保留粗體、清單、表格和程式碼樣式，白底上看不清的顏色會去掉。關閉後釘成純文字，單張釘圖仍可在右鍵選單裡切換。從剪貼簿視窗釘文字時同樣適用。</translation>
     </message>

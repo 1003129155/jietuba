@@ -1217,6 +1217,14 @@ Replace it?</source>
         <translation>텍스트 서식 유지</translation>
     </message>
     <message>
+        <source>Point Out Repeats</source>
+        <translation>중복 고정 알림</translation>
+    </message>
+    <message>
+        <source>Pinning what an open pin already shows makes that pin shake instead of opening another one. Screenshots are always pinned anew.</source>
+        <translation>이미 고정된 내용을 다시 고정하면 새 창을 열지 않고 그 창을 흔듭니다. 스크린샷은 항상 새로 고정됩니다.</translation>
+    </message>
+    <message>
         <source>Text copied from web pages and documents keeps its bold, lists, tables and code style; colors that would not read on the white page are dropped. Off: pinned as plain text, and each pin can still switch it from the right-click menu. Also applies to pinning text from the clipboard window.</source>
         <translation>웹 페이지나 문서에서 복사한 텍스트의 굵게, 목록, 표, 코드 서식을 유지합니다. 흰 바탕에서 읽기 어려운 색은 제거합니다. 끄면 일반 텍스트로 고정하며, 고정한 텍스트마다 오른쪽 클릭 메뉴에서 바꿀 수 있습니다. 클립보드 창에서 고정할 때도 적용됩니다.</translation>
     </message>

@@ -301,6 +301,8 @@ SETTING(pin_clipboard_image, "pin/clipboard_image", bool, true, Import, Gen, Gen
 SETTING(pin_clipboard_text, "pin/clipboard_text", bool, true, Import, Gen, Gen)
 SETTING(pin_clipboard_file, "pin/clipboard_file", bool, true, Import, Gen, Gen)
 SETTING(pin_text_formatting, "pin/text_formatting", bool, true, Import, Gen, Gen)
+// Pinning what an open pin already shows shakes that pin instead of opening another.
+SETTING(pin_point_out_repeats, "pin/point_out_repeats", bool, true, Import, Gen, Gen)
 SETTING(capture_engine, "app/capture_engine", QString, "auto", Import, Own, Own)
 SETTING(long_stitch_engine, "app/long_stitch_engine", QString, "hash_rust", Import, Gen, Gen)
 SETTING(long_stitch_debug, "app/long_stitch_debug", bool, false, Internal, Gen, Gen)

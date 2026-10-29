@@ -1102,6 +1102,14 @@ Replace it?</translation>
         <translation>Keep Text Formatting</translation>
     </message>
     <message>
+        <source>Point Out Repeats</source>
+        <translation>Point Out Repeats</translation>
+    </message>
+    <message>
+        <source>Pinning what an open pin already shows makes that pin shake instead of opening another one. Screenshots are always pinned anew.</source>
+        <translation>Pinning what an open pin already shows makes that pin shake instead of opening another one. Screenshots are always pinned anew.</translation>
+    </message>
+    <message>
         <source>Text copied from web pages and documents keeps its bold, lists, tables and code style; colors that would not read on the white page are dropped. Off: pinned as plain text, and each pin can still switch it from the right-click menu. Also applies to pinning text from the clipboard window.</source>
         <translation>Text copied from web pages and documents keeps its bold, lists, tables and code style; colors that would not read on the white page are dropped. Off: pinned as plain text, and each pin can still switch it from the right-click menu. Also applies to pinning text from the clipboard window.</translation>
     </message>

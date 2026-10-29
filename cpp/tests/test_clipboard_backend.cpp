@@ -478,7 +478,10 @@ private slots:
             env_.config->set_pin_clipboard_image(true);
             env_.config->set_pin_clipboard_text(true);
             env_.config->set_pin_text_formatting(true);
+            env_.config->set_pin_point_out_repeats(true);
         });
+        // The same cells pinned again under other settings.
+        env_.config->set_pin_point_out_repeats(false);
         const auto pins = [] { return PinManager::instance()->get_all_pins(); };
         const auto put = [](const QString &text, const QString &html, const QImage &image) {
             auto *mime = new QMimeData;

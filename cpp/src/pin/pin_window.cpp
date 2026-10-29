@@ -46,6 +46,7 @@
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QMutex>
+#include <QPropertyAnimation>
 #include <QPainter>
 #include <QRegularExpression>
 #include <QScopeGuard>
@@ -59,6 +60,7 @@
 #include <algorithm>
 #include <cmath>
 #include <future>
+#include <numbers>
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -361,6 +363,8 @@ void PinWindow::hideEvent(QHideEvent *event) {
 }
 
 void PinWindow::start_window_drag(const QPoint &global_pos) {
+    // The drag takes the window from wherever the shake has it.
+    if (shake_) shake_->stop();
     is_dragging_ = true;
     drag_start_pos_ = global_pos;
     drag_start_window_pos_ = pos();
@@ -920,6 +924,25 @@ void PinWindow::leave_text_mode() {
 
 void PinWindow::edit_text() {
     if (text_mode_) text_mode_->start_editing();
+}
+
+void PinWindow::shake() {
+    if (shake_) return;
+    const QPoint origin = pos();
+    auto *animation = new QPropertyAnimation(this, "pos", this);
+    animation->setDuration(200);
+    animation->setLoopCount(2);
+    // Round a small circle and back to where it stood.
+    constexpr int STEPS = 12;
+    const double radius = 5.0;
+    animation->setStartValue(origin);
+    for (int i = 1; i < STEPS; ++i) {
+        const double angle = 2 * std::numbers::pi * i / STEPS;
+        animation->setKeyValueAt(static_cast<double>(i) / STEPS, origin + QPointF(radius * (std::cos(angle) - 1), -radius * std::sin(angle)).toPoint());
+    }
+    animation->setEndValue(origin);
+    shake_ = animation;
+    animation->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
 void PinWindow::set_text_content(std::unique_ptr<PinTextContent> content) {

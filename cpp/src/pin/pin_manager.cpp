@@ -6,9 +6,11 @@
 #include "pin/pin_file_card.h"
 #include "pin/pin_text_content.h"
 #include "pin/pin_window.h"
+#include "settings/tool_settings.h"
 #include "ui/dialogs.h"
 #include <QApplication>
 #include <QDir>
+#include <QFileInfo>
 #include <QScreen>
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -118,6 +120,54 @@ QList<PinWindow *> PinManager::get_all_pins() const {
     for (const auto &pin : pin_windows)
         if (pin) result.append(pin);
     return result;
+}
+
+bool PinManager::repeats_pointed_out() const {
+    auto *settings = get_tool_settings_manager();
+    return !settings || settings->get_pin_point_out_repeats();
+}
+
+PinWindow *PinManager::image_pin_of(const QImage &image) const {
+    if (image.isNull() || !repeats_pointed_out()) return nullptr;
+    for (auto *pin : get_all_pins()) {
+        if (pin->is_closed() || pin->text_only() || pin->animation() || pin->file_card()) continue;
+        // The size rules out nearly every pin; only one of the same size has its pixels compared.
+        const auto &pixmap = pin->base_pixmap();
+        if (pixmap.size() != image.size()) continue;
+        const QImage shown = pixmap.toImage();
+        if (shown.format() == image.format() ? shown == image : shown == image.convertToFormat(shown.format())) return pin;
+    }
+    return nullptr;
+}
+
+PinWindow *PinManager::text_pin_of(const QString &text) const {
+    if (text.isEmpty() || !repeats_pointed_out()) return nullptr;
+    for (auto *pin : get_all_pins())
+        if (!pin->is_closed() && pin->text_only() && pin->text_content()->text() == text) return pin;
+    return nullptr;
+}
+
+PinWindow *PinManager::file_pin_of(const QStringList &files) const {
+    if (files.isEmpty() || !repeats_pointed_out()) return nullptr;
+    for (auto *pin : get_all_pins())
+        if (!pin->is_closed() && pin->file_card() && pin->file_card()->files() == files) return pin;
+    return nullptr;
+}
+
+PinWindow *PinManager::animation_pin_of(const QString &file) const {
+    if (file.isEmpty() || !repeats_pointed_out()) return nullptr;
+    for (auto *pin : get_all_pins())
+        if (!pin->is_closed() && pin->animation() && QFileInfo(pin->animation()->source().file_path) == QFileInfo(file)) return pin;
+    return nullptr;
+}
+
+bool PinManager::point_out(PinWindow *pin) {
+    if (!pin) return false;
+    pin->raise();
+    pin->activateWindow();
+    pin->shake();
+    log_debug(T("内容已在钉图中，提示已有钉图"), "PinManager");
+    return true;
 }
 
 void PinManager::show_all() {

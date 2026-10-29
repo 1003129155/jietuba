@@ -1224,6 +1224,14 @@ Replace it?</source>
         <translation>テキストの書式を保持</translation>
     </message>
     <message>
+        <source>Point Out Repeats</source>
+        <translation>重複したピン留めを知らせる</translation>
+    </message>
+    <message>
+        <source>Pinning what an open pin already shows makes that pin shake instead of opening another one. Screenshots are always pinned anew.</source>
+        <translation>すでにピン留めされている内容をもう一度ピン留めすると、新しく開かずにそのピン留めを揺らします。スクリーンショットは常に新しくピン留めされます。</translation>
+    </message>
+    <message>
         <source>Text copied from web pages and documents keeps its bold, lists, tables and code style; colors that would not read on the white page are dropped. Off: pinned as plain text, and each pin can still switch it from the right-click menu. Also applies to pinning text from the clipboard window.</source>
         <translation>Web ページや文書からコピーしたテキストの太字、リスト、表、コードの書式を保ちます。白い背景で読めない色は外します。オフにするとプレーンテキストでピン留めし、ピンごとに右クリックメニューで切り替えられます。クリップボードウィンドウからのピン留めにも適用されます。</translation>
     </message>

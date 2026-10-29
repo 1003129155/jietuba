@@ -687,7 +687,7 @@ private slots:
     void smallPicturesAskOnceForTheWholeBatch() {
         const auto big = picture("big.png", QSize(40, 30), Qt::red);
         QStringList files;
-        for (int i = 0; i < 3; ++i) files.append(picture(QString("small%1.png").arg(i), QSize(40, 29), Qt::blue));
+        for (const auto color : {Qt::blue, Qt::cyan, Qt::magenta}) files.append(picture(QString("small%1.png").arg(int(color)), QSize(40, 29), color));
         files.insert(1, big);
         small_pin_answer_ = false;
         // Declined, the one picture large enough still pins.
@@ -698,11 +698,11 @@ private slots:
         QCOMPARE(pins().size(), 1);
         QCOMPARE(pins()[0]->orig_size(), QSize(40, 30));
         QCOMPARE(small_pin_asked_, 1);
-        // Accepted, every one does.
+        // Accepted, every one does; the large one is pinned already.
         small_pin_asked_ = 0;
         small_pin_answer_ = true;
         QVERIFY(clipboard::pin_latest_clipboard_image(QPoint(400, 300)));
-        QTRY_COMPARE(pins().size(), 5);
+        QTRY_COMPARE(pins().size(), 4);
         QCOMPARE(small_pin_asked_, 1);
     }
 
@@ -719,6 +719,52 @@ private slots:
         QCOMPARE(pins()[0]->orig_size(), QSize(30, 30));
         QCOMPARE(small_pin_asked_, 1);
         QCOMPARE(pins().size(), 1);
+    }
+
+    void aRepeatShakesThePinShowingItInstead() {
+        QImage image(40, 30, QImage::Format_RGB32);
+        image.fill(Qt::green);
+        // Pinned by a capture counts too.
+        auto *picture = PinManager::instance()->create_pin(image, QPoint(100, 100), config_);
+        // The same pixels in another format are the same picture.
+        QVERIFY(clipboard::create_pin_from_image(image.convertToFormat(QImage::Format_ARGB32)));
+        QCOMPARE(pins().size(), 1);
+        QVERIFY(picture->shaking());
+        QImage other = image;
+        other.setPixel(5, 5, qRgb(0, 0, 0));
+        QVERIFY(clipboard::create_pin_from_image(other));
+        QCOMPARE(pins().size(), 2);
+        // A text whatever its formatting.
+        QVERIFY(clipboard::create_pin_from_text("same words", {}));
+        QTRY_COMPARE(pins().size(), 3);
+        auto *text = pins()[2];
+        QVERIFY(clipboard::create_pin_from_text("same words", "<b>same words</b>"));
+        QVERIFY(text->shaking());
+        // The same files, and the same animation.
+        copy_files({write("notes.txt", "notes")});
+        QVERIFY(clipboard::pin_latest_clipboard_image(QPoint(400, 300)));
+        QTRY_COMPARE(pins().size(), 4);
+        auto *card = pins()[3];
+        QVERIFY(clipboard::pin_latest_clipboard_image(QPoint(400, 300)));
+        QTRY_VERIFY(card->shaking());
+        copy_files({three_frames()});
+        QVERIFY(clipboard::pin_latest_clipboard_image(QPoint(400, 300)));
+        QTRY_COMPARE(pins().size(), 5);
+        auto *animation = pins()[4];
+        QVERIFY(clipboard::pin_latest_clipboard_image(QPoint(400, 300)));
+        QTRY_VERIFY(animation->shaking());
+        QTest::qWait(100);
+        QCOMPARE(pins().size(), 5);
+    }
+
+    void withRepeatsPinnedAgainEveryPinOpens() {
+        config_->set_pin_point_out_repeats(false);
+        QImage image(40, 30, QImage::Format_RGB32);
+        image.fill(Qt::green);
+        QVERIFY(clipboard::create_pin_from_image(image));
+        QVERIFY(clipboard::create_pin_from_image(image));
+        QCOMPARE(pins().size(), 2);
+        QVERIFY(!pins()[0]->shaking());
     }
 
     void missingFilesAreLeftOut() {
