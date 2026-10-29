@@ -35,15 +35,14 @@ private:
     QColor color_;
 };
 
-// The group buttons beside the clipboard list (left, right or top), with keyboard
-// navigation through them and the group context menu.
+// The group buttons beside the clipboard list (left, right or top), switching to the
+// previous or next group by keyboard, and the group context menu.
 class GroupBar : public QWidget {
     Q_OBJECT
 public:
     static QString tr_text(const char *text) { return i18n_tr(text, "GroupBar"); }
     GroupBar(ClipboardController *controller, ClipboardManager *manager, const Theme &theme, const QString &position = "right", QWidget *parent = nullptr);
 
-    bool sidebar_mode() const { return sidebar_mode_; }
     // Builds the bar once and inserts it into content_layout.
     void build(QHBoxLayout *content_layout, QWidget *left_widget, QVBoxLayout *left_layout);
     void set_position(const QString &position);
@@ -52,13 +51,8 @@ public:
     void set_theme(const Theme &theme);
     // Rebuilds the group buttons; what does not fit goes into an overflow menu.
     void refresh_buttons();
-    void enter_sidebar_mode(std::optional<qint64> prev_item_id = std::nullopt);
-    void exit_sidebar_mode();
-    void move_sidebar_selection(int delta);
-    // Top mode: left/right switches groups directly.
-    void handle_top_group_switch(int delta);
-    // Mouse back on the list clears the sidebar highlight.
-    void clear_sidebar_focus();
+    // Switches to the group delta buttons along the bar, wrapping around at the ends.
+    void switch_adjacent_group(int delta);
     void switch_to_group(std::optional<qint64> group_id);
     void on_manage_data_changed();
 
@@ -77,8 +71,6 @@ signals:
     // None means the clipboard history.
     void group_switched(std::optional<qint64> group_id);
     void close_requested();
-    void sidebar_entered();
-    void sidebar_exited(std::optional<qint64> prev_item_id);
     void manage_groups_requested();
     void manage_items_requested();
 
@@ -96,11 +88,9 @@ private:
     QString sidebar_btn_style() const;
     QString overflow_btn_style() const;
     QString menu_style() const;
-    QList<QPushButton *> sidebar_buttons() const;
-    void on_sidebar_button_clicked(QPushButton *target, std::optional<qint64> group_id);
-    void sync_sidebar_index();
-    void set_sidebar_focus_button(QPushButton *target);
-    void play_sidebar_focus_animation(QPushButton *target);
+    // The clipboard history's button, then the visible groups'.
+    QList<QPushButton *> switch_buttons() const;
+    int current_button_index() const;
     void show_overflow_group_menu(const QList<Group> &hidden_groups);
     void clear_group_buttons_layout();
     void show_group_context_menu(QPushButton *btn, qint64 group_id, const QPoint &pos);
@@ -111,9 +101,6 @@ private:
     ClipboardController *controller_;
     ClipboardManager *manager_;
     Theme current_theme_;
-    bool sidebar_mode_ = false;
-    int sidebar_index_ = 0;
-    std::optional<qint64> sidebar_prev_item_id_;
     QPointer<QFrame> separator_;
     QHBoxLayout *content_layout_ = nullptr;
     QWidget *left_widget_ = nullptr;

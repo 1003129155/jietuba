@@ -1019,25 +1019,38 @@ private slots:
         QTRY_COMPARE(window->group_bar->group_buttons.size(), 2);
         QVERIFY(!window->grab().isNull());
 
-        // Right in the list enters the side bar, arrows walk it, Left leaves it.
-        window->selection_manager->move_cursor_to(ids[1]);
-        QTest::keyClick(window->list_widget, Qt::Key_Right);
-        QVERIFY(window->group_bar->sidebar_mode());
-        QTest::keyClick(window->list_widget, Qt::Key_Down);
-        QTest::keyClick(window->list_widget, Qt::Key_Down);
-        QTest::keyClick(window->list_widget, Qt::Key_Up);
-        QTest::keyClick(window->list_widget, Qt::Key_Left);
-        QVERIFY(!window->group_bar->sidebar_mode());
-
-        // The top layout switches groups with left and right.
-        window->group_bar->switch_to_group(std::nullopt);
-        QVERIFY(gear_pick("Top"));
-        QTest::keyClick(window->list_widget, Qt::Key_Right);
-        QCOMPARE(window->controller->current_group_id, std::optional<qint64>(*work));
-        QTest::keyClick(window->list_widget, Qt::Key_Left);
-        QVERIFY(!window->controller->current_group_id);
-        QVERIFY(gear_pick("Right"));
-        QTRY_COMPARE(window->group_bar->group_buttons.size(), 2);
+        // Wherever the bar is, left and right in the list step through the groups in the bar's order and wrap around;
+        // up and down stay with the list.
+        const auto group = [window] { return window->controller->current_group_id; };
+        for (const char *position : {"Left", "Top", "Right"}) {
+            QVERIFY(gear_pick(position));
+            QTRY_COMPARE(window->group_bar->group_buttons.size(), 2);
+            window->group_bar->switch_to_group(std::nullopt);
+            QTest::keyClick(window->list_widget, Qt::Key_Right);
+            QCOMPARE(group(), std::optional<qint64>(*work));
+            QTest::keyClick(window->list_widget, Qt::Key_Right);
+            QCOMPARE(group(), std::optional<qint64>(*apps));
+            QTest::keyClick(window->list_widget, Qt::Key_Right);
+            QVERIFY(!group());
+            QTest::keyClick(window->list_widget, Qt::Key_Left);
+            QCOMPARE(group(), std::optional<qint64>(*apps));
+            window->group_bar->switch_to_group(std::nullopt);
+            QTRY_COMPARE(window->list_widget->count(), 2);
+            window->selection_manager->move_cursor_to(ids[1]);
+            QTest::keyClick(window->list_widget, Qt::Key_Down);
+            QCOMPARE(window->selection_manager->cursor_id(), std::optional<qint64>(ids[0]));
+            QTest::keyClick(window->list_widget, Qt::Key_Up);
+            QCOMPARE(window->selection_manager->cursor_id(), std::optional<qint64>(ids[1]));
+            QVERIFY(!group());
+        }
+        // In the search box they move the text cursor instead.
+        window->search_input->setText("abc");
+        window->search_input->setFocus();
+        window->search_input->setCursorPosition(3);
+        QTest::keyClick(window->search_input, Qt::Key_Left);
+        QCOMPARE(window->search_input->cursorPosition(), 2);
+        QVERIFY(!group());
+        window->search_input->clear();
 
         // The group menu edits, moves and deletes.
         auto group_menu = [window](int index, const QString &entry) {

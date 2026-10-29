@@ -11,11 +11,9 @@
 #include <QAction>
 #include <QCursor>
 #include <QFrame>
-#include <QGraphicsOpacityEffect>
 #include <QHBoxLayout>
 #include <QMenu>
 #include <QPainter>
-#include <QPropertyAnimation>
 #include <QStyle>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -28,7 +26,6 @@ constexpr int BUTTON = 34;
 constexpr int BAR = 42;
 constexpr int INDICATOR_THICKNESS = 2;
 constexpr int INDICATOR_INSET = 8;
-const char *const FOCUS_ANIMATION = "_sidebar_focus_anim";
 
 std::optional<qint64> button_group_id(const QPushButton *button) {
     const QVariant value = button->property("group_id");
@@ -163,54 +160,10 @@ void GroupBar::refresh_buttons() {
     group_buttons_layout->addWidget(add_group_btn);
 }
 
-void GroupBar::enter_sidebar_mode(std::optional<qint64> prev_item_id) {
-    const auto buttons = sidebar_buttons();
-    if (buttons.isEmpty()) return;
-    sidebar_mode_ = true;
-    sidebar_prev_item_id_ = prev_item_id;
-    emit sidebar_entered();
-    sync_sidebar_index();
-    set_sidebar_focus_button(buttons[sidebar_index_]);
-}
-
-void GroupBar::exit_sidebar_mode() {
-    sidebar_mode_ = false;
-    set_sidebar_focus_button(nullptr);
-    const auto prev = sidebar_prev_item_id_;
-    sidebar_prev_item_id_.reset();
-    emit sidebar_exited(prev);
-}
-
-void GroupBar::move_sidebar_selection(int delta) {
-    const auto buttons = sidebar_buttons();
-    if (buttons.isEmpty()) return;
-    const int count = static_cast<int>(buttons.size());
-    sidebar_index_ = ((sidebar_index_ + delta) % count + count) % count;
-    auto *target = buttons[sidebar_index_];
-    set_sidebar_focus_button(target);
-    target->click();
-}
-
-void GroupBar::handle_top_group_switch(int delta) {
-    sync_sidebar_index();
-    const auto buttons = sidebar_buttons();
-    if (buttons.isEmpty()) return;
-    const int count = static_cast<int>(buttons.size());
-    const int new_index = ((sidebar_index_ + delta) % count + count) % count;
-    if (new_index == sidebar_index_) return;
-    sidebar_index_ = new_index;
-    buttons[sidebar_index_]->click();
-}
-
-void GroupBar::clear_sidebar_focus() {
-    if (!sidebar_mode_) set_sidebar_focus_button(nullptr);
-}
-
 void GroupBar::switch_to_group(std::optional<qint64> group_id) {
     controller_->switch_to_group(group_id);
     clipboard_btn->setChecked(!group_id);
     for (auto *btn : group_buttons) btn->setChecked(button_group_id(btn) == group_id);
-    sync_sidebar_index();
 }
 
 // ================================================================
@@ -234,7 +187,7 @@ GroupButton *GroupBar::create_clipboard_btn() {
     btn->setCheckable(true);
     btn->setChecked(true);
     btn->setFocusPolicy(Qt::NoFocus);
-    connect(btn, &QPushButton::clicked, this, [this, btn] { on_sidebar_button_clicked(btn, std::nullopt); });
+    connect(btn, &QPushButton::clicked, this, [this] { emit group_switched(std::nullopt); });
     return btn;
 }
 
@@ -255,7 +208,7 @@ GroupButton *GroupBar::make_group_btn(const Group &group) {
     btn->setFocusPolicy(Qt::NoFocus);
     btn->setProperty("group_id", group.id);
     const qint64 group_id = group.id;
-    connect(btn, &QPushButton::clicked, this, [this, btn, group_id] { on_sidebar_button_clicked(btn, group_id); });
+    connect(btn, &QPushButton::clicked, this, [this, group_id] { emit group_switched(group_id); });
     btn->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(btn, &QPushButton::customContextMenuRequested, this, [this, btn, group_id](const QPoint &pos) { show_group_context_menu(btn, group_id, pos); });
     return btn;
@@ -424,70 +377,28 @@ QString GroupBar::overflow_btn_style() const {
 QString GroupBar::menu_style() const { return ThemeStyleGenerator(current_theme_).generate_menu_style(); }
 
 // ================================================================
-// Side bar navigation state
+// Keyboard switching
 // ================================================================
 
-QList<QPushButton *> GroupBar::sidebar_buttons() const {
+QList<QPushButton *> GroupBar::switch_buttons() const {
     QList<QPushButton *> buttons{clipboard_btn};
     for (auto *btn : group_buttons) buttons.append(btn);
     return buttons;
 }
 
-void GroupBar::on_sidebar_button_clicked(QPushButton *target, std::optional<qint64> group_id) {
-    if (!sidebar_mode_) emit sidebar_entered();
-    sidebar_mode_ = true;
-    const auto buttons = sidebar_buttons();
-    if (const auto index = buttons.indexOf(target); index >= 0) sidebar_index_ = static_cast<int>(index);
-    set_sidebar_focus_button(target);
-    emit group_switched(group_id);
+int GroupBar::current_button_index() const {
+    // A group in the overflow menu has no button; switching then starts from the history.
+    for (qsizetype i = 0; controller_->current_group_id && i < group_buttons.size(); ++i)
+        if (button_group_id(group_buttons[i]) == controller_->current_group_id) return static_cast<int>(i) + 1;
+    return 0;
 }
 
-void GroupBar::sync_sidebar_index() {
-    if (!controller_->current_group_id) {
-        sidebar_index_ = 0;
-        return;
-    }
-    for (qsizetype i = 0; i < group_buttons.size(); ++i)
-        if (button_group_id(group_buttons[i]) == controller_->current_group_id) {
-            sidebar_index_ = static_cast<int>(i) + 1;
-            return;
-        }
-    sidebar_index_ = 0;
-}
-
-void GroupBar::set_sidebar_focus_button(QPushButton *target) {
-    for (auto *btn : sidebar_buttons()) {
-        btn->setProperty("sidebar_focus", btn == target);
-        btn->style()->unpolish(btn);
-        btn->style()->polish(btn);
-        auto *anim = btn->findChild<QPropertyAnimation *>(FOCUS_ANIMATION, Qt::FindDirectChildrenOnly);
-        if (btn != target && anim) {
-            anim->stop();
-            if (auto *effect = qobject_cast<QGraphicsOpacityEffect *>(btn->graphicsEffect())) effect->setOpacity(1.0);
-        }
-    }
-    if (target && sidebar_mode_ && position != "top") play_sidebar_focus_animation(target);
-}
-
-void GroupBar::play_sidebar_focus_animation(QPushButton *target) {
-    auto *effect = qobject_cast<QGraphicsOpacityEffect *>(target->graphicsEffect());
-    if (!effect) {
-        effect = new QGraphicsOpacityEffect(target);
-        effect->setOpacity(1.0);
-        target->setGraphicsEffect(effect);
-    }
-    auto *anim = target->findChild<QPropertyAnimation *>(FOCUS_ANIMATION, Qt::FindDirectChildrenOnly);
-    if (!anim) {
-        anim = new QPropertyAnimation(effect, "opacity", target);
-        anim->setObjectName(FOCUS_ANIMATION);
-        anim->setDuration(1200);
-        anim->setLoopCount(-1);
-        anim->setEasingCurve(QEasingCurve::InOutQuad);
-        anim->setKeyValueAt(0.0, 1.0);
-        anim->setKeyValueAt(0.5, 0.3);
-        anim->setKeyValueAt(1.0, 1.0);
-    }
-    if (anim->state() != QAbstractAnimation::Running) anim->start();
+void GroupBar::switch_adjacent_group(int delta) {
+    const auto buttons = switch_buttons();
+    const int count = static_cast<int>(buttons.size());
+    const int index = current_button_index();
+    const int next = ((index + delta) % count + count) % count;
+    if (next != index) buttons[next]->click();
 }
 
 // ================================================================

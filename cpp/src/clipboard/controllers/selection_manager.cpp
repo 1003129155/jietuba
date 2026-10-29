@@ -195,8 +195,8 @@ bool SelectionManager::eventFilter(QObject *obj, QEvent *event) {
     else if (key == Qt::Key_Space && modifiers == Qt::NoModifier && !from_search) {
         if (const auto item_id = cursor_id()) toggle_mark(*item_id);
     }
-    else if ((key == Qt::Key_Left || key == Qt::Key_Right) && group_bar_position == "top") emit request_group_switch(key == Qt::Key_Right ? 1 : -1);
-    else if (!from_search && key == (group_bar_position == "right" ? Qt::Key_Right : Qt::Key_Left) && group_bar_position != "top") emit request_sidebar_focus();
+    // Up and down always walk the list, so left and right are free for the groups; in the search box they move the text cursor.
+    else if ((key == Qt::Key_Left || key == Qt::Key_Right) && !from_search) emit request_group_switch(key == Qt::Key_Right ? 1 : -1);
     else return false;
 
     // Arrows typed in the search box carry on in the list.

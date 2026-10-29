@@ -211,10 +211,6 @@ private:
     void show_type_filter_menu();
     void set_type_filter(int index);
     void on_group_switched(std::optional<qint64> group_id);
-    void on_sidebar_entered();
-    void on_sidebar_exited(std::optional<qint64> prev_item_id);
-    void enter_sidebar_mode();
-    void on_top_group_switch(int delta);
     void on_add_group_clicked();
     void on_add_item_clicked();
     void on_clear_clicked();

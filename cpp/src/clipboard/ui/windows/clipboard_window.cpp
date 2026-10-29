@@ -470,15 +470,13 @@ void ClipboardWindow::setup_ui() {
 
     selection_manager = new SelectionManager(list_widget, [this](qint64 item_id) { return get_item_data(item_id); });
     selection_manager->setParent(this);
-    selection_manager->group_bar_position = group_bar_position;
     connect(selection_manager, &SelectionManager::item_activated, this, [this](qint64 item_id) { on_paste_item(item_id); });
     connect(selection_manager, &SelectionManager::marks_changed, this, [this] { on_marks_changed(); });
     connect(selection_manager, &SelectionManager::cursor_changed, this, [this](std::optional<qint64> item_id) {
         item_delegate->set_cursor_id(item_id);
         list_widget->viewport()->update();
     });
-    connect(selection_manager, &SelectionManager::request_sidebar_focus, this, [this] { enter_sidebar_mode(); });
-    connect(selection_manager, &SelectionManager::request_group_switch, this, [this](int delta) { on_top_group_switch(delta); });
+    connect(selection_manager, &SelectionManager::request_group_switch, this, [this](int delta) { group_bar->switch_adjacent_group(delta); });
     mouse_controller = new ClipboardMouseController(this);
 
     QScrollBar *scrollbar = list_widget->verticalScrollBar();
@@ -611,8 +609,6 @@ void ClipboardWindow::setup_ui() {
     group_bar = new GroupBar(controller, &manager, current_theme, group_bar_position, this);
     connect(group_bar, &GroupBar::close_requested, this, [this] { close(); });
     connect(group_bar, &GroupBar::group_switched, this, [this](std::optional<qint64> group_id) { on_group_switched(group_id); });
-    connect(group_bar, &GroupBar::sidebar_entered, this, [this] { on_sidebar_entered(); });
-    connect(group_bar, &GroupBar::sidebar_exited, this, [this](std::optional<qint64> prev) { on_sidebar_exited(prev); });
     connect(group_bar, &GroupBar::manage_groups_requested, this, [this] { on_add_group_clicked(); });
     connect(group_bar, &GroupBar::manage_items_requested, this, [this] { on_add_item_clicked(); });
     group_bar->build(content_layout, left_widget, left_layout);
@@ -941,20 +937,6 @@ void ClipboardWindow::on_group_switched(std::optional<qint64> group_id) {
     list_widget->viewport()->update();
 }
 
-void ClipboardWindow::on_sidebar_entered() {
-    selection_manager->clear_cursor();
-    list_widget->setFocus();
-}
-
-void ClipboardWindow::on_sidebar_exited(std::optional<qint64> prev_item_id) {
-    list_widget->setFocus();
-    if (!selection_manager->move_cursor_to(prev_item_id)) selection_manager->move_cursor(1);
-}
-
-void ClipboardWindow::enter_sidebar_mode() { group_bar->enter_sidebar_mode(selection_manager->cursor_id()); }
-
-void ClipboardWindow::on_top_group_switch(int delta) { group_bar->handle_top_group_switch(delta); }
-
 void ClipboardWindow::on_add_group_clicked() {
     auto *dialog = get_manage_dialog(&manager);
     connect_manage_dialog(dialog);
@@ -978,7 +960,6 @@ void ClipboardWindow::connect_manage_dialog(ManageDialog *dialog) {
 
 void ClipboardWindow::set_group_bar_position(const QString &position) {
     group_bar_position = position;
-    selection_manager->group_bar_position = position;
     group_bar->set_position(position);
     config->set_clipboard_group_bar_position(position);
     apply_opacity();
@@ -1625,35 +1606,6 @@ bool ClipboardWindow::eventFilter(QObject *obj, QEvent *event) {
             if (list_widget->verticalScrollBar()->value() != scroll) point_at(viewport_pos, global_pos);
         }, Qt::QueuedConnection);
     }
-    if (event_type == QEvent::FocusIn && obj == list_widget && !group_bar->sidebar_mode()) group_bar->clear_sidebar_focus();
-
-    if (event_type == QEvent::KeyPress && group_bar_position != "top") {
-        const int key = static_cast<QKeyEvent *>(event)->key();
-        const int k_enter = group_bar_position == "right" ? Qt::Key_Right : Qt::Key_Left;
-        const int k_exit = group_bar_position == "right" ? Qt::Key_Left : Qt::Key_Right;
-        if (group_bar->sidebar_mode()) {
-            if (key == k_exit) {
-                group_bar->exit_sidebar_mode();
-                return true;
-            }
-            if (key == Qt::Key_Up) {
-                group_bar->move_sidebar_selection(-1);
-                return true;
-            }
-            if (key == Qt::Key_Down) {
-                group_bar->move_sidebar_selection(1);
-                return true;
-            }
-            if (key == k_enter) return true;
-        } else if (key == k_enter) {
-            QWidget *focus_widget = QApplication::focusWidget();
-            if (focus_widget == list_widget || (focus_widget && list_widget->isAncestorOf(focus_widget))) {
-                enter_sidebar_mode();
-                return true;
-            }
-        }
-    }
-
     if ((event_type == QEvent::MouseButtonPress || event_type == QEvent::MouseButtonRelease || event_type == QEvent::MouseMove) && is_date_filter_widget(obj))
         return QWidget::eventFilter(obj, event);
 
@@ -1668,7 +1620,7 @@ void ClipboardWindow::leaveEvent(QEvent *event) {
 
 void ClipboardWindow::keyPressEvent(QKeyEvent *event) {
     const int key = event->key();
-    if ((key == Qt::Key_Up || key == Qt::Key_Down) && !group_bar->sidebar_mode()) {
+    if (key == Qt::Key_Up || key == Qt::Key_Down) {
         QWidget *focus_widget = QApplication::focusWidget();
         if (!focus_widget || focus_widget == search_input || !(focus_widget == list_widget || list_widget->isAncestorOf(focus_widget))) {
             list_widget->setFocus();

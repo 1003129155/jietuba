@@ -125,24 +125,15 @@ private slots:
         QCOMPARE(rows.cursor(), std::optional<qint64>(10));
     }
 
-    void leftAndRightFollowTheGroupBarLayout() {
+    void leftAndRightSwitchGroups() {
+        // Wherever the group bar is: right is the next group, left the previous one.
         Rows rows;
         QSignalSpy switched(rows.selection.get(), &SelectionManager::request_group_switch);
-        QSignalSpy sidebar(rows.selection.get(), &SelectionManager::request_sidebar_focus);
-        rows.selection->group_bar_position = "top";
         rows.key(Qt::Key_Right);
         rows.key(Qt::Key_Left);
         QCOMPARE(switched.size(), 2);
         QCOMPARE(switched.at(0).first().toInt(), 1);
         QCOMPARE(switched.at(1).first().toInt(), -1);
-        rows.selection->group_bar_position = "right";
-        rows.key(Qt::Key_Right);
-        rows.key(Qt::Key_Left);
-        rows.selection->group_bar_position = "left";
-        rows.key(Qt::Key_Left);
-        rows.key(Qt::Key_Right);
-        QCOMPARE(sidebar.size(), 2);
-        QCOMPARE(switched.size(), 2);
     }
 
     void escapeIsLeftToTheWindow() {
@@ -169,15 +160,14 @@ private slots:
         QCOMPARE(activated.size(), 1);
         QTest::keyClick(&search, Qt::Key_Down, Qt::ShiftModifier);
         QCOMPARE(rows.selection->marked_ids(), (QList<qint64>{10, 11}));
-        // Space and left/right edit the text unless the group bar is on top.
+        // Space and left/right edit the text; left and right switch no group from here.
         QTest::keyClick(&search, Qt::Key_Space);
         QCOMPARE(rows.selection->marked_ids(), (QList<qint64>{10, 11}));
-        QTest::keyClick(&search, Qt::Key_Right);
-        QCOMPARE(switched.size(), 0);
-        rows.selection->group_bar_position = "top";
-        QTest::keyClick(&search, Qt::Key_Right);
         QTest::keyClick(&search, Qt::Key_Left);
-        QCOMPARE(switched.size(), 2);
+        QCOMPARE(search.cursorPosition(), 0);
+        QTest::keyClick(&search, Qt::Key_Right);
+        QCOMPARE(search.cursorPosition(), 1);
+        QCOMPARE(switched.size(), 0);
         // Typing reaches the box.
         QTest::keyClicks(&search, "abc");
         QCOMPARE(search.text(), QString(" abc"));
