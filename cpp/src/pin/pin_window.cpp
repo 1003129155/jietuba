@@ -125,6 +125,15 @@ void set_drag_text(DragOutContent &content, const QString &text, const QString &
 // Keeps repeated steps from drifting off the four-decimal grid.
 double round4(double value) { return std::round(value * 10000) / 10000; }
 
+// The next zoom notch from scale. Notches sit at whole steps from the original size, so a scale off
+// them (the minimum, an edge drag, an auto-shrink) steps onto them and scrolling back reaches 100%.
+double next_zoom_notch(double scale, double step, bool up) {
+    const double notches = (scale - 1.0) / step;
+    // Within rounding of a notch counts as on it.
+    const double k = up ? std::floor(notches + 1e-6) + 1 : std::ceil(notches - 1e-6) - 1;
+    return round4(1.0 + k * step);
+}
+
 // Stepping to a frame read in less than this shows no bar.
 constexpr int SEEK_BAR_DELAY_MS = 150;
 
@@ -654,8 +663,7 @@ void PinWindow::adjust_mouse_value(const QString &action, int delta) {
             return;
         }
         const double step = pin_setting(action == "zoom" ? "pin_zoom_step" : "pin_fine_zoom_step").toDouble() / 100;
-        // Fixed points of the original size per notch, so scrolling back always returns to the same size.
-        const double scale = round4(scale_factor + (delta > 0 ? step : -step));
+        const double scale = next_zoom_notch(scale_factor, step, delta > 0);
         auto fraction = zoom_anchor(pin_setting("pin_zoom_anchor").toString());
         if (!fraction) {
             const auto p = mapFromGlobal(QCursor::pos());
@@ -670,7 +678,8 @@ QSize PinWindow::display_base_size() const { return image_transform_ ? image_tra
 
 void PinWindow::scale_around(double scale, double fx, double fy, std::optional<QPointF> anchor) {
     const auto base = display_base_size();
-    const double min_scale = std::max(static_cast<double>(MIN_SIDE) / base.width(), static_cast<double>(MIN_SIDE) / base.height());
+    // A pin already under the minimum side can still return to its own size.
+    const double min_scale = std::min(1.0, std::max(static_cast<double>(MIN_SIDE) / base.width(), static_cast<double>(MIN_SIDE) / base.height()));
     scale = std::max(min_scale, std::min(scale, MAX_SCALE));
     if (std::abs(scale - 1.0) < 1e-6) scale = 1.0;
     // Always from the original size, never re-rounding the current integer window size.

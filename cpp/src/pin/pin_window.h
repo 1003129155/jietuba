@@ -41,7 +41,7 @@ class WaitBar;
 constexpr double MIN_OPACITY = 0.15;
 constexpr double MAX_SCALE = 4.0;
 // The shorter window side never shrinks below this many pixels.
-constexpr int MIN_SIDE = 50;
+constexpr int MIN_SIDE = 30;
 // An image larger than its screen is pinned at this share of the screen, leaving a margin to grab.
 constexpr double AUTO_SHRINK_RATIO = 0.95;
 // A band this wide (at 96 DPI) along the edges resizes instead of moving.

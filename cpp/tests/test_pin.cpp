@@ -551,16 +551,32 @@ private slots:
         QCOMPARE(pin->scale_factor, MAX_SCALE);
         QCOMPARE(pin->size(), QSize(1600, 1200));
         wheel(pin, -120, Qt::NoModifier, false, 60);
-        // The shorter side stops at 50 pixels.
-        QVERIFY(close_to(pin->scale_factor, 50.0 / 300));
+        // The shorter side stops at 30 pixels.
+        QVERIFY(close_to(pin->scale_factor, 30.0 / 300));
         QCOMPARE(pin->height(), MIN_SIDE);
-        QCOMPARE(pin->width(), 67);
+        QCOMPARE(pin->width(), 40);
+        wheel(pin, 120, Qt::NoModifier, false, 9);
+        QCOMPARE(pin->scale_factor, 1.0);
+        QCOMPARE(pin->size(), QSize(400, 300));
 
         // The minimum follows the image shape.
-        auto *wide = make_pin(QSize(1000, 100), QPoint(10, 20), {{"pin_auto_shrink", false}});
+        auto *wide = make_pin(QSize(1000, 120), QPoint(10, 20), {{"pin_auto_shrink", false}});
         wheel(wide, -120, Qt::NoModifier, false, 20);
-        QCOMPARE(wide->scale_factor, 0.5);
-        QCOMPARE(wide->size(), QSize(500, 50));
+        QCOMPARE(wide->scale_factor, 0.25);
+        QCOMPARE(wide->size(), QSize(250, 30));
+        // From the minimum, off the notches, the wheel steps onto them and back to 100%.
+        wheel(wide, 120);
+        QCOMPARE(wide->scale_factor, 0.3);
+        wheel(wide, 120, Qt::NoModifier, false, 7);
+        QCOMPARE(wide->scale_factor, 1.0);
+
+        // A pin shorter than the minimum zooms back down to its own size, but not below it.
+        auto *strip = make_pin(QSize(300, 20), QPoint(10, 20), {{"pin_auto_shrink", false}});
+        wheel(strip, 120, Qt::NoModifier, false, 3);
+        QVERIFY(strip->scale_factor > 1.0);
+        wheel(strip, -120, Qt::NoModifier, false, 10);
+        QCOMPARE(strip->scale_factor, 1.0);
+        QCOMPARE(strip->size(), QSize(300, 20));
     }
 
     void zoomStepFollowsTheSetting() {
@@ -568,6 +584,18 @@ private slots:
         wheel(pin, 120);
         QCOMPARE(pin->scale_factor, 1.25);
         QCOMPARE(pin->size(), QSize(500, 375));
+    }
+
+    void theWheelReturnsToOneHundredAfterAnEdgeDrag() {
+        auto *pin = make_pin(QSize(400, 300), QPoint(10, 20), {{"pin_zoom_step", 15}});
+        drag(pin, QPoint(399, 150), QPoint(492, 150));
+        QCOMPARE(pin->width(), 493);
+        // 123% sits between the notches at 115% and 130%.
+        wheel(pin, -120);
+        QCOMPARE(pin->scale_factor, 1.15);
+        wheel(pin, -120);
+        QCOMPARE(pin->scale_factor, 1.0);
+        QCOMPARE(pin->size(), QSize(400, 300));
     }
 
     void fineZoomArrivesHorizontalAndSnapsBackToOneHundred() {
