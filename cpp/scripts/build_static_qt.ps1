@@ -53,7 +53,7 @@ function Invoke-Step([string]$What, [scriptblock]$Step) {
 }
 
 # -static-runtime: no MSVC runtime DLLs next to the exe. -no-opengl: the app draws with the raster
-# engine only. C++20: zxing-cpp is C++20, and MSVC refuses to link its coroutine ABI with C++17 code.
+# engine only. C++20 as the app: MSVC refuses to link zxing-cpp's coroutine ABI with C++17 code.
 function Test-Installed([string]$Module) { Test-Path -LiteralPath (Join-Path $prefix "sbom\$Module-$Version.spdx") }
 if (-not (Test-Installed 'qtbase')) {
     $qtbase = Join-Path $build 'qtbase'

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 project(JietubaCpp LANGUAGES CXX)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 find_package(Qt6 6.8 REQUIRED COMPONENTS Widgets Svg)
@@ -53,9 +53,7 @@ set(JIETUBA_SAVED_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
 set(BUILD_SHARED_LIBS OFF)
 FetchContent_MakeAvailable(zxing_cpp)
 set(BUILD_SHARED_LIBS ${JIETUBA_SAVED_BUILD_SHARED_LIBS})
-# zxing-cpp 3 needs C++20; only it and the one source including its headers get it.
-set_target_properties(ZXing PROPERTIES CXX_STANDARD 20 AUTOMOC OFF)
-set_source_files_properties(src/barcode/reader.cpp PROPERTIES COMPILE_OPTIONS /std:c++20)
+set_target_properties(ZXing PROPERTIES AUTOMOC OFF)
 target_link_libraries(jietuba_lib PUBLIC ZXing::ZXing)
 # Shipped by scripts/build.ps1; the source directory may be a local override of the fetch.
 configure_file(${zxing_cpp_SOURCE_DIR}/LICENSE ${CMAKE_BINARY_DIR}/zxing-cpp-LICENSE.txt COPYONLY)
