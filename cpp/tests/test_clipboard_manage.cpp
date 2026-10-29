@@ -991,6 +991,11 @@ private slots:
                 for (QWidget *part : std::initializer_list<QWidget *>{dialog->pin_btn, dialog->delete_btn, dialog->save_btn})
                     QVERIFY2(part->width() >= part->sizeHint().width(),
                              qPrintable(QString("%1: %2 is %3 wide, needs %4").arg(where, part->property("text").toString()).arg(part->width()).arg(part->sizeHint().width())));
+                QCOMPARE(dialog->pin_btn->height(), dialog->delete_btn->height());
+                QCOMPARE(dialog->pin_btn->height(), dialog->save_btn->height());
+                QCOMPARE(dialog->pin_btn->y(), dialog->save_btn->y());
+                QCOMPARE(dialog->delete_btn->x() - dialog->pin_btn->geometry().right() - 1, dialog_scaled(10));
+                QCOMPARE(dialog->save_btn->x() - dialog->delete_btn->geometry().right() - 1, dialog_scaled(10));
                 QLabel *meta = dialog->detail_meta;
                 QVERIFY2(!meta->text().isEmpty() && meta->height() >= meta->heightForWidth(meta->width()),
                          qPrintable(QString("%1: %2 is %3 high, needs %4").arg(where, meta->text()).arg(meta->height()).arg(meta->heightForWidth(meta->width()))));

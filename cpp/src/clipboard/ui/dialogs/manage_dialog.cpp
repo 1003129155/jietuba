@@ -516,41 +516,40 @@ void ManageDialog::apply_ui_theme(const UIThemeTokens &tokens) {
                 background: %13;
                 border-color: %10;
             }
-            QPushButton#ManageDeleteButton {
-                background: transparent;
-                border: 1px solid transparent;
-                border-radius: %7px;
-                color: %17;
-                font-size: %8px;
-                min-height: %18px;
-                padding: 0 %19px;
-            }
-            QPushButton#ManageDeleteButton:hover {
-                background: %20;
-            }
-            QPushButton#ManagePinButton {
-                background: transparent;
+            QPushButton#ManagePinButton,
+            QPushButton#ManageDeleteButton,
+            QPushButton#ManageSaveButton {
+                background: %4;
                 border: 1px solid %5;
-                border-radius: %7px;
+                border-radius: %26px;
                 color: %9;
                 font-size: %8px;
+                font-weight: 500;
                 min-height: %18px;
+                min-width: %23px;
                 padding: 0 %19px;
             }
-            QPushButton#ManagePinButton:hover {
+            QPushButton#ManagePinButton:hover,
+            QPushButton#ManageDeleteButton:hover {
                 background: %13;
                 border-color: %15;
             }
+            QPushButton#ManagePinButton:pressed {
+                background: %13;
+                border-color: %10;
+            }
+            QPushButton#ManageDeleteButton {
+                color: %17;
+            }
+            QPushButton#ManageDeleteButton:pressed {
+                background: %20;
+                border-color: %17;
+            }
             QPushButton#ManageSaveButton {
                 background: %21;
-                border: 1px solid %21;
-                border-radius: %7px;
+                border-color: %21;
                 color: #FFFFFF;
-                font-size: %8px;
-                font-weight: 600;
-                min-height: %18px;
                 min-width: %22px;
-                padding: 0 %23px;
             }
             QPushButton#ManageSaveButton:hover {
                 background: %24;
@@ -558,11 +557,20 @@ void ManageDialog::apply_ui_theme(const UIThemeTokens &tokens) {
             }
             QPushButton#ManageSaveButton:pressed {
                 background: %25;
+                border-color: %25;
+            }
+            QPushButton#ManagePinButton:disabled,
+            QPushButton#ManageDeleteButton:disabled,
+            QPushButton#ManageSaveButton:disabled {
+                background: %28;
+                border-color: %5;
+                color: %27;
             }
         )")
                       .arg(theme_surface_color(), tokens.separator, s(12), tokens.input_background, tokens.border, s(8), s(10), s(13), tokens.text)
-                      .arg(tokens.accent, tokens.accent_text, s(4), tokens.accent_soft, tokens.text_muted, tokens.border_hover, s(34), tokens.danger, s(36))
-                      .arg(s(16), tokens.danger_soft, tokens.accent_strong, s(104), s(22), tokens.accent_strong_hover, tokens.accent_strong_pressed) +
+                      .arg(tokens.accent, tokens.accent_text, s(4), tokens.accent_soft, tokens.text_muted, tokens.border_hover, s(34), tokens.danger, s(30))
+                      .arg(s(8), tokens.danger_soft, tokens.accent_strong, s(66), s(50), tokens.accent_strong_hover, tokens.accent_strong_pressed)
+                      .arg(s(6), tokens.text_disabled, tokens.surface_subtle) +
                   QString("QPushButton#ManageAddButton:checked { background: %1; border: 1px solid %2; }").arg(tokens.accent_soft, tokens.accent) +
                   scrollbar_qss(this));
     set_own_style(column_separator, QString("background: %1; border: none;").arg(tokens.separator));
