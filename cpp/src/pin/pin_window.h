@@ -267,6 +267,8 @@ private:
     void clear_file_highlight();
     // A new image of another size, keeping the zoom, the top-left corner and the annotations where they are.
     void replace_base_image(const QImage &image);
+    // The background as exported, at the original's resolution; null when what is shown is that already.
+    QPixmap original_background(double device_pixel_ratio) const;
 
     bool square_corners_ = false;
     bool is_closed_ = false;

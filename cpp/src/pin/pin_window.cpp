@@ -46,6 +46,7 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QRegularExpression>
+#include <QScopeGuard>
 #include <QScreen>
 #include <QStandardPaths>
 #include <QUrl>
@@ -813,6 +814,14 @@ void PinWindow::set_text_content(std::unique_ptr<PinTextContent> content) {
     refresh_background_for_scale();
 }
 
+QPixmap PinWindow::original_background(double device_pixel_ratio) const {
+    if (text_content_) return QPixmap::fromImage(text_content_->render(orig_size_, device_pixel_ratio));
+    if (file_card_) return QPixmap::fromImage(file_card_->render(orig_size_, device_pixel_ratio));
+    // Frames are shown at their own size already.
+    if (animation_) return {};
+    return base_pixmap_;
+}
+
 void PinWindow::toggle_text_formatting() {
     if (!text_content_ || !text_content_->has_formatting()) return;
     text_content_->set_formatted(!text_content_->formatted());
@@ -1161,6 +1170,16 @@ void PinWindow::reset_image_transform() {
 
 QImage PinWindow::get_current_image() {
     const double dpr = devicePixelRatioF();
+    // The original's resolution whatever the zoom: the background shows it, instead of the copy sized
+    // for the screen, while the scene is drawn.
+    auto *background = canvas && canvas->scene ? canvas->scene->background : nullptr;
+    const QPixmap original = background ? original_background(dpr) : QPixmap();
+    const QPixmap shown = original.isNull() ? QPixmap() : background->pixmap();
+    const QTransform shown_transform = original.isNull() ? QTransform() : background->transform();
+    if (!original.isNull()) background->set_display_pixmap(original, QTransform());
+    const auto restore = qScopeGuard([&] {
+        if (!original.isNull()) background->set_display_pixmap(shown, shown_transform);
+    });
     QImage img;
     if (canvas && annotations_hidden_) {
         // What the pin shows: the image alone.

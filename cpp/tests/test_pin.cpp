@@ -1573,6 +1573,26 @@ private slots:
         QCOMPARE(shown_center(), QColor(Qt::red));
     }
 
+    void exportsAreTheOriginalWhateverTheZoom() {
+        QImage checker(120, 100, QImage::Format_RGB32);
+        for (int y = 0; y < checker.height(); ++y)
+            for (int x = 0; x < checker.width(); ++x) checker.setPixel(x, y, (x + y) % 2 ? 0xFF000000 : 0xFFFFFFFF);
+        auto *pin = new PinWindow(checker, QPoint(100, 100), config_);
+        pins_.append(pin);
+        auto *background = pin->canvas->scene->background;
+        const auto exported = [pin] { return pin->get_current_image().convertToFormat(QImage::Format_RGB32); };
+        QCOMPARE(exported(), checker);
+        // Shrunk, the screen shows a smaller copy; copying and saving still get the original.
+        wheel(pin, -120, Qt::NoModifier, false, 5);
+        QVERIFY(pin->scale_factor < 1.0);
+        QTRY_COMPARE(background->pixmap().width(), pin->width());
+        QCOMPARE(exported(), checker);
+        pin->set_annotations_hidden(true);
+        QCOMPARE(exported(), checker);
+        // What the screen shows is left as it was.
+        QCOMPARE(background->pixmap().width(), pin->width());
+    }
+
     // The image's own entries go; Esc leaves the text first, so Close shows no key.
     void aTextModeMenuDropsTheImageEntries() {
         auto *pin = make_pin();
