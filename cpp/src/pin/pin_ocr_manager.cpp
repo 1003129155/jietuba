@@ -8,9 +8,38 @@
 #include "pin/pin_canvas_view.h"
 #include "pin/pin_window.h"
 #include "settings/tool_settings.h"
+#include "text_recognition/layout.h"
 #include <QElapsedTimer>
+#include <algorithm>
+#include <cmath>
+#include <vector>
 
 namespace jietuba {
+namespace {
+constexpr int MIN_PIXEL_SIZE = 12, MAX_PIXEL_SIZE = 72;
+// Either engine's line boxes run about a tenth taller than the font's pixel size.
+constexpr double FONT_TO_LINE = 0.9;
+}
+
+QString pin_layout_text(const OcrTextLayout &layout, ToolSettingsManager *settings) {
+    OcrResult result;
+    for (const auto &line : layout.lines()) {
+        const auto r = line.reading_bounds;
+        result.data.append(OcrLine{{r.topLeft(), r.topRight(), r.bottomRight(), r.bottomLeft()}, line.text});
+    }
+    if (!settings) settings = get_tool_settings_manager();
+    return text_layout::render(group_ocr_lines(result), settings->get_ocr_layout_mode(), settings->get_ocr_remove_spaces(), settings->get_ocr_punctuation()).trimmed();
+}
+
+int pin_text_pixel_size(const OcrTextLayout &layout, double view_scale) {
+    std::vector<double> thickness;
+    for (const auto &line : layout.lines()) thickness.push_back(line.frame.thickness);
+    if (thickness.empty()) return MIN_PIXEL_SIZE;
+    const auto middle = thickness.begin() + thickness.size() / 2;
+    std::nth_element(thickness.begin(), middle, thickness.end());
+    return std::clamp(static_cast<int>(std::lround(*middle * FONT_TO_LINE * view_scale)), MIN_PIXEL_SIZE, MAX_PIXEL_SIZE);
+}
+
 void PinOcrThread::run() {
     QElapsedTimer clock;
     clock.start();

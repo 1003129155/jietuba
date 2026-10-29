@@ -2,7 +2,6 @@
 #include "ocr/ppocr_models.h"
 #include "pin/ocr_text_layout.h"
 #include "pin/pin_ocr_manager.h"
-#include "pin/pin_text_mode.h"
 #include "settings/tool_settings.h"
 #include "text_recognition/recognizer.h"
 #include "translation/translation_manager.h"
@@ -629,9 +628,9 @@ private slots:
         QVERIFY2(translation_ms < 500, qPrintable(QString("translation: %1 ms").arg(translation_ms)));
     }
 
-    // Text mode shows recognized text about as large as it was drawn, whichever engine read it. Before
+    // Pinned as text, recognized text shows about as large as it was drawn, whichever engine read it. Before
     // the cases that load a broken model or runtime: the Snipping Tool engine does not load after them.
-    void theTextModeSizeFollowsTheDrawnText() {
+    void pinnedTextSizeFollowsTheDrawnText() {
         QStringList engines;
         if (ppocr_) engines << OCRManager::ENGINE_PP_RUST;
         if (get_available_engines().contains(OCRManager::ENGINE_ONEOCR)) engines << OCRManager::ENGINE_ONEOCR;

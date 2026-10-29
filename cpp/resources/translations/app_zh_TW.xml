@@ -1339,16 +1339,12 @@ Replace it?</source>
         <translation>鎖定/解鎖釘圖</translation>
     </message>
     <message>
-        <source>Toggle Text Mode</source>
-        <translation>切換文字模式</translation>
+        <source>Pin as Text</source>
+        <translation>釘成文字</translation>
     </message>
     <message>
         <source>Toggle Text Selection</source>
         <translation>切換文字選擇</translation>
-    </message>
-    <message>
-        <source>Edit Text</source>
-        <translation>編輯文字</translation>
     </message>
     <message>
         <source>Behavior</source>
@@ -1911,12 +1907,8 @@ Replace it?</source>
         <translation>文字選擇</translation>
     </message>
     <message>
-        <source>Text mode</source>
-        <translation>文字模式</translation>
-    </message>
-    <message>
-        <source>Edit text</source>
-        <translation>編輯文字</translation>
+        <source>Pin as text</source>
+        <translation>釘成文字</translation>
     </message>
     <message>
         <source>Keep text formatting</source>
@@ -1957,10 +1949,6 @@ Replace it?</source>
     <message>
         <source>Text selection off</source>
         <translation>文字選擇已關閉</translation>
-    </message>
-    <message>
-        <source>Press Esc to stop editing</source>
-        <translation>按 Esc 結束編輯</translation>
     </message>
     <message>
         <source>Border</source>

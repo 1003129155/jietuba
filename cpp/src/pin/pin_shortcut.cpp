@@ -3,7 +3,6 @@
 #include "pin/pin_canvas.h"
 #include "pin/pin_canvas_view.h"
 #include "pin/pin_manager.h"
-#include "pin/pin_text_mode.h"
 #include "pin/pin_toolbar.h"
 #include "pin/pin_window.h"
 #include "canvas/smart_edit_controller.h"
@@ -19,7 +18,7 @@ QStringList pin_keys() {
     QStringList keys = {
         "inapp_copy_pin", "inapp_copy_pin_text", "inapp_pin_reset_size",
         "inapp_thumbnail", "inapp_toggle_toolbar", "inapp_pin_hide_annotations", "inapp_delete", "inapp_pin_lock", "inapp_pin_text_mode",
-        "inapp_pin_text_selection", "inapp_pin_text_edit", "inapp_undo", "inapp_redo",
+        "inapp_pin_text_selection", "inapp_undo", "inapp_redo",
     };
     for (const auto &entry : ANNOTATION_TOOL_SHORTCUTS()) keys.append(entry.config_key);
     return keys;
@@ -55,8 +54,7 @@ bool PinHandlerBase::match(QInputEvent *event, const QString &cfg_key) const { r
 
 bool PinHandlerBase::handle_shared(PinWindow *pin, QInputEvent *event) {
     if (match(event, "inapp_copy_pin")) {
-        // In text mode the image's text layer is hidden; the pin copies the text's own selection.
-        auto *selection = pin->text_mode() ? nullptr : pin->text_selection();
+        auto *selection = pin->text_selection();
         if (!(selection && selection->copy_selected_text())) pin->copy_to_clipboard();
         return true;
     }
@@ -69,8 +67,8 @@ bool PinHandlerBase::handle_shared(PinWindow *pin, QInputEvent *event) {
         return true;
     }
     if (match(event, "inapp_pin_reset_size")) {
-        // The size belongs to the thumbnail or the text there, as in the context menu.
-        if (pin->thumbnail_mode() || pin->text_mode()) return false;
+        // The size belongs to the thumbnail there, as in the context menu.
+        if (pin->thumbnail_mode()) return false;
         if (pin->lock_blocks("move")) pin->show_locked_hint();
         else pin->reset_to_original_size();
         return true;
@@ -79,7 +77,7 @@ bool PinHandlerBase::handle_shared(PinWindow *pin, QInputEvent *event) {
     // text mode does not show them, so the key goes on.
     const bool undo = match(event, "inapp_undo");
     if (undo || match(event, "inapp_redo")) {
-        if (!pin->canvas || pin->thumbnail_mode() || pin->text_mode()) return false;
+        if (!pin->canvas || pin->thumbnail_mode()) return false;
         if (undo) pin->canvas->undo_stack->undo();
         else pin->canvas->undo_stack->redo();
         return true;
@@ -143,13 +141,6 @@ bool PinNormalShortcutHandler::handle_key(QInputEvent *event) {
     auto *pin = find_target_pin(event);
     if (!pin || (pin->canvas && pin->canvas->is_editing())) return false;
     const int key = event_key(event);
-    // Esc while typing in a pin's text stops that pin's editing, not the pin under the pointer.
-    if (key == Qt::Key_Escape) {
-        if (auto *editor = qobject_cast<PinTextEdit *>(QApplication::focusWidget())) {
-            editor->pin()->text_mode_controller()->stop_editing();
-            return true;
-        }
-    }
     if (handle_shared(pin, event)) return true;
     if (pin->handle_mouse_alternative_key(event)) return true;
     // While editing L may be typed text, so only here.
@@ -157,7 +148,7 @@ bool PinNormalShortcutHandler::handle_key(QInputEvent *event) {
         pin->toggle_lock();
         return true;
     }
-    if (match(event, "inapp_pin_hide_annotations") && !pin->text_mode()) {
+    if (match(event, "inapp_pin_hide_annotations")) {
         pin->toggle_annotations_hidden();
         return true;
     }
@@ -168,21 +159,15 @@ bool PinNormalShortcutHandler::handle_key(QInputEvent *event) {
     }
     // A thumbnail shows no text and a text-only pin has no image, so the key goes on.
     if (match(event, "inapp_pin_text_mode") && !pin->thumbnail_mode() && !pin->text_only()) {
-        pin->toggle_text_mode();
+        pin->pin_as_text();
         return true;
     }
-    if (match(event, "inapp_pin_text_selection") && !pin->thumbnail_mode() && !pin->text_mode()) {
+    if (match(event, "inapp_pin_text_selection") && !pin->thumbnail_mode()) {
         pin->toggle_text_selection();
         return true;
     }
-    // Only read-only text gets here; once editing, the editor types the key.
-    if (match(event, "inapp_pin_text_edit") && pin->text_mode()) {
-        pin->edit_text();
-        return true;
-    }
     if (key == Qt::Key_Escape) {
-        if (pin->text_mode() && !pin->text_only()) pin->leave_text_mode();
-        else if (!clear_text_selection(pin)) pin->close_unless_locked();
+        if (!clear_text_selection(pin)) pin->close_unless_locked();
         return true;
     }
     return false;

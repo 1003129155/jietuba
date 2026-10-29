@@ -1210,16 +1210,12 @@ Replace it?</translation>
         <translation>Lock / Unlock Pin</translation>
     </message>
     <message>
-        <source>Toggle Text Mode</source>
-        <translation>Toggle Text Mode</translation>
+        <source>Pin as Text</source>
+        <translation>Pin as Text</translation>
     </message>
     <message>
         <source>Toggle Text Selection</source>
         <translation>Toggle Text Selection</translation>
-    </message>
-    <message>
-        <source>Edit Text</source>
-        <translation>Edit Text</translation>
     </message>
     <message>
         <source>Behavior</source>
@@ -1884,12 +1880,8 @@ Replace it?</translation>
         <translation>Text selection</translation>
     </message>
     <message>
-        <source>Text mode</source>
-        <translation>Text mode</translation>
-    </message>
-    <message>
-        <source>Edit text</source>
-        <translation>Edit text</translation>
+        <source>Pin as text</source>
+        <translation>Pin as text</translation>
     </message>
     <message>
         <source>Keep text formatting</source>
@@ -1930,10 +1922,6 @@ Replace it?</translation>
     <message>
         <source>Text selection off</source>
         <translation>Text selection off</translation>
-    </message>
-    <message>
-        <source>Press Esc to stop editing</source>
-        <translation>Press Esc to stop editing</translation>
     </message>
     <message>
         <source>Border</source>

@@ -1332,16 +1332,12 @@ Replace it?</source>
         <translation>ピン画像のロック/解除</translation>
     </message>
     <message>
-        <source>Toggle Text Mode</source>
-        <translation>テキストモード切替</translation>
+        <source>Pin as Text</source>
+        <translation>テキストでピン留め</translation>
     </message>
     <message>
         <source>Toggle Text Selection</source>
         <translation>テキスト選択切替</translation>
-    </message>
-    <message>
-        <source>Edit Text</source>
-        <translation>テキスト編集</translation>
     </message>
     <message>
         <source>Behavior</source>
@@ -1952,12 +1948,8 @@ Replace it?</source>
         <translation>テキスト選択</translation>
     </message>
     <message>
-        <source>Text mode</source>
-        <translation>テキストモード</translation>
-    </message>
-    <message>
-        <source>Edit text</source>
-        <translation>テキストを編集</translation>
+        <source>Pin as text</source>
+        <translation>テキストでピン留め</translation>
     </message>
     <message>
         <source>Keep text formatting</source>
@@ -1998,10 +1990,6 @@ Replace it?</source>
     <message>
         <source>Text selection off</source>
         <translation>テキスト選択オフ</translation>
-    </message>
-    <message>
-        <source>Press Esc to stop editing</source>
-        <translation>Esc で編集を終了</translation>
     </message>
     <message>
         <source>Border</source>

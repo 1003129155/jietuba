@@ -895,8 +895,8 @@ private slots:
         QVERIFY(!pin->recognizable());
         pin->toggle_toolbar();
         QVERIFY(!pin->toolbar);
-        pin->toggle_text_mode();
-        QVERIFY(!pin->text_mode());
+        pin->pin_as_text();
+        QCOMPARE(pins().size(), 1);
     }
 
     void copyingAnAnimationGivesItsFileAndBytes() {
@@ -940,7 +940,7 @@ private slots:
                                   "[Speed: 1.0x]", "[Frame: 1/3]", "Always on top", "Thumbnail mode"})
             QVERIFY2(has_entry(entries, entry), entry);
         // Nothing that reads or draws on the image.
-        for (const char *entry : {"Translate", "Image transform", "Toolbar", "Hide annotations", "Text selection", "Text mode"})
+        for (const char *entry : {"Translate", "Image transform", "Toolbar", "Hide annotations", "Text selection", "Pin as text"})
             QVERIFY2(!has_entry(entries, entry), entry);
         QCOMPARE(animation->frame_index(), 1);
         run_menu(pin, at, "Faster");
@@ -962,7 +962,7 @@ private slots:
         auto entries = run_menu(pin, global(card.cell_rect(1).center()), "Copy this file's path", [&] { open_highlights = highlights(pin); });
         for (const char *entry : {"Open", "Copy this file", "Copy this file's path", "Show in Explorer", "Copy image", "Save as", "Toolbar", "Hide annotations"})
             QVERIFY2(has_entry(entries, entry), entry);
-        for (const char *entry : {"Copy all files", "Copy plain text", "Translate", "Image transform", "Text selection", "Text mode"})
+        for (const char *entry : {"Copy all files", "Copy plain text", "Translate", "Image transform", "Text selection", "Pin as text"})
             QVERIFY2(!has_entry(entries, entry), entry);
         QCOMPARE(QApplication::clipboard()->text(), QDir::toNativeSeparators(b));
         // The right-click selects nothing and puts nothing into the scene; the copy key still copies the image.

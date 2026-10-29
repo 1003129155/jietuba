@@ -33,7 +33,6 @@ class PinDisplayScaler;
 class PinFileCard;
 class PinFileSelection;
 class PinTextContent;
-class PinTextMode;
 class PinToolbar;
 class ToolSettingsManager;
 class WaitBar;
@@ -66,12 +65,9 @@ public:
     bool ocr_has_result() const { return ocr_mgr_ && ocr_mgr_->has_result(); }
     bool text_selection_enabled() const { return ocr_mgr_ && ocr_mgr_->text_selection_enabled(); }
     bool thumbnail_mode() const { return thumbnail_ && thumbnail_->active(); }
-    // Shown as editable text instead of the image.
-    bool text_mode() const;
     // Pinned from text: its image is the text drawn on a page, drawn afresh at each zoom.
     bool text_only() const { return text_content_ != nullptr; }
     PinTextContent *text_content() const { return text_content_.get(); }
-    PinTextMode *text_mode_controller() const { return text_mode_.get(); }
     bool is_closed() const { return is_closed_; }
     bool is_dragging() const { return is_dragging_; }
     bool click_through() const { return click_through_; }
@@ -102,10 +98,9 @@ public:
     // +, = and - adjust what the mouse wheel bindings would, for keyboards.
     bool handle_mouse_alternative_key(QInputEvent *event);
     void toggle_thumbnail_mode();
-    void toggle_text_mode();
-    void leave_text_mode();
-    // In text mode only: the text takes the keyboard.
-    void edit_text();
+    // Pins the image's text beside it as a text pin, recognizing it first when needed; the text
+    // shows about as large as on the image.
+    void pin_as_text();
     // Wiggles in place for a moment, to be found among other windows.
     void shake();
     bool shaking() const { return shake_ != nullptr; }
@@ -261,6 +256,8 @@ private:
     void update_border_resize(const QPoint &global_pos);
     void end_border_resize() { resize_edge_.reset(); }
     void sync_click_through_bar();
+    // pin_as_text once the text is recognized; a pin with that text already shakes instead.
+    void open_text_pin();
     void adjust_mouse_value(const QString &action, int delta);
     // The 100% window size; width and height swap after 90/270 degree rotation.
     QSize display_base_size() const;
@@ -338,8 +335,9 @@ private:
     std::unique_ptr<PinTranslationHelper> translation_helper_;
     std::unique_ptr<PinOCRManager> ocr_mgr_;
     std::unique_ptr<PinThumbnailMode> thumbnail_;
-    std::unique_ptr<PinTextMode> text_mode_;
     std::unique_ptr<PinTextContent> text_content_;
+    // Recognizing for pin_as_text.
+    bool text_pin_pending_ = false;
     QPointer<QPropertyAnimation> shake_;
     // Counts the contents shown, so a page drawn for an earlier one is dropped.
     quint64 text_generation_ = 0;

@@ -19,9 +19,9 @@
 #include "pin/pin_click_through_bar.h"
 #include "pin/pin_file_card.h"
 #include "pin/pin_file_selection.h"
+#include "pin/pin_manager.h"
 #include "pin/pin_shortcut.h"
 #include "pin/pin_text_content.h"
-#include "pin/pin_text_mode.h"
 #include "pin/pin_toolbar.h"
 #include "settings/tool_settings.h"
 #include "tools/controller.h"
@@ -264,7 +264,6 @@ PinWindow::PinWindow(const QImage &image, const QPoint &position, ToolSettingsMa
     hover_controls = std::make_unique<PinHoverControls>(this);
     ocr_mgr_ = std::make_unique<PinOCRManager>(this, config_manager);
     thumbnail_ = std::make_unique<PinThumbnailMode>(this);
-    text_mode_ = std::make_unique<PinTextMode>(this);
     // One theme-colour outline, no shadow.
     if (border_enabled) {
         border_overlay = new PinBorderOverlay(this, corner, frame_color());
@@ -442,9 +441,8 @@ void PinWindow::show_resize_cursor(QWidget *widget, const std::optional<std::pai
         widget->setCursor(resize_cursor(*edge));
         resize_cursor_owner_ = widget;
     } else if (resize_cursor_owner_) {
-        // While editing the drawing tool owns the cursor; the text page's margin moves the pin.
-        if (text_mode_ && resize_cursor_owner_ == text_mode_->panel()) resize_cursor_owner_->setCursor(Qt::SizeAllCursor);
-        else if (!(canvas && canvas->is_editing())) resize_cursor_owner_->setCursor(Qt::ArrowCursor);
+        // While editing the drawing tool owns the cursor.
+        if (!(canvas && canvas->is_editing())) resize_cursor_owner_->setCursor(Qt::ArrowCursor);
         resize_cursor_owner_ = nullptr;
     }
 }
@@ -453,13 +451,6 @@ void PinWindow::update_border_resize(const QPoint &global_pos) {
     const auto [sx, sy] = *resize_edge_;
     const auto delta = global_pos - resize_start_pos_;
     const auto start = resize_start_geometry_;
-    if (text_mode()) {
-        // Text rewraps, so width and height change on their own; the opposite edges stay put.
-        const int width = sx ? std::max(std::min(MIN_SIDE, start.width()), start.width() + sx * delta.x()) : start.width();
-        const int height = sy ? std::max(std::min(MIN_SIDE, start.height()), start.height() + sy * delta.y()) : start.height();
-        setGeometry(sx < 0 ? start.right() + 1 - width : start.x(), sy < 0 ? start.bottom() + 1 - height : start.y(), width, height);
-        return;
-    }
     const auto base = display_base_size();
     const double start_scale = static_cast<double>(start.width()) / base.width();
     std::vector<double> candidates;
@@ -569,7 +560,6 @@ void PinWindow::resizeEvent(QResizeEvent *event) {
         update_button_positions();
         if (toolbar && toolbar->isVisible()) toolbar->sync_with_pin_window();
     }
-    if (text_mode_) text_mode_->sync_geometry();
     if (border_overlay) {
         border_overlay->setGeometry(0, 0, width(), height());
         border_overlay->raise();
@@ -710,8 +700,7 @@ bool PinWindow::blocked_by_modal() const {
 bool PinWindow::handle_mouse_alternative_key(QInputEvent *event) {
     const int key = event_key(event);
     if (key != Qt::Key_Plus && key != Qt::Key_Equal && key != Qt::Key_Minus) return false;
-    // In text mode the wheel scrolls and sizes the text, so the keys standing in for it do nothing.
-    if (blocked_by_modal() || thumbnail_mode() || text_mode()) return false;
+    if (blocked_by_modal() || thumbnail_mode()) return false;
     QList<Qt::KeyboardModifiers> modifier_options = {event->modifiers()};
     // An explicit Shift binding first, then Shift used to type '+'.
     if (key == Qt::Key_Plus) modifier_options.append(event->modifiers() & ~Qt::ShiftModifier);
@@ -885,7 +874,6 @@ void PinWindow::keyPressEvent(QKeyEvent *event) {
 }
 
 bool PinWindow::eventFilter(QObject *watched, QEvent *event) {
-    if (text_mode_ && watched == text_mode_->panel() && handle_border_resize(watched, event)) return true;
     if (view && watched == view->viewport()) {
         if (handle_border_resize(watched, event)) return true;
         const auto type = event->type();
@@ -897,12 +885,7 @@ bool PinWindow::eventFilter(QObject *watched, QEvent *event) {
     return QWidget::eventFilter(watched, event);
 }
 
-void PinWindow::toggle_thumbnail_mode() {
-    leave_text_mode();
-    thumbnail_->toggle();
-}
-
-bool PinWindow::text_mode() const { return text_mode_ && text_mode_->active(); }
+void PinWindow::toggle_thumbnail_mode() { thumbnail_->toggle(); }
 
 bool PinWindow::has_keyboard_focus() const {
     const QWidget *active = QApplication::activeWindow();
@@ -914,16 +897,56 @@ QColor PinWindow::frame_color() const {
     return has_keyboard_focus() ? border_color : UNFOCUSED_BORDER_COLOR;
 }
 
-void PinWindow::toggle_text_mode() {
-    if (text_mode_ && recognizable()) text_mode_->toggle();
+void PinWindow::pin_as_text() {
+    if (is_closed_ || !recognizable() || text_only()) return;
+    if (const auto *selection = text_selection(); selection && selection->has_text()) {
+        open_text_pin();
+        return;
+    }
+    if (text_pin_pending_) return;
+    text_pin_pending_ = true;
+    const bool started = ocr_mgr_->recognize_then([this](bool, const QString &) {
+        text_pin_pending_ = false;
+        if (!is_closed_) open_text_pin();
+    });
+    if (!started) {
+        text_pin_pending_ = false;
+        show_hint_label(pin_tr("OCR recognition could not be started"));
+        return;
+    }
+    show_hint_label(pin_tr("Recognizing..."));
 }
 
-void PinWindow::leave_text_mode() {
-    if (text_mode_) text_mode_->exit();
-}
-
-void PinWindow::edit_text() {
-    if (text_mode_) text_mode_->start_editing();
+void PinWindow::open_text_pin() {
+    const auto *selection = text_selection();
+    const QString text = selection && selection->has_text() ? pin_layout_text(selection->layout(), config_manager) : QString();
+    if (text.isEmpty()) {
+        show_hint_label(pin_tr("No text was recognized"));
+        return;
+    }
+    auto *manager = PinManager::instance();
+    if (manager->point_out(manager->text_pin_of(text))) return;
+    const double view_scale = view ? std::sqrt(std::abs(view->transform().determinant())) : 1.0;
+    const double zoom = static_cast<double>(pin_text_pixel_size(selection->layout(), view_scale > 0 ? view_scale : 1.0)) / PinTextContent::PIXEL_SIZE;
+    const QRect beside = geometry();
+    const QRect area = screen() ? screen()->availableGeometry() : QRect();
+    auto *settings = config_manager;
+    // Not tied to this pin: closed meanwhile, its text still opens.
+    PinTextContent::build_async(text, {}, false, qApp, [beside, area, zoom, settings](std::unique_ptr<PinTextContent> content) {
+        const QSize size = (QSizeF(content->size()) * zoom).toSize();
+        constexpr int gap = 12;
+        // To the right, else to the left; kept on the screen either way.
+        int x = beside.right() + 1 + gap;
+        if (!area.isEmpty() && x + size.width() > area.right() + 1) x = beside.x() - gap - size.width();
+        int y = beside.y();
+        if (!area.isEmpty()) {
+            x = std::max(area.x(), std::min(x, area.right() + 1 - size.width()));
+            y = std::max(area.y(), std::min(y, area.bottom() + 1 - size.height()));
+        }
+        auto *pin = PinManager::instance()->create_text_pin(std::move(content), QPoint(x, y), settings);
+        // A text larger than the screen was shrunk to fit already.
+        if (pin->scale_factor == 1.0 && std::abs(zoom - 1.0) > 1e-6) pin->scale_around(zoom, 0, 0);
+    });
 }
 
 void PinWindow::shake() {
@@ -1141,8 +1164,8 @@ void PinWindow::hide_toolbar() {
 
 void PinWindow::on_translate_clicked() {
     if (!translation_helper_ || !recognizable()) return;
-    if (text_mode() || text_only()) {
-        translation_helper_->translate_text(text_only() ? text_content_->text() : text_mode_->text());
+    if (text_only()) {
+        translation_helper_->translate_text(text_content_->text());
         return;
     }
     if (ocr_has_result()) {
@@ -1179,7 +1202,6 @@ void PinWindow::show_context_menu(const QPoint &global_pos) {
     state.border_enabled = border_enabled;
     state.text_selection_enabled = text_selection_enabled();
     state.thumbnail_mode = thumbnail_mode();
-    state.text_mode = text_mode();
     state.text_only = text_only();
     state.has_formatting = text_content_ && text_content_->has_formatting();
     state.formatted = text_formatted();
@@ -1199,8 +1221,7 @@ void PinWindow::show_context_menu(const QPoint &global_pos) {
         state.files_selected = !file_selection_->selected_files().isEmpty();
         state.chosen_selected = state.files_selected && file_selection_->is_selected(index);
     }
-    // In text mode Esc leaves the text first.
-    state.close_shortcut_enabled = !(canvas && canvas->is_editing()) && !lock_blocks("key_close") && !click_through_ && !text_mode();
+    state.close_shortcut_enabled = !(canvas && canvas->is_editing()) && !lock_blocks("key_close") && !click_through_;
     // An open menu counts as hover, so the toolbar is not hidden behind it and its switches stay accurate.
     hover_controls->set_menu_open(true);
     const QPointer<PinWindow> alive(this);
@@ -1249,8 +1270,6 @@ void PinWindow::toggle_click_through() { set_click_through(!click_through_); }
 
 void PinWindow::set_click_through(bool enabled) {
     if (is_closed_ || enabled == click_through_) return;
-    // Clicks would pass through the text box too.
-    if (enabled) leave_text_mode();
     click_through_ = enabled;
     end_window_drag();
     if (enabled) {
@@ -1485,10 +1504,6 @@ void PinWindow::copy_to_clipboard() {
         copy_animation();
         return;
     }
-    if (text_mode()) {
-        copy_ocr_text(true, text_mode_->text_to_copy());
-        return;
-    }
     if (text_only()) {
         if (!(text_selection() && text_selection()->copy_selected_text())) copy_ocr_text(true, text_content_->text(), text_content_->html());
         return;
@@ -1512,10 +1527,6 @@ void PinWindow::copy_all_text() {
         return;
     }
     if (animation_) return;
-    if (text_mode()) {
-        copy_ocr_text(true, text_mode_->text());
-        return;
-    }
     if (text_only()) {
         copy_ocr_text(true, text_content_->text(), text_content_->html());
         return;
@@ -1533,7 +1544,7 @@ PinWindow::DragOut PinWindow::prepare_drag_out(const QPoint &global_pos) {
     auto &content = drag.content;
     const QString base_name = QString("pinned_%1").arg(QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss"));
     QRectF shown;
-    auto *selection = text_mode() ? nullptr : text_selection();
+    auto *selection = text_selection();
     if (file_card_) {
         const int index = file_at(global_pos);
         content.files = index >= 0 ? file_selection_->files_for(index) : file_card_->files();
@@ -1549,8 +1560,6 @@ PinWindow::DragOut PinWindow::prepare_drag_out(const QPoint &global_pos) {
                                  QFile bytes(file->path());
                                  return bytes.open(QIODevice::ReadOnly) ? bytes.readAll() : QByteArray();
                              })}};
-    } else if (text_mode()) {
-        set_drag_text(content, text_mode_->text_to_copy(), base_name + ".txt");
     } else if (selection && selection->on_selection(global_pos)) {
         set_drag_text(content, selection->selected_text(), base_name + ".txt");
         shown = selection->layout().selection_bounds();

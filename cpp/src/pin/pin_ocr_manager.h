@@ -10,6 +10,11 @@ namespace jietuba {
 class PinWindow;
 class ToolSettingsManager;
 
+// The recognized text laid out by the text recognition window's settings.
+QString pin_layout_text(const OcrTextLayout &layout, ToolSettingsManager *settings);
+// The pixel size that shows text about as large as the recognized lines appear on the pin.
+int pin_text_pixel_size(const OcrTextLayout &layout, double view_scale);
+
 // Recognition on a worker thread. Takes a QImage copy and no widget, so a window closed
 // mid-recognition is never touched from here.
 class PinOcrThread : public QThread {

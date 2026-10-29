@@ -17,7 +17,6 @@ struct PinMenuState {
     bool border_enabled = true;
     bool text_selection_enabled = true;
     bool thumbnail_mode = false;
-    bool text_mode = false;
     bool text_only = false;
     // Text with formatting to switch, and whether it shows.
     bool has_formatting = false;

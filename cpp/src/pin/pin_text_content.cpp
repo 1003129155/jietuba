@@ -23,9 +23,9 @@ namespace jietuba {
 namespace {
 const QColor PAGE_COLOR(255, 255, 255);
 const QColor TEXT_COLOR(31, 31, 31);
-// Body-text size, lines wrapping past the width limit; the margin is the page's own, outside the
-// document's 4 pixels, so text sits 20 pixels in and the blank around it drags the pin.
-constexpr int PIXEL_SIZE = 16, MAX_TEXT_WIDTH = 800, PAGE_MARGIN = 16;
+// Lines wrap past the width limit; the margin is the page's own, outside the document's 4 pixels,
+// so text sits 20 pixels in and the blank around it drags the pin.
+constexpr int MAX_TEXT_WIDTH = 800, PAGE_MARGIN = 16;
 
 // Code keeps a fixed-pitch face; Qt's own is Courier New.
 const char RICH_STYLE[] = "code, pre, tt, kbd, samp { font-family: Consolas, 'Courier New', monospace; }";
@@ -151,7 +151,7 @@ void tidy_rich_text(QTextDocument &document) {
 // text falls back to the plain text.
 bool load_text(QTextDocument &document, const QString &text, const QString &html) {
     QFont font("Microsoft YaHei UI");
-    font.setPixelSize(PIXEL_SIZE);
+    font.setPixelSize(PinTextContent::PIXEL_SIZE);
     document.setDefaultFont(font);
     auto option = document.defaultTextOption();
     option.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);

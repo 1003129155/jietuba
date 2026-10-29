@@ -28,7 +28,6 @@
 #include "pin/pin_ocr_manager.h"
 #include "pin/pin_shortcut.h"
 #include "pin/pin_text_content.h"
-#include "pin/pin_text_mode.h"
 #include "pin/pin_text_selection.h"
 #include "pin/pin_toolbar.h"
 #include "pin/pin_window.h"
@@ -1572,11 +1571,11 @@ private slots:
     void theMenuOffersEveryEntryWithStateAndShortcuts() {
         auto *pin = make_pin();
         const QStringList want = {
-            "Copy (CTRL+C)", "Save as", "Translate (Text Recognition)", "Reset size", "Image transform",
+            "Copy (CTRL+C)", "Save as", "Translate (Text Recognition)", "Pin as text (T)", "Reset size", "Image transform",
             "  Rotate right", "  Rotate left", "  Flip horizontal", "  Flip vertical", "  -", "  Reset transform", "-",
             "[ ] Toolbar (SPACE)", "[ ] Hide annotations (H)", "[x] Always on top", "[ ] Mouse click-through",
             "[ ] Lock (L)", "[x] Border", "[ ] Text selection (P)",
-            "[ ] Text mode (T)", "[ ] Thumbnail mode (R)", "-", "Close (ESC)"};
+            "[ ] Thumbnail mode (R)", "-", "Close (ESC)"};
         QCOMPARE(pin_menu(pin), want);
     }
 
@@ -1682,17 +1681,6 @@ private slots:
         QVERIFY(pin->scale_factor < 1.0);
         QTRY_COMPARE(background->pixmap().deviceIndependentSize(), QSizeF(pin->size()));
         QVERIFY(same_pixels(pin->get_current_image(), content->render(pin->orig_size(), pin->devicePixelRatioF())));
-    }
-
-    // The image's own entries go; Esc leaves the text first, so Close shows no key.
-    void aTextModeMenuDropsTheImageEntries() {
-        auto *pin = make_pin();
-        give_text(pin, {{box(10, 10, 80, 20), "hello", 0.9}});
-        pin->toggle_text_mode();
-        const QStringList want = {"Copy (CTRL+C)", "Save as", "Translate (Text Recognition)", "-", "[x] Always on top",
-                                  "[ ] Mouse click-through", "[ ] Lock (L)", "[x] Border",
-                                  "[x] Text mode (T)", "Edit text (ENTER)", "[ ] Thumbnail mode (R)", "-", "Close"};
-        QCOMPARE(pin_menu(pin), want);
     }
 
     void aThumbnailMenuKeepsOnlySevenEntries() {
@@ -2399,281 +2387,69 @@ private slots:
         QVERIFY(!selection->has_text());
     }
 
-    // ---- Text mode ----
+    // ---- Pin as text ----
 
-    void textModeKeepsEditsAndUndoAcrossSwitches() {
-        auto *pin = make_pin();
-        give_text(pin, {{box(10, 10, 80, 20), "first", 0.9}, {box(10, 70, 80, 20), "second", 0.9}});
-        pin->toggle_text_mode();
-        QVERIFY(pin->text_mode());
-        auto *editor = pin->text_mode_controller()->editor();
-        QVERIFY(editor && editor->isVisible());
-        QCOMPARE(editor->toPlainText(), QString("first\nsecond"));
-        editor->moveCursor(QTextCursor::End);
-        editor->insertPlainText("!");
-        pin->toggle_text_mode();
-        QVERIFY(!pin->text_mode());
-        QVERIFY(!editor->isVisible());
-        pin->toggle_text_mode();
-        QCOMPARE(pin->text_mode_controller()->editor(), editor);
-        QCOMPARE(editor->toPlainText(), QString("first\nsecond!"));
-        editor->undo();
-        QCOMPARE(editor->toPlainText(), QString("first\nsecond"));
-        // Copy takes the selection, or everything without one.
-        QCOMPARE(pin->text_mode_controller()->text_to_copy(), QString("first\nsecond"));
-        auto cursor = editor->textCursor();
-        cursor.setPosition(0);
-        cursor.setPosition(5, QTextCursor::KeepAnchor);
-        editor->setTextCursor(cursor);
-        QCOMPARE(pin->text_mode_controller()->text_to_copy(), QString("first"));
+    static QList<PinWindow *> text_pins() {
+        QList<PinWindow *> pins;
+        for (auto *pin : PinManager::instance()->get_all_pins())
+            if (pin->text_only()) pins.append(pin);
+        return pins;
     }
 
-    void textModeGivesWayToThumbnailAndClickThrough() {
-        auto *pin = make_pin();
-        give_text(pin, {{box(10, 10, 80, 20), "hello", 0.9}});
-        pin->toggle_text_mode();
-        pin->toggle_thumbnail_mode();
-        QVERIFY(pin->thumbnail_mode());
-        QVERIFY(!pin->text_mode());
-        // Not entered from a thumbnail.
-        pin->toggle_text_mode();
-        QVERIFY(!pin->text_mode());
-        pin->toggle_thumbnail_mode();
-        pin->toggle_text_mode();
-        QVERIFY(pin->text_mode());
-        pin->set_click_through(true);
-        QVERIFY(!pin->text_mode());
-        pin->set_click_through(false);
-    }
-
-    void aPinTooShortForItsTextGrowsAndComesBack() {
-        auto *pin = make_pin(QSize(300, 24), QPoint(100, 100));
-        give_text(pin, {{box(4, 2, 200, 20), "one line", 0.9}});
-        const auto before = pin->geometry();
-        pin->toggle_text_mode();
-        QVERIFY(pin->height() > before.height());
-        QCOMPARE(pin->width(), before.width());
-        QCOMPARE(pin->pos(), before.topLeft());
-        // Moved meanwhile, it comes back to its own size where it was moved to.
-        pin->move(pin->pos() + QPoint(30, 40));
-        pin->toggle_text_mode();
-        QCOMPARE(pin->geometry(), QRect(before.topLeft() + QPoint(30, 40), before.size()));
-    }
-
-    void textModeReadsUntilEnterAndEscStepsBackOneLayer() {
-        auto *pin = make_pin();
-        give_text(pin, {{box(10, 10, 80, 20), "hello", 0.9}});
-        PinShortcutController::instance()->reload_bindings();
-        QCursor::setPos(pin->mapToGlobal(QPoint(100, 60)));
-        press_key(pin, Qt::Key_T);
-        auto *mode = pin->text_mode_controller();
-        auto *editor = mode->editor();
-        QVERIFY(pin->text_mode() && !mode->editing());
-        QVERIFY(editor->isReadOnly());
-        QCOMPARE(editor->focusPolicy(), Qt::NoFocus);
-        QCOMPARE(hint_text(pin), QString());
-        // Reading, the pin's own keys still work.
-        press_key(pin, Qt::Key_L);
-        QVERIFY(pin->locked());
-        press_key(pin, Qt::Key_L);
-        QVERIFY(!pin->locked());
-        press_key(pin, Qt::Key_Return);
-        QVERIFY(mode->editing());
-        QVERIFY(!editor->isReadOnly());
-        QTRY_COMPARE(QApplication::focusWidget(), editor);
-        QCOMPARE(hint_text(pin), QString("Press Esc to stop editing"));
-        // Editing, plain keys are typed at the end instead.
-        QTest::keyClick(editor, Qt::Key_L);
-        QTest::keyClick(editor, Qt::Key_T);
-        QCOMPARE(editor->toPlainText(), QString("hellolt"));
-        QVERIFY(!pin->locked() && pin->text_mode());
-        // Each Esc steps back one layer: editing, text, then the pin itself.
-        QTest::keyClick(editor, Qt::Key_Escape);
-        QVERIFY(pin->text_mode() && !mode->editing());
-        QVERIFY(editor->isReadOnly());
-        QVERIFY(QApplication::focusWidget() != editor);
-        press_key(pin, Qt::Key_Escape);
-        QVERIFY(!pin->text_mode());
-        QVERIFY(!pin->is_closed());
-        press_key(pin, Qt::Key_Escape);
-        QVERIFY(pin->is_closed());
-    }
-
-    void awayFromEveryPinTheEditorStopsEditingOnEsc() {
-        auto *pin = make_pin();
-        give_text(pin, {{box(10, 10, 80, 20), "hello", 0.9}});
-        pin->toggle_text_mode();
-        pin->edit_text();
-        auto *editor = pin->text_mode_controller()->editor();
-        QTRY_COMPARE(QApplication::focusWidget(), editor);
-        QCursor::setPos(0, 0);
-        QTest::keyClick(editor, Qt::Key_Escape);
-        QVERIFY(pin->text_mode() && !pin->text_mode_controller()->editing());
-    }
-
-    void editingStopsWhenAnotherWindowTakesTheKeyboard() {
-        auto *pin = make_pin();
-        give_text(pin, {{box(10, 10, 80, 20), "hello", 0.9}});
-        pin->toggle_text_mode();
-        auto *mode = pin->text_mode_controller();
-        pin->edit_text();
-        // The pin's own menu keeps it editing.
-        QFocusEvent popup(QEvent::FocusOut, Qt::PopupFocusReason);
-        QApplication::sendEvent(mode->editor(), &popup);
-        QVERIFY(mode->editing());
-        QFocusEvent away(QEvent::FocusOut, Qt::ActiveWindowFocusReason);
-        QApplication::sendEvent(mode->editor(), &away);
-        QVERIFY(!mode->editing());
-        QVERIFY(pin->text_mode());
-    }
-
-    void textLeftWhileEditingTakesItsKeysAgainOnReturn() {
-        auto *pin = make_pin();
-        give_text(pin, {{box(10, 10, 80, 20), "hello", 0.9}});
-        PinShortcutController::instance()->reload_bindings();
-        auto *mode = pin->text_mode_controller();
-        // Keys go where the system sends them: the focus widget of the active window.
-        const auto type = [](Qt::Key key) {
-            auto *focus = QApplication::focusWidget();
-            QVERIFY(focus);
-            QTest::keyClick(focus, key);
-        };
-        pin->toggle_text_mode();
-        QVERIFY(QTest::qWaitForWindowActive(pin));
-        type(Qt::Key_Return);
-        QVERIFY(mode->editing());
-        QWidget elsewhere;
-        elsewhere.show();
-        elsewhere.activateWindow();
-        QVERIFY(QTest::qWaitForWindowActive(&elsewhere));
-        QVERIFY(!mode->editing());
-        pin->activateWindow();
-        QVERIFY(QTest::qWaitForWindowActive(pin));
-        QVERIFY(QApplication::focusWidget() != mode->editor());
-        type(Qt::Key_Return);
-        QVERIFY(mode->editing());
-        type(Qt::Key_Escape);
-        QVERIFY(!mode->editing());
-        type(Qt::Key_Escape);
-        QVERIFY(!pin->text_mode());
-        type(Qt::Key_Escape);
-        QVERIFY(pin->is_closed());
-    }
-
-    void readingSelectsByDoubleClickAndCopiesTheTextsOwnSelection() {
-        auto *pin = make_pin();
-        give_text(pin, {{box(10, 10, 80, 20), "first", 0.9}, {box(10, 70, 80, 20), "second", 0.9}});
-        // A selection on the image's text layer, which text mode hides.
-        QKeyEvent select_all(QEvent::KeyPress, Qt::Key_A, Qt::ControlModifier);
-        QVERIFY(pin->text_selection()->key_press(&select_all));
-        PinShortcutController::instance()->reload_bindings();
-        QCursor::setPos(pin->mapToGlobal(QPoint(100, 60)));
-        pin->toggle_text_mode();
-        auto *editor = pin->text_mode_controller()->editor();
-        auto cursor = editor->textCursor();
-        cursor.setPosition(QString("first\nsec").size());
-        const QPoint inside_second = editor->cursorRect(cursor).center();
-        QTest::mouseDClick(editor->viewport(), Qt::LeftButton, {}, inside_second);
-        QCOMPARE(editor->textCursor().selectedText(), QString("second"));
-        QVERIFY(!pin->text_mode_controller()->editing());
-        press_key(pin, Qt::Key_C, Qt::ControlModifier);
-        QCOMPARE(clipboard_text(), QString("second"));
-        // Enter keeps the selection, so typing replaces it.
-        press_key(pin, Qt::Key_Return);
-        QTest::keyClicks(editor, "2");
-        QCOMPARE(editor->toPlainText(), QString("first\n2"));
-    }
-
-    void editingKeepsTheSizeAndLongTextScrolls() {
-        auto *pin = make_pin(QSize(300, 60), QPoint(100, 100));
-        give_text(pin, {{box(4, 2, 200, 20), "one line", 0.9}});
-        pin->toggle_text_mode();
-        const auto reading = pin->geometry();
-        auto *editor = pin->text_mode_controller()->editor();
-        pin->edit_text();
-        for (int i = 0; i < 8; ++i) editor->insertPlainText("\nmore");
-        QCOMPARE(pin->geometry(), reading);
-        QTRY_VERIFY(editor->verticalScrollBar()->isVisible());
-        pin->toggle_text_mode();
-        QCOMPARE(pin->geometry(), QRect(100, 100, 300, 60));
-    }
-
-    void textModeEdgesResizeWidthAndHeightApart() {
+    void pinAsTextOpensATextPinBesideTheImage() {
         auto *pin = make_pin(QSize(200, 120), QPoint(100, 100));
-        give_text(pin, {{box(10, 10, 80, 20), "hello", 0.9}});
-        pin->toggle_text_mode();
-        auto *panel = pin->text_mode_controller()->panel();
-        send_mouse_to(panel, QEvent::MouseMove, QPoint(199, 60), Qt::NoButton, Qt::NoButton);
-        QCOMPARE(panel->cursor().shape(), Qt::SizeHorCursor);
-        // Unlike an image, the right edge widens the pin alone.
-        drag_on(panel, QPoint(199, 60), QPoint(259, 60));
-        QCOMPARE(pin->geometry(), QRect(100, 100, 260, 120));
-        // The bottom-left corner moves the left edge and the bottom; the right edge and the top stay.
-        drag_on(panel, QPoint(0, 119), QPoint(-30, 159));
-        QCOMPARE(pin->geometry(), QRect(70, 100, 290, 160));
-        // Inside the margin, past the edge band, the page moves the pin again.
-        send_mouse_to(panel, QEvent::MouseMove, QPoint(100, 7), Qt::NoButton, Qt::NoButton);
-        QCOMPARE(panel->cursor().shape(), Qt::SizeAllCursor);
-        // It stops at the smallest pin size.
-        drag_on(panel, QPoint(289, 60), QPoint(-1000, 60));
-        QCOMPARE(pin->geometry(), QRect(70, 100, MIN_SIDE, 160));
-        // The image comes back at its own size.
-        pin->toggle_text_mode();
-        QCOMPARE(pin->size(), QSize(200, 120));
-        // Locked, the edges do nothing.
-        pin->toggle_text_mode();
-        const auto size = pin->size();
-        pin->set_locked(true);
-        drag_on(panel, QPoint(size.width() - 1, 60), QPoint(size.width() + 60, 60));
-        QCOMPARE(pin->size(), size);
+        give_text(pin, {{box(10, 10, 80, 20), "first", 0.9}, {box(10, 70, 80, 20), "second", 0.9}});
+        pin->pin_as_text();
+        QTRY_COMPARE(text_pins().size(), 1);
+        auto *text = text_pins().front();
+        QCOMPARE(text->text_content()->text(), QString("first\nsecond"));
+        // The image stays as it was.
+        QVERIFY(!pin->is_closed() && !pin->text_only());
+        QCOMPARE(pin->geometry(), QRect(100, 100, 200, 120));
+        QCOMPARE(text->pos(), QPoint(100 + 200 + 12, 100));
+        // Lines 20 high read as 18-pixel text, which the 16-pixel page shows at 18/16.
+        QCOMPARE(text->scale_factor, 18.0 / PinTextContent::PIXEL_SIZE);
     }
 
-    void readingDragsThePinOffTheTextAndSelectsOnIt() {
-        // Glyphs need a font to have any width.
-        arial_family();
-        auto *pin = make_pin(QSize(200, 120), QPoint(100, 100));
-        give_text(pin, {{box(10, 10, 80, 20), "hello", 0.9}});
-        pin->toggle_text_mode();
-        auto *editor = pin->text_mode_controller()->editor();
-        auto *viewport = editor->viewport();
-        auto cursor = editor->textCursor();
-        cursor.setPosition(1);
-        const QPoint on_text = editor->cursorRect(cursor).center();
-        const QPoint blank(viewport->width() / 2, viewport->height() - 4);
-        send_mouse_to(viewport, QEvent::MouseMove, blank, Qt::NoButton, Qt::NoButton);
-        QCOMPARE(viewport->cursor().shape(), Qt::SizeAllCursor);
-        send_mouse_to(viewport, QEvent::MouseMove, on_text, Qt::NoButton, Qt::NoButton);
-        QCOMPARE(viewport->cursor().shape(), Qt::IBeamCursor);
-        drag_on(viewport, blank, blank + QPoint(40, -20));
-        QCOMPARE(pin->pos(), QPoint(140, 80));
-        QVERIFY(!editor->textCursor().hasSelection());
-        // On the text it selects and the pin stays.
-        drag_on(viewport, on_text, on_text + QPoint(20, 0));
-        QCOMPARE(pin->pos(), QPoint(140, 80));
-        QVERIFY(editor->textCursor().hasSelection());
-        // Editing, the blank places the caret instead.
-        pin->edit_text();
-        drag_on(viewport, blank, blank + QPoint(40, -20));
-        QCOMPARE(pin->pos(), QPoint(140, 80));
-    }
-
-    void editTextIsOfferedInTheTextModeMenu() {
+    void pinAsTextAgainShakesTheTextPinUnlessRepeatsArePinned() {
         auto *pin = make_pin();
         give_text(pin, {{box(10, 10, 80, 20), "hello", 0.9}});
-        pin->toggle_text_mode();
-        pin_menu(pin, "Edit text");
-        QTRY_VERIFY(pin->text_mode_controller()->editing());
-        // Still editing once the menu's activation changes have settled.
-        QTest::qWait(50);
-        QVERIFY(pin->text_mode_controller()->editing());
-        // A cleared binding shows no key and no hint.
-        config_->set_inapp_shortcut("inapp_pin_text_edit", "");
-        auto restore = qScopeGuard([this] { config_->set_inapp_shortcut("inapp_pin_text_edit", "enter"); });
-        pin->toggle_text_mode();
-        hide_hint(pin);
-        pin->toggle_text_mode();
-        QCOMPARE(hint_text(pin), QString());
-        QVERIFY(pin_menu(pin).contains("Edit text"));
+        pin->pin_as_text();
+        QTRY_COMPARE(text_pins().size(), 1);
+        auto *text = text_pins().front();
+        const QPoint at = text->pos();
+        QVERIFY(!text->shaking());
+        pin->pin_as_text();
+        QVERIFY(text->shaking());
+        QTRY_VERIFY(!text->shaking());
+        QCOMPARE(text->pos(), at);
+        QCOMPARE(text_pins().size(), 1);
+        config_->set_pin_point_out_repeats(false);
+        auto restore = qScopeGuard([this] { config_->set_pin_point_out_repeats(true); });
+        pin->pin_as_text();
+        QTRY_COMPARE(text_pins().size(), 2);
+    }
+
+    void pinAsTextRecognizesFirstWhenThePinHasNoText() {
+        StandInEngine engine([](const QImage &) { return ocr_result({{box(10, 10, 100, 20), "hello pin", 0.9}}); });
+        auto *pin = make_pin();
+        pin->pin_as_text();
+        QCOMPARE(hint_text(pin), QString("Recognizing..."));
+        QTRY_COMPARE_WITH_TIMEOUT(text_pins().size(), 1, 10000);
+        QCOMPARE(text_pins().front()->text_content()->text(), QString("hello pin"));
+    }
+
+    void pinAsTextSaysSoWhenThereIsNoText() {
+        StandInEngine engine([](const QImage &) { return ocr_result({}); });
+        auto *pin = make_pin();
+        pin->pin_as_text();
+        QTRY_COMPARE_WITH_TIMEOUT(hint_text(pin), QString("No text was recognized"), 10000);
+        QVERIFY(text_pins().isEmpty());
+        // Nothing found is no result: asked again, it reads the image again.
+        pin->pin_as_text();
+        QCOMPARE(hint_text(pin), QString("Recognizing..."));
+        QTRY_COMPARE_WITH_TIMEOUT(hint_text(pin), QString("No text was recognized"), 10000);
+        QVERIFY(text_pins().isEmpty());
     }
 
     // ---- Text pins ----
@@ -2701,7 +2477,7 @@ private slots:
     void aTextPinIsAPinOfItsText() {
         arial_family();
         auto *pin = make_text_pin("first line\nsecond");
-        QVERIFY(pin->text_only() && !pin->text_mode());
+        QVERIFY(pin->text_only());
         PinShortcutController::instance()->reload_bindings();
         QCursor::setPos(pin->mapToGlobal(pin->rect().center()));
         // Nothing to recognize: the text is selectable from the start.
@@ -2709,7 +2485,7 @@ private slots:
         QCOMPARE(pin->text_selection()->layout().all_text(), QString("first line\nsecond"));
         // It is text already; R folds it to a thumbnail as any pin.
         press_key(pin, Qt::Key_T);
-        QVERIFY(!pin->text_mode());
+        QCOMPARE(PinManager::instance()->count(), 1);
         press_key(pin, Qt::Key_R);
         QVERIFY(pin->thumbnail_mode());
         press_key(pin, Qt::Key_R);
@@ -3009,7 +2785,7 @@ private slots:
         QCOMPARE(format_of(pin->text_content()->document(), "bold").fontWeight(), int(QFont::Bold));
     }
 
-    void textModeAndTextSelectionKeys() {
+    void pinAsTextAndTextSelectionKeys() {
         auto *pin = make_pin();
         give_text(pin, {{box(10, 10, 80, 20), "hello", 0.9}});
         PinShortcutController::instance()->reload_bindings();
@@ -3019,43 +2795,16 @@ private slots:
         QCOMPARE(hint_text(pin), QString("Text selection off"));
         press_key(pin, Qt::Key_P);
         QVERIFY(pin->text_selection_enabled());
-        // While reading T goes back to the image.
         press_key(pin, Qt::Key_T);
-        QVERIFY(pin->text_mode());
-        press_key(pin, Qt::Key_T);
-        QVERIFY(!pin->text_mode());
-        press_key(pin, Qt::Key_T);
-        press_key(pin, Qt::Key_Return);
-        auto *editor = pin->text_mode_controller()->editor();
-        QTRY_COMPARE(QApplication::focusWidget(), editor);
-        // While editing both keys are typed.
-        QTest::keyClick(editor, Qt::Key_T);
-        QTest::keyClick(editor, Qt::Key_P);
-        QVERIFY(pin->text_mode());
-        QCOMPARE(editor->toPlainText(), QString("hellotp"));
-        QVERIFY(pin->text_selection_enabled());
-        // Bound with Ctrl the key also leaves from inside the text.
-        config_->set_inapp_shortcut("inapp_pin_text_mode", "ctrl+t");
-        PinShortcutController::instance()->reload_bindings();
-        QTest::keyClick(editor, Qt::Key_T, Qt::ControlModifier);
-        QVERIFY(!pin->text_mode());
+        QTRY_COMPARE(text_pins().size(), 1);
         // A thumbnail lets both keys go on.
         pin->toggle_thumbnail_mode();
-        press_key(pin, Qt::Key_T, Qt::ControlModifier);
+        QCursor::setPos(pin->mapToGlobal(pin->rect().center()));
+        press_key(pin, Qt::Key_T);
         press_key(pin, Qt::Key_P);
-        QVERIFY(!pin->text_mode());
         QVERIFY(pin->text_selection_enabled());
-        config_->set_inapp_shortcut("inapp_pin_text_mode", "t");
-        PinShortcutController::instance()->reload_bindings();
-    }
-
-    void textModeRecognizesFirstWhenThePinHasNoText() {
-        StandInEngine engine([](const QImage &) { return ocr_result({{box(10, 10, 100, 20), "hello pin", 0.9}}); });
-        auto *pin = make_pin();
-        pin->toggle_text_mode();
-        QVERIFY(!pin->text_mode());
-        QTRY_VERIFY_WITH_TIMEOUT(pin->text_mode(), 10000);
-        QCOMPARE(pin->text_mode_controller()->text(), QString("hello pin"));
+        QTest::qWait(50);
+        QCOMPARE(text_pins().size(), 1);
     }
 
     void theRecognizedImageMapsBackThroughRotationAndFlips() {

@@ -18,6 +18,8 @@ namespace jietuba {
 // Laying out and drawing a long text take a while, so the pin has both done on a worker thread.
 class PinTextContent {
 public:
+    // Body text at 100%.
+    static constexpr int PIXEL_SIZE = 16;
     // Formatted, the text as formatted in html; otherwise html is kept to switch to. Formatting
     // that leaves no text of its own, such as a lone picture, is never shown.
     PinTextContent(const QString &text, const QString &html, bool formatted);
