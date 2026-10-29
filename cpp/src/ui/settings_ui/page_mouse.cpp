@@ -11,6 +11,7 @@
 #include "ui/settings_ui/dialog.h"
 #include "ui/settings_ui/mouse_binding_editor.h"
 #include "ui/settings_ui/pages.h"
+#include "ui/settings_ui/search.h"
 #include <QStackedWidget>
 #include <functional>
 #include <map>
@@ -166,7 +167,7 @@ QWidget *create_inapp_section(SettingsDialog *dialog, QWidget *parent) {
         stack->addWidget(build_mouse_rows(dialog, tab.actions, tab.prefix, tab.icons, tab.getter));
         tab_switch->addItem(tab.route, dialog->tr_text(tab.title));
     }
-    QObject::connect(tab_switch, &SegmentedWidget::currentItemChanged, stack, [stack, routes](const QString &route) { stack->setCurrentIndex(routes.indexOf(route)); });
+    link_tabs(tab_switch, stack, routes);
     tab_switch->setCurrentItem("screenshot");
     // The pin page's "Edit" button switches to the pin tab here.
     dialog->mouse_inapp_tabs = tab_switch;

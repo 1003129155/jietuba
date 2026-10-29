@@ -8,6 +8,18 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>Search settings</source>
+        <translation>설정 검색</translation>
+    </message>
+    <message>
+        <source>No matching settings</source>
+        <translation>일치하는 설정이 없습니다</translation>
+    </message>
+    <message>
+        <source>Page</source>
+        <translation>페이지</translation>
+    </message>
+    <message>
         <source>Region Text Recognition</source>
         <translation>영역 텍스트 인식</translation>
     </message>

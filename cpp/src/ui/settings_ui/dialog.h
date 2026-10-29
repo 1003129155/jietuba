@@ -34,6 +34,8 @@ class NavigationInterface;
 class ProviderRegistry;
 class SegmentedWidget;
 class SettingsCardGroup;
+class SettingsSearchBox;
+struct SettingsSearchEntry;
 class ToolSettingsManager;
 
 QString settings_tr(const char *text);
@@ -168,6 +170,13 @@ public:
     void show_pin_shortcuts(bool mouse = false);
     // The shortcut page, scrolled to the global hotkey editor attr.
     void show_hotkey_row(const QString &attr);
+    SettingsSearchBox *search_box() const { return search_box_; }
+    // Every navigation page, with the groups and rows of the pages built so far.
+    std::vector<SettingsSearchEntry> search_entries() const;
+    // Builds the first navigation page not built yet; false when there is none.
+    bool build_next_page();
+    // Opens the result's page and tab, scrolls the row into view and outlines it.
+    void show_search_result(const SettingsSearchEntry &entry);
     // The screen annotation page's hotkey summary: the shortcut page's editors when built, else the settings.
     void refresh_screen_annotation_hotkey();
     void on_nav_changed(int stack_index, const QString &route_key = {});
@@ -183,6 +192,8 @@ protected:
     void resizeEvent(QResizeEvent *event) override;
     void showEvent(QShowEvent *event) override;
     void changeEvent(QEvent *event) override;
+    // Ctrl+F opens the search field, except in shortcut editors, which record it.
+    bool event(QEvent *event) override;
     // Saves what is pending before the window goes away.
     void hideEvent(QHideEvent *event) override;
     void closeEvent(QCloseEvent *event) override;
@@ -255,6 +266,8 @@ private:
     // The page and scroll position to open once the window shows.
     std::optional<ViewState> pending_view_;
     NavigationInterface *nav_list_ = nullptr;
+    SettingsSearchBox *search_box_ = nullptr;
+    QPointer<QWidget> search_flash_;
     QWidget *right_area_ = nullptr;
     QLabel *content_title_ = nullptr;
     QPushButton *page_reset_btn_ = nullptr;

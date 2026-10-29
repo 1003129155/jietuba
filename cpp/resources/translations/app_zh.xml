@@ -9,6 +9,18 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>Search settings</source>
+        <translation>搜索设置</translation>
+    </message>
+    <message>
+        <source>No matching settings</source>
+        <translation>没有找到相关设置</translation>
+    </message>
+    <message>
+        <source>Page</source>
+        <translation>页面</translation>
+    </message>
+    <message>
         <source>Region Text Recognition</source>
         <translation>区域识别文字</translation>
     </message>

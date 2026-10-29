@@ -16,6 +16,7 @@ public:
     void insertItem(int index, const QString &route_key, const QString &text, std::function<void()> on_click = {});
     void setCurrentItem(const QString &route_key);
     QString currentItem() const { return current_; }
+    QString itemText(const QString &route_key) const;
     // Roomier buttons for a selector that is the main control of its view.
     void setLarge(bool large);
     // Laid over other content, such as an image: an opaque backing keeps the labels readable.

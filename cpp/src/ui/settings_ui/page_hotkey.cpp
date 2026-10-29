@@ -12,6 +12,7 @@
 #include "ui/settings_ui/components.h"
 #include "ui/settings_ui/dialog.h"
 #include "ui/settings_ui/pages.h"
+#include "ui/settings_ui/search.h"
 #include <QGridLayout>
 #include <QStackedWidget>
 #include <functional>
@@ -490,7 +491,7 @@ QWidget *create_hotkey_page(SettingsDialog *dialog) {
     routes.append("clipboard");
     tab_switch->addItem("clipboard", dialog->tr_text("Clipboard Shortcuts"));
 
-    QObject::connect(tab_switch, &SegmentedWidget::currentItemChanged, stack, [stack, routes](const QString &route) { stack->setCurrentIndex(routes.indexOf(route)); });
+    link_tabs(tab_switch, stack, routes);
     tab_switch->setCurrentItem("screenshot");
     // The pin page's "Edit" button switches to the pin tab here.
     dialog->inapp_shortcut_tabs = tab_switch;

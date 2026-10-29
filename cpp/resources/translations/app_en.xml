@@ -9,6 +9,18 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>Search settings</source>
+        <translation>Search settings</translation>
+    </message>
+    <message>
+        <source>No matching settings</source>
+        <translation>No matching settings</translation>
+    </message>
+    <message>
+        <source>Page</source>
+        <translation>Page</translation>
+    </message>
+    <message>
         <source>Region Text Recognition</source>
         <translation>Region Text Recognition</translation>
     </message>

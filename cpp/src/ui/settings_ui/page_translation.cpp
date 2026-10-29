@@ -15,6 +15,7 @@
 #include "ui/settings_ui/components.h"
 #include "ui/settings_ui/dialog.h"
 #include "ui/settings_ui/pages.h"
+#include "ui/settings_ui/search.h"
 #include <QDesktopServices>
 #include <QDate>
 #include <QFrame>
@@ -194,12 +195,14 @@ QWidget *build_toggle_row(SettingsDialog *dialog, ProviderSection *section, cons
     auto *title = new QLabel(dialog->tr_text(field.label.toUtf8().constData()), card);
     apply_theme_text_style(title, 13);
     text->addWidget(title);
+    QLabel *description = nullptr;
     if (!field.description.isEmpty()) {
-        auto *description = new QLabel(dialog->tr_text(field.description.toUtf8().constData()), card);
+        description = new QLabel(dialog->tr_text(field.description.toUtf8().constData()), card);
         description->setWordWrap(true);
         apply_theme_text_style(description, 12, false, {}, true);
         text->addWidget(description);
     }
+    mark_search_row(card, title, description);
     row->addLayout(text, 1);
     auto *switch_button = new SwitchButton(card);
     switch_button->setChecked(provider_fields::read_config(dialog->config_manager, field).toBool());
@@ -220,6 +223,7 @@ QWidget *build_field(SettingsDialog *dialog, ProviderSection *section, const Pro
     apply_theme_text_style(title, 13);
     title->setFixedWidth(dialog_scaled(LABEL_WIDTH));
     row->addWidget(title);
+    mark_search_row(card, title);
     auto *edit = new LineEdit(card);
     edit->setText(provider_fields::read_config(dialog->config_manager, field).toString());
     if (!field.placeholder.isEmpty()) edit->setPlaceholderText(dialog->tr_text(field.placeholder.toUtf8().constData()));

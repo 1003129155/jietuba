@@ -10,6 +10,18 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>Search settings</source>
+        <translation>設定を検索</translation>
+    </message>
+    <message>
+        <source>No matching settings</source>
+        <translation>一致する設定はありません</translation>
+    </message>
+    <message>
+        <source>Page</source>
+        <translation>ページ</translation>
+    </message>
+    <message>
         <source>Region Text Recognition</source>
         <translation>範囲の文字認識</translation>
     </message>

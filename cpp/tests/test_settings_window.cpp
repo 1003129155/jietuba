@@ -13,11 +13,14 @@
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/labels.h"
 #include "ui/fluent_lite/navigation.h"
+#include "ui/fluent_lite/segmented.h"
 #include "ui/hotkey_edit.h"
 #include "ui/inapp_key_edit.h"
 #include "ui/settings_ui/dialog.h"
 #include "ui/settings_ui/mouse_binding_editor.h"
+#include "ui/settings_ui/components.h"
 #include "ui/settings_ui/pages.h"
+#include "ui/settings_ui/search.h"
 #include "ui/toolbar_layout.h"
 #include "ui/welcome/pages.h"
 #include "ui/welcome/wizard.h"
@@ -42,6 +45,7 @@
 #include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
+#include <QListWidget>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QScrollBar>
@@ -50,6 +54,7 @@
 #include <QSemaphore>
 #include <QStackedWidget>
 #include <QTemporaryDir>
+#include <QToolButton>
 #include <QTest>
 #include <algorithm>
 #include <atomic>
@@ -93,6 +98,13 @@ void reset_page(QWidget &dialog) {
             return;
         }
     QFAIL("no reset button");
+}
+
+// The search outline laid over target, if any.
+QWidget *flash_over(QWidget *target) {
+    for (auto *flash : target->parentWidget()->findChildren<QWidget *>("SettingsSearchFlash", Qt::FindDirectChildrenOnly))
+        if (flash->geometry().contains(target->geometry())) return flash;
+    return nullptr;
 }
 
 std::vector<HotkeyEdit *> slots_of(SettingsDialog &dialog, const QString &first_attr) {
@@ -2365,6 +2377,357 @@ private slots:
         QVERIFY(fetch->isEnabled());
         // Like any edit, the address is saved once typing pauses.
         QTRY_COMPARE(config_->accessor_value("custom_llm_base_url")->toString(), QString("http://127.0.0.1:9/v1"));
+    }
+    void searchRanksTitlesAboveOtherFields() {
+        using Kind = SettingsSearchEntry::Kind;
+        const auto make = [](Kind kind, const QString &title, const QString &path = {}, const QString &description = {}, const QStringList &options = {}) {
+            SettingsSearchEntry entry;
+            entry.kind = kind;
+            entry.title = title;
+            entry.path = path;
+            entry.description = description;
+            entry.options = options;
+            return entry;
+        };
+        const std::vector<SettingsSearchEntry> entries{
+            make(Kind::Item, "Opacity", "Pin / Behavior", "Changes with the zoom wheel"),
+            make(Kind::Item, "Fine Zoom Step", "Pin / Zoom and Size"),
+            make(Kind::Item, "Zoom Step", "Pin / Zoom and Size"),
+            make(Kind::Item, "Save Format", "Screenshot / Save", {}, {"PNG", "JPG"}),
+            make(Kind::Page, "Zoom"),
+            make(Kind::Group, "Zoom", "Pin"),
+            make(Kind::Item, "Magnifier", "Screenshot / Zoom Tools"),
+            make(Kind::Item, QString::fromUtf8("默认透明度"), QString::fromUtf8("钉图 / 行为")),
+            make(Kind::Item, QString::fromUtf8("透明度步长"), QString::fromUtf8("钉图 / 缩放")),
+            make(Kind::Item, QString::fromUtf8("窗口透明度"), QString::fromUtf8("剪贴板 / 外观")),
+        };
+        const auto titles = [&entries](const QString &query) {
+            QStringList found;
+            for (const auto &entry : rank_settings_search(entries, query))
+                found << entry.title + (entry.kind == Kind::Page ? " (page)" : entry.kind == Kind::Group ? " (group)" : "");
+            return found;
+        };
+        // The whole title, then the title's start, a word in it, the path, the description; equal
+        // whole titles put the page before the group.
+        QCOMPARE(titles("zoom"), (QStringList{"Zoom (page)", "Zoom (group)", "Zoom Step", "Fine Zoom Step", "Magnifier", "Opacity"}));
+        // Every word has to match, each in its best field.
+        QCOMPARE(titles("zoom step"), (QStringList{"Zoom Step", "Fine Zoom Step"}));
+        QVERIFY(titles("zoom png").isEmpty());
+        QCOMPARE(titles("png"), QStringList{"Save Format"});
+        QCOMPARE(titles(QString::fromUtf8("钉图 透明")), (QStringList{QString::fromUtf8("透明度步长"), QString::fromUtf8("默认透明度")}));
+        // Width, case and spacing do not matter; nothing typed finds nothing.
+        QCOMPARE(titles(QString::fromUtf8("  ＺＯＯＭ \t STEP ")), titles("zoom step"));
+        QVERIFY(titles("").isEmpty());
+        QVERIFY(titles("   ").isEmpty());
+    }
+
+    // Pages are built on first visit; searching builds the others and finds their rows.
+    void searchFindsRowsOfPagesNotOpenedYet() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.resize(dialog.width(), 600);
+        dialog.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&dialog));
+        // Opening the window builds only the first page; the search builds the rest when used.
+        QTest::qWait(100);
+        QVERIFY(!dialog.has_attr("pin_auto_toolbar_toggle"));
+        auto *box = dialog.search_box();
+        QVERIFY(box);
+        const QString title = settings_tr("Show Lock Hints");
+        box->edit()->setText(title);
+        QTRY_VERIFY(box->results_visible() && !box->results().empty() && box->results().front().title == title);
+        const auto result = box->results().front();
+        QCOMPARE(result.route_key, QString("pin"));
+        QCOMPARE(result.path, settings_tr("Pin") + " / " + settings_tr("Lock"));
+        QPointer<QWidget> target = result.target;
+        QVERIFY(target);
+
+        QTest::keyClick(box->edit(), Qt::Key_Return);
+        QVERIFY(!box->results_visible());
+        QVERIFY(dialog.isVisible());
+        QCOMPARE(box->edit()->text(), title);
+        QCOMPARE(dialog.content_stack->currentIndex(), 11);
+        QVERIFY(dialog.findChild<NavigationInterface *>("SettingsNavigation")->widget("pin")->isChecked());
+        // Near the end of a page taller than the window: scrolled into view, then outlined for a moment.
+        auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+        QVERIFY(scroll);
+        QTRY_VERIFY(flash_over(target));
+        QVERIFY(scroll->verticalScrollBar()->value() > 0);
+        const QRect in_view(target->mapTo(scroll->viewport(), QPoint()), target->size());
+        QVERIFY2(scroll->viewport()->rect().contains(in_view), qPrintable(QString("row at %1,%2 in a %3 px view").arg(in_view.top()).arg(in_view.bottom()).arg(scroll->viewport()->height())));
+        QTRY_VERIFY_WITH_TIMEOUT(!flash_over(target), 4000);
+    }
+
+    void searchOpensTheTabHoldingTheRow() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        auto *box = dialog.search_box();
+        QCOMPARE(dialog.inapp_shortcut_tabs->currentItem(), QString("screenshot"));
+        const QString lock = inapp_label(&dialog, "inapp_pin_lock");
+        box->edit()->setText(lock);
+        QTRY_VERIFY(box->results_visible() && !box->results().empty());
+        const auto result = box->results().front();
+        QCOMPARE(result.title, lock);
+        QCOMPARE(result.path, (QStringList{settings_tr("Shortcuts"), settings_tr("In-App Shortcuts"), settings_tr("Pin Shortcuts")}.join(" / ")));
+        QPointer<QWidget> target = result.target;
+        QVERIFY(target && !target->isVisible());
+        QTest::keyClick(box->edit(), Qt::Key_Return);
+        QCOMPARE(dialog.inapp_shortcut_tabs->currentItem(), QString("pin"));
+        QTRY_VERIFY(target->isVisible());
+
+        // The mouse page's tabs, on a page not built yet.
+        box->edit()->clear();
+        const QString select_region = settings_tr("Select Thumbnail Region");
+        box->edit()->setText(select_region);
+        QTRY_VERIFY(box->results_visible() && !box->results().empty() && box->results().front().title == select_region);
+        target = box->results().front().target;
+        QTest::keyClick(box->edit(), Qt::Key_Return);
+        QCOMPARE(dialog.content_stack->currentIndex(), 10);
+        QCOMPARE(dialog.mouse_inapp_tabs->currentItem(), QString("pin"));
+        QTRY_VERIFY(target && target->isVisible());
+    }
+
+    // Whatever search lists can be brought on screen: its page, its tab, scrolled into view.
+    void everySearchResultCanBeShown() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        while (dialog.build_next_page()) {}
+        int rows = 0;
+        for (const auto &entry : dialog.search_entries()) {
+            const QString where = entry.path + " > " + entry.title;
+            dialog.show_search_result(entry);
+            QVERIFY2(dialog.content_stack->currentIndex() == entry.stack_index, qPrintable(where));
+            if (!entry.target) continue;
+            ++rows;
+            QPointer<QWidget> target = entry.target;
+            QTRY_VERIFY2_WITH_TIMEOUT(flash_over(target), qPrintable(where), 1000);
+            QVERIFY2(target->isVisible(), qPrintable(where + " is not shown"));
+            auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+            QWidget *view = scroll->viewport();
+            // Vertically: the shortcut pages scroll sideways in a narrow window. A row that fits is
+            // wholly in view; a taller group starts in it.
+            const int top = target->mapTo(view, QPoint()).y();
+            const QString position = QString(": %1..%2 in %3").arg(top).arg(top + target->height()).arg(view->height());
+            if (target->height() <= view->height()) QVERIFY2(top >= 0 && top + target->height() <= view->height(), qPrintable(where + position));
+            else QVERIFY2(top >= 0 && top < view->height(), qPrintable(where + position));
+        }
+        QVERIFY2(rows > 150, qPrintable(QString::number(rows)));
+    }
+
+    // Another translation service's fields are hidden; they are not listed until it is chosen.
+    void searchLeavesOutRowsHiddenOnPurpose() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.on_nav_changed(4, "translation");
+        QCoreApplication::processEvents();
+        const auto lists = [&dialog](QWidget *section) {
+            const auto entries = dialog.search_entries();
+            return std::any_of(entries.begin(), entries.end(), [section](const SettingsSearchEntry &entry) { return entry.target && section->isAncestorOf(entry.target); });
+        };
+        QString hidden_provider;
+        int shown = 0;
+        for (auto it = dialog.provider_sections.begin(); it != dialog.provider_sections.end(); ++it) {
+            QWidget *section = it.value();
+            QVERIFY(section);
+            if (!section->isHidden()) {
+                ++shown;
+                QVERIFY2(lists(section), qPrintable(it.key()));
+                continue;
+            }
+            QVERIFY2(!lists(section), qPrintable(it.key()));
+            // A service with fields besides the connection test row.
+            if (hidden_provider.isEmpty() && section->findChildren<WhiteCard *>().size() > 1) hidden_provider = it.key();
+        }
+        QCOMPARE(shown, 1);
+        QVERIFY(!hidden_provider.isEmpty());
+        auto *combo = dialog.attr<QComboBox>("translation_provider_combo");
+        const int before = combo->currentIndex();
+        const auto restore = qScopeGuard([&dialog, combo, before] {
+            combo->setCurrentIndex(before);
+            dialog.apply_settings();
+        });
+        combo->setCurrentIndex(combo->findData(hidden_provider));
+        QCoreApplication::processEvents();
+        QVERIFY(lists(dialog.provider_sections.value(hidden_provider)));
+    }
+
+    void searchKeysStayInTheField() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        while (dialog.build_next_page()) {}
+        auto *box = dialog.search_box();
+        const QString query = settings_tr("Pin");
+        box->edit()->setText(query);
+        QVERIFY(box->results_visible());
+        auto *list = box->result_list();
+        QVERIFY(list->count() > 2);
+        QCOMPARE(list->currentRow(), 0);
+        QTest::keyClick(box->edit(), Qt::Key_Down);
+        QCOMPARE(list->currentRow(), 1);
+        QTest::keyClick(box->edit(), Qt::Key_Up);
+        QTest::keyClick(box->edit(), Qt::Key_Up);
+        QCOMPARE(list->currentRow(), 0);
+
+        // Esc closes the list, then clears the field; the window stays open.
+        QTest::keyClick(box->edit(), Qt::Key_Escape);
+        QVERIFY(!box->results_visible());
+        QVERIFY(dialog.isVisible());
+        QCOMPARE(box->edit()->text(), query);
+        QTest::keyClick(box->edit(), Qt::Key_Down);
+        QVERIFY(box->results_visible());
+        // A press elsewhere closes it too.
+        QTest::mousePress(dialog.content_stack, Qt::LeftButton, {}, QPoint(5, 5));
+        QVERIFY(!box->results_visible());
+        QTest::mouseRelease(dialog.content_stack, Qt::LeftButton, {}, QPoint(5, 5));
+        QTest::keyClick(box->edit(), Qt::Key_Escape);
+        QVERIFY(box->edit()->text().isEmpty());
+        QVERIFY(dialog.isVisible());
+
+        // Nothing found says so, once no page is left to build.
+        QTest::keyClicks(box->edit(), "qqzzxxjj");
+        QTRY_VERIFY(box->results_visible());
+        QVERIFY(box->empty_label()->isVisible());
+        QVERIFY(!list->isVisible());
+
+        // Focus coming back with the window leaves a closed list closed; focus from a click opens it.
+        box->edit()->setText(query);
+        QVERIFY(box->results_visible());
+        box->hide_results();
+        QFocusEvent back(QEvent::FocusIn, Qt::ActiveWindowFocusReason);
+        QApplication::sendEvent(box->edit(), &back);
+        QVERIFY(!box->results_visible());
+        QFocusEvent clicked(QEvent::FocusIn, Qt::MouseFocusReason);
+        QApplication::sendEvent(box->edit(), &clicked);
+        QVERIFY(box->results_visible());
+
+        // A click opens a result.
+        box->edit()->clear();
+        box->edit()->setText(settings_tr("Zoom Anchor"));
+        QVERIFY(list->isVisible());
+        QCOMPARE(box->results().front().title, settings_tr("Zoom Anchor"));
+        const QPoint first = list->visualItemRect(list->item(0)).center();
+        QTest::mousePress(list->viewport(), Qt::LeftButton, {}, first);
+        QVERIFY(box->results_visible());
+        QTest::mouseRelease(list->viewport(), Qt::LeftButton, {}, first);
+        QVERIFY(!box->results_visible());
+        QCOMPARE(dialog.content_stack->currentIndex(), 11);
+
+        // An empty field leaves Esc to the window.
+        box->edit()->clear();
+        QTest::keyClick(box->edit(), Qt::Key_Escape);
+        QVERIFY(!dialog.isVisible());
+    }
+
+    // Ctrl+F reaches the search from a combo box, which would otherwise search its own items; a
+    // shortcut editor records it instead.
+    void ctrlFOpensTheSearchUnlessAShortcutIsBeingRecorded() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&dialog));
+        auto *combo = dialog.attr<QComboBox>("cursor_move_combo");
+        combo->setFocus();
+        QTRY_VERIFY(combo->hasFocus());
+        const int combo_index = combo->currentIndex();
+        QTest::keyClick(combo, Qt::Key_F, Qt::ControlModifier);
+        QVERIFY(dialog.search_box()->edit()->hasFocus());
+        QCOMPARE(combo->currentIndex(), combo_index);
+
+        auto *edit = dialog.inapp_edits.front().second;
+        const QString before = edit->text();
+        const auto restore = qScopeGuard([&dialog, edit, before] {
+            edit->setText(before);
+            dialog.apply_settings();
+        });
+        edit->setFocus();
+        QTRY_VERIFY(edit->hasFocus());
+        QTest::keyClick(edit, Qt::Key_F, Qt::ControlModifier);
+        QCOMPARE(edit->text(), QString("ctrl+f"));
+        QVERIFY(edit->hasFocus());
+    }
+
+    // The field and its list follow the window scale, not the panel scale.
+    void searchFollowsTheWindowScale() {
+        const auto restore = qScopeGuard([] {
+            get_dialog_scale().set_percent(100);
+            get_ui_scale().set_percent(100);
+        });
+        const auto measure = [this] {
+            SettingsDialog dialog(config_, config_->get_hotkey());
+            dialog.show();
+            dialog.resize(1800, 1000);
+            while (dialog.build_next_page()) {}
+            auto *box = dialog.search_box();
+            box->edit()->setText(settings_tr("Zoom Step"));
+            return QList<int>{box->edit()->height(), box->popup()->width(), box->result_list()->sizeHintForRow(0)};
+        };
+        get_dialog_scale().set_percent(100);
+        const auto normal = measure();
+        QCOMPARE(normal.mid(1), (QList<int>{480, 56}));
+        get_dialog_scale().set_percent(150);
+        const auto large = measure();
+        QCOMPARE(large.mid(1), (QList<int>{720, 84}));
+        QVERIFY(large[0] > normal[0]);
+        get_ui_scale().set_percent(200);
+        QCOMPARE(measure(), large);
+    }
+
+    // The field's hint, the empty result and every result title in every language, in the
+    // narrowest window at each window scale.
+    void searchTextsFitEveryLanguageInTheNarrowestWindow() {
+        // Text widths need real fonts, which the offscreen platform does not have.
+        if (QGuiApplication::platformName() != "windows") QSKIP("needs -platform windows");
+        auto &scale = get_dialog_scale();
+        const int percent_before = scale.percent();
+        const QString language = I18nManager::get_current_language();
+        const auto restore = qScopeGuard([&scale, percent_before, language] {
+            scale.set_percent(percent_before);
+            I18nManager::load_language(language);
+        });
+        QStringList problems;
+        for (const int percent : {100, 150, 200}) {
+            scale.set_percent(percent);
+            for (const char *code : {"zh", "zh_TW", "en", "ja", "ko"}) {
+                QVERIFY(I18nManager::load_language(code));
+                const QString where = QString("%1 at %2%").arg(code).arg(percent);
+                SettingsDialog dialog(config_, config_->get_hotkey());
+                dialog.setAttribute(Qt::WA_DontShowOnScreen);
+                dialog.fit_to_available({4000, dialog.height()});
+                dialog.resize(0, dialog.height());
+                dialog.show();
+                while (dialog.build_next_page()) {}
+                QApplication::processEvents();
+                auto *edit = dialog.search_box()->edit();
+                // Between the search icon and the clear button.
+                int left = edit->inputMethodQuery(Qt::ImCursorRectangle).toRect().left(), right = edit->contentsRect().right();
+                for (auto *button : edit->findChildren<QToolButton *>()) {
+                    if (button->geometry().center().x() < edit->width() / 2) left = std::max(left, button->geometry().right());
+                    else right = std::min(right, button->geometry().left());
+                }
+                const int hint = edit->fontMetrics().horizontalAdvance(edit->placeholderText());
+                if (hint > right - left) problems << QString("%1: the search hint needs %2, has %3").arg(where).arg(hint).arg(right - left);
+
+                auto *box = dialog.search_box();
+                QTest::keyClicks(edit, "qqzzxxjj");
+                QApplication::processEvents();
+                auto *empty = box->empty_label();
+                if (!empty->isVisible() || empty->height() < empty->heightForWidth(empty->width()) || empty->width() < empty->minimumSizeHint().width())
+                    problems << where + ": the no-result text is cut off";
+                if (!dialog.rect().contains(QRect(box->popup()->mapTo(&dialog, QPoint()), box->popup()->size()))) problems << where + ": the list leaves the window";
+
+                // Titles are never shortened; page results keep their tag.
+                edit->clear();
+                edit->setText(settings_tr("Pin"));
+                const int row_width = box->result_list()->viewport()->width();
+                for (const auto &entry : dialog.search_entries()) {
+                    const QString tag = entry.kind == SettingsSearchEntry::Kind::Page ? settings_tr("Page") : entry.path;
+                    const auto widths = search_row_widths(row_width, entry.title, tag);
+                    if (widths.title_room < widths.title_needed) problems << QString("%1: \"%2\" needs %3, has %4").arg(where, entry.title).arg(widths.title_needed).arg(widths.title_room);
+                    if (entry.kind == SettingsSearchEntry::Kind::Page && widths.tag == 0) problems << QString("%1: the page tag of \"%2\" is dropped").arg(where, entry.title);
+                }
+            }
+        }
+        QVERIFY2(problems.isEmpty(), qPrintable(problems.join('\n')));
     }
     // Saves each page as PNG for visual review when JIETUBA_SETTINGS_SHOTS names a folder;
     // needs -platform windows for real fonts.

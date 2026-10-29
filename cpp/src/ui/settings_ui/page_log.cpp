@@ -8,6 +8,7 @@
 #include "ui/settings_ui/components.h"
 #include "ui/settings_ui/dialog.h"
 #include "ui/settings_ui/pages.h"
+#include "ui/settings_ui/search.h"
 #include <QDateTime>
 #include <QDesktopServices>
 #include <QDir>
@@ -90,6 +91,7 @@ QWidget *create_log_page(SettingsDialog *dialog) {
     apply_theme_text_style(path_lbl, 13, false, {}, true);
     dialog->set_attr("path_lbl", path_lbl);
     path_v->addWidget(path_lbl);
+    mark_search_row(path_card, path_title, path_lbl);
     auto *latest_log_lbl = new QLabel("", path_card);
     apply_theme_text_style(latest_log_lbl, 13, false, {}, true);
     latest_log_lbl->setWordWrap(true);
