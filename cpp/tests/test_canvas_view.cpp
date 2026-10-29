@@ -22,6 +22,7 @@
 #include <QGraphicsScene>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QStyleOptionGraphicsItem>
 #include <QPointer>
 #include <QScopeGuard>
 #include <QSettings>
@@ -1182,6 +1183,31 @@ private slots:
         send(view, QEvent::MouseButtonRelease, grab + QPointF(0, 2), Qt::NoButton);
         QCOMPARE(label->anchor(), QPointF(26, 0));
         QVERIFY(label->is_editing());
+    }
+
+    void theGuideLineIsDrawnSmooth() {
+        NumberItem number(1, QPointF(0, 0), 20.0, RED);
+        number.apply_extras_state({{"label_guide", true}});
+        number.set_label("note", QPointF(40, 40));
+        auto *guide = number.guide();
+        QVERIFY(guide && guide->isVisible());
+        const auto bounds = guide->boundingRect();
+        QImage image(bounds.size().toSize() + QSize(4, 4), QImage::Format_ARGB32_Premultiplied);
+        image.fill(Qt::transparent);
+        {
+            QPainter painter(&image);
+            painter.translate(QPointF(2, 2) - bounds.topLeft());
+            QStyleOptionGraphicsItem option;
+            guide->paint(&painter, &option, nullptr);
+        }
+        // The slanted part from the circle shows blended edge pixels, not stairs.
+        int blended = 0;
+        for (int y = 0; y < image.height(); ++y)
+            for (int x = 0; x < image.width(); ++x) {
+                const int alpha = qAlpha(image.pixel(x, y));
+                blended += alpha > 0 && alpha < 255;
+            }
+        QVERIFY2(blended > 10, qPrintable(QString::number(blended)));
     }
 
     void whileTypingTheLabelTheMouseMovesItAndNeverMovesTheCaret() {

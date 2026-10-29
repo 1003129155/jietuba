@@ -40,6 +40,15 @@ template<class T> qreal visual_opacity(const T *item) {
     const auto direct = opacity_value(item->opacity());
     return direct < .999 ? direct : item->pen().color().alphaF();
 }
+// The views draw without antialiasing; items turn it on for themselves.
+class GuideLine : public QGraphicsPathItem {
+public:
+    using QGraphicsPathItem::QGraphicsPathItem;
+    void paint(QPainter *p, const QStyleOptionGraphicsItem *option, QWidget *widget) override {
+        p->setRenderHint(QPainter::Antialiasing);
+        QGraphicsPathItem::paint(p, option, widget);
+    }
+};
 }
 QGraphicsItem *annotation_owner(QGraphicsItem *item) {
     while (item && item->parentItem()) item = item->parentItem();
@@ -306,7 +315,7 @@ void NumberItem::update_guide() {
         return;
     }
     if (!guide_) {
-        guide_ = new QGraphicsPathItem(this);
+        guide_ = new GuideLine(this);
         // Under the circle, which hides where it starts, and under the label.
         guide_->setFlag(ItemStacksBehindParent);
         guide_->setAcceptedMouseButtons(Qt::NoButton);
