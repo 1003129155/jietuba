@@ -364,15 +364,6 @@ private:
         return pin;
     }
 
-    // A text's page as a worker thread lays it out, as the pin does when its formatting switches. The
-    // offscreen platform's fonts there lack synthetic bold, so the UI thread's page can differ.
-    static QSize worker_page_size(const QString &text, const QString &html, bool formatted) {
-        QSize size;
-        QObject context;
-        PinTextContent::build_async(text, html, formatted, &context, [&size](std::unique_ptr<PinTextContent> content) { size = content->size(); });
-        return QTest::qWaitFor([&size] { return size.isValid(); }, 5000) ? size : QSize();
-    }
-
     static bool same_pixels(const QImage &a, const QImage &b) {
         return a.convertToFormat(QImage::Format_ARGB32_Premultiplied) == b.convertToFormat(QImage::Format_ARGB32_Premultiplied);
     }
@@ -409,6 +400,11 @@ private slots:
         if (!settings_) settings_ = new QSettings(dir_.filePath("settings.ini"), QSettings::IniFormat, this);
         config_ = get_tool_settings_manager(settings_);
         QCOMPARE(&config_->settings(), settings_);
+        // Before any text pin starts a worker thread: adding a font empties only the adding thread's
+        // font cache, so a worker that had looked the text's font up keeps the old one while a
+        // worker started later finds the new one.
+        arial_family();
+        yahei_family();
     }
 
     void init() {
@@ -2959,7 +2955,7 @@ private slots:
         auto *content = pin->text_content();
         QVERIFY(content->has_formatting());
         QCOMPARE(format_of(content->document(), "bold").fontWeight(), int(QFont::Normal));
-        QCOMPARE(pin->orig_size(), worker_page_size(text, {}, true));
+        QCOMPARE(pin->orig_size(), PinTextContent(text, {}, true).size());
         QCOMPARE(pin->canvas->scene->sceneRect().size(), QSizeF(pin->orig_size()));
         QCOMPARE(pin->scale_factor, scale);
         QVERIFY(std::abs(pin->width() - pin->orig_size().width() * scale) <= 1);
@@ -2976,7 +2972,7 @@ private slots:
         pin_menu(pin, "Keep text formatting");
         QTRY_VERIFY(pin->text_content()->formatted());
         QCOMPARE(format_of(pin->text_content()->document(), "bold").fontWeight(), int(QFont::Bold));
-        QCOMPARE(pin->orig_size(), worker_page_size(text, html, true));
+        QCOMPARE(pin->orig_size(), PinTextContent(text, html, true).size());
     }
 
     void formattingSwitchedAgainWhileLayingOutEndsAsLastAsked() {
@@ -2990,7 +2986,7 @@ private slots:
         // The plain layout comes back unwanted, and the formatted one is laid out again.
         QTRY_VERIFY(pin->text_content() != first);
         QVERIFY(pin->text_content()->formatted());
-        QCOMPARE(pin->orig_size(), worker_page_size("Title\nbody", html, true));
+        QCOMPARE(pin->orig_size(), PinTextContent("Title\nbody", html, true).size());
         // What is still on its way for a closed pin is dropped.
         pin->toggle_text_formatting();
         wheel(pin, 120);
