@@ -10,6 +10,7 @@
 #include "core/logger.h"
 #include "core/platform_utils.h"
 #include "pin/pin_canvas.h"
+#include "pin/pin_manager.h"
 #include "settings/tool_settings.h"
 #include "tools/controller.h"
 #include "tools/cursor_manager.h"
@@ -134,6 +135,7 @@ void ScreenAnnotation::start() {
         if (toolbar_) toolbar_->keep_on_screen();
     }));
     session_connections_.push_back(connect(qApp, &QGuiApplication::applicationStateChanged, this, &ScreenAnnotation::on_application_state_changed));
+    session_connections_.push_back(connect(PinManager::instance(), &PinManager::pin_created, this, &ScreenAnnotation::on_pin_created));
     shortcuts_ = std::make_unique<ScreenAnnotationShortcutHandler>(this);
     ShortcutManager::instance()->register_handler(shortcuts_.get());
     set_mode(Mode::PassThrough);
@@ -337,7 +339,6 @@ void ScreenAnnotation::enter_drawing(const QString &tool_id) {
     // Each layer leaves pass-through and activates itself; the one under the pointer takes the keys.
     for_each_view([&tool_id](AnnotationView *view) { view->activate_tool(tool_id); });
     set_mode(Mode::Drawing);
-    apply_board();
     active_view_ = view_under_cursor();
     if (active_view_) active_view_->activateWindow();
     sync_toolbar_style();
@@ -351,8 +352,6 @@ void ScreenAnnotation::enter_pass_through(bool restore_focus) {
     // Leaving the tool also commits text being edited.
     for_each_view([](AnnotationView *view) { view->activate_tool("cursor"); });
     set_mode(Mode::PassThrough);
-    // The board gives the desktop back, and returns with the next tool.
-    apply_board();
     if (!was_drawing) return;
     if (restore_focus) restore_foreground();
     previous_foreground_ = 0;
@@ -377,10 +376,48 @@ void ScreenAnnotation::toggle_board() {
 }
 
 void ScreenAnnotation::apply_board() {
-    const bool shown = board_ && mode_ == Mode::Drawing;
+    const bool shown = board_ && active();
     const std::optional<QColor> color = shown ? std::optional<QColor>(QColor(Qt::white)) : std::nullopt;
-    for_each_view([&color](AnnotationView *view) { view->set_board(color); });
+    bool added = false;
+    for_each_view([&](AnnotationView *view) {
+        added = added || (shown && !view->board());
+        view->set_board(color);
+    });
+    if (added) stack_boards();
     sync_effect_buttons();
+}
+
+void ScreenAnnotation::stack_boards() {
+    std::vector<HWND> boards;
+    for (auto *view : views_)
+        if (auto *board = view->board_window()) boards.push_back(reinterpret_cast<HWND>(board->winId()));
+    // The board covers other programs and the windows of this one that are not kept on top. Those kept
+    // on top, the pins, the layers and the toolbar among them, stay above it in their order.
+    std::vector<HWND> above;
+    const DWORD process = GetCurrentProcessId();
+    for (HWND hwnd = GetTopWindow(nullptr); hwnd; hwnd = GetWindow(hwnd, GW_HWNDNEXT)) {
+        DWORD owner = 0;
+        GetWindowThreadProcessId(hwnd, &owner);
+        if (owner != process || !IsWindowVisible(hwnd) || !(GetWindowLongW(hwnd, GWL_EXSTYLE) & WS_EX_TOPMOST)) continue;
+        if (std::find(boards.begin(), boards.end(), hwnd) == boards.end()) above.push_back(hwnd);
+    }
+    // From the top down, each window right below the one before it.
+    above.insert(above.end(), boards.begin(), boards.end());
+    HWND after = HWND_TOPMOST;
+    for (HWND hwnd : above) {
+        SetWindowPos(hwnd, after, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        after = hwnd;
+    }
+}
+
+void ScreenAnnotation::on_pin_created() {
+    // Drawing goes on over a pin made meanwhile, as over the pins already there: the layers come back
+    // above it and keep the keys.
+    if (mode_ != Mode::Drawing) return;
+    for (auto *view : views_)
+        if (view->isVisible()) SetWindowPos(reinterpret_cast<HWND>(view->winId()), HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    if (auto *view = active_view()) view->activateWindow();
+    raise_toolbar();
 }
 
 void ScreenAnnotation::sync_effect_buttons() {

@@ -6,10 +6,10 @@
 #include <memory>
 #include <optional>
 
-class QGraphicsRectItem;
 class QScreen;
 
 namespace jietuba {
+class AnnotationBoard;
 class PointerLight;
 class ScreenAnnotation;
 
@@ -26,9 +26,11 @@ public:
     void fit_screen();
     Toolbar *canvas_toolbar() const override;
     CanvasView *canvas_view() const override { return const_cast<AnnotationView *>(this); }
-    // A solid board over the screen, below the drawings; nullopt takes it away.
+    // A solid board over the screen: a window of its own, so the session can stack the pins between it
+    // and the drawings. nullopt takes it away.
     void set_board(const std::optional<QColor> &color);
     std::optional<QColor> board() const;
+    QWidget *board_window() const;
     // The pointer light of the cursor highlight: made on first use, removed when the highlight ends.
     PointerLight *pointer_light(bool create);
     void remove_pointer_light();
@@ -45,7 +47,7 @@ protected:
 private:
     QPointer<QScreen> screen_;
     std::unique_ptr<PointerLight> light_;
-    QGraphicsRectItem *board_item_ = nullptr;
+    std::unique_ptr<AnnotationBoard> board_;
     ScreenAnnotation *owner_;
 };
 }

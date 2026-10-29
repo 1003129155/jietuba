@@ -12,6 +12,8 @@
 #include "gif/gifrecorder.h"
 #include "gif/video_recorder.h"
 #include "clipboard/controllers/paste_keystroke.h"
+#include "pin/pin_manager.h"
+#include "pin/pin_window.h"
 #include "settings/tool_settings.h"
 #include "tools/controller.h"
 #include "ui/number_settings_panel.h"
@@ -109,6 +111,15 @@ int drawing_count(AnnotationView *view) {
 HWND hwnd_of(QWidget *widget) { return reinterpret_cast<HWND>(widget->winId()); }
 
 LONG ex_style(QWidget *widget) { return GetWindowLongW(hwnd_of(widget), GWL_EXSTYLE); }
+
+// A window's place from the top of the Z order; -1 when it is not there.
+int z_index(QWidget *widget) {
+    const HWND target = hwnd_of(widget);
+    int index = 0;
+    for (HWND hwnd = GetTopWindow(nullptr); hwnd; hwnd = GetWindow(hwnd, GW_HWNDNEXT), ++index)
+        if (hwnd == target) return index;
+    return -1;
+}
 
 // A real click: what Windows decides about activation is the point.
 void real_click(const QPoint &global) {
@@ -385,6 +396,7 @@ private:
             QCOMPARE(view->passthrough(), mode != Mode::Drawing);
             QCOMPARE(view->scene_obj()->hit_rect->isVisible(), mode == Mode::Drawing);
             QCOMPARE(view->tool_controller()->current_tool_id(), mode == Mode::Drawing ? *toolbar->current_tool : QString("cursor"));
+            QCOMPARE(view->board().has_value(), annotation.board_on());
             any_undo = any_undo || view->undo_stack()->canUndo();
             any_redo = any_redo || view->undo_stack()->canRedo();
         }
@@ -433,8 +445,9 @@ private slots:
         auto &annotation = start();
         annotation.select_tool("pen");
         draw_stroke(annotation.views().front());
+        annotation.toggle_board();
         QList<QPointer<QWidget>> windows;
-        for (auto *view : annotation.views()) windows.append(view);
+        for (auto *view : annotation.views()) windows << view << view->board_window();
         windows.append(annotation.toolbar());
         for (auto *window : annotation.toolbar()->floating_windows()) windows.append(window);
         annotation.stop();
@@ -740,47 +753,65 @@ private slots:
         config->set_app_setting("screen_annotation_highlight_size", "medium");
     }
 
-    // The whiteboard is white under the drawings and goes on and off with one click each. Pass-through
-    // shows the desktop and the next tool brings the board back; clearing the drawings leaves it.
+    // The whiteboard covers every screen with a white window under the drawings and goes on and off with
+    // one click each. Pass-through, hiding and clearing leave it, so the desktop does not show by
+    // accident; its button and the end of the session take it away.
     void boardTogglesWithOneClick() {
         get_tool_settings_manager()->update_settings("pen", {{"color", "#ff0000"}, {"stroke_width", 8}, {"opacity", 1.0}});
         auto &annotation = start();
         auto *view = annotation.views().front();
         auto *button = annotation.toolbar()->board_btn;
-        const auto pixel = [view](const QPoint &at) {
+        const auto layer_pixel = [view](const QPoint &at) {
             return view->viewport()->grab().toImage().convertToFormat(QImage::Format_ARGB32).pixelColor(at);
+        };
+        const auto check_boards = [&annotation] {
+            for (auto *layer : annotation.views()) {
+                auto *board = layer->board_window();
+                QVERIFY(board && board->isVisible());
+                QCOMPARE(layer->board(), std::optional<QColor>(QColor(Qt::white)));
+                QCOMPARE(board->geometry(), layer->target_screen()->geometry());
+                QCOMPARE(board->grab().toImage().pixelColor(QPoint(500, 400)), QColor(Qt::white));
+            }
         };
         QCOMPARE(annotation.mode(), Mode::PassThrough);
         button->click();
-        // A board needs a tool: the layers take the mouse.
+        // Turned on without a tool, it starts the pen.
         QCOMPARE(annotation.mode(), Mode::Drawing);
         QVERIFY(annotation.board_on());
         QVERIFY(button->isChecked());
-        QCOMPARE(pixel(QPoint(500, 400)), QColor(Qt::white));
+        check_boards();
+        // The drawings are on the layer above it, which stays see-through.
         draw_stroke(view, QPoint(100, 100), QPoint(300, 100));
-        const QColor stroke = pixel(QPoint(200, 100));
+        const QColor stroke = layer_pixel(QPoint(200, 100));
         QVERIFY2(stroke.red() > 200 && stroke.green() < 60, qPrintable(stroke.name()));
+        QVERIFY(layer_pixel(QPoint(500, 400)).alpha() <= 1);
         annotation.clear_drawings();
-        QCOMPARE(pixel(QPoint(500, 400)), QColor(Qt::white));
-        // Esc: the desktop again; the board waits for the next tool.
+        check_boards();
         annotation.select_tool("cursor");
-        QVERIFY(!view->board().has_value());
-        QVERIFY(button->isChecked());
-        QVERIFY2(pixel(QPoint(500, 400)).alpha() <= 1, "the layer must be see-through in pass-through");
+        QCOMPARE(annotation.mode(), Mode::PassThrough);
+        check_boards();
+        annotation.set_drawings_visible(false);
+        QCOMPARE(annotation.mode(), Mode::Hidden);
+        check_boards();
+        annotation.set_drawings_visible(true);
+        // One click takes it away, and drawing goes on.
         annotation.select_tool("pen");
-        QCOMPARE(pixel(QPoint(500, 400)), QColor(Qt::white));
-        // One click takes it away, and the layer is see-through again while drawing goes on.
+        QPointer<QWidget> board = view->board_window();
         button->click();
         QVERIFY(!annotation.board_on());
         QVERIFY(!button->isChecked());
         QVERIFY(!view->board().has_value());
+        QVERIFY(board.isNull());
         QCOMPARE(annotation.mode(), Mode::Drawing);
-        QVERIFY(pixel(QPoint(500, 400)).alpha() <= 1);
-        // Ending the session starts the next one without a board.
+        // Ending the session takes it away too; the next one starts without it.
         button->click();
+        board = view->board_window();
+        QVERIFY(board);
         annotation.stop();
+        QVERIFY(board.isNull());
         annotation.start();
         QVERIFY(!annotation.board_on());
+        for (auto *layer : annotation.views()) QVERIFY(!layer->board_window());
         annotation.stop();
         get_tool_settings_manager()->reset_tool("pen");
     }
@@ -1080,7 +1111,7 @@ private slots:
         const QStringList tools = {"pen", "highlighter", "arrow", "number", "rect", "ellipse", "eraser", "text", "cursor", "mosaic"};
         const QStringList drawable = {"pen", "highlighter", "arrow", "number", "rect", "ellipse", "eraser"};
         for (int step = 0; step < 100; ++step) {
-            switch (rng.bounded(10)) {
+            switch (rng.bounded(11)) {
             case 0:
             case 1:
             case 2: annotation.select_tool(tools[rng.bounded(static_cast<int>(tools.size()))]); break;
@@ -1096,6 +1127,7 @@ private slots:
             case 6: rng.bounded(2) ? annotation.undo() : annotation.redo(); break;
             case 7: annotation.clear_drawings(); break;
             case 8: annotation.prepare_for_capture(); break;
+            case 9: annotation.toggle_board(); break;
             default:
                 if (rng.bounded(3) == 0) {
                     annotation.stop();
@@ -1311,6 +1343,59 @@ private slots:
         QTRY_COMPARE(WindowFromPoint(point), hwnd_of(&below));
         // The toolbar never activates.
         QVERIFY(ex_style(annotation.toolbar()) & WS_EX_NOACTIVATE);
+    }
+
+    // The board covers this program's windows that are not kept on top and lies below the pins: they
+    // show on it and take the mouse in pass-through, a tool draws over them, and a pin made while
+    // drawing goes below the layers, which keep the keys.
+    void pinsStayOnTheBoardUnderTheDrawings() {
+        if (offscreen()) QSKIP("needs real windows");
+        const QRect area = QGuiApplication::primaryScreen()->geometry();
+        QWidget plain;
+        plain.setGeometry(QRect(area.topLeft() + QPoint(80, 80), QSize(240, 160)));
+        plain.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&plain));
+        QImage image(240, 160, QImage::Format_RGB32);
+        image.fill(QColor(30, 90, 200));
+        auto *pins = PinManager::instance();
+        const QPoint pin_at = area.center() - QPoint(300, 80);
+        QPointer<PinWindow> first = pins->create_pin(image, pin_at, get_tool_settings_manager());
+        QVERIFY(QTest::qWaitForWindowExposed(first));
+        auto &annotation = start();
+        annotation.toolbar()->board_btn->click();
+        QCOMPARE(annotation.mode(), Mode::Drawing);
+        auto *view = view_on(annotation, QGuiApplication::primaryScreen());
+        QVERIFY(view);
+        auto *board = view->board_window();
+        QVERIFY(board);
+        QVERIFY(ex_style(board) & WS_EX_NOACTIVATE);
+        QVERIFY(z_index(annotation.toolbar()) < z_index(view));
+        QVERIFY(z_index(view) < z_index(first));
+        QVERIFY(z_index(first) < z_index(board));
+        QVERIFY(z_index(board) < z_index(&plain));
+        // The hit layer darkens the pin by up to one level.
+        const QPoint on_pin = first->geometry().center(), on_plain = plain.geometry().center();
+        QTest::qWait(300);
+        const auto [shot, shot_rect] = CaptureService().capture_all_screens();
+        const QColor pin_pixel = pixel_at(shot, shot_rect, on_pin);
+        QVERIFY2(std::abs(pin_pixel.red() - 30) <= 1 && std::abs(pin_pixel.green() - 90) <= 1 && std::abs(pin_pixel.blue() - 200) <= 1, qPrintable(pin_pixel.name()));
+        const QColor plain_pixel = pixel_at(shot, shot_rect, on_plain);
+        QVERIFY2(near_grey(plain_pixel, 255, 1), qPrintable(plain_pixel.name()));
+        const auto root_at = [](const QPoint &at) { return GetAncestor(WindowFromPoint(POINT{at.x(), at.y()}), GA_ROOT); };
+        annotation.select_tool("cursor");
+        QTRY_COMPARE(root_at(on_pin), hwnd_of(first));
+        QCOMPARE(root_at(on_plain), hwnd_of(board));
+        // A click on the board does not bring it above the pin.
+        real_click(on_plain);
+        QTest::qWait(200);
+        QVERIFY(z_index(first) < z_index(board));
+        annotation.select_tool("pen");
+        QPointer<PinWindow> second = pins->create_pin(image, pin_at + QPoint(300, 0), get_tool_settings_manager());
+        QVERIFY(z_index(view) < z_index(second));
+        QVERIFY(z_index(second) < z_index(board));
+        QTRY_VERIFY(annotation.owns_window(QWidget::find(reinterpret_cast<WId>(GetForegroundWindow()))));
+        pins->close_all();
+        annotation.stop();
     }
 
     void drawingGivesFocusBackToPreviousWindow() {
