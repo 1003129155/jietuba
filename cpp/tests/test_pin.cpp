@@ -31,6 +31,7 @@
 #include "pin/pin_toolbar.h"
 #include "pin/pin_window.h"
 #include "core/clipboard_utils.h"
+#include "core/word_boundaries.h"
 #include "settings/tool_settings.h"
 #include "canvas/undo.h"
 #include "ui/toolbar_layout.h"
@@ -368,7 +369,22 @@ private:
     bool desktop() const { return QGuiApplication::platformName() == "windows"; }
 
     // The offscreen platform has no font directory; the font file is loaded once per process,
-    // so a repeated run (check.ps1 -Mode Leak) does not add it again.
+    // so a repeated run (check.ps1 -Mode Leak) does not add it again. Empty when the system has none.
+    static QString yahei_family() {
+        static const int id = QFontDatabase::addApplicationFont(QDir(qEnvironmentVariable("WINDIR")).filePath("Fonts/msyh.ttc"));
+        return id < 0 ? QString() : QFontDatabase::applicationFontFamilies(id).value(0);
+    }
+
+    // Where a line's character is shown, for clicking it.
+    static QPoint char_point(PinWindow *pin, const OcrLayoutLine &line, int index) {
+        return pin->view->mapFromScene(QPointF(line.bounds.left() + line.centers[index], line.bounds.center().y()));
+    }
+
+    // The order Windows delivers: a double click, then a press soon after at the same place.
+    static void triple_click(PinWindow *pin, const QPoint &local) {
+        double_click(pin, local, Qt::LeftButton);
+        click(pin, local, Qt::LeftButton);
+    }
     static QString arial_family() {
         static const int id = QFontDatabase::addApplicationFont(QDir(qEnvironmentVariable("WINDIR")).filePath("Fonts/arial.ttf"));
         return id < 0 ? QString() : QFontDatabase::applicationFontFamilies(id).value(0);
@@ -2155,6 +2171,67 @@ private slots:
         QCOMPARE(turned.selected_text(), QString("one two\nthree"));
     }
 
+    void wordsSplitAsTextEditorsPickThem() {
+        const auto words = [](const QString &text) {
+            const auto bounds = word_boundaries(text);
+            QStringList pieces;
+            for (int i = 0; i + 1 < bounds.size(); ++i) pieces.append(text.mid(bounds[i], bounds[i + 1] - bounds[i]));
+            return pieces;
+        };
+        // With the system's ICU, Chinese by its words, not character by character.
+        QCOMPARE(words(QString::fromUtf8("今天天气很好，我们去公园散步。")),
+                 QString::fromUtf8("今天|天气|很好|，|我们|去|公园|散步|。").split('|'));
+        QCOMPARE(words("Hello world, it's fine"), QStringList({"Hello", " ", "world", ",", " ", "it's", " ", "fine"}));
+        QCOMPARE(words(QString::fromUtf8("用Qt的QTextEdit测试abc中文")), QString::fromUtf8("用|Qt|的|QTextEdit|测试|abc|中文").split('|'));
+        QCOMPARE(word_boundaries(QString()), QList<int>({0}));
+    }
+
+    void withoutTheSystemsIcuWordsSplitAtSpacesAndPunctuation() {
+        const auto words = [](const QString &text) {
+            const auto bounds = punctuation_word_boundaries(text);
+            QStringList pieces;
+            for (int i = 0; i + 1 < bounds.size(); ++i) pieces.append(text.mid(bounds[i], bounds[i + 1] - bounds[i]));
+            return pieces;
+        };
+        // Chinese runs up to its punctuation; English as with ICU.
+        QCOMPARE(words(QString::fromUtf8("今天天气很好，我们去公园散步。")), QString::fromUtf8("今天天气很好|，|我们去公园散步|。").split('|'));
+        QCOMPARE(words("Hello world, it's fine-tuned 3.14"), QStringList({"Hello", " ", "world", ",", " ", "it's", " ", "fine", "-", "tuned", " ", "3.14"}));
+        // Mixed scripts are not cut where they change.
+        QCOMPARE(words(QString::fromUtf8("用Qt写的QTextEdit测试，abc中文")), QString::fromUtf8("用Qt写的QTextEdit测试|，|abc中文").split('|'));
+        // Full-width punctuation parts them as half-width does.
+        QCOMPARE(words(QString::fromUtf8("《书名》（注释）【标签】…“引号”！")), QString::fromUtf8("《|书名|》|（|注释|）|【|标签|】|…|“|引号|”|！").split('|'));
+        QCOMPARE(punctuation_word_boundaries(QString()), QList<int>({0}));
+    }
+
+    void aDoubleClickSelectsAWordAndATripleClickItsLine() {
+        auto *pin = make_pin(QSize(400, 140));
+        const QString chinese = QString::fromUtf8("今天天气很好，我们去公园散步。"), mixed = QString::fromUtf8("用Qt的QTextEdit测试abc中文");
+        auto *selection = give_text(pin, {{box(10, 10, 300, 20), chinese, 0.9}, {box(10, 50, 300, 20), "Hello world, it's fine", 0.9}, {box(10, 90, 300, 20), mixed, 0.9}});
+        const auto &lines = selection->layout().lines();
+        const auto double_click_on = [&](int line, int index) {
+            double_click(pin, char_point(pin, lines[line], index), Qt::LeftButton);
+            return selection->selected_text();
+        };
+        QCOMPARE(double_click_on(0, chinese.indexOf(QString::fromUtf8("园"))), QString::fromUtf8("公园"));
+        QVERIFY(selection->copy_selected_text());
+        QCOMPARE(clipboard_text(), QString::fromUtf8("公园"));
+        QCOMPARE(double_click_on(0, 0), QString::fromUtf8("今天"));
+        QCOMPARE(double_click_on(1, 7), QString("world"));
+        QCOMPARE(double_click_on(1, 13), QString("it's"));
+        QCOMPARE(double_click_on(2, mixed.indexOf("Edit")), QString("QTextEdit"));
+        QCOMPARE(double_click_on(2, mixed.indexOf(QString::fromUtf8("试"))), QString::fromUtf8("测试"));
+        // Recognized text has no paragraphs: a third click takes the line.
+        triple_click(pin, char_point(pin, lines[2], 1));
+        QCOMPARE(selection->selected_text(), mixed);
+        QVERIFY(selection->copy_selected_text());
+        QCOMPARE(clipboard_text(), mixed);
+        // Only a press soon after the double click is a third one.
+        double_click(pin, char_point(pin, lines[1], 1), Qt::LeftButton);
+        QTest::qWait(QApplication::doubleClickInterval() + 50);
+        click(pin, char_point(pin, lines[1], 1), Qt::LeftButton);
+        QVERIFY(!selection->has_selection());
+    }
+
     // ---- Recognized text on a pin ----
 
     void aLoadedResultReplacesTheText() {
@@ -2454,9 +2531,9 @@ private slots:
         const QSize two = PinTextContent("short\nshort", {}, true).size();
         QCOMPARE(two.width(), one.width());
         QVERIFY(two.height() > one.height());
-        // A longer line wraps at 800 pixels of text, plus 8 on each side.
+        // A longer line wraps at 800 pixels of text, plus 6 on each side.
         const QSize wrapped = PinTextContent(QString("word ").repeated(400), {}, true).size();
-        QCOMPARE(wrapped.width(), 816);
+        QCOMPARE(wrapped.width(), 812);
         QVERIFY(wrapped.height() > 2 * one.height());
         // The pin is its page, shrunk to the screen as an image would be.
         auto *pin = make_text_pin("short");
@@ -2532,7 +2609,7 @@ private slots:
         const QFontMetricsF metrics(pin->text_content()->document()->defaultFont());
         const QString text = "hello world";
         for (int index = 0; index < text.size(); ++index) {
-            const double expected = 8 + 4 + metrics.horizontalAdvance(text.left(index));
+            const double expected = 6 + 4 + metrics.horizontalAdvance(text.left(index));
             QVERIFY2(std::abs(line.bounds.left() + line.starts[index] - expected) < 0.5, qPrintable(QString::number(index)));
         }
         // Dragging over "world" copies it.
@@ -2542,6 +2619,74 @@ private slots:
         QCOMPARE(pin->text_selection()->selected_text(), QString("world"));
         pin->copy_to_clipboard();
         QCOMPARE(clipboard_text(), QString("world"));
+    }
+
+    void aTextPinDragsFromEverythingButItsText() {
+        arial_family();
+        auto *pin = make_text_pin("one   line");
+        auto *viewport = pin->view->viewport();
+        const auto &line = pin->text_selection()->layout().lines()[0];
+        const auto at = [pin, &line](double along, double across) {
+            return pin->view->mapFromScene(QPointF(line.bounds.left() + along, line.bounds.top() + across));
+        };
+        const double y = line.bounds.height() / 2;
+        // The text sits 10 pixels in, as wide as its characters.
+        QCOMPARE(line.bounds.topLeft(), QPointF(10, 10));
+        // Right outside its box the pin drags, so a one-line pin keeps a frame to drag by.
+        for (const QPoint blank : {at(-2, y), at(line.ends.back() + 2, y), at(line.ends[1], -2), at(line.ends[1], line.bounds.height() + 2)}) {
+            send_mouse(pin, QEvent::MouseMove, blank, Qt::NoButton, Qt::NoButton);
+            QVERIFY2(viewport->cursor().shape() != Qt::IBeamCursor, qPrintable(QString("%1,%2").arg(blank.x()).arg(blank.y())));
+            const QPoint before = pin->pos();
+            drag(pin, blank, blank + QPoint(30, 20));
+            QCOMPARE(pin->pos(), before + QPoint(30, 20));
+            QVERIFY(!pin->text_selection()->has_selection());
+        }
+        // So does the middle of a run of spaces; a space next to a character is still text.
+        const double gap = (line.starts[4] + line.ends[4]) / 2;
+        const QPoint before = pin->pos();
+        drag(pin, at(gap, y), at(gap, y) + QPoint(30, 20));
+        QCOMPARE(pin->pos(), before + QPoint(30, 20));
+        send_mouse(pin, QEvent::MouseMove, at((line.starts[3] + line.ends[3]) / 2, y), Qt::NoButton, Qt::NoButton);
+        QCOMPARE(viewport->cursor().shape(), Qt::IBeamCursor);
+        // Inside the box the edge characters still select.
+        drag(pin, at(1, y), at(line.ends[2], y));
+        QCOMPARE(pin->text_selection()->selected_text(), QString("one"));
+        QCOMPARE(pin->pos(), before + QPoint(30, 20));
+    }
+
+    void aTextPinSelectsAWordOrAParagraph() {
+        arial_family();
+        const QString paragraph = QString("Hello world, ") + QString("word ").repeated(300).trimmed();
+        auto *pin = make_text_pin(paragraph + "\nsecond paragraph here");
+        auto *selection = pin->text_selection();
+        const auto &lines = selection->layout().lines();
+        QVERIFY(lines.size() > 3);
+        double_click(pin, char_point(pin, lines[0], 8), Qt::LeftButton);
+        QCOMPARE(selection->selected_text(), QString("world"));
+        pin->copy_to_clipboard();
+        QCOMPARE(clipboard_text(), QString("world"));
+        // A third click takes the paragraph across the lines it wraps into, and no more.
+        triple_click(pin, char_point(pin, lines[1], 2));
+        QCOMPARE(selection->selected_text(), paragraph);
+        pin->copy_to_clipboard();
+        QCOMPARE(clipboard_text(), paragraph);
+        const auto &last = lines.back();
+        triple_click(pin, char_point(pin, last, 3));
+        QCOMPARE(selection->selected_text(), QString("second paragraph here"));
+        // Chinese, and Chinese mixed with Latin, by their words.
+        if (yahei_family().isEmpty()) QSKIP("No Chinese font on this system");
+        const QString chinese = QString::fromUtf8("今天天气很好，我们去公园散步。用Qt的QTextEdit测试abc中文");
+        auto *cjk = make_text_pin(chinese + QString::fromUtf8("\n第二段"));
+        auto *cjk_selection = cjk->text_selection();
+        const auto &cjk_line = cjk_selection->layout().lines()[0];
+        double_click(cjk, char_point(cjk, cjk_line, chinese.indexOf(QString::fromUtf8("公"))), Qt::LeftButton);
+        QCOMPARE(cjk_selection->selected_text(), QString::fromUtf8("公园"));
+        double_click(cjk, char_point(cjk, cjk_line, chinese.indexOf("QText")), Qt::LeftButton);
+        QCOMPARE(cjk_selection->selected_text(), QString("QTextEdit"));
+        cjk->copy_to_clipboard();
+        QCOMPARE(clipboard_text(), QString("QTextEdit"));
+        triple_click(cjk, char_point(cjk, cjk_line, 2));
+        QCOMPARE(cjk_selection->selected_text(), chinese);
     }
 
     void aWrappedParagraphCopiesAsTheTextRuns() {
@@ -2625,7 +2770,7 @@ private slots:
         // Lines that refused to wrap where they came from wrap at the width limit.
         const QString code = QString("word ").repeated(400);
         const QSize pre = PinTextContent(code, "<pre>" + code + "</pre>", true).size();
-        QCOMPARE(pre.width(), 816);
+        QCOMPARE(pre.width(), 812);
         QVERIFY(pre.height() > 3 * PinTextContent("word", {}, true).size().height());
         // A heading takes more room than the same text plain.
         const QSize plain = PinTextContent("Title", {}, true).size();
@@ -2811,9 +2956,9 @@ private slots:
         QVERIFY(selection->is_active());
     }
 
-    void doubleClickSelectsALineUnlessBoundToAnAction() {
+    void doubleClickSelectsAWordUnlessBoundToAnAction() {
         auto *pin = make_pin();
-        auto *selection = give_text(pin, {{box(10, 10, 100, 20), "hello", 0.9}, {box(10, 50, 100, 20), "other", 0.9}});
+        auto *selection = give_text(pin, {{box(10, 10, 100, 20), "hello you", 0.9}, {box(10, 50, 100, 20), "other", 0.9}});
         QApplication::clipboard()->setText("before");
         double_click(pin, QPoint(40, 20), Qt::LeftButton);
         QCOMPARE(selection->selected_text(), QString("hello"));

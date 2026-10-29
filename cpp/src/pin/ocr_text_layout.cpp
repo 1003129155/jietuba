@@ -1,7 +1,9 @@
 #include "pin/ocr_text_layout.h"
+#include "core/word_boundaries.h"
 #include <QStringList>
 #include <algorithm>
 #include <cmath>
+#include <iterator>
 #include <limits>
 #include <tuple>
 
@@ -106,6 +108,16 @@ std::optional<int> OcrTextLayout::line_at(const QPointF &point, double slack) co
     return nearest_line(point, slack, true);
 }
 
+std::optional<int> OcrTextLayout::text_line_at(const QPointF &point) const {
+    const auto line = line_at(point);
+    if (!line) return std::nullopt;
+    const auto &chars = lines_[*line].chars;
+    const int index = char_at(*line, point);
+    for (int at = index - 1; at <= index + 1; ++at)
+        if (at >= 0 && at < chars.size() && !QChar::isSpace(static_cast<char32_t>(chars[at]))) return line;
+    return std::nullopt;
+}
+
 void OcrTextLayout::select_between(const QPointF &from, const QPointF &to, double slack) {
     constexpr double infinity = std::numeric_limits<double>::infinity();
     selected_.assign(lines_.size(), {0, 0});
@@ -159,6 +171,49 @@ void OcrTextLayout::select_between(const QPointF &from, const QPointF &to, doubl
 void OcrTextLayout::select_line(int index) {
     clear_selection();
     if (index >= 0 && index < static_cast<int>(lines_.size())) selected_[index] = {0, lines_[index].length()};
+}
+
+int OcrTextLayout::char_at(int line, const QPointF &point) const {
+    if (line < 0 || line >= static_cast<int>(lines_.size()) || lines_[line].chars.isEmpty()) return -1;
+    const auto &source = lines_[line];
+    const double along = source.to_line.map(point).x();
+    int best = 0;
+    double best_distance = std::numeric_limits<double>::infinity();
+    for (int index = 0; index < source.length(); ++index) {
+        const double distance = std::max({0.0, source.starts[index] - along, along - source.ends[index]});
+        if (distance < best_distance) {
+            best = index;
+            best_distance = distance;
+        }
+    }
+    return best;
+}
+
+void OcrTextLayout::select_word(int line, int index) {
+    clear_selection();
+    if (line < 0 || line >= static_cast<int>(lines_.size()) || index < 0 || index >= lines_[line].length()) return;
+    // Code points to UTF-16 positions and back.
+    const auto &text = lines_[line].text;
+    std::vector<int> offsets;
+    for (int position = 0; position < text.size(); position += text.at(position).isHighSurrogate() && position + 1 < text.size() ? 2 : 1)
+        offsets.push_back(position);
+    const auto boundaries = word_boundaries(text);
+    const int at = offsets[index];
+    const auto end = std::upper_bound(boundaries.begin(), boundaries.end(), at);
+    if (end == boundaries.begin() || end == boundaries.end()) return;
+    const auto to_index = [&offsets](int position) { return static_cast<int>(std::lower_bound(offsets.begin(), offsets.end(), position) - offsets.begin()); };
+    selected_[line] = {to_index(*std::prev(end)), to_index(*end)};
+}
+
+void OcrTextLayout::select_paragraph(int line) {
+    clear_selection();
+    if (line < 0 || line >= static_cast<int>(lines_.size())) return;
+    int first = line, last = line;
+    if (!breaks_.empty()) {
+        while (first > 0 && breaks_[first - 1].isEmpty()) --first;
+        while (last + 1 < static_cast<int>(lines_.size()) && breaks_[last].isEmpty()) ++last;
+    }
+    for (int index = first; index <= last; ++index) selected_[index] = {0, lines_[index].length()};
 }
 
 void OcrTextLayout::select_all() {

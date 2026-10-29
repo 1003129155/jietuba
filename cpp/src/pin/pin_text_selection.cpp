@@ -11,7 +11,8 @@
 
 namespace jietuba {
 namespace {
-// Screen pixels around text that still count as on it, so edge characters are easy to hit.
+// Screen pixels across a line that a drag end still counts as on it, so a wobbling drag along a
+// line keeps its run. A press counts only on the text itself, so the blank around it drags the pin.
 constexpr double HIT_SLACK = 5;
 const QColor SELECTION_COLOR(100, 150, 255, 100);
 
@@ -46,9 +47,20 @@ bool PinTextSelection::mouse_press(QMouseEvent *event) {
     if (!active_ || layout_.empty() || event->button() != Qt::LeftButton) return false;
     swallow_release_ = false;
     const auto pos = image_pos(event);
-    if (!layout_.line_at(pos, slack())) {
+    const auto line = layout_.text_line_at(pos);
+    if (!line) {
         clear_selection();
         return false;
+    }
+    const bool third_click = double_clicked_.isValid() && double_clicked_.elapsed() < QApplication::doubleClickInterval() &&
+                             (event->position() - double_click_pos_).manhattanLength() < QApplication::startDragDistance();
+    double_clicked_.invalidate();
+    if (third_click) {
+        selecting_ = false;
+        swallow_release_ = true;
+        change_selection([&] { layout_.select_paragraph(*line); });
+        event->accept();
+        return true;
     }
     anchor_ = pos;
     selecting_ = true;
@@ -72,7 +84,7 @@ bool PinTextSelection::mouse_move(QMouseEvent *event) {
         return true;
     }
     if (event->buttons() != Qt::NoButton) return false;
-    const bool on_text = layout_.line_at(pos, slack()).has_value();
+    const bool on_text = layout_.text_line_at(pos).has_value();
     show_beam(on_text);
     // Over text the view's own hover would replace the I-beam.
     return on_text;
@@ -94,11 +106,14 @@ bool PinTextSelection::mouse_release(QMouseEvent *event) {
 
 bool PinTextSelection::mouse_double_click(QMouseEvent *event) {
     if (!active_ || layout_.empty() || event->button() != Qt::LeftButton) return false;
-    const auto line = layout_.line_at(image_pos(event), slack());
+    const auto line = layout_.text_line_at(image_pos(event));
     if (!line) return false;
     selecting_ = false;
     swallow_release_ = true;
-    change_selection([&] { layout_.select_line(*line); });
+    const int index = layout_.char_at(*line, image_pos(event));
+    change_selection([&] { layout_.select_word(*line, index); });
+    double_clicked_.start();
+    double_click_pos_ = event->position();
     event->accept();
     return true;
 }
