@@ -7,6 +7,7 @@
 #include "pin/pin_canvas_view.h"
 #include "pin/pin_file_card.h"
 #include "pin/pin_file_selection.h"
+#include "core/i18n.h"
 #include "pin/pin_manager.h"
 #include "pin/pin_ocr_manager.h"
 #include "pin/pin_text_selection.h"
@@ -19,6 +20,7 @@
 #include <QClipboard>
 #include <QDesktopServices>
 #include <QDialog>
+#include <QDialogButtonBox>
 #include <QDir>
 #include <QDrag>
 #include <QElapsedTimer>
@@ -242,6 +244,11 @@ private:
     QString three_frames(std::optional<int> loops = 0) { return write("three.gif", make_gif(QSize(6, 4), {0, 1, 2}, {5, 12, 7}, loops)); }
 
     QStringList opened_;
+    // Answers the question about small pins, which most pictures here are; accepting pins them as
+    // before.
+    QTimer small_pin_answerer_;
+    bool small_pin_answer_ = true;
+    int small_pin_asked_ = 0;
 
 public slots:
     // Stands in for the shell while a test opens files.
@@ -254,9 +261,22 @@ private slots:
         if (!settings_) settings_ = new QSettings(dir_.filePath("settings.ini"), QSettings::IniFormat, this);
         config_ = get_tool_settings_manager(settings_);
         QCOMPARE(&config_->settings(), settings_);
+        connect(&small_pin_answerer_, &QTimer::timeout, this, [this] {
+            auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            if (!dialog || dialog->windowTitle() != i18n_tr("Pin Too Small", "PinWindow")) return;
+            ++small_pin_asked_;
+            if (!small_pin_answer_) return dialog->reject();
+            // Closing is a no; only the yes button answers yes.
+            auto *box = dialog->findChild<QDialogButtonBox *>();
+            for (auto *button : box->buttons())
+                if (box->buttonRole(button) == QDialogButtonBox::YesRole) button->click();
+        });
+        small_pin_answerer_.start(5);
     }
 
     void init() {
+        small_pin_answer_ = true;
+        small_pin_asked_ = 0;
         settings_->clear();
         config_->set_ocr_enabled(false);
         // History would stand in for an empty clipboard.
@@ -661,6 +681,43 @@ private slots:
         // Nothing left to pin: no card, and no older picture instead.
         copy_files({notes});
         QVERIFY(!clipboard::pin_latest_clipboard_image());
+        QCOMPARE(pins().size(), 1);
+    }
+
+    void smallPicturesAskOnceForTheWholeBatch() {
+        const auto big = picture("big.png", QSize(40, 30), Qt::red);
+        QStringList files;
+        for (int i = 0; i < 3; ++i) files.append(picture(QString("small%1.png").arg(i), QSize(40, 29), Qt::blue));
+        files.insert(1, big);
+        small_pin_answer_ = false;
+        // Declined, the one picture large enough still pins.
+        copy_files(files);
+        QVERIFY(clipboard::pin_latest_clipboard_image(QPoint(400, 300)));
+        QTRY_COMPARE(pins().size(), 1);
+        QTest::qWait(200);
+        QCOMPARE(pins().size(), 1);
+        QCOMPARE(pins()[0]->orig_size(), QSize(40, 30));
+        QCOMPARE(small_pin_asked_, 1);
+        // Accepted, every one does.
+        small_pin_asked_ = 0;
+        small_pin_answer_ = true;
+        QVERIFY(clipboard::pin_latest_clipboard_image(QPoint(400, 300)));
+        QTRY_COMPARE(pins().size(), 5);
+        QCOMPARE(small_pin_asked_, 1);
+    }
+
+    void aSmallCopiedImageAsksBeforePinning() {
+        QImage image(29, 60, QImage::Format_RGB32);
+        image.fill(Qt::green);
+        small_pin_answer_ = false;
+        // Declining is an answer, not a failure to pin.
+        QVERIFY(clipboard::create_pin_from_image(image));
+        QCOMPARE(small_pin_asked_, 1);
+        QVERIFY(pins().isEmpty());
+        // A side of 30 is large enough.
+        QVERIFY(clipboard::create_pin_from_image(image.copy(0, 0, 24, 30).scaled(30, 30)));
+        QCOMPARE(pins()[0]->orig_size(), QSize(30, 30));
+        QCOMPARE(small_pin_asked_, 1);
         QCOMPARE(pins().size(), 1);
     }
 
@@ -1258,6 +1315,7 @@ private slots:
             {"ClipboardWindow", "Pin to Screen"}, {"ClipboardWindow", "Pin to Top"}, {"ClipboardWindow", "Unpin from Top"},
             {"SettingsDialog", "Drag Out Content"}, {"PinWindow", "Copy selected files"}, {"PinWindow", "Copy selected file paths"},
             {"PinWindow", "Open Many Files"}, {"PinWindow", "Open %1 files at once?"},
+            {"PinWindow", "Pin Too Small"}, {"PinWindow", "This pin is only %1 × %2 pixels. Pin it anyway?"},
         };
         for (const char *language : {"zh", "zh_TW", "en", "ja", "ko"}) {
             QTranslator translator;

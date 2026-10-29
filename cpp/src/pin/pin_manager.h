@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QPoint>
 #include <QPointer>
+#include <QSize>
 #include <memory>
 #include <optional>
 #include <utility>
@@ -24,6 +25,10 @@ class PinManager : public QObject {
 public:
     static PinManager *instance();
     static PinManager *get_instance() { return instance(); }
+    // Sizes are device-independent pixels. A small pin has a side under MIN_SIDE; whether one is
+    // wanted is asked first.
+    static bool is_small_pin(const QSize &size);
+    static bool confirm_small_pin(const QSize &size, QWidget *parent);
     // image is the clean selection background; drawing_items are the capture's vector
     // annotations, moved by selection_offset; number_next syncs the number counter.
     PinWindow *create_pin(const QImage &image, const QPoint &position, ToolSettingsManager *config_manager, const QList<QGraphicsItem *> &drawing_items = {},

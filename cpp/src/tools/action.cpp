@@ -123,6 +123,8 @@ void ActionTools::save_image_interactively(QWidget *parent, const QImage &image,
 void ActionTools::handle_pin(bool close_after) {
     temporarily_exit_editing();
     const auto selection_rect = scene->selection_model->rect();
+    // Declined, the capture stays open as it was.
+    if (!PinManager::confirm_small_pin(selection_rect.size().toSize(), parent_window)) return;
     remember_last_region(selection_rect);
     // The base image only, without annotations.
     const auto base_image = export_service.export_base_image_only(selection_rect);

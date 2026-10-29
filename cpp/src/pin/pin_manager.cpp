@@ -1,10 +1,12 @@
 #include "pin/pin_manager.h"
+#include "core/i18n.h"
 #include "core/logger.h"
 #include "core/platform_utils.h"
 #include "pin/pin_animation.h"
 #include "pin/pin_file_card.h"
 #include "pin/pin_text_content.h"
 #include "pin/pin_window.h"
+#include "ui/dialogs.h"
 #include <QApplication>
 #include <QDir>
 #include <QScreen>
@@ -24,6 +26,14 @@ PinManager::PinManager() { log_info(T("钉图管理器已初始化"), "PinManage
 PinManager *PinManager::instance() {
     if (!manager_instance) manager_instance = new PinManager;
     return manager_instance;
+}
+
+bool PinManager::is_small_pin(const QSize &size) { return size.width() < MIN_SIDE || size.height() < MIN_SIDE; }
+
+bool PinManager::confirm_small_pin(const QSize &size, QWidget *parent) {
+    if (!is_small_pin(size)) return true;
+    return show_confirm_dialog(parent, i18n_tr("Pin Too Small", "PinWindow"),
+                               i18n_tr("This pin is only %1 × %2 pixels. Pin it anyway?", "PinWindow").arg(size.width()).arg(size.height()));
 }
 
 PinWindow *PinManager::create_pin(const QImage &image, const QPoint &position, ToolSettingsManager *config_manager, const QList<QGraphicsItem *> &drawing_items,

@@ -2182,6 +2182,14 @@ Replace it?</source>
         <source>Pin %1 images at once? So many windows may slow the computer down.</source>
         <translation>이미지 %1개를 한 번에 고정할까요? 창이 많으면 컴퓨터가 느려질 수 있습니다.</translation>
     </message>
+    <message>
+        <source>Pin Too Small</source>
+        <translation>고정할 이미지가 너무 작음</translation>
+    </message>
+    <message>
+        <source>This pin is only %1 × %2 pixels. Pin it anyway?</source>
+        <translation>이 이미지는 %1 × %2 픽셀밖에 되지 않습니다. 그래도 고정할까요?</translation>
+    </message>
 </context>
 
 <!-- ========== Pin Click-Through Bar ========== -->

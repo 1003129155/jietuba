@@ -2168,6 +2168,14 @@ Replace it?</source>
         <source>Pin %1 images at once? So many windows may slow the computer down.</source>
         <translation>一次钉 %1 张图片吗？窗口太多可能让电脑变卡。</translation>
     </message>
+    <message>
+        <source>Pin Too Small</source>
+        <translation>钉图太小</translation>
+    </message>
+    <message>
+        <source>This pin is only %1 × %2 pixels. Pin it anyway?</source>
+        <translation>这个钉图只有 %1 × %2 像素，仍要钉到屏幕上吗？</translation>
+    </message>
 </context>
 
 <!-- ========== Pin Click-Through Bar ========== -->

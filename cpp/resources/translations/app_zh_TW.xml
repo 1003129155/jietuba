@@ -2170,6 +2170,14 @@ Replace it?</source>
         <source>Pin %1 images at once? So many windows may slow the computer down.</source>
         <translation>一次釘 %1 張圖片嗎？視窗太多可能讓電腦變慢。</translation>
     </message>
+    <message>
+        <source>Pin Too Small</source>
+        <translation>釘圖太小</translation>
+    </message>
+    <message>
+        <source>This pin is only %1 × %2 pixels. Pin it anyway?</source>
+        <translation>這個釘圖只有 %1 × %2 像素，仍要釘到螢幕上嗎？</translation>
+    </message>
 </context>
 <context>
     <name>PinClickThroughBar</name>

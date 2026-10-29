@@ -2143,6 +2143,14 @@ Replace it?</translation>
         <source>Pin %1 images at once? So many windows may slow the computer down.</source>
         <translation>Pin %1 images at once? So many windows may slow the computer down.</translation>
     </message>
+    <message>
+        <source>Pin Too Small</source>
+        <translation>Pin Too Small</translation>
+    </message>
+    <message>
+        <source>This pin is only %1 × %2 pixels. Pin it anyway?</source>
+        <translation>This pin is only %1 × %2 pixels. Pin it anyway?</translation>
+    </message>
 </context>
 
 <!-- ========== Pin Click-Through Bar ========== -->

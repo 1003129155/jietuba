@@ -489,9 +489,9 @@ private slots:
         };
         const QString table = "<table><tr><td><b>a</b></td><td>b</td></tr></table>";
         // Copied cells: the picture of them unless the settings take text only.
-        put("a\tb", table, solid(QSize(11, 7), Qt::yellow));
+        put("a\tb", table, solid(QSize(41, 37), Qt::yellow));
         QVERIFY(pin_latest_clipboard_image());
-        QCOMPARE(pins().last()->orig_size(), QSize(11, 7));
+        QCOMPARE(pins().last()->orig_size(), QSize(41, 37));
         env_.config->set_pin_clipboard_image(false);
         QVERIFY(pin_latest_clipboard_image());
         // Text pins open once a worker has laid the text out.
@@ -507,7 +507,7 @@ private slots:
         // Kept for the pin's menu to switch to.
         QVERIFY(pins().last()->text_content()->has_formatting());
         // Text only finds no text in a lone picture.
-        put({}, {}, solid(QSize(9, 6), Qt::cyan));
+        put({}, {}, solid(QSize(39, 36), Qt::cyan));
         QVERIFY(!pin_latest_clipboard_image());
         QCOMPARE(pins().size(), 3);
         // Images only leaves text alone; with no image in history nothing is pinned.
@@ -519,7 +519,7 @@ private slots:
         QCOMPARE(pins().size(), 3);
         // Neither: the hotkey pins nothing, an image included.
         env_.config->set_pin_clipboard_image(false);
-        put({}, {}, solid(QSize(9, 6), Qt::cyan));
+        put({}, {}, solid(QSize(39, 36), Qt::cyan));
         QVERIFY(!pin_latest_clipboard_image());
         QCOMPARE(pins().size(), 3);
         // Both, text with formatting.
@@ -541,7 +541,7 @@ private slots:
     void recordedImagesPinPreviewAndStitch() {
         start_watching();
         const auto first = record_image(solid(QSize(40, 30), Qt::red));
-        const auto second = record_image(solid(QSize(20, 50), Qt::green));
+        const auto second = record_image(solid(QSize(32, 50), Qt::green));
         QVERIFY(first && second);
 
         const auto last_pin = [] { return PinManager::instance()->get_all_pins().last(); };
@@ -559,26 +559,26 @@ private slots:
         // Without either on the clipboard the latest history image pins.
         QApplication::clipboard()->clear();
         QVERIFY(pin_latest_clipboard_image(QPoint(200, 200)));
-        QCOMPARE(last_pin()->orig_size(), QSize(20, 50));
+        QCOMPARE(last_pin()->orig_size(), QSize(32, 50));
         // The system clipboard's image comes first, also over text with it, as copied spreadsheet cells carry.
         auto *cells = new QMimeData;
         cells->setText("a\tb");
-        cells->setImageData(solid(QSize(11, 7), Qt::yellow));
+        cells->setImageData(solid(QSize(41, 37), Qt::yellow));
         QApplication::clipboard()->setMimeData(cells);
         QVERIFY(pin_latest_clipboard_image());
         QVERIFY(!last_pin()->text_only());
-        QCOMPARE(last_pin()->orig_size(), QSize(11, 7));
+        QCOMPARE(last_pin()->orig_size(), QSize(41, 37));
         // With history off only the system clipboard counts.
         env_.config->set_clipboard_enabled(false);
         QApplication::clipboard()->clear();
         QVERIFY(!pin_latest_clipboard_image());
         // A capture copied together with its file path is still an image.
         auto *capture = new QMimeData;
-        capture->setImageData(solid(QSize(9, 6), Qt::cyan));
+        capture->setImageData(solid(QSize(39, 36), Qt::cyan));
         capture->setUrls({QUrl::fromLocalFile(env_.dir.filePath("capture.png"))});
         QApplication::clipboard()->setMimeData(capture);
         QVERIFY(pin_latest_clipboard_image());
-        QCOMPARE(PinManager::instance()->get_all_pins().last()->orig_size(), QSize(9, 6));
+        QCOMPARE(PinManager::instance()->get_all_pins().last()->orig_size(), QSize(39, 36));
         env_.config->set_clipboard_enabled(true);
         QVERIFY(create_pin_from_clipboard_item(first->id, &manager(), nullptr));
         QCOMPARE(PinManager::instance()->count(), 6);
@@ -609,13 +609,13 @@ private slots:
         auto *dialog = get_manage_dialog(&manager());
         dialog->show_and_activate();
         dialog->content_kind_switch->setCurrentItem("image");
-        dialog->set_pending_image(solid(QSize(33, 22), Qt::magenta));
+        dialog->set_pending_image(solid(QSize(44, 33), Qt::magenta));
         dialog->title_input->setText("magenta");
         QSignalSpy added(dialog, &ManageDialog::content_added);
         dialog->save_btn->click();
         QTRY_VERIFY_WITH_TIMEOUT(!manager().get_by_group(*group).isEmpty(), 10000);
         const auto item = manager().get_by_group(*group).first();
-        QCOMPARE(item.content, QString("[33x22]"));
+        QCOMPARE(item.content, QString("[44x33]"));
         QCOMPARE(item.title.value_or(QString()), QString("magenta"));
         QVERIFY(!added.isEmpty());
 
@@ -623,7 +623,7 @@ private slots:
         QVERIFY(manager().update_item(item.id, "[1x1]", item.title));
         dialog->open_item_editor(item.id, *group);
         dialog->save_btn->click();
-        QCOMPARE(manager().get_item(item.id)->content, QString("[33x22]"));
+        QCOMPARE(manager().get_item(item.id)->content, QString("[44x33]"));
         QVERIFY(!dialog->grab().isNull());
         dialog->copy_image_item();
         dialog->pin_image_item();
@@ -642,7 +642,7 @@ private slots:
             dialog->save_image_item_as();
             QVERIFY(answer.answered);
         }
-        QCOMPARE(QImage(env_.dir.filePath("window_image.bmp")).size(), QSize(33, 22));
+        QCOMPARE(QImage(env_.dir.filePath("window_image.bmp")).size(), QSize(44, 33));
 
         // The same image added again is already saved: moving it asks first. Records are told
         // apart by their creation second, so the second copy comes a second later.
@@ -651,7 +651,7 @@ private slots:
         dialog->refresh_after_external_change();
         dialog->group_list->setCurrentRow(dialog->group_list->row_of_id(*other));
         dialog->content_kind_switch->setCurrentItem("image");
-        dialog->set_pending_image(solid(QSize(33, 22), Qt::magenta));
+        dialog->set_pending_image(solid(QSize(44, 33), Qt::magenta));
         {
             ModalAnswerer yes(true);
             dialog->save_btn->click();

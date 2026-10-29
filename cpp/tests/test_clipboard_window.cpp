@@ -689,7 +689,7 @@ private slots:
         const auto close_pins = qScopeGuard([] { PinManager::instance()->close_all(); });
         const auto gone = manager().add_item(file_payload({QDir::toNativeSeparators(env_.dir.filePath("gone.txt"))}), "file");
         const QString notes = write_file("kept.txt");
-        const QString shot = write_picture("shot.png", QSize(8, 6));
+        const QString shot = write_picture("shot.png", QSize(40, 30));
         const auto here = manager().add_item(file_payload({notes, shot}), "file");
         QVERIFY(gone && here);
         open_window();
@@ -703,7 +703,7 @@ private slots:
         QTRY_COMPARE(pins().size(), 2);
         QVERIFY(pins()[0]->file_card());
         QCOMPARE(pins()[0]->file_card()->files(), QStringList{notes});
-        QCOMPARE(pins()[1]->orig_size(), QSize(8, 6));
+        QCOMPARE(pins()[1]->orig_size(), QSize(40, 30));
         QTest::qWait(100);
         QCOMPARE(pins().size(), 2);
     }

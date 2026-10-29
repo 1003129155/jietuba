@@ -2211,6 +2211,14 @@ Replace it?</source>
         <source>Pin %1 images at once? So many windows may slow the computer down.</source>
         <translation>%1 枚の画像を一度にピン留めしますか？ウィンドウが多いと動作が重くなることがあります。</translation>
     </message>
+    <message>
+        <source>Pin Too Small</source>
+        <translation>ピン留めが小さすぎます</translation>
+    </message>
+    <message>
+        <source>This pin is only %1 × %2 pixels. Pin it anyway?</source>
+        <translation>この画像は %1 × %2 ピクセルしかありません。それでもピン留めしますか？</translation>
+    </message>
 </context>
 
 <!-- ========== Pin Click-Through Bar ========== -->

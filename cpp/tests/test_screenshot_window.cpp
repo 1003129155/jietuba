@@ -47,6 +47,8 @@
 #include <QClipboard>
 #include <QMimeData>
 #include <QApplication>
+#include <QDialog>
+#include <QDialogButtonBox>
 #include <QCheckBox>
 #include <QContextMenuEvent>
 #include <QDir>
@@ -734,6 +736,34 @@ private slots:
         window->pin_from_global_hotkey();
         QCOMPARE(PinManager::instance()->count(), 1);
         QVERIFY(!window->session_active());
+        QVERIFY(wait_for_clipboard_writes(10.0));
+    }
+
+    void aSmallSelectionAsksBeforePinning() {
+        auto *window = open();
+        drag(window, QPoint(50, 40), QPoint(250, 60));
+        bool asked = false;
+        QTimer::singleShot(0, this, [&asked] {
+            if (auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget())) {
+                asked = true;
+                dialog->reject();
+            }
+        });
+        // Declined, the capture stays open with its selection.
+        window->toolbar->pin_btn->click();
+        QVERIFY(asked);
+        QCOMPARE(PinManager::instance()->count(), 0);
+        QVERIFY(window->session_active());
+        QTimer::singleShot(0, this, [] {
+            auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            auto *box = dialog ? dialog->findChild<QDialogButtonBox *>() : nullptr;
+            if (!box) return;
+            for (auto *button : box->buttons())
+                if (box->buttonRole(button) == QDialogButtonBox::YesRole) button->click();
+        });
+        window->toolbar->pin_btn->click();
+        QCOMPARE(PinManager::instance()->count(), 1);
+        QCOMPARE(PinManager::instance()->get_all_pins().first()->orig_size(), QSize(200, 20));
         QVERIFY(wait_for_clipboard_writes(10.0));
     }
 

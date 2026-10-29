@@ -181,6 +181,14 @@ Opened draw_card(const QStringList &files, const QSize &limit) {
     return opened;
 }
 
+void place_image_pin(const QImage &image, QWidget *clipboard_window, std::optional<QPoint> center) {
+    auto *config_manager = get_tool_settings_manager();
+    const QPoint position = calculate_pin_position(image.size(), clipboard_window, center);
+    get_pin_manager()->create_pin(image, position, config_manager);
+    // Capture pins trim the working set when the capture window finishes; the clipboard path has no capture window, so it trims here.
+    request_trim_working_set(1500);
+}
+
 // Pictures decode, texts are laid out and cards are drawn on worker threads, so many or large ones
 // never hold the UI thread. Each pin opens on the UI thread in its own turn, in order, once it and
 // those before it are ready. Picture files that do not decode end on one card, unless they no
@@ -238,8 +246,20 @@ private:
             open_next();
         });
     }
+    // Whether a picture this size is pinned. The first small one asks, and its answer covers the rest
+    // of the batch; pins wait while the question is open.
+    bool wanted(const QSize &size) {
+        if (!PinManager::is_small_pin(size)) return true;
+        if (!small_wanted_) {
+            asking_ = true;
+            small_wanted_ = PinManager::confirm_small_pin(size, nullptr);
+            asking_ = false;
+        }
+        if (!*small_wanted_) declined_ = true;
+        return *small_wanted_;
+    }
     void open_next() {
-        if (next_ >= static_cast<int>(opened_.size()) || !opened_[next_]) return;
+        if (asking_ || next_ >= static_cast<int>(opened_.size()) || !opened_[next_]) return;
         auto opened = std::move(*opened_[next_]);
         opened_[next_].reset();
         // The pieces follow the card, when there is one.
@@ -250,6 +270,7 @@ private:
             get_pin_manager()->create_file_pin(*opened.card, calculate_pin_position(opened.card->size(), nullptr, at), settings, opened.image);
             ++placed_;
         } else if (opened.animation) {
+            if (!wanted(opened.animation->first_frame.deviceIndependentSize().toSize())) return finish_turn();
             const QPoint position = calculate_pin_position(opened.animation->first_frame.size(), nullptr, at);
             get_pin_manager()->create_animation_pin(std::move(*opened.animation), position, settings);
             ++placed_;
@@ -258,17 +279,22 @@ private:
             get_pin_manager()->create_text_pin(std::move(opened.text), position, settings);
             ++placed_;
         } else if (!opened.image.isNull()) {
-            create_pin_from_image(opened.image, nullptr, at);
+            if (!wanted(opened.image.deviceIndependentSize().toSize())) return finish_turn();
+            place_image_pin(opened.image, nullptr, at);
             ++placed_;
         } else if (cards_ && piece >= 0 && pieces_[piece].kind == Piece::PictureFile && QFileInfo::exists(pieces_[piece].value)) {
             undecoded_.append(pieces_[piece].value);
         }
+        finish_turn();
+    }
+    // The next pin's turn, or the end of the batch.
+    void finish_turn() {
         if (next_ < static_cast<int>(opened_.size())) {
             schedule_next();
             return;
         }
         if (!undecoded_.isEmpty()) new PinBatch(undecoded_, {}, false, card_limit_, origin_ + QPoint(CASCADE_STEP, CASCADE_STEP) * placed_, true);
-        if (placed_ == 0 && undecoded_.isEmpty() && !pinned_) show_toast(i18n_tr("Nothing on the clipboard to pin", "MainApp"));
+        if (placed_ == 0 && undecoded_.isEmpty() && !pinned_ && !declined_) show_toast(i18n_tr("Nothing on the clipboard to pin", "MainApp"));
         deleteLater();
     }
     QThreadPool pool_;
@@ -281,6 +307,9 @@ private:
     bool pinned_;
     int next_ = 0, placed_ = 0;
     bool scheduled_ = false;
+    // The answer about small pictures, once asked; declined_ when one was left out for it.
+    std::optional<bool> small_wanted_;
+    bool asking_ = false, declined_ = false;
     QStringList undecoded_;
 };
 
@@ -342,11 +371,8 @@ bool create_pin_from_clipboard_item(qint64 item_id, ClipboardManager *manager, Q
 
 bool create_pin_from_image(const QImage &image, QWidget *clipboard_window, std::optional<QPoint> center) {
     if (image.isNull()) return false;
-    auto *config_manager = get_tool_settings_manager();
-    const QPoint position = calculate_pin_position(image.size(), clipboard_window, center);
-    get_pin_manager()->create_pin(image, position, config_manager);
-    // Capture pins trim the working set when the capture window finishes; the clipboard path has no capture window, so it trims here.
-    request_trim_working_set(1500);
+    // Declining counts as handled, so no "nothing to pin" follows.
+    if (PinManager::confirm_small_pin(image.deviceIndependentSize().toSize(), clipboard_window)) place_image_pin(image, clipboard_window, center);
     return true;
 }
 
