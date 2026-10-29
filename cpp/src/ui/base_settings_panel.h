@@ -35,6 +35,9 @@ void set_step_button_icon(QToolButton *button, const QString &direction);
 void style_step_button(QToolButton *button, const QString &direction);
 // Collapsed line-style combo preview: one 2 px line, dashed by style.
 void paint_line_style_preview(QPainter *painter, const QRectF &rect, const QVariant &style);
+// A combo's drop-down list: white rows, in the panel font. Panels give their own combos fixed sizes
+// with only this; build_settings_panel_stylesheet adds it with its combo sizing.
+QString combo_popup_qss();
 // Settings panel style. Widths are 100% base values, scaled now; call again after a scale change.
 QString build_settings_panel_stylesheet(bool combo_enabled = false, const QString &combo_padding = "2px 8px 2px 4px",
                                         int combo_min_width = 32, int combo_max_width = 90, bool combo_padding_compact = false);

@@ -14,6 +14,7 @@
 #include "ui/mosaic_settings_panel.h"
 #include "ui/arrow_settings_panel.h"
 #include "ui/paint_settings_panel.h"
+#include "ui/shape_settings_panel.h"
 #include "ui/color_picker_button.h"
 #include "ui/color_picker_dialog.h"
 #include "caption_check.h"
@@ -48,6 +49,7 @@
 #include <algorithm>
 #include <functional>
 #include <stdexcept>
+#include <memory>
 #include <QMouseEvent>
 #include <QPushButton>
 #include <QScopeGuard>
@@ -1130,6 +1132,41 @@ private slots:
         QApplication::processEvents();
         QVERIFY(!panel.arrow_style_combo->view()->grab().isNull());
         panel.arrow_style_combo->hidePopup();
+    }
+
+    // The panels' stylesheet makes every widget transparent; a combo list left to it opens as a
+    // see-through window, which Windows shows black.
+    void everyPanelsComboListsOpenOnWhite() {
+        std::vector<std::unique_ptr<QWidget>> panels;
+        panels.push_back(std::make_unique<ArrowSettingsPanel>());
+        panels.push_back(std::make_unique<ShapeSettingsPanel>());
+        panels.push_back(std::make_unique<PaintSettingsPanel>());
+        panels.push_back(std::make_unique<TextSettingsPanel>());
+        auto number = std::make_unique<NumberSettingsPanel>();
+        number->set_label_section_visible(true);
+        panels.push_back(std::move(number));
+        panels.push_back(std::make_unique<MosaicSettingsPanel>());
+        panels.push_back(std::make_unique<WatermarkSettingsPanel>());
+        int checked = 0;
+        for (const auto &panel : panels) {
+            panel->show();
+            const auto combos = panel->findChildren<QComboBox *>();
+            for (int index = 0; index < combos.size(); ++index) {
+                auto *combo = combos[index];
+                if (combo->count() == 0) continue;
+                combo->showPopup();
+                QApplication::processEvents();
+                const QImage list = combo->view()->grab().toImage();
+                // Inside the border, in the padding under the last row.
+                const QColor below(list.pixelColor(list.width() / 2, list.height() - 2));
+                QVERIFY2(below.alpha() == 255 && below.lightness() > 240,
+                         qPrintable(QString("%1 combo %2: %3").arg(panel->metaObject()->className()).arg(index).arg(below.name(QColor::HexArgb))));
+                combo->hidePopup();
+                ++checked;
+            }
+        }
+        // The number panel's three label combos are among them.
+        QVERIFY(checked >= 3);
     }
 
     void mosaicPanelSwitchesKindsAndDisablesStrengthForSmartErase() {

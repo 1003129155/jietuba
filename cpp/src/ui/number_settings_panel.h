@@ -67,6 +67,8 @@ protected:
     // Number size, not line width, so no width glyph.
     QString size_glyph() const override { return {}; }
     void build_extra_controls(QHBoxLayout *layout) override;
+    // The label part's combos are sized by the panel; their lists need the white rows.
+    QString build_stylesheet() const override { return build_settings_panel_stylesheet() + combo_popup_qss(); }
     void apply_scale_sizes() override;
     bool eventFilter(QObject *watched, QEvent *event) override;
 private:
