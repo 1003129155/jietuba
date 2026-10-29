@@ -561,6 +561,8 @@ void ScreenshotWindow::pin_from_global_hotkey() {
 
 void ScreenshotWindow::safe_activate_and_focus() {
     if (is_closing || !isVisible()) return;
+    // Only when no window of ours took the activation: this one being typed in, or one opened over it, keeps its focus.
+    if (QApplication::activeWindow()) return;
     activateWindow();
     setFocus();
 }

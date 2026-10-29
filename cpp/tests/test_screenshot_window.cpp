@@ -351,6 +351,25 @@ private slots:
         QCOMPARE(text->toPlainText(), QString("ok"));
     }
 
+    // The retry of the first activation, due 50 ms after showing, takes neither the focus from the
+    // text nor the activation from a window of ours opened over the capture.
+    void theLateActivationRetryLeavesTypingAndOtherWindowsAlone() {
+        auto *window = open_with_selection();
+        QPointer<QGraphicsTextItem> text = start_typing(window);
+        QVERIFY(text);
+        QTest::qWait(100);
+        QVERIFY(window->is_text_editing());
+        QCOMPARE(QApplication::focusWidget(), static_cast<QWidget *>(window->view));
+        window = open_with_selection();
+        QWidget picker;
+        picker.resize(100, 100);
+        picker.show();
+        picker.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&picker));
+        QTest::qWait(100);
+        QVERIFY(picker.isActiveWindow());
+    }
+
     // Pasted text takes the box's own font and colour, not the formatting it was copied with.
     void pastedTextTakesTheFormattingOfTheBox() {
         auto *window = open_with_selection();
