@@ -8,26 +8,35 @@
 #include "core/native.h"
 #include "core/constants.h"
 #include "core/save.h"
+#include "core/ui_scale.h"
 #include "clipboard/ui/widgets/reorder_list.h"
 #include "pin/pin_manager.h"
 #include "pin/pin_text_content.h"
 #include "pin/pin_window.h"
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/segmented.h"
+#include <QBuffer>
 #include <QClipboard>
 #include <QFile>
+#include <QImageReader>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QMimeData>
 #include <QMutex>
 #include <QScopeGuard>
+#include <QSemaphore>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QThread>
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
 #include <cstring>
 #include <windows.h>
 #include <shellapi.h>
+#include <atomic>
 #include <cstdlib>
 #include <memory>
 
@@ -93,6 +102,47 @@ QStringList system_clipboard_files() {
     CloseClipboard();
     return files;
 }
+
+ClipboardItem stored_image_item(qint64 id, const QString &image_id, const QString &thumbnail = {}) {
+    ClipboardItem item;
+    item.id = id;
+    item.content = "[image]";
+    item.content_type = "image";
+    item.image_id = image_id;
+    if (!thumbnail.isEmpty()) item.thumbnail = thumbnail;
+    return item;
+}
+
+ClipboardItem file_item(qint64 id, const QStringList &paths) {
+    ClipboardItem item;
+    item.id = id;
+    item.content_type = "file";
+    item.content = QString::fromUtf8(QJsonDocument(QJsonObject{{"files", QJsonArray::fromStringList(paths)}}).toJson(QJsonDocument::Compact));
+    return item;
+}
+
+ClipboardItem text_item(qint64 id, const QString &text) {
+    ClipboardItem item;
+    item.id = id;
+    item.content = text;
+    item.content_type = "text";
+    return item;
+}
+
+QString png_data_url(const QImage &image) {
+    QByteArray bytes;
+    QBuffer buffer(&bytes);
+    buffer.open(QIODevice::WriteOnly);
+    image.save(&buffer, "PNG");
+    return "data:image/png;base64," + QString::fromLatin1(bytes.toBase64());
+}
+
+// Holds every picture load of the preview in flight until released.
+struct LoadGate {
+    QSemaphore semaphore;
+    std::atomic<int> entered{0};
+    std::atomic<QThread *> thread{nullptr};
+};
 }
 
 // The backend over a real database, and the watcher reading the real system clipboard:
@@ -620,6 +670,348 @@ private slots:
             QTRY_VERIFY_WITH_TIMEOUT(ok.answered() == 1, 10000);
             QVERIFY(ok.texts.first().contains("not recorded"));
         }
+    }
+
+private:
+    // The hover preview of pictures: loaded on worker threads, and shown only when the delay is up
+    // and the picture is ready. Pictures are put into the images folder by hand, so no clipboard is written.
+    PreviewPopup *preview_popup() {
+        auto *preview = PreviewPopup::instance();
+        preview->set_manager(&manager());
+        preview->set_display_enabled(true);
+        return preview;
+    }
+
+    bool store_image(const QString &image_id, const QImage &image) {
+        return image.save(QDir(manager().get_images_dir().value_or(QString())).filePath(image_id + ".png"), "PNG");
+    }
+
+    // Hovers the item the way the list does, once the previous preview is gone.
+    void hover(PreviewPopup *preview, const ClipboardItem &item, int delay_ms = 0) {
+        preview->hide_preview();
+        preview->show_preview(item, QPoint(100, 100), delay_ms);
+    }
+
+    // Blocks the picture loads at the point just before they read.
+    static std::shared_ptr<LoadGate> hold_loads() {
+        auto gate = std::make_shared<LoadGate>();
+        set_preview_image_test_hooks({{}, [gate] {
+            gate->thread = QThread::currentThread();
+            ++gate->entered;
+            gate->semaphore.acquire();
+        }});
+        return gate;
+    }
+
+    // The expected sizes below are for a preview at 100%.
+    static void verify_default_scale() { QCOMPARE(scaled(100), 100); }
+
+private slots:
+    void aHoveredPictureLoadsInTheBackgroundAndShowsOnceReady() {
+        verify_default_scale();
+        QVERIFY(store_image("wide", solid(QSize(800, 400), Qt::red)));
+        auto gate = hold_loads();
+        auto *preview = preview_popup();
+        const auto cleanup_guard = qScopeGuard([&] {
+            gate->semaphore.release(100);
+            set_preview_image_test_hooks({});
+            preview->set_display_enabled(false);
+        });
+
+        preview->show_preview(stored_image_item(1, "wide"), QPoint(100, 100), 0);
+        // Nothing is shown while the load is held; the interface keeps running.
+        QTRY_COMPARE(gate->entered.load(), 1);
+        QTest::qWait(50);
+        QVERIFY(!preview->isVisible());
+        gate->semaphore.release();
+        QTRY_VERIFY(preview->isVisible());
+        QVERIFY(gate->thread.load() != QThread::currentThread());
+        QVERIFY(preview->image_label->isVisible());
+        QVERIFY(!preview->content_widget->isVisible());
+        QCOMPARE(preview->image_label->size(), QSize(400, 200));
+    }
+
+    void aReadyPictureStillWaitsForTheDelay() {
+        verify_default_scale();
+        QVERIFY(store_image("delayed", solid(QSize(60, 40), Qt::red)));
+        auto *preview = preview_popup();
+        const auto cleanup_guard = qScopeGuard([&] { preview->set_display_enabled(false); });
+        const int reads = preview_image_reads_for_test();
+
+        preview->show_preview(stored_image_item(1, "delayed"), QPoint(100, 100), 400);
+        QTRY_COMPARE(preview_image_reads_for_test(), reads + 1);
+        QTest::qWait(100);
+        QVERIFY(!preview->isVisible());
+        QTRY_VERIFY_WITH_TIMEOUT(preview->isVisible(), 3000);
+    }
+
+    void aPictureForAnItemTheMouseLeftIsNeverShown() {
+        verify_default_scale();
+        QVERIFY(store_image("left-first", solid(QSize(50, 50), Qt::red)));
+        QVERIFY(store_image("left-second", solid(QSize(70, 70), Qt::green)));
+        auto gate = hold_loads();
+        auto *preview = preview_popup();
+        const auto cleanup_guard = qScopeGuard([&] {
+            gate->semaphore.release(100);
+            set_preview_image_test_hooks({});
+            preview->set_display_enabled(false);
+        });
+        const int reads = preview_image_reads_for_test();
+
+        // The mouse moves on to a text item while the picture is still loading.
+        preview->show_preview(stored_image_item(1, "left-first"), QPoint(100, 100), 0);
+        QTRY_COMPARE(gate->entered.load(), 1);
+        preview->show_preview(text_item(2, "the second item"), QPoint(100, 100), 0);
+        QVERIFY(preview->isVisible());
+        gate->semaphore.release();
+        QTest::qWait(150);
+        QVERIFY(!preview->image_label->isVisible());
+        QCOMPARE(preview->content_widget->toPlainText(), QString("the second item"));
+        QCOMPARE(preview_image_reads_for_test(), reads);
+
+        // The mouse leaves the list: a picture that arrives afterwards is not shown either.
+        preview->show_preview(stored_image_item(3, "left-second"), QPoint(100, 100), 0);
+        QTRY_COMPARE(gate->entered.load(), 2);
+        preview->hide_preview();
+        gate->semaphore.release();
+        QTest::qWait(150);
+        QVERIFY(!preview->isVisible());
+        QCOMPARE(preview_image_reads_for_test(), reads);
+    }
+
+    void onlyTheNewestWaitingPictureIsLoaded() {
+        verify_default_scale();
+        for (const int size : {100, 110, 120, 130}) QVERIFY(store_image(QString("queue-%1").arg(size), solid(QSize(size, size), Qt::red)));
+        auto gate = hold_loads();
+        auto *preview = preview_popup();
+        const auto cleanup_guard = qScopeGuard([&] {
+            gate->semaphore.release(100);
+            set_preview_image_test_hooks({});
+            preview->set_display_enabled(false);
+        });
+        const int reads = preview_image_reads_for_test();
+
+        // Two loads run, held (a load still queued when the next hover comes is already overtaken and never starts);
+        // of the next two only the later waits for a free worker.
+        qint64 id = 0;
+        for (const int size : {100, 110}) {
+            preview->show_preview(stored_image_item(++id, QString("queue-%1").arg(size)), QPoint(100, 100), 0);
+            QTRY_COMPARE(gate->entered.load(), static_cast<int>(id));
+        }
+        for (const int size : {120, 130}) preview->show_preview(stored_image_item(++id, QString("queue-%1").arg(size)), QPoint(100, 100), 0);
+        QTest::qWait(50);
+        QCOMPARE(gate->entered.load(), 2);
+        gate->semaphore.release(100);
+        QTRY_VERIFY(preview->isVisible());
+        QCOMPARE(preview->image_label->size(), QSize(130, 130));
+        QCOMPARE(gate->entered.load(), 3);
+        QCOMPARE(preview_image_reads_for_test(), reads + 1);
+    }
+
+    void aSecondHoverOfTheSameItemUsesTheCache() {
+        verify_default_scale();
+        QVERIFY(store_image("cached", solid(QSize(80, 60), Qt::red)));
+        auto *preview = preview_popup();
+        const auto cleanup_guard = qScopeGuard([&] { preview->set_display_enabled(false); });
+        const int reads = preview_image_reads_for_test();
+        const auto item = stored_image_item(1, "cached");
+
+        hover(preview, item);
+        QTRY_VERIFY(preview->isVisible());
+        QCOMPARE(preview_image_reads_for_test(), reads + 1);
+        hover(preview, item);
+        QTRY_VERIFY(preview->isVisible());
+        QCOMPARE(preview->image_label->size(), QSize(80, 60));
+        QCOMPARE(preview_image_reads_for_test(), reads + 1);
+        // The cached pictures are cut to the size of the preview, which follows the scale.
+        preview->apply_scale();
+        hover(preview, item);
+        QTRY_VERIFY(preview->isVisible());
+        QCOMPARE(preview_image_reads_for_test(), reads + 2);
+        // They are dropped when the window closes.
+        preview->set_display_enabled(false);
+        preview->set_display_enabled(true);
+        hover(preview, item);
+        QTRY_VERIFY(preview->isVisible());
+        QCOMPARE(preview_image_reads_for_test(), reads + 3);
+    }
+
+    void theCacheKeepsTheTwentyPicturesShownLast() {
+        verify_default_scale();
+        for (int index = 0; index <= 20; ++index) QVERIFY(store_image(QString("lru-%1").arg(index), solid(QSize(8, 8), Qt::red)));
+        auto *preview = preview_popup();
+        const auto cleanup_guard = qScopeGuard([&] { preview->set_display_enabled(false); });
+        const int reads = preview_image_reads_for_test();
+        const auto show = [&](int index) {
+            hover(preview, stored_image_item(index + 1, QString("lru-%1").arg(index)));
+            QTRY_VERIFY(preview->isVisible());
+        };
+
+        for (int index = 0; index < 20; ++index) show(index);
+        QCOMPARE(preview_image_reads_for_test(), reads + 20);
+        show(0);
+        QCOMPARE(preview_image_reads_for_test(), reads + 20);
+        // The twenty-first pushes out the one shown longest ago: the second, since the first was just shown again.
+        show(20);
+        QCOMPARE(preview_image_reads_for_test(), reads + 21);
+        show(0);
+        QCOMPARE(preview_image_reads_for_test(), reads + 21);
+        show(1);
+        QCOMPARE(preview_image_reads_for_test(), reads + 22);
+    }
+
+    void aPictureThatCannotBeLoadedFallsBackToItsThumbnail() {
+        verify_default_scale();
+        auto *preview = preview_popup();
+        const auto cleanup_guard = qScopeGuard([&] { preview->set_display_enabled(false); });
+
+        // The stored picture is gone: the thumbnail, enlarged to the usual size.
+        hover(preview, stored_image_item(1, "not-in-the-folder", png_data_url(solid(QSize(64, 32), Qt::blue))));
+        QTRY_VERIFY(preview->isVisible());
+        QVERIFY(preview->image_label->isVisible());
+        QCOMPARE(preview->image_label->size(), QSize(400, 200));
+        // Without a thumbnail either, the item's text.
+        auto bare = stored_image_item(2, "also-not-there");
+        bare.content = "[PNG+CF_DIB 7.9 MB]";
+        hover(preview, bare);
+        QTRY_VERIFY(preview->isVisible());
+        QVERIFY(!preview->image_label->isVisible());
+        QVERIFY(preview->content_widget->isVisible());
+        QCOMPARE(preview->content_widget->toPlainText(), QString("[PNG+CF_DIB 7.9 MB]"));
+    }
+
+    void aSingleImageFileIsPreviewedFromItsContent() {
+        verify_default_scale();
+        auto *preview = preview_popup();
+        const auto cleanup_guard = qScopeGuard([&] { preview->set_display_enabled(false); });
+        const int reads = preview_image_reads_for_test();
+
+        // The format comes from the bytes, not from the name; a big picture is cut to fit, a small one stays as it is.
+        const QString big = env_.dir.filePath("holiday.dat");
+        QVERIFY(solid(QSize(300, 600), Qt::green).save(big, "PNG"));
+        hover(preview, file_item(1, {big}));
+        QTRY_VERIFY(preview->isVisible());
+        QVERIFY(preview->image_label->isVisible());
+        QCOMPARE(preview->image_label->size(), QSize(150, 300));
+        const QString icon_file = env_.dir.filePath("icon.txt");
+        QVERIFY(solid(QSize(40, 30), Qt::green).save(icon_file, "PNG"));
+        hover(preview, file_item(2, {icon_file}));
+        QTRY_VERIFY(preview->isVisible());
+        QCOMPARE(preview->image_label->size(), QSize(40, 30));
+        QCOMPARE(preview_image_reads_for_test(), reads + 2);
+
+        // The cache follows the file: unchanged it is not read again, changed it is.
+        hover(preview, file_item(1, {big}));
+        QTRY_VERIFY(preview->isVisible());
+        QCOMPARE(preview_image_reads_for_test(), reads + 2);
+        QVERIFY(solid(QSize(100, 50), Qt::green).save(big, "PNG"));
+        hover(preview, file_item(1, {big}));
+        QTRY_VERIFY(preview->isVisible());
+        QCOMPARE(preview->image_label->size(), QSize(100, 50));
+        QCOMPARE(preview_image_reads_for_test(), reads + 3);
+
+        // A file that is not a picture, whatever its name says, stays a text preview; so do several files and a missing one.
+        const QString fake = env_.dir.filePath("notes.png");
+        QFile notes(fake);
+        QVERIFY(notes.open(QIODevice::WriteOnly));
+        notes.write("not a picture");
+        notes.close();
+        for (const auto &paths : {QStringList{fake}, QStringList{big, icon_file}, QStringList{env_.dir.filePath("missing.png")}}) {
+            hover(preview, file_item(3, paths));
+            QTRY_VERIFY(preview->isVisible());
+            QVERIFY(!preview->image_label->isVisible());
+            QVERIFY(preview->content_widget->isVisible());
+            QVERIFY(preview->content_widget->toPlainText().contains(QFileInfo(paths.first()).fileName()));
+        }
+    }
+
+    // A photo's orientation is applied, and the size limit is met after the turn.
+    void aTurnedPhotoIsShownUpright() {
+        verify_default_scale();
+        QByteArray jpeg;
+        QBuffer buffer(&jpeg);
+        buffer.open(QIODevice::WriteOnly);
+        QVERIFY(solid(QSize(1200, 400), Qt::gray).save(&buffer, "JPEG"));
+        // An EXIF block behind the start-of-image marker: orientation 6, a quarter turn clockwise.
+        jpeg.insert(2, QByteArray::fromHex("ffe10022" "457869660000" "4d4d002a00000008" "0001" "011200030000000100060000" "00000000"));
+        const QString photo = env_.dir.filePath("photo.jpg");
+        QFile file(photo);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write(jpeg);
+        file.close();
+        QImageReader check(photo);
+        QVERIFY(check.transformation() & QImageIOHandler::TransformationRotate90);
+        auto *preview = preview_popup();
+        const auto cleanup_guard = qScopeGuard([&] { preview->set_display_enabled(false); });
+
+        hover(preview, file_item(1, {photo}));
+        QTRY_VERIFY(preview->isVisible());
+        QCOMPARE(preview->image_label->size(), QSize(100, 300));
+    }
+
+    void remoteAndCloudOnlyFilesAreNotRead() {
+        verify_default_scale();
+        const QString remote = env_.dir.filePath("remote.png"), cloud = env_.dir.filePath("cloud.png"), local = env_.dir.filePath("local.png");
+        for (const auto &path : {remote, cloud, local}) QVERIFY(solid(QSize(90, 90), Qt::red).save(path, "PNG"));
+        QVERIFY(store_image("cloud-stored", solid(QSize(90, 90), Qt::red)));
+        QVERIFY(store_image("remote-stored", solid(QSize(90, 90), Qt::red)));
+        set_preview_image_test_hooks({[](const QString &path) {
+            const auto name = QFileInfo(path).fileName();
+            return name.startsWith("remote") ? FileHazard::Remote : name.startsWith("cloud") ? FileHazard::CloudOnly : FileHazard::None;
+        }, {}});
+        auto *preview = preview_popup();
+        const auto cleanup_guard = qScopeGuard([&] {
+            set_preview_image_test_hooks({});
+            preview->set_display_enabled(false);
+        });
+        const int reads = preview_image_reads_for_test();
+
+        // A file on a network drive or in the cloud shows as its name and path.
+        for (const auto &path : {remote, cloud}) {
+            hover(preview, file_item(1, {path}));
+            QTRY_VERIFY(preview->isVisible());
+            QVERIFY(!preview->image_label->isVisible());
+            QVERIFY(preview->content_widget->toPlainText().contains(QFileInfo(path).fileName()));
+        }
+        QCOMPARE(preview_image_reads_for_test(), reads);
+        hover(preview, file_item(1, {local}));
+        QTRY_VERIFY(preview->isVisible());
+        QVERIFY(preview->image_label->isVisible());
+        QCOMPARE(preview_image_reads_for_test(), reads + 1);
+
+        // A stored picture whose file is a cloud placeholder gives way to its thumbnail; a remote folder is still read.
+        hover(preview, stored_image_item(2, "cloud-stored", png_data_url(solid(QSize(30, 30), Qt::blue))));
+        QTRY_VERIFY(preview->isVisible());
+        QCOMPARE(preview->image_label->size(), QSize(300, 300));
+        QCOMPARE(preview_image_reads_for_test(), reads + 1);
+        hover(preview, stored_image_item(3, "remote-stored", png_data_url(solid(QSize(30, 30), Qt::blue))));
+        QTRY_VERIFY(preview->isVisible());
+        QCOMPARE(preview->image_label->size(), QSize(90, 90));
+        QCOMPARE(preview_image_reads_for_test(), reads + 2);
+
+        // The real check, with nothing injected, turns away a server name without asking the network.
+        set_preview_image_test_hooks({});
+        hover(preview, file_item(4, {R"(\\no-such-server.invalid\share\picture.png)"}));
+        QTRY_VERIFY_WITH_TIMEOUT(preview->isVisible(), 1000);
+        QVERIFY(!preview->image_label->isVisible());
+        QCOMPARE(preview_image_reads_for_test(), reads + 2);
+    }
+
+    void theFileCheckRecognisesServersAndOfflineFiles() {
+        QCOMPARE(file_hazard(R"(\\server\share\a.png)"), FileHazard::Remote);
+        QCOMPARE(file_hazard("//server/share/a.png"), FileHazard::Remote);
+        QCOMPARE(file_hazard(R"(\\?\UNC\server\share\a.png)"), FileHazard::Remote);
+        QCOMPARE(file_hazard(R"(\\.\pipe\name)"), FileHazard::Remote);
+
+        const QString path = env_.dir.filePath("hazard.png");
+        QVERIFY(solid(QSize(4, 4), Qt::red).save(path, "PNG"));
+        const std::wstring wide = QDir::toNativeSeparators(path).toStdWString();
+        QCOMPARE(file_hazard(path), FileHazard::None);
+        QCOMPARE(file_hazard(R"(\\?\)" + QDir::toNativeSeparators(path)), FileHazard::None);
+        QCOMPARE(file_hazard(env_.dir.filePath("missing.png")), FileHazard::None);
+        const auto restore = qScopeGuard([&] { SetFileAttributesW(wide.c_str(), FILE_ATTRIBUTE_NORMAL); });
+        QVERIFY(SetFileAttributesW(wide.c_str(), FILE_ATTRIBUTE_OFFLINE));
+        QCOMPARE(file_hazard(path), FileHazard::CloudOnly);
     }
 };
 

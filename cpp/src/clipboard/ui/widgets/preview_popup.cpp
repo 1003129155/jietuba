@@ -22,10 +22,26 @@ namespace jietuba::clipboard {
 namespace {
 QString tr_preview(const char *text) { return QCoreApplication::translate("ClipboardPreview", text); }
 
-QPixmap preview_pixmap(const QByteArray &data) {
-    QPixmap pixmap;
-    pixmap.loadFromData(data);
-    return pixmap.scaled(scaled(400), scaled(300), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+// What the picture of an item's preview is loaded from; none for items shown as text.
+std::optional<PreviewImageRequest> image_request(const ClipboardItem &item, ClipboardManager *manager) {
+    PreviewImageRequest request;
+    request.manager = manager;
+    request.bound = QSize(scaled(400), scaled(300));
+    if (item.content_type == "image") {
+        request.image_id = item.image_id.value_or(QString());
+        request.thumbnail = item.thumbnail.value_or(QString());
+        // Pictures the backend could not decode keep neither: their text shows at once.
+        if (request.image_id.isEmpty() && request.thumbnail.isEmpty()) return std::nullopt;
+        return request;
+    }
+    // One file may be a picture; the loader tells from its content.
+    if (item.content_type == "file") {
+        const QStringList files = item_paths(item);
+        if (files.size() != 1) return std::nullopt;
+        request.file_path = files.front();
+        return request;
+    }
+    return std::nullopt;
 }
 }
 
@@ -71,7 +87,11 @@ PreviewPopup::PreviewPopup() : QWidget(nullptr) {
     setAttribute(Qt::WA_ShowWithoutActivating, true);
     setup_ui();
     show_timer_.setSingleShot(true);
-    connect(&show_timer_, &QTimer::timeout, this, [this] { do_show(); });
+    connect(&show_timer_, &QTimer::timeout, this, [this] {
+        delay_elapsed_ = true;
+        try_show();
+    });
+    connect(&loader_, &PreviewImageLoader::loaded, this, &PreviewPopup::on_image_loaded);
 }
 
 void PreviewPopup::setup_ui() {
@@ -103,6 +123,8 @@ void PreviewPopup::setup_ui() {
 }
 
 void PreviewPopup::apply_scale() {
+    // Cached pictures are scaled to the old size.
+    loader_.clear_cache();
     // The type selector names the C++ class (namespaces become "--").
     setStyleSheet(QString(R"(
             jietuba--clipboard--PreviewPopup {
@@ -136,7 +158,11 @@ void PreviewPopup::apply_scale() {
 
 void PreviewPopup::set_display_enabled(bool enabled) {
     display_enabled_ = enabled;
-    if (!display_enabled_) force_cleanup();
+    if (!display_enabled_) {
+        force_cleanup();
+        // Nothing hovers while the window is closed, so the pictures need not stay in memory.
+        loader_.clear_cache();
+    }
 }
 
 void PreviewPopup::show_preview(const std::optional<ClipboardItem> &item, const QPoint &pos, int delay_ms, const QString &prefer_side,
@@ -148,12 +174,37 @@ void PreviewPopup::show_preview(const std::optional<ClipboardItem> &item, const 
     }
     // The same item already shown: nothing to do.
     if (current_item_id_ == item->id && isVisible()) return;
+    // Hovering again over the item being prepared keeps its load.
+    const bool loading_same = pending_item_ && pending_item_->id == item->id && request_serial_;
     pending_item_ = item;
     pending_pos_ = pos;
     pending_prefer_side_ = prefer_side;
     pending_avoid_rect_ = avoid_rect;
-    if (delay_ms > 0) show_timer_.start(delay_ms);
-    else do_show();
+    if (!loading_same) {
+        // The load starts with the hover and runs alongside the delay.
+        loader_.cancel();
+        loaded_image_.reset();
+        const auto request = image_request(*item, manager_);
+        request_serial_ = request ? loader_.request(*request) : 0;
+    }
+    delay_elapsed_ = delay_ms <= 0;
+    if (delay_ms > 0) {
+        show_timer_.start(delay_ms);
+    } else {
+        show_timer_.stop();
+        try_show();
+    }
+}
+
+void PreviewPopup::try_show() {
+    if (delay_elapsed_ && (!request_serial_ || loaded_image_)) do_show();
+}
+
+void PreviewPopup::on_image_loaded(quint64 serial, const QImage &image) {
+    // A result for an item the mouse has left is dropped.
+    if (serial != request_serial_) return;
+    loaded_image_ = image;
+    try_show();
 }
 
 void PreviewPopup::do_show() {
@@ -170,9 +221,11 @@ void PreviewPopup::do_show() {
     if (item.content_type == "image") {
         // Images the backend could not decode (several pictures copied from Word, EMF) keep no pixels;
         // their text, such as "[PNG+CF_DIB 7.9 MB]", is shown instead of an empty frame.
-        if (!show_image_preview(item)) show_text_preview(item);
-    } else if (item.content_type == "file") show_file_preview(item);
-    else if (item.content_type == "text") show_text_preview(item);
+        if (!show_image_preview(loaded_image_.value_or(QImage()))) show_text_preview(item);
+    } else if (item.content_type == "file") {
+        // A single image file shows as the picture, anything else as the list of files.
+        if (!show_image_preview(loaded_image_.value_or(QImage()))) show_file_preview(item);
+    } else if (item.content_type == "text") show_text_preview(item);
     else return;
 
     adjustSize();
@@ -307,24 +360,13 @@ void PreviewPopup::adjust_content_size() {
     content_widget->setFixedSize(actual_width, actual_height);
 }
 
-bool PreviewPopup::show_image_preview(const ClipboardItem &item) {
+bool PreviewPopup::show_image_preview(const QImage &image) {
     title_label->hide();
     content_widget->hide();
     // A label left visible would show the previous record's picture.
     image_label->hide();
-
-    QPixmap pixmap;
-    // The full image first.
-    if (manager_ && item.image_id && !item.image_id->isEmpty()) {
-        const auto image_data = manager_->get_image_data(*item.image_id);
-        if (image_data && !image_data->isEmpty()) pixmap = preview_pixmap(*image_data);
-    }
-    // Else the thumbnail.
-    if (pixmap.isNull() && item.thumbnail && item.thumbnail->startsWith("data:image")) {
-        const QByteArray encoded = item.thumbnail->mid(item.thumbnail->indexOf(u',') + 1).toLatin1();
-        pixmap = preview_pixmap(QByteArray::fromBase64(encoded));
-    }
-    if (pixmap.isNull()) return false;
+    if (image.isNull()) return false;
+    const QPixmap pixmap = QPixmap::fromImage(image);
     image_label->setPixmap(pixmap);
     image_label->setFixedSize(pixmap.size());
     image_label->show();
@@ -333,6 +375,10 @@ bool PreviewPopup::show_image_preview(const ClipboardItem &item) {
 
 void PreviewPopup::clear_pending() {
     show_timer_.stop();
+    loader_.cancel();
+    request_serial_ = 0;
+    loaded_image_.reset();
+    delay_elapsed_ = false;
     pending_item_.reset();
     pending_pos_ = {};
     pending_prefer_side_ = "auto";
