@@ -28,6 +28,7 @@ class PinBorderOverlay;
 class PinCanvas;
 class PinCanvasView;
 class PinClickThroughBar;
+class PinDisplayScaler;
 class PinFileCard;
 class PinTextContent;
 class PinTextMode;
@@ -115,9 +116,6 @@ public:
     PinAnimation *animation() const { return animation_; }
     // A frame of the animation in place of the image.
     void show_animation_frame(const QImage &frame);
-    // The image already scaled, off the UI thread, to the size the pin opens at when it shrinks to
-    // fit its screen; shown at once, so the first paint does not scale the original.
-    void set_prepared_display(const QImage &image);
     // The pin was made from card's image, which it draws afresh at each zoom; its menu acts on the files.
     void open_files(const PinFileCard &card);
     const PinFileCard *file_card() const { return file_card_.get(); }
@@ -252,7 +250,6 @@ private:
     void run_mouse_action(const QString &action, const std::optional<QPoint> &position = std::nullopt);
     void finish_mouse_click();
     bool handle_mouse_gesture(QMouseEvent *event);
-    void apply_smooth_scaling();
     void show_zoom_percent();
     void start_ocr_for_translation();
     void on_ocr_translation_finished(bool success, const QString &result);
@@ -305,8 +302,9 @@ private:
     QPixmap base_pixmap_;
     double view_scale_x_ = 1.0, view_scale_y_ = 1.0;
     std::optional<std::pair<int, int>> last_background_scale_size_;
-    QTimer *scale_timer_ = nullptr;
-    bool is_scaling_ = false;
+    // Counts the backgrounds shown, so an image scaled for an earlier one is dropped.
+    quint64 display_ticket_ = 0;
+    std::shared_ptr<PinDisplayScaler> display_scaler_;
     double win_opacity_;
     QLabel *zoom_label_ = nullptr;
     QTimer *zoom_hide_timer_ = nullptr;
@@ -329,6 +327,5 @@ private:
     std::unique_ptr<PinFileCard> file_card_;
     // The right-clicked file's card while the menu is open.
     QGraphicsRectItem *file_highlight_ = nullptr;
-    QImage prepared_display_;
 };
 }

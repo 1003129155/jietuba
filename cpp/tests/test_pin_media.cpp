@@ -624,20 +624,12 @@ private slots:
         const QSize screen = QGuiApplication::primaryScreen()->geometry().size();
         const auto big = picture("big.png", screen + QSize(400, 300), Qt::darkCyan);
         copy_files({big});
-        // What the pin shows on its first paint, before its own smooth scaling would run.
-        QObject watch;
-        QSize first_shown;
-        connect(get_pin_manager(), &PinManager::pin_created, &watch, [&first_shown](PinWindow *pin) {
-            QMetaObject::invokeMethod(pin, [pin, &first_shown] { first_shown = pin->canvas->scene->background->pixmap().size(); }, Qt::QueuedConnection);
-        });
         QVERIFY(clipboard::pin_latest_clipboard_image(QPoint(100, 100)));
         QTRY_COMPARE(pins().size(), 1);
         auto *pin = pins()[0];
         QVERIFY(pin->width() < screen.width() && pin->height() < screen.height());
-        // Scaled off the UI thread to exactly the size it opens at, and shown at that size from the start.
-        QTRY_VERIFY(first_shown.isValid());
-        QCOMPARE(first_shown, pin->size());
-        QCOMPARE(pin->canvas->scene->background->pixmap().size(), pin->size());
+        // The pin scales it to the size it opens at, off the UI thread.
+        QTRY_COMPARE(pin->canvas->scene->background->pixmap().size(), pin->size());
         QCOMPARE(pin->canvas->scene->background->pixmap().toImage().pixelColor(5, 5), QColor(Qt::darkCyan));
     }
 

@@ -4,7 +4,6 @@
 #include "core/i18n.h"
 #include "core/logger.h"
 #include "core/platform_utils.h"
-#include "core/ui_scale.h"
 #include "pin/pin_animation.h"
 #include "pin/pin_file_card.h"
 #include "pin/pin_manager.h"
@@ -133,26 +132,14 @@ struct Opened {
     QImage image;
     // A card with its icons fetched, drawn as image.
     std::optional<PinFileCard> card;
-    // A picture larger than its screen, scaled as its pin opens shrunk to fit.
-    QImage display;
 };
 
-// screen is the size of the screen the pin opens on, empty when pins keep their size.
-Opened decode_picture(const QString &file, const QSize &screen) {
-    if (auto animation = load_animation(file)) return {std::move(animation), {}, std::nullopt, {}};
+Opened decode_picture(const QString &file) {
+    if (auto animation = load_animation(file)) return {std::move(animation), {}, std::nullopt};
     QImageReader reader(file);
     // Photos stand as the camera held them.
     reader.setAutoTransform(true);
-    Opened opened{std::nullopt, reader.read(), std::nullopt, {}};
-    const QSize size = opened.image.size();
-    if (!screen.isEmpty() && (size.width() > screen.width() || size.height() > screen.height())) {
-        // The pin's own sizing, so the sizes match exactly.
-        const double scale = std::min(AUTO_SHRINK_RATIO * screen.width() / size.width(), AUTO_SHRINK_RATIO * screen.height() / size.height());
-        const int w = std::max(1, static_cast<int>(python_round(size.width() * scale)));
-        const int h = std::max(1, static_cast<int>(python_round(size.height() * scale)));
-        opened.display = opened.image.scaled(w, h, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
-    }
-    return opened;
+    return {std::nullopt, reader.read(), std::nullopt};
 }
 
 Opened draw_card(const QStringList &files, const QSize &limit) {
@@ -162,7 +149,7 @@ Opened draw_card(const QStringList &files, const QSize &limit) {
     card.load_icons();
     QImage image = card.render(card.size());
     if (SUCCEEDED(com)) CoUninitialize();
-    return {std::nullopt, std::move(image), std::move(card), {}};
+    return {std::nullopt, std::move(image), std::move(card)};
 }
 
 // Pictures decode and cards are drawn on worker threads, so many or large ones never hold the UI
@@ -170,7 +157,7 @@ Opened draw_card(const QStringList &files, const QSize &limit) {
 // are ready. Pictures that do not decode end on one card, unless they no longer exist.
 class PinBatch : public QObject {
 public:
-    PinBatch(const QStringList &card_files, const QStringList &pictures, bool cards, const QSize &card_limit, const QSize &screen, const QPoint &origin, bool pinned)
+    PinBatch(const QStringList &card_files, const QStringList &pictures, bool cards, const QSize &card_limit, const QPoint &origin, bool pinned)
         : QObject(qApp), pictures_(pictures), opened_(pictures.size() + (card_files.isEmpty() ? 0 : 1)), cards_(cards), card_limit_(card_limit),
           origin_(origin), pinned_(pinned) {
         // Below the UI thread and on half the cores, so neither the pins nor other programs wait for this.
@@ -178,7 +165,7 @@ public:
         pool_.setMaxThreadCount(std::max(1, QThread::idealThreadCount() / 2));
         int index = 0;
         if (!card_files.isEmpty()) start(index++, [card_files, card_limit] { return draw_card(card_files, card_limit); });
-        for (const auto &file : pictures) start(index++, [file, screen] { return decode_picture(file, screen); });
+        for (const auto &file : pictures) start(index++, [file] { return decode_picture(file); });
     }
     ~PinBatch() override {
         // Results still on their way are dropped with this object.
@@ -221,7 +208,7 @@ private:
             get_pin_manager()->create_animation_pin(std::move(*opened.animation), position, settings);
             ++placed_;
         } else if (!opened.image.isNull()) {
-            create_pin_from_image(opened.image, nullptr, at, opened.display);
+            create_pin_from_image(opened.image, nullptr, at);
             ++placed_;
         } else if (cards_ && picture >= 0 && QFileInfo::exists(pictures_[picture])) {
             undecoded_.append(pictures_[picture]);
@@ -230,7 +217,7 @@ private:
             schedule_next();
             return;
         }
-        if (!undecoded_.isEmpty()) new PinBatch(undecoded_, {}, false, card_limit_, {}, origin_ + QPoint(CASCADE_STEP, CASCADE_STEP) * placed_, true);
+        if (!undecoded_.isEmpty()) new PinBatch(undecoded_, {}, false, card_limit_, origin_ + QPoint(CASCADE_STEP, CASCADE_STEP) * placed_, true);
         if (placed_ == 0 && undecoded_.isEmpty() && !pinned_) show_toast(i18n_tr("Nothing on the clipboard to pin", "MainApp"));
         deleteLater();
     }
@@ -263,9 +250,7 @@ bool pin_files(const QStringList &files, bool pictures, bool cards, const QPoint
         !show_confirm_dialog(nullptr, pin_tr("Pin Many Images"), pin_tr("Pin %1 images at once? So many windows may slow the computer down.").arg(images.size())))
         return true;
     const auto *screen = target_screen(nullptr, origin);
-    // The size pins shrink to fit, as the pins themselves work it out.
-    const QSize shrink_to = screen && get_tool_settings_manager()->get_app_setting("pin_auto_shrink").toBool() ? screen->geometry().size() : QSize();
-    new PinBatch(others, images, cards, card_limit(screen), shrink_to, origin, false);
+    new PinBatch(others, images, cards, card_limit(screen), origin, false);
     log_debug(T("已钉住剪贴板中的 {count} 个文件", {{"count", static_cast<int>(files.size())}}), "Clipboard");
     return true;
 }
@@ -296,12 +281,11 @@ bool create_pin_from_clipboard_item(qint64 item_id, ClipboardManager *manager, Q
     return pin_item(item_id, [manager](qint64 id) { return manager->get_item(id); }, clipboard_window, center);
 }
 
-bool create_pin_from_image(const QImage &image, QWidget *clipboard_window, std::optional<QPoint> center, const QImage &display) {
+bool create_pin_from_image(const QImage &image, QWidget *clipboard_window, std::optional<QPoint> center) {
     if (image.isNull()) return false;
     auto *config_manager = get_tool_settings_manager();
     const QPoint position = calculate_pin_position(image.size(), clipboard_window, center);
-    auto *pin = get_pin_manager()->create_pin(image, position, config_manager);
-    if (!display.isNull()) pin->set_prepared_display(display);
+    get_pin_manager()->create_pin(image, position, config_manager);
     // Capture pins trim the working set when the capture window finishes; the clipboard path has no capture window, so it trims here.
     request_trim_working_set(1500);
     return true;
@@ -311,7 +295,7 @@ bool create_pin_from_files(const QStringList &files, QWidget *clipboard_window, 
     if (files.isEmpty()) return false;
     const auto *screen = target_screen(clipboard_window, center);
     const QPoint origin = center ? *center : screen ? screen->geometry().center() : QPoint(100, 100);
-    new PinBatch(files, {}, false, card_limit(screen), {}, origin, false);
+    new PinBatch(files, {}, false, card_limit(screen), origin, false);
     return true;
 }
 

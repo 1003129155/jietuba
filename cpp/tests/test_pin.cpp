@@ -1602,6 +1602,37 @@ private slots:
         QCOMPARE(background->pixmap().width(), pin->width());
     }
 
+    // Each notch asks for the sharp image at once, so it shows while the wheel still turns.
+    void zoomingSharpensWhileTheWheelStillTurns() {
+        auto *pin = make_pin(QSize(300, 200));
+        auto *background = pin->canvas->scene->background;
+        wheel(pin, -120, Qt::NoModifier, false, 2);
+        bool sharp = false;
+        // A notch every 30 ms between 70% and 80%, never back at the original's size.
+        for (int notch = 0; notch < 60 && !sharp; ++notch) {
+            wheel(pin, notch % 2 ? 120 : -120);
+            QTest::qWait(30);
+            sharp = background->pixmap().size() == pin->size();
+        }
+        QVERIFY(sharp);
+        QVERIFY(pin->scale_factor < 1.0);
+    }
+
+    // An image scaled for an earlier size never replaces what is shown since.
+    void anOutdatedScaledImageIsDropped() {
+        auto *pin = make_pin(QSize(300, 200));
+        auto *background = pin->canvas->scene->background;
+        wheel(pin, -120, Qt::NoModifier, false, 3);
+        pin->reset_to_original_size();
+        QTest::qWait(100);
+        QCOMPARE(background->pixmap().cacheKey(), pin->base_pixmap().cacheKey());
+        // Several notches at once: the last size is shown, and stays.
+        wheel(pin, -120, Qt::NoModifier, false, 3);
+        QTRY_COMPARE(background->pixmap().size(), pin->size());
+        QTest::qWait(100);
+        QCOMPARE(background->pixmap().size(), pin->size());
+    }
+
     void aTextPinIsDrawnAgainForExportAndMosaic() {
         arial_family();
         auto *pin = make_text_pin(QString("exported at its own size\n").repeated(4).trimmed());

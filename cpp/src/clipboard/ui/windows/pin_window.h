@@ -19,9 +19,8 @@ class ClipboardManager;
 bool create_pin_from_clipboard_item(qint64 item_id, ClipboardController *controller, QWidget *clipboard_window = nullptr,
                                     std::optional<QPoint> center = std::nullopt);
 bool create_pin_from_clipboard_item(qint64 item_id, ClipboardManager *manager, QWidget *clipboard_window = nullptr, std::optional<QPoint> center = std::nullopt);
-// Both paths end here, so placement and the working set trim live in one place. display, when
-// given, is the image already scaled to the size the pin opens at.
-bool create_pin_from_image(const QImage &image, QWidget *clipboard_window = nullptr, std::optional<QPoint> center = std::nullopt, const QImage &display = {});
+// Both paths end here, so placement and the working set trim live in one place.
+bool create_pin_from_image(const QImage &image, QWidget *clipboard_window = nullptr, std::optional<QPoint> center = std::nullopt);
 // Files as cards on one pin, at most half the screen across and down, drawn off the UI thread and
 // shown when ready; false for none.
 bool create_pin_from_files(const QStringList &files, QWidget *clipboard_window = nullptr, std::optional<QPoint> center = std::nullopt);

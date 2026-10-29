@@ -44,11 +44,13 @@
 #include <QKeyEvent>
 #include <QMimeData>
 #include <QMouseEvent>
+#include <QMutex>
 #include <QPainter>
 #include <QRegularExpression>
 #include <QScopeGuard>
 #include <QScreen>
 #include <QStandardPaths>
+#include <QThreadPool>
 #include <QUrl>
 #include <QUuid>
 #include <QStyleOptionGraphicsItem>
@@ -110,7 +112,75 @@ double round4(double value) { return std::round(value * 10000) / 10000; }
 
 // Stepping to a frame read in less than this shows no bar.
 constexpr int SEEK_BAR_DELAY_MS = 150;
+
+QThreadPool &scaling_workers() {
+    static QThreadPool pool;
+    static const bool ready = [] {
+        pool.setMaxThreadCount(2);
+        pool.setThreadPriority(QThread::LowPriority);
+        // Pixmaps are made there, which must end before the application's GUI goes.
+        if (qApp) QObject::connect(qApp, &QCoreApplication::aboutToQuit, qApp, [] {
+            pool.clear();
+            pool.waitForDone();
+        });
+        return true;
+    }();
+    Q_UNUSED(ready);
+    return pool;
 }
+}
+
+// Scales a pin's image smoothly on a worker thread, one at a time: a request made meanwhile replaces
+// any still waiting, so zooming by several notches scales only the size of the last.
+class PinDisplayScaler : public std::enable_shared_from_this<PinDisplayScaler> {
+public:
+    // done gets the image as a pixmap on context's thread, and not at all once context is gone.
+    void request(const QImage &source, const QSize &size, QObject *context, std::function<void(QPixmap)> done) {
+        QMutexLocker lock(&mutex_);
+        pending_ = Job{source, size, context, std::move(done)};
+        if (running_) return;
+        running_ = true;
+        scaling_workers().start([self = shared_from_this()] { self->run(); });
+    }
+    // Drops the request still waiting; the one being scaled still arrives.
+    void cancel() {
+        QMutexLocker lock(&mutex_);
+        pending_.reset();
+    }
+
+private:
+    struct Job {
+        QImage source;
+        QSize size;
+        QPointer<QObject> context;
+        std::function<void(QPixmap)> done;
+    };
+    void run() {
+        for (;;) {
+            Job job;
+            {
+                QMutexLocker lock(&mutex_);
+                if (!pending_) {
+                    running_ = false;
+                    return;
+                }
+                job = std::move(*pending_);
+                pending_.reset();
+            }
+            const QImage scaled = job.source.scaled(job.size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+            // Out of memory: the view keeps stretching what it shows.
+            if (scaled.isNull()) continue;
+            // Made into a pixmap here too, which takes the UI thread a frame or more for a large image.
+            auto pixmap = std::make_shared<QPixmap>(QPixmap::fromImage(scaled));
+            QMetaObject::invokeMethod(qApp, [context = job.context, done = std::move(job.done), pixmap] {
+                if (context) done(std::move(*pixmap));
+            }, Qt::QueuedConnection);
+        }
+    }
+    QMutex mutex_;
+    std::optional<Job> pending_;
+    bool running_ = false;
+};
 
 PinWindow::PinWindow(const QImage &image, const QPoint &position, ToolSettingsManager *config_manager, const QList<QGraphicsItem *> &items,
                      const std::optional<QPoint> &offset, std::optional<int> number_next)
@@ -130,10 +200,7 @@ PinWindow::PinWindow(const QImage &image, const QPoint &position, ToolSettingsMa
     setMouseTracking(true);
     orig_size_ = image.size();
     base_pixmap_ = QPixmap::fromImage(image);
-    scale_timer_ = new QTimer(this);
-    scale_timer_->setSingleShot(true);
-    scale_timer_->setInterval(80);
-    connect(scale_timer_, &QTimer::timeout, this, &PinWindow::apply_smooth_scaling);
+    display_scaler_ = std::make_shared<PinDisplayScaler>();
     win_opacity_ = opacity_setting("pin_default_opacity");
     if (win_opacity_ < 1.0) setWindowOpacity(win_opacity_);
     // Zoom percentage hint.
@@ -164,7 +231,8 @@ PinWindow::PinWindow(const QImage &image, const QPoint &position, ToolSettingsMa
     image_transform_ = std::make_unique<PinImageTransform>();
     update_view_transform();
     view->viewport()->installEventFilter(this);
-    if (scale_factor != 1.0) scale_timer_->start();
+    // Once the caller has made it a text or animation pin, so nothing is scaled for nothing.
+    if (scale_factor != 1.0) QMetaObject::invokeMethod(this, &PinWindow::refresh_background_for_scale, Qt::QueuedConnection);
     // The toolbar is created on demand.
     hover_controls = std::make_unique<PinHoverControls>(this);
     ocr_mgr_ = std::make_unique<PinOCRManager>(this, config_manager);
@@ -420,18 +488,19 @@ void PinWindow::refresh_background_for_scale() {
     const int th = std::max(1, static_cast<int>(python_round(orig_size_.height() * bg_scale_y)));
     const auto target_size = std::make_pair(tw, th);
     if (last_background_scale_size_ == target_size) return;
+    last_background_scale_size_ = target_size;
+    // An image still being scaled for an earlier size is dropped.
+    const auto ticket = ++display_ticket_;
     // Frames go up as they are and the view scales them while drawing: resampling every frame
     // would hold the UI thread at each zoom other than 100%.
     if (animation_) {
         show_frame_unscaled();
-        last_background_scale_size_ = target_size;
         return;
     }
     const QTransform to_scene = QTransform::fromScale(1.0 / bg_scale_x, 1.0 / bg_scale_y);
     // Text is drawn again at the size shown, in screen pixels, on a worker thread; until then the view
     // scales what it has.
     if (text_content_) {
-        last_background_scale_size_ = target_size;
         const auto generation = text_generation_;
         text_content_->render_async(QSize(tw, th), devicePixelRatioF(), this, [this, generation, target_size, to_scene](QImage image) {
             if (is_closed_ || generation != text_generation_ || last_background_scale_size_ != target_size || !canvas || !canvas->scene) return;
@@ -442,13 +511,20 @@ void PinWindow::refresh_background_for_scale() {
     // File cards are drawn again at the size shown, in screen pixels, rather than an image resampled.
     QPixmap scaled;
     if (file_card_) scaled = QPixmap::fromImage(file_card_->render(QSize(tw, th), devicePixelRatioF()));
-    else if (prepared_display_.size() == QSize(tw, th)) scaled = QPixmap::fromImage(std::exchange(prepared_display_, QImage()));
-    else scaled = base_pixmap_.scaled(tw, th, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    else if (base_pixmap_.size() == QSize(tw, th)) scaled = base_pixmap_;
     // Only the rendered pixmap changes, not update_image(): that would feed this
     // display-resolution copy into the content cache, and mosaic reductions would then
     // sample display pixels instead of the original's, misplacing mosaics after zooming.
-    background_item->set_display_pixmap(scaled, to_scene);
-    last_background_scale_size_ = target_size;
+    if (!scaled.isNull()) {
+        background_item->set_display_pixmap(scaled, to_scene);
+        return;
+    }
+    // Scaled on a worker thread, which a large image takes long enough to hold the UI for; until then the
+    // view stretches what it shows.
+    display_scaler_->request(base_pixmap_.toImage(), QSize(tw, th), this, [this, ticket, to_scene](QPixmap pixmap) {
+        if (is_closed_ || ticket != display_ticket_ || !canvas || !canvas->scene) return;
+        canvas->scene->background->set_display_pixmap(pixmap, to_scene);
+    });
 }
 
 void PinWindow::resizeEvent(QResizeEvent *event) {
@@ -587,11 +663,11 @@ void PinWindow::scale_around(double scale, double fx, double fy, std::optional<Q
         anchor = QPointF(geo.x() + fx * geo.width(), geo.y() + fy * geo.height());
     }
     scale_factor = scale;
-    is_scaling_ = true;
     setGeometry(static_cast<int>(python_round(anchor->x() - fx * nw)), static_cast<int>(python_round(anchor->y() - fy * nh)), nw, nh);
+    // At every notch: the sharp image is asked for at once, not once the wheel stops.
+    refresh_background_for_scale();
     if (canvas) canvas->invalidate_cache();
     update();
-    scale_timer_->start();
     show_zoom_percent();
 }
 
@@ -737,13 +813,6 @@ void PinWindow::mouseDoubleClickEvent(QMouseEvent *event) {
         return;
     }
     QWidget::mouseDoubleClickEvent(event);
-}
-
-void PinWindow::apply_smooth_scaling() {
-    if (is_closed_) return;
-    is_scaling_ = false;
-    refresh_background_for_scale();
-    update();
 }
 
 void PinWindow::show_zoom_percent() {
@@ -899,12 +968,6 @@ void PinWindow::place_seek_bar() {
     // Narrower than the pin, centred on it.
     seek_bar_->setFixedWidth(std::max(1, std::min(scaled(260), width() - 2 * scaled(12))));
     seek_bar_->center_on(rect().center());
-}
-
-void PinWindow::set_prepared_display(const QImage &image) {
-    prepared_display_ = image;
-    last_background_scale_size_.reset();
-    refresh_background_for_scale();
 }
 
 void PinWindow::show_frame_unscaled() {
@@ -1424,7 +1487,7 @@ void PinWindow::cleanup() {
     if (animation_) animation_->stop();
     clear_file_highlight();
     if (hover_controls) hover_controls->stop();
-    if (scale_timer_) scale_timer_->stop();
+    if (display_scaler_) display_scaler_->cancel();
     if (zoom_hide_timer_) zoom_hide_timer_->stop();
     if (click_through_bar_) {
         click_through_bar_->close();
