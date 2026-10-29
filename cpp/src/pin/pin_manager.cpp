@@ -40,6 +40,8 @@ bool PinManager::confirm_small_pin(const QSize &size, QWidget *parent) {
 
 PinWindow *PinManager::create_pin(const QImage &image, const QPoint &position, ToolSettingsManager *config_manager, const QList<QGraphicsItem *> &drawing_items,
                                   const std::optional<QPoint> &selection_offset, std::optional<int> number_next) {
+    // The new pin would stand alone, the others seemingly gone.
+    if (all_hidden_) set_all_hidden(false);
     auto *pin_window = new PinWindow(image, position, config_manager, drawing_items, selection_offset, number_next);
     connect(pin_window, &PinWindow::closed, this, [this, pin_window] { on_pin_closed(pin_window); });
     pin_windows.append(pin_window);
@@ -83,6 +85,8 @@ void PinManager::on_pin_closed(PinWindow *pin_window) {
     request_trim_working_set(1500);
     log_debug(T("钉图已关闭 (剩余 {count} 个)", {{"count", count()}}), "PinManager");
     if (pin_windows.isEmpty()) {
+        all_hidden_ = false;
+        hidden_order_.clear();
         emit all_pins_closed();
         log_debug(T("所有钉图已关闭"), "PinManager");
     }
@@ -163,6 +167,7 @@ PinWindow *PinManager::animation_pin_of(const QString &file) const {
 
 bool PinManager::point_out(PinWindow *pin) {
     if (!pin) return false;
+    if (all_hidden_) set_all_hidden(false);
     pin->raise();
     pin->activateWindow();
     pin->shake();
@@ -170,14 +175,43 @@ bool PinManager::point_out(PinWindow *pin) {
     return true;
 }
 
-void PinManager::show_all() {
-    for (auto *pin_window : get_all_pins()) pin_window->show();
+void PinManager::set_all_hidden(bool hidden) {
+    if (hidden == all_hidden_) return;
+    if (hidden) {
+        if (pin_windows.isEmpty()) return;
+        hidden_order_.clear();
+        const auto pins = get_all_pins();
+        for (HWND hwnd = GetTopWindow(nullptr); hwnd; hwnd = GetWindow(hwnd, GW_HWNDNEXT))
+            for (auto *pin : pins)
+                if (reinterpret_cast<HWND>(pin->winId()) == hwnd) hidden_order_.append(pin);
+        for (auto *pin : pins) {
+            // The toolbar is a window of its own and would stay.
+            pin->stop_drawing();
+            pin->hide_toolbar();
+            pin->hide();
+        }
+        all_hidden_ = true;
+        log_debug(T("隐藏了 {count} 个钉图窗口", {{"count", count()}}), "PinManager");
+        emit all_hidden_changed(true);
+        return;
+    }
+    all_hidden_ = false;
+    for (auto *pin : get_all_pins()) {
+        pin->setAttribute(Qt::WA_ShowWithoutActivating, true);
+        pin->show();
+        pin->setAttribute(Qt::WA_ShowWithoutActivating, false);
+    }
+    // Each below the one that was above it.
+    HWND above = nullptr;
+    for (const auto &pin : hidden_order_) {
+        if (!pin || pin->is_closed()) continue;
+        const auto hwnd = reinterpret_cast<HWND>(pin->winId());
+        if (above) SetWindowPos(hwnd, above, 0, 0, 0, 0, SWP_FLAGS | SWP_NOOWNERZORDER);
+        above = hwnd;
+    }
+    hidden_order_.clear();
     log_debug(T("显示了 {count} 个钉图窗口", {{"count", count()}}), "PinManager");
-}
-
-void PinManager::hide_all() {
-    for (auto *pin_window : get_all_pins()) pin_window->hide();
-    log_debug(T("隐藏了 {count} 个钉图窗口", {{"count", count()}}), "PinManager");
+    emit all_hidden_changed(false);
 }
 
 void PinManager::move_all_to_screen_center() {

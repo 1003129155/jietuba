@@ -2340,6 +2340,7 @@ Replace it?</source>
     <message><source>Move all pins to center</source><translation>移动所有钉图到中心</translation></message>
     <message><source>Thumbnail all pins</source><translation>缩略图所有钉图</translation></message>
     <message><source>Restore all pin thumbnails</source><translation>取消缩略所有钉图</translation></message>
+    <message><source>Hide all pins</source><translation>隐藏所有钉图</translation></message>
     <message><source>Close all pins</source><translation>关闭所有钉图</translation></message>
     <message><source>Save all pins as...</source><translation>所有钉图另存为</translation></message>
     <message><source>Choose folder to save pinned images</source><translation>选择保存钉图的文件夹</translation></message>

@@ -2352,6 +2352,10 @@ Replace it?</source>
         <translation>取消縮略所有釘圖</translation>
     </message>
     <message>
+        <source>Hide all pins</source>
+        <translation>隱藏所有釘圖</translation>
+    </message>
+    <message>
         <source>Close all pins</source>
         <translation>關閉所有釘圖</translation>
     </message>

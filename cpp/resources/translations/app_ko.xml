@@ -2354,6 +2354,7 @@ Replace it?</source>
     <message><source>Move all pins to center</source><translation>모든 고정 창을 화면 중앙으로 이동</translation></message>
     <message><source>Thumbnail all pins</source><translation>모든 고정 창을 썸네일로 전환</translation></message>
     <message><source>Restore all pin thumbnails</source><translation>모든 고정 창 썸네일 해제</translation></message>
+    <message><source>Hide all pins</source><translation>모든 고정 창 숨기기</translation></message>
     <message><source>Close all pins</source><translation>모든 고정 창 닫기</translation></message>
     <message><source>Save all pins as...</source><translation>모든 고정 창 다른 이름으로 저장...</translation></message>
     <message><source>Choose folder to save pinned images</source><translation>고정 이미지를 저장할 폴더 선택</translation></message>

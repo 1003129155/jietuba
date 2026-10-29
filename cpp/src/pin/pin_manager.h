@@ -51,10 +51,11 @@ public:
     PinWindow *text_pin_of(const QString &text) const;
     PinWindow *file_pin_of(const QStringList &files) const;
     PinWindow *animation_pin_of(const QString &file) const;
-    // Brings pin to the front and shakes it; false for null.
+    // Brings pin to the front and shakes it, showing the pins first if they are hidden; false for null.
     bool point_out(PinWindow *pin);
-    void show_all();
-    void hide_all();
+    // Hidden from the tray: the pins keep their order above one another, shown again. A new pin shows them all.
+    bool all_hidden() const { return all_hidden_; }
+    void set_all_hidden(bool hidden);
     // Each pin to the centre of the screen it is on.
     void move_all_to_screen_center();
     // Pushes saved appearance settings to open pins.
@@ -74,11 +75,15 @@ signals:
     void pin_created(PinWindow *pin_window);
     void pin_closed(PinWindow *pin_window);
     void all_pins_closed();
+    void all_hidden_changed(bool hidden);
 private:
     PinManager();
     void on_pin_closed(PinWindow *pin_window);
     bool repeats_pointed_out() const;
     QPointer<QWidget> capture_window_;
+    bool all_hidden_ = false;
+    // Top first, as they stood when hidden.
+    QList<QPointer<PinWindow>> hidden_order_;
 };
 
 inline PinManager *get_pin_manager() { return PinManager::instance(); }

@@ -2315,6 +2315,7 @@ Replace it?</translation>
     <message><source>Move all pins to center</source><translation>Move all pins to center</translation></message>
     <message><source>Thumbnail all pins</source><translation>Thumbnail all pins</translation></message>
     <message><source>Restore all pin thumbnails</source><translation>Restore all pin thumbnails</translation></message>
+    <message><source>Hide all pins</source><translation>Hide all pins</translation></message>
     <message><source>Close all pins</source><translation>Close all pins</translation></message>
     <message><source>Save all pins as...</source><translation>Save all pins as...</translation></message>
     <message><source>Choose folder to save pinned images</source><translation>Choose folder to save pinned images</translation></message>

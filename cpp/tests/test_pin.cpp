@@ -1243,17 +1243,51 @@ private slots:
         copy.clear();
         QCOMPARE(manager->count(), 2);
 
-        manager->hide_all();
-        QVERIFY(!first->isVisible() && !second->isVisible());
-        manager->show_all();
-        QVERIFY(first->isVisible() && second->isVisible());
-
         manager->remove_pin(second);
         QCOMPARE(manager->get_all_pins(), QList<PinWindow *>{first});
         QVERIFY(!second->is_closed());
         manager->remove_pin(second);
         QCOMPARE(manager->count(), 1);
         pins_.append(second);
+    }
+
+    void hiddenPinsComeBackInTheirOrderAndANewPinShowsThem() {
+        auto *manager = PinManager::instance();
+        QImage blue(80, 60, QImage::Format_RGB32);
+        blue.fill(Qt::blue);
+        auto *lower = manager->create_pin(solid(QSize(80, 60)), QPoint(10, 20), config_);
+        auto *upper = manager->create_pin(blue, QPoint(40, 40), config_);
+        // Whether a stands above b on the real desktop; offscreen windows have no handles to order.
+        const auto above = [](QWidget *a, QWidget *b) {
+            for (HWND hwnd = GetTopWindow(nullptr); hwnd; hwnd = GetWindow(hwnd, GW_HWNDNEXT)) {
+                if (hwnd == reinterpret_cast<HWND>(a->winId())) return true;
+                if (hwnd == reinterpret_cast<HWND>(b->winId())) return false;
+            }
+            return false;
+        };
+        lower->raise();
+        if (desktop()) QVERIFY(above(lower, upper));
+        QSignalSpy changed(manager, &PinManager::all_hidden_changed);
+        manager->set_all_hidden(true);
+        QVERIFY(manager->all_hidden());
+        QVERIFY(!lower->isVisible() && !upper->isVisible());
+        manager->set_all_hidden(false);
+        QVERIFY(!manager->all_hidden());
+        QVERIFY(lower->isVisible() && upper->isVisible());
+        if (desktop()) QVERIFY(above(lower, upper));
+        // A new pin would stand alone; the others show with it.
+        manager->set_all_hidden(true);
+        manager->create_pin(solid(QSize(40, 40)), QPoint(300, 20), config_);
+        QVERIFY(!manager->all_hidden() && lower->isVisible() && upper->isVisible());
+        // So does a repeat of a hidden pin, which shakes.
+        manager->set_all_hidden(true);
+        QVERIFY(manager->point_out(manager->image_pin_of(blue)));
+        QVERIFY(!manager->all_hidden() && lower->isVisible() && upper->shaking());
+        QCOMPARE(changed.count(), 6);
+        // Nothing left to show once all are closed.
+        manager->set_all_hidden(true);
+        manager->close_all();
+        QVERIFY(!manager->all_hidden());
     }
 
     void managerAnnouncesClosesOnce() {

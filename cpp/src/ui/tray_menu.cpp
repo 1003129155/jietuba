@@ -101,6 +101,12 @@ void add_pin_actions(QMenu *menu) {
     QObject::connect(restore_all_action, &QAction::triggered, pin_manager, [pin_manager] { pin_manager->set_all_thumbnail_mode(false); });
     pins_menu->addAction(restore_all_action);
 
+    auto *hide_all_action = new QAction(tr_text("Hide all pins"), pins_menu);
+    hide_all_action->setCheckable(true);
+    hide_all_action->setChecked(pin_manager->all_hidden());
+    QObject::connect(hide_all_action, &QAction::triggered, pin_manager, [pin_manager](bool hidden) { pin_manager->set_all_hidden(hidden); });
+    pins_menu->addAction(hide_all_action);
+
     pins_menu->addSeparator();
 
     auto *close_all_action = new QAction(tr_text("Close all pins"), pins_menu);

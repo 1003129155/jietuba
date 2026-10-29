@@ -251,6 +251,7 @@ void MainApp::setup_pin_tray_updates() {
     connect(pin_manager, &PinManager::pin_created, this, [this] { update_tray_menu(); });
     connect(pin_manager, &PinManager::pin_closed, this, [this] { update_tray_menu(); });
     connect(pin_manager, &PinManager::all_pins_closed, this, &MainApp::update_tray_menu);
+    connect(pin_manager, &PinManager::all_hidden_changed, this, &MainApp::update_tray_menu);
 }
 
 void MainApp::update_tray_menu() {

@@ -2383,6 +2383,7 @@ Replace it?</source>
     <message><source>Move all pins to center</source><translation>すべてのピン留めを画面中央へ</translation></message>
     <message><source>Thumbnail all pins</source><translation>ピン留めをサムネイル化</translation></message>
     <message><source>Restore all pin thumbnails</source><translation>ピン留めのサムネイルを解除</translation></message>
+    <message><source>Hide all pins</source><translation>すべてのピン留めを隠す</translation></message>
     <message><source>Close all pins</source><translation>すべてのピン留めを閉じる</translation></message>
     <message><source>Save all pins as...</source><translation>すべてのピン留めを保存</translation></message>
     <message><source>Choose folder to save pinned images</source><translation>ピン留め画像の保存先フォルダーを選択</translation></message>
