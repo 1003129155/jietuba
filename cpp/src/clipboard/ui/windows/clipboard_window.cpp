@@ -14,11 +14,13 @@
 #include "core/data_location.h"
 #include "core/logger.h"
 #include "core/platform_utils.h"
+#include "core/resource_manager.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
 #include "settings/tool_settings.h"
 #include "ui/dialogs.h"
 #include "ui/fluent_lite/inputs.h"
+#include "ui/fluent_lite/theme.h"
 #include <QApplication>
 #include <QCalendarWidget>
 #include <QCloseEvent>
@@ -27,7 +29,6 @@
 #include <QIcon>
 #include <QDesktopServices>
 #include <QDir>
-#include <QDrag>
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -42,6 +43,7 @@
 #include <QStandardPaths>
 #include <QStyle>
 #include <QUrl>
+#include <QWheelEvent>
 
 namespace jietuba::clipboard {
 namespace {
@@ -64,16 +66,16 @@ ClipboardShortcutHandler::ClipboardShortcutHandler(ClipboardWindow *window) : wi
 
 void ClipboardShortcutHandler::reload_bindings() {
     // Read on each show, so changed settings apply next time.
-    bindings_ = load_inapp_bindings({QUICK_EDIT_SHORTCUT});
+    bindings_ = load_inapp_bindings({QUICK_EDIT_SHORTCUT, SEARCH_SHORTCUT});
     pick_keys = clipboard_pick_keys(get_tool_settings_manager()->get_inapp_clipboard_pick_mode());
 }
 
+bool ClipboardShortcutHandler::owns_window(const QWidget *window) const { return window_ && window_->owns_window(window); }
+
 bool ClipboardShortcutHandler::is_active() {
     ClipboardWindow *w = window_;
-    if (!w || !w->isVisible()) return false;
-    // Visible is not focused: kept open after pasting, the window stays on screen and would take keys from pins, the canvas and other focused windows.
-    // A popup menu does not take activation, so this window is still active while it is open; keys belong to the menu.
-    return w->isActiveWindow() && !QApplication::activePopupWidget();
+    // An open popup menu takes its own keys.
+    return w && w->isVisible() && !QApplication::activePopupWidget();
 }
 
 bool ClipboardShortcutHandler::handle_key(QInputEvent *event) {
@@ -88,6 +90,10 @@ bool ClipboardShortcutHandler::handle_key(QInputEvent *event) {
 
     // Configured keys come before the fixed Enter and direct pick letters below.
     if (match_inapp_binding(event, QUICK_EDIT_SHORTCUT, bindings_) && w->edit_selected()) return true;
+    if (match_inapp_binding(event, SEARCH_SHORTCUT, bindings_)) {
+        w->toggle_search();
+        return true;
+    }
 
     if (key == Qt::Key_Escape) {
         // The cursor only points, so there is nothing else to undo before closing.
@@ -100,10 +106,6 @@ bool ClipboardShortcutHandler::handle_key(QInputEvent *event) {
     }
     // Delete is only in the context menu, so the Delete key next to Enter cannot remove items by mistake.
     if (key == Qt::Key_Delete) return true;
-    if (key == Qt::Key_F && modifiers == Qt::ControlModifier) {
-        w->search_input->setFocus();
-        return true;
-    }
     if (modifiers & DIRECT_PICK_BLOCKERS) return false;
 
     const QString character = pick_char(key);
@@ -274,15 +276,20 @@ void ClipboardWindow::apply_scale() {
 
 void ClipboardWindow::apply_scale_metrics() {
     setMinimumSize(scaled(390), scaled(400));
-    for (const auto &[bar, layout] : {std::make_pair(time_filter_bar, time_filter_layout_), std::make_pair(bottom_bar, bottom_layout_)}) {
-        bar->setFixedHeight(scaled(36));
-        layout->setContentsMargins(scaled(8), scaled(4), scaled(8), scaled(4));
-    }
+    time_filter_bar->setFixedHeight(scaled(36));
+    time_filter_layout_->setContentsMargins(scaled(8), scaled(4), scaled(8), scaled(4));
     time_filter_layout_->setSpacing(scaled(4));
-    bottom_layout_->setSpacing(scaled(8));
+    // The bottom bar's 1px top line comes out of its height.
+    bottom_bar->setFixedHeight(scaled(46));
+    bottom_layout_->setContentsMargins(scaled(8), scaled(6), scaled(6), scaled(6));
+    bottom_layout_->setSpacing(scaled(4));
+    search_box->setFixedHeight(scaled(30));
+    static_cast<QHBoxLayout *>(search_box->layout())->setContentsMargins(scaled(10), 0, scaled(6), 0);
+    static_cast<QHBoxLayout *>(search_box->layout())->setSpacing(scaled(8));
     const std::tuple<QWidget *, int, int> sizes[] = {
         {start_date_edit, 108, 26}, {end_date_edit, 108, 26},         {apply_time_filter_btn, 36, 26}, {type_filter_btn, 80, 26},
-        {clear_time_filter_btn, 26, 26}, {time_filter_toggle_btn, 28, 28}, {clear_search_btn, 24, 24},  {menu_btn, 28, 28},
+        {clear_time_filter_btn, 26, 26}, {time_filter_toggle_btn, 32, 32}, {clear_search_btn, 20, 20},  {menu_btn, 32, 32},
+        {search_icon, 16, 16},
     };
     for (const auto &[widget, width, height] : sizes) widget->setFixedSize(scaled(width), scaled(height));
 }
@@ -298,14 +305,12 @@ void ClipboardWindow::on_language_changed() {
 }
 
 void ClipboardWindow::apply_theme() {
-    if (item_delegate) {
-        item_delegate->set_theme(current_theme);
-        item_delegate->set_window_opacity(window_opacity);
-    }
+    if (item_delegate) item_delegate->set_theme(current_theme);
     apply_opacity();
     group_bar->set_theme(current_theme);
     if (search_input) {
-        apply_search_input_style(!search_input->text().trimmed().isEmpty());
+        apply_search_box_style(!search_input->text().trimmed().isEmpty());
+        apply_search_icon();
         apply_clear_search_btn_style();
         apply_menu_btn_style();
         apply_time_filter_styles();
@@ -348,8 +353,9 @@ void ClipboardWindow::retranslate_ui() {
     apply_time_filter_btn->setToolTip(tr_text("Apply time filter"));
     type_filter_btn->setToolTip(tr_text("Filter Type"));
     clear_time_filter_btn->setToolTip(tr_text("Close filters"));
-    search_input->setPlaceholderText(QString::fromUtf8("🔍 ") + tr_text("Search"));
+    search_input->setPlaceholderText(tr_text("Search"));
     clear_search_btn->setToolTip(tr_text("Clear search"));
+    time_filter_toggle_btn->setToolTip(tr_text(time_filter_toggle_btn->isChecked() ? "Close filters" : "Open filters"));
     selection_bar->retranslate();
 
     type_filter_labels = type_filter_label_texts();
@@ -455,7 +461,7 @@ void ClipboardWindow::setup_ui() {
     list_widget->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(list_widget, &QWidget::customContextMenuRequested, this, [this](const QPoint &pos) { show_context_menu(pos); });
 
-    item_delegate = new ClipboardItemDelegate(list_widget, current_theme, font_size, window_opacity, config->get_clipboard_show_metadata(),
+    item_delegate = new ClipboardItemDelegate(list_widget, current_theme, font_size, config->get_clipboard_show_metadata(),
                                               static_cast<int>(config->get_clipboard_line_height_padding()), true, config->get_clipboard_image_size(), config->get_clipboard_display_lines());
     list_widget->setItemDelegate(item_delegate);
     list_widget->setMouseTracking(true);
@@ -464,15 +470,13 @@ void ClipboardWindow::setup_ui() {
 
     selection_manager = new SelectionManager(list_widget, [this](qint64 item_id) { return get_item_data(item_id); });
     selection_manager->setParent(this);
-    selection_manager->group_bar_position = group_bar_position;
     connect(selection_manager, &SelectionManager::item_activated, this, [this](qint64 item_id) { on_paste_item(item_id); });
     connect(selection_manager, &SelectionManager::marks_changed, this, [this] { on_marks_changed(); });
     connect(selection_manager, &SelectionManager::cursor_changed, this, [this](std::optional<qint64> item_id) {
         item_delegate->set_cursor_id(item_id);
         list_widget->viewport()->update();
     });
-    connect(selection_manager, &SelectionManager::request_sidebar_focus, this, [this] { enter_sidebar_mode(); });
-    connect(selection_manager, &SelectionManager::request_group_switch, this, [this](int delta) { on_top_group_switch(delta); });
+    connect(selection_manager, &SelectionManager::request_group_switch, this, [this](int delta) { group_bar->switch_adjacent_group(delta); });
     mouse_controller = new ClipboardMouseController(this);
 
     QScrollBar *scrollbar = list_widget->verticalScrollBar();
@@ -481,6 +485,7 @@ void ClipboardWindow::setup_ui() {
     left_layout->addWidget(list_widget, 1);
 
     time_filter_bar = new QWidget;
+    time_filter_bar->setObjectName(BAR_OBJECT_NAME);
     time_filter_bar->hide();
     time_filter_layout_ = new QHBoxLayout(time_filter_bar);
 
@@ -553,45 +558,49 @@ void ClipboardWindow::setup_ui() {
     left_layout->addWidget(selection_bar);
 
     bottom_bar = new QWidget;
-    bottom_bar->setStyleSheet(R"(
-            QWidget {
-                background: #FAFAFA;
-                border-top: 1px solid #E0E0E0;
-            }
-        )");
+    bottom_bar->setObjectName(BAR_OBJECT_NAME);
     bottom_layout_ = new QHBoxLayout(bottom_bar);
 
-    time_filter_toggle_btn = new QToolButton;
-    time_filter_toggle_btn->setArrowType(Qt::UpArrow);
-    time_filter_toggle_btn->setCheckable(true);
-    time_filter_toggle_btn->setCursor(Qt::PointingHandCursor);
-    time_filter_toggle_btn->setFocusPolicy(Qt::NoFocus);
-    connect(time_filter_toggle_btn, &QToolButton::clicked, this, [this](bool checked) { toggle_time_filter_bar(checked); });
-    bottom_layout_->addWidget(time_filter_toggle_btn);
-
+    // The search box holds its own magnifier and clear button; its rounded ground is the box, not the field.
+    search_box = new QFrame;
+    search_box->setObjectName("searchBox");
+    auto *search_layout = new QHBoxLayout(search_box);
+    search_icon = new QLabel;
+    search_layout->addWidget(search_icon);
     search_input = new LineEdit(nullptr, false);
-    search_input->setPlaceholderText(QString::fromUtf8("🔍 ") + tr_text("Search"));
-    apply_search_input_style();
+    search_input->setPlaceholderText(tr_text("Search"));
     connect(search_input, &QLineEdit::textChanged, this, [this] { on_search_changed(); });
     connect(search_input, &QLineEdit::textChanged, this, [this](const QString &text) { update_search_background(text); });
-    bottom_layout_->addWidget(search_input, 1);
+    search_layout->addWidget(search_input, 1);
     selection_manager->set_search_input(search_input);
-
-    clear_search_btn = new QPushButton(QString::fromUtf8("×"));
+    clear_search_btn = new QPushButton;
     clear_search_btn->setCursor(Qt::PointingHandCursor);
     clear_search_btn->setToolTip(tr_text("Clear search"));
     clear_search_btn->setFocusPolicy(Qt::NoFocus);
-    apply_clear_search_btn_style();
     connect(clear_search_btn, &QPushButton::clicked, this, [this] { clear_search(); });
     clear_search_btn->hide();
-    bottom_layout_->addWidget(clear_search_btn);
+    search_layout->addWidget(clear_search_btn);
+    bottom_layout_->addWidget(search_box, 1);
 
-    menu_btn = new QPushButton(QString::fromUtf8("⚙"));
+    // The filter funnel and the gear are SVG icons: symbol characters come from whichever font Windows falls back to.
+    time_filter_toggle_btn = new QToolButton;
+    time_filter_toggle_btn->setCheckable(true);
+    time_filter_toggle_btn->setCursor(Qt::PointingHandCursor);
+    time_filter_toggle_btn->setFocusPolicy(Qt::NoFocus);
+    time_filter_toggle_btn->setToolTip(tr_text("Open filters"));
+    connect(time_filter_toggle_btn, &QToolButton::clicked, this, [this](bool checked) { toggle_time_filter_bar(checked); });
+    bottom_layout_->addWidget(time_filter_toggle_btn);
+
+    menu_btn = new QPushButton;
     menu_btn->setCursor(Qt::PointingHandCursor);
     menu_btn->setFocusPolicy(Qt::NoFocus);
-    apply_menu_btn_style();
     connect(menu_btn, &QPushButton::clicked, this, [this] { show_main_menu(); });
     bottom_layout_->addWidget(menu_btn);
+
+    apply_search_box_style();
+    apply_search_icon();
+    apply_clear_search_btn_style();
+    apply_menu_btn_style();
 
     apply_time_filter_styles();
     left_layout->addWidget(bottom_bar);
@@ -600,8 +609,6 @@ void ClipboardWindow::setup_ui() {
     group_bar = new GroupBar(controller, &manager, current_theme, group_bar_position, this);
     connect(group_bar, &GroupBar::close_requested, this, [this] { close(); });
     connect(group_bar, &GroupBar::group_switched, this, [this](std::optional<qint64> group_id) { on_group_switched(group_id); });
-    connect(group_bar, &GroupBar::sidebar_entered, this, [this] { on_sidebar_entered(); });
-    connect(group_bar, &GroupBar::sidebar_exited, this, [this](std::optional<qint64> prev) { on_sidebar_exited(prev); });
     connect(group_bar, &GroupBar::manage_groups_requested, this, [this] { on_add_group_clicked(); });
     connect(group_bar, &GroupBar::manage_items_requested, this, [this] { on_add_item_clicked(); });
     group_bar->build(content_layout, left_widget, left_layout);
@@ -645,7 +652,9 @@ void ClipboardWindow::show_main_menu() {
     options.on_toggle_show_metadata = [this](bool checked) {
         config->set_clipboard_show_metadata(checked);
         item_delegate->set_show_metadata(checked);
-        controller->load_history();
+        // The time narrows the first line, so wrapped rows may change height.
+        if (config->get_clipboard_display_lines() > 1) list_widget->doItemsLayout();
+        list_widget->viewport()->update();
     };
     options.on_toggle_preserve_search = [this](bool checked) { config->set_clipboard_preserve_search(checked); };
     options.on_set_opacity = [this](int percent) { set_window_opacity_percent(percent); };
@@ -676,7 +685,7 @@ void ClipboardWindow::show_main_menu() {
 void ClipboardWindow::toggle_time_filter_bar(bool checked) {
     if (!checked) clear_time_and_type_filters();
     time_filter_bar->setVisible(checked);
-    time_filter_toggle_btn->setArrowType(checked ? Qt::DownArrow : Qt::UpArrow);
+    time_filter_toggle_btn->setToolTip(tr_text(checked ? "Close filters" : "Open filters"));
     apply_time_filter_styles();
 }
 
@@ -709,7 +718,6 @@ void ClipboardWindow::clear_time_and_type_filters() {
 void ClipboardWindow::set_window_opacity_percent(int percent) {
     window_opacity = percent;
     config->set_clipboard_window_opacity(percent);
-    item_delegate->set_window_opacity(percent);
     apply_opacity();
     refresh_list();
 }
@@ -741,7 +749,6 @@ void ClipboardWindow::on_font_size_changed(int size) {
 
 void ClipboardWindow::on_opacity_changed(int percent) {
     window_opacity = percent;
-    item_delegate->set_window_opacity(percent);
     apply_opacity();
     refresh_list();
 }
@@ -755,7 +762,6 @@ void ClipboardWindow::refresh_list() {
     item_delegate->set_show_metadata(config->get_clipboard_show_metadata());
     item_delegate->set_font_size(font_size);
     item_delegate->set_display_lines(config->get_clipboard_display_lines());
-    item_delegate->set_window_opacity(window_opacity);
     item_delegate->set_theme(current_theme);
     for (const auto &item : controller->current_items) {
         auto *list_item = new QListWidgetItem;
@@ -810,6 +816,10 @@ void ClipboardWindow::on_search_changed() {
 void ClipboardWindow::on_pointer_moved(const QPoint &viewport_pos, const QPoint &global_pos) {
     // Qt reports the row under a still mouse again when the list scrolls; only a moved mouse points at something.
     if (pointer_pos_ == global_pos) return;
+    point_at(viewport_pos, global_pos);
+}
+
+void ClipboardWindow::point_at(const QPoint &viewport_pos, const QPoint &global_pos) {
     pointer_pos_ = global_pos;
     QListWidgetItem *list_item = list_widget->itemAt(viewport_pos);
     if (!list_item) {
@@ -828,15 +838,28 @@ void ClipboardWindow::on_pointer_moved(const QPoint &viewport_pos, const QPoint 
 
 void ClipboardWindow::update_search_background(const QString &text) {
     const bool has_text = !text.trimmed().isEmpty();
-    apply_search_input_style(has_text);
+    apply_search_box_style(has_text);
     clear_search_btn->setVisible(has_text);
 }
 
-void ClipboardWindow::apply_search_input_style(bool has_text) { search_input->setStyleSheet(ThemeStyleGenerator(current_theme).generate_search_input_style(has_text)); }
+void ClipboardWindow::apply_search_box_style(bool has_text) { search_box->setStyleSheet(ThemeStyleGenerator(current_theme).generate_search_box_style(has_text)); }
 
-void ClipboardWindow::apply_clear_search_btn_style() { clear_search_btn->setStyleSheet(ThemeStyleGenerator(current_theme).generate_clear_search_btn_style()); }
+void ClipboardWindow::apply_search_icon() {
+    const QSize size(scaled(16), scaled(16));
+    search_icon->setPixmap(tinted_icon(FluentIcon::Search, current_theme.colors.text_tertiary).pixmap(size, devicePixelRatioF()));
+}
 
-void ClipboardWindow::apply_menu_btn_style() { menu_btn->setStyleSheet(ThemeStyleGenerator(current_theme).generate_menu_btn_style()); }
+void ClipboardWindow::apply_clear_search_btn_style() {
+    clear_search_btn->setStyleSheet(ThemeStyleGenerator(current_theme).generate_clear_search_btn_style());
+    clear_search_btn->setIcon(tinted_icon(FluentIcon::Cancel, current_theme.colors.text_tertiary));
+    clear_search_btn->setIconSize(QSize(scaled(10), scaled(10)));
+}
+
+void ClipboardWindow::apply_menu_btn_style() {
+    menu_btn->setStyleSheet(ThemeStyleGenerator(current_theme).generate_menu_btn_style());
+    menu_btn->setIcon(tinted_icon(FluentIcon::Setting, current_theme.colors.text_secondary));
+    menu_btn->setIconSize(QSize(scaled(16), scaled(16)));
+}
 
 void ClipboardWindow::on_marks_changed() {
     item_delegate->set_marked_ids(selection_manager->marked_ids());
@@ -851,7 +874,13 @@ void ClipboardWindow::mark_items_to(qint64 item_id) { selection_manager->mark_ra
 
 void ClipboardWindow::apply_time_filter_styles() {
     const ThemeStyleGenerator generator(current_theme);
-    if (time_filter_toggle_btn) time_filter_toggle_btn->setStyleSheet(generator.generate_filter_toggle_btn_style());
+    if (time_filter_toggle_btn) {
+        time_filter_toggle_btn->setStyleSheet(generator.generate_filter_toggle_btn_style());
+        // Open, the funnel takes the accent along with its background.
+        const auto &colors = current_theme.colors;
+        time_filter_toggle_btn->setIcon(tinted_icon(FluentIcon::Filter, time_filter_toggle_btn->isChecked() ? colors.text_accent : colors.text_secondary));
+        time_filter_toggle_btn->setIconSize(QSize(scaled(16), scaled(16)));
+    }
     if (start_date_edit) {
         const QString date_style = generator.generate_time_filter_date_edit_style();
         const QString calendar_style = generator.generate_time_filter_calendar_style();
@@ -904,30 +933,9 @@ void ClipboardWindow::set_type_filter(int index) {
 
 void ClipboardWindow::on_group_switched(std::optional<qint64> group_id) {
     group_bar->switch_to_group(group_id);
-    bool is_quick_launch = false;
-    if (group_id) {
-        for (const auto &group : controller->manager.get_groups())
-            if (group.id == *group_id) is_quick_launch = group.group_type == GroupType::FILE;
-    }
-    item_delegate->set_hide_file_icon(is_quick_launch);
-    if (config->get_clipboard_display_lines() > 1) list_widget->doItemsLayout();
     refresh_type_filter_button();
     list_widget->viewport()->update();
 }
-
-void ClipboardWindow::on_sidebar_entered() {
-    selection_manager->clear_cursor();
-    list_widget->setFocus();
-}
-
-void ClipboardWindow::on_sidebar_exited(std::optional<qint64> prev_item_id) {
-    list_widget->setFocus();
-    if (!selection_manager->move_cursor_to(prev_item_id)) selection_manager->move_cursor(1);
-}
-
-void ClipboardWindow::enter_sidebar_mode() { group_bar->enter_sidebar_mode(selection_manager->cursor_id()); }
-
-void ClipboardWindow::on_top_group_switch(int delta) { group_bar->handle_top_group_switch(delta); }
 
 void ClipboardWindow::on_add_group_clicked() {
     auto *dialog = get_manage_dialog(&manager);
@@ -952,7 +960,6 @@ void ClipboardWindow::connect_manage_dialog(ManageDialog *dialog) {
 
 void ClipboardWindow::set_group_bar_position(const QString &position) {
     group_bar_position = position;
-    selection_manager->group_bar_position = position;
     group_bar->set_position(position);
     config->set_clipboard_group_bar_position(position);
     apply_opacity();
@@ -1081,6 +1088,13 @@ void ClipboardWindow::show_marked_context_menu(const QList<qint64> &item_ids, co
         {"paste_marked_plain", [this, item_ids] { paste_marked(item_ids, true, "vertical", true); }},
         {"paste_marked_vertical", [this, item_ids] { paste_marked(item_ids, false, "vertical", true); }},
         {"paste_marked_horizontal", [this, item_ids] { paste_marked(item_ids, false, "horizontal", true); }},
+        {"pin_marked", [this, item_ids] {
+             QList<ClipboardItem> items;
+             for (qint64 item_id : item_ids)
+                 if (const auto item = controller->get_item(item_id)) items.append(*item);
+             selection_manager->clear_marks();
+             create_pins_from_clipboard_items(items, this);
+         }},
         {"remove_from_group", [this, item_ids] { move_marked_to_group(item_ids, std::nullopt); }},
         {"clear_marks", [this] { selection_manager->clear_marks(); }},
         {"delete_marked", [this, item_ids] { delete_marked(item_ids); }},
@@ -1170,6 +1184,15 @@ void ClipboardWindow::edit_item(qint64 item_id) {
     controller->open_manage_dialog_for_item(item_id, controller->current_group_id, [this](ManageDialog *dialog) { connect_manage_dialog(dialog); });
 }
 
+void ClipboardWindow::toggle_search() {
+    if (QApplication::focusWidget() != search_input) {
+        search_input->setFocus();
+        return;
+    }
+    list_widget->setFocus();
+    if (!selection_manager->cursor_id()) selection_manager->move_cursor(1);
+}
+
 bool ClipboardWindow::edit_selected() {
     const auto item_id = selection_manager->cursor_id();
     const auto item = item_id && *item_id ? get_item_data(*item_id) : std::nullopt;
@@ -1241,19 +1264,11 @@ void ClipboardWindow::start_item_drag(qint64 item_id) {
         if (const auto item = get_item_data(id); item && ItemDragMimeData::can_drag(*item, images_dir)) items.append(*item);
     if (items.isEmpty()) return;
     PreviewPopup::instance()->hide_preview();
-    auto *drag = new QDrag(list_widget);
-    drag->setMimeData(new ItemDragMimeData(items, images_dir, ItemDragMimeData::default_temp_root()));
     QPoint hot_spot;
     const QPixmap pixmap = drag_pixmap(item_id, static_cast<int>(items.size()), &hot_spot);
-    if (!pixmap.isNull()) {
-        drag->setPixmap(pixmap);
-        drag->setHotSpot(hot_spot);
-    }
     dragging_ = true;
-    // 只允许复制，按 Shift 也不能移动或删除历史记录中的原图。
-    drag->exec(Qt::CopyAction, Qt::CopyAction);
+    exec_drag_out(list_widget, new ItemDragMimeData(items, images_dir, ItemDragMimeData::default_temp_root()), pixmap, hot_spot);
     dragging_ = false;
-    drag->deleteLater();
     check_and_hide();
 }
 
@@ -1471,8 +1486,21 @@ void ClipboardWindow::showEvent(QShowEvent *event) {
 void ClipboardWindow::reveal_window() { setWindowOpacity(1); }
 
 void ClipboardWindow::position_on_show() {
-    if (config->get_clipboard_open_position() == "previous" && restore_previous_position()) return;
-    position_at_cursor();
+    if (config->get_clipboard_open_position() != "previous" || !restore_previous_position()) position_at_cursor();
+    keep_area_clear();
+}
+
+void ClipboardWindow::keep_area_clear() {
+    const QRect area = area_to_keep_clear_;
+    area_to_keep_clear_ = {};
+    if (area.isEmpty() || !geometry().intersects(area)) return;
+    QScreen *screen = QGuiApplication::screenAt(area.center());
+    if (!screen) return;
+    const QRect available = screen->availableGeometry();
+    constexpr int GAP = 10;
+    // Below the area, else above it; with room on neither side the window stays where it was.
+    if (area.bottom() + GAP + height() <= available.bottom()) move(x(), area.bottom() + GAP);
+    else if (area.top() - GAP - height() >= available.top()) move(x(), area.top() - GAP - height());
 }
 
 // A saved position whose screen is gone, or that no longer fits on it, falls back to the cursor.
@@ -1576,35 +1604,17 @@ bool ClipboardWindow::eventFilter(QObject *obj, QEvent *event) {
         pointer_row_ = -1;
         PreviewPopup::instance()->hide_preview();
     }
-    if (event_type == QEvent::FocusIn && obj == list_widget && !group_bar->sidebar_mode()) group_bar->clear_sidebar_focus();
-
-    if (event_type == QEvent::KeyPress && group_bar_position != "top") {
-        const int key = static_cast<QKeyEvent *>(event)->key();
-        const int k_enter = group_bar_position == "right" ? Qt::Key_Right : Qt::Key_Left;
-        const int k_exit = group_bar_position == "right" ? Qt::Key_Left : Qt::Key_Right;
-        if (group_bar->sidebar_mode()) {
-            if (key == k_exit) {
-                group_bar->exit_sidebar_mode();
-                return true;
-            }
-            if (key == Qt::Key_Up) {
-                group_bar->move_sidebar_selection(-1);
-                return true;
-            }
-            if (key == Qt::Key_Down) {
-                group_bar->move_sidebar_selection(1);
-                return true;
-            }
-            if (key == k_enter) return true;
-        } else if (key == k_enter) {
-            QWidget *focus_widget = QApplication::focusWidget();
-            if (focus_widget == list_widget || (focus_widget && list_widget->isAncestorOf(focus_widget))) {
-                enter_sidebar_mode();
-                return true;
-            }
-        }
+    // Scrolling with the wheel is the mouse at work: the row it brings under the still mouse is pointed at.
+    if (event_type == QEvent::Wheel && list_widget && obj == list_widget->viewport()) {
+        const auto *wheel = static_cast<QWheelEvent *>(event);
+        const QPoint viewport_pos = wheel->position().toPoint();
+        const QPoint global_pos = wheel->globalPosition().toPoint();
+        const int scroll = list_widget->verticalScrollBar()->value();
+        // Queued: the list scrolls only after this filter lets the event through.
+        QMetaObject::invokeMethod(this, [this, viewport_pos, global_pos, scroll] {
+            if (list_widget->verticalScrollBar()->value() != scroll) point_at(viewport_pos, global_pos);
+        }, Qt::QueuedConnection);
     }
-
     if ((event_type == QEvent::MouseButtonPress || event_type == QEvent::MouseButtonRelease || event_type == QEvent::MouseMove) && is_date_filter_widget(obj))
         return QWidget::eventFilter(obj, event);
 
@@ -1619,7 +1629,7 @@ void ClipboardWindow::leaveEvent(QEvent *event) {
 
 void ClipboardWindow::keyPressEvent(QKeyEvent *event) {
     const int key = event->key();
-    if ((key == Qt::Key_Up || key == Qt::Key_Down) && !group_bar->sidebar_mode()) {
+    if (key == Qt::Key_Up || key == Qt::Key_Down) {
         QWidget *focus_widget = QApplication::focusWidget();
         if (!focus_widget || focus_widget == search_input || !(focus_widget == list_widget || list_widget->isAncestorOf(focus_widget))) {
             list_widget->setFocus();
@@ -1659,7 +1669,7 @@ void ClipboardMouseController::cancel() {
 bool ClipboardMouseController::available(const QString &action, qint64 item_id) const {
     const auto item = window_->get_item_data(item_id);
     if (!item) return false;
-    if (action == "pin") return item->content_type == "image";
+    if (action == "pin") return can_pin(*item);
     if (action == "quick_edit") return is_quick_editable(*item);
     return true;
 }

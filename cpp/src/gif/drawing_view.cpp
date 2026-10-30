@@ -5,6 +5,7 @@
 #include "canvas/smart_edit_controller.h"
 #include "core/logger.h"
 #include "core/ui_theme.h"
+#include "settings/tool_settings.h"
 #include "tools/controller.h"
 #include <QBrush>
 #include <QGraphicsRectItem>
@@ -58,8 +59,15 @@ bool GifDrawingScene::is_drawing(QGraphicsItem *item) const {
     return item != hit_rect && item != background && item != selection_item && !item->data(TRANSIENT_ITEM_DATA).toBool();
 }
 
-GifDrawingShortcutHandler::GifDrawingShortcutHandler(GifDrawingView *view)
-    : view_(view), bindings_(load_inapp_bindings({"inapp_delete"})), mouse_bindings_(load_inapp_mouse_bindings({"inapp_delete"})) {}
+GifDrawingShortcutHandler::GifDrawingShortcutHandler(GifDrawingView *view) : view_(view) {
+    // The capture window's bindings, read once per recording window.
+    QStringList keys = {"inapp_delete", "inapp_undo", "inapp_redo"};
+    for (const auto &entry : ANNOTATION_TOOL_SHORTCUTS()) keys.append(entry.config_key);
+    bindings_ = load_inapp_bindings(keys);
+    mouse_bindings_ = load_inapp_mouse_bindings(keys);
+}
+
+bool GifDrawingShortcutHandler::owns_window(const QWidget *window) const { return view_ && view_->in_shortcut_scope(window); }
 
 bool GifDrawingShortcutHandler::is_active() { return view_ && view_->isVisible() && !view_->passthrough(); }
 
@@ -71,23 +79,26 @@ bool GifDrawingShortcutHandler::handle_key(QInputEvent *event) {
     // Mouse events have no key (Key_unknown), so the key-only branches skip them.
     const int key = event_key(event);
     if (key == Qt::Key_Escape) {
-        view_->activate_tool("cursor");
+        view_->request_tool("cursor");
         return true;
     }
-    if (event->modifiers() & Qt::ControlModifier) {
-        if (key == Qt::Key_Z) {
-            view_->undo_stack()->undo();
-            return true;
-        }
-        if (key == Qt::Key_Y) {
-            view_->undo_stack()->redo();
-            return true;
-        }
+    if (match(event, "inapp_undo")) {
+        view_->undo_stack()->undo();
+        return true;
+    }
+    if (match(event, "inapp_redo")) {
+        view_->undo_stack()->redo();
+        return true;
     }
     // Deletes the selected item.
     if (match(event, "inapp_delete")) {
         if (view_->smart_edit_controller) view_->smart_edit_controller->delete_selected();
         return true;
+    }
+    // Keys of tools the layer does not have go on.
+    for (const auto &entry : ANNOTATION_TOOL_SHORTCUTS()) {
+        if (!match(event, entry.config_key)) continue;
+        return event_is_auto_repeat(event) || view_->request_tool(entry.tool_id);
     }
     return false;
 }
@@ -130,6 +141,13 @@ void GifDrawingView::update_rect(const QRect &rect) {
 }
 
 void GifDrawingView::activate_tool(const QString &tool_id) { gif_scene_->tool_controller->activate(tool_id); }
+
+bool GifDrawingView::request_tool(const QString &tool_id) {
+    if (tool_selector_) return tool_selector_(tool_id);
+    if (tool_id != "cursor") return false;
+    activate_tool(tool_id);
+    return true;
+}
 
 void GifDrawingView::set_passthrough(bool enable) {
     if (enable == passthrough_) return;

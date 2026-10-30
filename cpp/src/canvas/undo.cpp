@@ -169,7 +169,10 @@ void EditItemCommand::apply_state(const QVariantMap &state) {
     if (origin.metaType().id() == QMetaType::QPointF) item->setTransformOriginPoint(origin.toPointF());
     if (const auto point_size = state.value("font_point_size"); numeric(point_size)) if (auto *t = dynamic_cast<TextItem *>(item)) t->set_font_point_size(point_size.toDouble());
     if (numeric(opacity)) item->setOpacity(opacity.toDouble());
-    const auto number = state.value("number"); if (auto *n = dynamic_cast<NumberItem *>(item); n && integer(number)) n->number = std::max(1, number.toInt());
+    if (auto *n = dynamic_cast<NumberItem *>(item)) {
+        if (const auto number = state.value("number"); integer(number)) n->number = std::max(1, number.toInt());
+        n->apply_extras_state(state);
+    }
     const auto rect = state.value("rect");
     if (rect.metaType().id() == QMetaType::QRectF) {
         if (auto *r = dynamic_cast<RectItem *>(item)) r->setRect(rect.toRectF());

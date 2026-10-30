@@ -1,6 +1,9 @@
+#include "pool_block.h"
+#include "canvas/handle_editor.h"
 #include "canvas/items/drawing_items.h"
 #include "canvas/items/mosaic_item.h"
 #include "canvas/items/selection_item.h"
+#include "canvas/items/smart_erase_fill.h"
 #include "canvas/items/spotlight_item.h"
 #include "canvas/items/watermark_item.h"
 #include "canvas/scene.h"
@@ -20,11 +23,13 @@
 #include <QFontDatabase>
 #include <QGraphicsSceneHoverEvent>
 #include <QGraphicsSceneMouseEvent>
+#include <QGraphicsView>
 #include <QPainter>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QThread>
 #include <cmath>
 #include <set>
 #include <typeinfo>
@@ -865,15 +870,201 @@ private slots:
         item.set_block_size(4, smaller);
         QCOMPARE(item.block_size(), 4);
         QCOMPARE(item.reduced_image(), smaller);
-        QVERIFY(!item.smooth());
-        item.set_smooth(true);
-        QVERIFY(item.smooth());
+        QCOMPARE(item.kind(), MosaicKind::Pixelate);
+        item.set_kind(MosaicKind::Blur);
+        QCOMPARE(item.kind(), MosaicKind::Blur);
+        QVERIFY(!item.smart_erase_fill());
         QCOMPARE(*item.get_stroke_width(), 10.0);
         item.translate_background_anchor(-8, 4);
         QCOMPARE(item.background_rect(), QRectF(-8, 4, 64, 64));
         QCOMPARE(MosaicTool::clamp_block_size(6), 4);
         QCOMPARE(MosaicTool::clamp_block_size(999), MosaicTool::MAX_BLOCK_SIZE);
         QCOMPARE(MosaicTool::clamp_block_size(QString("x")), MosaicTool::DEFAULT_BLOCK_SIZE);
+    }
+
+    // A grey screenshot with a red square that a smart-erase box covers.
+    static QImage square_on_grey() {
+        auto image = blank(160, 120, GRAY);
+        QPainter painter(&image);
+        painter.fillRect(QRect(60, 40, 30, 20), QColor(220, 30, 30));
+        return image;
+    }
+
+    void smartEraseExportsTheRebuiltBackgroundBeforeTheWorkerRuns() {
+        config_->update_settings("mosaic", {{"draw_mode", MosaicTool::MODE_RECT}, {"style", MosaicTool::STYLE_SMART_ERASE}});
+        auto *canvas = scene(QRectF(0, 0, 160, 120), square_on_grey());
+        draw(canvas, "mosaic", QPointF(52, 32), QPointF(98, 68));
+        const auto mosaics = items_of<MosaicItem>(canvas);
+        QCOMPARE(mosaics.size(), 1);
+        QCOMPARE(mosaics.first()->kind(), MosaicKind::SmartErase);
+        // No event loop has run, so only the export itself can have rebuilt the pixels.
+        QVERIFY(!mosaics.first()->smart_erase_fill()->ready());
+        const auto image = ExportService(canvas).export_image(QRectF(0, 0, 160, 120));
+        for (const QPoint p : {QPoint(60, 40), QPoint(75, 50), QPoint(89, 59)})
+            QVERIFY2(color_near(image.pixelColor(p), GRAY), qPrintable(QString("%1,%2 is %3").arg(p.x()).arg(p.y()).arg(image.pixelColor(p).name())));
+        QVERIFY(color_near(image.pixelColor(20, 20), GRAY));
+        QVERIFY(mosaics.first()->smart_erase_fill()->ready());
+    }
+
+    void smartEraseRebuildsAfterTheItemMoves() {
+        config_->update_settings("mosaic", {{"draw_mode", MosaicTool::MODE_RECT}, {"style", MosaicTool::STYLE_SMART_ERASE}});
+        auto *canvas = scene(QRectF(0, 0, 160, 120), square_on_grey());
+        draw(canvas, "mosaic", QPointF(52, 32), QPointF(98, 68));
+        auto *item = items_of<MosaicItem>(canvas).first();
+        QTRY_VERIFY(item->smart_erase_fill()->ready());
+        QVERIFY(item->smart_erase_fill()->patch().has_value());
+        // Down off the square: the square shows again, the box now covers plain grey.
+        item->setPos(0, 30);
+        QVERIFY(!item->smart_erase_fill()->ready());
+        QTRY_VERIFY(item->smart_erase_fill()->ready());
+        const auto image = ExportService(canvas).export_image(QRectF(0, 0, 160, 120));
+        QVERIFY(color_near(image.pixelColor(75, 50), QColor(220, 30, 30)));
+        QVERIFY(color_near(image.pixelColor(75, 80), GRAY));
+    }
+
+    void anUndoneSmartEraseKeepsNoPixelsAndRebuildsOnRedo() {
+        config_->update_settings("mosaic", {{"draw_mode", MosaicTool::MODE_RECT}, {"style", MosaicTool::STYLE_SMART_ERASE}});
+        auto *canvas = scene(QRectF(0, 0, 160, 120), square_on_grey());
+        draw(canvas, "mosaic", QPointF(52, 32), QPointF(98, 68));
+        auto *item = items_of<MosaicItem>(canvas).first();
+        QTRY_VERIFY(item->smart_erase_fill()->ready());
+        canvas->undo_stack->undo();
+        QVERIFY(!item->scene());
+        QVERIFY(!item->smart_erase_fill()->ready());
+        QVERIFY(!item->smart_erase_fill()->patch().has_value());
+        // The square shows again.
+        QVERIFY(color_near(ExportService(canvas).export_image(QRectF(0, 0, 160, 120)).pixelColor(75, 50), QColor(220, 30, 30)));
+        canvas->undo_stack->redo();
+        QCOMPARE(item->scene(), canvas);
+        QTRY_VERIFY(item->smart_erase_fill()->ready());
+        QVERIFY(color_near(ExportService(canvas).export_image(QRectF(0, 0, 160, 120)).pixelColor(75, 50), GRAY));
+    }
+
+    // An export while a worker has the rebuild waits for it instead of starting another; one still queued
+    // behind other work is computed by the export itself, and the worker then has nothing left to do.
+    void anExportNeverRebuildsTwice() {
+        config_->update_settings("mosaic", {{"draw_mode", MosaicTool::MODE_RECT}, {"style", MosaicTool::STYLE_SMART_ERASE}});
+        auto *canvas = scene(QRectF(0, 0, 160, 120), square_on_grey());
+        int runs = smart_erase_runs();
+        draw(canvas, "mosaic", QPointF(52, 32), QPointF(98, 68));
+        auto *item = items_of<MosaicItem>(canvas).first();
+        QVERIFY(item->smart_erase_in_progress());
+        // The worker computes meanwhile; its result has not been delivered, no event having run.
+        QThread::msleep(30);
+        QVERIFY(item->smart_erase_fill()->running());
+        QVERIFY(color_near(ExportService(canvas).export_image(QRectF(0, 0, 160, 120)).pixelColor(75, 50), GRAY));
+        QVERIFY(item->smart_erase_fill()->ready());
+        QTest::qWait(50);
+        QCOMPARE(smart_erase_runs(), runs + 1);
+
+        item->setPos(0, 30);
+        runs = smart_erase_runs();
+        {
+            PoolBlock block;
+            QVERIFY(item->smart_erase_in_progress());
+            QVERIFY(color_near(ExportService(canvas).export_image(QRectF(0, 0, 160, 120)).pixelColor(75, 80), GRAY));
+            QCOMPARE(smart_erase_runs(), runs + 1);
+        }
+        QTest::qWait(50);
+        QCOMPARE(smart_erase_runs(), runs + 1);
+    }
+
+    // A shape just drawn stays blue while it rebuilds; a rebuild with no gesture (undo, redo) keeps the
+    // previous picture. Past SLOW_MS both show blue with a band of light crossing it.
+    void aRebuildIsMarkedOnlyWhenDrawnOrSlow() {
+        config_->update_settings("mosaic", {{"draw_mode", MosaicTool::MODE_RECT}, {"style", MosaicTool::STYLE_SMART_ERASE}});
+        auto *canvas = scene(QRectF(0, 0, 160, 120), square_on_grey());
+        QGraphicsView view(canvas);
+        view.setFrameShape(QFrame::NoFrame);
+        view.setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        view.setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        view.setSceneRect(0, 0, 160, 120);
+        view.resize(160, 120);
+        const auto shown = [&view] { return view.viewport()->grab().toImage(); };
+        const QColor red(220, 30, 30);
+        MosaicItem *item = nullptr;
+        {
+            PoolBlock block;
+            draw(canvas, "mosaic", QPointF(52, 32), QPointF(98, 68));
+            item = items_of<MosaicItem>(canvas).first();
+            QVERIFY(item->smart_erase_in_progress());
+            QVERIFY(!color_near(shown().pixelColor(55, 35), GRAY, 8));
+        }
+        QTRY_VERIFY(item->smart_erase_fill()->ready());
+        QVERIFY(color_near(shown().pixelColor(75, 50), GRAY));
+
+        PoolBlock block;
+        canvas->undo_stack->undo();
+        canvas->undo_stack->redo();
+        QVERIFY(item->smart_erase_in_progress());
+        const auto at_once = shown();
+        QVERIFY(color_near(at_once.pixelColor(75, 50), red));
+        QVERIFY(color_near(at_once.pixelColor(55, 35), GRAY));
+        QTest::qWait(SmartEraseFill::SLOW_MS + 60);
+        const auto slow = shown();
+        QVERIFY(!color_near(slow.pixelColor(55, 35), GRAY, 8));
+        QTest::qWait(300);
+        QVERIFY(shown().copy(52, 32, 46, 36) != slow.copy(52, 32, 46, 36));
+    }
+
+    // Releasing a move or a resize starts the rebuild at once instead of after the edit delay.
+    void aRebuildStartsWhenAMoveOrResizeIsReleased() {
+        config_->update_settings("mosaic", {{"draw_mode", MosaicTool::MODE_RECT}, {"style", MosaicTool::STYLE_SMART_ERASE}});
+        auto *canvas = scene(QRectF(0, 0, 160, 120), square_on_grey());
+        draw(canvas, "mosaic", QPointF(52, 32), QPointF(98, 68));
+        auto *item = items_of<MosaicItem>(canvas).first();
+        QTRY_VERIFY(item->smart_erase_fill()->ready());
+        SmartEditController controller(canvas);
+        controller.set_selected_item(item);
+        controller.move_initial_state = controller.capture_layer_state(item);
+        item->setPos(6, 0);
+        QVERIFY(!item->smart_erase_fill()->running());
+        controller.finalize_move_edit();
+        QVERIFY(item->smart_erase_fill()->running());
+        QTRY_VERIFY(item->smart_erase_fill()->ready());
+
+        LayerEditor editor;
+        editor.start_edit(item);
+        const auto corner = std::find_if(editor.handles.begin(), editor.handles.end(), [](const EditHandle &h) { return h.handle_type == HandleType::CORNER_BR; });
+        QVERIFY(corner != editor.handles.end());
+        const EditHandle handle = *corner;
+        editor.start_drag(handle, handle.position);
+        editor.drag_to(handle.position + QPointF(10, 10));
+        QVERIFY(!item->smart_erase_fill()->running());
+        editor.end_drag();
+        QVERIFY(item->smart_erase_fill()->running());
+        QTRY_VERIFY(item->smart_erase_fill()->ready());
+    }
+
+    void aSmartEraseStrokeComputesOnlyAfterRelease() {
+        config_->update_settings("mosaic", {{"draw_mode", MosaicTool::MODE_FREEHAND}, {"style", MosaicTool::STYLE_SMART_ERASE}});
+        auto *canvas = scene(QRectF(0, 0, 160, 120), square_on_grey());
+        canvas->activate_tool("mosaic");
+        auto *controller = canvas->tool_controller.get();
+        controller->on_press(QPointF(55, 50), Qt::LeftButton);
+        controller->on_move(QPointF(95, 50));
+        auto *item = items_of<MosaicItem>(canvas).first();
+        QTest::qWait(50);
+        QVERIFY(!item->smart_erase_fill()->ready());
+        controller->on_release(QPointF(95, 50));
+        QTRY_VERIFY(item->smart_erase_fill()->ready());
+        QVERIFY(item->smart_erase_fill()->patch().has_value());
+    }
+
+    void switchingKindsCreatesAndDropsTheSmartEraseFill() {
+        QPainterPath path;
+        path.addRect(QRectF(10, 10, 20, 20));
+        MosaicItem item(path, 10, 8, gradient(8, 8), QRectF(0, 0, 64, 64), true);
+        QVERIFY(!item.smart_erase_fill());
+        item.set_kind(MosaicKind::SmartErase);
+        QVERIFY(item.smart_erase_fill());
+        // Outside a scene there is nothing to sample yet.
+        QVERIFY(!item.smart_erase_fill()->ready());
+        item.set_kind(MosaicKind::Blur);
+        QVERIFY(!item.smart_erase_fill());
+        QCOMPARE(MosaicTool::kind_of(MosaicTool::STYLE_SMART_ERASE), MosaicKind::SmartErase);
+        QCOMPARE(MosaicTool::kind_of("anything"), MosaicKind::Pixelate);
+        QCOMPARE(MosaicTool::style_of(MosaicKind::Blur), MosaicTool::STYLE_BLUR);
     }
 
     void theEraserRemovesAndRestoresMosaicAndShapes() {

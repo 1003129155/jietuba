@@ -1,4 +1,5 @@
 #pragma once
+#include "core/drag_out.h"
 #include "pin/pin_context_menu.h"
 #include "pin/pin_controls.h"
 #include "pin/pin_hover.h"
@@ -19,21 +20,28 @@
 
 class QGraphicsItem;
 class QInputEvent;
+class QPropertyAnimation;
 
 namespace jietuba {
+struct AnimationSource;
+class PinAnimation;
 class PinBorderOverlay;
 class PinCanvas;
 class PinCanvasView;
 class PinClickThroughBar;
-class PinTextMode;
+class PinDisplayScaler;
+class PinFileCard;
+class PinFileSelection;
+class PinTextContent;
 class PinToolbar;
 class ToolSettingsManager;
+class WaitBar;
 
 // Wheel and settings never take opacity below this, so a pin cannot vanish.
 constexpr double MIN_OPACITY = 0.15;
 constexpr double MAX_SCALE = 4.0;
 // The shorter window side never shrinks below this many pixels.
-constexpr int MIN_SIDE = 50;
+constexpr int MIN_SIDE = 30;
 // An image larger than its screen is pinned at this share of the screen, leaving a margin to grab.
 constexpr double AUTO_SHRINK_RATIO = 0.95;
 // A band this wide (at 96 DPI) along the edges resizes instead of moving.
@@ -57,9 +65,9 @@ public:
     bool ocr_has_result() const { return ocr_mgr_ && ocr_mgr_->has_result(); }
     bool text_selection_enabled() const { return ocr_mgr_ && ocr_mgr_->text_selection_enabled(); }
     bool thumbnail_mode() const { return thumbnail_ && thumbnail_->active(); }
-    // Shown as editable text instead of the image.
-    bool text_mode() const;
-    PinTextMode *text_mode_controller() const { return text_mode_.get(); }
+    // Pinned from text: its image is the text drawn on a page, drawn afresh at each zoom.
+    bool text_only() const { return text_content_ != nullptr; }
+    PinTextContent *text_content() const { return text_content_.get(); }
     bool is_closed() const { return is_closed_; }
     bool is_dragging() const { return is_dragging_; }
     bool click_through() const { return click_through_; }
@@ -90,12 +98,49 @@ public:
     // +, = and - adjust what the mouse wheel bindings would, for keyboards.
     bool handle_mouse_alternative_key(QInputEvent *event);
     void toggle_thumbnail_mode();
-    void toggle_text_mode();
-    void leave_text_mode();
+    // Pins the image's text beside it as a text pin, recognizing it first when needed; the text
+    // shows about as large as on the image.
+    void pin_as_text();
+    // Wiggles in place for a moment, to be found among other windows.
+    void shake();
+    bool shaking() const { return shake_ != nullptr; }
+    // Makes a pin made with content's first image a text pin: its text is selectable from the start,
+    // without recognizing it.
+    void set_text_content(std::unique_ptr<PinTextContent> content);
+    // Shows or hides a text pin's formatting; the pin keeps its zoom and fits the text laid out anew,
+    // once that is done. Until then text_formatted() tells the state asked for.
+    void toggle_text_formatting();
+    bool text_formatted() const;
+    // Plays source over the first frame the pin was made from.
+    void open_animation(AnimationSource source);
+    PinAnimation *animation() const { return animation_; }
+    // A frame of the animation in place of the image.
+    void show_animation_frame(const QImage &frame);
+    // The pin was made from card's image, which it draws afresh at each zoom; its menu acts on the files.
+    void open_files(const PinFileCard &card);
+    const PinFileCard *file_card() const { return file_card_.get(); }
+    // The file whose card is under global_pos, -1 elsewhere.
+    int file_at(const QPoint &global_pos) const;
+    PinFileSelection *file_selection() const { return file_selection_.get(); }
+    // A click that stayed where it was pressed, on a file card.
+    void click_file(const QPoint &global_pos, Qt::KeyboardModifiers modifiers);
+    // A double click: opens the file under global_pos; false off the cards.
+    bool open_file_at(const QPoint &global_pos);
+    // Annotations and the toolbar: not on an animation, whose frames would replace what is drawn under them.
+    bool annotatable() const { return !animation_; }
+    // Text recognition, text selection, text mode and translation: not for an animation or a file list.
+    bool recognizable() const { return !animation_ && !file_card_; }
+    // Annotations stay in the scene, covered by the image; drawing shows them again.
+    bool annotations_hidden() const { return annotations_hidden_; }
+    void set_annotations_hidden(bool hidden);
+    // With a hint, as the shortcut and menu do.
+    void toggle_annotations_hidden();
+    // The image as the view shows it, without annotations; the painter is in image pixels.
+    void paint_background(QPainter *painter) const;
     // Leaves the drawing tool, unchecking it on the toolbar.
     void stop_drawing();
     // Top-left hint shared by zoom, opacity and other short messages.
-    void show_hint_label(const QString &text);
+    void show_hint_label(const QString &text, int duration_ms = 1000);
     void toggle_toolbar();
     // Only PinHoverControls::sync calls these two.
     void show_toolbar();
@@ -133,11 +178,29 @@ public:
     QTransform from_current_image(const QSize &size) const;
     // Leaves editing for func and restores the tool afterwards.
     void with_edit_paused(const std::function<void()> &func);
+    // Calls then once smart erase on the pin has its pixels, right away when it has; never after the pin is gone.
+    void when_pixels_ready(std::function<void()> then);
     void save_image();
     void save_image_with_system_dialog();
+    // A text pin copies its selected text, or all of it.
     void copy_to_clipboard();
+    void copy_image();
+    // A text pin's text without its formatting.
+    void copy_plain_text();
+    // The animation as a file, with its bytes for programs that paste data.
+    void copy_animation();
+    void copy_current_frame();
     // All recognized text; recognizes first when there is no result yet.
     void copy_all_text();
+    // What dragging the content out from global_pos carries: what Copy would copy, but the highlighted text when the
+    // drag starts on it, and on a file card the selected files when it starts on one of them, another file alone, or,
+    // off the cards, every file. The preview shows what goes, held at the point it was grabbed.
+    struct DragOut {
+        DragOutContent content;
+        QPixmap preview;
+        QPoint hot_spot;
+    };
+    DragOut prepare_drag_out(const QPoint &global_pos);
     void close_window();
     void cleanup();
 
@@ -193,6 +256,8 @@ private:
     void update_border_resize(const QPoint &global_pos);
     void end_border_resize() { resize_edge_.reset(); }
     void sync_click_through_bar();
+    // pin_as_text once the text is recognized; a pin with that text already shakes instead.
+    void open_text_pin();
     void adjust_mouse_value(const QString &action, int delta);
     // The 100% window size; width and height swap after 90/270 degree rotation.
     QSize display_base_size() const;
@@ -203,12 +268,29 @@ private:
     void run_mouse_action(const QString &action, const std::optional<QPoint> &position = std::nullopt);
     void finish_mouse_click();
     bool handle_mouse_gesture(QMouseEvent *event);
-    void apply_smooth_scaling();
+    void start_drag_out(const QPoint &global_pos);
+    // The view's scene_rect, or all of it when empty, shrunk to fit the preview size.
+    QPixmap drag_preview(const QPoint &global_pos, const QRectF &scene_rect, QPoint *hot_spot);
     void show_zoom_percent();
     void start_ocr_for_translation();
     void on_ocr_translation_finished(bool success, const QString &result);
-    void copy_ocr_text(bool success, const QString &result);
+    // With html the clipboard gets the formatted text as well.
+    void copy_ocr_text(bool success, const QString &result, const QString &html = {});
     void set_window_opacity(double opacity);
+    // The animation's own file, in its format.
+    void save_animation();
+    // The current frame at its own size, scaled by the view as it draws.
+    void show_frame_unscaled();
+    // Stepping to a frame the animation reads up to again: a bar of how far, once it takes a while.
+    void show_seek_progress(int done, int total);
+    void place_seek_bar();
+    // A new image of another size, keeping the zoom, the top-left corner and the annotations where they
+    // are; pixmap is the image made into one already, when it is not null.
+    void replace_base_image(const QImage &image, const QPixmap &pixmap = {});
+    void relay_out_text();
+    void draw_text_page_on_demand();
+    // The background as exported, at the original's resolution; null when what is shown is that already.
+    QPixmap original_background(double device_pixel_ratio) const;
 
     bool square_corners_ = false;
     bool is_closed_ = false;
@@ -220,6 +302,7 @@ private:
         QPoint start;
         std::optional<QString> action;
         bool region;
+        bool drag_out;
     };
     std::optional<MouseGesture> mouse_gesture_;
     std::optional<Qt::MouseButton> mouse_swallow_release_;
@@ -240,8 +323,9 @@ private:
     QPixmap base_pixmap_;
     double view_scale_x_ = 1.0, view_scale_y_ = 1.0;
     std::optional<std::pair<int, int>> last_background_scale_size_;
-    QTimer *scale_timer_ = nullptr;
-    bool is_scaling_ = false;
+    // Counts the backgrounds shown, so an image scaled for an earlier one is dropped.
+    quint64 display_ticket_ = 0;
+    std::shared_ptr<PinDisplayScaler> display_scaler_;
     double win_opacity_;
     QLabel *zoom_label_ = nullptr;
     QTimer *zoom_hide_timer_ = nullptr;
@@ -251,7 +335,19 @@ private:
     std::unique_ptr<PinTranslationHelper> translation_helper_;
     std::unique_ptr<PinOCRManager> ocr_mgr_;
     std::unique_ptr<PinThumbnailMode> thumbnail_;
-    std::unique_ptr<PinTextMode> text_mode_;
+    std::unique_ptr<PinTextContent> text_content_;
+    // Recognizing for pin_as_text.
+    bool text_pin_pending_ = false;
+    QPointer<QPropertyAnimation> shake_;
+    // Counts the contents shown, so a page drawn for an earlier one is dropped.
+    quint64 text_generation_ = 0;
+    std::optional<bool> wanted_formatting_;
+    bool formatting_pending_ = false;
     std::unique_ptr<PinImageTransform> image_transform_;
+    bool annotations_hidden_ = false;
+    PinAnimation *animation_ = nullptr;
+    WaitBar *seek_bar_ = nullptr;
+    std::unique_ptr<PinFileCard> file_card_;
+    std::unique_ptr<PinFileSelection> file_selection_;
 };
 }

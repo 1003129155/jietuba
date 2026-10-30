@@ -17,13 +17,14 @@ class AnnotationView;
 class CursorHighlight;
 class ScreenAnnotation;
 
-// Keys of the session while drawing, priority 80 like the GIF drawing layer: Esc returns to
-// pass-through, undo and redo run across the screens, and the capture tool keys pick tools.
+// Keys of the session while drawing: Esc returns to pass-through, undo and redo run across the
+// screens, and the capture tool keys pick tools.
 class ScreenAnnotationShortcutHandler : public ShortcutHandler {
 public:
     explicit ScreenAnnotationShortcutHandler(ScreenAnnotation *owner);
-    int priority() const override { return 80; }
     QString handler_name() const override { return "ScreenAnnotation"; }
+    // The drawing layers, the toolbar and its floating panels.
+    bool owns_window(const QWidget *window) const override;
     bool is_active() override;
     bool handle_mouse(QMouseEvent *event) override { return handle_key(event); }
     bool handle_key(QInputEvent *event) override;
@@ -64,9 +65,9 @@ public:
     void set_cursor_highlight(bool enabled, bool remember = true);
     bool cursor_highlight_enabled() const;
     CursorHighlight *cursor_highlight() const { return highlight_; }
-    // A white board over every screen, on and off with one click. It needs a tool, so it starts the pen
-    // when the layers pass the mouse through. Pass-through shows the desktop again; the board returns
-    // with the next tool.
+    // A white board over every screen, on and off with one click; turned on without a tool, it starts the
+    // pen. It stays through pass-through and hiding, so the desktop does not show by accident, and lies
+    // below the pins: pass-through moves them on the board, a tool draws over them.
     void toggle_board();
     bool board_on() const { return board_; }
     // One undo step that removes every drawing on every screen.
@@ -76,14 +77,14 @@ public:
     bool can_undo() const { return !history_.empty(); }
     bool can_redo() const { return !redo_.empty(); }
     // Before a capture: back to pass-through with the hit layer off the screen, so the capture window
-    // is not covered and the captured pixels are not darkened by it. The drawings are captured.
+    // is not covered and the captured pixels are not darkened by it. The drawings and the board are captured.
     void prepare_for_capture();
     const std::vector<AnnotationView *> &views() const { return views_; }
     AnnotationToolbar *toolbar() const { return toolbar_; }
     // The layer drawn on last (keys, toolbar syncing); the one under the pointer before that.
     AnnotationView *active_view() const;
     // Whether widget's window is a layer, the toolbar or one of its floating windows.
-    bool owns_window(QWidget *widget) const;
+    bool owns_window(const QWidget *widget) const;
 signals:
     void mode_changed(ScreenAnnotation::Mode mode);
 private:
@@ -98,6 +99,9 @@ private:
     void enter_pass_through(bool restore_focus);
     void set_mode(Mode mode);
     void apply_board();
+    // Puts the boards right below this application's windows that are kept on top.
+    void stack_boards();
+    void on_pin_created();
     void sync_effect_buttons();
     void sync_toolbar_style();
     void raise_toolbar();

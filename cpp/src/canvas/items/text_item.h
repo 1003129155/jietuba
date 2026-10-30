@@ -9,6 +9,8 @@
 #include <vector>
 
 namespace jietuba {
+// The laid-out glyphs of a text item as one path, decorations included, for outlines and shadows.
+QPainterPath text_glyph_path(const QGraphicsTextItem &item);
 // Explicit scene dependency for focus-out commit/delete. CanvasScene owns the
 // actual undo stack; this adapter never creates a substitute stack per item.
 class TextUndoContext {
@@ -31,10 +33,13 @@ public:
     QColor outline_color = QColor(DEFAULT_OUTLINE_COLOR), shadow_color = QColor(DEFAULT_SHADOW_COLOR), background_color = QColor(Qt::white);
     qreal outline_width = DEFAULT_OUTLINE_WIDTH;
     bool _provisional = false, _is_closed = false;
+    // Another window took the focus while typing; the edit goes on when the scene gives it back.
+    bool _window_away = false;
     QString _text_before_edit;
     qreal font_point_size() const;
     void set_font_point_size(qreal);
-    std::vector<EditHandle> get_edit_handles() const;
+    // units_per_pixel: item units per screen pixel, which spaces the handles on a small or zoomed-out item.
+    std::vector<EditHandle> get_edit_handles(double units_per_pixel = 1) const;
     static qreal normalize_outline_width(const QVariant &);
     qreal outline_extent() const;
     qreal shadow_distance() const;
@@ -61,12 +66,15 @@ public:
 protected:
     void focusInEvent(QFocusEvent *) override;
     void focusOutEvent(QFocusEvent *) override;
+    // Pasted text takes the item's font and colour, not the formatting it was copied with.
+    void keyPressEvent(QKeyEvent *) override;
     void mouseDoubleClickEvent(QGraphicsSceneMouseEvent *) override;
     void hoverEnterEvent(QGraphicsSceneHoverEvent *) override;
     void hoverMoveEvent(QGraphicsSceneHoverEvent *) override;
     void hoverLeaveEvent(QGraphicsSceneHoverEvent *event) override { hover_leave(event); }
 private:
     static void add_decoration_lines(QPainterPath &, const QGlyphRun &, const QPointF &origin);
+    friend QPainterPath text_glyph_path(const QGraphicsTextItem &);
     QPen outline_pen() const;
     void paint_shadow(QPainter *, const QPainterPath &, const std::optional<QPen> &);
     static QStyleOptionGraphicsItem text_paint_option(const QStyleOptionGraphicsItem &);

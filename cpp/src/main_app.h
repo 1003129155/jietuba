@@ -135,6 +135,10 @@ private:
     // While an application-modal window exists no capture layer is created that could
     // not take input; the modal window comes to the front instead.
     bool activate_blocking_modal();
+    // A clipboard window opened over a capture is owned by it: it stays above the capture when the
+    // capture takes the focus back (a click, a paste). Released when the capture ends.
+    void attach_clipboard_to_capture();
+    void release_clipboard_from_capture();
     void request_screenshot(bool delayed);
     void capture_and_prepare_window();
     // The settings window asks for the wizard: hide it and unregister hotkeys while the wizard runs.

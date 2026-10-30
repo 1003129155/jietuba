@@ -3,6 +3,7 @@
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
 #include "ui/settings_ui/dialog.h"
+#include "ui/settings_ui/search.h"
 #include <QAbstractScrollArea>
 #include <QAbstractSpinBox>
 #include <QApplication>
@@ -216,6 +217,7 @@ IconSource icon_ref(const IconSource &ref) {
 QLabel *row_label(QWidget *parent, const QString &text) {
     auto *label = new QLabel(text, parent);
     apply_theme_text_style(label, 14, false, "font-weight: 500;");
+    mark_search_row(parent, label);
     return label;
 }
 }

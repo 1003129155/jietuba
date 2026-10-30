@@ -12,6 +12,7 @@
 #include "ui/settings_ui/components.h"
 #include "ui/settings_ui/dialog.h"
 #include "ui/settings_ui/pages.h"
+#include "ui/settings_ui/search.h"
 #include <QGridLayout>
 #include <QStackedWidget>
 #include <functional>
@@ -35,9 +36,9 @@ const std::vector<InAppKey> PIN_KEYS = {
     {"inapp_pin_reset_size", "Reset Size", ""},
     {"inapp_thumbnail", "Toggle Thumbnail", "r"},
     {"inapp_toggle_toolbar", "Toggle Toolbar", "space"},
+    {"inapp_pin_hide_annotations", "Hide Annotations", "h"},
     {"inapp_pin_lock", "Lock / Unlock Pin", "l"},
-    // Inside the text a plain key is typed; Esc leaves text mode there.
-    {"inapp_pin_text_mode", "Toggle Text Mode", "t"},
+    {"inapp_pin_text_mode", "Pin as Text", "t"},
     {"inapp_pin_text_selection", "Toggle Text Selection", "p"},
 };
 
@@ -60,6 +61,11 @@ const std::vector<InAppKey> CLIPBOARD_KEYS = {
 const std::vector<InAppKey> CLIPBOARD_EDITOR_KEYS = {
     {"inapp_clipboard_edit_save", "Save Edit", "ctrl+enter"},
     {"inapp_clipboard_edit_save_paste", "Save and Paste", "ctrl+shift+enter"},
+};
+
+// Pressed again in the search box it leaves it, so it must not take typing keys either.
+const std::vector<InAppKey> CLIPBOARD_SEARCH_KEYS = {
+    {"inapp_clipboard_search", "Search", "ctrl+f"},
 };
 
 const QString CURSOR_MOVE_ICON = QString::fromUtf8("移动窗口.svg");
@@ -124,7 +130,7 @@ QWidget *global_row(QWidget *parent, const QString &title, const QString &tone, 
     auto *layout = new QHBoxLayout(row);
     layout->setContentsMargins(0, dialog_scaled(8), 0, dialog_scaled(8));
     layout->setSpacing(dialog_scaled(14));
-    layout->addWidget(new IconBadge(icon, tone, row));
+    layout->addWidget(new IconBadge(icon, tone, row, 28, 16));
     layout->addWidget(row_label(row, title), 1);
     // Column by column: the first two slots keep their old column, the added ones go to its right.
     auto *grid = new QGridLayout;
@@ -321,6 +327,7 @@ const std::vector<InAppKey> &INAPP_KEYS() {
         result.insert(result.end(), PIN_KEYS.begin(), PIN_KEYS.end());
         result.insert(result.end(), CLIPBOARD_KEYS.begin(), CLIPBOARD_KEYS.end());
         result.insert(result.end(), CLIPBOARD_EDITOR_KEYS.begin(), CLIPBOARD_EDITOR_KEYS.end());
+        result.insert(result.end(), CLIPBOARD_SEARCH_KEYS.begin(), CLIPBOARD_SEARCH_KEYS.end());
         return result;
     }();
     return keys;
@@ -355,12 +362,14 @@ IconSource inapp_icon(const QString &cfg_key) {
         {"inapp_pin_reset_size", QString::fromUtf8("重置大小.svg")},
         {"inapp_thumbnail", QString::fromUtf8("缩略图.svg")},
         {"inapp_toggle_toolbar", QString::fromUtf8("切换工具栏.svg")},
+        {"inapp_pin_hide_annotations", QString::fromUtf8("隐藏标注.svg")},
         {"inapp_pin_lock", FluentIcon::Pin},
         {"inapp_pin_text_mode", QString::fromUtf8("文字.svg")},
         {"inapp_pin_text_selection", QString::fromUtf8("选择.svg")},
         {"inapp_clipboard_quick_edit", FluentIcon::Edit},
         {"inapp_clipboard_edit_save", FluentIcon::Save},
         {"inapp_clipboard_edit_save_paste", FluentIcon::Send},
+        {"inapp_clipboard_search", FluentIcon::Search},
     };
     return icons.value(cfg_key);
 }
@@ -478,15 +487,17 @@ QWidget *create_hotkey_page(SettingsDialog *dialog) {
     // The clipboard window's handler takes only keys.
     QSet<QString> editor_keys;
     for (const auto &key : CLIPBOARD_EDITOR_KEYS) editor_keys.insert(key.cfg_key);
+    for (const auto &key : CLIPBOARD_SEARCH_KEYS) editor_keys.insert(key.cfg_key);
     auto keys = CLIPBOARD_KEYS;
     keys.insert(keys.end(), CLIPBOARD_EDITOR_KEYS.begin(), CLIPBOARD_EDITOR_KEYS.end());
+    keys.insert(keys.end(), CLIPBOARD_SEARCH_KEYS.begin(), CLIPBOARD_SEARCH_KEYS.end());
     stack->addWidget(build_tab(keys, "clipboard",
                                {[dialog, clipboard_pick_combo](QWidget *page) { return inapp_row(page, FluentIcon::Paste, dialog->tr_text("Direct Pick Keys"), clipboard_pick_combo); }},
                                false, editor_keys));
     routes.append("clipboard");
     tab_switch->addItem("clipboard", dialog->tr_text("Clipboard Shortcuts"));
 
-    QObject::connect(tab_switch, &SegmentedWidget::currentItemChanged, stack, [stack, routes](const QString &route) { stack->setCurrentIndex(routes.indexOf(route)); });
+    link_tabs(tab_switch, stack, routes);
     tab_switch->setCurrentItem("screenshot");
     // The pin page's "Edit" button switches to the pin tab here.
     dialog->inapp_shortcut_tabs = tab_switch;

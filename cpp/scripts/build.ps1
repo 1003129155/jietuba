@@ -105,10 +105,10 @@ function Copy-Notices {
     Copy-Item -LiteralPath (Join-Path $projectRoot 'THIRD-PARTY-NOTICES.md') -Destination $deployDir
     Copy-Item -LiteralPath (Join-Path $projectRoot 'licenses') -Destination $deployDir -Recurse -Force
     $licenseDir = Join-Path $deployDir 'licenses'
-    # The repository's notices for oneocr and the icons, and those of the Rust libraries this build
+    # The repository's notices for oneocr, the icons and the smart erase solver, and those of the Rust libraries this build
     # links; its other license files describe PyPI packages, which this build does not ship.
     $reference = Split-Path $projectRoot -Parent
-    foreach ($name in 'oneocr-LICENSE.txt', 'lucide-LICENSE.txt', 'tabler-icons-LICENSE.txt') {
+    foreach ($name in 'oneocr-LICENSE.txt', 'lucide-LICENSE.txt', 'tabler-icons-LICENSE.txt', 'snow-draw-engine-LICENSE.txt') {
         Copy-Item -LiteralPath (Join-Path $reference "licenses\$name") -Destination $licenseDir
     }
     # The lite exe does not carry ONNX Runtime, so its notices travel with the PP-OCR pack that

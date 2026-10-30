@@ -13,6 +13,7 @@
 
 class QInputEvent;
 class QMouseEvent;
+class QWidget;
 
 namespace jietuba {
 class InputHub;
@@ -23,12 +24,12 @@ class InputHub;
 //   3. Win combinations and PrtSc (taken over by the input hub, system registration as a backstop),
 //      and system hotkeys another program holds
 //   4. In-app Qt key press dispatch
-// global_hotkey::route decides the path of a global hotkey. All four share one
-// priority-ordered handler chain, resolving conflicts between modules.
+// global_hotkey::route decides the path of a global hotkey. Each module's handler owns its windows,
+// and input goes to the owner of the window it concerns: in-app keys and middle-button presses to the
+// window they are sent to, global hotkeys and side buttons to the foreground window, then to the one
+// under the pointer. A window belongs to one module, so no priority order is needed.
 // Global input pauses at the user's request or while a game holds the foreground. Paused, every
 // registration and hook binding is released, so the keys reach the foreground program untouched.
-// Priorities (higher first): 200 hotkey editor, 100 capture, 80 GIF drawing,
-// 60 clipboard window, 50 pin editing, 40 pin hover.
 
 constexpr unsigned WM_HOTKEY_MESSAGE = 0x0312;
 constexpr int MOD_ALT_FLAG = global_hotkey::MOD_ALT;
@@ -79,7 +80,9 @@ struct SelectionTranslationHotkey {
 class ShortcutHandler {
 public:
     virtual ~ShortcutHandler() = default;
-    // Whether this handler should receive keys now.
+    // Whether this top-level window (or a window it parents) is one of the module's.
+    virtual bool owns_window(const QWidget *window) const = 0;
+    // Whether the module takes input now (a session open, a mode on); asked after ownership.
     virtual bool is_active() = 0;
     // Handles a key press (and, through handle_mouse, middle-button presses); true when consumed.
     virtual bool handle_key(QInputEvent *event) = 0;
@@ -95,8 +98,6 @@ public:
     // A key the hook took while a hotkey editor has focus: Win combinations and PrtSc never
     // reach Qt. text is the recorder's spelling, such as "shift+win+s".
     virtual bool handle_captured_key(const QString &text);
-    // Higher first.
-    virtual int priority() const = 0;
     virtual QString handler_name() const = 0;
 };
 
@@ -154,6 +155,9 @@ public:
     }
     // The WM_HOTKEY entry point; returns whether the message was handled.
     bool on_wm_hotkey(int hotkey_id);
+    // While a handler runs: the top-level window the input was sent to, or the window a global
+    // hotkey is offered for. Null outside dispatch.
+    QWidget *dispatch_window() const { return dispatch_window_; }
 signals:
     void global_hotkeys_paused_changed(bool paused);
 protected:
@@ -162,8 +166,11 @@ private:
     ShortcutManager();
     bool is_text_input_active(QInputEvent *event) const;
     bool filter_inapp_mouse(QObject *watched, QEvent *event);
-    bool dispatch_inapp_mouse(QMouseEvent *event);
-    bool filter_key(QInputEvent *event);
+    bool filter_key(QObject *watched, QInputEvent *event);
+    // Offers the input to the active handlers owning window, in registration order, until one takes it.
+    bool dispatch_to_owners(QWidget *window, const char *method, const std::function<bool(ShortcutHandler *)> &handle);
+    // The foreground window if it is this program's, then the one under the pointer.
+    QList<QWidget *> hotkey_target_windows() const;
     bool dispatch_hotkey(int hotkey_id, const std::function<void()> &callback);
     bool dispatch_mouse_hotkey(const QString &token, const std::function<void()> &callback);
     void on_side_button(const QString &name);
@@ -214,6 +221,7 @@ private:
     InputHub *key_capture_hub_ = nullptr;
     // Set when a press is consumed, so its release and double-click are swallowed too.
     bool inapp_mouse_claimed_ = false;
+    QWidget *dispatch_window_ = nullptr;
     HotkeyEventFilter native_filter_;
     static QSet<std::pair<int, int>> registered_keys_global_;
     static QSet<QString> registered_mouse_buttons_global_;

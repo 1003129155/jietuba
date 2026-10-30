@@ -189,8 +189,10 @@ pub unsafe extern "C" fn jb_clipboard_parse_color(text: *const c_char, out_rgba:
 /// Name of the clipboard format the color picker adds to mark its text as a color; static, not freed.
 #[no_mangle]
 pub extern "C" fn jb_clipboard_color_marker_format() -> *const c_char {
-    static NAME: std::sync::OnceLock<CString> = std::sync::OnceLock::new();
-    guard(std::ptr::null(), || NAME.get_or_init(|| CString::new(text_kind::COLOR_MARKER_FORMAT).unwrap_or_default()).as_ptr())
+    guard(std::ptr::null(), || {
+        static NAME: std::sync::OnceLock<CString> = std::sync::OnceLock::new();
+        NAME.get_or_init(|| CString::new(text_kind::COLOR_MARKER_FORMAT).unwrap_or_default()).as_ptr()
+    })
 }
 
 /// The paths in a path item's text as a JSON array (free with jb_clipboard_text_free); empty for other text.
@@ -199,6 +201,15 @@ pub unsafe extern "C" fn jb_clipboard_text_paths(text: *const c_char) -> *mut c_
     guard(std::ptr::null_mut(), || {
         let paths = str_arg(text).map(text_kind::paths).unwrap_or_default();
         owned_text(&serde_json::to_string(&paths).unwrap_or_else(|_| "[]".to_string()))
+    })
+}
+
+/// Every kind a filter rule can name, as a JSON array (free with jb_clipboard_text_free): the content types,
+/// the text sub-kinds, then `file:` plus each file sub-kind.
+#[no_mangle]
+pub extern "C" fn jb_clipboard_filter_kinds() -> *mut c_char {
+    guard(std::ptr::null_mut(), || {
+        owned_text(&serde_json::to_string(&group_kind::filter_kinds()).unwrap_or_else(|_| "[]".to_string()))
     })
 }
 
@@ -340,7 +351,7 @@ pub unsafe extern "C" fn jb_clipboard_get_history(
         let filter = FilterRule { kind: opt_string(kind), app: opt_string(app) };
         let result = manager.get_history(offset, limit, opt_string(search), &filter, opt_i64(start_time), opt_i64(end_time));
         finish(result, error, error_len, |page| {
-            put_text(&serde_json::to_string(&page.items).unwrap_or_else(|_| "[]".to_string()), out_json)
+            put_text(&serde_json::to_string(&page).unwrap_or_else(|_| "[]".to_string()), out_json)
         })
     })
 }
@@ -613,7 +624,7 @@ pub unsafe extern "C" fn jb_clipboard_get_by_group(
     guard_error(false, error, error_len, || {
         let manager = manager_or_fail!(ptr, error, error_len);
         finish(manager.get_by_group(opt_i64(group_id), offset, limit), error, error_len, |page| {
-            put_text(&serde_json::to_string(&page.items).unwrap_or_else(|_| "[]".to_string()), out_json)
+            put_text(&serde_json::to_string(&page).unwrap_or_else(|_| "[]".to_string()), out_json)
         })
     })
 }

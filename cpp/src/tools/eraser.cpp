@@ -60,6 +60,7 @@ void EraserTool::erase_at_position(const QPointF &pos, ToolContext &ctx) {
 }
 
 void EraserTool::try_erase_item(QGraphicsItem *item) {
+    item = annotation_owner(item);
     if (dynamic_cast<BackgroundItem *>(item) || dynamic_cast<SelectionItem *>(item)) return;
     const bool erasable = dynamic_cast<StrokeItem *>(item) || dynamic_cast<RectItem *>(item) || dynamic_cast<EllipseItem *>(item)
         || dynamic_cast<ArrowItem *>(item) || dynamic_cast<TextItem *>(item) || dynamic_cast<NumberItem *>(item)

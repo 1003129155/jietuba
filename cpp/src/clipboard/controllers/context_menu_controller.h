@@ -26,6 +26,8 @@ struct ContextMenuData {
 
 // Text items can always be quick-edited; the title is kept on save.
 bool is_quick_editable(const ClipboardItem &item);
+// Images and text always; files while any of them still exists.
+bool can_pin(const ClipboardItem &item);
 
 // Which entries the item, group and multi-select menus show, from the controller's state.
 class ClipboardContextMenuController {

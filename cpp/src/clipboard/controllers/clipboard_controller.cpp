@@ -88,7 +88,7 @@ void ClipboardController::set_move_to_top_on_paste(bool enabled) { get_tool_sett
 
 // ==================== Loading ====================
 
-int ClipboardController::page_size() const { return get_tool_settings_manager()->get_clipboard_show_metadata() ? page_size_ : page_size_without_metadata_; }
+int ClipboardController::page_size() const { return page_size_; }
 
 void ClipboardController::load_history() {
     if (is_loading_) {

@@ -48,6 +48,7 @@ QString ThemeStyleGenerator::generate_list_widget_style(int opacity) const {
                 border: none;
                 outline: none;
                 color: %3;
+                padding: %4 0px;
             }
             QListWidget::item {
                 padding: 0px;
@@ -60,19 +61,44 @@ QString ThemeStyleGenerator::generate_list_widget_style(int opacity) const {
             QListWidget::item:hover {
                 background: transparent;
             }
+            QScrollBar:vertical {
+                background: transparent;
+                width: %5;
+                margin: %4 0px;
+            }
+            QScrollBar::handle:vertical {
+                background: %6;
+                border-radius: %7;
+                min-height: %8;
+            }
+            QScrollBar::handle:vertical:hover, QScrollBar::handle:vertical:pressed {
+                background: %3;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+                background: transparent;
+            }
         )")
-        .arg(hex_to_rgb(c.bg_primary), alpha_text(opacity), c.text_primary);
+        .arg(hex_to_rgb(c.bg_primary), alpha_text(opacity), c.text_primary, px(4), px(6), c.text_secondary, px(3), px(24));
 }
 
 QString ThemeStyleGenerator::generate_search_bar_style(int opacity) const {
     const auto &c = theme_.colors;
+    // Only the bar itself: its children would draw the same translucent line again on top.
     return QString(R"(
-            QWidget {
+            #%4 {
                 background: rgba(%1, %2);
                 border-top: 1px solid %3;
             }
         )")
-        .arg(hex_to_rgb(c.bg_secondary), alpha_text(opacity), c.border_primary);
+        .arg(hex_to_rgb(c.bg_primary), alpha_text(opacity), divider_color(), BAR_OBJECT_NAME);
+}
+
+QString ThemeStyleGenerator::divider_color() const {
+    // The text color, faint: about as far from the ground on every theme, where the border colors nearly vanish on dark.
+    return QString("rgba(%1, 0.22)").arg(hex_to_rgb(theme_.colors.text_primary));
 }
 
 QString ThemeStyleGenerator::generate_time_filter_bar_style(int opacity) const { return generate_search_bar_style(opacity); }
@@ -149,20 +175,28 @@ QString ThemeStyleGenerator::generate_menu_style() const {
         .arg(c.bg_primary, c.border_primary, px(4), px(8), px(20), c.text_primary, c.bg_hover);
 }
 
-QString ThemeStyleGenerator::generate_search_input_style(bool has_text) const {
+QString ThemeStyleGenerator::generate_search_box_style(bool has_text) const {
     const auto &c = theme_.colors;
     return QString(R"(
-            QLineEdit {
+            QFrame#searchBox {
                 background: %1;
                 border: none;
                 border-radius: %5;
+            }
+            QLineEdit {
+                background: transparent;
+                border: none;
                 color: %2;
                 font-size: %3;
                 padding: %4;
             }
+            QLabel {
+                background: transparent;
+                border: none;
+            }
         )")
         // The faint base when empty is all that marks it as a box: the field has no border.
-        .arg(has_text ? c.bg_hover : QString("rgba(%1, 0.07)").arg(hex_to_rgb(c.text_primary)), c.text_primary, px(13), px(4), px(4));
+        .arg(has_text ? c.bg_hover : QString("rgba(%1, 0.07)").arg(hex_to_rgb(c.text_primary)), c.text_primary, px(13), QString("0px"), px(6));
 }
 
 QString ThemeStyleGenerator::generate_clear_search_btn_style() const {
@@ -170,41 +204,39 @@ QString ThemeStyleGenerator::generate_clear_search_btn_style() const {
     return QString(R"(
             QPushButton {
                 background: transparent;
-                color: %1;
                 border: none;
-                font-size: %2;
                 padding: 0px;
             }
             QPushButton:hover {
-                background: %3;
-                color: %4;
-                border-radius: %5;
+                background: %1;
+                border-radius: %2;
             }
         )")
-        .arg(c.text_tertiary, px(16), c.bg_hover, c.text_primary, px(12));
+        .arg(c.bg_hover, px(10));
 }
 
 QString ThemeStyleGenerator::generate_filter_toggle_btn_style() const {
     const auto &c = theme_.colors;
+    // Checked, the button holds the accent while the filter bar is open.
+    const QString accent = hex_to_rgb(c.accent_primary);
     return QString(R"(
             QToolButton {
                 background: transparent;
-                color: %1;
                 border: none;
-                border-radius: %2;
-                font-size: %3;
+                border-radius: %1;
                 padding: 0px;
             }
             QToolButton:hover {
-                background: %4;
-                color: %5;
+                background: %2;
             }
             QToolButton:checked {
-                background: %4;
-                color: %5;
+                background: rgba(%3, 0.18);
+            }
+            QToolButton:checked:hover {
+                background: rgba(%3, 0.28);
             }
         )")
-        .arg(c.text_secondary, px(4), px(17), c.bg_hover, c.text_primary);
+        .arg(px(6), c.bg_hover, accent);
 }
 
 QString ThemeStyleGenerator::generate_time_filter_date_edit_style() const {
@@ -388,16 +420,13 @@ QString ThemeStyleGenerator::generate_menu_btn_style() const {
     return QString(R"(
             QPushButton {
                 background: transparent;
-                color: %1;
                 border: none;
-                font-size: %2;
-                font-weight: normal;
             }
             QPushButton:hover {
-                background: %3;
-                border-radius: %4;
+                background: %1;
+                border-radius: %2;
             }
         )")
-        .arg(c.text_secondary, px(18), c.bg_hover, px(4));
+        .arg(c.bg_hover, px(6));
 }
 }

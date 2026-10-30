@@ -5,6 +5,7 @@
 #include <QColor>
 #include <QFont>
 #include <QObject>
+#include <QPointer>
 #include <QPointF>
 #include <memory>
 #include <optional>
@@ -84,9 +85,15 @@ signals:
     // (like a toolbar click). Handled before select_item(), since switching tools clears the selection.
     void tool_switch_requested(const QString &tool_id);
 private:
+    // The selected item's state as a press finds it, for the move it may start.
+    void capture_press_state();
     void repaint_handles();
     void on_undo_index_changed();
     void sync_arrow_panel_state(QGraphicsItem *arrow_item);
+    // Unfolds the number panel's label and pointer part while the selected number has either, or is being labelled.
+    void sync_number_panel_state();
+    void on_number_extras_changed(const QVariantMap &change);
+    QPointer<QObject> connected_number_panel_;
     void sync_text_panel_state(QGraphicsItem *text_item);
     bool is_auto_selected_ = false;
     std::optional<EditHandle> active_click_handle_;

@@ -1,4 +1,5 @@
 #include "clipboard/ui/dialogs/manage_dialog.h"
+#include "clipboard/controllers/context_menu_controller.h"
 #include "clipboard/core/manager.h"
 #include "clipboard/services/file_payload_service.h"
 #include "clipboard/services/group_service.h"
@@ -385,12 +386,27 @@ QWidget *ManageDialog::create_detail_column() {
     scroll->setWidget(detail_content);
     layout->addWidget(scroll, 1);
 
-    auto *footer = new QHBoxLayout;
-    footer->setContentsMargins(0, dialog_scaled(12), 0, 0);
-    footer->setSpacing(dialog_scaled(10));
+    auto *bottom = new QVBoxLayout;
+    bottom->setContentsMargins(0, dialog_scaled(12), 0, 0);
+    bottom->setSpacing(dialog_scaled(8));
+    // On its own line: beside the buttons the narrowest window has no room for it in every language.
     detail_meta = new QLabel;
     apply_theme_text_style(detail_meta, 12, false, {}, true);
-    footer->addWidget(detail_meta, 1);
+    detail_meta->setWordWrap(true);
+    detail_meta->hide();
+    bottom->addWidget(detail_meta);
+    auto *footer = new QHBoxLayout;
+    footer->setSpacing(dialog_scaled(10));
+    footer->addStretch(1);
+
+    pin_btn = new QPushButton(tr_text("Pin to Screen"));
+    pin_btn->setObjectName("ManagePinButton");
+    pin_btn->setCursor(Qt::PointingHandCursor);
+    connect(pin_btn, &QPushButton::clicked, this, [this] {
+        if (editing_item_id) create_pin_from_clipboard_item(*editing_item_id, manager, this);
+    });
+    pin_btn->hide();
+    footer->addWidget(pin_btn);
 
     delete_btn = new QPushButton(tr_text("Delete"));
     delete_btn->setObjectName("ManageDeleteButton");
@@ -404,7 +420,8 @@ QWidget *ManageDialog::create_detail_column() {
     save_btn->setCursor(Qt::PointingHandCursor);
     connect(save_btn, &QPushButton::clicked, this, [this] { on_save_clicked(); });
     footer->addWidget(save_btn);
-    layout->addLayout(footer);
+    bottom->addLayout(footer);
+    layout->addLayout(bottom);
     return column;
 }
 
@@ -499,28 +516,40 @@ void ManageDialog::apply_ui_theme(const UIThemeTokens &tokens) {
                 background: %13;
                 border-color: %10;
             }
-            QPushButton#ManageDeleteButton {
-                background: transparent;
-                border: 1px solid transparent;
-                border-radius: %7px;
-                color: %17;
+            QPushButton#ManagePinButton,
+            QPushButton#ManageDeleteButton,
+            QPushButton#ManageSaveButton {
+                background: %4;
+                border: 1px solid %5;
+                border-radius: %26px;
+                color: %9;
                 font-size: %8px;
+                font-weight: 500;
                 min-height: %18px;
+                min-width: %23px;
                 padding: 0 %19px;
             }
+            QPushButton#ManagePinButton:hover,
             QPushButton#ManageDeleteButton:hover {
+                background: %13;
+                border-color: %15;
+            }
+            QPushButton#ManagePinButton:pressed {
+                background: %13;
+                border-color: %10;
+            }
+            QPushButton#ManageDeleteButton {
+                color: %17;
+            }
+            QPushButton#ManageDeleteButton:pressed {
                 background: %20;
+                border-color: %17;
             }
             QPushButton#ManageSaveButton {
                 background: %21;
-                border: 1px solid %21;
-                border-radius: %7px;
+                border-color: %21;
                 color: #FFFFFF;
-                font-size: %8px;
-                font-weight: 600;
-                min-height: %18px;
                 min-width: %22px;
-                padding: 0 %23px;
             }
             QPushButton#ManageSaveButton:hover {
                 background: %24;
@@ -528,11 +557,20 @@ void ManageDialog::apply_ui_theme(const UIThemeTokens &tokens) {
             }
             QPushButton#ManageSaveButton:pressed {
                 background: %25;
+                border-color: %25;
+            }
+            QPushButton#ManagePinButton:disabled,
+            QPushButton#ManageDeleteButton:disabled,
+            QPushButton#ManageSaveButton:disabled {
+                background: %28;
+                border-color: %5;
+                color: %27;
             }
         )")
                       .arg(theme_surface_color(), tokens.separator, s(12), tokens.input_background, tokens.border, s(8), s(10), s(13), tokens.text)
-                      .arg(tokens.accent, tokens.accent_text, s(4), tokens.accent_soft, tokens.text_muted, tokens.border_hover, s(34), tokens.danger, s(36))
-                      .arg(s(16), tokens.danger_soft, tokens.accent_strong, s(104), s(22), tokens.accent_strong_hover, tokens.accent_strong_pressed) +
+                      .arg(tokens.accent, tokens.accent_text, s(4), tokens.accent_soft, tokens.text_muted, tokens.border_hover, s(34), tokens.danger, s(30))
+                      .arg(s(8), tokens.danger_soft, tokens.accent_strong, s(66), s(50), tokens.accent_strong_hover, tokens.accent_strong_pressed)
+                      .arg(s(6), tokens.text_disabled, tokens.surface_subtle) +
                   QString("QPushButton#ManageAddButton:checked { background: %1; border: 1px solid %2; }").arg(tokens.accent_soft, tokens.accent) +
                   scrollbar_qss(this));
     set_own_style(column_separator, QString("background: %1; border: none;").arg(tokens.separator));
@@ -786,6 +824,11 @@ void ManageDialog::show_item_menu(const QPoint &pos) {
     show_edit_content_form(item_id);
     QMenu menu(this);
     menu.setStyleSheet(theme_menu_style());
+    // As in the clipboard window: images, text and files, which pin as the pin hotkey pins copied files.
+    const auto clipboard_item = manager->get_item(item_id);
+    add_menu_action(&menu, tr_text("Pin to Screen"), [this, item_id] { create_pin_from_clipboard_item(item_id, manager, this); })
+        ->setEnabled(clipboard_item && can_pin(*clipboard_item));
+    menu.addSeparator();
     add_menu_action(&menu, tr_text("Move to Top"), [this] { item_list->move_current_to_top(); });
     add_menu_action(&menu, tr_text("Move to Bottom"), [this] { item_list->move_current_to_bottom(); });
     QMenu *group_menu = menu.addMenu(tr_text("Move to Group"));
@@ -923,7 +966,8 @@ void ManageDialog::clear_detail_layout() {
     emoji_tab_buttons.clear();
     emoji_group_order.clear();
     emoji_groups.clear();
-    detail_meta->setText("");
+    detail_meta->clear();
+    detail_meta->hide();
 
     std::function<void(QLayout *)> clear_layout = [&clear_layout](QLayout *layout) {
         while (layout->count()) {
@@ -969,6 +1013,7 @@ void ManageDialog::set_footer(const std::optional<QString> &save_text, bool dele
     save_btn->setToolTip({});
     if (save_text) save_btn->setText(*save_text);
     delete_btn->setVisible(deletable);
+    pin_btn->hide();
 }
 
 void ManageDialog::show_new_group_form() {
@@ -1213,6 +1258,7 @@ void ManageDialog::show_edit_content_form(qint64 item_id) {
     clear_detail_layout();
     set_detail_header(tr_text("Edit Content"));
     set_footer(tr_text("Save"), true);
+    pin_btn->setVisible(can_pin(*item));
     editing_item_id = item_id;
 
     const int row = item_list->row_of_id(item_id);
@@ -1235,7 +1281,10 @@ void ManageDialog::show_edit_content_form(qint64 item_id) {
         build_edit_text_content_form(this, *item);
     }
 
-    if (item->created_at.isValid()) detail_meta->setText(tr_text("Created {time}").replace("{time}", item->created_at.toString("yyyy-MM-dd HH:mm")));
+    if (item->created_at.isValid()) {
+        detail_meta->setText(tr_text("Created {time}").replace("{time}", item->created_at.toString("yyyy-MM-dd HH:mm")));
+        detail_meta->show();
+    }
     finish_detail_form_setup();
 }
 

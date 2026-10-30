@@ -37,12 +37,27 @@ bool NumberTool::apply_style_change(const QString &requested, CanvasView *view, 
     return persisted;
 }
 
+QVariantMap NumberTool::extras_defaults(const ToolContext &ctx) {
+    if (!ctx.settings_manager) return {};
+    QVariantMap defaults;
+    for (const char *key : EXTRAS_SETTING_KEYS) defaults[key] = ctx.settings_manager->get_setting("number", key);
+    return defaults;
+}
+
+void NumberTool::remember_extras(const QVariantMap &change) {
+    QVariantMap values;
+    for (const char *key : EXTRAS_SETTING_KEYS)
+        if (change.contains(key)) values[key] = change.value(key);
+    if (auto *manager = get_tool_settings_manager(); manager && !values.isEmpty()) manager->update_settings("number", values);
+}
+
 bool NumberTool::on_press(const QPointF &pos, Qt::MouseButton button, ToolContext &ctx) {
     if (button != Qt::LeftButton) return true;
     const int number = get_next_number(ctx.scene);
     const double radius = get_radius_for_width(ctx.stroke_width);
     log_debug(T("创建前场景中序号数量: {prev_count}, 将创建序号: {number}", {{"prev_count", number - 1}, {"number", number}}), "NumberTool");
     auto *item = new NumberItem(number, pos, radius, color_with_opacity(ctx.color, ctx.opacity), get_style(ctx));
+    item->apply_extras_state(extras_defaults(ctx));
     assign_number_order(ctx.scene, item);
     // push() runs redo(), which adds the item to the scene.
     ctx.undo_stack->push(new AddNumberCommand(ctx.scene, ItemReference(item), number));

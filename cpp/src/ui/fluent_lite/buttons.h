@@ -31,14 +31,11 @@ public:
     // A CSS background value: rgb()/#hex or qlineargradient(...).
     void setFill(const QString &fill);
     void setSelected(bool selected);
-    // Colour of the check mark; the caller knows how dark the fill is.
-    void setTextColor(const QString &color);
 protected:
     QString style_sheet() const override;
 private:
     QString fill_ = "transparent";
     bool selected_ = false;
-    QString text_color_;
 };
 
 class PrimaryPushButton : public PushButton {

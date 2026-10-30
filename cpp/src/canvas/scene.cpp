@@ -117,8 +117,10 @@ void CanvasScene::refresh_number_cursor_if_active(bool force) {
 QList<QGraphicsItem *> CanvasScene::get_drawing_items_in_rect(const QRectF &rect) {
     QList<QGraphicsItem *> drawing_items;
     // The selection item paints nothing but still takes mouse events, so it is excluded explicitly.
-    for (auto *item : items(rect, Qt::IntersectsItemBoundingRect)) {
-        if (item == background || item == selection_item) continue;
+    for (auto *part : items(rect, Qt::IntersectsItemBoundingRect)) {
+        // A number whose label alone reaches into the rect still comes along, once, with its label.
+        auto *item = annotation_owner(part);
+        if (item == background || item == selection_item || drawing_items.contains(item)) continue;
         // The brush indicator (z >= 10000).
         if (dynamic_cast<QGraphicsEllipseItem *>(item) && item->zValue() >= 10000) continue;
         // Derived from spotlights; a cloned spotlight grows its own curtain.

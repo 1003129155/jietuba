@@ -10,6 +10,11 @@ namespace jietuba {
 class PinWindow;
 class ToolSettingsManager;
 
+// The recognized text laid out by the text recognition window's settings.
+QString pin_layout_text(const OcrTextLayout &layout, ToolSettingsManager *settings);
+// The pixel size that shows text about as large as the recognized lines appear on the pin.
+int pin_text_pixel_size(const OcrTextLayout &layout, double view_scale);
+
 // Recognition on a worker thread. Takes a QImage copy and no widget, so a window closed
 // mid-recognition is never touched from here.
 class PinOcrThread : public QThread {
@@ -39,7 +44,7 @@ public:
     ~PinOCRManager();
     bool has_result() const { return ocr_has_result_; }
     bool text_selection_enabled() const { return text_selection_enabled_; }
-    bool is_running() const { return ocr_thread != nullptr; }
+    bool is_running() const { return ocr_thread != nullptr || pixels_wait_ != nullptr; }
     // The text selection once recognition has started; null before.
     PinTextSelection *text_selection() const { return selection_.get(); }
     // Starts recognition and the text selection. The automatic run after pinning follows
@@ -60,6 +65,8 @@ public:
     void set_drawing_mode(bool active);
     QPointer<PinOcrThread> ocr_thread;
 private:
+    // While recognition waits for smart erase pixels; dropping it drops the wait.
+    std::unique_ptr<QObject> pixels_wait_;
     // Every queued callback gets the result, success or not, and the queue empties.
     void flush_pending(bool success, const QString &result);
     // The image is taken on the main thread; the worker only gets plain data.

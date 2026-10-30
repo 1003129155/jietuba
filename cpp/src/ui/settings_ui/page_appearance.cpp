@@ -116,8 +116,8 @@ void build_clipboard_section(SettingsDialog *dialog, SettingsCardGroup *grp) {
         auto update_btns = [buttons](const QString &selected) {
             for (const auto &[name, btn] : *buttons) {
                 // The check is drawn on the swatch's own background, so its shade follows the swatch, not the UI theme.
-                btn->setTextColor(name == "dark" ? "#FFFFFF" : "#333333");
-                btn->setText(name == selected ? QString(QChar(0x2713)) : QString());
+                // An SVG rather than ✓, which is not in the UI fonts and falls back differently on each Windows version.
+                btn->setIcon(name == selected ? tinted_icon(FluentIcon::Check, name == "dark" ? "#FFFFFF" : "#333333") : QIcon());
                 btn->setSelected(name == selected);
             }
         };
@@ -125,6 +125,7 @@ void build_clipboard_section(SettingsDialog *dialog, SettingsCardGroup *grp) {
             auto *action = new QWidgetAction(menu);
             auto *btn = new ColorSwatchButton(menu);
             btn->setFixedWidth(theme_btn->width());
+            btn->setBaseIconSize(14);
             apply_clip_theme_btn_style(btn, tname);
             QObject::connect(btn, &QPushButton::clicked, menu, [dialog, theme_btn, menu, update_btns, name = tname] {
                 dialog->clip_theme_name = name;

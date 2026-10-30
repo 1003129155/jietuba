@@ -9,6 +9,18 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>Search settings</source>
+        <translation>Search settings</translation>
+    </message>
+    <message>
+        <source>No matching settings</source>
+        <translation>No matching settings</translation>
+    </message>
+    <message>
+        <source>Page</source>
+        <translation>Page</translation>
+    </message>
+    <message>
         <source>Region Text Recognition</source>
         <translation>Region Text Recognition</translation>
     </message>
@@ -293,6 +305,10 @@
         <translation>Quick Edit</translation>
     </message>
     <message>
+        <source>Search</source>
+        <translation>Search</translation>
+    </message>
+    <message>
         <source>Save Edit</source>
         <translation>Save Edit</translation>
     </message>
@@ -389,6 +405,10 @@ Replace it?</translation>
     <message>
         <source>Toggle Toolbar</source>
         <translation>Toggle Toolbar</translation>
+    </message>
+    <message>
+        <source>Hide Annotations</source>
+        <translation>Hide Annotations</translation>
     </message>
     <message>
         <source>Magnifier Zoom In</source>
@@ -1058,6 +1078,42 @@ Replace it?</translation>
         <translation>Show the close and toolbar buttons in the top-right corner when the mouse is over a pinned image. When off, use the right-click menu or shortcuts.</translation>
     </message>
     <message>
+        <source>Types to Pin</source>
+        <translation>Types to Pin</translation>
+    </message>
+    <message>
+        <source>What this hotkey takes from the clipboard. When it holds both a picture and text, such as copied spreadsheet cells, the picture is pinned.</source>
+        <translation>What this hotkey takes from the clipboard. When it holds both a picture and text, such as copied spreadsheet cells, the picture is pinned.</translation>
+    </message>
+    <message>
+        <source>Image</source>
+        <translation>Image</translation>
+    </message>
+    <message>
+        <source>Screenshots, copied pictures and picture files. Animated GIF and WebP files play.</source>
+        <translation>Screenshots, copied pictures and picture files. Animated GIF and WebP files play.</translation>
+    </message>
+    <message>
+        <source>Copied text, formatted when Keep Text Formatting is on.</source>
+        <translation>Copied text, formatted when Keep Text Formatting is on.</translation>
+    </message>
+    <message>
+        <source>Keep Text Formatting</source>
+        <translation>Keep Text Formatting</translation>
+    </message>
+    <message>
+        <source>Point Out Repeats</source>
+        <translation>Point Out Repeats</translation>
+    </message>
+    <message>
+        <source>Pinning what an open pin already shows makes that pin shake instead of opening another one. Screenshots are always pinned anew.</source>
+        <translation>Pinning what an open pin already shows makes that pin shake instead of opening another one. Screenshots are always pinned anew.</translation>
+    </message>
+    <message>
+        <source>Text copied from web pages and documents keeps its bold, lists, tables and code style; colors that would not read on the white page are dropped. Off: pinned as plain text, and each pin can still switch it from the right-click menu. Also applies to pinning text from the clipboard window.</source>
+        <translation>Text copied from web pages and documents keeps its bold, lists, tables and code style; colors that would not read on the white page are dropped. Off: pinned as plain text, and each pin can still switch it from the right-click menu. Also applies to pinning text from the clipboard window.</translation>
+    </message>
+    <message>
         <source>Mouse Shortcuts</source>
         <translation>Mouse Shortcuts</translation>
     </message>
@@ -1122,6 +1178,10 @@ Replace it?</translation>
         <translation>Copy Selected Text</translation>
     </message>
     <message>
+        <source>Drag Out Content</source>
+        <translation>Drag Out Content</translation>
+    </message>
+    <message>
         <source>No Modifier</source>
         <translation>None</translation>
     </message>
@@ -1150,8 +1210,8 @@ Replace it?</translation>
         <translation>Lock / Unlock Pin</translation>
     </message>
     <message>
-        <source>Toggle Text Mode</source>
-        <translation>Toggle Text Mode</translation>
+        <source>Pin as Text</source>
+        <translation>Pin as Text</translation>
     </message>
     <message>
         <source>Toggle Text Selection</source>
@@ -1266,8 +1326,8 @@ Replace it?</translation>
         <translation>Resize by Dragging Edges</translation>
     </message>
     <message>
-        <source>Drag near the edge or corner of a pinned image to resize it. The aspect ratio is kept.</source>
-        <translation>Drag near the edge or corner of a pinned image to resize it. The aspect ratio is kept.</translation>
+        <source>Drag near the edge or corner of a pin to resize it. Images keep their aspect ratio.</source>
+        <translation>Drag near the edge or corner of a pin to resize it. Images keep their aspect ratio.</translation>
     </message>
     <message>
         <source>Shrink Oversized Images</source>
@@ -1820,8 +1880,36 @@ Replace it?</translation>
         <translation>Text selection</translation>
     </message>
     <message>
-        <source>Text mode</source>
-        <translation>Text mode</translation>
+        <source>Pin as text</source>
+        <translation>Pin as text</translation>
+    </message>
+    <message>
+        <source>Keep text formatting</source>
+        <translation>Keep text formatting</translation>
+    </message>
+    <message>
+        <source>Copy text</source>
+        <translation>Copy text</translation>
+    </message>
+    <message>
+        <source>Copy plain text</source>
+        <translation>Copy plain text</translation>
+    </message>
+    <message>
+        <source>Copy image</source>
+        <translation>Copy image</translation>
+    </message>
+    <message>
+        <source>Hide annotations</source>
+        <translation>Hide annotations</translation>
+    </message>
+    <message>
+        <source>Annotations hidden</source>
+        <translation>Annotations hidden</translation>
+    </message>
+    <message>
+        <source>Annotations shown</source>
+        <translation>Annotations shown</translation>
     </message>
     <message>
         <source>Recognizing...</source>
@@ -1946,6 +2034,118 @@ Replace it?</translation>
     <message>
         <source>Click-through off</source>
         <translation>Click-through off</translation>
+    </message>
+    <message>
+        <source>Folder</source>
+        <translation>Folder</translation>
+    </message>
+    <message>
+        <source>...%1 items in all</source>
+        <translation>...%1 items in all</translation>
+    </message>
+    <message>
+        <source>Open</source>
+        <translation>Open</translation>
+    </message>
+    <message>
+        <source>Copy this file</source>
+        <translation>Copy this file</translation>
+    </message>
+    <message>
+        <source>Copy this file's path</source>
+        <translation>Copy this file's path</translation>
+    </message>
+    <message>
+        <source>Show in Explorer</source>
+        <translation>Show in Explorer</translation>
+    </message>
+    <message>
+        <source>Copy all files</source>
+        <translation>Copy all files</translation>
+    </message>
+    <message>
+        <source>Copy all file paths</source>
+        <translation>Copy all file paths</translation>
+    </message>
+    <message>
+        <source>Copy selected files</source>
+        <translation>Copy selected files</translation>
+    </message>
+    <message>
+        <source>Copy selected file paths</source>
+        <translation>Copy selected file paths</translation>
+    </message>
+    <message>
+        <source>Open Many Files</source>
+        <translation>Open Many Files</translation>
+    </message>
+    <message>
+        <source>Open %1 files at once?</source>
+        <translation>Open %1 files at once?</translation>
+    </message>
+    <message>
+        <source>Copy animation</source>
+        <translation>Copy animation</translation>
+    </message>
+    <message>
+        <source>Copy current frame</source>
+        <translation>Copy current frame</translation>
+    </message>
+    <message>
+        <source>Play</source>
+        <translation>Play</translation>
+    </message>
+    <message>
+        <source>Pause</source>
+        <translation>Pause</translation>
+    </message>
+    <message>
+        <source>Next frame</source>
+        <translation>Next frame</translation>
+    </message>
+    <message>
+        <source>Previous frame</source>
+        <translation>Previous frame</translation>
+    </message>
+    <message>
+        <source>Faster</source>
+        <translation>Faster</translation>
+    </message>
+    <message>
+        <source>Slower</source>
+        <translation>Slower</translation>
+    </message>
+    <message>
+        <source>Normal speed</source>
+        <translation>Normal speed</translation>
+    </message>
+    <message>
+        <source>Speed: %1</source>
+        <translation>Speed: %1</translation>
+    </message>
+    <message>
+        <source>Frame: %1</source>
+        <translation>Frame: %1</translation>
+    </message>
+    <message>
+        <source>Save Animation</source>
+        <translation>Save Animation</translation>
+    </message>
+    <message>
+        <source>Pin Many Images</source>
+        <translation>Pin Many Images</translation>
+    </message>
+    <message>
+        <source>Pin %1 images at once? So many windows may slow the computer down.</source>
+        <translation>Pin %1 images at once? So many windows may slow the computer down.</translation>
+    </message>
+    <message>
+        <source>Pin Too Small</source>
+        <translation>Pin Too Small</translation>
+    </message>
+    <message>
+        <source>This pin is only %1 × %2 pixels. Pin it anyway?</source>
+        <translation>This pin is only %1 × %2 pixels. Pin it anyway?</translation>
     </message>
 </context>
 
@@ -2115,6 +2315,7 @@ Replace it?</translation>
     <message><source>Move all pins to center</source><translation>Move all pins to center</translation></message>
     <message><source>Thumbnail all pins</source><translation>Thumbnail all pins</translation></message>
     <message><source>Restore all pin thumbnails</source><translation>Restore all pin thumbnails</translation></message>
+    <message><source>Hide all pins</source><translation>Hide all pins</translation></message>
     <message><source>Close all pins</source><translation>Close all pins</translation></message>
     <message><source>Save all pins as...</source><translation>Save all pins as...</translation></message>
     <message><source>Choose folder to save pinned images</source><translation>Choose folder to save pinned images</translation></message>
@@ -2188,6 +2389,10 @@ Replace it?</translation>
     <message>
         <source>Screen Annotation</source>
         <translation>Screen Annotation</translation>
+    </message>
+    <message>
+        <source>Nothing on the clipboard to pin</source>
+        <translation>Nothing on the clipboard to pin</translation>
     </message>
 </context>
 
@@ -2497,6 +2702,10 @@ Replace it?</translation>
 <context>
     <name>ClipboardWindow</name>
     <message>
+        <source>Favorites</source>
+        <translation>Favorites</translation>
+    </message>
+    <message>
         <source>Clipboard History</source>
         <translation>Clipboard History</translation>
     </message>
@@ -2597,8 +2806,8 @@ Replace it?</translation>
         <translation>Move to Top After Paste</translation>
     </message>
     <message>
-        <source>Show Time and Source</source>
-        <translation>Show Time and Source</translation>
+        <source>Show Time</source>
+        <translation>Show Time</translation>
     </message>
     <message>
         <source>Preserve Search on Reopen</source>
@@ -2693,16 +2902,16 @@ Replace it?</translation>
         <translation>Group Bar Position</translation>
     </message>
     <message>
-        <source>▶ Right</source>
-        <translation>▶ Right</translation>
+        <source>Right</source>
+        <translation>Right</translation>
     </message>
     <message>
-        <source>◀ Left</source>
-        <translation>◀ Left</translation>
+        <source>Left</source>
+        <translation>Left</translation>
     </message>
     <message>
-        <source>▲ Top</source>
-        <translation>▲ Top</translation>
+        <source>Top</source>
+        <translation>Top</translation>
     </message>
     <message>
         <source>Max Display Lines</source>
@@ -2746,16 +2955,16 @@ Items in the group will be moved back to clipboard history.</translation>
         <translation>Delete Group</translation>
     </message>
     <message>
-        <source>Unpin</source>
-        <translation>Unpin</translation>
+        <source>Unpin from Top</source>
+        <translation>Unpin from Top</translation>
     </message>
     <message>
-        <source>Pin</source>
-        <translation>Pin</translation>
+        <source>Pin to Top</source>
+        <translation>Pin to Top</translation>
     </message>
     <message>
-        <source>Pin as Overlay</source>
-        <translation>Pin as Overlay</translation>
+        <source>Pin to Screen</source>
+        <translation>Pin to Screen</translation>
     </message>
     <message>
         <source>Save as</source>
@@ -3826,6 +4035,10 @@ This action cannot be undone.</translation>
         <translation>Next Number</translation>
     </message>
     <message>
+        <source>Text Guide Line</source>
+        <translation>Text Guide Line</translation>
+    </message>
+    <message>
         <source>Line Style</source>
         <translation>Line Style</translation>
     </message>
@@ -3896,6 +4109,10 @@ This action cannot be undone.</translation>
     <message>
         <source>Blur</source>
         <translation>Blur</translation>
+    </message>
+    <message>
+        <source>Smart Erase</source>
+        <translation>Smart Erase</translation>
     </message>
     <message>
         <source>Mosaic Style</source>
@@ -4888,6 +5105,10 @@ SOFTWARE.</translation></message>
 
 <context>
     <name>GroupBar</name>
+    <message>
+        <source>New Group</source>
+        <translation>New Group</translation>
+    </message>
     <message>
         <source>Clipboard History</source>
         <translation>Clipboard History</translation>
@@ -6864,6 +7085,14 @@ Replace it?</translation>
     <message>
         <source>Open Settings</source>
         <translation>Open Settings</translation>
+    </message>
+    <message>
+        <source>File</source>
+        <translation>File</translation>
+    </message>
+    <message>
+        <source>Copied files and folders, shown with their icons, names and sizes.</source>
+        <translation>Copied files and folders, shown with their icons, names and sizes.</translation>
     </message>
 </context>
 </TS>

@@ -8,7 +8,13 @@
 #include <optional>
 
 // Group icons, name checks and the delete confirmation, shared by the manage window and forms.
+namespace jietuba {
+class ToolSettingsManager;
+}
+
 namespace jietuba::clipboard {
+class ClipboardManager;
+
 const QString &GENERAL_GROUP_ICON();
 const QString &QUICK_LAUNCH_GROUP_ICON();
 const QString &HIDDEN_GROUP_ICON();
@@ -23,4 +29,7 @@ QString get_toggled_default_group_icon(const QString &current_icon, int group_ty
 bool group_name_exists(const QList<Group> &groups, const QString &name, std::optional<qint64> exclude_group_id = std::nullopt);
 QString make_unique_group_name(const QString &base_name, const QSet<QString> &used_names);
 QString build_delete_group_confirm_message(const std::function<QString(const char *)> &translate);
+// Once per install, a history with no groups gets a normal group to move items into and an image filter group,
+// so the group bar shows what groups are for. Deleting them later does not bring them back.
+void seed_starter_groups(ClipboardManager &manager, ToolSettingsManager *config, const std::function<QString(const char *)> &translate);
 }

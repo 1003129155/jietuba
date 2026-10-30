@@ -8,6 +8,18 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>Search settings</source>
+        <translation>설정 검색</translation>
+    </message>
+    <message>
+        <source>No matching settings</source>
+        <translation>일치하는 설정이 없습니다</translation>
+    </message>
+    <message>
+        <source>Page</source>
+        <translation>페이지</translation>
+    </message>
+    <message>
         <source>Region Text Recognition</source>
         <translation>영역 텍스트 인식</translation>
     </message>
@@ -292,6 +304,10 @@
         <translation>빠른 편집</translation>
     </message>
     <message>
+        <source>Search</source>
+        <translation>검색</translation>
+    </message>
+    <message>
         <source>Save Edit</source>
         <translation>편집 저장</translation>
     </message>
@@ -388,6 +404,10 @@ Replace it?</source>
     <message>
         <source>Toggle Toolbar</source>
         <translation>도구 모음 전환</translation>
+    </message>
+    <message>
+        <source>Hide Annotations</source>
+        <translation>그리기 숨기기</translation>
     </message>
     <message>
         <source>Magnifier Zoom In</source>
@@ -1173,6 +1193,42 @@ Replace it?</source>
         <translation>고정된 이미지 위에 마우스를 올리면 오른쪽 위에 닫기 및 도구 모음 버튼을 표시합니다. 끄면 오른쪽 클릭 메뉴나 단축키를 사용하세요.</translation>
     </message>
     <message>
+        <source>Types to Pin</source>
+        <translation>고정할 종류</translation>
+    </message>
+    <message>
+        <source>What this hotkey takes from the clipboard. When it holds both a picture and text, such as copied spreadsheet cells, the picture is pinned.</source>
+        <translation>이 단축키로 클립보드에서 고정할 내용입니다. 이미지와 텍스트가 함께 있으면(복사한 표 셀 등) 이미지를 고정합니다.</translation>
+    </message>
+    <message>
+        <source>Image</source>
+        <translation>이미지</translation>
+    </message>
+    <message>
+        <source>Screenshots, copied pictures and picture files. Animated GIF and WebP files play.</source>
+        <translation>스크린샷, 복사한 이미지와 이미지 파일. 움직이는 GIF·WebP는 재생됩니다.</translation>
+    </message>
+    <message>
+        <source>Copied text, formatted when Keep Text Formatting is on.</source>
+        <translation>복사한 텍스트. &apos;텍스트 서식 유지&apos;를 켜면 서식도 유지합니다.</translation>
+    </message>
+    <message>
+        <source>Keep Text Formatting</source>
+        <translation>텍스트 서식 유지</translation>
+    </message>
+    <message>
+        <source>Point Out Repeats</source>
+        <translation>중복 고정 알림</translation>
+    </message>
+    <message>
+        <source>Pinning what an open pin already shows makes that pin shake instead of opening another one. Screenshots are always pinned anew.</source>
+        <translation>이미 고정된 내용을 다시 고정하면 새 창을 열지 않고 그 창을 흔듭니다. 스크린샷은 항상 새로 고정됩니다.</translation>
+    </message>
+    <message>
+        <source>Text copied from web pages and documents keeps its bold, lists, tables and code style; colors that would not read on the white page are dropped. Off: pinned as plain text, and each pin can still switch it from the right-click menu. Also applies to pinning text from the clipboard window.</source>
+        <translation>웹 페이지나 문서에서 복사한 텍스트의 굵게, 목록, 표, 코드 서식을 유지합니다. 흰 바탕에서 읽기 어려운 색은 제거합니다. 끄면 일반 텍스트로 고정하며, 고정한 텍스트마다 오른쪽 클릭 메뉴에서 바꿀 수 있습니다. 클립보드 창에서 고정할 때도 적용됩니다.</translation>
+    </message>
+    <message>
         <source>Mouse Shortcuts</source>
         <translation>마우스 단축키</translation>
     </message>
@@ -1237,6 +1293,10 @@ Replace it?</source>
         <translation>선택한 텍스트 복사</translation>
     </message>
     <message>
+        <source>Drag Out Content</source>
+        <translation>드래그로 내용 꺼내기</translation>
+    </message>
+    <message>
         <source>No Modifier</source>
         <translation>없음</translation>
     </message>
@@ -1265,8 +1325,8 @@ Replace it?</source>
         <translation>고정 이미지 잠금/해제</translation>
     </message>
     <message>
-        <source>Toggle Text Mode</source>
-        <translation>텍스트 모드 전환</translation>
+        <source>Pin as Text</source>
+        <translation>텍스트로 고정</translation>
     </message>
     <message>
         <source>Toggle Text Selection</source>
@@ -1381,8 +1441,8 @@ Replace it?</source>
         <translation>가장자리를 끌어 크기 조절</translation>
     </message>
     <message>
-        <source>Drag near the edge or corner of a pinned image to resize it. The aspect ratio is kept.</source>
-        <translation>고정 이미지의 가장자리나 모서리를 끌어 크기를 조절합니다. 가로세로 비율은 유지됩니다.</translation>
+        <source>Drag near the edge or corner of a pin to resize it. Images keep their aspect ratio.</source>
+        <translation>고정 항목의 가장자리나 모서리를 끌어 크기를 조절합니다. 이미지는 비율이 유지됩니다.</translation>
     </message>
     <message>
         <source>Shrink Oversized Images</source>
@@ -1578,7 +1638,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Pin Clipboard Image</source>
-        <translation>클립보드 이미지 고정</translation>
+        <translation>클립보드 고정</translation>
     </message>
     <message>
         <source>Volcengine machine translation: about 2M free characters/month. Overuse is billed at pay-as-you-go rates, so a local quota guard (default on) prevents surprise charges.</source>
@@ -1859,8 +1919,36 @@ Replace it?</source>
         <translation>텍스트 선택</translation>
     </message>
     <message>
-        <source>Text mode</source>
-        <translation>텍스트 모드</translation>
+        <source>Pin as text</source>
+        <translation>텍스트로 고정</translation>
+    </message>
+    <message>
+        <source>Keep text formatting</source>
+        <translation>텍스트 서식 유지</translation>
+    </message>
+    <message>
+        <source>Copy text</source>
+        <translation>텍스트 복사</translation>
+    </message>
+    <message>
+        <source>Copy plain text</source>
+        <translation>일반 텍스트 복사</translation>
+    </message>
+    <message>
+        <source>Copy image</source>
+        <translation>이미지 복사</translation>
+    </message>
+    <message>
+        <source>Hide annotations</source>
+        <translation>그리기 숨기기</translation>
+    </message>
+    <message>
+        <source>Annotations hidden</source>
+        <translation>그리기를 숨겼습니다</translation>
+    </message>
+    <message>
+        <source>Annotations shown</source>
+        <translation>그리기를 표시했습니다</translation>
     </message>
     <message>
         <source>Recognizing...</source>
@@ -1985,6 +2073,118 @@ Replace it?</source>
     <message>
         <source>Click-through off</source>
         <translation>클릭 통과 꺼짐</translation>
+    </message>
+    <message>
+        <source>Folder</source>
+        <translation>폴더</translation>
+    </message>
+    <message>
+        <source>...%1 items in all</source>
+        <translation>…총 %1개</translation>
+    </message>
+    <message>
+        <source>Open</source>
+        <translation>열기</translation>
+    </message>
+    <message>
+        <source>Copy this file</source>
+        <translation>이 파일 복사</translation>
+    </message>
+    <message>
+        <source>Copy this file's path</source>
+        <translation>이 파일 경로 복사</translation>
+    </message>
+    <message>
+        <source>Show in Explorer</source>
+        <translation>탐색기에서 보기</translation>
+    </message>
+    <message>
+        <source>Copy all files</source>
+        <translation>모든 파일 복사</translation>
+    </message>
+    <message>
+        <source>Copy all file paths</source>
+        <translation>모든 파일 경로 복사</translation>
+    </message>
+    <message>
+        <source>Copy selected files</source>
+        <translation>선택한 파일 복사</translation>
+    </message>
+    <message>
+        <source>Copy selected file paths</source>
+        <translation>선택한 파일 경로 복사</translation>
+    </message>
+    <message>
+        <source>Open Many Files</source>
+        <translation>여러 파일 열기</translation>
+    </message>
+    <message>
+        <source>Open %1 files at once?</source>
+        <translation>파일 %1개를 한 번에 열까요?</translation>
+    </message>
+    <message>
+        <source>Copy animation</source>
+        <translation>애니메이션 복사</translation>
+    </message>
+    <message>
+        <source>Copy current frame</source>
+        <translation>현재 프레임 복사</translation>
+    </message>
+    <message>
+        <source>Play</source>
+        <translation>재생</translation>
+    </message>
+    <message>
+        <source>Pause</source>
+        <translation>일시 정지</translation>
+    </message>
+    <message>
+        <source>Next frame</source>
+        <translation>다음 프레임</translation>
+    </message>
+    <message>
+        <source>Previous frame</source>
+        <translation>이전 프레임</translation>
+    </message>
+    <message>
+        <source>Faster</source>
+        <translation>빠르게</translation>
+    </message>
+    <message>
+        <source>Slower</source>
+        <translation>느리게</translation>
+    </message>
+    <message>
+        <source>Normal speed</source>
+        <translation>기본 속도</translation>
+    </message>
+    <message>
+        <source>Speed: %1</source>
+        <translation>속도: %1</translation>
+    </message>
+    <message>
+        <source>Frame: %1</source>
+        <translation>프레임: %1</translation>
+    </message>
+    <message>
+        <source>Save Animation</source>
+        <translation>애니메이션 저장</translation>
+    </message>
+    <message>
+        <source>Pin Many Images</source>
+        <translation>여러 이미지 고정</translation>
+    </message>
+    <message>
+        <source>Pin %1 images at once? So many windows may slow the computer down.</source>
+        <translation>이미지 %1개를 한 번에 고정할까요? 창이 많으면 컴퓨터가 느려질 수 있습니다.</translation>
+    </message>
+    <message>
+        <source>Pin Too Small</source>
+        <translation>고정할 이미지가 너무 작음</translation>
+    </message>
+    <message>
+        <source>This pin is only %1 × %2 pixels. Pin it anyway?</source>
+        <translation>이 이미지는 %1 × %2 픽셀밖에 되지 않습니다. 그래도 고정할까요?</translation>
     </message>
 </context>
 
@@ -2154,6 +2354,7 @@ Replace it?</source>
     <message><source>Move all pins to center</source><translation>모든 고정 창을 화면 중앙으로 이동</translation></message>
     <message><source>Thumbnail all pins</source><translation>모든 고정 창을 썸네일로 전환</translation></message>
     <message><source>Restore all pin thumbnails</source><translation>모든 고정 창 썸네일 해제</translation></message>
+    <message><source>Hide all pins</source><translation>모든 고정 창 숨기기</translation></message>
     <message><source>Close all pins</source><translation>모든 고정 창 닫기</translation></message>
     <message><source>Save all pins as...</source><translation>모든 고정 창 다른 이름으로 저장...</translation></message>
     <message><source>Choose folder to save pinned images</source><translation>고정 이미지를 저장할 폴더 선택</translation></message>
@@ -2194,7 +2395,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Pin Clipboard Image</source>
-        <translation>클립보드 이미지 고정</translation>
+        <translation>클립보드 고정</translation>
     </message>
     <message>
         <source>Hotkey Registration Failed</source>
@@ -2247,6 +2448,10 @@ Replace it?</source>
     <message>
         <source>Screen Annotation</source>
         <translation>화면 주석</translation>
+    </message>
+    <message>
+        <source>Nothing on the clipboard to pin</source>
+        <translation>클립보드에 고정할 내용이 없습니다</translation>
     </message>
 </context>
 
@@ -2575,6 +2780,10 @@ Replace it?</source>
 <context>
     <name>ClipboardWindow</name>
     <message>
+        <source>Favorites</source>
+        <translation>즐겨찾기</translation>
+    </message>
+    <message>
         <source>Clipboard History</source>
         <translation>클립보드 기록</translation>
     </message>
@@ -2675,8 +2884,8 @@ Replace it?</source>
         <translation>붙여넣기 후 맨 위로 이동</translation>
     </message>
     <message>
-        <source>Show Time and Source</source>
-        <translation>시간 및 출처 표시</translation>
+        <source>Show Time</source>
+        <translation>시간 표시</translation>
     </message>
     <message>
         <source>Preserve Search on Reopen</source>
@@ -2771,16 +2980,16 @@ Replace it?</source>
         <translation>그룹 바 위치</translation>
     </message>
     <message>
-        <source>▶ Right</source>
-        <translation>▶ 오른쪽</translation>
+        <source>Right</source>
+        <translation>오른쪽</translation>
     </message>
     <message>
-        <source>◀ Left</source>
-        <translation>◀ 왼쪽</translation>
+        <source>Left</source>
+        <translation>왼쪽</translation>
     </message>
     <message>
-        <source>▲ Top</source>
-        <translation>▲ 위쪽</translation>
+        <source>Top</source>
+        <translation>위쪽</translation>
     </message>
     <message>
         <source>Max Display Lines</source>
@@ -2824,16 +3033,16 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>그룹 삭제</translation>
     </message>
     <message>
-        <source>Unpin</source>
-        <translation>고정 해제</translation>
+        <source>Unpin from Top</source>
+        <translation>상단 고정 해제</translation>
     </message>
     <message>
-        <source>Pin</source>
-        <translation>고정</translation>
+        <source>Pin to Top</source>
+        <translation>상단에 고정</translation>
     </message>
     <message>
-        <source>Pin as Overlay</source>
-        <translation>고정 이미지 생성</translation>
+        <source>Pin to Screen</source>
+        <translation>화면에 고정</translation>
     </message>
     <message>
         <source>Save as</source>
@@ -2900,7 +3109,7 @@ Items in the group will be moved back to clipboard history.</source>
 Pinned items and items in groups will be kept.
 This action cannot be undone.</source>
         <translation>클립보드 기록을 비우시겠습니까?
-고정한 항목과 그룹 안의 항목은 유지됩니다.
+상단에 고정한 항목과 그룹 안의 항목은 유지됩니다.
 이 작업은 되돌릴 수 없습니다.</translation>
     </message>
     <message>
@@ -3841,7 +4050,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Also delete pinned and grouped content</source>
-        <translation>고정 및 그룹 내용도 함께 삭제</translation>
+        <translation>상단 고정 및 그룹 내용도 함께 삭제</translation>
     </message>
     <message>
         <source>Clipboard history cleared successfully</source>
@@ -3902,6 +4111,10 @@ This action cannot be undone.</source>
     <message>
         <source>Next Number</source>
         <translation>다음 번호</translation>
+    </message>
+    <message>
+        <source>Text Guide Line</source>
+        <translation>텍스트 지시선</translation>
     </message>
     <message>
         <source>Line Style</source>
@@ -3974,6 +4187,10 @@ This action cannot be undone.</source>
     <message>
         <source>Blur</source>
         <translation>블러</translation>
+    </message>
+    <message>
+        <source>Smart Erase</source>
+        <translation>스마트 지우기</translation>
     </message>
     <message>
         <source>Mosaic Style</source>
@@ -4965,6 +5182,10 @@ SOFTWARE.</translation></message>
 
 <context>
     <name>GroupBar</name>
+    <message>
+        <source>New Group</source>
+        <translation>새 그룹</translation>
+    </message>
     <message>
         <source>Clipboard History</source>
         <translation>클립보드 기록</translation>
@@ -6917,6 +7138,14 @@ Replace it?</source>
     <message>
         <source>Open Settings</source>
         <translation>설정 열기</translation>
+    </message>
+    <message>
+        <source>File</source>
+        <translation>파일</translation>
+    </message>
+    <message>
+        <source>Copied files and folders, shown with their icons, names and sizes.</source>
+        <translation>복사한 파일과 폴더. 아이콘, 이름, 크기를 표시합니다.</translation>
     </message>
 </context>
 </TS>

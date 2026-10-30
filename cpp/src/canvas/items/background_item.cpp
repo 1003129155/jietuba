@@ -39,18 +39,30 @@ BackgroundItem::BackgroundItem(const QImage &image, const QRectF &scene_rect) : 
 }
 
 QImage BackgroundItem::image() {
+    if (image_source_) return image_source_();
     if (has_cached_image_) return cached_image_;
     cached_image_ = pixmap().toImage();
     has_cached_image_ = true;
     return cached_image_;
 }
 
-void BackgroundItem::update_image(const QImage &image) {
+void BackgroundItem::update_image(const QImage &image) { update_image(image, QPixmap::fromImage(image)); }
+
+void BackgroundItem::update_image(const QImage &image, const QPixmap &pixmap) {
+    image_source_ = nullptr;
     cached_image_ = image;
     has_cached_image_ = true;
     reduced_cache_key_.reset();
     reduced_cache_image_ = QImage();
-    setPixmap(QPixmap::fromImage(image));
+    setPixmap(pixmap);
+}
+
+void BackgroundItem::set_image_source(std::function<QImage()> source) {
+    image_source_ = std::move(source);
+    cached_image_ = QImage();
+    has_cached_image_ = false;
+    reduced_cache_key_.reset();
+    reduced_cache_image_ = QImage();
 }
 
 void BackgroundItem::set_display_pixmap(const QPixmap &pixmap, const QTransform &transform) {

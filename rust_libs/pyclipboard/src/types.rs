@@ -57,46 +57,6 @@ impl PyClipboardItem {
     }
 }
 
-/// 分页查询结果
-/// 
-/// 支持迭代和索引访问。
-/// 
-/// Attributes:
-///     total_count: 总记录数
-///     items: 当前页的数据列表
-///     offset: 偏移量
-///     limit: 每页数量
-///     has_more: 是否还有更多数据
-/// 
-/// Example:
-///     >>> result = manager.get_history()
-///     >>> print(len(result))  # 当前页数量
-///     >>> for item in result:  # 迭代
-///     ...     print(item.content)
-///     >>> first = result[0]  # 索引访问
-#[derive(Clone, Debug)]
-pub struct PyPaginatedResult {
-    pub total_count: i64,
-    pub items: Vec<PyClipboardItem>,
-    pub offset: i64,
-    pub limit: i64,
-    pub has_more: bool,
-}
-
-impl PyPaginatedResult {
-    pub fn new(total_count: i64, items: Vec<PyClipboardItem>, offset: i64, limit: i64) -> Self {
-        let items_len = items.len() as i64;
-        let has_more = offset + items_len < total_count;
-        Self {
-            total_count,
-            items,
-            offset,
-            limit,
-            has_more,
-        }
-    }
-}
-
 /// 分组
 /// 
 /// Attributes:

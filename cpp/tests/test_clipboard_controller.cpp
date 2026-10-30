@@ -57,7 +57,7 @@ private slots:
         ClipboardController controller(manager());
         QSignalSpy loaded(&controller, &ClipboardController::data_loaded);
         controller.load_history();
-        // Newest first, one page of 38 with time and source shown.
+        // Newest first, one page of 38.
         QCOMPARE(controller.current_items.size(), 38);
         QCOMPARE(controller.current_items.first().content, QString("entry 79"));
         QVERIFY(controller.has_more_items());
@@ -81,10 +81,10 @@ private slots:
         const auto loaded_ids = ids_of(controller.current_items);
         QCOMPARE(QSet<qint64>(loaded_ids.begin(), loaded_ids.end()).size(), 80);
 
-        // Hiding time and source fits more rows per page.
+        // The time shares the text's line, so hiding it fits no more rows into a page.
         env_.config->set_clipboard_show_metadata(false);
         controller.load_history();
-        QCOMPARE(controller.current_items.size(), 65);
+        QCOMPARE(controller.current_items.size(), 38);
     }
 
     void aReloadAskedForDuringALoadRunsAfterIt() {

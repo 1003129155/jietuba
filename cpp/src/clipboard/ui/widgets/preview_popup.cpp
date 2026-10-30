@@ -1,5 +1,6 @@
 #include "clipboard/ui/widgets/preview_popup.h"
 #include "clipboard/core/manager.h"
+#include "clipboard/ui/widgets/item_delegate.h"
 #include "core/logger.h"
 #include "core/text_utils.h"
 #include "core/ui_scale.h"
@@ -22,10 +23,26 @@ namespace jietuba::clipboard {
 namespace {
 QString tr_preview(const char *text) { return QCoreApplication::translate("ClipboardPreview", text); }
 
-QPixmap preview_pixmap(const QByteArray &data) {
-    QPixmap pixmap;
-    pixmap.loadFromData(data);
-    return pixmap.scaled(scaled(400), scaled(300), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+// What the picture of an item's preview is loaded from; none for items shown as text.
+std::optional<PreviewImageRequest> image_request(const ClipboardItem &item, ClipboardManager *manager) {
+    PreviewImageRequest request;
+    request.manager = manager;
+    request.bound = QSize(scaled(400), scaled(300));
+    if (item.content_type == "image") {
+        request.image_id = item.image_id.value_or(QString());
+        request.thumbnail = item.thumbnail.value_or(QString());
+        // Pictures the backend could not decode keep neither: their text shows at once.
+        if (request.image_id.isEmpty() && request.thumbnail.isEmpty()) return std::nullopt;
+        return request;
+    }
+    // One file may be a picture; the loader tells from its content.
+    if (item.content_type == "file") {
+        const QStringList files = item_paths(item);
+        if (files.size() != 1) return std::nullopt;
+        request.file_path = files.front();
+        return request;
+    }
+    return std::nullopt;
 }
 }
 
@@ -71,18 +88,31 @@ PreviewPopup::PreviewPopup() : QWidget(nullptr) {
     setAttribute(Qt::WA_ShowWithoutActivating, true);
     setup_ui();
     show_timer_.setSingleShot(true);
-    connect(&show_timer_, &QTimer::timeout, this, [this] { do_show(); });
+    connect(&show_timer_, &QTimer::timeout, this, [this] {
+        delay_elapsed_ = true;
+        try_show();
+    });
+    connect(&loader_, &PreviewImageLoader::loaded, this, &PreviewPopup::on_image_loaded);
 }
 
 void PreviewPopup::setup_ui() {
     layout_ = new QVBoxLayout(this);
     layout_->setSpacing(0);
+    // The window is as big as what it shows; a window left to size itself is at least 200 x 100.
+    layout_->setSizeConstraint(QLayout::SetFixedSize);
 
     // Title row (text previews only; hidden for images).
     title_label = new QLabel;
     title_label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
     title_label->hide();
     layout_->addWidget(title_label);
+    title_line_ = new QWidget;
+    title_line_->setAutoFillBackground(true);
+    QPalette line_palette = title_line_->palette();
+    line_palette.setColor(QPalette::Window, QColor("#E0E0E0"));
+    title_line_->setPalette(line_palette);
+    title_line_->hide();
+    layout_->addWidget(title_line_);
 
     color_label = new QLabel;
     color_label->hide();
@@ -103,6 +133,8 @@ void PreviewPopup::setup_ui() {
 }
 
 void PreviewPopup::apply_scale() {
+    // Cached pictures are scaled to the old size.
+    loader_.clear_cache();
     // The type selector names the C++ class (namespaces become "--").
     setStyleSheet(QString(R"(
             jietuba--clipboard--PreviewPopup {
@@ -114,12 +146,17 @@ void PreviewPopup::apply_scale() {
                       .arg(scaled(8)));
     const int margin = scaled(2);
     layout_->setContentsMargins(margin, margin, margin, margin);
-    title_label->setStyleSheet(QString("font-size: %1px; color: #666; font-weight: bold; padding-left: %2px;").arg(scaled(12)).arg(scaled(4)));
+    // The content has no frame of its own; a line under the title marks where it starts. The title lines up with the text below it.
+    title_line_->setFixedHeight(1);
+    title_label->setStyleSheet(QString("font-size: %1px; color: #666; font-weight: bold; padding: %2px %3px %4px %3px;")
+                                   .arg(scaled(12))
+                                   .arg(scaled(4))
+                                   .arg(scaled(10))
+                                   .arg(scaled(6)));
     content_widget->setStyleSheet(QString(R"(
             QTextEdit {
                 background: #FAFAFA;
-                border: 1px solid #E0E0E0;
-                border-radius: %1px;
+                border: none;
                 padding: %1px %2px;
                 font-size: %3px;
                 color: #333;
@@ -136,7 +173,11 @@ void PreviewPopup::apply_scale() {
 
 void PreviewPopup::set_display_enabled(bool enabled) {
     display_enabled_ = enabled;
-    if (!display_enabled_) force_cleanup();
+    if (!display_enabled_) {
+        force_cleanup();
+        // Nothing hovers while the window is closed, so the pictures need not stay in memory.
+        loader_.clear_cache();
+    }
 }
 
 void PreviewPopup::show_preview(const std::optional<ClipboardItem> &item, const QPoint &pos, int delay_ms, const QString &prefer_side,
@@ -148,12 +189,37 @@ void PreviewPopup::show_preview(const std::optional<ClipboardItem> &item, const 
     }
     // The same item already shown: nothing to do.
     if (current_item_id_ == item->id && isVisible()) return;
+    // Hovering again over the item being prepared keeps its load.
+    const bool loading_same = pending_item_ && pending_item_->id == item->id && request_serial_;
     pending_item_ = item;
     pending_pos_ = pos;
     pending_prefer_side_ = prefer_side;
     pending_avoid_rect_ = avoid_rect;
-    if (delay_ms > 0) show_timer_.start(delay_ms);
-    else do_show();
+    if (!loading_same) {
+        // The load starts with the hover and runs alongside the delay.
+        loader_.cancel();
+        loaded_image_.reset();
+        const auto request = image_request(*item, manager_);
+        request_serial_ = request ? loader_.request(*request) : 0;
+    }
+    delay_elapsed_ = delay_ms <= 0;
+    if (delay_ms > 0) {
+        show_timer_.start(delay_ms);
+    } else {
+        show_timer_.stop();
+        try_show();
+    }
+}
+
+void PreviewPopup::try_show() {
+    if (delay_elapsed_ && (!request_serial_ || loaded_image_)) do_show();
+}
+
+void PreviewPopup::on_image_loaded(quint64 serial, const QImage &image) {
+    // A result for an item the mouse has left is dropped.
+    if (serial != request_serial_) return;
+    loaded_image_ = image;
+    try_show();
 }
 
 void PreviewPopup::do_show() {
@@ -170,20 +236,26 @@ void PreviewPopup::do_show() {
     if (item.content_type == "image") {
         // Images the backend could not decode (several pictures copied from Word, EMF) keep no pixels;
         // their text, such as "[PNG+CF_DIB 7.9 MB]", is shown instead of an empty frame.
-        if (!show_image_preview(item)) show_text_preview(item);
-    } else if (item.content_type == "file") show_file_preview(item);
-    else if (item.content_type == "text") show_text_preview(item);
+        if (!show_image_preview(loaded_image_.value_or(QImage()))) show_text_preview(item);
+    } else if (item.content_type == "file") {
+        // A single image file shows as the picture, anything else as the list of files.
+        if (!show_image_preview(loaded_image_.value_or(QImage()))) show_file_preview(item);
+    } else if (item.content_type == "text") show_text_preview(item);
     else return;
 
-    adjustSize();
+    // Sizes the window to the layout now, so the position below uses the new size; adjustSize() would stretch it to 200 x 100.
+    layout_->activate();
     move(side_position(size(), pending_pos_, pending_avoid_rect_, pending_prefer_side_.isEmpty() ? QString("auto") : pending_prefer_side_));
     show();
 }
 
 void PreviewPopup::show_text_preview(const ClipboardItem &item) {
-    // The time above, the full content below.
-    title_label->setText(item.created_at.isValid() ? item.created_at.toString("yyyy-MM-dd HH:mm:ss") : tr_preview("📝 文本"));
+    // The time and source above, the full content below; the list rows leave the source out.
+    QString title = item.created_at.isValid() ? item.created_at.toString("yyyy-MM-dd HH:mm:ss") : tr_preview("📝 文本");
+    if (const QString source = row_source_text(item.source_app.value_or(QString())); !source.isEmpty()) title += QString::fromUtf8(" · ") + source;
+    title_label->setText(title);
     title_label->show();
+    title_line_->show();
     // Length limited to stay responsive.
     const QString content = left_chars(item.content, 2000);
     content_widget->setMinimumSize(0, 0);
@@ -213,6 +285,7 @@ void PreviewPopup::show_text_preview(const ClipboardItem &item) {
 
 void PreviewPopup::show_file_preview(const ClipboardItem &item) {
     title_label->hide();
+    title_line_->hide();
     image_label->hide();
 
     QJsonParseError error;
@@ -284,7 +357,7 @@ void PreviewPopup::adjust_content_size() {
     int max_line_width = 0;
     for (const auto &line : lines) max_line_width = std::max(max_line_width, font_metrics.horizontalAdvance(line));
 
-    // CSS padding 4px vertical + 8px horizontal, border 2px, document margin 2px (values at 100%).
+    // CSS padding 4px vertical + 8px horizontal, document margin 2px, and 2px to spare on each side (values at 100%).
     const int h_padding = scaled(8) * 2 + scaled(2) * 2 + scaled(4);
     const int v_padding = scaled(4) * 2 + scaled(2) * 2 + scaled(4);
     const int ideal_width = max_line_width + h_padding;
@@ -307,24 +380,14 @@ void PreviewPopup::adjust_content_size() {
     content_widget->setFixedSize(actual_width, actual_height);
 }
 
-bool PreviewPopup::show_image_preview(const ClipboardItem &item) {
+bool PreviewPopup::show_image_preview(const QImage &image) {
     title_label->hide();
+    title_line_->hide();
     content_widget->hide();
     // A label left visible would show the previous record's picture.
     image_label->hide();
-
-    QPixmap pixmap;
-    // The full image first.
-    if (manager_ && item.image_id && !item.image_id->isEmpty()) {
-        const auto image_data = manager_->get_image_data(*item.image_id);
-        if (image_data && !image_data->isEmpty()) pixmap = preview_pixmap(*image_data);
-    }
-    // Else the thumbnail.
-    if (pixmap.isNull() && item.thumbnail && item.thumbnail->startsWith("data:image")) {
-        const QByteArray encoded = item.thumbnail->mid(item.thumbnail->indexOf(u',') + 1).toLatin1();
-        pixmap = preview_pixmap(QByteArray::fromBase64(encoded));
-    }
-    if (pixmap.isNull()) return false;
+    if (image.isNull()) return false;
+    const QPixmap pixmap = QPixmap::fromImage(image);
     image_label->setPixmap(pixmap);
     image_label->setFixedSize(pixmap.size());
     image_label->show();
@@ -333,6 +396,10 @@ bool PreviewPopup::show_image_preview(const ClipboardItem &item) {
 
 void PreviewPopup::clear_pending() {
     show_timer_.stop();
+    loader_.cancel();
+    request_serial_ = 0;
+    loaded_image_.reset();
+    delay_elapsed_ = false;
     pending_item_.reset();
     pending_pos_ = {};
     pending_prefer_side_ = "auto";

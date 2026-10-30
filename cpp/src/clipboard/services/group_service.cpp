@@ -1,5 +1,7 @@
 #include "clipboard/services/group_service.h"
-#include <QHash>
+#include "clipboard/core/kind_catalog.h"
+#include "clipboard/core/manager.h"
+#include "settings/tool_settings.h"
 
 namespace jietuba::clipboard {
 const QString &GENERAL_GROUP_ICON() {
@@ -18,30 +20,24 @@ const QString &HIDDEN_GROUP_ICON() {
 }
 
 namespace {
-// Default icon of a filter group by the kind its rule selects; a rule on the source app alone has its own.
-const QHash<QString, QString> &filter_kind_icons() {
-    static const QHash<QString, QString> icons = {
-        {"text", QString::fromUtf8("📝")}, {"image", QString::fromUtf8("🖼️")}, {"file", QString::fromUtf8("📄")},
-        {SUB_KIND_URL, QString::fromUtf8("🔗")}, {SUB_KIND_COLOR, QString::fromUtf8("🎨")}, {SUB_KIND_PATH, QString::fromUtf8("📂")},
-    };
-    return icons;
-}
-
 const QString &APP_FILTER_ICON() {
     static const QString icon = QString::fromUtf8("🧩");
     return icon;
 }
 
+// Default icon of a filter group by the kind its rule selects; a rule on the source app alone has its own.
 QString filter_group_icon(const std::optional<FilterRule> &filter_rule) {
+    const QString text_icon = find_kind("text")->filter_icon;
     const auto kind = filter_rule ? filter_rule->kind : std::nullopt;
-    if (!kind) return filter_rule && filter_rule->app ? APP_FILTER_ICON() : filter_kind_icons().value("text");
-    return filter_kind_icons().value(*kind, filter_kind_icons().value("text"));
+    if (!kind) return filter_rule && filter_rule->app ? APP_FILTER_ICON() : text_icon;
+    const KindInfo *info = find_kind(*kind);
+    return info ? info->filter_icon : text_icon;
 }
 
-// Every icon some group type uses as its default.
+// Every icon some group type uses as its default; only kinds the form offers can be a group's.
 QSet<QString> default_icons() {
     QSet<QString> icons = {GENERAL_GROUP_ICON(), QUICK_LAUNCH_GROUP_ICON(), HIDDEN_GROUP_ICON(), APP_FILTER_ICON()};
-    for (const QString &icon : filter_kind_icons()) icons.insert(icon);
+    for (const KindInfo *kind : offered_kinds()) icons.insert(kind->filter_icon);
     return icons;
 }
 }
@@ -81,5 +77,15 @@ QString make_unique_group_name(const QString &base_name, const QSet<QString> &us
 
 QString build_delete_group_confirm_message(const std::function<QString(const char *)> &translate) {
     return translate("Are you sure you want to delete this group?") + "\n" + translate("Items in the group will be moved back to clipboard history.");
+}
+
+void seed_starter_groups(ClipboardManager &manager, ToolSettingsManager *config, const std::function<QString(const char *)> &translate) {
+    if (config->get_clipboard_starter_groups_seeded()) return;
+    // Someone who already made groups knows the feature; an unreadable database is retried next start.
+    if (manager.get_groups().isEmpty()) {
+        if (!manager.create_group(translate("Favorites"), std::nullopt, QString::fromUtf8("⭐"))) return;
+        manager.create_group(translate("Image"), std::nullopt, std::nullopt, static_cast<int>(GroupType::FILTER), FilterRule::of_kind("image"));
+    }
+    config->set_clipboard_starter_groups_seeded(true);
 }
 }

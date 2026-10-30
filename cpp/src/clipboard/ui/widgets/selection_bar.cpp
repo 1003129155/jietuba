@@ -1,6 +1,7 @@
 #include "clipboard/ui/widgets/selection_bar.h"
 #include "core/i18n.h"
 #include "core/ui_scale.h"
+#include "ui/fluent_lite/theme.h"
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
@@ -36,8 +37,8 @@ SelectionBar::SelectionBar(QWidget *parent) : QWidget(parent) {
     more_button = new QToolButton;
     more_button->setText(QString::fromUtf8("···"));
     connect(more_button, &QToolButton::clicked, this, &SelectionBar::more_requested);
+    // An SVG cross: the ✕ character is not in the UI fonts, and the fallback differs between Windows versions.
     exit_button = new QToolButton;
-    exit_button->setText(QString::fromUtf8("✕"));
     connect(exit_button, &QToolButton::clicked, this, &SelectionBar::exit_requested);
     for (QToolButton *button : {more_button, exit_button}) {
         button->setCursor(Qt::PointingHandCursor);
@@ -71,6 +72,8 @@ void SelectionBar::apply_style(const Theme &theme) {
     static_cast<QHBoxLayout *>(layout())->setSpacing(scaled(4));
     for (QPushButton *button : {paste_button, save_button}) button->setFixedHeight(scaled(24));
     for (QToolButton *button : {more_button, exit_button}) button->setFixedSize(scaled(28), scaled(28));
+    exit_button->setIcon(tinted_icon(FluentIcon::Cancel, "#FFFFFF"));
+    exit_button->setIconSize(QSize(scaled(18), scaled(18)));
     setStyleSheet(QString(R"(
         #selection_bar { background: %1; }
         QLabel { color: white; font-size: %2; font-weight: bold; background: transparent; }

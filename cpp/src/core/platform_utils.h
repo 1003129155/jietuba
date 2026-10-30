@@ -64,6 +64,10 @@ void set_thread_cursor(Qt::CursorShape shape);
 // recreate the native window and lose its state.
 bool set_window_topmost(quintptr hwnd, bool topmost);
 
+// Sets the owner (0 for none) at once; Qt applies a transient parent only when a window shows.
+// An owned window stays above its owner and is destroyed with it.
+bool set_window_owner(quintptr hwnd, quintptr owner);
+
 // Clicks and wheel pass through to the window below. Only for layered windows;
 // Qt recomputes extended styles when window flags change, so call again afterwards.
 bool set_window_click_through(quintptr hwnd, bool enabled);

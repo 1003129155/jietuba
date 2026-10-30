@@ -38,16 +38,17 @@ class GroupBar;
 class ManageDialog;
 
 inline const QString QUICK_EDIT_SHORTCUT = "inapp_clipboard_quick_edit";
+inline const QString SEARCH_SHORTCUT = "inapp_clipboard_search";
 
-// Keys of the clipboard window (priority 60), while it is the active window.
+// Keys of the clipboard window, its popups and dialogs.
 class ClipboardShortcutHandler : public ShortcutHandler {
 public:
     explicit ClipboardShortcutHandler(ClipboardWindow *window);
     // Re-reads the configurable keys; called each time the window shows.
     void reload_bindings();
+    bool owns_window(const QWidget *window) const override;
     bool is_active() override;
     bool handle_key(QInputEvent *event) override;
-    int priority() const override { return 60; }
     QString handler_name() const override { return "ClipboardWindow"; }
     QString pick_keys;
 
@@ -97,7 +98,10 @@ public:
     QList<QAction *> type_filter_actions;
     QToolButton *clear_time_filter_btn = nullptr;
     QWidget *bottom_bar = nullptr;
+    // The funnel: checked while the time and type filters are open.
     QToolButton *time_filter_toggle_btn = nullptr;
+    QFrame *search_box = nullptr;
+    QLabel *search_icon = nullptr;
     LineEdit *search_input = nullptr;
     QPushButton *clear_search_btn = nullptr;
     SelectionBar *selection_bar = nullptr;
@@ -134,6 +138,13 @@ public:
     void mark_items_to(qint64 item_id);
     // The quick edit key: text opens quick edit, other items in a group open the group editor.
     bool edit_selected();
+    // The search key: into the search box, or from it back to the list with the search kept.
+    void toggle_search();
+    // This window or one it parents: a menu, a confirmation, quick edit.
+    bool owns_window(const QWidget *window) const;
+    // A screen area the window must not cover when it next shows, such as the text being typed in a
+    // capture; empty for none.
+    void set_area_to_keep_clear(const QRect &area) { area_to_keep_clear_ = area; }
 
 signals:
     void item_pasted(qint64 item_id);
@@ -187,10 +198,12 @@ private:
     void append_items(const QList<ClipboardItem> &items);
     void on_scroll(int value);
     void on_search_changed();
-    // The mouse over the list: real movement moves the cursor and previews the row; nothing else does.
+    // The mouse over the list: real movement and wheel scrolling move the cursor and preview the row; nothing else does.
     void on_pointer_moved(const QPoint &viewport_pos, const QPoint &global_pos);
+    void point_at(const QPoint &viewport_pos, const QPoint &global_pos);
     void update_search_background(const QString &text);
-    void apply_search_input_style(bool has_text = false);
+    void apply_search_box_style(bool has_text = false);
+    void apply_search_icon();
     void apply_clear_search_btn_style();
     void apply_menu_btn_style();
     void on_marks_changed();
@@ -201,10 +214,6 @@ private:
     void show_type_filter_menu();
     void set_type_filter(int index);
     void on_group_switched(std::optional<qint64> group_id);
-    void on_sidebar_entered();
-    void on_sidebar_exited(std::optional<qint64> prev_item_id);
-    void enter_sidebar_mode();
-    void on_top_group_switch(int delta);
     void on_add_group_clicked();
     void on_add_item_clicked();
     void on_clear_clicked();
@@ -241,8 +250,10 @@ private:
     void position_on_show();
     void position_at_cursor();
     bool restore_previous_position();
-    bool owns_window(const QWidget *window) const;
+    // Moves the window above or below area_to_keep_clear_ when it covers it.
+    void keep_area_clear();
     void check_and_hide();
+    QRect area_to_keep_clear_;
     // The row as it looks, at most 240 wide, with the number of dragged rows when there are several.
     QPixmap drag_pixmap(qint64 item_id, int count, QPoint *hot_spot) const;
     bool is_draggable_area(QObject *widget) const;

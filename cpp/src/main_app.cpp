@@ -1,5 +1,6 @@
 #include "main_app.h"
 #include "clipboard/core/manager.h"
+#include "clipboard/services/group_service.h"
 #include "clipboard/ui/dialogs/manage_dialog.h"
 #include "clipboard/ui/windows/clipboard_window.h"
 #include "clipboard/ui/windows/pin_window.h"
@@ -37,6 +38,7 @@
 #include "ui/dialogs.h"
 #include "ui/screenshot_countdown.h"
 #include "ui/screenshot_window.h"
+#include "ui/toast.h"
 #include "ui/tray_menu.h"
 #include <QCursor>
 #include <QFile>
@@ -249,6 +251,7 @@ void MainApp::setup_pin_tray_updates() {
     connect(pin_manager, &PinManager::pin_created, this, [this] { update_tray_menu(); });
     connect(pin_manager, &PinManager::pin_closed, this, [this] { update_tray_menu(); });
     connect(pin_manager, &PinManager::all_pins_closed, this, &MainApp::update_tray_menu);
+    connect(pin_manager, &PinManager::all_hidden_changed, this, &MainApp::update_tray_menu);
 }
 
 void MainApp::update_tray_menu() {
@@ -408,13 +411,8 @@ void MainApp::request_screenshot(bool delayed) {
     }
     // The annotation's drawings are captured; its hit layer and its focus are not.
     if (screen_annotation) screen_annotation->prepare_for_capture();
-    // A clipboard window kept open after pasting would be captured too. close() rather than
-    // hide(), which leaves its topmost context menu on screen.
-    try {
-        if (clipboard_window && clipboard_window->isVisible()) clipboard_window->close();
-    } catch (const std::exception &e) {
-        log_exception(e, T("关闭剪贴板窗口"));
-    }
+    // An open clipboard window is captured like any window. Once the capture takes the focus it hides
+    // unless kept open after pasting; kept open, it stays below the capture.
     // One event loop later, so windows just closed have left the screen.
     capture_pending_ = true;
     quick_capture->set_capture_pending(true);
@@ -469,6 +467,7 @@ void MainApp::on_capture_ready(const QImage &image, const QRectF &rect, std::sha
     screenshot_window = new ScreenshotWindow(config_manager, image, rect, cursor);
     // After the capture global dragging resumes.
     connect(screenshot_window, &ScreenshotWindow::session_ended, quick_capture, &QuickCaptureController::sync_input_availability);
+    connect(screenshot_window, &ScreenshotWindow::session_ended, this, &MainApp::release_clipboard_from_capture);
     quick_capture->set_capture_pending(false);
 }
 
@@ -589,6 +588,7 @@ bool MainApp::set_clipboard_monitoring_enabled(bool enabled) {
             log_warning(T("剪贴板管理器不可用（pyclipboard 未安装）"), "Clipboard");
             return false;
         }
+        clipboard::seed_starter_groups(*manager, get_tool_settings_manager(), [](const char *text) { return i18n_tr(text, "ClipboardWindow"); });
         if (manager->is_monitoring()) return true;
         // Runs on the watcher thread; the signal is emitted on the GUI thread.
         manager->start_monitoring([this](const clipboard::ClipboardItem &item) {
@@ -606,6 +606,22 @@ bool MainApp::set_clipboard_monitoring_enabled(bool enabled) {
     return false;
 }
 
+void MainApp::attach_clipboard_to_capture() {
+    // Native windows first, so the transient parent applies when the clipboard window shows.
+    clipboard_window->winId();
+    screenshot_window->winId();
+    if (auto *handle = clipboard_window->windowHandle()) handle->setTransientParent(screenshot_window->windowHandle());
+}
+
+void MainApp::release_clipboard_from_capture() {
+    if (!clipboard_window) return;
+    auto *handle = clipboard_window->windowHandle();
+    if (!handle || !handle->transientParent()) return;
+    handle->setTransientParent(nullptr);
+    // Released at once: the capture window is destroyed soon, and its owned windows with it.
+    set_window_owner(static_cast<quintptr>(clipboard_window->winId()), 0);
+}
+
 void MainApp::open_clipboard_window() {
     if (update_preparing) return;
     try {
@@ -615,6 +631,11 @@ void MainApp::open_clipboard_window() {
             return;
         }
         if (!clipboard_window) clipboard_window = new clipboard::ClipboardWindow;
+        if (screenshot_window && screenshot_window->session_active()) {
+            attach_clipboard_to_capture();
+            // The text being typed stays in view while picking what goes into it.
+            clipboard_window->set_area_to_keep_clear(screenshot_window->active_text_screen_rect());
+        }
         // Not WindowActive: activating before show would hide the previous foreground window (the paste target) from showEvent.
         clipboard_window->setWindowState(clipboard_window->windowState() & ~Qt::WindowMinimized);
         clipboard_window->show();
@@ -633,7 +654,7 @@ void MainApp::pin_clipboard_image() {
         return;
     }
     try {
-        clipboard::pin_latest_clipboard_image(QCursor::pos());
+        if (!clipboard::pin_latest_clipboard_image(QCursor::pos())) show_toast(tr_text("Nothing on the clipboard to pin"));
     } catch (const std::exception &e) {
         log_exception(e, T("钉住剪贴板图片失败"));
     }

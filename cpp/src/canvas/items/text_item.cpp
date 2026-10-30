@@ -11,7 +11,11 @@
 #include <QTextCursor>
 #include <QPainter>
 #include <QStyleOptionGraphicsItem>
+#include <QClipboard>
 #include <QFocusEvent>
+#include <QGuiApplication>
+#include <QKeyEvent>
+#include <QMimeData>
 #include <algorithm>
 #include <cmath>
 
@@ -31,12 +35,13 @@ TextItem::TextItem(const QString &text, const QPointF &pos, const QFont &font, c
 }
 qreal TextItem::font_point_size() const { auto size = font().pointSizeF(); if (size <= 0) size = font().pixelSize(); return std::max(size, MIN_POINT_SIZE); }
 void TextItem::set_font_point_size(qreal size) { auto f = font(); f.setPointSizeF(std::max(MIN_POINT_SIZE, std::min(MAX_POINT_SIZE, size))); setFont(f); }
-std::vector<EditHandle> TextItem::get_edit_handles() const {
-    const auto local = interaction_rect();
-    // LayerEditor.FUNCTIONAL_HANDLE_SIZE from the reference dependency.
-    return {{HANDLE_ROTATE, HandleType::ROTATE, mapToScene(local.topLeft()), QCursor(Qt::SizeAllCursor), 14, 8, {}},
-        {HANDLE_DELETE, HandleType::ITEM_DELETE, mapToScene(local.topRight()), QCursor(Qt::PointingHandCursor), 14, 2, {}},
-        {HANDLE_SCALE, HandleType::TEXT_SCALE, mapToScene(local.bottomRight()), QCursor(Qt::SizeFDiagCursor), SCALE_HANDLE_SIZE, 8, {}}};
+std::vector<EditHandle> TextItem::get_edit_handles(double units_per_pixel) const {
+    const ButtonSlot rotate{0, 0}, remove{-1, 0}, scale{-1, -1};
+    const auto frame = LayerEditor::button_frame(interaction_rect(), {rotate, remove, scale}, units_per_pixel);
+    const auto at = [&](const ButtonSlot &slot) { return mapToScene(LayerEditor::button_anchor(frame, slot)); };
+    return {{HANDLE_ROTATE, HandleType::ROTATE, at(rotate), QCursor(Qt::SizeAllCursor), LayerEditor::FUNCTIONAL_HANDLE_SIZE, 8, {}},
+        {HANDLE_DELETE, HandleType::ITEM_DELETE, at(remove), QCursor(Qt::PointingHandCursor), LayerEditor::FUNCTIONAL_HANDLE_SIZE, 2, {}},
+        {HANDLE_SCALE, HandleType::TEXT_SCALE, at(scale), QCursor(Qt::SizeFDiagCursor), SCALE_HANDLE_SIZE, 8, {}}};
 }
 qreal TextItem::normalize_outline_width(const QVariant &raw) {
     bool ok = false; const auto value = raw.toDouble(&ok); if (!ok || !raw.isValid() || raw.isNull()) return DEFAULT_OUTLINE_WIDTH;
@@ -59,14 +64,15 @@ QRectF TextItem::hit_rect() const { return interaction_rect().adjusted(-CLICK_MA
 QRectF TextItem::boundingRect() const { return hit_rect(); }
 QPainterPath TextItem::shape() const { QPainterPath path; path.addRect(hit_rect()); return path; }
 bool TextItem::contains(const QPointF &pos) const { return hit_rect().contains(pos); }
-QPainterPath TextItem::glyph_path() const {
+QPainterPath TextItem::glyph_path() const { return text_glyph_path(*this); }
+QPainterPath text_glyph_path(const QGraphicsTextItem &item) {
     QPainterPath path; path.setFillRule(Qt::WindingFill);
-    for (auto block = document()->begin(); block.isValid(); block = block.next()) {
+    for (auto block = item.document()->begin(); block.isValid(); block = block.next()) {
         const auto *layout = block.layout(); const auto origin = layout->position();
         for (const auto &run : layout->glyphRuns(0, block.length())) {
             const auto raw_font = run.rawFont(); const auto indexes = run.glyphIndexes(); const auto positions = run.positions();
             for (qsizetype i = 0; i < std::min(indexes.size(), positions.size()); ++i) path.addPath(raw_font.pathForGlyph(indexes[i]).translated(origin + positions[i]));
-            add_decoration_lines(path, run, origin);
+            TextItem::add_decoration_lines(path, run, origin);
         }
     }
     return path;
@@ -102,11 +108,24 @@ void TextItem::paint_interaction_frame(QPainter *p) {
 void TextItem::set_background(bool enabled, std::optional<QColor> color, std::optional<qreal> opacity) { has_background = enabled; if (color) background_color = *color; if (opacity) background_color.setAlpha(static_cast<int>(std::max(0., std::min(255., *opacity)))); update(); }
 void TextItem::focusInEvent(QFocusEvent *event) {
     if (_is_closed) return;
-    try { _text_before_edit = toPlainText(); QGraphicsTextItem::focusInEvent(event); } catch (const std::exception &e) { qWarning("TextItem.focusInEvent: %s", e.what()); }
+    try {
+        // Back from another window the same edit goes on: clearing it still undoes to the text it started from.
+        if (!_window_away) _text_before_edit = toPlainText();
+        _window_away = false;
+        QGraphicsTextItem::focusInEvent(event);
+    } catch (const std::exception &e) { qWarning("TextItem.focusInEvent: %s", e.what()); }
 }
 void TextItem::focusOutEvent(QFocusEvent *event) {
     if (_is_closed) return;
     try {
+        // Picking from another window (the clipboard history over a capture) or switching programs does
+        // not end typing: an empty new box and the selection are kept for when the window is active again.
+        if (event->reason() == Qt::ActiveWindowFocusReason) {
+            _window_away = true;
+            QGraphicsTextItem::focusOutEvent(event);
+            return;
+        }
+        _window_away = false;
         QGraphicsTextItem::focusOutEvent(event); auto cursor = textCursor(); cursor.clearSelection(); setTextCursor(cursor);
         auto *s = scene(); auto *context = dynamic_cast<TextUndoContext *>(s); auto *stack = context ? context->text_undo_stack() : nullptr;
         if (python_blank(toPlainText())) {
@@ -121,6 +140,21 @@ void TextItem::focusOutEvent(QFocusEvent *event) {
         if (_provisional) { _provisional = false; if (stack) stack->push(new AddItemCommand(s, ItemReference(this))); }
     } catch (const std::exception &e) { qWarning("TextItem.focusOutEvent: %s", e.what()); }
 }
+void TextItem::keyPressEvent(QKeyEvent *event) {
+    if (_is_closed) return;
+    if (!event->matches(QKeySequence::Paste) || !(textInteractionFlags() & Qt::TextEditable)) {
+        QGraphicsTextItem::keyPressEvent(event);
+        return;
+    }
+    const auto *mime = QGuiApplication::clipboard()->mimeData();
+    if (mime && mime->hasText()) {
+        auto cursor = textCursor();
+        cursor.insertText(mime->text());
+        setTextCursor(cursor);
+    }
+    event->accept();
+}
+
 void TextItem::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event) {
     if (_is_closed) return;
     try { if (textInteractionFlags() == Qt::NoTextInteraction) { setTextInteractionFlags(Qt::TextEditorInteraction); setFocus(); } QGraphicsTextItem::mouseDoubleClickEvent(event); } catch (const std::exception &e) { qWarning("TextItem.mouseDoubleClickEvent: %s", e.what()); }

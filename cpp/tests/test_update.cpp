@@ -141,6 +141,12 @@ private slots:
         local_.reset();
     }
 
+    void helpersCannotOpenMissingDllDialogs() {
+        // The helpers below are copied away from the Qt DLLs; one that cannot load them must fail,
+        // not leave a system dialog on the user's screen. They inherit this process's error mode.
+        QVERIFY(GetErrorMode() & SEM_FAILCRITICALERRORS);
+    }
+
     void comparableVersionAcceptsCommonReleaseTags_data() {
         QTest::addColumn<QString>("value");
         QTest::addColumn<QList<int>>("expected");

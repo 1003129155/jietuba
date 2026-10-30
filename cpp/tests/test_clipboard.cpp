@@ -1,4 +1,5 @@
 #include "clipboard/controllers/clipboard_controller.h"
+#include "clipboard/core/kind_catalog.h"
 #include "clipboard/core/manager.h"
 #include "clipboard/core/text_transform.h"
 #include "clipboard/services/file_payload_service.h"
@@ -197,6 +198,37 @@ private slots:
         QCOMPARE(build_delete_group_confirm_message([](const char *text) { return "<" + QString::fromUtf8(text) + ">"; }), g["delete_message"].toString());
     }
 
+    void theKindCatalogNamesWhatTheCoreLists() {
+        // Kinds are decided in the Rust core and presented from the catalog; a kind added on one side only fails here.
+        QStringList catalog;
+        for (const auto &kind : kind_catalog()) {
+            catalog.append(kind.key);
+            QVERIFY2(!kind.filter_icon.isEmpty(), qPrintable(kind.key));
+        }
+        QStringList native = native_filter_kinds();
+        QVERIFY(native.contains("file:spreadsheet"));
+        catalog.sort();
+        native.sort();
+        QCOMPARE(catalog, native);
+    }
+
+    void theTypeListsOfferTheSameKindsAsBefore() {
+        QStringList offered;
+        for (const KindInfo *kind : offered_kinds()) offered << kind->key;
+        QCOMPARE(offered, QStringList({"text", "url", "color", "path", "image", "file"}));
+        QCOMPARE(kind_key("text", ""), QString("text"));
+        QCOMPARE(kind_key("text", "url"), QString("url"));
+        QCOMPARE(kind_key("image", ""), QString("image"));
+        QCOMPARE(kind_key("file", ""), QString("file"));
+        QCOMPARE(kind_key("file", "spreadsheet"), QString("file:spreadsheet"));
+        // A filter group on a file kind gets that kind's icon; an unknown kind falls back to the text one.
+        const int filter = static_cast<int>(GroupType::FILTER);
+        QCOMPARE(get_default_group_icon(filter, FilterRule{QString("file:pdf"), std::nullopt}), QString::fromUtf8("📕"));
+        QCOMPARE(get_default_group_icon(filter, FilterRule{QString("nope"), std::nullopt}), QString::fromUtf8("📝"));
+        // Icons of kinds the form does not offer are not defaults yet: a 📊 the user chose stays.
+        QCOMPARE(get_toggled_default_group_icon(QString::fromUtf8("📊"), static_cast<int>(GroupType::NORMAL), std::nullopt), QString::fromUtf8("📊"));
+    }
+
     void specialPasteEntriesMatchTheReference() {
         const auto s = fixture_["special_paste"].toObject();
         const auto options = s["options"].toArray();
@@ -385,9 +417,33 @@ private slots:
             if (!value.toObject()["group"].isNull()) QVERIFY(manager.move_to_group(*id, group_ids[value.toObject()["group"].toInt()]));
             item_ids << *id;
         }
-        // The item menu's Multi-select entry and Save as for text and file rows are C++ only (notes/PARITY.md); the
-        // reference menus never have them.
+        // The item menu's Multi-select entry, Save as for text and file rows, pinning text and files to the screen,
+        // pinning images to the top and pinning selected items are C++ only (notes/PARITY.md); the reference menus
+        // never have them.
         int multi_select_entries = 0;
+        QString menu_item_type;
+        // The C++ menu also words pinning to the screen and to the top apart and keeps the second with the
+        // grouping entries; put back as the reference has them.
+        const auto as_reference = [&menu_item_type](const QList<MenuAction> &actions) {
+            const QMap<QString, QString> labels{{"Pin to Screen", "Pin as Overlay"}, {"Pin to Top", "Pin"}, {"Unpin from Top", "Unpin"}};
+            std::optional<MenuAction> toggle;
+            QList<MenuAction> kept;
+            for (auto action : actions) {
+                action.label = labels.value(action.label, action.label);
+                if (action.key == "pin_marked" || (action.key == "pin_image" && menu_item_type != "image")) continue;
+                if (action.key == "toggle_pin") {
+                    if (menu_item_type != "image") toggle = action;
+                    continue;
+                }
+                kept.append(action);
+            }
+            if (toggle) {
+                qsizetype at = 0;
+                while (at < kept.size() && !QStringList{"open_file_location", "open_link", "sep_before_groups"}.contains(kept[at].key)) ++at;
+                kept.insert(at, *toggle);
+            }
+            return normalize_menu_actions(kept);
+        };
         std::function<QJsonArray(const QList<MenuAction> &)> menu_json = [&](const QList<MenuAction> &actions) {
             QJsonArray result;
             for (const auto &action : actions) {
@@ -428,14 +484,17 @@ private slots:
                     }
                     QList<qint64> ids;
                     for (const auto &index : query["items"].toArray()) ids << (index.toInt() < item_ids.size() ? item_ids[index.toInt()] : 999999);
+                    const auto item_type = [&](qint64 id) { return item_ids.contains(id) ? menus["items"].toArray()[item_ids.indexOf(id)].toObject()["type"].toString() : QString(); };
                     if (kind == "item") {
                         const auto data = controller.build_context_menu_data(ids.first());
                         multi_select_entries = 0;
-                        if (data) actual = menu_json(data->actions);
+                        menu_item_type = item_type(ids.first());
+                        if (data) actual = menu_json(as_reference(data->actions));
                         QCOMPARE(multi_select_entries, data ? 1 : 0);
                     } else {
                         const auto data = controller.build_marked_context_menu_data(ids);
-                        if (data) actual = QJsonObject{{"item", item_ids.indexOf(data->item_id)}, {"actions", menu_json(data->actions)}};
+                        menu_item_type = data ? item_type(data->item_id) : QString();
+                        if (data) actual = QJsonObject{{"item", item_ids.indexOf(data->item_id)}, {"actions", menu_json(as_reference(data->actions))}};
                     }
                 }
                 QVERIFY2(actual == query["expected"], qPrintable(describe(query) + "\nactual: " + describe(actual)));

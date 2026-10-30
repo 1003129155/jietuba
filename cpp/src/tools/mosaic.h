@@ -6,8 +6,9 @@
 namespace jietuba {
 class CanvasView;
 class MosaicItem;
+enum class MosaicKind;
 
-// Freehand or box mosaic/blur painted with the background's reduced image.
+// Freehand or box mosaic, blur or smart erase over the background.
 class MosaicTool : public Tool {
 public:
     // Block size is one of four levels, not a range: every reader snaps through
@@ -22,6 +23,7 @@ public:
     static inline const QString MODE_RECT = "rect";
     static inline const QString STYLE_PIXELATE = "pixelate";
     static inline const QString STYLE_BLUR = "blur";
+    static inline const QString STYLE_SMART_ERASE = "smart_erase";
     // Smaller boxes are treated as accidental clicks.
     static constexpr double MIN_SIZE = 10;
 
@@ -31,6 +33,9 @@ public:
     static int get_block_size(const ToolContext &ctx);
     static QString get_draw_mode(const ToolContext &ctx);
     static QString get_style(const ToolContext &ctx);
+    // Unknown styles are mosaic.
+    static MosaicKind kind_of(const QString &style);
+    static QString style_of(MosaicKind kind);
     // Applies a panel change to the selected mosaic without an undo command:
     // these are settings, and each block-size command would hold a full-screen image.
     static bool apply_style_change(const QString &style, CanvasView *view);

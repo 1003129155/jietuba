@@ -27,6 +27,11 @@ public:
     // persist the default unless this is a cross-tool edit, and refresh the
     // cursor when the number tool is active. Returns whether the default was saved.
     static bool apply_style_change(const QString &style, CanvasView *view, QUndoStack *undo_stack);
+    // How a new number's label and pointer look; the panel's last choices, saved under the number tool.
+    static constexpr const char *EXTRAS_SETTING_KEYS[] = {"label_font", "label_size", "label_outline", "label_guide", "arrow_style"};
+    static QVariantMap extras_defaults(const ToolContext &ctx);
+    // Saves whichever of those keys the change holds as the new defaults.
+    static void remember_extras(const QVariantMap &change);
     static double get_radius_for_width(double stroke_width) { return clamp_width_range(stroke_width, MIN_WIDTH, MAX_WIDTH) * RADIUS_SCALE; }
     static int get_next_number(QGraphicsScene *scene) { return NumberSequence::get_next_number(scene); }
     static int adjust_next_number(QGraphicsScene *scene, int step) { return NumberSequence::adjust_next_number(scene, step); }

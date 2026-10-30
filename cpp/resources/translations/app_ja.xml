@@ -10,6 +10,18 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>Search settings</source>
+        <translation>設定を検索</translation>
+    </message>
+    <message>
+        <source>No matching settings</source>
+        <translation>一致する設定はありません</translation>
+    </message>
+    <message>
+        <source>Page</source>
+        <translation>ページ</translation>
+    </message>
+    <message>
         <source>Region Text Recognition</source>
         <translation>範囲の文字認識</translation>
     </message>
@@ -299,6 +311,10 @@
         <translation>クイック編集</translation>
     </message>
     <message>
+        <source>Search</source>
+        <translation>検索</translation>
+    </message>
+    <message>
         <source>Save Edit</source>
         <translation>編集を保存</translation>
     </message>
@@ -395,6 +411,10 @@ Replace it?</source>
     <message>
         <source>Toggle Toolbar</source>
         <translation>ツールバー切替</translation>
+    </message>
+    <message>
+        <source>Hide Annotations</source>
+        <translation>描画を非表示</translation>
     </message>
     <message>
         <source>Magnifier Zoom In</source>
@@ -1180,6 +1200,42 @@ Replace it?</source>
         <translation>ピン留め画像にマウスを乗せたとき、右上に閉じるボタンとツールバーボタンを表示します。オフの場合は右クリックメニューかショートカットで操作します。</translation>
     </message>
     <message>
+        <source>Types to Pin</source>
+        <translation>ピン留めする種類</translation>
+    </message>
+    <message>
+        <source>What this hotkey takes from the clipboard. When it holds both a picture and text, such as copied spreadsheet cells, the picture is pinned.</source>
+        <translation>このホットキーでクリップボードからピン留めする内容です。画像とテキストの両方がある場合（コピーした表のセルなど）は画像をピン留めします。</translation>
+    </message>
+    <message>
+        <source>Image</source>
+        <translation>画像</translation>
+    </message>
+    <message>
+        <source>Screenshots, copied pictures and picture files. Animated GIF and WebP files play.</source>
+        <translation>スクリーンショット、コピーした画像、画像ファイル。GIF・WebP のアニメーションは再生されます。</translation>
+    </message>
+    <message>
+        <source>Copied text, formatted when Keep Text Formatting is on.</source>
+        <translation>コピーしたテキスト。「テキストの書式を保持」がオンなら書式付きです。</translation>
+    </message>
+    <message>
+        <source>Keep Text Formatting</source>
+        <translation>テキストの書式を保持</translation>
+    </message>
+    <message>
+        <source>Point Out Repeats</source>
+        <translation>重複したピン留めを知らせる</translation>
+    </message>
+    <message>
+        <source>Pinning what an open pin already shows makes that pin shake instead of opening another one. Screenshots are always pinned anew.</source>
+        <translation>すでにピン留めされている内容をもう一度ピン留めすると、新しく開かずにそのピン留めを揺らします。スクリーンショットは常に新しくピン留めされます。</translation>
+    </message>
+    <message>
+        <source>Text copied from web pages and documents keeps its bold, lists, tables and code style; colors that would not read on the white page are dropped. Off: pinned as plain text, and each pin can still switch it from the right-click menu. Also applies to pinning text from the clipboard window.</source>
+        <translation>Web ページや文書からコピーしたテキストの太字、リスト、表、コードの書式を保ちます。白い背景で読めない色は外します。オフにするとプレーンテキストでピン留めし、ピンごとに右クリックメニューで切り替えられます。クリップボードウィンドウからのピン留めにも適用されます。</translation>
+    </message>
+    <message>
         <source>Mouse Shortcuts</source>
         <translation>マウスショートカット</translation>
     </message>
@@ -1244,6 +1300,10 @@ Replace it?</source>
         <translation>選択したテキストをコピー</translation>
     </message>
     <message>
+        <source>Drag Out Content</source>
+        <translation>内容をドラッグで取り出す</translation>
+    </message>
+    <message>
         <source>No Modifier</source>
         <translation>なし</translation>
     </message>
@@ -1272,8 +1332,8 @@ Replace it?</source>
         <translation>ピン画像のロック/解除</translation>
     </message>
     <message>
-        <source>Toggle Text Mode</source>
-        <translation>テキストモード切替</translation>
+        <source>Pin as Text</source>
+        <translation>テキストでピン留め</translation>
     </message>
     <message>
         <source>Toggle Text Selection</source>
@@ -1388,8 +1448,8 @@ Replace it?</source>
         <translation>端をドラッグしてサイズ変更</translation>
     </message>
     <message>
-        <source>Drag near the edge or corner of a pinned image to resize it. The aspect ratio is kept.</source>
-        <translation>ピン画像の端や角をドラッグしてサイズを変更します。縦横比は保たれます。</translation>
+        <source>Drag near the edge or corner of a pin to resize it. Images keep their aspect ratio.</source>
+        <translation>ピンの端や角をドラッグしてサイズを変更します。画像は縦横比が保たれます。</translation>
     </message>
     <message>
         <source>Shrink Oversized Images</source>
@@ -1585,7 +1645,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Pin Clipboard Image</source>
-        <translation>クリップボード画像をピン留め</translation>
+        <translation>クリップボードをピン留め</translation>
     </message>
     <message>
         <source>Volcengine machine translation: about 2M free characters/month. Overuse is billed at pay-as-you-go rates, so a local quota guard (default on) prevents surprise charges.</source>
@@ -1888,8 +1948,36 @@ Replace it?</source>
         <translation>テキスト選択</translation>
     </message>
     <message>
-        <source>Text mode</source>
-        <translation>テキストモード</translation>
+        <source>Pin as text</source>
+        <translation>テキストでピン留め</translation>
+    </message>
+    <message>
+        <source>Keep text formatting</source>
+        <translation>テキストの書式を保持</translation>
+    </message>
+    <message>
+        <source>Copy text</source>
+        <translation>テキストをコピー</translation>
+    </message>
+    <message>
+        <source>Copy plain text</source>
+        <translation>プレーンテキストをコピー</translation>
+    </message>
+    <message>
+        <source>Copy image</source>
+        <translation>画像をコピー</translation>
+    </message>
+    <message>
+        <source>Hide annotations</source>
+        <translation>描画を非表示</translation>
+    </message>
+    <message>
+        <source>Annotations hidden</source>
+        <translation>描画を非表示にしました</translation>
+    </message>
+    <message>
+        <source>Annotations shown</source>
+        <translation>描画を表示しました</translation>
     </message>
     <message>
         <source>Recognizing...</source>
@@ -2014,6 +2102,118 @@ Replace it?</source>
     <message>
         <source>Click-through off</source>
         <translation>マウス透過オフ</translation>
+    </message>
+    <message>
+        <source>Folder</source>
+        <translation>フォルダー</translation>
+    </message>
+    <message>
+        <source>...%1 items in all</source>
+        <translation>…全 %1 件</translation>
+    </message>
+    <message>
+        <source>Open</source>
+        <translation>開く</translation>
+    </message>
+    <message>
+        <source>Copy this file</source>
+        <translation>このファイルをコピー</translation>
+    </message>
+    <message>
+        <source>Copy this file's path</source>
+        <translation>このファイルのパスをコピー</translation>
+    </message>
+    <message>
+        <source>Show in Explorer</source>
+        <translation>エクスプローラーで表示</translation>
+    </message>
+    <message>
+        <source>Copy all files</source>
+        <translation>すべてのファイルをコピー</translation>
+    </message>
+    <message>
+        <source>Copy all file paths</source>
+        <translation>すべてのファイルのパスをコピー</translation>
+    </message>
+    <message>
+        <source>Copy selected files</source>
+        <translation>選択したファイルをコピー</translation>
+    </message>
+    <message>
+        <source>Copy selected file paths</source>
+        <translation>選択したファイルのパスをコピー</translation>
+    </message>
+    <message>
+        <source>Open Many Files</source>
+        <translation>複数のファイルを開く</translation>
+    </message>
+    <message>
+        <source>Open %1 files at once?</source>
+        <translation>%1 個のファイルを一度に開きますか？</translation>
+    </message>
+    <message>
+        <source>Copy animation</source>
+        <translation>アニメーションをコピー</translation>
+    </message>
+    <message>
+        <source>Copy current frame</source>
+        <translation>現在のフレームをコピー</translation>
+    </message>
+    <message>
+        <source>Play</source>
+        <translation>再生</translation>
+    </message>
+    <message>
+        <source>Pause</source>
+        <translation>一時停止</translation>
+    </message>
+    <message>
+        <source>Next frame</source>
+        <translation>次のフレーム</translation>
+    </message>
+    <message>
+        <source>Previous frame</source>
+        <translation>前のフレーム</translation>
+    </message>
+    <message>
+        <source>Faster</source>
+        <translation>速く</translation>
+    </message>
+    <message>
+        <source>Slower</source>
+        <translation>遅く</translation>
+    </message>
+    <message>
+        <source>Normal speed</source>
+        <translation>標準の速度</translation>
+    </message>
+    <message>
+        <source>Speed: %1</source>
+        <translation>速度：%1</translation>
+    </message>
+    <message>
+        <source>Frame: %1</source>
+        <translation>フレーム：%1</translation>
+    </message>
+    <message>
+        <source>Save Animation</source>
+        <translation>アニメーションを保存</translation>
+    </message>
+    <message>
+        <source>Pin Many Images</source>
+        <translation>多数の画像をピン留め</translation>
+    </message>
+    <message>
+        <source>Pin %1 images at once? So many windows may slow the computer down.</source>
+        <translation>%1 枚の画像を一度にピン留めしますか？ウィンドウが多いと動作が重くなることがあります。</translation>
+    </message>
+    <message>
+        <source>Pin Too Small</source>
+        <translation>ピン留めが小さすぎます</translation>
+    </message>
+    <message>
+        <source>This pin is only %1 × %2 pixels. Pin it anyway?</source>
+        <translation>この画像は %1 × %2 ピクセルしかありません。それでもピン留めしますか？</translation>
     </message>
 </context>
 
@@ -2183,6 +2383,7 @@ Replace it?</source>
     <message><source>Move all pins to center</source><translation>すべてのピン留めを画面中央へ</translation></message>
     <message><source>Thumbnail all pins</source><translation>ピン留めをサムネイル化</translation></message>
     <message><source>Restore all pin thumbnails</source><translation>ピン留めのサムネイルを解除</translation></message>
+    <message><source>Hide all pins</source><translation>すべてのピン留めを隠す</translation></message>
     <message><source>Close all pins</source><translation>すべてのピン留めを閉じる</translation></message>
     <message><source>Save all pins as...</source><translation>すべてのピン留めを保存</translation></message>
     <message><source>Choose folder to save pinned images</source><translation>ピン留め画像の保存先フォルダーを選択</translation></message>
@@ -2223,7 +2424,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Pin Clipboard Image</source>
-        <translation>クリップボード画像をピン留め</translation>
+        <translation>クリップボードをピン留め</translation>
     </message>
     <message>
         <source>Hotkey Registration Failed</source>
@@ -2276,6 +2477,10 @@ Replace it?</source>
     <message>
         <source>Screen Annotation</source>
         <translation>画面注釈</translation>
+    </message>
+    <message>
+        <source>Nothing on the clipboard to pin</source>
+        <translation>ピン留めできる内容がクリップボードにありません</translation>
     </message>
 </context>
 
@@ -2597,6 +2802,10 @@ Replace it?</source>
 <context>
     <name>ClipboardWindow</name>
     <message>
+        <source>Favorites</source>
+        <translation>お気に入り</translation>
+    </message>
+    <message>
         <source>Clipboard History</source>
         <translation>クリップボード履歴</translation>
     </message>
@@ -2697,8 +2906,8 @@ Replace it?</source>
         <translation>貼り付け後に先頭へ移動</translation>
     </message>
     <message>
-        <source>Show Time and Source</source>
-        <translation>時刻とソースを表示</translation>
+        <source>Show Time</source>
+        <translation>時刻を表示</translation>
     </message>
     <message>
         <source>Preserve Search on Reopen</source>
@@ -2793,16 +3002,16 @@ Replace it?</source>
         <translation>グループバーの位置</translation>
     </message>
     <message>
-        <source>▶ Right</source>
-        <translation>▶ 右</translation>
+        <source>Right</source>
+        <translation>右</translation>
     </message>
     <message>
-        <source>◀ Left</source>
-        <translation>◀ 左</translation>
+        <source>Left</source>
+        <translation>左</translation>
     </message>
     <message>
-        <source>▲ Top</source>
-        <translation>▲ 上</translation>
+        <source>Top</source>
+        <translation>上</translation>
     </message>
     <message>
         <source>Max Display Lines</source>
@@ -2845,16 +3054,16 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>グループを削除</translation>
     </message>
     <message>
-        <source>Unpin</source>
-        <translation>ピン留めを解除</translation>
+        <source>Unpin from Top</source>
+        <translation>先頭固定を解除</translation>
     </message>
     <message>
-        <source>Pin</source>
-        <translation>ピン留め</translation>
+        <source>Pin to Top</source>
+        <translation>先頭に固定</translation>
     </message>
     <message>
-        <source>Pin as Overlay</source>
-        <translation>ピン留め画像を作成</translation>
+        <source>Pin to Screen</source>
+        <translation>画面にピン留め</translation>
     </message>
     <message>
         <source>Save as</source>
@@ -2921,7 +3130,7 @@ Items in the group will be moved back to clipboard history.</source>
 Pinned items and items in groups will be kept.
 This action cannot be undone.</source>
         <translation>クリップボード履歴をクリアしてもよろしいですか？
-ピン留めした項目とグループ内の項目は残ります。
+先頭に固定した項目とグループ内の項目は残ります。
 この操作は元に戻せません。</translation>
     </message>
     <message>
@@ -3854,7 +4063,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Also delete pinned and grouped content</source>
-        <translation>ピン留めとグループ内の内容も削除する</translation>
+        <translation>先頭固定とグループ内の内容も削除する</translation>
     </message>
     <message>
         <source>Clipboard history cleared successfully</source>
@@ -3915,6 +4124,10 @@ This action cannot be undone.</source>
     <message>
         <source>Next Number</source>
         <translation>次の番号</translation>
+    </message>
+    <message>
+        <source>Text Guide Line</source>
+        <translation>文字の引き出し線</translation>
     </message>
     <message>
         <source>Line Style</source>
@@ -3987,6 +4200,10 @@ This action cannot be undone.</source>
     <message>
         <source>Blur</source>
         <translation>ぼかし</translation>
+    </message>
+    <message>
+        <source>Smart Erase</source>
+        <translation>消去</translation>
     </message>
     <message>
         <source>Mosaic Style</source>
@@ -4973,6 +5190,10 @@ SOFTWARE.</translation></message>
 
 <context>
     <name>GroupBar</name>
+    <message>
+        <source>New Group</source>
+        <translation>新しいグループ</translation>
+    </message>
     <message>
         <source>Clipboard History</source>
         <translation>クリップボード履歴</translation>
@@ -6929,6 +7150,14 @@ Replace it?</source>
     <message>
         <source>Open Settings</source>
         <translation>設定を開く</translation>
+    </message>
+    <message>
+        <source>File</source>
+        <translation>ファイル</translation>
+    </message>
+    <message>
+        <source>Copied files and folders, shown with their icons, names and sizes.</source>
+        <translation>コピーしたファイルとフォルダー。アイコン、名前、サイズを表示します。</translation>
     </message>
 </context>
 </TS>

@@ -1,5 +1,4 @@
 #include "core/bootstrap.h"
-#include "clipboard/ui/widgets/item_drag.h"
 #include "clipboard/ui/windows/clipboard_window.h"
 #include "core/shortcut_manager.h"
 #include "ui/dialogs.h"
@@ -7,6 +6,7 @@
 #include "capture/capture_service.h"
 #include "capture/msaa_element_finder.h"
 #include "core/crash_handler.h"
+#include "core/drag_out.h"
 #include "core/elevation.h"
 #include "core/logger.h"
 #include "core/platform_utils.h"
@@ -184,7 +184,7 @@ void PreloadManager::build_and_start() {
     steps_.push_back([this] { return apply_ocr_engine_setting(); });
     // Files of drags from the last run that exited before removing them; nothing can be dragged yet.
     steps_.push_back([] {
-        clipboard::ItemDragMimeData::remove_stale_folders(clipboard::ItemDragMimeData::default_temp_root(), 0);
+        DragOutMimeData::remove_stale_folders(DragOutMimeData::default_temp_root(), 0);
         return false;
     });
     if (cfg->get_preload_clipboard()) steps_.push_back([this] {

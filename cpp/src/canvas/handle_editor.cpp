@@ -23,9 +23,9 @@
 
 namespace jietuba {
 QString handle_type_name(HandleType type) {
-    static const std::array<const char *, 19> names = {{"corner_tl", "corner_tr", "corner_br", "corner_bl", "edge_t", "edge_r", "edge_b", "edge_l",
+    static const std::array<const char *, 22> names = {{"corner_tl", "corner_tr", "corner_br", "corner_bl", "edge_t", "edge_r", "edge_b", "edge_l",
         "rotate", "arrow_start", "arrow_end", "arrow_control", "corner_radius", "number_increment", "number_decrement", "number_delete", "item_delete", "text_scale",
-        "arrow_bend"}};
+        "arrow_bend", "number_arrow", "number_label", "number_arrow_tip"}};
     return QString::fromLatin1(names.at(static_cast<size_t>(type)));
 }
 
@@ -73,9 +73,42 @@ std::optional<QCursor> &rotate_cursor_cache() {
     static std::optional<QCursor> cursor;
     return cursor;
 }
+
+constexpr double BUTTON_STEP = LayerEditor::FUNCTIONAL_HANDLE_SIZE + LayerEditor::NUMBER_BUTTON_GAP;
+
+// Screen length one axis of the frame needs: the stacks at its two ends must not meet,
+// and two single buttons facing each other keep BUTTON_FACING_GAP apart.
+double button_span(const std::vector<ButtonSlot> &buttons, bool columns) {
+    int near_end = -1, far_end = -1;
+    for (const auto &slot : buttons) {
+        const int index = columns ? slot.column : slot.row;
+        if (index >= 0) near_end = std::max(near_end, index);
+        else far_end = std::max(far_end, -index - 1);
+    }
+    const double stacks = near_end >= 0 && far_end >= 0 ? (near_end + far_end + 1) * BUTTON_STEP : 0;
+    return std::max(stacks, double(LayerEditor::FUNCTIONAL_HANDLE_SIZE + LayerEditor::BUTTON_FACING_GAP));
+}
 }
 
 LayerEditor::LayerEditor() { get_rotate_cursor(); }
+
+QRectF LayerEditor::button_frame(const QRectF &rect, const std::vector<ButtonSlot> &buttons, double units_per_pixel) {
+    auto frame = rect;
+    frame.setWidth(std::max(rect.width(), button_span(buttons, true) * units_per_pixel));
+    frame.setHeight(std::max(rect.height(), button_span(buttons, false) * units_per_pixel));
+    frame.moveCenter(rect.center());
+    return frame;
+}
+
+QPointF LayerEditor::button_anchor(const QRectF &frame, const ButtonSlot &slot) {
+    return {slot.column < 0 ? frame.right() : frame.left(), slot.row < 0 ? frame.bottom() : frame.top()};
+}
+
+QPointF LayerEditor::button_offset(const ButtonSlot &slot) {
+    const int across = slot.column < 0 ? slot.column + 1 : slot.column;
+    const int down = slot.row < 0 ? slot.row + 1 : slot.row;
+    return {across * BUTTON_STEP, down * BUTTON_STEP};
+}
 
 QCursor LayerEditor::get_rotate_cursor() {
     auto &cached = rotate_cursor_cache();
@@ -144,6 +177,7 @@ void LayerEditor::stop_edit() {
     arrow_base_bend_scene_.reset();
     base_corner_radius_.reset();
     base_font_point_size_.reset();
+    base_arrow_tip_scene_.reset();
 }
 
 void LayerEditor::refresh_handles() {
@@ -153,30 +187,34 @@ void LayerEditor::refresh_handles() {
 
 std::vector<EditHandle> LayerEditor::generate_handles(QGraphicsItem *layer) {
     // Items that define their own handles (text) take precedence.
-    if (auto *text = dynamic_cast<TextItem *>(layer); text && !number_item_mode_) return text->get_edit_handles();
+    if (auto *text = dynamic_cast<TextItem *>(layer); text && !number_item_mode_) return text->get_edit_handles(local_units_per_pixel(text));
     if (is_arrow_item(layer)) {
         auto arrow_handles = generate_arrow_handles(layer);
         if (!arrow_handles.empty()) return arrow_handles;
     }
+    if (auto *number = dynamic_cast<NumberItem *>(layer); number && number_item_mode_) return generate_number_handles(number);
     const auto rect = get_scene_rect(layer);
-    if (rect && rect->isValid()) {
-        if (number_item_mode_) return generate_number_handles(*rect);
-        return generate_rect_handles(*rect, layer);
-    }
+    if (rect && rect->isValid()) return generate_rect_handles(*rect, layer);
     return {};
 }
 
-std::vector<EditHandle> LayerEditor::generate_number_handles(const QRectF &rect) const {
-    // + at the top-left, - below it, X at the top-right.
-    const int size = FUNCTIONAL_HANDLE_SIZE;
-    // The gap is interface size, so it lives in the screen offset.
-    const QPointF step(0, size + NUMBER_BUTTON_GAP);
+std::vector<EditHandle> LayerEditor::generate_number_handles(const NumberItem *number) const {
+    // + at the top-left with - below it, X at the top-right, the pointer at the bottom-left and the label at the bottom-right.
+    const ButtonSlot increment{0, 0}, decrement{0, 1}, remove{-1, 0}, pointer{0, -1}, label{-1, -1};
+    const auto frame = button_frame(number->visualRect(), {increment, decrement, remove, pointer, label}, local_units_per_pixel(number));
     const QCursor cursor(Qt::PointingHandCursor);
-    return {
-        {200, HandleType::NUMBER_INCREMENT, rect.topLeft(), cursor, size, 2, {}},
-        {201, HandleType::NUMBER_DECREMENT, rect.topLeft(), cursor, size, 2, step},
-        {202, HandleType::NUMBER_DELETE, rect.topRight(), cursor, size, 2, {}},
+    const auto button = [&](int id, HandleType type, const ButtonSlot &slot) {
+        return EditHandle{id, type, number->mapToScene(button_anchor(frame, slot)), cursor, FUNCTIONAL_HANDLE_SIZE, 2, button_offset(slot)};
     };
+    std::vector<EditHandle> result;
+    // The tip comes first and is drawn last: a short pointer can end under a button.
+    if (const auto &tip = number->arrow_tip())
+        result.push_back({205, HandleType::NUMBER_ARROW_TIP, number->mapToScene(*tip), QCursor(Qt::SizeAllCursor), HANDLE_SIZE, 6, {}});
+    for (auto &handle : {button(200, HandleType::NUMBER_INCREMENT, increment), button(201, HandleType::NUMBER_DECREMENT, decrement),
+                         button(202, HandleType::NUMBER_DELETE, remove), button(203, HandleType::NUMBER_ARROW, pointer),
+                         button(204, HandleType::NUMBER_LABEL, label)})
+        result.push_back(handle);
+    return result;
 }
 
 std::vector<EditHandle> LayerEditor::generate_arrow_handles(QGraphicsItem *layer) const {
@@ -275,12 +313,20 @@ double LayerEditor::scene_units_per_pixel() const {
     return scale > 1e-9 ? 1.0 / scale : 1.0;
 }
 
+double LayerEditor::local_units_per_pixel(const QGraphicsItem *layer) const {
+    const double scale = std::sqrt(std::abs(layer->sceneTransform().determinant()));
+    return scale > 1e-9 ? scene_units_per_pixel() / scale : scene_units_per_pixel();
+}
+
 QPointF LayerEditor::screen_center(const EditHandle &handle) const { return to_screen().map(handle.position) + handle.offset; }
 
 QRectF LayerEditor::screen_rect(const EditHandle &handle) const { return handle.rect_at(screen_center(handle)); }
 
 std::optional<EditHandle> LayerEditor::hit_test(const QPointF &pos) const {
     const auto screen_pos = to_screen().map(pos);
+    // A button's own square wins over the padding a neighbour has around it.
+    for (const auto &handle : handles)
+        if (!is_arrow_handle(handle.handle_type) && handle.rect_at(screen_center(handle)).contains(screen_pos)) return handle;
     const EditHandle *nearest = nullptr;
     qreal nearest_distance = 0;
     for (const auto &handle : handles) {
@@ -356,6 +402,25 @@ bool LayerEditor::adjust_number_with_handle(const EditHandle &handle, QUndoStack
     return true;
 }
 
+bool LayerEditor::is_number_action_handle(const std::optional<EditHandle> &handle) {
+    return handle && (handle->handle_type == HandleType::NUMBER_ARROW || handle->handle_type == HandleType::NUMBER_LABEL);
+}
+
+bool LayerEditor::run_number_action(const EditHandle &handle, QUndoStack *undo_stack) {
+    auto *number = number_item_mode_ ? dynamic_cast<NumberItem *>(active_layer()) : nullptr;
+    if (!number || !is_number_action_handle(handle)) return false;
+    if (handle.handle_type == HandleType::NUMBER_LABEL) {
+        // Recorded for undo when typing ends.
+        number->begin_label_edit();
+        return true;
+    }
+    const auto before = number->extras_state();
+    number->toggle_arrow();
+    const auto after = number->extras_state();
+    if (undo_stack && before != after) undo_stack->push(new EditItemCommand(ItemReference(number), before, after, "Toggle Number Pointer"));
+    return true;
+}
+
 void LayerEditor::start_drag(const EditHandle &handle, const QPointF &pos) {
     if (!is_editing()) return;
     auto *layer = active_layer();
@@ -377,6 +442,8 @@ void LayerEditor::start_drag(const EditHandle &handle, const QPointF &pos) {
     if (is_arrow_item(layer)) capture_arrow_base_geometry(layer);
     base_corner_radius_.reset();
     if (auto *rect_item = corner_radius_item(layer)) base_corner_radius_ = rect_item->get_corner_radius();
+    base_arrow_tip_scene_.reset();
+    if (auto *number = dynamic_cast<NumberItem *>(layer); number && number->arrow_tip()) base_arrow_tip_scene_ = number->mapToScene(*number->arrow_tip());
 }
 
 void LayerEditor::drag_to(const QPointF &pos, bool keep_ratio) {
@@ -389,6 +456,10 @@ void LayerEditor::drag_to(const QPointF &pos, bool keep_ratio) {
 
 std::pair<std::optional<QVariantMap>, std::optional<QVariantMap>> LayerEditor::end_drag(QUndoStack *undo_stack) {
     if (!is_editing()) return {std::nullopt, std::nullopt};
+    // A tip dragged back into the circle takes the pointer away.
+    if (auto *number = dynamic_cast<NumberItem *>(active_layer());
+        number && dragging_handle && dragging_handle->handle_type == HandleType::NUMBER_ARROW_TIP && number->pointer_path().isEmpty())
+        number->set_arrow_tip(std::nullopt);
     const auto old_state = initial_layer_state;
     const auto new_state = copy_layer_state(active_layer());
     dragging_handle.reset();
@@ -402,10 +473,12 @@ std::pair<std::optional<QVariantMap>, std::optional<QVariantMap>> LayerEditor::e
     rotation_origin_local_.reset();
     base_corner_radius_.reset();
     base_font_point_size_.reset();
+    base_arrow_tip_scene_.reset();
     if (undo_stack && old_state && new_state && active_layer() && *old_state != *new_state) {
         if (auto *tracked = dynamic_cast<TrackedItem *>(active_layer()))
             undo_stack->push(new EditItemCommand(ItemReference(tracked), *old_state, *new_state));
     }
+    if (auto *mosaic = dynamic_cast<MosaicItem *>(active_layer())) mosaic->edit_finished();
     return {old_state, new_state};
 }
 
@@ -413,6 +486,10 @@ void LayerEditor::apply_handle_drag(QGraphicsItem *layer, const EditHandle &hand
     if (handle.handle_type == HandleType::ROTATE) { apply_rotation(layer, delta_scene); return; }
     if (handle.handle_type == HandleType::TEXT_SCALE) { apply_text_scale_drag(layer, delta_scene); return; }
     if (handle.handle_type == HandleType::CORNER_RADIUS) { apply_corner_radius_drag(layer, handle, delta_scene); return; }
+    if (handle.handle_type == HandleType::NUMBER_ARROW_TIP) {
+        if (auto *number = dynamic_cast<NumberItem *>(layer); number && base_arrow_tip_scene_) number->set_arrow_tip(number->mapFromScene(*base_arrow_tip_scene_ + delta_scene));
+        return;
+    }
     // Paths and freehand mosaic have no rectangle; corners scale the transform.
     if (dynamic_cast<StrokeItem *>(layer) || is_freehand_mosaic_item(layer)) {
         apply_stroke_item_drag(layer, handle, delta_scene, keep_ratio);
@@ -582,13 +659,14 @@ void LayerEditor::render(QPainter *painter) {
     painter->save();
     painter->setRenderHint(QPainter::Antialiasing, true);
     // NumberItem draws its own frame; only handles are drawn here.
-    std::vector<const EditHandle *> functional, normal, control, radius;
+    std::vector<const EditHandle *> functional, normal, control, radius, on_top;
     for (const auto &handle : handles) {
         switch (handle.handle_type) {
         case HandleType::ROTATE: case HandleType::NUMBER_INCREMENT: case HandleType::NUMBER_DECREMENT:
-        case HandleType::NUMBER_DELETE: case HandleType::ITEM_DELETE:
+        case HandleType::NUMBER_DELETE: case HandleType::ITEM_DELETE: case HandleType::NUMBER_ARROW: case HandleType::NUMBER_LABEL:
             functional.push_back(&handle); break;
         case HandleType::ARROW_CONTROL: case HandleType::ARROW_BEND: control.push_back(&handle); break;
+        case HandleType::NUMBER_ARROW_TIP: on_top.push_back(&handle); break;
         case HandleType::CORNER_RADIUS: radius.push_back(&handle); break;
         default: normal.push_back(&handle); break;
         }
@@ -604,7 +682,7 @@ void LayerEditor::render(QPainter *painter) {
         painter->drawRect(screen_rect(*h));
     }
     // Curve control points are round to tell them apart from end points.
-    for (const auto *h : control) {
+    const auto draw_round = [&](const EditHandle *h) {
         if (is_hovered(*h)) {
             painter->setPen(QPen(HOVER_COLOR, HANDLE_BORDER_WIDTH));
             painter->setBrush(QBrush(HOVER_FILL));
@@ -614,7 +692,8 @@ void LayerEditor::render(QPainter *painter) {
         }
         const double r = h->size / 2.0;
         painter->drawEllipse(screen_center(*h), r, r);
-    }
+    };
+    for (const auto *h : control) draw_round(h);
     // Corner-radius handles are orange diamonds.
     for (const auto *h : radius) {
         const auto center = screen_center(*h);
@@ -632,6 +711,7 @@ void LayerEditor::render(QPainter *painter) {
     }
     // Functional handles last, above everything else.
     for (const auto *h : functional) render_functional_handle(painter, *h);
+    for (const auto *h : on_top) draw_round(h);
     painter->restore();
 }
 
@@ -665,6 +745,21 @@ void LayerEditor::draw_handle_glyph(QPainter *painter, const EditHandle &handle,
     if (kind == HandleType::NUMBER_INCREMENT || kind == HandleType::NUMBER_DECREMENT) {
         painter->drawLine(QPointF(center.x() - reach, center.y()), QPointF(center.x() + reach, center.y()));
         if (kind == HandleType::NUMBER_INCREMENT) painter->drawLine(QPointF(center.x(), center.y() - reach), QPointF(center.x(), center.y() + reach));
+        return;
+    }
+    if (kind == HandleType::NUMBER_ARROW) {
+        const QPointF tip(center.x() + reach, center.y() - reach);
+        painter->drawLine(QPointF(center.x() - reach, center.y() + reach), tip);
+        painter->drawLine(tip, QPointF(tip.x() - reach * 1.1, tip.y()));
+        painter->drawLine(tip, QPointF(tip.x(), tip.y() + reach * 1.1));
+        return;
+    }
+    if (kind == HandleType::NUMBER_LABEL) {
+        // A capital A in strokes.
+        const QPointF apex(center.x(), center.y() - reach * 1.15);
+        painter->drawLine(apex, QPointF(center.x() - reach * .95, center.y() + reach * 1.1));
+        painter->drawLine(apex, QPointF(center.x() + reach * .95, center.y() + reach * 1.1));
+        painter->drawLine(QPointF(center.x() - reach * .5, center.y() + reach * .3), QPointF(center.x() + reach * .5, center.y() + reach * .3));
         return;
     }
     if (kind == HandleType::ROTATE) {
@@ -718,7 +813,10 @@ std::optional<QVariantMap> LayerEditor::copy_layer_state(QGraphicsItem *layer) c
         state["control"] = QVariant();
     }
     if (auto *rect_item = corner_radius_item(layer)) state["corner_radius"] = rect_item->get_corner_radius();
-    if (auto *number = dynamic_cast<NumberItem *>(layer)) state["number"] = std::max(1, number->number);
+    if (auto *number = dynamic_cast<NumberItem *>(layer)) {
+        state["number"] = std::max(1, number->number);
+        state.insert(number->extras_state());
+    }
     return state;
 }
 

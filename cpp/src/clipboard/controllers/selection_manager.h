@@ -22,9 +22,6 @@ class SelectionManager : public QObject {
 public:
     SelectionManager(QListWidget *list_widget, std::function<std::optional<ClipboardItem>(qint64)> get_item_data);
 
-    // "top" / "left" / "right"; set by the window when the layout changes.
-    QString group_bar_position = "right";
-
     // ── Cursor ──
     int cursor_row() const { return cursor_row_; }
     std::optional<qint64> cursor_id() const;
@@ -67,9 +64,7 @@ signals:
     void marks_changed(int count);
     // Enter or click on an item.
     void item_activated(qint64 item_id);
-    // Into the side group bar (left/right layouts).
-    void request_sidebar_focus();
-    // Top layout: left/right switches groups by delta.
+    // Left/right in the list: the previous or next group, wherever the group bar is.
     void request_group_switch(int delta);
 
 protected:

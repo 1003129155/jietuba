@@ -8,6 +8,15 @@
 #include <QTemporaryDir>
 #include <QtGlobal>
 #include <memory>
+#ifdef Q_OS_WIN
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
 
 namespace {
 const QString SANDBOX_PREFIX = "jietuba-test-";
@@ -25,6 +34,11 @@ void remove_stale_sandboxes() {
 struct TestSandbox {
     std::unique_ptr<QTemporaryDir> dir;
     TestSandbox() {
+#ifdef Q_OS_WIN
+        // Also when a test runs without ctest's launcher: a process it starts that misses a DLL
+        // fails instead of opening a system dialog that outlives the test. Children inherit this.
+        SetErrorMode(GetErrorMode() | SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX);
+#endif
         // A child process started by a test keeps its parent's sandbox and environment.
         if (!qEnvironmentVariableIsEmpty("JIETUBA_TEST_SANDBOX")) return;
         remove_stale_sandboxes();

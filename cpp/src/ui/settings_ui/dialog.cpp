@@ -16,6 +16,7 @@
 #include "translation/registry.h"
 #include "ui/dialogs.h"
 #include "ui/fluent_lite/buttons.h"
+#include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/labels.h"
 #include "ui/fluent_lite/navigation.h"
 #include "ui/fluent_lite/segmented.h"
@@ -23,9 +24,11 @@
 #include "ui/fluent_lite/titlebar.h"
 #include "ui/hotkey_edit.h"
 #include "ui/inapp_key_edit.h"
+#include "ui/key_chip.h"
 #include "ui/settings_ui/components.h"
 #include "ui/settings_ui/mouse_binding_editor.h"
 #include "ui/settings_ui/pages.h"
+#include "ui/settings_ui/search.h"
 #include "ui/toolbar_layout.h"
 #include <QCloseEvent>
 #include <QComboBox>
@@ -33,7 +36,9 @@
 #include <QDesktopServices>
 #include <QDir>
 #include <QDoubleSpinBox>
+#include <QApplication>
 #include <QGuiApplication>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QMenu>
 #include <QMetaMethod>
@@ -149,6 +154,31 @@ constexpr int LONGEST_CARD_TITLE = 260;
 
 // The narrowest window in which every card keeps its title on one line and its controls inside.
 int settings_minimum_width() { return dialog_scaled(OUTSIDE_CARDS + LONGEST_CARD_TITLE) + card_width_besides_title(); }
+
+struct NavItem {
+    QString route_key;
+    IconSource icon;
+    const char *text;
+    int stack_index;
+    NavigationItemPosition position;
+    QString tone;
+};
+
+std::vector<NavItem> nav_items() {
+    return {
+        {"shortcuts", ResourceManager::get_icon_path(QString::fromUtf8("热键.svg")), "Shortcuts", 0, NavigationItemPosition::TOP, {}},
+        {"mouse", ResourceManager::get_icon_path(QString::fromUtf8("鼠标线框.svg")), "Mouse Shortcuts", 10, NavigationItemPosition::TOP, {}},
+        {"capture", FluentIcon::Camera, "Screenshot", 1, NavigationItemPosition::TOP, "capture"},
+        {"pin", FluentIcon::Pin, "Pin", 11, NavigationItemPosition::TOP, "pin"},
+        {"screen_annotation", ResourceManager::get_icon_path(QString::fromUtf8("画笔.svg")), "Screen Annotation", 12, NavigationItemPosition::TOP, "capture"},
+        {"clipboard", FluentIcon::Paste, "Clipboard", 2, NavigationItemPosition::TOP, "clipboard"},
+        {"translation", FluentIcon::Language, "Translation", 4, NavigationItemPosition::TOP, "translate"},
+        {"appearance", FluentIcon::Brush, "Appearance", 3, NavigationItemPosition::TOP, {}},
+        {"log", FluentIcon::History, "Log Settings", 5, NavigationItemPosition::TOP, {}},
+        {"other", FluentIcon::Application, "Other", 6, NavigationItemPosition::TOP, {}},
+        {"about", FluentIcon::Info, "About", 8, NavigationItemPosition::BOTTOM, {}},
+    };
+}
 }
 
 QString settings_tr(const char *text) { return i18n_tr(text, "SettingsDialog"); }
@@ -283,6 +313,15 @@ void SettingsDialog::setup_ui() {
     logo_area->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(logo_area, &QWidget::customContextMenuRequested, this, [this, logo_area](const QPoint &pos) { show_logo_context_menu(logo_area->mapTo(this, pos)); });
 
+    search_box_ = new SettingsSearchBox(left_panel);
+    search_box_->entries = [this] { return search_entries(); };
+    search_box_->build_next_page = [this] { return build_next_page(); };
+    search_box_->activated = [this](const SettingsSearchEntry &entry) { show_search_result(entry); };
+    // Outside content_stack, so it opts in to dialog scaling itself.
+    configure_dialog_controls(*search_box_);
+    left_v->addWidget(search_box_);
+    left_v->addSpacing(dialog_scaled(4));
+
     nav_list_ = create_navigation(left_panel);
     left_v->addWidget(nav_list_, 1);
     main_layout->addWidget(left_panel);
@@ -322,35 +361,14 @@ NavigationInterface *SettingsDialog::create_navigation(QWidget *parent) {
     nav->setMinimumWidth(dialog_scaled(222));
     nav->setMaximumWidth(dialog_scaled(230));
 
-    struct NavItem {
-        QString route_key;
-        IconSource icon;
-        const char *text;
-        int stack_index;
-        NavigationItemPosition position;
-    };
-    std::vector<NavItem> items{
-        {"shortcuts", ResourceManager::get_icon_path(QString::fromUtf8("热键.svg")), "Shortcuts", 0, NavigationItemPosition::TOP},
-        {"mouse", ResourceManager::get_icon_path(QString::fromUtf8("鼠标线框.svg")), "Mouse Shortcuts", 10, NavigationItemPosition::TOP},
-        {"capture", FluentIcon::Camera, "Screenshot", 1, NavigationItemPosition::TOP},
-        {"pin", FluentIcon::Pin, "Pin", 11, NavigationItemPosition::TOP},
-        {"screen_annotation", ResourceManager::get_icon_path(QString::fromUtf8("画笔.svg")), "Screen Annotation", 12, NavigationItemPosition::TOP},
-        {"clipboard", FluentIcon::Paste, "Clipboard", 2, NavigationItemPosition::TOP},
-        {"translation", FluentIcon::Language, "Translation", 4, NavigationItemPosition::TOP},
-        {"appearance", FluentIcon::Brush, "Appearance", 3, NavigationItemPosition::TOP},
-        {"log", FluentIcon::History, "Log Settings", 5, NavigationItemPosition::TOP},
-        {"other", FluentIcon::Application, "Other", 6, NavigationItemPosition::TOP},
-        {"about", FluentIcon::Info, "About", 8, NavigationItemPosition::BOTTOM},
-    };
     // Input methods / features / the application itself, with a thin line between groups.
     const QSet<QString> group_starts{"capture", "appearance"};
-    const QMap<QString, QString> feature_tones{{"capture", "capture"}, {"pin", "pin"}, {"screen_annotation", "capture"}, {"clipboard", "clipboard"}, {"translation", "translate"}};
-    for (const auto &item : items) {
+    for (const auto &item : nav_items()) {
         if (group_starts.contains(item.route_key)) nav->addSeparator();
         const int stack_index = item.stack_index;
         const QString route_key = item.route_key;
         nav->addItem(route_key, item.icon, tr_text(item.text), [this, stack_index, route_key] { on_nav_changed(stack_index, route_key); }, item.position, {},
-                     feature_tones.value(route_key));
+                     item.tone);
     }
     return nav;
 }
@@ -593,6 +611,54 @@ void SettingsDialog::show_hotkey_row(const QString &attr) {
     QPointer<QScrollArea> guarded_scroll(scroll);
     QTimer::singleShot(0, this, [guarded_scroll, edit] {
         if (guarded_scroll && edit) guarded_scroll->ensureWidgetVisible(edit, 0, dialog_scaled(80));
+    });
+}
+
+std::vector<SettingsSearchEntry> SettingsDialog::search_entries() const {
+    std::vector<SettingsSearchEntry> entries;
+    for (const auto &item : nav_items()) {
+        SettingsSearchEntry page;
+        page.kind = SettingsSearchEntry::Kind::Page;
+        page.stack_index = item.stack_index;
+        page.route_key = item.route_key;
+        page.title = tr_text(item.text);
+        page.tone = item.tone;
+        entries.push_back(page);
+        if (built_pages_.count(item.stack_index)) collect_settings_entries(content_stack->widget(item.stack_index), page, entries);
+    }
+    return entries;
+}
+
+bool SettingsDialog::build_next_page() {
+    for (const auto &item : nav_items()) {
+        if (built_pages_.count(item.stack_index)) continue;
+        ensure_page(item.stack_index);
+        return true;
+    }
+    return false;
+}
+
+void SettingsDialog::show_search_result(const SettingsSearchEntry &entry) {
+    on_nav_changed(entry.stack_index, entry.route_key);
+    QPointer<QWidget> target(entry.target);
+    QWidget *page = content_stack->widget(entry.stack_index);
+    if (!target || !page || !page->isAncestorOf(target)) return;
+    reveal_settings_row(target, page);
+    // The page and tab may be new; scroll and outline after layout.
+    QPointer<QScrollArea> scroll(qobject_cast<QScrollArea *>(page));
+    QTimer::singleShot(0, this, [this, scroll, target] {
+        if (!target) return;
+        if (scroll && scroll->widget()) {
+            const int margin = dialog_scaled(24);
+            const int top = target->mapTo(scroll->widget(), QPoint(0, 0)).y();
+            const int view_height = scroll->viewport()->height();
+            auto *bar = scroll->verticalScrollBar();
+            // Left where it is when clear of the edges; otherwise centred, or its top near the top when taller than the view.
+            if (top < bar->value() + margin || top + target->height() > bar->value() + view_height - margin)
+                bar->setValue(target->height() > view_height ? top - margin : top - (view_height - target->height()) / 2);
+        }
+        delete search_flash_.data();
+        search_flash_ = flash_settings_row(target);
     });
 }
 
@@ -1102,6 +1168,18 @@ void SettingsDialog::showEvent(QShowEvent *event) {
         open_view(*std::exchange(pending_view_, std::nullopt));
         QTimer::singleShot(0, this, [this] { setUpdatesEnabled(true); });
     }
+}
+
+bool SettingsDialog::event(QEvent *event) {
+    // Taken before the key press: a focused combo box would use it to search its items.
+    if (event->type() == QEvent::ShortcutOverride && search_box_ && static_cast<QKeyEvent *>(event)->matches(QKeySequence::Find) &&
+        !qobject_cast<KeyChipLineEdit *>(QApplication::focusWidget())) {
+        search_box_->edit()->setFocus(Qt::ShortcutFocusReason);
+        search_box_->edit()->selectAll();
+        event->accept();
+        return true;
+    }
+    return FrostedFramelessDialog::event(event);
 }
 
 void SettingsDialog::changeEvent(QEvent *event) {

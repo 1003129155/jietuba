@@ -91,6 +91,6 @@ protected:
 void add_separated_row(QVBoxLayout *layout, QWidget *widget);
 // A file name under svg/ as a full path; FluentIcon passes through.
 IconSource icon_ref(const IconSource &ref);
-// A settings row title.
+// A settings row title; parent is the row, found by settings search through it.
 QLabel *row_label(QWidget *parent, const QString &text);
 }

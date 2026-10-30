@@ -198,6 +198,38 @@ void paint_line_style_preview(QPainter *painter, const QRectF &rect, const QVari
     painter->drawLine(QPointF(rect.left(), y), QPointF(rect.right(), y));
 }
 
+QString combo_popup_qss() {
+    const auto accent = accent_color();
+    const auto accent_soft = QString("rgba(%1, %2, %3, 0.3)").arg(accent.red()).arg(accent.green()).arg(accent.blue());
+    return QString(R"(
+        QComboBox QAbstractItemView {
+            border: 1px solid %1;
+            background: white;
+            selection-background-color: %2;
+            selection-color: %3;
+            font-family: %4;
+            font-size: %5px;
+            color: %3;
+            outline: none;
+            padding: %6px;
+        }
+        QComboBox QAbstractItemView::item {
+            padding: %7px %8px;
+            min-height: %9px;
+            color: %3;
+            background: white;
+        }
+        QComboBox QAbstractItemView::item:hover {
+            background-color: %10;
+        }
+        QComboBox QAbstractItemView::item:selected {
+            background-color: %2;
+            color: %3;
+        }
+    )").arg(rgba(DIVIDER_COLOR), accent_soft, CONTROL_INK.name(), CSS_FONT_FAMILY).arg(scaled(12)).arg(scaled(2)).arg(scaled(3)).arg(scaled(6)).arg(scaled(18))
+        .arg(rgba(CONTROL_FILL));
+}
+
 QString build_settings_panel_stylesheet(bool combo_enabled, const QString &, int combo_min_width, int combo_max_width, bool) {
     const int font_px = scaled(12);
     const auto accent = accent_color();
@@ -226,32 +258,8 @@ QString build_settings_panel_stylesheet(bool combo_enabled, const QString &, int
                 width: 0px;
                 height: 0px;
             }
-            QComboBox QAbstractItemView {
-                border: 1px solid %7;
-                background: white;
-                selection-background-color: %8;
-                selection-color: %6;
-                font-family: %4;
-                font-size: %5px;
-                color: %6;
-                outline: none;
-                padding: %9px;
-            }
-            QComboBox QAbstractItemView::item {
-                padding: %10px %11px;
-                min-height: %12px;
-                color: %6;
-                background: white;
-            }
-            QComboBox QAbstractItemView::item:hover {
-                background-color: %13;
-            }
-            QComboBox QAbstractItemView::item:selected {
-                background-color: %8;
-                color: %6;
-            }
-        )").arg(scaled(PillComboBox::BASE_HEIGHT)).arg(scaled(combo_min_width)).arg(scaled(combo_max_width)).arg(CSS_FONT_FAMILY).arg(font_px)
-                          .arg(ink, rgba(DIVIDER_COLOR), accent_soft).arg(scaled(2)).arg(scaled(3)).arg(scaled(6)).arg(scaled(18)).arg(rgba(CONTROL_FILL));
+        )").arg(scaled(PillComboBox::BASE_HEIGHT)).arg(scaled(combo_min_width)).arg(scaled(combo_max_width)).arg(CSS_FONT_FAMILY).arg(font_px).arg(ink) +
+                      combo_popup_qss();
     }
     return QString(R"(
         QWidget {

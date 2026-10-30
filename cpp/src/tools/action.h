@@ -3,6 +3,7 @@
 #include <QPointer>
 #include <QRectF>
 #include <QWidget>
+#include <functional>
 #include <memory>
 
 class QGraphicsItem;
@@ -17,6 +18,9 @@ class ActionHost {
 public:
     virtual ~ActionHost() = default;
     virtual void cleanup_and_close() = 0;
+    // Gone for the user (hidden, a new capture may start) while an action still finishes on the scene.
+    // The object returned lives until cleanup_and_close; a wait hung on it ends there too.
+    virtual QObject *hand_over() = 0;
 };
 
 // The toolbar's action buttons: confirm, copy, save, pin, translate, recognize, scan.
@@ -51,6 +55,9 @@ public:
 private:
     // Export -> clipboard -> auto save -> close.
     void copy_save_and_close(bool close_after = true);
+    // Runs finish now, or, while a smart erase in the selection still rebuilds its pixels, hands the
+    // window over and runs it once they are in.
+    void finish_when_ready(const QRectF &selection_rect, std::function<void()> finish);
     static bool has_annotations(const QList<QGraphicsItem *> &drawing_items);
     // Quick save skips deliver_screenshot, so "also save the original" is handled here.
     void save_original_beside(const QRectF &selection_rect, const QString &saved_path);

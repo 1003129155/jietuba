@@ -15,9 +15,6 @@ QString toolbar_style();
 // Shows a floating menu next to a button without blocking, flipping at screen edges.
 void popup_menu(QMenu *menu, QWidget *anchor, bool below = true);
 
-// The shared progress bar style.
-extern const QString PROGRESS_BAR_STYLE;
-
 // Renders an SVG icon to a square of size pixels so every icon shows at the same size.
 QIcon svg_icon(const QString &name, int size = 22);
 

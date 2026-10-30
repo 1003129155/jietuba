@@ -1,5 +1,6 @@
 #pragma once
 #include "pin/ocr_text_layout.h"
+#include <QElapsedTimer>
 #include <QPointer>
 
 class QKeyEvent;
@@ -9,7 +10,8 @@ class QPainter;
 namespace jietuba {
 class PinCanvasView;
 
-// Selecting a pin's recognized text: the I-beam over text, dragging and double-clicking, Ctrl+A,
+// Selecting a pin's recognized text: the I-beam over text, dragging, a double click for a word and a
+// triple click for a paragraph, Ctrl+A,
 // and the highlight. Everything is in image pixels and the view paints it over the scene, so
 // zooming, rotating and flipping the pin need nothing here; the highlight is neither in the
 // scene's items nor in its exported image.
@@ -34,6 +36,8 @@ public:
     void paint(QPainter *painter) const;
     bool has_selection() const { return active_ && layout_.has_selection(); }
     QString selected_text() const { return has_selection() ? layout_.selected_text() : QString(); }
+    // Whether the point, in global coordinates, is on the highlighted text.
+    bool on_selection(const QPoint &global_pos) const;
     // False when there is nothing selected.
     bool copy_selected_text();
     // True when there was a selection to clear.
@@ -49,8 +53,11 @@ private:
     OcrTextLayout layout_;
     bool active_ = true;
     bool selecting_ = false;
-    // The release that ends a double click on text belongs here too.
+    // The release that ends a double or triple click on text belongs here too.
     bool swallow_release_ = false;
+    // A press soon after a double click on text, and near it, is the third click.
+    QElapsedTimer double_clicked_;
+    QPointF double_click_pos_;
     bool beam_ = false;
     QPointF anchor_;
 };

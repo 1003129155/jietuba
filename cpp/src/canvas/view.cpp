@@ -3,6 +3,7 @@
 #include "canvas/handle_overlay.h"
 #include "canvas/items/arrow_item.h"
 #include "canvas/items/mosaic_item.h"
+#include "tools/mosaic.h"
 #include "canvas/items/selection_item.h"
 #include "canvas/items/spotlight_item.h"
 #include "canvas/items/stroke_item.h"
@@ -624,7 +625,7 @@ void CanvasView::show_panel_for_selection(QGraphicsItem *item, Toolbar *toolbar)
     } else if (*tool_id == "mosaic") {
         if (auto *mosaic = dynamic_cast<MosaicItem *>(item); mosaic && toolbar->mosaic_panel) {
             toolbar->mosaic_panel->set_draw_mode(mosaic->fill_mode() ? "rect" : "freehand");
-            toolbar->mosaic_panel->set_style(mosaic->smooth() ? "blur" : "pixelate");
+            toolbar->mosaic_panel->set_style(MosaicTool::style_of(mosaic->kind()));
             // The panel ignores a click on its highlighted level, so it must show this item's level.
             toolbar->mosaic_panel->set_block_size(mosaic->block_size());
         }
@@ -848,6 +849,12 @@ std::optional<CanvasView::DoubleClickCandidate> CanvasView::build_double_click_c
     if (selection_drag->active || drawing->active || selection_drag->dragging || text_drag->active) return std::nullopt;
     const auto selection = canvas_scene->selection_model->rect();
     if (selection.isEmpty() || !selection.contains(scene_pos)) return std::nullopt;
+    // A double click on a number's label selects its text. Overlays above it take no buttons.
+    for (auto *item : canvas_scene->items(scene_pos)) {
+        if (!(item->acceptedMouseButtons() & Qt::LeftButton)) continue;
+        if (dynamic_cast<NumberLabel *>(item)) return std::nullopt;
+        break;
+    }
     auto *tool = canvas_scene->tool_controller->current_tool;
     auto *stack = canvas_scene->undo_stack;
     return DoubleClickCandidate{scene_pos, selection, tool ? tool->id() : QString(), stack->count(), stack->index(), stack->canRedo(), false};

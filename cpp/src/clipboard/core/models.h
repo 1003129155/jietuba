@@ -22,7 +22,7 @@ inline const QString OWN_SOURCE_APP = QStringLiteral("jietuba");
 
 // What a filter group, or the history's type filter, selects; both parts must match when set.
 struct FilterRule {
-    // "text", "image", "file", or a text sub-kind; "text" includes every sub-kind.
+    // "text", "image", "file", a text sub-kind, or "file:" and a file sub-kind; "text" and "file" include every sub-kind.
     std::optional<QString> kind;
     // Source exe name, matched without case.
     std::optional<QString> app;

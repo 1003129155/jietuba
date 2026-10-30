@@ -224,7 +224,12 @@ void QuickCaptureController::deliver(const QImage &captured_image, const QRectF 
         } else if (action == "scan_code") {
             show_barcode_result(captured_image, worker->codes, config->get_barcode_copy_single_enabled());
         } else {
-            const auto [copy, pin] = capture_action(action).value_or(std::make_pair(false, false));
+            auto [copy, pin] = capture_action(action).value_or(std::make_pair(false, false));
+            // Declining a small pin still copies when the action copies.
+            if (pin && !PinManager::confirm_small_pin(region.size(), nullptr)) {
+                if (!copy) return;
+                pin = false;
+            }
             // No canvas involved: with "add the last watermark" on it is drawn straight onto the image.
             const auto image = WatermarkTool::apply_to_image(captured_image, config);
             const bool watermarked = image.cacheKey() != captured_image.cacheKey();

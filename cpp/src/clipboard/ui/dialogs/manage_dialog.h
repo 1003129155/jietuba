@@ -93,6 +93,8 @@ public:
     QWidget *detail_content = nullptr;
     QVBoxLayout *detail_layout = nullptr;
     QLabel *detail_meta = nullptr;
+    // Shown for a saved item that can be pinned, as the item menu's entry is.
+    QPushButton *pin_btn = nullptr;
     QPushButton *delete_btn = nullptr;
     QPushButton *save_btn = nullptr;
 

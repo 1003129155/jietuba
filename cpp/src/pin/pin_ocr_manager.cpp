@@ -2,12 +2,44 @@
 #include "core/i18n.h"
 #include "core/logger.h"
 #include "core/platform_utils.h"
+#include "canvas/scene.h"
+#include "canvas/smart_erase_wait.h"
+#include "pin/pin_canvas.h"
 #include "pin/pin_canvas_view.h"
 #include "pin/pin_window.h"
 #include "settings/tool_settings.h"
+#include "text_recognition/layout.h"
 #include <QElapsedTimer>
+#include <algorithm>
+#include <cmath>
+#include <vector>
 
 namespace jietuba {
+namespace {
+constexpr int MIN_PIXEL_SIZE = 12, MAX_PIXEL_SIZE = 72;
+// Either engine's line boxes run about a tenth taller than the font's pixel size.
+constexpr double FONT_TO_LINE = 0.9;
+}
+
+QString pin_layout_text(const OcrTextLayout &layout, ToolSettingsManager *settings) {
+    OcrResult result;
+    for (const auto &line : layout.lines()) {
+        const auto r = line.reading_bounds;
+        result.data.append(OcrLine{{r.topLeft(), r.topRight(), r.bottomRight(), r.bottomLeft()}, line.text});
+    }
+    if (!settings) settings = get_tool_settings_manager();
+    return text_layout::render(group_ocr_lines(result), settings->get_ocr_layout_mode(), settings->get_ocr_remove_spaces(), settings->get_ocr_punctuation()).trimmed();
+}
+
+int pin_text_pixel_size(const OcrTextLayout &layout, double view_scale) {
+    std::vector<double> thickness;
+    for (const auto &line : layout.lines()) thickness.push_back(line.frame.thickness);
+    if (thickness.empty()) return MIN_PIXEL_SIZE;
+    const auto middle = thickness.begin() + thickness.size() / 2;
+    std::nth_element(thickness.begin(), middle, thickness.end());
+    return std::clamp(static_cast<int>(std::lround(*middle * FONT_TO_LINE * view_scale)), MIN_PIXEL_SIZE, MAX_PIXEL_SIZE);
+}
+
 void PinOcrThread::run() {
     QElapsedTimer clock;
     clock.start();
@@ -33,7 +65,7 @@ PinOCRManager::~PinOCRManager() {
 
 bool PinOCRManager::init_now(bool force) {
     try {
-        if (ocr_thread) return true;
+        if (is_running()) return true;
         // Automatic recognition runs once after pinning. Translating, copying text or turning
         // on text selection may have recognized the pin before that (the selection exists and
         // the switch is on); it is not recognized twice.
@@ -66,7 +98,7 @@ bool PinOCRManager::init_now(bool force) {
 
 bool PinOCRManager::recognize_then(Callback callback) {
     pending_callbacks_.push_back(std::move(callback));
-    if (ocr_thread) return true;
+    if (is_running()) return true;
     if (init_now(true)) return true;
     pending_callbacks_.pop_back();
     return false;
@@ -80,11 +112,18 @@ void PinOCRManager::flush_pending(bool success, const QString &result) {
 
 bool PinOCRManager::start_recognition() {
     if (win_->base_pixmap().isNull()) return false;
-    const auto image = win_->get_current_image();
-    log_debug(T("开始异步识别文字..."), "OCR");
-    ocr_thread = new PinOcrThread(image, win_->from_current_image(image.size()), win_);
-    QObject::connect(ocr_thread, &QThread::finished, win_, [this] { on_finished(); });
-    ocr_thread->start();
+    if (is_running()) return true;
+    // What the pin shows includes smart erase still rebuilding; recognition waits for it off the UI thread.
+    pixels_wait_ = std::make_unique<QObject>();
+    auto *scene = win_->canvas ? win_->canvas->scene : nullptr;
+    when_smart_erase_ready(scene, scene ? scene->sceneRect() : QRectF(), pixels_wait_.get(), [this] {
+        pixels_wait_.reset();
+        const auto image = win_->get_current_image();
+        log_debug(T("开始异步识别文字..."), "OCR");
+        ocr_thread = new PinOcrThread(image, win_->from_current_image(image.size()), win_);
+        QObject::connect(ocr_thread, &QThread::finished, win_, [this] { on_finished(); });
+        ocr_thread->start();
+    });
     return true;
 }
 
@@ -123,6 +162,7 @@ void PinOCRManager::on_finished() {
 void PinOCRManager::cleanup() {
     // Callbacks belong to the closing window; nobody wants the result any more.
     pending_callbacks_.clear();
+    pixels_wait_.reset();
     if (ocr_thread) {
         if (ocr_thread->isRunning()) {
             log_warning(T("窗口关闭，OCR 线程仍在运行，将其安全分离..."), "OCR");
@@ -151,7 +191,7 @@ void PinOCRManager::set_text_selection_enabled(bool enabled) {
     if (text_selection_enabled_ == enabled) return;
     text_selection_enabled_ = enabled;
     apply_text_selection_active();
-    if (enabled && !selection_ && !ocr_thread) init_now(true);
+    if (enabled && !selection_ && !is_running()) init_now(true);
 }
 
 bool PinOCRManager::toggle_text_selection() {

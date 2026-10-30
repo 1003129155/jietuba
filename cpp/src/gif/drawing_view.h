@@ -4,6 +4,7 @@
 #include "core/shortcut_manager.h"
 #include <QMouseEvent>
 #include <QRect>
+#include <functional>
 #include <memory>
 
 class QGraphicsRectItem;
@@ -33,12 +34,13 @@ public:
     QGraphicsRectItem *hit_rect = nullptr;
 };
 
-// Shortcuts of the GIF drawing layer, priority 80.
+// Shortcuts of the GIF drawing layer.
 class GifDrawingShortcutHandler : public ShortcutHandler {
 public:
     explicit GifDrawingShortcutHandler(GifDrawingView *view);
-    int priority() const override { return 80; }
     QString handler_name() const override { return "GifDrawing"; }
+    // The layer and the windows the owner adds, such as the record toolbar.
+    bool owns_window(const QWidget *window) const override;
     bool is_active() override;
     // The middle button runs through the same chain as keys.
     bool handle_mouse(QMouseEvent *event) override { return handle_key(event); }
@@ -65,6 +67,13 @@ public:
     // Follows the recording area's position and size.
     void update_rect(const QRect &rect);
     void activate_tool(const QString &tool_id);
+    // The owner's toolbar picks the tool, so its buttons and panels follow the keys; returns whether
+    // it has the tool. Without a selector only "cursor" is taken.
+    void set_tool_selector(std::function<bool(const QString &)> selector) { tool_selector_ = std::move(selector); }
+    bool request_tool(const QString &tool_id);
+    // Windows whose keys are the layer's too: clicking the owner's toolbar activates it.
+    void set_shortcut_scope(std::function<bool(const QWidget *)> owns) { shortcut_scope_ = std::move(owns); }
+    bool in_shortcut_scope(const QWidget *window) const { return window == this || (shortcut_scope_ && shortcut_scope_(window)); }
     void set_passthrough(bool enable);
     // Clears every drawing (the hit rectangle stays).
     void clear_all();
@@ -84,6 +93,8 @@ private:
     void on_gif_tool_changed(const QString &tool_id);
     GifDrawingScene *gif_scene_;
     bool passthrough_ = true;
+    std::function<bool(const QString &)> tool_selector_;
+    std::function<bool(const QWidget *)> shortcut_scope_;
     std::unique_ptr<GifDrawingShortcutHandler> shortcut_handler_;
 };
 }

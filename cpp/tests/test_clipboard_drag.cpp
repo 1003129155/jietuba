@@ -181,7 +181,7 @@ private slots:
 
     void theFilesGoOutAsADropFilesList() {
         const QStringList paths{"C:/drag/a.txt", QString::fromUtf8("D:/有 空格/图.png")};
-        const QByteArray bytes = drop_files_bytes(paths);
+        const QByteArray bytes = jietuba::drop_files_bytes(paths);
         DROPFILES header{};
         std::memcpy(&header, bytes.constData(), sizeof(header));
         QCOMPARE(header.pFiles, DWORD(sizeof(DROPFILES)));

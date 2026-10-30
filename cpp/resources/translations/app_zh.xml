@@ -9,6 +9,18 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>Search settings</source>
+        <translation>搜索设置</translation>
+    </message>
+    <message>
+        <source>No matching settings</source>
+        <translation>没有找到相关设置</translation>
+    </message>
+    <message>
+        <source>Page</source>
+        <translation>页面</translation>
+    </message>
+    <message>
         <source>Region Text Recognition</source>
         <translation>区域识别文字</translation>
     </message>
@@ -297,6 +309,10 @@
         <translation>快速编辑</translation>
     </message>
     <message>
+        <source>Search</source>
+        <translation>搜索</translation>
+    </message>
+    <message>
         <source>Save Edit</source>
         <translation>保存编辑</translation>
     </message>
@@ -393,6 +409,10 @@ Replace it?</source>
     <message>
         <source>Toggle Toolbar</source>
         <translation>切换工具栏</translation>
+    </message>
+    <message>
+        <source>Hide Annotations</source>
+        <translation>隐藏标注</translation>
     </message>
     <message>
         <source>Magnifier Zoom In</source>
@@ -1178,6 +1198,42 @@ Replace it?</source>
         <translation>鼠标移到钉图上时，在右上角显示关闭和工具栏按钮。关闭后可用右键菜单或快捷键操作。</translation>
     </message>
     <message>
+        <source>Types to Pin</source>
+        <translation>钉图类型</translation>
+    </message>
+    <message>
+        <source>What this hotkey takes from the clipboard. When it holds both a picture and text, such as copied spreadsheet cells, the picture is pinned.</source>
+        <translation>这个热键从剪贴板钉哪些内容。剪贴板里同时有图片和文字时（如复制的表格单元格），钉图片。</translation>
+    </message>
+    <message>
+        <source>Image</source>
+        <translation>图片</translation>
+    </message>
+    <message>
+        <source>Screenshots, copied pictures and picture files. Animated GIF and WebP files play.</source>
+        <translation>截图、复制的图片和图片文件；GIF、WebP 动图会播放。</translation>
+    </message>
+    <message>
+        <source>Copied text, formatted when Keep Text Formatting is on.</source>
+        <translation>复制的文字；开着「保留文字格式」时带格式。</translation>
+    </message>
+    <message>
+        <source>Keep Text Formatting</source>
+        <translation>保留文字格式</translation>
+    </message>
+    <message>
+        <source>Point Out Repeats</source>
+        <translation>提示重复钉图</translation>
+    </message>
+    <message>
+        <source>Pinning what an open pin already shows makes that pin shake instead of opening another one. Screenshots are always pinned anew.</source>
+        <translation>要钉的内容已经钉在屏幕上时，让那张钉图抖一下，不再另开一张。截图始终钉成新的。</translation>
+    </message>
+    <message>
+        <source>Text copied from web pages and documents keeps its bold, lists, tables and code style; colors that would not read on the white page are dropped. Off: pinned as plain text, and each pin can still switch it from the right-click menu. Also applies to pinning text from the clipboard window.</source>
+        <translation>从网页、文档复制的文字保留粗体、列表、表格和代码样式，白底上看不清的颜色会去掉。关闭后钉成纯文字，每张钉图仍可在右键菜单里切换。从剪贴板窗口钉文字时同样适用。</translation>
+    </message>
+    <message>
         <source>Mouse Shortcuts</source>
         <translation>鼠标快捷键</translation>
     </message>
@@ -1242,6 +1298,10 @@ Replace it?</source>
         <translation>复制选中文字</translation>
     </message>
     <message>
+        <source>Drag Out Content</source>
+        <translation>拖出内容</translation>
+    </message>
+    <message>
         <source>No Modifier</source>
         <translation>无</translation>
     </message>
@@ -1270,8 +1330,8 @@ Replace it?</source>
         <translation>锁定/解锁钉图</translation>
     </message>
     <message>
-        <source>Toggle Text Mode</source>
-        <translation>切换文字模式</translation>
+        <source>Pin as Text</source>
+        <translation>钉成文字</translation>
     </message>
     <message>
         <source>Toggle Text Selection</source>
@@ -1386,8 +1446,8 @@ Replace it?</source>
         <translation>拖动边缘调整大小</translation>
     </message>
     <message>
-        <source>Drag near the edge or corner of a pinned image to resize it. The aspect ratio is kept.</source>
-        <translation>在钉图的边缘或角上拖动即可调整大小，宽高比保持不变。</translation>
+        <source>Drag near the edge or corner of a pin to resize it. Images keep their aspect ratio.</source>
+        <translation>在钉图的边缘或角上拖动即可调整大小，图片保持宽高比。</translation>
     </message>
     <message>
         <source>Shrink Oversized Images</source>
@@ -1845,8 +1905,36 @@ Replace it?</source>
         <translation>文字选择</translation>
     </message>
     <message>
-        <source>Text mode</source>
-        <translation>文字模式</translation>
+        <source>Pin as text</source>
+        <translation>钉成文字</translation>
+    </message>
+    <message>
+        <source>Keep text formatting</source>
+        <translation>保留文字格式</translation>
+    </message>
+    <message>
+        <source>Copy text</source>
+        <translation>复制文字</translation>
+    </message>
+    <message>
+        <source>Copy plain text</source>
+        <translation>复制纯文本</translation>
+    </message>
+    <message>
+        <source>Copy image</source>
+        <translation>复制图片</translation>
+    </message>
+    <message>
+        <source>Hide annotations</source>
+        <translation>隐藏标注</translation>
+    </message>
+    <message>
+        <source>Annotations hidden</source>
+        <translation>标注已隐藏</translation>
+    </message>
+    <message>
+        <source>Annotations shown</source>
+        <translation>标注已显示</translation>
     </message>
     <message>
         <source>Recognizing...</source>
@@ -1971,6 +2059,118 @@ Replace it?</source>
     <message>
         <source>Click-through off</source>
         <translation>鼠标穿透已关闭</translation>
+    </message>
+    <message>
+        <source>Folder</source>
+        <translation>文件夹</translation>
+    </message>
+    <message>
+        <source>...%1 items in all</source>
+        <translation>…共 %1 项</translation>
+    </message>
+    <message>
+        <source>Open</source>
+        <translation>打开</translation>
+    </message>
+    <message>
+        <source>Copy this file</source>
+        <translation>复制此文件</translation>
+    </message>
+    <message>
+        <source>Copy this file's path</source>
+        <translation>复制此文件路径</translation>
+    </message>
+    <message>
+        <source>Show in Explorer</source>
+        <translation>在资源管理器中查看</translation>
+    </message>
+    <message>
+        <source>Copy all files</source>
+        <translation>复制所有文件</translation>
+    </message>
+    <message>
+        <source>Copy all file paths</source>
+        <translation>复制所有文件路径</translation>
+    </message>
+    <message>
+        <source>Copy selected files</source>
+        <translation>复制选中的文件</translation>
+    </message>
+    <message>
+        <source>Copy selected file paths</source>
+        <translation>复制选中的文件路径</translation>
+    </message>
+    <message>
+        <source>Open Many Files</source>
+        <translation>打开多个文件</translation>
+    </message>
+    <message>
+        <source>Open %1 files at once?</source>
+        <translation>一次打开 %1 个文件吗？</translation>
+    </message>
+    <message>
+        <source>Copy animation</source>
+        <translation>复制动图</translation>
+    </message>
+    <message>
+        <source>Copy current frame</source>
+        <translation>复制当前帧</translation>
+    </message>
+    <message>
+        <source>Play</source>
+        <translation>播放</translation>
+    </message>
+    <message>
+        <source>Pause</source>
+        <translation>暂停</translation>
+    </message>
+    <message>
+        <source>Next frame</source>
+        <translation>下一帧</translation>
+    </message>
+    <message>
+        <source>Previous frame</source>
+        <translation>上一帧</translation>
+    </message>
+    <message>
+        <source>Faster</source>
+        <translation>加快速度</translation>
+    </message>
+    <message>
+        <source>Slower</source>
+        <translation>减慢速度</translation>
+    </message>
+    <message>
+        <source>Normal speed</source>
+        <translation>恢复原速</translation>
+    </message>
+    <message>
+        <source>Speed: %1</source>
+        <translation>速度：%1</translation>
+    </message>
+    <message>
+        <source>Frame: %1</source>
+        <translation>帧：%1</translation>
+    </message>
+    <message>
+        <source>Save Animation</source>
+        <translation>保存动图</translation>
+    </message>
+    <message>
+        <source>Pin Many Images</source>
+        <translation>钉多张图片</translation>
+    </message>
+    <message>
+        <source>Pin %1 images at once? So many windows may slow the computer down.</source>
+        <translation>一次钉 %1 张图片吗？窗口太多可能让电脑变卡。</translation>
+    </message>
+    <message>
+        <source>Pin Too Small</source>
+        <translation>钉图太小</translation>
+    </message>
+    <message>
+        <source>This pin is only %1 × %2 pixels. Pin it anyway?</source>
+        <translation>这个钉图只有 %1 × %2 像素，仍要钉到屏幕上吗？</translation>
     </message>
 </context>
 
@@ -2140,6 +2340,7 @@ Replace it?</source>
     <message><source>Move all pins to center</source><translation>移动所有钉图到中心</translation></message>
     <message><source>Thumbnail all pins</source><translation>缩略图所有钉图</translation></message>
     <message><source>Restore all pin thumbnails</source><translation>取消缩略所有钉图</translation></message>
+    <message><source>Hide all pins</source><translation>隐藏所有钉图</translation></message>
     <message><source>Close all pins</source><translation>关闭所有钉图</translation></message>
     <message><source>Save all pins as...</source><translation>所有钉图另存为</translation></message>
     <message><source>Choose folder to save pinned images</source><translation>选择保存钉图的文件夹</translation></message>
@@ -2233,6 +2434,10 @@ Replace it?</source>
     <message>
         <source>Screen Annotation</source>
         <translation>屏幕标注</translation>
+    </message>
+    <message>
+        <source>Nothing on the clipboard to pin</source>
+        <translation>剪贴板里没有可钉的内容</translation>
     </message>
 </context>
 
@@ -2569,6 +2774,10 @@ Replace it?</source>
 <context>
     <name>ClipboardWindow</name>
     <message>
+        <source>Favorites</source>
+        <translation>收藏</translation>
+    </message>
+    <message>
         <source>Clipboard History</source>
         <translation>剪贴板历史</translation>
     </message>
@@ -2669,8 +2878,8 @@ Replace it?</source>
         <translation>粘贴后移到最前</translation>
     </message>
     <message>
-        <source>Show Time and Source</source>
-        <translation>显示时间和来源</translation>
+        <source>Show Time</source>
+        <translation>显示时间</translation>
     </message>
     <message>
         <source>Preserve Search on Reopen</source>
@@ -2765,16 +2974,16 @@ Replace it?</source>
         <translation>分组栏位置</translation>
     </message>
     <message>
-        <source>▶ Right</source>
-        <translation>▶ 右侧</translation>
+        <source>Right</source>
+        <translation>右侧</translation>
     </message>
     <message>
-        <source>◀ Left</source>
-        <translation>◀ 左侧</translation>
+        <source>Left</source>
+        <translation>左侧</translation>
     </message>
     <message>
-        <source>▲ Top</source>
-        <translation>▲ 顶部</translation>
+        <source>Top</source>
+        <translation>顶部</translation>
     </message>
     <message>
         <source>Max Display Lines</source>
@@ -2817,15 +3026,15 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>删除分组</translation>
     </message>
     <message>
-        <source>Unpin</source>
+        <source>Unpin from Top</source>
         <translation>取消置顶</translation>
     </message>
     <message>
-        <source>Pin</source>
+        <source>Pin to Top</source>
         <translation>置顶</translation>
     </message>
     <message>
-        <source>Pin as Overlay</source>
+        <source>Pin to Screen</source>
         <translation>生成钉图</translation>
     </message>
     <message>
@@ -3897,6 +4106,10 @@ This action cannot be undone.</source>
         <translation>下一个序号</translation>
     </message>
     <message>
+        <source>Text Guide Line</source>
+        <translation>文字指示线</translation>
+    </message>
+    <message>
         <source>Line Style</source>
         <translation>线条样式</translation>
     </message>
@@ -3967,6 +4180,10 @@ This action cannot be undone.</source>
     <message>
         <source>Blur</source>
         <translation>模糊</translation>
+    </message>
+    <message>
+        <source>Smart Erase</source>
+        <translation>智能擦除</translation>
     </message>
     <message>
         <source>Mosaic Style</source>
@@ -4963,6 +5180,10 @@ SOFTWARE.</translation></message>
 
 <context>
     <name>GroupBar</name>
+    <message>
+        <source>New Group</source>
+        <translation>新建分组</translation>
+    </message>
     <message>
         <source>Clipboard History</source>
         <translation>剪贴板历史</translation>
@@ -6919,6 +7140,14 @@ Replace it?</source>
     <message>
         <source>Open Settings</source>
         <translation>打开设置</translation>
+    </message>
+    <message>
+        <source>File</source>
+        <translation>文件</translation>
+    </message>
+    <message>
+        <source>Copied files and folders, shown with their icons, names and sizes.</source>
+        <translation>复制的文件和文件夹，显示图标、名称和大小。</translation>
     </message>
 </context>
 </TS>

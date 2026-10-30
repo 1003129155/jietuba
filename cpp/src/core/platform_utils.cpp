@@ -276,6 +276,16 @@ bool set_window_topmost(quintptr hwnd, bool topmost) {
 #endif
 }
 
+bool set_window_owner(quintptr hwnd, quintptr owner) {
+#ifdef Q_OS_WIN
+    SetLastError(0);
+    return SetWindowLongPtrW(to_hwnd(hwnd), GWLP_HWNDPARENT, static_cast<LONG_PTR>(owner)) != 0 || GetLastError() == 0;
+#else
+    Q_UNUSED(hwnd); Q_UNUSED(owner);
+    return false;
+#endif
+}
+
 bool set_window_click_through(quintptr hwnd, bool enabled) {
 #ifdef Q_OS_WIN
     const LONG_PTR style = GetWindowLongPtrW(to_hwnd(hwnd), GWL_EXSTYLE);

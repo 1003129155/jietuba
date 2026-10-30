@@ -6,7 +6,7 @@ use crate::database::{compress_format, image_file, Database};
 use crate::group_kind::FilterRule;
 use crate::multi_paste;
 use crate::text_kind;
-use crate::types::{PyClipboardItem, PyPaginatedResult, PyGroup};
+use crate::types::{PyClipboardItem, PyGroup};
 #[cfg(target_os = "windows")]
 use crate::win_clipboard;
 
@@ -951,7 +951,7 @@ impl ClipboardManager {
     ///     filter: 内容类型和来源应用，空规则表示全部
     /// 
     /// Returns:
-    ///     PyPaginatedResult: 分页结果
+    ///     这一页的记录
     pub fn get_history(
         &self,
         offset: i64,
@@ -960,7 +960,7 @@ impl ClipboardManager {
         filter: &FilterRule,
         start_time: Option<i64>,
         end_time: Option<i64>,
-    ) -> Result<PyPaginatedResult, String> {
+    ) -> Result<Vec<PyClipboardItem>, String> {
         let db = self.db.lock();
         db.query_items(offset, limit, search, filter, start_time, end_time)
     }
@@ -1050,8 +1050,7 @@ impl ClipboardManager {
     /// Returns:
     ///     List[PyClipboardItem]: 匹配的记录列表
     pub fn search(&self, keyword: String, limit: i64) -> Result<Vec<PyClipboardItem>, String> {
-        let result = self.get_history(0, limit, Some(keyword), &FilterRule::default(), None, None)?;
-        Ok(result.items)
+        self.get_history(0, limit, Some(keyword), &FilterRule::default(), None, None)
     }
 
     /// 手动添加内容到历史
@@ -1200,8 +1199,8 @@ impl ClipboardManager {
     ///     limit: 每页数量，默认 50
     /// 
     /// Returns:
-    ///     PyPaginatedResult: 分页结果
-    pub fn get_by_group(&self, group_id: Option<i64>, offset: i64, limit: i64) -> Result<PyPaginatedResult, String> {
+    ///     这一页的记录
+    pub fn get_by_group(&self, group_id: Option<i64>, offset: i64, limit: i64) -> Result<Vec<PyClipboardItem>, String> {
         let db = self.db.lock();
         db.query_by_group(group_id, offset, limit)
     }
@@ -1550,13 +1549,7 @@ fn stitched_image_formats(
 
 /// 文件记录里的路径列表
 fn item_files(item: &PyClipboardItem) -> Vec<String> {
-    serde_json::from_str::<serde_json::Value>(&item.content)
-        .ok()
-        .and_then(|json| json.get("files").and_then(|files| files.as_array()).cloned())
-        .unwrap_or_default()
-        .iter()
-        .filter_map(|file| file.as_str().map(str::to_string))
-        .collect()
+    crate::file_kind::paths(&item.content)
 }
 
 /// 存下的原始格式整理成要写回剪贴板的 (当前格式编号, 数据)

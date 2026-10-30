@@ -10,6 +10,10 @@
 #include "core/i18n.h"
 #include "core/platform_utils.h"
 #include "core/ui_scale.h"
+#include "pin/pin_file_card.h"
+#include "pin/pin_manager.h"
+#include "pin/pin_text_content.h"
+#include "pin/pin_window.h"
 #include "ui/fluent_lite/inputs.h"
 #include <QCursor>
 #include <QDateEdit>
@@ -24,8 +28,11 @@
 #include <QScrollBar>
 #include <QTemporaryDir>
 #include <QSignalSpy>
+#include <QStyle>
+#include <QStyleOptionSlider>
 #include <QTest>
 #include <QToolButton>
+#include <QWheelEvent>
 #include <algorithm>
 #include <atomic>
 #include <memory>
@@ -47,6 +54,22 @@ public:
 public slots:
     void open(const QUrl &url) { urls << url; }
 };
+
+// The colour an icon is drawn in: that of its most opaque pixel.
+QColor icon_color(const QIcon &icon) {
+    const QImage image = icon.pixmap(32, 32).toImage();
+    QColor best(Qt::transparent);
+    for (int y = 0; y < image.height(); ++y)
+        for (int x = 0; x < image.width(); ++x)
+            if (const QColor color = image.pixelColor(x, y); color.alpha() > best.alpha()) best = color.toRgb();
+    best.setAlpha(255);
+    return best;
+}
+
+// How far two colors are apart, the largest difference of any channel.
+int color_distance(const QColor &a, const QColor &b) {
+    return std::max({std::abs(a.red() - b.red()), std::abs(a.green() - b.green()), std::abs(a.blue() - b.blue())});
+}
 
 // The clipboard window on a real database, offscreen: what a click, a key or a menu entry
 // does to the list, the database and the paste.
@@ -103,6 +126,21 @@ class ClipboardWindowTests : public QObject {
         QVERIFY(picker->shown);
         if (picker_out) *picker_out = picker;
     }
+
+    QString write_file(const QString &name, const QByteArray &data = "x") {
+        QFile file(env_.dir.filePath(name));
+        if (!file.open(QIODevice::WriteOnly) || file.write(data) != data.size()) return {};
+        return QDir::toNativeSeparators(file.fileName());
+    }
+
+    QString write_picture(const QString &name, const QSize &size) {
+        QImage image(size, QImage::Format_RGB32);
+        image.fill(Qt::darkCyan);
+        const QString path = env_.dir.filePath(name);
+        return image.save(path) ? QDir::toNativeSeparators(path) : QString();
+    }
+
+    static QList<PinWindow *> pins() { return PinManager::instance()->get_all_pins(); }
 
 private slots:
     void initTestCase() {
@@ -268,6 +306,12 @@ private slots:
         QCOMPARE(drags.size(), 1);
         QCOMPARE(drags.front()->mimeData()->text(), QString("third\nfirst"));
         QVERIFY(!drags.front()->pixmap().isNull());
+        // At 80% opacity, as a pin's.
+        const QImage preview = drags.front()->pixmap().toImage().convertToFormat(QImage::Format_ARGB32);
+        int alpha = 0;
+        for (int y = 0; y < preview.height(); ++y)
+            for (int x = 0; x < preview.width(); ++x) alpha = std::max(alpha, qAlpha(preview.pixel(x, y)));
+        QVERIFY2(std::abs(alpha - 204) <= 1, qPrintable(QString::number(alpha)));
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
         // An unmarked row goes alone.
         window->start_item_drag(ids[1]);
@@ -352,7 +396,7 @@ private slots:
         QTest::qWait(QApplication::doubleClickInterval() + 20);
         QCOMPARE(recorded->dragged.size(), 2);
         QVERIFY(env_.pastes.isEmpty());
-        env_.config->set_app_setting("mouse_clipboard_quick_edit", "middle");
+        env_.config->set_app_setting("mouse_clipboard_quick_edit", "");
     }
 
     void aMarkStartsTheMultipleSelectionWhereClicksSelect() {
@@ -604,8 +648,8 @@ private slots:
         QVERIFY(!window->quick_edit_popup->is_open());
         QCOMPARE(manager().get_item(ids[0])->content, QString("edited"));
         QCOMPARE(window->get_item_data(ids[0])->content, QString("edited"));
-        // Middle click edits text; save and paste writes and pastes.
-        click(ids[0], Qt::MiddleButton);
+        // The menu opens it too; save and paste writes and pastes.
+        right_click_pick(ids[0], "Quick Edit");
         QVERIFY(window->quick_edit_popup->is_open());
         window->quick_edit_popup->editor->setPlainText("edited twice");
         window->quick_edit_popup->commit(true);
@@ -623,19 +667,89 @@ private slots:
         QVERIFY(!window->edit_selected());
     }
 
+    void middleClickPinsEveryKindOfItem() {
+        const auto close_pins = qScopeGuard([] { PinManager::instance()->close_all(); });
+        const QString notes = write_file("notes.txt");
+        const auto files = manager().add_item(file_payload({notes}), "file");
+        const auto texts = add_texts({"words"});
+        QVERIFY(files && !notes.isEmpty());
+        auto *window = open_window();
+        click(texts[0], Qt::MiddleButton);
+        QTRY_COMPARE(pins().size(), 1);
+        QVERIFY(pins()[0]->text_only());
+        QCOMPARE(pins()[0]->text_content()->text(), QString("words"));
+        QVERIFY(!window->quick_edit_popup || !window->quick_edit_popup->is_open());
+        click(*files, Qt::MiddleButton);
+        QTRY_COMPARE(pins().size(), 2);
+        QVERIFY(pins()[1]->file_card());
+        QCOMPARE(pins()[1]->file_card()->files(), QStringList{notes});
+    }
+
+    void aFileRowPinsItsFilesWhileTheyExist() {
+        const auto close_pins = qScopeGuard([] { PinManager::instance()->close_all(); });
+        const auto gone = manager().add_item(file_payload({QDir::toNativeSeparators(env_.dir.filePath("gone.txt"))}), "file");
+        const QString notes = write_file("kept.txt");
+        const QString shot = write_picture("shot.png", QSize(40, 30));
+        const auto here = manager().add_item(file_payload({notes, shot}), "file");
+        QVERIFY(gone && here);
+        open_window();
+        MenuPicker *picker = nullptr;
+        right_click_pick(*gone, "Pin to Screen", &picker);
+        QVERIFY(picker->seen.contains("Pin to Screen"));
+        QVERIFY(!picker->picked);
+        right_click_pick(*here, "Pin to Screen", &picker);
+        QVERIFY(picker->picked);
+        // As the pin hotkey pins copied files: the other files on a card first, each picture on its own pin.
+        QTRY_COMPARE(pins().size(), 2);
+        QVERIFY(pins()[0]->file_card());
+        QCOMPARE(pins()[0]->file_card()->files(), QStringList{notes});
+        QCOMPARE(pins()[1]->orig_size(), QSize(40, 30));
+        QTest::qWait(100);
+        QCOMPARE(pins().size(), 2);
+    }
+
+    void theSelectionPinsEachItemInTheOrderPicked() {
+        const auto close_pins = qScopeGuard([] { PinManager::instance()->close_all(); });
+        const auto ids = add_texts({"first words", "second words"});
+        const QString notes = write_file("listed.txt");
+        const auto file = manager().add_item(file_payload({notes}), "file");
+        QVERIFY(file);
+        auto *window = open_window();
+        window->toggle_item_mark(ids[0]);
+        window->toggle_item_mark(*file);
+        window->toggle_item_mark(ids[1]);
+        MenuPicker *picker = nullptr;
+        right_click_pick(ids[1], "Pin to Screen", &picker);
+        QVERIFY(picker->picked);
+        QVERIFY(!window->selection_manager->has_marks());
+        // The card opens first, then the texts as they were picked, each further down and right.
+        QTRY_COMPARE(pins().size(), 3);
+        QVERIFY(pins()[0]->file_card());
+        QCOMPARE(pins()[1]->text_content()->text(), QString("first words"));
+        QCOMPARE(pins()[2]->text_content()->text(), QString("second words"));
+        QVERIFY(pins()[2]->geometry().center().x() > pins()[1]->geometry().center().x());
+        QVERIFY(pins()[2]->geometry().center().y() > pins()[1]->geometry().center().y());
+    }
+
     void theItemMenuRunsItsEntries() {
         const auto group = manager().create_group("Work");
         const auto ids = add_texts({"lower text", "second"});
+        const auto image = manager().add_item("[10x10]", "image");
+        QVERIFY(image);
         auto *window = open_window();
 
         MenuPicker *picker = nullptr;
-        right_click_pick(ids[0], "Pin", &picker);
+        right_click_pick(ids[0], "Pin to Top", &picker);
         QVERIFY(picker->seen.contains("Paste"));
         QVERIFY(picker->seen.contains("Special Paste"));
         QVERIFY(picker->seen.contains("Quick Edit"));
+        QVERIFY(picker->seen.contains("Pin to Screen"));
         QVERIFY(manager().get_item(ids[0])->is_pinned);
-        right_click_pick(ids[0], "Unpin");
+        right_click_pick(ids[0], "Unpin from Top");
         QVERIFY(!manager().get_item(ids[0])->is_pinned);
+        // Images pin to the top as well.
+        right_click_pick(*image, "Pin to Top");
+        QVERIFY(manager().get_item(*image)->is_pinned);
 
         // Special paste and explicit paste press keys even with auto-paste off.
         window->controller->auto_paste_enabled = false;
@@ -819,11 +933,16 @@ private slots:
     }
 
     void theGearMenuChangesTheWindow() {
-        add_texts({"a", "b"});
+        const auto ids = add_texts({"a", "b"});
         auto *window = open_window();
         auto pick = [this](const QString &entry) { return gear_pick(entry); };
-        QVERIFY(pick("Show Time and Source"));
+        const auto first = window->get_item_data(ids[0]);
+        QVERIFY(first);
+        QVERIFY(!window->item_delegate->meta_text(*first).isEmpty());
+        QVERIFY(pick("Show Time"));
         QVERIFY(!env_.config->get_clipboard_show_metadata());
+        // The time goes from every row.
+        QVERIFY(window->item_delegate->meta_text(*first).isEmpty());
         QVERIFY(pick("Close After Paste"));
         QVERIFY(env_.config->get_clipboard_close_after_paste());
         QVERIFY(pick("Auto Paste After Selection"));
@@ -853,8 +972,8 @@ private slots:
         QCOMPARE(env_.config->get_clipboard_image_size(), QString("large"));
         QVERIFY(!window->grab().isNull());
 
-        for (const char *position : {"◀ Left", "▲ Top", "▶ Right"}) {
-            QVERIFY(pick(QString::fromUtf8(position)));
+        for (const char *position : {"Left", "Top", "Right"}) {
+            QVERIFY(pick(position));
             QVERIFY(!window->grab().isNull());
         }
         QCOMPARE(env_.config->get_clipboard_group_bar_position(), QString("right"));
@@ -893,6 +1012,35 @@ private slots:
         QCOMPARE(row_ids(), (QList<qint64>{ids[2], ids[1]}));
     }
 
+    void theSearchKeyGoesIntoTheSearchBoxAndBackOut() {
+        const auto restore = qScopeGuard([this] { env_.config->set_inapp_shortcut(SEARCH_SHORTCUT, "ctrl+f"); });
+        add_texts({"older", "newer"});
+        auto *window = open_window();
+        QTRY_COMPARE(window->list_widget->count(), 2);
+        window->activateWindow();
+        QTRY_VERIFY(window->isActiveWindow());
+        window->list_widget->setFocus();
+        // Ctrl+F by default: into the search box, and pressed there back to the list, with the search kept
+        // and the cursor on the first row when it had none.
+        QVERIFY(key(Qt::Key_F, Qt::ControlModifier));
+        QTRY_COMPARE(QApplication::focusWidget(), window->search_input);
+        window->search_input->setText("e");
+        QTest::qWait(400);
+        QTRY_COMPARE(window->list_widget->count(), 2);
+        window->selection_manager->clear_cursor();
+        QVERIFY(key(Qt::Key_F, Qt::ControlModifier));
+        QTRY_COMPARE(QApplication::focusWidget(), window->list_widget);
+        QCOMPARE(window->search_input->text(), QString("e"));
+        QCOMPARE(window->selection_manager->cursor_row(), 0);
+        // Another key takes its place; cleared, there is none.
+        env_.config->set_inapp_shortcut(SEARCH_SHORTCUT, "ctrl+k");
+        QVERIFY(!key(Qt::Key_F, Qt::ControlModifier));
+        QVERIFY(key(Qt::Key_K, Qt::ControlModifier));
+        QTRY_COMPARE(QApplication::focusWidget(), window->search_input);
+        env_.config->set_inapp_shortcut(SEARCH_SHORTCUT, "");
+        QVERIFY(!key(Qt::Key_K, Qt::ControlModifier));
+    }
+
     void theGroupBarSwitchesGroupsByMouseAndKeyboard() {
         const auto work = manager().create_group("Work", std::nullopt, QString::fromUtf8("💼"));
         const auto apps = manager().create_group("Apps", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILE));
@@ -902,25 +1050,38 @@ private slots:
         QTRY_COMPARE(window->group_bar->group_buttons.size(), 2);
         QVERIFY(!window->grab().isNull());
 
-        // Right in the list enters the side bar, arrows walk it, Left leaves it.
-        window->selection_manager->move_cursor_to(ids[1]);
-        QTest::keyClick(window->list_widget, Qt::Key_Right);
-        QVERIFY(window->group_bar->sidebar_mode());
-        QTest::keyClick(window->list_widget, Qt::Key_Down);
-        QTest::keyClick(window->list_widget, Qt::Key_Down);
-        QTest::keyClick(window->list_widget, Qt::Key_Up);
-        QTest::keyClick(window->list_widget, Qt::Key_Left);
-        QVERIFY(!window->group_bar->sidebar_mode());
-
-        // The top layout switches groups with left and right.
-        window->group_bar->switch_to_group(std::nullopt);
-        QVERIFY(gear_pick(QString::fromUtf8("▲ Top")));
-        QTest::keyClick(window->list_widget, Qt::Key_Right);
-        QCOMPARE(window->controller->current_group_id, std::optional<qint64>(*work));
-        QTest::keyClick(window->list_widget, Qt::Key_Left);
-        QVERIFY(!window->controller->current_group_id);
-        QVERIFY(gear_pick(QString::fromUtf8("▶ Right")));
-        QTRY_COMPARE(window->group_bar->group_buttons.size(), 2);
+        // Wherever the bar is, left and right in the list step through the groups in the bar's order and wrap around;
+        // up and down stay with the list.
+        const auto group = [window] { return window->controller->current_group_id; };
+        for (const char *position : {"Left", "Top", "Right"}) {
+            QVERIFY(gear_pick(position));
+            QTRY_COMPARE(window->group_bar->group_buttons.size(), 2);
+            window->group_bar->switch_to_group(std::nullopt);
+            QTest::keyClick(window->list_widget, Qt::Key_Right);
+            QCOMPARE(group(), std::optional<qint64>(*work));
+            QTest::keyClick(window->list_widget, Qt::Key_Right);
+            QCOMPARE(group(), std::optional<qint64>(*apps));
+            QTest::keyClick(window->list_widget, Qt::Key_Right);
+            QVERIFY(!group());
+            QTest::keyClick(window->list_widget, Qt::Key_Left);
+            QCOMPARE(group(), std::optional<qint64>(*apps));
+            window->group_bar->switch_to_group(std::nullopt);
+            QTRY_COMPARE(window->list_widget->count(), 2);
+            window->selection_manager->move_cursor_to(ids[1]);
+            QTest::keyClick(window->list_widget, Qt::Key_Down);
+            QCOMPARE(window->selection_manager->cursor_id(), std::optional<qint64>(ids[0]));
+            QTest::keyClick(window->list_widget, Qt::Key_Up);
+            QCOMPARE(window->selection_manager->cursor_id(), std::optional<qint64>(ids[1]));
+            QVERIFY(!group());
+        }
+        // In the search box they move the text cursor instead.
+        window->search_input->setText("abc");
+        window->search_input->setFocus();
+        window->search_input->setCursorPosition(3);
+        QTest::keyClick(window->search_input, Qt::Key_Left);
+        QCOMPARE(window->search_input->cursorPosition(), 2);
+        QVERIFY(!group());
+        window->search_input->clear();
 
         // The group menu edits, moves and deletes.
         auto group_menu = [window](int index, const QString &entry) {
@@ -1154,6 +1315,282 @@ private slots:
         QVERIFY(!window->grab().isNull());
     }
 
+    void theBottomBarButtonsCarryIconsNotSymbols() {
+        // A symbol character or the style's own arrow is drawn differently on each Windows version.
+        const auto ids = add_texts({"a"});
+        auto *window = open_window();
+        auto *themes = get_theme_manager();
+        const QString original = themes->get_current_theme().name;
+        const auto restore = qScopeGuard([themes, original] {
+            themes->set_theme(original);
+            get_ui_scale().set_percent(100);
+        });
+        auto *toggle = window->time_filter_toggle_btn;
+        for (const char *name : {"light", "dark"}) {
+            QVERIFY(themes->set_theme(name));
+            const auto &colors = preset_theme(name)->colors;
+            QVERIFY(window->menu_btn->text().isEmpty());
+            QCOMPARE(icon_color(window->menu_btn->icon()), QColor(colors.text_secondary));
+            QVERIFY(toggle->text().isEmpty());
+            QCOMPARE(toggle->arrowType(), Qt::NoArrow);
+            QVERIFY(!toggle->isChecked());
+            QCOMPARE(icon_color(toggle->icon()), QColor(colors.text_secondary));
+            // Open, the funnel takes the accent.
+            toggle->click();
+            QVERIFY(window->time_filter_bar->isVisible());
+            QCOMPARE(icon_color(toggle->icon()), QColor(colors.text_accent));
+            toggle->click();
+            QVERIFY(!window->time_filter_bar->isVisible());
+            QCOMPARE(icon_color(toggle->icon()), QColor(colors.text_secondary));
+            QVERIFY(window->clear_search_btn->text().isEmpty());
+            QCOMPARE(icon_color(window->clear_search_btn->icon()), QColor(colors.text_tertiary));
+        }
+        QCOMPARE(window->menu_btn->iconSize(), QSize(16, 16));
+        QCOMPARE(toggle->iconSize(), QSize(16, 16));
+        get_ui_scale().set_percent(150);
+        QCOMPARE(window->menu_btn->iconSize(), QSize(24, 24));
+        QCOMPARE(toggle->iconSize(), QSize(24, 24));
+
+        window->toggle_item_mark(ids[0]);
+        auto *exit_button = window->selection_bar->exit_button;
+        QVERIFY(exit_button->text().isEmpty());
+        QCOMPARE(icon_color(exit_button->icon()), QColor("#FFFFFF"));
+    }
+
+    void theDividersAroundTheListStandOutOnEveryTheme() {
+        add_texts({"a"});
+        env_.config->set_clipboard_window_opacity(0);
+        auto *themes = get_theme_manager();
+        const QString original = themes->get_current_theme().name;
+        const auto restore = qScopeGuard([themes, original] { themes->set_theme(original); });
+        for (const char *position : {"top", "right"}) {
+            env_.config->set_clipboard_group_bar_position(position);
+            auto *window = open_window();
+            for (const auto &[name, theme] : PRESET_THEMES()) {
+                QVERIFY(themes->set_theme(name));
+                const QImage image = window->grab().toImage();
+                const auto at = [&](QWidget *widget, const QPoint &point) { return image.pixelColor(widget->mapTo(window, point)); };
+                const QColor bottom_line = at(window->bottom_bar, QPoint(window->bottom_bar->width() / 2, 0));
+                const QColor list = at(window->bottom_bar, QPoint(window->bottom_bar->width() / 2, -6));
+                const QColor group_line = QString(position) == "top" ? at(window->group_bar, QPoint(window->group_bar->width() / 2, window->group_bar->height() - 1))
+                                                                     : at(window->group_bar, QPoint(0, window->group_bar->height() / 2));
+                QCOMPARE(list, QColor(theme.colors.bg_primary));
+                // Clear on dark themes as on light ones, where the border colors fade into the ground.
+                QVERIFY2(color_distance(bottom_line, list) >= 30, qPrintable(name));
+                // Drawn once: the bar's children do not lay the same translucent line over it again.
+                QCOMPARE(group_line, bottom_line);
+            }
+            window_->close();
+            window_.reset();
+        }
+    }
+
+    void theFilterFunnelIsSelectedWhileTheFiltersAreOpen() {
+        add_texts({"a"});
+        auto *window = open_window();
+        auto *toggle = window->time_filter_toggle_btn;
+        const QPoint inside(2, toggle->height() / 2);
+        const QColor accent(window->current_theme.colors.accent_primary);
+        const auto fill = [&] { return toggle->grab().toImage().pixelColor(inside); };
+        QVERIFY(toggle->isCheckable());
+        QCOMPARE(toggle->toolTip(), ClipboardWindow::tr_text("Open filters"));
+        const QColor closed = fill();
+        toggle->click();
+        QVERIFY(toggle->isChecked());
+        QCOMPARE(toggle->toolTip(), ClipboardWindow::tr_text("Close filters"));
+        // Selected, the button holds a wash of the accent.
+        const QColor open = fill();
+        QVERIFY(open != closed);
+        QVERIFY(color_distance(open, accent) < color_distance(closed, accent));
+        // The filter bar's own close button clears the selection too.
+        window->clear_time_filter_btn->click();
+        QVERIFY(!toggle->isChecked());
+        QVERIFY(!window->time_filter_bar->isVisible());
+        QCOMPARE(fill(), closed);
+    }
+
+    void theScrollbarFollowsTheClipboardTheme_data() {
+        QTest::addColumn<int>("scale");
+        QTest::newRow("100-percent") << 100;
+        QTest::newRow("150-percent") << 150;
+    }
+
+    void theScrollbarFollowsTheClipboardTheme() {
+        QFETCH(int, scale);
+        auto *themes = get_theme_manager();
+        const QString original = themes->get_current_theme().name;
+        const auto restore = qScopeGuard([themes, original] {
+            themes->set_theme(original);
+            get_ui_scale().set_percent(100);
+        });
+        get_ui_scale().set_percent(scale);
+        QStringList texts;
+        for (int i = 0; i < 50; ++i) texts << QString("Item %1").arg(i);
+        add_texts(texts);
+        auto *window = open_window();
+        auto *list = window->list_widget;
+        auto *scrollbar = list->verticalScrollBar();
+        QTRY_VERIFY(scrollbar->maximum() > 0);
+        QTest::mouseMove(list->viewport(), QPoint(20, 20));
+        for (const char *name : {"dark", "light"}) {
+            QVERIFY(themes->set_theme(name));
+            QTRY_COMPARE(scrollbar->width(), scaled(6));
+            QStyleOptionSlider option;
+            option.initFrom(scrollbar);
+            option.orientation = Qt::Vertical;
+            option.minimum = scrollbar->minimum();
+            option.maximum = scrollbar->maximum();
+            option.pageStep = scrollbar->pageStep();
+            option.sliderPosition = scrollbar->sliderPosition();
+            option.sliderValue = scrollbar->value();
+            const QRect thumb = scrollbar->style()->subControlRect(QStyle::CC_ScrollBar, &option, QStyle::SC_ScrollBarSlider, scrollbar);
+            QVERIFY(!thumb.isEmpty());
+            const QImage image = scrollbar->grab().toImage();
+            const QPoint center = thumb.center() * image.devicePixelRatio();
+            const QColor handle = image.pixelColor(center);
+            QCOMPARE(handle, QColor(window->current_theme.colors.text_secondary));
+            QVERIFY(color_distance(handle, QColor(window->current_theme.colors.bg_primary)) >= 80);
+        }
+        auto *last_item = list->item(list->count() - 1);
+        list->scrollToItem(last_item, QAbstractItemView::PositionAtBottom);
+        QVERIFY(list->visualItemRect(last_item).intersects(list->viewport()->rect()));
+        window->search_input->setText("Item 49");
+        QTRY_COMPARE(list->count(), 1);
+        QTRY_COMPARE(scrollbar->maximum(), 0);
+        QTRY_VERIFY(!scrollbar->isVisible());
+    }
+
+    void theGroupBarMarksTheCurrentGroupAlongItsOuterEdge_data() {
+        QTest::addColumn<int>("scale");
+        QTest::newRow("100-percent") << 100;
+        QTest::newRow("150-percent") << 150;
+    }
+
+    void theGroupBarMarksTheCurrentGroupAlongItsOuterEdge() {
+        QFETCH(int, scale);
+        const auto restore_scale = qScopeGuard([] { get_ui_scale().set_percent(100); });
+        get_ui_scale().set_percent(scale);
+        const auto work = manager().create_group("Work", std::nullopt, QString::fromUtf8("💼"));
+        QVERIFY(work);
+        const struct {
+            const char *position;
+            Qt::Edge edge;
+        } cases[] = {{"top", Qt::BottomEdge}, {"left", Qt::LeftEdge}, {"right", Qt::RightEdge}};
+        auto *themes = get_theme_manager();
+        const QString original = themes->get_current_theme().name;
+        const auto restore = qScopeGuard([themes, original] { themes->set_theme(original); });
+        QVERIFY(themes->set_theme("light"));
+        for (const auto &position_case : cases) {
+            const char *position = position_case.position;
+            const Qt::Edge edge = position_case.edge;
+            env_.config->set_clipboard_group_bar_position(position);
+            auto *window = open_window();
+            auto *bar = window->group_bar;
+            QTRY_COMPARE(bar->group_buttons.size(), 1);
+            const QColor accent(window->current_theme.colors.accent_primary);
+            // Measure the solid accent from the edge toward the button's center.
+            const auto mark_thickness = [&](QPushButton *button) {
+                const QImage image = button->grab().toImage();
+                const QColor current_accent(window->current_theme.colors.accent_primary);
+                const int depth = edge == Qt::BottomEdge ? image.height() : image.width();
+                int thickness = 0;
+                for (; thickness < depth; ++thickness) {
+                    const QPoint at = edge == Qt::BottomEdge ? QPoint(image.width() / 2, image.height() - 1 - thickness)
+                                      : edge == Qt::LeftEdge ? QPoint(thickness, image.height() / 2)
+                                                             : QPoint(image.width() - 1 - thickness, image.height() / 2);
+                    if (image.pixelColor(at) != current_accent) break;
+                }
+                return thickness;
+            };
+            const int expected_thickness = qRound(scaled(4) * bar->clipboard_btn->devicePixelRatioF());
+            QVERIFY2(bar->clipboard_btn->indicator_edge() == edge, position);
+            QVERIFY2(bar->group_buttons.first()->indicator_edge() == edge, position);
+            // The records button is current to begin with; switching moves the line.
+            QCOMPARE(mark_thickness(bar->clipboard_btn), expected_thickness);
+            QCOMPARE(mark_thickness(bar->group_buttons.first()), 0);
+            bar->group_buttons.first()->click();
+            QCOMPARE(mark_thickness(bar->clipboard_btn), 0);
+            QCOMPARE(mark_thickness(bar->group_buttons.first()), expected_thickness);
+            // The line follows a theme change.
+            QVERIFY(themes->set_theme("dark"));
+            const QColor dark_accent(window->current_theme.colors.accent_primary);
+            QVERIFY2(dark_accent != accent, position);
+            QCOMPARE(mark_thickness(bar->group_buttons.first()), expected_thickness);
+            QVERIFY(themes->set_theme("light"));
+            window_->close();
+            window_.reset();
+        }
+    }
+
+    void theGroupBarShowsEmojiAndLineIcons() {
+        const auto work = manager().create_group("Work", std::nullopt, QString::fromUtf8("💼"));
+        QVERIFY(work);
+        auto *window = open_window();
+        auto *bar = window->group_bar;
+        auto *themes = get_theme_manager();
+        const QString original = themes->get_current_theme().name;
+        const auto restore = qScopeGuard([themes, original] {
+            themes->set_theme(original);
+            get_ui_scale().set_percent(100);
+        });
+        QTRY_COMPARE(bar->group_buttons.size(), 1);
+        // The groups keep the emoji the user chose and are named by their tooltips.
+        QCOMPARE(bar->clipboard_btn->text(), QString::fromUtf8("📋"));
+        QCOMPARE(bar->group_buttons.first()->text(), QString::fromUtf8("💼"));
+        QCOMPARE(bar->group_buttons.first()->toolTip(), QString("Work"));
+        // Close and add are line icons with no symbol characters: close in the secondary text color, add in the accent.
+        for (const char *name : {"light", "dark"}) {
+            QVERIFY(themes->set_theme(name));
+            for (QPushButton *button : {bar->close_btn, bar->add_group_btn}) {
+                QVERIFY(button->text().isEmpty());
+                QVERIFY(!button->icon().isNull());
+            }
+            QCOMPARE(icon_color(bar->close_btn->icon()), QColor(preset_theme(name)->colors.text_secondary));
+            QCOMPARE(icon_color(bar->add_group_btn->icon()), QColor(preset_theme(name)->colors.accent_primary));
+        }
+        QCOMPARE(bar->add_group_btn->toolTip(), QString("New Group"));
+        // Side bar buttons are taller than wide, and follow the panel scale.
+        QCOMPARE(bar->clipboard_btn->size(), QSize(41, 34));
+        QCOMPARE(bar->add_group_btn->size(), QSize(41, 34));
+        get_ui_scale().set_percent(150);
+        QTRY_COMPARE(bar->clipboard_btn->size(), QSize(62, 51));
+        QCOMPARE(bar->close_btn->iconSize(), QSize(21, 21));
+        QCOMPARE(bar->add_group_btn->iconSize(), QSize(27, 27));
+        QTRY_COMPARE(bar->group_buttons.first()->size(), QSize(62, 51));
+    }
+
+    void theSearchBoxHoldsItsOwnMagnifierAndTheBarFollowsTheScale() {
+        add_texts({"a"});
+        auto *window = open_window();
+        const auto restore = qScopeGuard([] { get_ui_scale().set_percent(100); });
+        // The magnifier is an icon in the box, not an emoji in the placeholder.
+        QVERIFY(!window->search_icon->pixmap().isNull());
+        QVERIFY(!window->search_input->placeholderText().contains(QString::fromUtf8("🔍")));
+        QCOMPARE(window->search_input->placeholderText(), ClipboardWindow::tr_text("Search"));
+        QVERIFY(window->search_box->isAncestorOf(window->search_input));
+        QVERIFY(window->search_box->isAncestorOf(window->search_icon));
+        QVERIFY(window->search_box->isAncestorOf(window->clear_search_btn));
+        // The box, the funnel and the gear are on the bottom bar in that order.
+        QVERIFY(window->search_box->geometry().right() < window->time_filter_toggle_btn->geometry().left());
+        QVERIFY(window->time_filter_toggle_btn->geometry().right() < window->menu_btn->geometry().left());
+        // The box takes a fainter ground while empty, a plain one once it has text.
+        const QString empty_style = window->search_box->styleSheet();
+        window->search_input->setText("a");
+        QVERIFY(window->search_box->styleSheet() != empty_style);
+        QVERIFY(window->clear_search_btn->isVisible());
+
+        QCOMPARE(window->bottom_bar->height(), 46);
+        QCOMPARE(window->search_box->height(), 30);
+        QCOMPARE(window->menu_btn->size(), QSize(32, 32));
+        QCOMPARE(window->search_icon->size(), QSize(16, 16));
+        get_ui_scale().set_percent(150);
+        QCOMPARE(window->bottom_bar->height(), 69);
+        QCOMPARE(window->search_box->height(), 45);
+        QCOMPARE(window->menu_btn->size(), QSize(48, 48));
+        QCOMPARE(window->time_filter_toggle_btn->size(), QSize(48, 48));
+        QCOMPARE(window->search_icon->size(), QSize(24, 24));
+    }
+
     void geometrySurvivesReopening() {
         auto *window = open_window();
         window->resize(500, 650);
@@ -1207,6 +1644,39 @@ private slots:
         reopen();
         QCOMPARE(window->pos(), cursor + QPoint(10, 10));
         env_.config->set_clipboard_open_position("cursor");
+    }
+
+    // Opened over text being typed in a capture, the window keeps it in view: below it, or above it
+    // where there is no room below. The area holds for that one opening.
+    void theWindowKeepsTheTextBeingTypedInView() {
+        const QRect available = QGuiApplication::primaryScreen()->availableGeometry();
+        const QPoint cursor = available.topLeft() + QPoint(20, 20);
+        QCursor::setPos(cursor);
+        env_.config->set_clipboard_open_position("cursor");
+        auto *window = open_window();
+        window->resize(300, 200);
+        const auto reopen = [this](const QRect &area) {
+            window_->hide();
+            window_->set_area_to_keep_clear(area);
+            window_->show();
+            QApplication::processEvents();
+        };
+        // The text starts at the mouse and runs right, where the window would open.
+        const QRect text(cursor + QPoint(0, -5), QSize(200, 40));
+        reopen(text);
+        QVERIFY(!window->geometry().intersects(text));
+        QCOMPARE(window->pos(), QPoint(cursor.x() + 10, text.bottom() + 10));
+        // Tall text near the bottom: the window, flipped above the mouse, would still cover it.
+        const QRect tall(available.left() + 20, available.bottom() - 250, 200, 231);
+        QVERIFY2(tall.top() - 10 - window->height() >= available.top(), "screen too small for the case");
+        QCursor::setPos(QPoint(tall.left(), available.bottom() - 100));
+        reopen(tall);
+        QVERIFY(!window->geometry().intersects(tall));
+        QCOMPARE(window->y(), tall.top() - 10 - window->height());
+        // The next opening without an area is at the mouse again.
+        QCursor::setPos(cursor);
+        reopen(QRect());
+        QCOMPARE(window->pos(), cursor + QPoint(10, 10));
     }
 
     void displayLineMenuUpdatesRowsAndSurvivesReopening() {
@@ -1318,6 +1788,48 @@ private slots:
         // Enter uses the row under the cursor.
         QVERIFY(key(Qt::Key_Return));
         QTRY_COMPARE(env_.pastes.size(), 1);
+    }
+
+    void theWheelPointsAtTheRowItBringsUnderAStillMouse() {
+        QStringList texts;
+        for (int i = 0; i < 30; ++i) texts << QString("entry %1").arg(i);
+        add_texts(texts);
+        auto *window = open_window();
+        auto *list = window->list_widget;
+        auto *viewport = list->viewport();
+        auto *bar = list->verticalScrollBar();
+        auto *preview = PreviewPopup::instance();
+        QTRY_VERIFY(bar->maximum() > 0);
+        const QPoint pos = viewport->rect().center();
+        const auto wheel = [&](int delta) {
+            QWheelEvent event(QPointF(pos), QPointF(viewport->mapToGlobal(pos)), QPoint(), QPoint(0, delta), Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+            QApplication::sendEvent(viewport, &event);
+            QCoreApplication::processEvents();
+        };
+        const auto row_under_mouse = [&] { return list->itemAt(pos); };
+        const auto cursor = [&] { return window->item_delegate->cursor_id(); };
+        QMouseEvent move(QEvent::MouseMove, QPointF(pos), QPointF(viewport->mapToGlobal(pos)), Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+        QApplication::sendEvent(viewport, &move);
+        QListWidgetItem *first = row_under_mouse();
+        QCOMPARE(cursor(), std::optional<qint64>(first->data(Qt::UserRole).toLongLong()));
+        QTRY_VERIFY(preview->isVisible());
+
+        // At the top a wheel up scrolls nothing, so the cursor the keys moved stays.
+        QTest::keyClick(list, Qt::Key_Down);
+        const auto by_keys = cursor();
+        QVERIFY(by_keys != std::optional<qint64>(first->data(Qt::UserRole).toLongLong()));
+        wheel(120);
+        QCOMPARE(bar->value(), 0);
+        QCOMPARE(cursor(), by_keys);
+
+        // A wheel that scrolls: the row now under the mouse takes the cursor and the preview.
+        wheel(-120);
+        QVERIFY(bar->value() > 0);
+        QListWidgetItem *scrolled = row_under_mouse();
+        QVERIFY(scrolled && scrolled != first);
+        QCOMPARE(cursor(), std::optional<qint64>(scrolled->data(Qt::UserRole).toLongLong()));
+        QTRY_COMPARE(preview->content_widget->toPlainText(), scrolled->data(ROLE_ITEM_DATA).value<ClipboardItem>().content);
+        QVERIFY(preview->isVisible());
     }
 
     void unmarkingARowLeavesOnlyTheCursorOnIt() {

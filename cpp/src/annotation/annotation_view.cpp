@@ -4,12 +4,33 @@
 #include "annotation/screen_annotation.h"
 #include "core/ui_theme.h"
 #include "tools/controller.h"
-#include <QGraphicsRectItem>
 #include <QGraphicsTextItem>
 #include <QMouseEvent>
+#include <QPainter>
 #include <QScreen>
 
 namespace jietuba {
+// The board of one screen. Layered, so nothing shows before its first paint, which comes after the
+// session has stacked it; it never activates, so a click on it does not bring it above the pins.
+class AnnotationBoard : public QWidget {
+public:
+    AnnotationBoard(const QRect &geometry, const QColor &color)
+        : QWidget(nullptr, Qt::FramelessWindowHint | Qt::Tool | Qt::WindowStaysOnTopHint | Qt::WindowDoesNotAcceptFocus), color_(color) {
+        setAttribute(Qt::WA_TranslucentBackground);
+        setAttribute(Qt::WA_ShowWithoutActivating);
+        setGeometry(geometry);
+    }
+    QColor color() const { return color_; }
+    void set_color(const QColor &color) {
+        color_ = color;
+        update();
+    }
+protected:
+    void paintEvent(QPaintEvent *) override { QPainter(this).fillRect(rect(), color_); }
+private:
+    QColor color_;
+};
+
 AnnotationView::AnnotationView(QScreen *screen, ScreenAnnotation *owner) : GifDrawingView(screen->geometry(), false), screen_(screen), owner_(owner) {
     // The base class's transparent background is styled for its own class name, which a style sheet
     // class selector does not match in a subclass; without it the viewport fills with opaque white.
@@ -26,33 +47,32 @@ PointerLight *AnnotationView::pointer_light(bool create) {
 void AnnotationView::remove_pointer_light() { light_.reset(); }
 
 void AnnotationView::fit_screen() {
-    if (screen_) update_rect(screen_->geometry());
+    if (!screen_) return;
+    update_rect(screen_->geometry());
+    if (board_) board_->setGeometry(screen_->geometry());
 }
 
 Toolbar *AnnotationView::canvas_toolbar() const { return owner_ ? owner_->toolbar() : nullptr; }
 
 void AnnotationView::set_board(const std::optional<QColor> &color) {
     if (!color) {
-        delete board_item_;
-        board_item_ = nullptr;
+        board_.reset();
         return;
     }
-    if (!board_item_) {
-        board_item_ = new QGraphicsRectItem(scene_obj()->sceneRect());
-        board_item_->setPen(Qt::NoPen);
-        // Above the hit layer, below every drawing.
-        board_item_->setZValue(-900);
-        board_item_->setData(TRANSIENT_ITEM_DATA, true);
-        board_item_->setAcceptedMouseButtons(Qt::NoButton);
-        scene_obj()->addItem(board_item_);
+    if (board_) {
+        board_->set_color(*color);
+        return;
     }
-    board_item_->setBrush(*color);
+    board_ = std::make_unique<AnnotationBoard>(geometry(), *color);
+    board_->show();
 }
 
 std::optional<QColor> AnnotationView::board() const {
-    if (!board_item_) return std::nullopt;
-    return board_item_->brush().color();
+    if (!board_) return std::nullopt;
+    return board_->color();
 }
+
+QWidget *AnnotationView::board_window() const { return board_.get(); }
 
 void AnnotationView::mouseMoveEvent(QMouseEvent *event) {
     GifDrawingView::mouseMoveEvent(event);

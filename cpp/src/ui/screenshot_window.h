@@ -23,12 +23,13 @@ class Toolbar;
 class ToolSettingsManager;
 class ScreenshotWindow;
 
-// Capture window shortcuts; highest priority (100).
+// Capture window shortcuts.
 class ScreenshotShortcutHandler : public ShortcutHandler {
 public:
     explicit ScreenshotShortcutHandler(ScreenshotWindow *window);
-    int priority() const override { return 100; }
     QString handler_name() const override { return "ScreenshotWindow"; }
+    // The capture window and the dialogs it parents; other windows shown over the capture keep their keys.
+    bool owns_window(const QWidget *candidate) const override;
     // The manager filters before dialogs get keys, so a dialog blocking the capture
     // window (colour, save, toolbar layout) keeps the keyboard: Esc there must not end
     // the capture and Enter must not confirm it.
@@ -66,11 +67,14 @@ public:
     ~ScreenshotWindow() override;
     // Ends the capture: releases the scene and image now and deletes the window later.
     void cleanup_and_close() override;
-    // The capture is open (from construction until cleanup_and_close).
-    bool session_active() const { return session_active_; }
+    QObject *hand_over() override;
+    // The capture is open (from construction until cleanup_and_close, or until handed over).
+    bool session_active() const { return session_active_ && !handover_; }
     void update_toolbar_position() override;
     void pin_from_global_hotkey();
     bool is_text_editing() const;
+    // The text being typed, in screen coordinates; empty when none.
+    QRect active_text_screen_rect() const;
     // The capture action whose mouse binding matches this event and gesture.
     std::optional<QString> matching_capture_mouse_action(QInputEvent *event, const QString &gesture) const;
     void start_gif_record_mode();
@@ -160,6 +164,8 @@ private:
     void on_redo();
 
     bool session_active_ = false;
+    // Set by hand_over; deleted with the scene.
+    QObject *handover_ = nullptr;
     bool fullscreen_crosshair_ = false;
     InitialSelectionGate *initial_selection_gate_ = nullptr;
     std::shared_ptr<SystemCursor> capture_cursor_;

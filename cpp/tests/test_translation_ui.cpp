@@ -316,6 +316,18 @@ private slots:
         window->translate_button->click();
         QTRY_COMPARE(finished.count(), 1);
         QCOMPARE(window->target_edit->toPlainText(), QString("[en] bonjour"));
+        // The swap mark is an icon in the accent colour, not the ⇄ character.
+        QVERIFY(window->swap_button->text().isEmpty());
+        for (const auto &[theme, accent] : {std::pair("light", "#007aff"), std::pair("dark", "#3f8cff")}) {
+            window->set_theme(theme);
+            const QImage icon = window->swap_button->icon().pixmap(32, 32).toImage();
+            QColor drawn(Qt::transparent);
+            for (int y = 0; y < icon.height(); ++y)
+                for (int x = 0; x < icon.width(); ++x)
+                    if (icon.pixelColor(x, y).alpha() > drawn.alpha()) drawn = icon.pixelColor(x, y).toRgb();
+            drawn.setAlpha(255);
+            QCOMPARE(drawn, QColor(accent));
+        }
         // Swapping moves the detected source into the target and the result into the source.
         window->source_language->setCurrentIndex(window->source_language->findData("JA"));
         window->swap_button->click();

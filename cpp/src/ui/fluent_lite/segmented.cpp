@@ -88,6 +88,11 @@ void SegmentedWidget::insertItem(int index, const QString &route_key, const QStr
     order_.insert(index, route_key);
 }
 
+QString SegmentedWidget::itemText(const QString &route_key) const {
+    auto *button = items_.value(route_key);
+    return button ? button->text() : QString();
+}
+
 void SegmentedWidget::setCurrentItem(const QString &route_key) {
     if (!items_.contains(route_key)) return;
     items_[route_key]->setChecked(true);

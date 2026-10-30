@@ -4,6 +4,7 @@
 #include "settings/special_paste.h"
 #include "settings/tool_settings.h"
 #include <QSet>
+#include <algorithm>
 #include <functional>
 
 namespace jietuba::clipboard {
@@ -122,8 +123,11 @@ const QList<ItemMenuSpec> &item_menu_specs() {
         list.append(special);
         list.append(ItemMenuSpec{"start_marking", "Multi-select"});
         list.append(ItemMenuSpec{"sep_after_paste", {}, true});
-        ItemMenuSpec pin{"pin_image", "Pin as Overlay"};
-        pin.predicate = [](const ItemMenuState &state) { return state.is_image_item(); };
+        // Putting the item on the screen goes with pasting and saving it; pinning it to the top of the list goes with
+        // arranging the list.
+        ItemMenuSpec pin{"pin_image", "Pin to Screen"};
+        pin.predicate = [](const ItemMenuState &state) { return state.is_image_item() || is_text_item(state) || state.is_file_item(); };
+        pin.enabled_builder = [](const ItemMenuState &state) { return can_pin(state.clipboard_item); };
         list.append(pin);
         ItemMenuSpec save{"save_image_as", "Save as"};
         save.predicate = [](const ItemMenuState &state) { return state.is_image_item(); };
@@ -132,10 +136,6 @@ const QList<ItemMenuSpec> &item_menu_specs() {
         ItemMenuSpec save_other{"save_item_as", "Save as"};
         save_other.predicate = [](const ItemMenuState &state) { return is_text_item(state) || state.is_file_item(); };
         list.append(save_other);
-        ItemMenuSpec toggle{"toggle_pin"};
-        toggle.predicate = [](const ItemMenuState &state) { return !state.is_image_item(); };
-        toggle.label_builder = [](const ItemMenuState &state) { return QString(state.clipboard_item.is_pinned ? "Unpin" : "Pin"); };
-        list.append(toggle);
         ItemMenuSpec location{"open_file_location", "Open File Location"};
         location.predicate = [](const ItemMenuState &state) { return state.is_file_item() || state.is_path_item(); };
         list.append(location);
@@ -143,6 +143,9 @@ const QList<ItemMenuSpec> &item_menu_specs() {
         link.predicate = [](const ItemMenuState &state) { return state.is_link_item(); };
         list.append(link);
         list.append(ItemMenuSpec{"sep_before_groups", {}, true});
+        ItemMenuSpec toggle{"toggle_pin"};
+        toggle.label_builder = [](const ItemMenuState &state) { return QString(state.clipboard_item.is_pinned ? "Unpin from Top" : "Pin to Top"); };
+        list.append(toggle);
         ItemMenuSpec move{"move_group_menu", "Move to Group"};
         move.predicate = [](const ItemMenuState &state) { return !state.visible_groups.isEmpty(); };
         move.children_builder = move_group_menu_children;
@@ -182,6 +185,11 @@ const QList<GroupMenuSpec> &group_menu_specs() {
 }
 
 bool is_quick_editable(const ClipboardItem &item) { return item.content_type == "text"; }
+
+bool can_pin(const ClipboardItem &item) {
+    if (item.content_type == "file") return any_path_exists(item);
+    return item.content_type == "image" || item.content_type == "text";
+}
 
 QList<MenuAction> normalize_menu_actions(QList<MenuAction> actions) {
     QList<MenuAction> normalized;
@@ -264,6 +272,7 @@ std::optional<ContextMenuData> ClipboardContextMenuController::build_marked_cont
         actions.append(entry("Paste Selected", "paste_marked"));
         if (kinds.contains("text") || kinds.contains("file")) actions.append(entry("Paste Selected as Plain Text", "paste_marked_plain"));
     }
+    actions.append(entry("Pin to Screen", "pin_marked", std::any_of(items.begin(), items.end(), [](const ClipboardItem &item) { return can_pin(item); })));
 
     ItemMenuState state;
     state.clipboard_item = items.front();

@@ -43,6 +43,9 @@ public:
     const std::vector<OcrLayoutLine> &lines() const { return lines_; }
     // The nearest line within slack image pixels of the point.
     std::optional<int> line_at(const QPointF &point, double slack = 0) const;
+    // The line whose text lies under the point: inside its box, and not where the character there
+    // and those beside it are all whitespace.
+    std::optional<int> text_line_at(const QPointF &point) const;
     // What a drag from `from` to `to` covers, judged in each line's own frame: a line holding
     // both ends gives the run between them; a line holding one end, the run from it towards the
     // other; a line lying wholly between the ends counts in full when it overlaps the end lines
@@ -50,11 +53,20 @@ public:
     // column is not. A character counts when its centre falls inside the run.
     void select_between(const QPointF &from, const QPointF &to, double slack = 0);
     void select_line(int index);
+    // The character of a line at point along it, or the nearest one; -1 for a line without any.
+    int char_at(int line, const QPointF &point) const;
+    // The word holding a line's character, as a double click picks one in a text editor.
+    void select_word(int line, int index);
+    // The lines a paragraph wraps into; without flow, where nothing tells paragraphs apart, the line.
+    void select_paragraph(int line);
     void select_all();
     void clear_selection();
     bool has_selection() const;
     // A line's selected characters as [first, last); nullopt when none.
     std::optional<std::pair<int, int>> selection(int index) const;
+    // Lines laid out from a document: line i joins line i + 1 with breaks[i], as the text runs,
+    // rather than by where they sit. Needs one break fewer than there are lines.
+    void set_flow(std::vector<QString> breaks);
     // Selected text in reading order: pieces on one line joined with spaces, lines with newlines.
     QString selected_text() const;
     // All text in reading order: blocks on one line joined with spaces, lines with separator.
@@ -71,6 +83,7 @@ private:
     std::vector<OcrLayoutLine> lines_;
     // Per line [first, last); first == last when nothing is selected there.
     std::vector<std::pair<int, int>> selected_;
+    std::vector<QString> breaks_;
     QRectF bounds_;
 };
 }

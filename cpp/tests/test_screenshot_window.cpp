@@ -1,4 +1,7 @@
 #include "save_dialog_answerer.h"
+#include "pool_block.h"
+#include "canvas/items/mosaic_item.h"
+#include "tools/mosaic.h"
 #include "canvas/items/drawing_items.h"
 #include "canvas/items/stroke_item.h"
 #include "canvas/items/arrow_item.h"
@@ -44,6 +47,8 @@
 #include <QClipboard>
 #include <QMimeData>
 #include <QApplication>
+#include <QDialog>
+#include <QDialogButtonBox>
 #include <QCheckBox>
 #include <QContextMenuEvent>
 #include <QDir>
@@ -51,6 +56,7 @@
 #include <QEventLoop>
 #include <QFile>
 #include <QFileDialog>
+#include <QGraphicsTextItem>
 #include <QImageReader>
 #include <QLineEdit>
 #include <QMouseEvent>
@@ -85,6 +91,12 @@ void send_mouse(ScreenshotWindow *window, QEvent::Type type, Qt::MouseButton but
     auto *viewport = window->view->viewport();
     QMouseEvent event(type, QPointF(pos), QPointF(viewport->mapToGlobal(pos)), button, buttons, modifiers);
     QApplication::sendEvent(viewport, &event);
+}
+
+void click(ScreenshotWindow *window, const QPoint &pos) {
+    send_mouse(window, QEvent::MouseButtonPress, Qt::LeftButton, pos, Qt::LeftButton);
+    send_mouse(window, QEvent::MouseButtonRelease, Qt::LeftButton, pos, Qt::NoButton);
+    QApplication::processEvents();
 }
 
 void drag(ScreenshotWindow *window, const QPoint &start, const QPoint &end) {
@@ -236,8 +248,8 @@ private slots:
         QCOMPARE(window->geometry(), QRect(0, 0, W, H));
         QVERIFY(!window->toolbar->isVisible());
         QVERIFY(!window->scene->selection_model->is_confirmed());
-        // Topmost pins sink below the capture while it is open.
-        QVERIFY(PinManager::instance()->topmost_suppressed());
+        // Pins made while it is open go below it.
+        QVERIFY(PinManager::instance()->capture_open());
 
         drag(window, QPoint(50, 40), QPoint(250, 190));
         QVERIFY(window->scene->selection_model->is_confirmed());
@@ -259,7 +271,7 @@ private slots:
         QVERIFY(!window->session_active());
         QVERIFY(!window->isVisible());
         QVERIFY(!window->scene && !window->view);
-        QVERIFY(!PinManager::instance()->topmost_suppressed());
+        QVERIFY(!PinManager::instance()->capture_open());
         // A second end before the deletion is harmless.
         window->cleanup_and_close();
         QCOMPARE(ended.count(), 1);
@@ -274,6 +286,105 @@ private slots:
         QVERIFY(!again->toolbar->isVisible());
         QVERIFY(!again->scene->selection_model->is_confirmed());
         QVERIFY(!again->toolbar->current_tool);
+    }
+
+    // A text box being typed in, from a click with the text tool inside the selection.
+    QGraphicsTextItem *start_typing(ScreenshotWindow *window) {
+        window->activateWindow();
+        if (!QTest::qWaitForWindowActive(window)) return nullptr;
+        window->toolbar->select_tool("text");
+        click(window, QPoint(100, 100));
+        if (!window->is_text_editing() || QApplication::focusWidget() != window->view) return nullptr;
+        return window->view->get_active_text_item();
+    }
+
+    // Esc while typing leaves the text and keeps it; the next Esc ends the capture.
+    void escLeavesTheTextBeforeEndingTheCapture() {
+        auto *window = open_with_selection();
+        auto *text = start_typing(window);
+        QVERIFY(text);
+        QTest::keyClicks(window->view, "hi");
+        QCOMPARE(text->toPlainText(), QString("hi"));
+        const QRect on_screen = window->active_text_screen_rect();
+        QVERIFY(!on_screen.isEmpty());
+        QVERIFY(on_screen.contains(window->view->viewport()->mapToGlobal(QPoint(102, 102))));
+        QTest::keyClick(window->view, Qt::Key_Escape);
+        QVERIFY(window->session_active());
+        QVERIFY(!window->is_text_editing());
+        QVERIFY(window->active_text_screen_rect().isEmpty());
+        QCOMPARE(text->toPlainText(), QString("hi"));
+        QTest::keyClick(window->view, Qt::Key_Escape);
+        QVERIFY(!window->session_active());
+    }
+
+    // A window shown over the capture, such as the clipboard history, keeps its keys.
+    void keysOfAWindowOverTheCaptureStayThere() {
+        auto *window = open_with_selection();
+        QWidget picker;
+        picker.resize(100, 100);
+        picker.show();
+        QTest::keyClick(&picker, Qt::Key_Escape);
+        QVERIFY(window->session_active());
+        QTest::keyClick(window, Qt::Key_Escape);
+        QVERIFY(!window->session_active());
+    }
+
+    // Another window taking the focus while typing, as when picking from the clipboard history, does
+    // not end the text: the new empty box stays, and typing goes on once the capture is active again.
+    void typingSurvivesAnotherWindowTakingTheFocus() {
+        auto *window = open_with_selection();
+        QPointer<QGraphicsTextItem> text = start_typing(window);
+        QVERIFY(text);
+        QWidget picker;
+        picker.resize(100, 100);
+        picker.show();
+        picker.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&picker));
+        QVERIFY(!window->is_text_editing());
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QVERIFY(text && text->scene());
+        window->activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(window));
+        QTRY_VERIFY(window->is_text_editing());
+        QCOMPARE(window->view->get_active_text_item(), text.data());
+        QTest::keyClicks(window->view, "ok");
+        QCOMPARE(text->toPlainText(), QString("ok"));
+    }
+
+    // The retry of the first activation, due 50 ms after showing, takes neither the focus from the
+    // text nor the activation from a window of ours opened over the capture.
+    void theLateActivationRetryLeavesTypingAndOtherWindowsAlone() {
+        auto *window = open_with_selection();
+        QPointer<QGraphicsTextItem> text = start_typing(window);
+        QVERIFY(text);
+        QTest::qWait(100);
+        QVERIFY(window->is_text_editing());
+        QCOMPARE(QApplication::focusWidget(), static_cast<QWidget *>(window->view));
+        window = open_with_selection();
+        QWidget picker;
+        picker.resize(100, 100);
+        picker.show();
+        picker.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&picker));
+        QTest::qWait(100);
+        QVERIFY(picker.isActiveWindow());
+    }
+
+    // Pasted text takes the box's own font and colour, not the formatting it was copied with.
+    void pastedTextTakesTheFormattingOfTheBox() {
+        auto *window = open_with_selection();
+        auto *text = start_typing(window);
+        QVERIFY(text);
+        // The offscreen platform's clipboard is in-process, so this leaves the system clipboard alone.
+        auto *mime = new QMimeData;
+        mime->setHtml("<span style=\"color:#ff0000; font-size:40pt\">pasted</span>");
+        mime->setText("pasted");
+        QGuiApplication::clipboard()->setMimeData(mime);
+        QTest::keyClick(window->view, Qt::Key_V, Qt::ControlModifier);
+        QCOMPARE(text->toPlainText(), QString("pasted"));
+        QVERIFY(!text->toHtml().contains("ff0000"));
+        QVERIFY(!text->toHtml().contains("40pt"));
+        QGuiApplication::clipboard()->clear();
     }
 
     void theCancelButtonAndWindowCloseEndTheSession() {
@@ -355,6 +466,29 @@ private slots:
         send_mouse(window, QEvent::MouseButtonDblClick, Qt::LeftButton, QPoint(120, 100), Qt::LeftButton);
         QCOMPARE(ended.count(), 1);
         QCOMPARE(saved_files().size(), 1);
+    }
+
+    void aDoubleClickOnANumbersLabelSelectsItsText() {
+        config_->set_app_setting("mouse_capture_copy", "");
+        config_->set_app_setting("mouse_capture_quick_save", "doubleleft");
+        auto *window = open_with_selection();
+        window->toolbar->number_btn->click();
+        click(window, Qt::LeftButton, QPoint(120, 100));
+        NumberItem *number = nullptr;
+        for (auto *item : window->scene->items())
+            if ((number = dynamic_cast<NumberItem *>(item))) break;
+        QVERIFY(number);
+        window->view->smart_edit_controller->select_item(number);
+        number->set_label("note");
+        QSignalSpy ended(window, &ScreenshotWindow::session_ended);
+        const QPoint at = window->view->mapFromScene(number->label()->sceneBoundingRect().center());
+        send_mouse(window, QEvent::MouseButtonPress, Qt::LeftButton, at, Qt::LeftButton);
+        send_mouse(window, QEvent::MouseButtonRelease, Qt::LeftButton, at, Qt::NoButton);
+        send_mouse(window, QEvent::MouseButtonDblClick, Qt::LeftButton, at, Qt::LeftButton);
+        send_mouse(window, QEvent::MouseButtonRelease, Qt::LeftButton, at, Qt::NoButton);
+        QCOMPARE(ended.count(), 0);
+        QVERIFY(number->label()->is_editing());
+        QCOMPARE(number->label()->textCursor().selectedText(), QString("note"));
     }
 
     void withoutADoubleClickBindingTheViewDoesNotWaitForOne() {
@@ -605,6 +739,36 @@ private slots:
         QCOMPARE(get_last_region(), std::optional<QRect>(QRect(50, 40, 200, 150)));
     }
 
+    // A number outside the selection whose label is inside comes along to the pin, once, label and guide line included.
+    void pinningCarriesANumbersLabelOnce() {
+        auto *window = open_with_selection();
+        auto *number = new NumberItem(1, QPointF(100, 240), 20.0, Qt::red);
+        window->scene->addItem(number);
+        window->scene->undo_stack->push(new AddItemCommand(window->scene, ItemReference(number)));
+        number->apply_extras_state({{"label_guide", true}});
+        number->set_label("note", QPointF(0, -100));
+        QVERIFY(!number->sceneBoundingRect().intersects(QRectF(50, 40, 200, 150)));
+        QVERIFY(number->label()->sceneBoundingRect().intersects(QRectF(50, 40, 200, 150)));
+        clear_clipboard();
+        window->toolbar->pin_btn->click();
+        const auto pins = PinManager::instance()->get_all_pins();
+        QCOMPARE(pins.size(), 1);
+        NumberItem *copied = nullptr;
+        int numbers = 0, loose_texts = 0;
+        for (auto *item : pins.first()->canvas->scene->items()) {
+            if (auto *candidate = dynamic_cast<NumberItem *>(item)) {
+                copied = candidate;
+                ++numbers;
+            }
+            if (dynamic_cast<QGraphicsTextItem *>(item) && !item->parentItem()) ++loose_texts;
+        }
+        QCOMPARE(numbers, 1);
+        QCOMPARE(loose_texts, 0);
+        QCOMPARE(copied->label_text(), QString("note"));
+        QVERIFY(copied->label_guide() && copied->guide() && copied->guide()->isVisible());
+        QVERIFY(wait_for_clipboard_writes(10.0));
+    }
+
     void thePinShortcutPinsOnlyAConfirmedSelection() {
         auto *window = open();
         window->pin_from_global_hotkey();
@@ -614,6 +778,34 @@ private slots:
         window->pin_from_global_hotkey();
         QCOMPARE(PinManager::instance()->count(), 1);
         QVERIFY(!window->session_active());
+        QVERIFY(wait_for_clipboard_writes(10.0));
+    }
+
+    void aSmallSelectionAsksBeforePinning() {
+        auto *window = open();
+        drag(window, QPoint(50, 40), QPoint(250, 60));
+        bool asked = false;
+        QTimer::singleShot(0, this, [&asked] {
+            if (auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget())) {
+                asked = true;
+                dialog->reject();
+            }
+        });
+        // Declined, the capture stays open with its selection.
+        window->toolbar->pin_btn->click();
+        QVERIFY(asked);
+        QCOMPARE(PinManager::instance()->count(), 0);
+        QVERIFY(window->session_active());
+        QTimer::singleShot(0, this, [] {
+            auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            auto *box = dialog ? dialog->findChild<QDialogButtonBox *>() : nullptr;
+            if (!box) return;
+            for (auto *button : box->buttons())
+                if (box->buttonRole(button) == QDialogButtonBox::YesRole) button->click();
+        });
+        window->toolbar->pin_btn->click();
+        QCOMPARE(PinManager::instance()->count(), 1);
+        QCOMPARE(PinManager::instance()->get_all_pins().first()->orig_size(), QSize(200, 20));
         QVERIFY(wait_for_clipboard_writes(10.0));
     }
 
@@ -865,6 +1057,41 @@ private slots:
         QVERIFY(!window->session_active());
     }
 
+    // A smart erase still rebuilding: the capture is gone and the session over at once, and the file
+    // carries the rebuilt pixels once they are in.
+    void quickSaveHandsOverWhileSmartEraseRebuilds() {
+        QImage image = capture_image();
+        {
+            QPainter painter(&image);
+            painter.fillRect(QRect(120, 90, 40, 30), Qt::red);
+        }
+        if (window_) window_->cleanup_and_close();
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        window_ = new ScreenshotWindow(config_, image, QRectF(0, 0, W, H));
+        QApplication::processEvents();
+        auto *window = window_.data();
+        drag(window, QPoint(50, 40), QPoint(250, 190));
+        config_->update_settings("mosaic", {{"draw_mode", MosaicTool::MODE_RECT}, {"style", MosaicTool::STYLE_SMART_ERASE}});
+        window->toolbar->select_tool("mosaic");
+        QSignalSpy ended(window, &ScreenshotWindow::session_ended);
+        {
+            PoolBlock block;
+            drag(window, QPoint(110, 80), QPoint(170, 130));
+            QVERIFY(window->action_handler->handle_capture_action("quick_save"));
+            QCOMPARE(ended.count(), 1);
+            QVERIFY(!window->session_active());
+            QVERIFY(!window->isVisible());
+            QTest::qWait(100);
+            QVERIFY(saved_files().isEmpty());
+        }
+        QTRY_COMPARE(saved_files().size(), 1);
+        QCOMPARE(ended.count(), 1);
+        const QImage saved(QDir(dir_.filePath("captures")).filePath(saved_files().first()));
+        QCOMPARE(saved.size(), QSize(200, 150));
+        // The red square, at (70, 50) in the selection, is rebuilt from the blue around it.
+        QCOMPARE(saved.pixelColor(90, 65), QColor(Qt::blue));
+    }
+
     // Recognition, code scanning and screenshot translation close the capture and open their windows.
     void recognitionScanningAndTranslationHandOffTheSelection() {
         auto *window = open_with_selection();
@@ -1050,6 +1277,55 @@ private slots:
         // The mosaic shows its mode and strength in the panel.
         ctrl_click(QPoint(155, 155));
         QCOMPARE(window->toolbar->current_tool, std::optional<QString>("mosaic"));
+    }
+
+    // The number panel unfolds its label and pointer part for a number with either, and its controls
+    // restyle that number in undoable steps and become the next number's style.
+    void numberPanelUnfoldsForLabelsAndRestylesThem() {
+        auto *window = open_with_selection();
+        window->toolbar->number_btn->click();
+        click(window, Qt::LeftButton, QPoint(120, 100));
+        NumberItem *number = nullptr;
+        for (auto *item : window->scene->items())
+            if ((number = dynamic_cast<NumberItem *>(item))) break;
+        QVERIFY(number);
+        auto *controller = window->view->smart_edit_controller.get();
+        controller->select_item(number);
+        auto *panel = window->toolbar->number_panel;
+        QVERIFY(panel && !panel->label_section_visible());
+        const int narrow = panel->sizeHint().width();
+        number->begin_label_edit();
+        QApplication::processEvents();
+        QVERIFY(panel->label_section_visible());
+        QVERIFY(panel->width() > narrow);
+        auto *stack = window->scene->undo_stack;
+        const int before = stack->count();
+        panel->label_outline_btn->click();
+        QVERIFY(number->label_outline());
+        QCOMPARE(stack->count(), before + 1);
+        panel->label_size_combo->setCurrentIndex(4);
+        QCOMPARE(number->label_size_level(), 4);
+        panel->label_arrow_combo->setCurrentIndex(panel->label_arrow_combo->findData("line"));
+        QCOMPARE(number->arrow_style(), QString("line"));
+        // Undo restores the number and the panel shows it.
+        stack->undo();
+        QCOMPARE(number->arrow_style(), QString("single"));
+        QCOMPARE(panel->label_arrow_combo->currentData().toString(), QString("single"));
+        // An empty label ended folds the part away.
+        number->label()->clearFocus();
+        QApplication::processEvents();
+        QVERIFY(!panel->label_section_visible());
+        // The choices are the next number's style.
+        QVERIFY(config_->get_setting("number", "label_outline").toBool());
+        click(window, Qt::LeftButton, QPoint(200, 160));
+        click(window, Qt::LeftButton, QPoint(200, 160));
+        NumberItem *next = nullptr;
+        for (auto *item : window->scene->items())
+            if (auto *candidate = dynamic_cast<NumberItem *>(item); candidate && candidate != number) next = candidate;
+        QVERIFY(next);
+        QVERIFY(next->label_outline());
+        QCOMPARE(next->label_size_level(), 4);
+        QCOMPARE(next->arrow_style(), QString("line"));
     }
 
     // ---- Keyboard actions of the capture window ----

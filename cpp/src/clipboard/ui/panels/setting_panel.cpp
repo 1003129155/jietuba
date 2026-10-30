@@ -2,6 +2,7 @@
 #include "clipboard/ui/theme/themes.h"
 #include "core/ui_scale.h"
 #include "ui/fluent_lite/inputs.h"
+#include "ui/fluent_lite/theme.h"
 #include "ui/submenu_position.h"
 #include <QHBoxLayout>
 #include <QCoreApplication>
@@ -110,7 +111,7 @@ QMenu *show_setting_menu(QWidget *parent, const SettingMenuOptions &o) {
     toggle_action("Auto Paste After Selection", o.auto_paste, o.on_toggle_auto_paste);
     toggle_action("Close After Paste", o.close_after_paste, o.on_toggle_close_after_paste);
     toggle_action("Move to Top After Paste", o.move_to_top, o.on_toggle_move_to_top);
-    toggle_action("Show Time and Source", o.show_metadata, o.on_toggle_show_metadata);
+    toggle_action("Show Time", o.show_metadata, o.on_toggle_show_metadata);
     toggle_action("Preserve Search on Reopen", o.preserve_search, o.on_toggle_preserve_search);
 
     if (o.on_set_multi_paste_separator) add_multi_paste_menu(menu, o);
@@ -178,8 +179,10 @@ QMenu *show_setting_menu(QWidget *parent, const SettingMenuOptions &o) {
     auto update_theme_btns = [theme_buttons](const QString &selected) {
         for (const auto &[name, btn, accent, bg] : *theme_buttons) {
             const bool is_sel = name == selected;
-            btn->setText(is_sel ? QString::fromUtf8("✓") : QString());
             const QString text_color = name == "dark" ? "#FFFFFF" : "#333333";
+            // An SVG check: the ✓ character is not in the UI fonts, and the fallback differs between Windows versions.
+            btn->setIcon(is_sel ? tinted_icon(FluentIcon::Check, text_color) : QIcon());
+            btn->setIconSize(QSize(scaled(14), scaled(14)));
             const int bw = is_sel ? scaled(2) : 1;
             const QString bc = is_sel ? accent : "#CCCCCC";
             btn->setStyleSheet(QString(R"(
@@ -226,7 +229,7 @@ QMenu *show_setting_menu(QWidget *parent, const SettingMenuOptions &o) {
     if (o.on_set_group_bar_position) {
         QMenu *bar_pos_menu = menu->addMenu(tr("Group Bar Position"));
         bar_pos_menu->setStyleSheet(o.menu_style);
-        for (const auto &[key, label] : {std::make_pair(QString("right"), tr("▶ Right")), std::make_pair(QString("left"), tr("◀ Left")), std::make_pair(QString("top"), tr("▲ Top"))}) {
+        for (const auto &[key, label] : {std::make_pair(QString("right"), tr("Right")), std::make_pair(QString("left"), tr("Left")), std::make_pair(QString("top"), tr("Top"))}) {
             QAction *act = bar_pos_menu->addAction(label);
             act->setCheckable(true);
             act->setChecked(o.current_group_bar_position == key);

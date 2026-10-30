@@ -22,6 +22,7 @@
 #include <QGraphicsScene>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QStyleOptionGraphicsItem>
 #include <QPointer>
 #include <QScopeGuard>
 #include <QSettings>
@@ -877,6 +878,483 @@ private slots:
         QVERIFY(!number->scene());
         scene->undo_stack->undo();
         QCOMPARE(number->scene(), scene);
+    }
+
+    void numberButtonsSpreadOutAroundATinyNumber() {
+        NumberItem tiny(1, QPointF(100, 100), 4.0, RED);
+        LayerEditor editor;
+        // Zoomed out to half, the circle is 4 screen pixels across.
+        editor.screen_transform = [] { return QTransform::fromScale(.5, .5); };
+        QVERIFY(editor.start_edit(&tiny));
+        // The buttons hang on a frame about the centre: 14 + 6 screen pixels (40 units) wide, and tall
+        // enough for + and - stacked above the pointer button, two steps of 18 (72 units).
+        QCOMPARE(handle_of(editor, HandleType::NUMBER_INCREMENT)->position, QPointF(80, 64));
+        QCOMPARE(handle_of(editor, HandleType::NUMBER_DECREMENT)->position, QPointF(80, 64));
+        QCOMPARE(handle_of(editor, HandleType::NUMBER_DECREMENT)->offset, QPointF(0, 18));
+        QCOMPARE(handle_of(editor, HandleType::NUMBER_DELETE)->position, QPointF(120, 64));
+        QCOMPARE(handle_of(editor, HandleType::NUMBER_ARROW)->position, QPointF(80, 136));
+        QCOMPARE(handle_of(editor, HandleType::NUMBER_LABEL)->position, QPointF(120, 136));
+        for (size_t i = 0; i < editor.handles.size(); ++i)
+            for (size_t j = i + 1; j < editor.handles.size(); ++j)
+                QVERIFY(!editor.screen_rect(editor.handles[i]).intersects(editor.screen_rect(editor.handles[j])));
+        // A number large enough keeps them on its own corners.
+        NumberItem large(1, QPointF(100, 100), 30.0, RED);
+        editor.screen_transform = {};
+        QVERIFY(editor.start_edit(&large));
+        QCOMPARE(handle_of(editor, HandleType::NUMBER_INCREMENT)->position, QPointF(70, 70));
+        QCOMPARE(handle_of(editor, HandleType::NUMBER_DELETE)->position, QPointF(130, 70));
+    }
+
+    void textButtonsKeepApartOnTinyText() {
+        std::unique_ptr<TextItem> item(new_text("1", QPointF(0, 0), 6));
+        LayerEditor editor;
+        editor.screen_transform = [] { return QTransform::fromScale(.25, .25); };
+        QVERIFY(editor.start_edit(item.get()));
+        for (size_t i = 0; i < editor.handles.size(); ++i)
+            for (size_t j = i + 1; j < editor.handles.size(); ++j)
+                QVERIFY(!editor.screen_rect(editor.handles[i]).intersects(editor.screen_rect(editor.handles[j])));
+        const auto rotate = *handle_of(editor, HandleType::ROTATE);
+        const auto remove = *handle_of(editor, HandleType::ITEM_DELETE);
+        QCOMPARE(editor.screen_center(remove).x() - editor.screen_center(rotate).x(), 20.);
+        // Inside the delete button but also within the rotate button's padding: the button itself wins.
+        const auto screen_point = editor.screen_center(remove) - QPointF(6, 0);
+        QVERIFY(rotate.hit_rect_at(editor.screen_center(rotate)).contains(screen_point));
+        QCOMPARE(editor.hit_test(screen_point * 4)->handle_type, HandleType::ITEM_DELETE);
+    }
+
+    void numberPointerIsATailNearTheCircleAndAnArrowFurtherOut() {
+        NumberItem number(1, QPointF(0, 0), 20.0, RED);
+        QVERIFY(number.pointer_path().isEmpty());
+        number.set_arrow_tip(QPointF(15, 0));
+        QVERIFY(number.pointer_path().isEmpty());
+        // Within two radii: a tail from the circle 30 degrees either side to the tip.
+        number.set_arrow_tip(QPointF(36, 0));
+        const auto tail = number.pointer_path();
+        QCOMPARE(tail.boundingRect().right(), 36.);
+        QCOMPARE(tail.boundingRect().top(), -10.);
+        QVERIFY(tail.contains(QPointF(30, 0)));
+        // Further out: the arrow tool's arrow in the chosen style, 0.2 radii wide, from under the circle.
+        number.set_arrow_tip(QPointF(100, 0));
+        const auto arrow = number.pointer_path();
+        QVERIFY(arrow.contains(QPointF(60, 0)));
+        QVERIFY(arrow.contains(QPointF(98, 0)));
+        QVERIFY(!arrow.contains(QPointF(101, 0)));
+        QCOMPARE(arrow, ArrowItem(QPointF(14, 0), QPointF(100, 0), QPen(RED, 4), "single").path());
+        QCOMPARE(number.boundingRect().right(), 100 + NumberItem::CLICK_MARGIN);
+        QVERIFY(number.shape().contains(QPointF(60, 0)));
+        number.apply_extras_state({{"arrow_style", "line"}});
+        QCOMPARE(number.arrow_style(), QString("line"));
+        QCOMPARE(number.pointer_path(), ArrowItem(QPointF(14, 0), QPointF(100, 0), QPen(RED, 4), "line").path());
+        // Double-headed and unknown styles are not taken.
+        number.apply_extras_state({{"arrow_style", "double"}});
+        QCOMPARE(number.arrow_style(), QString("line"));
+    }
+
+    void numberLabelSizeOutlineAndGuide() {
+        NumberItem number(1, QPointF(0, 0), 20.0, RED);
+        number.set_label("ab", QPointF(26, 0));
+        auto *label = number.label();
+        // Five sizes in shares of the radius, the middle by default.
+        QCOMPARE(label->font().pixelSize(), 18);
+        number.apply_extras_state({{"label_size", 4}});
+        QCOMPARE(label->font().pixelSize(), 29);
+        number.apply_extras_state({{"label_size", 0}});
+        QCOMPARE(label->font().pixelSize(), 10);
+        // White around dark text, black around light text.
+        QCOMPARE(number.label_outline_color(), QColor(Qt::white));
+        number.color = QColor("#FFEE00");
+        QCOMPARE(number.label_outline_color(), QColor(Qt::black));
+        // The guide line: off by default; on, it leaves the circle towards the text's bottom-left
+        // corner and runs under the text.
+        QVERIFY(!number.guide() || !number.guide()->isVisible());
+        number.apply_extras_state({{"label_guide", true}});
+        QVERIFY(number.guide() && number.guide()->isVisible());
+        const qreal margin = label->document()->documentMargin();
+        const auto text = label->mapRectToParent(label->boundingRect().adjusted(margin, margin, -margin, -margin));
+        const auto path = number.guide()->path();
+        QCOMPARE(path.elementCount(), 3);
+        QCOMPARE(QPointF(path.elementAt(1)), text.bottomLeft());
+        QCOMPARE(QPointF(path.elementAt(2)), text.bottomRight());
+        QCOMPARE(QLineF(QPointF(), QPointF(path.elementAt(0))).length(), 20.);
+        // Over the circle it drops straight from the top of the circle to the text's bottom edge.
+        label->set_anchor(QPointF(-30, -60));
+        label->setPlainText("a wide label");
+        const auto above = number.guide()->path();
+        QCOMPARE(QPointF(above.elementAt(0)), QPointF(0, -20));
+        QCOMPARE(above.elementAt(1).x, 0.);
+        // Gone with the text.
+        number.set_label(QString());
+        QVERIFY(!number.guide()->isVisible());
+        // The style rides in the undo state.
+        const auto state = number.extras_state();
+        NumberItem copy(1, QPointF(0, 0), 20.0, RED);
+        copy.apply_extras_state(state);
+        QCOMPARE(copy.label_size_level(), 0);
+        QVERIFY(copy.label_guide());
+    }
+
+    void numberPointerTogglesDragsAndRemembersItsTip() {
+        auto [scene, view] = canvas("number");
+        auto *number = new NumberItem(1, QPointF(200, 200), 20.0, RED);
+        scene->addItem(number);
+        scene->undo_stack->push(new AddItemCommand(scene, ItemReference(number)));
+        view->smart_edit_controller->select_item(number);
+        auto *editor = view->smart_edit_controller->layer_editor.get();
+        QCOMPARE(handle_of(*editor, HandleType::NUMBER_ARROW)->position, QPointF(180, 220));
+        QCOMPARE(handle_of(*editor, HandleType::NUMBER_LABEL)->position, QPointF(220, 220));
+        QVERIFY(!handle_of(*editor, HandleType::NUMBER_ARROW_TIP));
+        const auto click = [&](HandleType type) {
+            const auto point = handle_point(view, *handle_of(*editor, type));
+            send(view, QEvent::MouseButtonPress, point);
+            send(view, QEvent::MouseButtonRelease, point, Qt::NoButton);
+        };
+        // Turned on for the first time, it points three radii to the right.
+        click(HandleType::NUMBER_ARROW);
+        QCOMPARE(number->arrow_tip(), std::optional<QPointF>(QPointF(60, 0)));
+        QCOMPARE(handle_of(*editor, HandleType::NUMBER_ARROW_TIP)->position, QPointF(260, 200));
+        const int before_drag = scene->undo_stack->count();
+        gesture(view, QPointF(260, 200), QPointF(200, 300));
+        QCOMPARE(number->arrow_tip(), std::optional<QPointF>(QPointF(0, 100)));
+        QCOMPARE(number->pos(), QPointF(200, 200));
+        QCOMPARE(scene->undo_stack->count(), before_drag + 1);
+        // Off and on again, it comes back where it was.
+        click(HandleType::NUMBER_ARROW);
+        QVERIFY(!number->arrow_tip());
+        QVERIFY(!handle_of(*editor, HandleType::NUMBER_ARROW_TIP));
+        click(HandleType::NUMBER_ARROW);
+        QCOMPARE(number->arrow_tip(), std::optional<QPointF>(QPointF(0, 100)));
+        scene->undo_stack->undo();
+        QVERIFY(!number->arrow_tip());
+        scene->undo_stack->undo();
+        QCOMPARE(number->arrow_tip(), std::optional<QPointF>(QPointF(0, 100)));
+        scene->undo_stack->undo();
+        QCOMPARE(number->arrow_tip(), std::optional<QPointF>(QPointF(60, 0)));
+        // Dragged back into the circle, the pointer goes.
+        gesture(view, QPointF(260, 200), QPointF(205, 200));
+        QVERIFY(!number->arrow_tip());
+        scene->undo_stack->undo();
+        QCOMPARE(number->arrow_tip(), std::optional<QPointF>(QPointF(60, 0)));
+        // A short tail ending under the X button: its tip is still the one grabbed there.
+        number->set_arrow_tip(QPointF(20, -20));
+        editor->refresh_handles();
+        QCOMPARE(editor->hit_test(QPointF(220, 180))->handle_type, HandleType::NUMBER_ARROW_TIP);
+        QCOMPARE(editor->hit_test(QPointF(226, 186))->handle_type, HandleType::NUMBER_DELETE);
+    }
+
+    void numberLabelIsTypedBesideItAndMovesWithIt() {
+        auto [scene, view] = canvas("number");
+        auto *number = new NumberItem(1, QPointF(200, 200), 20.0, RED);
+        scene->addItem(number);
+        scene->undo_stack->push(new AddItemCommand(scene, ItemReference(number)));
+        view->smart_edit_controller->select_item(number);
+        auto *editor = view->smart_edit_controller->layer_editor.get();
+        const auto button = handle_point(view, *handle_of(*editor, HandleType::NUMBER_LABEL));
+        send(view, QEvent::MouseButtonPress, button);
+        send(view, QEvent::MouseButtonRelease, button, Qt::NoButton);
+        auto *label = number->label();
+        QVERIFY(label && label->is_editing());
+        QCOMPARE(view->get_active_text_item(), label);
+        // Just right of the circle, 0.3 radii away, centred on it.
+        QCOMPARE(label->anchor(), QPointF(26, 0));
+        for (const QChar ch : QString("note")) {
+            QKeyEvent typed(QEvent::KeyPress, Qt::Key_A, Qt::NoModifier, QString(ch));
+            QApplication::sendEvent(view->viewport(), &typed);
+        }
+        QCOMPARE(label->toPlainText(), QString("note"));
+        QCOMPARE(label->pos().y(), -label->boundingRect().height() / 2);
+        // A click elsewhere ends typing in one undo step; the number stays selected.
+        const int typed_at = scene->undo_stack->count();
+        send(view, QEvent::MouseButtonPress, QPointF(60, 60));
+        send(view, QEvent::MouseButtonRelease, QPointF(60, 60), Qt::NoButton);
+        QVERIFY(!label->is_editing());
+        QCOMPARE(scene->undo_stack->count(), typed_at + 1);
+        QCOMPARE(view->smart_edit_controller->selected_item(), number);
+        // Moving the number takes the label along.
+        const auto label_at = label->scenePos();
+        gesture(view, QPointF(200, 200), QPointF(230, 200));
+        QCOMPARE(number->pos(), QPointF(230, 200));
+        QCOMPARE(label->scenePos(), label_at + QPointF(30, 0));
+        // Dragging the label moves it alone.
+        const auto grab = label->sceneBoundingRect().center().toPoint();
+        gesture(view, grab, grab + QPoint(0, 40));
+        QCOMPARE(number->pos(), QPointF(230, 200));
+        QCOMPARE(label->anchor(), QPointF(26, 40));
+        QVERIFY(!label->is_editing());
+        scene->undo_stack->undo();
+        QCOMPARE(label->anchor(), QPointF(26, 0));
+        scene->undo_stack->undo();
+        QCOMPARE(number->pos(), QPointF(200, 200));
+        scene->undo_stack->undo();
+        QVERIFY(!label->isVisible());
+        QCOMPARE(number->label_text(), QString());
+        scene->undo_stack->redo();
+        QCOMPARE(number->label_text(), QString("note"));
+        // A click on the label without a drag types in it again.
+        const auto again = label->sceneBoundingRect().center().toPoint();
+        send(view, QEvent::MouseButtonPress, again);
+        send(view, QEvent::MouseButtonRelease, again, Qt::NoButton);
+        QVERIFY(label->is_editing());
+    }
+
+    void wheelWhileTypingTheLabelScalesNumberAndLabelTogether() {
+        auto [scene, view] = canvas("number");
+        auto *number = new NumberItem(1, QPointF(200, 200), 20.0, RED);
+        scene->addItem(number);
+        scene->undo_stack->push(new AddItemCommand(scene, ItemReference(number)));
+        view->smart_edit_controller->select_item(number);
+        auto *label = number->begin_label_edit();
+        QCOMPARE(view->get_active_text_item(), label);
+        // The wheel steps the tool width by one and scales the selection by the same ratio.
+        const double width = scene->tool_controller->ctx.stroke_width;
+        wheel(view, 120);
+        const double factor = (width + 1) / width;
+        QCOMPARE(number->radius, 20 * factor);
+        QCOMPARE(label->font().pixelSize(), qRound(number->radius * NumberItem::LABEL_SIZE_LEVELS[NumberItem::DEFAULT_LABEL_SIZE_LEVEL]));
+        QCOMPARE(label->anchor(), QPointF(26, 0) * factor);
+        QVERIFY(label->is_editing());
+    }
+
+    void deletingANumberWhileTypingInItsLabelKeepsTheText() {
+        auto [scene, view] = canvas("number");
+        auto *number = new NumberItem(1, QPointF(200, 200), 20.0, RED);
+        scene->addItem(number);
+        scene->undo_stack->push(new AddItemCommand(scene, ItemReference(number)));
+        view->smart_edit_controller->select_item(number);
+        auto *editor = view->smart_edit_controller->layer_editor.get();
+        number->begin_label_edit();
+        QKeyEvent typed(QEvent::KeyPress, Qt::Key_X, Qt::NoModifier, "x");
+        QApplication::sendEvent(view->viewport(), &typed);
+        const auto remove = handle_point(view, *handle_of(*editor, HandleType::NUMBER_DELETE));
+        send(view, QEvent::MouseButtonPress, remove);
+        send(view, QEvent::MouseButtonRelease, remove, Qt::NoButton);
+        QVERIFY(!number->scene());
+        scene->undo_stack->undo();
+        QCOMPARE(number->scene(), scene);
+        QCOMPARE(number->label_text(), QString("x"));
+        scene->undo_stack->undo();
+        QCOMPARE(number->label_text(), QString());
+    }
+
+    void labelAndPointerStartInTheirOwnPlacesWhereverTheOtherIs() {
+        // The label sits level with the circle on its right, the pointer goes right; overlapping is fine.
+        NumberItem labelled(1, QPointF(0, 0), 20.0, RED);
+        labelled.set_label("a");
+        labelled.toggle_arrow();
+        QCOMPARE(labelled.arrow_tip(), std::optional<QPointF>(QPointF(60, 0)));
+        QCOMPARE(labelled.label()->anchor(), QPointF(26, 0));
+        NumberItem pointed(1, QPointF(0, 0), 20.0, RED);
+        pointed.set_arrow_tip(QPointF(50, -50));
+        pointed.set_label("b");
+        QCOMPARE(pointed.label()->anchor(), QPointF(26, 0));
+    }
+
+    // A real mouse reports a drag a pixel or two at a time: undo still goes back to where it began.
+    void slowDragsOfANumberAndItsLabelUndoToWhereTheyBegan() {
+        auto [scene, view] = canvas("number");
+        auto *number = new NumberItem(1, QPointF(200, 200), 20.0, RED);
+        scene->addItem(number);
+        scene->undo_stack->push(new AddItemCommand(scene, ItemReference(number)));
+        view->smart_edit_controller->select_item(number);
+        gesture(view, QPointF(200, 200), QPointF(215, 200), 15);
+        QCOMPARE(number->pos(), QPointF(215, 200));
+        scene->undo_stack->undo();
+        QCOMPARE(number->pos(), QPointF(200, 200));
+        number->set_label("note");
+        auto *label = number->label();
+        const auto grab = label->sceneBoundingRect().center();
+        gesture(view, grab, grab + QPointF(0, 15), 15);
+        QCOMPARE(label->anchor(), QPointF(26, 15));
+        scene->undo_stack->undo();
+        QCOMPARE(label->anchor(), QPointF(26, 0));
+    }
+
+    void theLabelFollowsTheMouseFromItsFirstPixel() {
+        auto [scene, view] = canvas("number");
+        auto *number = new NumberItem(1, QPointF(200, 200), 20.0, RED);
+        scene->addItem(number);
+        view->smart_edit_controller->select_item(number);
+        number->set_label("note");
+        auto *label = number->label();
+        const auto grab = label->sceneBoundingRect().center();
+        send(view, QEvent::MouseButtonPress, grab);
+        send(view, QEvent::MouseMove, grab + QPointF(0, 2));
+        QCOMPARE(label->anchor(), QPointF(26, 2));
+        // Let go that close, it was a click: the label goes back and typing starts.
+        send(view, QEvent::MouseButtonRelease, grab + QPointF(0, 2), Qt::NoButton);
+        QCOMPARE(label->anchor(), QPointF(26, 0));
+        QVERIFY(label->is_editing());
+    }
+
+    void theGuideLineIsDrawnSmooth() {
+        NumberItem number(1, QPointF(0, 0), 20.0, RED);
+        number.apply_extras_state({{"label_guide", true}});
+        number.set_label("note", QPointF(40, 40));
+        auto *guide = number.guide();
+        QVERIFY(guide && guide->isVisible());
+        const auto bounds = guide->boundingRect();
+        QImage image(bounds.size().toSize() + QSize(4, 4), QImage::Format_ARGB32_Premultiplied);
+        image.fill(Qt::transparent);
+        {
+            QPainter painter(&image);
+            painter.translate(QPointF(2, 2) - bounds.topLeft());
+            QStyleOptionGraphicsItem option;
+            guide->paint(&painter, &option, nullptr);
+        }
+        // The slanted part from the circle shows blended edge pixels, not stairs.
+        int blended = 0;
+        for (int y = 0; y < image.height(); ++y)
+            for (int x = 0; x < image.width(); ++x) {
+                const int alpha = qAlpha(image.pixel(x, y));
+                blended += alpha > 0 && alpha < 255;
+            }
+        QVERIFY2(blended > 10, qPrintable(QString::number(blended)));
+    }
+
+    void whileTypingTheLabelTheMouseMovesItAndNeverMovesTheCaret() {
+        auto [scene, view] = canvas("number");
+        auto *number = new NumberItem(1, QPointF(200, 200), 20.0, RED);
+        scene->addItem(number);
+        scene->undo_stack->push(new AddItemCommand(scene, ItemReference(number)));
+        view->smart_edit_controller->select_item(number);
+        auto *editor = view->smart_edit_controller->layer_editor.get();
+        const auto button = handle_point(view, *handle_of(*editor, HandleType::NUMBER_LABEL));
+        send(view, QEvent::MouseButtonPress, button);
+        send(view, QEvent::MouseButtonRelease, button, Qt::NoButton);
+        auto *label = number->label();
+        for (const QChar ch : QString("note")) {
+            QKeyEvent typed(QEvent::KeyPress, Qt::Key_A, Qt::NoModifier, QString(ch));
+            QApplication::sendEvent(view->viewport(), &typed);
+        }
+        const int typed_at = scene->undo_stack->count();
+        const auto first_letter = [label] {
+            const auto box = label->sceneBoundingRect();
+            return QPointF(box.left() + 6, box.center().y());
+        };
+        // A click on the first letter leaves the caret at the end.
+        send(view, QEvent::MouseButtonPress, first_letter());
+        send(view, QEvent::MouseButtonRelease, first_letter(), Qt::NoButton);
+        QVERIFY(label->is_editing());
+        QCOMPARE(label->textCursor().position(), 4);
+        QVERIFY(!label->textCursor().hasSelection());
+        // A drag from inside the text moves the label, still typing, instead of selecting.
+        const auto grab = first_letter();
+        gesture(view, grab, grab + QPointF(0, 40));
+        QCOMPARE(label->anchor(), QPointF(26, 40));
+        QCOMPARE(number->pos(), QPointF(200, 200));
+        QVERIFY(label->is_editing());
+        QCOMPARE(label->textCursor().position(), 4);
+        QVERIFY(!label->textCursor().hasSelection());
+        QCOMPARE(label->toPlainText(), QString("note"));
+        // A double click selects all of it, without confirming the capture.
+        const auto middle = label->sceneBoundingRect().center();
+        send(view, QEvent::MouseButtonPress, middle);
+        send(view, QEvent::MouseButtonRelease, middle, Qt::NoButton);
+        send(view, QEvent::MouseButtonDblClick, middle);
+        send(view, QEvent::MouseButtonRelease, middle, Qt::NoButton);
+        QVERIFY(label->is_editing());
+        QCOMPARE(label->textCursor().selectedText(), QString("note"));
+        // The typing and the move end as one step.
+        send(view, QEvent::MouseButtonPress, QPointF(60, 60));
+        send(view, QEvent::MouseButtonRelease, QPointF(60, 60), Qt::NoButton);
+        QVERIFY(!label->is_editing());
+        QCOMPARE(scene->undo_stack->count(), typed_at + 1);
+        scene->undo_stack->undo();
+        QCOMPARE(number->label_text(), QString());
+        scene->undo_stack->redo();
+        QCOMPARE(number->label_text(), QString("note"));
+        QCOMPARE(label->anchor(), QPointF(26, 40));
+        // Not typing, a double click starts typing with everything selected.
+        send(view, QEvent::MouseButtonPress, label->sceneBoundingRect().center());
+        send(view, QEvent::MouseButtonRelease, label->sceneBoundingRect().center(), Qt::NoButton);
+        send(view, QEvent::MouseButtonPress, QPointF(60, 60));
+        send(view, QEvent::MouseButtonRelease, QPointF(60, 60), Qt::NoButton);
+        QVERIFY(!label->is_editing());
+        const auto again = label->sceneBoundingRect().center();
+        send(view, QEvent::MouseButtonPress, again);
+        send(view, QEvent::MouseButtonRelease, again, Qt::NoButton);
+        send(view, QEvent::MouseButtonDblClick, again);
+        send(view, QEvent::MouseButtonRelease, again, Qt::NoButton);
+        QVERIFY(label->is_editing());
+        QCOMPARE(label->textCursor().selectedText(), QString("note"));
+    }
+
+    // A number with a label and guide line is one annotation wherever the scene is searched by point or area.
+    NumberItem *put_labelled_number(CanvasScene *scene, const QPointF &at, const QPointF &label_anchor) {
+        auto *number = new NumberItem(1, at, 20.0, RED);
+        scene->addItem(number);
+        scene->undo_stack->push(new AddItemCommand(scene, ItemReference(number)));
+        number->apply_extras_state({{"label_guide", true}});
+        number->set_label("note", label_anchor);
+        return number;
+    }
+
+    void partsOfANumberBelongToIt() {
+        auto [scene, view] = canvas("number");
+        Q_UNUSED(view);
+        auto *number = put_labelled_number(scene, QPointF(200, 200), QPointF(26, 0));
+        QVERIFY(number->guide() && number->guide()->isVisible());
+        QCOMPARE(annotation_owner(number), number);
+        QCOMPARE(annotation_owner(number->label()), number);
+        QCOMPARE(annotation_owner(number->guide()), number);
+        QCOMPARE(annotation_owner(nullptr), nullptr);
+    }
+
+    void areaLookupsTakeANumberOnceWithItsParts() {
+        auto [scene, view] = canvas("number");
+        Q_UNUSED(view);
+        // Circle, label and guide all inside: the number once, none of its parts on their own.
+        auto *inside = put_labelled_number(scene, QPointF(200, 200), QPointF(26, 0));
+        auto found = scene->get_drawing_items_in_rect(QRectF(100, 100, 300, 200));
+        QCOMPARE(found.size(), 1);
+        QCOMPARE(found.first(), inside);
+        // Only the label reaches into the area: the number still comes along.
+        auto *outside = put_labelled_number(scene, QPointF(200, 520), QPointF(-20, -200));
+        const auto label_area = outside->label()->sceneBoundingRect();
+        QVERIFY(!outside->sceneBoundingRect().intersects(label_area));
+        found = scene->get_drawing_items_in_rect(label_area);
+        QCOMPARE(found.size(), 1);
+        QCOMPARE(found.first(), outside);
+    }
+
+    void clickingANumbersGuideLineSelectsTheNumber() {
+        auto [scene, view] = canvas("number");
+        // The label well away, so the line runs clear of the circle's click margin.
+        auto *number = put_labelled_number(scene, QPointF(200, 200), QPointF(60, 0));
+        auto *controller = view->smart_edit_controller.get();
+        controller->clear_selection(true);
+        // Halfway along the stretch from the circle to the label, clear of both.
+        const auto path = number->guide()->path();
+        const auto on_line = number->mapToScene((QPointF(path.elementAt(0)) + QPointF(path.elementAt(1))) / 2);
+        QVERIFY(!number->contains(number->mapFromScene(on_line)));
+        QVERIFY(!number->label()->contains(number->label()->mapFromScene(on_line)));
+        QVERIFY(scene->items(on_line).contains(number->guide()));
+        QVERIFY(controller->handle_press(QPointF(), on_line, Qt::LeftButton, Qt::NoModifier));
+        QCOMPARE(controller->selected_item(), number);
+    }
+
+    void erasingANumbersLabelErasesTheNumber() {
+        auto [scene, view] = canvas("eraser");
+        auto *number = put_labelled_number(scene, QPointF(200, 200), QPointF(26, 0));
+        const int before = scene->undo_stack->count();
+        const auto label_middle = number->label()->sceneBoundingRect().center();
+        gesture(view, label_middle, label_middle + QPointF(4, 0));
+        QVERIFY(!number->scene());
+        QCOMPARE(scene->undo_stack->count(), before + 1);
+        scene->undo_stack->undo();
+        QCOMPARE(number->scene(), scene);
+        QCOMPARE(number->label_text(), QString("note"));
+    }
+
+    void aNumberCopiesItsPointerAndLabel() {
+        NumberItem source(2, QPointF(0, 0), 20.0, RED);
+        source.set_arrow_tip(QPointF(0, 70));
+        source.set_label("here", QPointF(30, -5));
+        NumberItem copy(2, QPointF(50, 50), 20.0, RED);
+        copy.copy_extras_from(source);
+        QCOMPARE(copy.arrow_tip(), std::optional<QPointF>(QPointF(0, 70)));
+        QCOMPARE(copy.label_text(), QString("here"));
+        QCOMPARE(copy.label()->anchor(), QPointF(30, -5));
+        QCOMPARE(copy.label()->parentItem(), &copy);
     }
 
     void hoveringAHandleChangesTheCursor() {

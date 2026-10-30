@@ -48,6 +48,13 @@ bool jb_ppocr_models_finish_runtime_download(const char *root, char *error, size
 bool jb_ppocr_models_remove(const char *root, const char *id, char *error, size_t error_len);
 void jb_ppocr_models_clean_staging(const char *root);
 
+// smart_erase: fills the masked pixels of a rectangle from their surroundings. Pixels are BGRA
+// when bgra, else RGBA; mask and out cover the rectangle, packed. Returns the solver (0 unchanged,
+// 1 surface, 2 periodic, 3 membrane, 4 patches), -1 cancelled, -2 invalid, -3 nothing to sample.
+int32_t jb_smart_erase(const uint8_t *pixels, size_t len, uint32_t width, uint32_t height, size_t stride, bool bgra, uint32_t hole_x, uint32_t hole_y,
+                       uint32_t hole_width, uint32_t hole_height, const uint8_t *mask, bool (*cancelled)(const void *context), const void *context,
+                       uint8_t *out, size_t out_len);
+
 // longstitch's incremental StitchSession.
 struct JbStitchSession;
 struct JbPushResult {
@@ -222,6 +229,7 @@ bool jb_clipboard_group_accepts(int64_t group_type, const char *content_type, co
 bool jb_clipboard_parse_color(const char *text, uint8_t *out_rgba);
 const char *jb_clipboard_color_marker_format();
 char *jb_clipboard_text_paths(const char *text);
+char *jb_clipboard_filter_kinds();
 bool jb_clipboard_set_text(const char *text, char *error, size_t error_len);
 char *jb_clipboard_db_path(const JbClipboard *clipboard);
 char *jb_clipboard_images_dir(const JbClipboard *clipboard);

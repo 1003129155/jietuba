@@ -3,9 +3,12 @@
 #include <QGraphicsPathItem>
 #include <QGraphicsRectItem>
 #include <QGraphicsEllipseItem>
+#include <QGraphicsTextItem>
 #include <QGraphicsView>
+#include <QVariantMap>
 #include <QPen>
 #include <QFont>
+#include <array>
 #include <optional>
 
 namespace jietuba {
@@ -17,6 +20,9 @@ public:
     virtual QGraphicsItem *selected_drawing_item() const = 0;
     virtual bool can_show_hover_cursor(QGraphicsItem *) const = 0;
 };
+// The annotation an item belongs to: the item itself, or for a part of one (a number's label or
+// guide line) the top-level item that owns it. Lookups by point or area return the parts as well.
+QGraphicsItem *annotation_owner(QGraphicsItem *item);
 class DrawingItemMixin : public TrackedItem {
 public:
     explicit DrawingItemMixin(QGraphicsItem *item);
@@ -91,9 +97,24 @@ protected:
 private:
     mutable std::optional<QPainterPath> shape_cache_;
 };
+class NumberLabel;
 class NumberItem : public QGraphicsItem, public DrawingItemMixin {
 public:
     static constexpr qreal FONT_SCALE = .95, CLICK_MARGIN = 6;
+    // In radii from the centre: a tip this close draws a bubble tail rather than a line with a head,
+    // and a pointer turned on for the first time is this long.
+    static constexpr qreal ARROW_TAIL_REACH = 2, ARROW_DEFAULT_LENGTH = 3;
+    // In radii: the label's gap from the circle, and its text height at each size level, smallest
+    // first. The level is the label's one size setting, so the text follows the number's size.
+    static constexpr qreal LABEL_GAP = .3;
+    static constexpr std::array<qreal, 5> LABEL_SIZE_LEVELS = {.5, .7, .9, 1.15, 1.45};
+    static constexpr int DEFAULT_LABEL_SIZE_LEVEL = 2;
+    // The arrow tool's single-headed styles: a pointer starts under the circle, so a second head would be hidden.
+    static inline const QStringList ARROW_STYLES = {"single", "hollow", "line", "triangle"};
+    // Shaft width of a pointer, in radii; its head follows the arrow style.
+    static constexpr qreal ARROW_WIDTH_RATIO = .2;
+    // In radii: the guide line under the label, and the label's outline as a share of its text height.
+    static constexpr qreal GUIDE_WIDTH_RATIO = .08, LABEL_OUTLINE_RATIO = .07;
     static constexpr int MIN_FONT_SIZE = 10;
     static constexpr qreal RING_WIDTH_RATIO = .12, GLYPH_OUTLINE_RATIO = .09;
     // tools.number.NumberTool.RADIUS_SCALE in the Python version.
@@ -122,12 +143,93 @@ public:
     QColor solid_text_color() const;
     void paint(QPainter *, const QStyleOptionGraphicsItem *, QWidget *) override;
     JIETUBA_PEN_INTERFACE
+
+    // Tip of the pointer drawn out of the circle, relative to the centre; none without a pointer.
+    const std::optional<QPointF> &arrow_tip() const { return arrow_tip_; }
+    void set_arrow_tip(const std::optional<QPointF> &tip);
+    // Turns the pointer off and remembers it, or back on where it was last (pointing away from the label at first).
+    void toggle_arrow();
+    // Outline of the pointer, before the circle is drawn over its root.
+    QPainterPath pointer_path() const;
+
+    NumberLabel *label() const { return label_; }
+    QString label_text() const;
+    // Shows text beside the number, or hides the label when text is blank.
+    void set_label(const QString &text, const std::optional<QPointF> &anchor = {});
+    // Shows the label, right of the circle when new, and starts typing in it.
+    NumberLabel *begin_label_edit();
+    // Called when typing in the label ends; records the change for undo.
+    void finish_label_edit(const QVariantMap &before);
+    QVariantMap label_state() const;
+    QFont label_font() const;
+    // How the label and the pointer look. Kept on the number, so undo and copies carry them.
+    QString label_font_family() const { return label_font_family_; }
+    int label_size_level() const { return label_size_level_; }
+    bool label_outline() const { return label_outline_; }
+    bool label_guide() const { return label_guide_; }
+    QString arrow_style() const { return arrow_style_; }
+    // White around dark text and black around light text.
+    QColor label_outline_color() const { return solid_text_color() == QColor(Qt::black) ? QColor(Qt::black) : QColor(Qt::white); }
+    // The line from the circle to the label, behind both; null until first shown.
+    QGraphicsPathItem *guide() const { return guide_; }
+    void update_guide();
+
+    // Pointer and label, for undo snapshots; apply takes only the keys present.
+    QVariantMap extras_state() const;
+    void apply_extras_state(const QVariantMap &);
+    void copy_extras_from(const NumberItem &);
+    bool hover_allowed() const { return can_show_hover(); }
 protected:
     JIETUBA_DRAWING_EVENTS
 private:
+    void set_radius(qreal);
+    QPointF default_label_anchor() const;
+    void restyle_label();
+    void invalidate_pointer();
+    void paint_pointer(QPainter *);
     void paint_circle(QPainter *, const QRectF &, const QColor &);
     void paint_number(QPainter *, const QRectF &, const QColor &);
     void paint_selection_frame(QPainter *, const QRectF &);
+    std::optional<QPointF> arrow_tip_, parked_arrow_tip_;
+    NumberLabel *label_ = nullptr;
+    QGraphicsPathItem *guide_ = nullptr;
+    QString label_font_family_, arrow_style_ = ARROW_STYLES.front();
+    int label_size_level_ = DEFAULT_LABEL_SIZE_LEVEL;
+    bool label_outline_ = false, label_guide_ = false;
+    mutable std::optional<QPainterPath> pointer_cache_;
+};
+
+// Text a number carries beside it. A child of the number, so it moves, hides and goes with it;
+// its text and place belong to the number's state and are undone with the number.
+class NumberLabel : public QGraphicsTextItem {
+public:
+    explicit NumberLabel(NumberItem *number);
+    // Left end of the text's middle line, in the number's coordinates.
+    QPointF anchor() const { return anchor_; }
+    void set_anchor(const QPointF &);
+    void begin_edit();
+    bool is_editing() const { return textInteractionFlags() & Qt::TextEditable; }
+    void paint(QPainter *, const QStyleOptionGraphicsItem *, QWidget *) override;
+protected:
+    void focusInEvent(QFocusEvent *) override;
+    void focusOutEvent(QFocusEvent *) override;
+    void mousePressEvent(QGraphicsSceneMouseEvent *) override;
+    void mouseMoveEvent(QGraphicsSceneMouseEvent *) override;
+    void mouseReleaseEvent(QGraphicsSceneMouseEvent *) override;
+    void mouseDoubleClickEvent(QGraphicsSceneMouseEvent *) override;
+    void hoverEnterEvent(QGraphicsSceneHoverEvent *) override;
+    void hoverMoveEvent(QGraphicsSceneHoverEvent *) override;
+    void hoverLeaveEvent(QGraphicsSceneHoverEvent *) override;
+private:
+    void place();
+    void update_cursor();
+    NumberItem *number_;
+    QPointF anchor_;
+    std::optional<QPointF> press_pos_, press_anchor_;
+    bool dragged_ = false;
+    // Another window took the focus; typing goes on when it comes back.
+    bool window_away_ = false;
+    QVariantMap state_before_edit_;
 };
 #undef JIETUBA_DRAWING_EVENTS
 #undef JIETUBA_PEN_INTERFACE
