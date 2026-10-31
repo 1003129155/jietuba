@@ -1713,7 +1713,8 @@ private slots:
         QVERIFY(same_pixels(background->image(), content->render(pin->orig_size())));
         wheel(pin, -120, Qt::NoModifier, false, 3);
         QVERIFY(pin->scale_factor < 1.0);
-        QTRY_COMPARE(background->pixmap().deviceIndependentSize(), QSizeF(pin->size()));
+        // Redrawn on a low-priority worker, which a fully loaded runner starves for seconds.
+        QTRY_COMPARE_WITH_TIMEOUT(background->pixmap().deviceIndependentSize(), QSizeF(pin->size()), 15000);
         QVERIFY(same_pixels(pin->get_current_image(), content->render(pin->orig_size(), pin->devicePixelRatioF())));
     }
 

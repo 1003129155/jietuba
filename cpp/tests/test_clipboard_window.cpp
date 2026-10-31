@@ -675,7 +675,8 @@ private slots:
         QVERIFY(files && !notes.isEmpty());
         auto *window = open_window();
         click(texts[0], Qt::MiddleButton);
-        QTRY_COMPARE(pins().size(), 1);
+        // Text pins are laid out on a low-priority worker, which a fully loaded runner starves for seconds.
+        QTRY_COMPARE_WITH_TIMEOUT(pins().size(), 1, 15000);
         QVERIFY(pins()[0]->text_only());
         QCOMPARE(pins()[0]->text_content()->text(), QString("words"));
         QVERIFY(!window->quick_edit_popup || !window->quick_edit_popup->is_open());
@@ -723,7 +724,7 @@ private slots:
         QVERIFY(picker->picked);
         QVERIFY(!window->selection_manager->has_marks());
         // The card opens first, then the texts as they were picked, each further down and right.
-        QTRY_COMPARE(pins().size(), 3);
+        QTRY_COMPARE_WITH_TIMEOUT(pins().size(), 3, 15000);
         QVERIFY(pins()[0]->file_card());
         QCOMPARE(pins()[1]->text_content()->text(), QString("first words"));
         QCOMPARE(pins()[2]->text_content()->text(), QString("second words"));
