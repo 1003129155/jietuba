@@ -1554,6 +1554,8 @@ void ClipboardWindow::hideEvent(QHideEvent *event) {
     if (quick_edit_popup) quick_edit_popup->close_for_focus_loss();
     frameless_.reset();
     controller->on_window_hide();
+    // The window stays resident; showing it again reloads the list and decodes only the rows in view.
+    ClipboardItemDelegate::clear_thumb_cache();
     if (!config->get_clipboard_preserve_search() && !search_input->text().isEmpty()) search_input->clear();
     QWidget::hideEvent(event);
     save_window_geometry();

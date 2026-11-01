@@ -213,6 +213,27 @@ private slots:
         QVERIFY(!paint_row(2).isNull());
     }
 
+    void decodedThumbnailsAreKeptForAtMost256Images() {
+        ClipboardItemDelegate::clear_thumb_cache();
+        QListWidget list;
+        list.resize(360, 400);
+        ClipboardItemDelegate delegate(&list, get_theme_manager()->get_current_theme(), 15, false);
+        for (int n = 0; n < 300; ++n) {
+            auto item = make_item(n + 1, "image", "[image]");
+            item.thumbnail = png_data_url(QSize(10 + n, 10));
+            add_row(list, item);
+        }
+        const QImage first = paint_row_image(delegate, list, 0, 360, Qt::white);
+        QVERIFY(!paint_row_image(delegate, list, 0, 360, Qt::white).isNull());
+        // Painting the row again reuses its decoded thumbnail.
+        QCOMPARE(ClipboardItemDelegate::cached_thumb_count(), 1);
+        for (int row = 1; row < list.count(); ++row) paint_row_image(delegate, list, row, 360, Qt::white);
+        QCOMPARE(ClipboardItemDelegate::cached_thumb_count(), 256);
+        // A thumbnail dropped from the cache is decoded again and paints the same.
+        QCOMPARE(paint_row_image(delegate, list, 0, 360, Qt::white), first);
+        ClipboardItemDelegate::clear_thumb_cache();
+    }
+
     void nonImageRowsShareTheLineLimit() {
         QListWidget list;
         list.resize(360, 600);

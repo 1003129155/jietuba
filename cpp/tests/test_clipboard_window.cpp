@@ -15,6 +15,7 @@
 #include "pin/pin_text_content.h"
 #include "pin/pin_window.h"
 #include "ui/fluent_lite/inputs.h"
+#include <QBuffer>
 #include <QCursor>
 #include <QDateEdit>
 #include <QDesktopServices>
@@ -195,6 +196,27 @@ private slots:
             window->load_settings();
             QVERIFY(!window->grab().isNull());
         }
+    }
+
+    void hidingTheWindowDropsDecodedThumbnails() {
+        const auto image = manager().add_item("[24x16]", "image");
+        QVERIFY(image);
+        auto *window = open_window();
+        auto *row = window->list_widget->item(row_of(*image));
+        QVERIFY(row);
+        auto item = row->data(ROLE_ITEM_DATA).value<ClipboardItem>();
+        QImage picture(24, 16, QImage::Format_RGB32);
+        picture.fill(Qt::darkCyan);
+        QByteArray png;
+        QBuffer buffer(&png);
+        QVERIFY(buffer.open(QIODevice::WriteOnly) && picture.save(&buffer, "PNG"));
+        item.thumbnail = "data:image/png;base64," + QString::fromLatin1(png.toBase64());
+        row->setData(ROLE_ITEM_DATA, QVariant::fromValue(item));
+        ClipboardItemDelegate::clear_thumb_cache();
+        QVERIFY(!window->grab().isNull());
+        QCOMPARE(ClipboardItemDelegate::cached_thumb_count(), 1);
+        window->hide();
+        QCOMPARE(ClipboardItemDelegate::cached_thumb_count(), 0);
     }
 
     void moreRowsLoadWhenScrolledToTheEnd() {

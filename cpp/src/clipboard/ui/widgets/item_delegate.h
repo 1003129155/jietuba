@@ -63,6 +63,7 @@ public:
     // The circle at the start of a one-line text row while anything is marked: filled with a check when marked, hollow otherwise.
     QRectF mark_circle_rect(const QRect &row_rect) const;
     static void clear_thumb_cache();
+    static int cached_thumb_count();
 
     void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override;
     QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override;
