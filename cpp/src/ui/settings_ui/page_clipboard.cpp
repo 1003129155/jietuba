@@ -1,4 +1,5 @@
 #include "clipboard/core/manager.h"
+#include "clipboard/ui/panels/setting_panel.h"
 #include "clipboard/ui/windows/clipboard_window.h"
 #include "core/logger.h"
 #include "core/ui_scale.h"
@@ -30,6 +31,9 @@
 namespace jietuba {
 namespace {
 using clipboard::ClipboardManager;
+
+// Labels shared with the clipboard window's menu, so both places name them alike.
+QString window_tr(const char *text, int n = -1) { return QCoreApplication::translate("ClipboardWindow", text, nullptr, n); }
 
 QString format_size(qint64 value) {
     if (value < 1024) return QString("%1 B").arg(value);
@@ -445,6 +449,51 @@ void clear_clipboard_history(SettingsDialog *dialog) {
         show_warning_dialog(dialog, dialog->tr_text("Error"), dialog->tr_text("Failed to clear clipboard history"));
     }
 }
+
+// The preset separators and Custom, whose text is typed into the field beside it with \n and \t escapes.
+void build_separator_card(SettingsDialog *dialog, SettingsCardGroup *grp) {
+    auto *card = new SettingCard(FluentIcon::Alignment, dialog->tr_text("Separator"), dialog->tr_text("Placed between the items pasted together"), grp);
+    auto *edit = new LineEdit(card);
+    edit->setPlaceholderText(window_tr("Custom, \\n for a new line"));
+    edit->setMinimumWidth(dialog_scaled(150));
+    auto *combo = new ComboBox(card);
+    for (const auto &[label, value] : clipboard::MULTI_PASTE_SEPARATORS()) combo->addItem(window_tr(label), value);
+    combo->addItem(dialog->tr_text("Custom"));
+    dialog->set_attr("clipboard_separator_combo", combo);
+    dialog->set_attr("clipboard_separator_edit", edit);
+    QObject::connect(combo, &QComboBox::currentIndexChanged, edit, [combo, edit] { edit->setVisible(!combo->currentData().isValid()); });
+    QObject::connect(combo, &QComboBox::activated, edit, [combo, edit] {
+        if (!combo->currentData().isValid()) edit->setFocus();
+    });
+    card->addControl(edit);
+    card->addControl(combo);
+    select_clipboard_separator(dialog, dialog->config_manager->get_clipboard_multi_paste_separator());
+    grp->addSettingCard(card);
+}
+}
+
+const std::set<QString> CLIPBOARD_BEHAVIOR_KEYS = {
+    "clipboard_open_position", "clipboard_group_bar_position", "clipboard_preserve_search", "clipboard_show_metadata",
+    "clipboard_display_lines", "clipboard_image_size", "clipboard_hide_grouped_in_history", "clipboard_auto_paste",
+    "clipboard_close_after_paste", "clipboard_move_to_top_on_paste", "clipboard_paste_with_html", "clipboard_multi_paste_order",
+    "clipboard_multi_paste_keep_merged",
+};
+
+QString clipboard_separator_value(const SettingsDialog *dialog) {
+    auto *combo = dialog->attr<QComboBox>("clipboard_separator_combo");
+    auto *edit = dialog->attr<QLineEdit>("clipboard_separator_edit");
+    if (!combo || !edit) return dialog->config_manager->get_clipboard_multi_paste_separator();
+    return combo->currentData().isValid() ? combo->currentData().toString() : clipboard::unescape_separator(edit->text());
+}
+
+void select_clipboard_separator(SettingsDialog *dialog, const QString &separator) {
+    auto *combo = dialog->attr<QComboBox>("clipboard_separator_combo");
+    auto *edit = dialog->attr<QLineEdit>("clipboard_separator_edit");
+    if (!combo || !edit) return;
+    const int preset = combo->findData(separator);
+    edit->setText(preset >= 0 ? QString() : clipboard::escape_separator(separator));
+    combo->setCurrentIndex(preset >= 0 ? preset : combo->count() - 1);
+    edit->setVisible(preset < 0);
 }
 
 QWidget *create_clipboard_page(SettingsDialog *dialog) {
@@ -474,7 +523,49 @@ QWidget *create_clipboard_page(SettingsDialog *dialog) {
     dialog->behavior_controls.emplace_back("clipboard_open_position", position_combo);
     position_card->addControl(position_combo);
     grp_basic->addSettingCard(position_card);
+
+    auto *bar_card = new SettingCard(FluentIcon::Layout, dialog->tr_text("Group Bar Position"), dialog->tr_text("Where the group bar sits in the clipboard window"), grp_basic);
+    choice_combo(dialog, bar_card, "clipboard_group_bar_position",
+                 {{dialog->tr_text("Right"), QString("right")}, {dialog->tr_text("Left"), QString("left")}, {dialog->tr_text("Top"), QString("top")}});
+    grp_basic->addSettingCard(bar_card);
+    add_switch_card(dialog, grp_basic, FluentIcon::Search, "Preserve Search on Reopen", "Keep the search text when the clipboard window opens again",
+                    "clipboard_preserve_search");
     layout->addWidget(grp_basic);
+
+    // ════ List ════
+    auto *grp_list = new SettingsCardGroup(dialog->tr_text("List Display"), view, "clipboard");
+    add_switch_card(dialog, grp_list, FluentIcon::DateTime, "Show Time", "Show when each item was copied", "clipboard_show_metadata");
+    auto *lines_card = new SettingCard(FluentIcon::Alignment, dialog->tr_text("Max Display Lines"), dialog->tr_text("Longer text wraps onto at most this many lines"), grp_list);
+    std::vector<std::pair<QString, QVariant>> lines;
+    for (int count = 1; count <= 5; ++count) lines.emplace_back(window_tr("%n line(s)", count), count);
+    choice_combo(dialog, lines_card, "clipboard_display_lines", lines);
+    grp_list->addSettingCard(lines_card);
+    auto *image_card = new SettingCard(FluentIcon::Camera, dialog->tr_text("Image Size"), dialog->tr_text("Size of image thumbnails in the list"), grp_list);
+    choice_combo(dialog, image_card, "clipboard_image_size",
+                 {{dialog->tr_text("Small"), QString("small")}, {dialog->tr_text("Medium"), QString("medium")}, {dialog->tr_text("Large"), QString("large")}});
+    grp_list->addSettingCard(image_card);
+    add_switch_card(dialog, grp_list, FluentIcon::Hide, "Hide Grouped Items from All", "Items in a group no longer show in All; filter groups still list them",
+                    "clipboard_hide_grouped_in_history");
+    layout->addWidget(grp_list);
+
+    // ════ Paste ════
+    auto *grp_paste = new SettingsCardGroup(dialog->tr_text("Paste"), view, "clipboard");
+    add_switch_card(dialog, grp_paste, FluentIcon::Paste, "Auto Paste After Selection", "Automatically send Ctrl+V after selecting an item", "clipboard_auto_paste");
+    add_switch_card(dialog, grp_paste, FluentIcon::Close, "Close After Paste", "Turn off to paste several items in a row", "clipboard_close_after_paste");
+    add_switch_card(dialog, grp_paste, FluentIcon::History, "Move to Top After Paste", "A pasted item moves to the top of the history", "clipboard_move_to_top_on_paste");
+    add_switch_card(dialog, grp_paste, FluentIcon::Font, "Paste with Format", "Keep fonts, colors and links when pasting formatted text", "clipboard_paste_with_html");
+    layout->addWidget(grp_paste);
+
+    // ════ Multi-select paste ════
+    auto *grp_multi = new SettingsCardGroup(dialog->tr_text("Multi-Select Paste"), view, "clipboard");
+    build_separator_card(dialog, grp_multi);
+    auto *order_card = new SettingCard(FluentIcon::Sync, dialog->tr_text("Paste Order"), dialog->tr_text("The order the selected items are pasted in"), grp_multi);
+    choice_combo(dialog, order_card, "clipboard_multi_paste_order",
+                 {{dialog->tr_text("First Selected First"), QString("oldest_first")}, {dialog->tr_text("Last Selected First"), QString("newest_first")}});
+    grp_multi->addSettingCard(order_card);
+    add_switch_card(dialog, grp_multi, FluentIcon::Save, "Record Merged Content", "Add the combined content to the history as a new item",
+                    "clipboard_multi_paste_keep_merged");
+    layout->addWidget(grp_multi);
 
     // ════ History ════
     auto *grp_history = new SettingsCardGroup(dialog->tr_text("History"), view, "clipboard");
@@ -541,6 +632,9 @@ QWidget *create_clipboard_page(SettingsDialog *dialog) {
     auto *hint = new CaptionLabel(dialog->tr_text("💡 Hint: Set clipboard hotkey in Shortcuts settings."), view);
     hint->setStyleSheet("padding: 5px;");
     layout->addWidget(hint);
+    auto *appearance_hint = new CaptionLabel(dialog->tr_text("💡 The clipboard window's theme, font size and opacity are on the Appearance page."), view);
+    appearance_hint->setStyleSheet("padding: 5px;");
+    layout->addWidget(appearance_hint);
 
     layout->addStretch();
     scroll->setWidget(view);

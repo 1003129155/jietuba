@@ -258,6 +258,10 @@ QMenu *show_setting_menu(QWidget *parent, const SettingMenuOptions &o) {
         QAction *clear_act = menu->addAction(tr("Clear History"));
         QObject::connect(clear_act, &QAction::triggered, menu, o.on_clear_history);
     }
+    if (o.on_open_settings) {
+        QAction *settings_act = menu->addAction(tr("More Settings"));
+        QObject::connect(settings_act, &QAction::triggered, menu, o.on_open_settings);
+    }
 
     // Pops up above the anchor (non-blocking; clicking again closes it).
     const QPoint popup_pos(o.anchor_pos.x(), o.anchor_pos.y() - menu->sizeHint().height());

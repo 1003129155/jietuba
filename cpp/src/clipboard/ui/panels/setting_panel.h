@@ -49,6 +49,7 @@ struct SettingMenuOptions {
     std::function<void(const QString &)> on_set_image_size;
     std::function<void(const QString &)> on_set_theme;
     std::function<void()> on_add_item;
+    std::function<void()> on_open_settings;
     // Without it the menu has no clear entry.
     std::function<void()> on_clear_history;
     std::function<void(const QString &)> on_set_group_bar_position;

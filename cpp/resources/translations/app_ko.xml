@@ -2900,6 +2900,10 @@ Replace it?</source>
         <translation>'전체'에서 그룹에 넣은 항목 숨기기</translation>
     </message>
     <message>
+        <source>More Settings</source>
+        <translation>상세 설정</translation>
+    </message>
+    <message>
         <source>Preserve Search on Reopen</source>
         <translation>다시 열 때 검색 유지</translation>
     </message>
@@ -3985,6 +3989,138 @@ Items in the group will be moved back to clipboard history.</source>
     <message>
         <source>Automatically send Ctrl+V after selecting an item</source>
         <translation>항목 선택 후 자동으로 Ctrl+V를 보냅니다</translation>
+    </message>
+    <message>
+        <source>Group Bar Position</source>
+        <translation>그룹 바 위치</translation>
+    </message>
+    <message>
+        <source>Where the group bar sits in the clipboard window</source>
+        <translation>클립보드 창에서 그룹 바를 둘 위치</translation>
+    </message>
+    <message>
+        <source>Right</source>
+        <translation>오른쪽</translation>
+    </message>
+    <message>
+        <source>Left</source>
+        <translation>왼쪽</translation>
+    </message>
+    <message>
+        <source>Top</source>
+        <translation>위쪽</translation>
+    </message>
+    <message>
+        <source>Preserve Search on Reopen</source>
+        <translation>다시 열 때 검색 유지</translation>
+    </message>
+    <message>
+        <source>Keep the search text when the clipboard window opens again</source>
+        <translation>클립보드 창을 다시 열어도 마지막 검색어를 유지합니다</translation>
+    </message>
+    <message>
+        <source>List Display</source>
+        <translation>목록 표시</translation>
+    </message>
+    <message>
+        <source>Show Time</source>
+        <translation>시간 표시</translation>
+    </message>
+    <message>
+        <source>Show when each item was copied</source>
+        <translation>각 항목에 복사한 시간을 표시합니다</translation>
+    </message>
+    <message>
+        <source>Max Display Lines</source>
+        <translation>최대 표시 줄 수</translation>
+    </message>
+    <message>
+        <source>Longer text wraps onto at most this many lines</source>
+        <translation>긴 텍스트를 줄바꿈해 보여 주는 최대 줄 수</translation>
+    </message>
+    <message>
+        <source>Image Size</source>
+        <translation>이미지 크기</translation>
+    </message>
+    <message>
+        <source>Size of image thumbnails in the list</source>
+        <translation>목록에 표시되는 이미지 썸네일 크기</translation>
+    </message>
+    <message>
+        <source>Hide Grouped Items from All</source>
+        <translation>'전체'에서 그룹에 넣은 항목 숨기기</translation>
+    </message>
+    <message>
+        <source>Items in a group no longer show in All; filter groups still list them</source>
+        <translation>그룹에 넣은 항목은 '전체'에 표시하지 않습니다. 필터 그룹에는 그대로 표시됩니다</translation>
+    </message>
+    <message>
+        <source>Close After Paste</source>
+        <translation>붙여넣기 후 창 닫기</translation>
+    </message>
+    <message>
+        <source>Turn off to paste several items in a row</source>
+        <translation>끄면 여러 항목을 연달아 붙여넣을 수 있습니다</translation>
+    </message>
+    <message>
+        <source>Move to Top After Paste</source>
+        <translation>붙여넣기 후 맨 위로 이동</translation>
+    </message>
+    <message>
+        <source>A pasted item moves to the top of the history</source>
+        <translation>붙여넣은 항목을 기록 맨 위로 옮깁니다</translation>
+    </message>
+    <message>
+        <source>Paste with Format</source>
+        <translation>형식 유지 붙여넣기</translation>
+    </message>
+    <message>
+        <source>Keep fonts, colors and links when pasting formatted text</source>
+        <translation>서식 있는 텍스트를 붙여넣을 때 글꼴, 색, 링크를 유지합니다</translation>
+    </message>
+    <message>
+        <source>Multi-Select Paste</source>
+        <translation>다중 선택 붙여넣기</translation>
+    </message>
+    <message>
+        <source>Separator</source>
+        <translation>구분자</translation>
+    </message>
+    <message>
+        <source>Placed between the items pasted together</source>
+        <translation>함께 붙여넣는 항목 사이에 넣을 문자</translation>
+    </message>
+    <message>
+        <source>Custom</source>
+        <translation>사용자 지정</translation>
+    </message>
+    <message>
+        <source>Paste Order</source>
+        <translation>붙여넣기 순서</translation>
+    </message>
+    <message>
+        <source>The order the selected items are pasted in</source>
+        <translation>선택한 항목을 붙여넣는 순서</translation>
+    </message>
+    <message>
+        <source>First Selected First</source>
+        <translation>선택 순서</translation>
+    </message>
+    <message>
+        <source>Last Selected First</source>
+        <translation>선택 역순</translation>
+    </message>
+    <message>
+        <source>Record Merged Content</source>
+        <translation>합친 내용 기록</translation>
+    </message>
+    <message>
+        <source>Add the combined content to the history as a new item</source>
+        <translation>합친 내용을 새 항목으로 기록에 추가합니다</translation>
+    </message>
+    <message>
+        <source>💡 The clipboard window's theme, font size and opacity are on the Appearance page.</source>
+        <translation>💡 클립보드 창의 테마, 글꼴 크기, 불투명도는 '모양' 페이지에서 설정합니다.</translation>
     </message>
     <message>
         <source>History Limit</source>

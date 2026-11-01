@@ -16,6 +16,7 @@
 #include <QMenu>
 #include <QPointer>
 #include <QPushButton>
+#include <QSet>
 #include <QSettings>
 #include <QTimer>
 #include <QToolButton>
@@ -111,6 +112,8 @@ public:
 
     // Re-reads the settings the window keeps (after the settings window is accepted).
     void load_settings();
+    // Shows what the settings window just saved; keys are its saved controls (SettingsDialog::saved_keys).
+    void apply_saved_settings(const QSet<QString> &keys);
     // Reloads unless the window is hidden (the manage window and storage moves call this).
     void request_data_refresh(const QString &reason = {});
     void on_manage_data_changed();
@@ -149,6 +152,8 @@ public:
 signals:
     void item_pasted(qint64 item_id);
     void closed();
+    // The menu's More Settings: the clipboard page of the settings window.
+    void settings_requested();
     void new_item_received(const std::optional<jietuba::clipboard::ClipboardItem> &item);
 
 protected:
@@ -190,6 +195,7 @@ private:
     void set_font_size(int size);
     void set_image_size(const QString &size);
     void set_display_lines(int lines);
+    void set_show_metadata(bool show);
     void on_font_size_changed(int size);
     void on_opacity_changed(int percent);
     void refresh_list();

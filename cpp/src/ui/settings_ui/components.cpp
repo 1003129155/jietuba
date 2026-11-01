@@ -2,6 +2,8 @@
 #include "core/resource_manager.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
+#include "settings/tool_settings.h"
+#include "ui/fluent_lite/inputs.h"
 #include "ui/settings_ui/dialog.h"
 #include "ui/settings_ui/search.h"
 #include <QAbstractScrollArea>
@@ -44,6 +46,27 @@ protected:
 };
 
 QString suffix_of(const QString &extra) { return extra.trimmed().isEmpty() ? QString() : " " + extra.trimmed(); }
+}
+
+ComboBox *choice_combo(SettingsDialog *dialog, SettingCard *card, const QString &key, const std::vector<std::pair<QString, QVariant>> &items,
+                       const std::optional<QVariant> &current) {
+    auto *config = dialog->config_manager;
+    auto *combo = new ComboBox(card);
+    for (const auto &[label, value] : items) combo->addItem(label, value);
+    int index = combo->findData(current ? *current : config->get_app_setting(key));
+    if (index < 0) index = combo->findData(config->app_defaults().value(key));
+    combo->setCurrentIndex(std::max(0, index));
+    dialog->behavior_controls.emplace_back(key, combo);
+    card->addControl(combo);
+    return combo;
+}
+
+SwitchSettingCard *add_switch_card(SettingsDialog *dialog, SettingsCardGroup *grp, const IconSource &icon, const char *title, const char *desc, const QString &key) {
+    auto *card = new SwitchSettingCard(icon, dialog->tr_text(title), dialog->tr_text(desc), grp);
+    card->setChecked(dialog->config_manager->get_app_setting(key).toBool());
+    dialog->behavior_controls.emplace_back(key, card);
+    grp->addSettingCard(card);
+    return card;
 }
 
 QScrollArea *page_scroll_area(SettingsDialog *dialog) {

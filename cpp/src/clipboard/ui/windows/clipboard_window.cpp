@@ -651,13 +651,7 @@ void ClipboardWindow::show_main_menu() {
     options.on_toggle_close_after_paste = [this](bool checked) { config->set_clipboard_close_after_paste(checked); };
     options.on_toggle_move_to_top = [this](bool checked) { controller->set_move_to_top_on_paste(checked); };
     options.on_toggle_hide_grouped = [this](bool checked) { controller->set_hide_grouped_in_history(checked); };
-    options.on_toggle_show_metadata = [this](bool checked) {
-        config->set_clipboard_show_metadata(checked);
-        item_delegate->set_show_metadata(checked);
-        // The time narrows the first line, so wrapped rows may change height.
-        if (config->get_clipboard_display_lines() > 1) list_widget->doItemsLayout();
-        list_widget->viewport()->update();
-    };
+    options.on_toggle_show_metadata = [this](bool checked) { set_show_metadata(checked); };
     options.on_toggle_preserve_search = [this](bool checked) { config->set_clipboard_preserve_search(checked); };
     options.on_set_opacity = [this](int percent) { set_window_opacity_percent(percent); };
     options.on_set_font_size = [this](int size) { set_font_size(size); };
@@ -665,6 +659,7 @@ void ClipboardWindow::show_main_menu() {
     options.on_set_display_lines = [this](int lines) { set_display_lines(lines); };
     options.on_set_theme = [](const QString &name) { get_theme_manager()->set_theme(name); };
     options.on_add_item = [this] { on_add_item_clicked(); };
+    options.on_open_settings = [this] { emit settings_requested(); };
     options.on_clear_history = [this] { on_clear_clicked(); };
     options.on_set_group_bar_position = [this](const QString &position) { set_group_bar_position(position); };
     options.open_position = config->get_clipboard_open_position();
@@ -741,6 +736,22 @@ void ClipboardWindow::set_display_lines(int lines) {
     config->set_clipboard_display_lines(lines);
     item_delegate->set_display_lines(config->get_clipboard_display_lines());
     refresh_list();
+}
+
+void ClipboardWindow::set_show_metadata(bool show) {
+    config->set_clipboard_show_metadata(show);
+    item_delegate->set_show_metadata(show);
+    // The time narrows the first line, so wrapped rows may change height.
+    if (config->get_clipboard_display_lines() > 1) list_widget->doItemsLayout();
+    list_widget->viewport()->update();
+}
+
+void ClipboardWindow::apply_saved_settings(const QSet<QString> &keys) {
+    if (keys.contains("clipboard_show_metadata")) set_show_metadata(config->get_clipboard_show_metadata());
+    if (keys.contains("clipboard_image_size")) set_image_size(config->get_clipboard_image_size());
+    if (keys.contains("clipboard_display_lines")) set_display_lines(config->get_clipboard_display_lines());
+    if (keys.contains("clipboard_group_bar_position")) set_group_bar_position(config->get_clipboard_group_bar_position());
+    if (keys.contains("clipboard_hide_grouped_in_history") && !controller->current_group_id) controller->load_history();
 }
 
 void ClipboardWindow::on_font_size_changed(int size) {

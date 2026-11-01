@@ -3,6 +3,8 @@
 #include "clipboard/services/manage_dialog_service.h"
 #include "clipboard/ui/dialogs/manage_dialog.h"
 #include "clipboard/ui/theme/themes.h"
+#include "clipboard/ui/widgets/group_bar.h"
+#include "clipboard/ui/widgets/item_delegate.h"
 #include "clipboard/ui/windows/clipboard_window.h"
 #include "core/logger.h"
 #include "settings/special_paste.h"
@@ -24,6 +26,7 @@
 #include <QLabel>
 #include <QListWidget>
 #include <QPushButton>
+#include <QScopeGuard>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QSpinBox>
@@ -149,6 +152,35 @@ private slots:
         QTRY_COMPARE(window.list_widget->count(), 1);
         window.search_input->clear();
         QTRY_COMPARE(window.list_widget->count(), 2);
+        window.close();
+    }
+
+    // The settings window saves into the configuration; an open window then shows the keys it names.
+    void anOpenWindowShowsWhatTheSettingsWindowSaved() {
+        auto &manager = ClipboardManager::instance();
+        const auto group = manager.create_group("Saved");
+        const auto grouped = manager.add_item("grouped");
+        QVERIFY(group && grouped && manager.move_to_group(*grouped, *group));
+        QVERIFY(manager.add_item("loose"));
+        const auto restore = qScopeGuard([this] {
+            config_->set_clipboard_hide_grouped_in_history(false);
+            config_->set_clipboard_group_bar_position("top");
+            config_->set_clipboard_display_lines(1);
+        });
+        ClipboardWindow window;
+        window.show();
+        QTRY_COMPARE(window.list_widget->count(), 2);
+        config_->set_clipboard_hide_grouped_in_history(true);
+        config_->set_clipboard_group_bar_position("left");
+        config_->set_clipboard_display_lines(3);
+        // Keys the save did not touch change nothing yet.
+        window.apply_saved_settings({"clipboard_history_limit_spin"});
+        QCOMPARE(window.list_widget->count(), 2);
+        QCOMPARE(window.item_delegate->display_lines(), 1);
+        window.apply_saved_settings({"clipboard_hide_grouped_in_history", "clipboard_group_bar_position", "clipboard_display_lines"});
+        QTRY_COMPARE(window.list_widget->count(), 1);
+        QCOMPARE(window.group_bar->position, QString("left"));
+        QCOMPARE(window.item_delegate->display_lines(), 3);
         window.close();
     }
 

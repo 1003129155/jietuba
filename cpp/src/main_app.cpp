@@ -492,6 +492,7 @@ void MainApp::on_settings_accepted(SettingsDialog *accepted_window) {
     if (clipboard_window) {
         clipboard_window->load_settings();
         clipboard_window->controller->load_settings();
+        clipboard_window->apply_saved_settings(saved);
         if (clipboard_manager) clipboard_manager->apply_history_limit();
     }
     PinManager::instance()->refresh_all_appearance();
@@ -551,6 +552,13 @@ void MainApp::open_settings() {
     settings_window->show();
     settings_window->raise();
     settings_window->activateWindow();
+}
+
+void MainApp::open_settings_page(int stack_index, const QString &route_key) {
+    if (update_preparing) return;
+    if (!settings_window) preload_settings();
+    settings_window->restore_view_state({stack_index, route_key});
+    open_settings();
 }
 
 void MainApp::open_translator() {
@@ -630,7 +638,10 @@ void MainApp::open_clipboard_window() {
             clipboard_window->close();
             return;
         }
-        if (!clipboard_window) clipboard_window = new clipboard::ClipboardWindow;
+        if (!clipboard_window) {
+            clipboard_window = new clipboard::ClipboardWindow;
+            connect(clipboard_window, &clipboard::ClipboardWindow::settings_requested, this, [this] { open_settings_page(2, "clipboard"); });
+        }
         if (screenshot_window && screenshot_window->session_active()) {
             attach_clipboard_to_capture();
             // The text being typed stays in view while picking what goes into it.

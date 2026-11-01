@@ -86,6 +86,11 @@ void apply_clip_theme_btn_style(QWidget *btn, const QString &name);
 
 // page_clipboard: the database and images size as text, empty when unavailable. Scans the disk.
 QString clipboard_storage_size_text();
+// page_clipboard: settings the clipboard page saves through behavior_controls, restored by its reset.
+extern const std::set<QString> CLIPBOARD_BEHAVIOR_KEYS;
+// page_clipboard: the multi-select paste separator the page shows, and showing one.
+QString clipboard_separator_value(const SettingsDialog *dialog);
+void select_clipboard_separator(SettingsDialog *dialog, const QString &separator);
 
 // page_log
 void refresh_latest_log_label(SettingsDialog *dialog);

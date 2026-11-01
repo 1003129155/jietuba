@@ -2822,6 +2822,10 @@ Replace it?</translation>
         <translation>Hide Grouped Items from All</translation>
     </message>
     <message>
+        <source>More Settings</source>
+        <translation>More Settings</translation>
+    </message>
+    <message>
         <source>Preserve Search on Reopen</source>
         <translation>Preserve Search on Reopen</translation>
     </message>
@@ -3907,6 +3911,138 @@ Items in the group will be moved back to clipboard history.</translation>
     <message>
         <source>Automatically send Ctrl+V after selecting an item</source>
         <translation>Automatically send Ctrl+V after selecting an item</translation>
+    </message>
+    <message>
+        <source>Group Bar Position</source>
+        <translation>Group Bar Position</translation>
+    </message>
+    <message>
+        <source>Where the group bar sits in the clipboard window</source>
+        <translation>Where the group bar sits in the clipboard window</translation>
+    </message>
+    <message>
+        <source>Right</source>
+        <translation>Right</translation>
+    </message>
+    <message>
+        <source>Left</source>
+        <translation>Left</translation>
+    </message>
+    <message>
+        <source>Top</source>
+        <translation>Top</translation>
+    </message>
+    <message>
+        <source>Preserve Search on Reopen</source>
+        <translation>Preserve Search on Reopen</translation>
+    </message>
+    <message>
+        <source>Keep the search text when the clipboard window opens again</source>
+        <translation>Keep the search text when the clipboard window opens again</translation>
+    </message>
+    <message>
+        <source>List Display</source>
+        <translation>List Display</translation>
+    </message>
+    <message>
+        <source>Show Time</source>
+        <translation>Show Time</translation>
+    </message>
+    <message>
+        <source>Show when each item was copied</source>
+        <translation>Show when each item was copied</translation>
+    </message>
+    <message>
+        <source>Max Display Lines</source>
+        <translation>Max Display Lines</translation>
+    </message>
+    <message>
+        <source>Longer text wraps onto at most this many lines</source>
+        <translation>Longer text wraps onto at most this many lines</translation>
+    </message>
+    <message>
+        <source>Image Size</source>
+        <translation>Image Size</translation>
+    </message>
+    <message>
+        <source>Size of image thumbnails in the list</source>
+        <translation>Size of image thumbnails in the list</translation>
+    </message>
+    <message>
+        <source>Hide Grouped Items from All</source>
+        <translation>Hide Grouped Items from All</translation>
+    </message>
+    <message>
+        <source>Items in a group no longer show in All; filter groups still list them</source>
+        <translation>Items in a group no longer show in All; filter groups still list them</translation>
+    </message>
+    <message>
+        <source>Close After Paste</source>
+        <translation>Close After Paste</translation>
+    </message>
+    <message>
+        <source>Turn off to paste several items in a row</source>
+        <translation>Turn off to paste several items in a row</translation>
+    </message>
+    <message>
+        <source>Move to Top After Paste</source>
+        <translation>Move to Top After Paste</translation>
+    </message>
+    <message>
+        <source>A pasted item moves to the top of the history</source>
+        <translation>A pasted item moves to the top of the history</translation>
+    </message>
+    <message>
+        <source>Paste with Format</source>
+        <translation>Paste with Format</translation>
+    </message>
+    <message>
+        <source>Keep fonts, colors and links when pasting formatted text</source>
+        <translation>Keep fonts, colors and links when pasting formatted text</translation>
+    </message>
+    <message>
+        <source>Multi-Select Paste</source>
+        <translation>Multi-Select Paste</translation>
+    </message>
+    <message>
+        <source>Separator</source>
+        <translation>Separator</translation>
+    </message>
+    <message>
+        <source>Placed between the items pasted together</source>
+        <translation>Placed between the items pasted together</translation>
+    </message>
+    <message>
+        <source>Custom</source>
+        <translation>Custom</translation>
+    </message>
+    <message>
+        <source>Paste Order</source>
+        <translation>Paste Order</translation>
+    </message>
+    <message>
+        <source>The order the selected items are pasted in</source>
+        <translation>The order the selected items are pasted in</translation>
+    </message>
+    <message>
+        <source>First Selected First</source>
+        <translation>First Selected First</translation>
+    </message>
+    <message>
+        <source>Last Selected First</source>
+        <translation>Last Selected First</translation>
+    </message>
+    <message>
+        <source>Record Merged Content</source>
+        <translation>Record Merged Content</translation>
+    </message>
+    <message>
+        <source>Add the combined content to the history as a new item</source>
+        <translation>Add the combined content to the history as a new item</translation>
+    </message>
+    <message>
+        <source>💡 The clipboard window's theme, font size and opacity are on the Appearance page.</source>
+        <translation>💡 The clipboard window's theme, font size and opacity are on the Appearance page.</translation>
     </message>
     <message>
         <source>History Limit</source>

@@ -27,20 +27,6 @@ const std::pair<const char *, const char *> ZOOM_ANCHOR_LABELS[] = {
 
 double round2(double value) { return std::round(value * 100) / 100; }
 
-// A combo of (label, stored value); a stored value outside the options shows the default.
-ComboBox *choice_combo(SettingsDialog *dialog, SettingCard *card, const QString &key, const std::vector<std::pair<QString, QVariant>> &items,
-                       const std::optional<QVariant> &current = std::nullopt) {
-    auto *config = dialog->config_manager;
-    auto *combo = new ComboBox(card);
-    for (const auto &[label, value] : items) combo->addItem(label, value);
-    int index = combo->findData(current ? *current : config->get_app_setting(key));
-    if (index < 0) index = combo->findData(config->app_defaults().value(key));
-    combo->setCurrentIndex(std::max(0, index));
-    dialog->behavior_controls.emplace_back(key, combo);
-    card->addControl(combo);
-    return combo;
-}
-
 template <size_t N>
 void opacity_combo(SettingsDialog *dialog, SettingCard *card, const QString &key, const int (&steps)[N]) {
     std::vector<std::pair<QString, QVariant>> items;
@@ -55,14 +41,6 @@ void percent_card(SettingsDialog *dialog, SettingsCardGroup *grp, FluentIcon ico
     for (int percent : steps) items.emplace_back(QString("%1%").arg(percent), percent);
     choice_combo(dialog, card, key, items);
     grp->addSettingCard(card);
-}
-
-SwitchSettingCard *add_switch_card(SettingsDialog *dialog, SettingsCardGroup *grp, const IconSource &icon, const char *title, const char *desc, const QString &key) {
-    auto *card = new SwitchSettingCard(icon, dialog->tr_text(title), dialog->tr_text(desc), grp);
-    card->setChecked(dialog->config_manager->get_app_setting(key).toBool());
-    dialog->behavior_controls.emplace_back(key, card);
-    grp->addSettingCard(card);
-    return card;
 }
 
 void build_behavior_section(SettingsDialog *dialog, SettingsCardGroup *grp) {

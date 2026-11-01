@@ -2928,6 +2928,10 @@ Replace it?</source>
         <translation>「全部」中隱藏已分組內容</translation>
     </message>
     <message>
+        <source>More Settings</source>
+        <translation>詳細設定</translation>
+    </message>
+    <message>
         <source>Preserve Search on Reopen</source>
         <translation>保留搜尋條件</translation>
     </message>
@@ -4009,6 +4013,138 @@ Items in the group will be moved back to clipboard history.</source>
     <message>
         <source>Automatically send Ctrl+V after selecting an item</source>
         <translation>選擇專案後自動傳送 Ctrl+V</translation>
+    </message>
+    <message>
+        <source>Group Bar Position</source>
+        <translation>分組欄位置</translation>
+    </message>
+    <message>
+        <source>Where the group bar sits in the clipboard window</source>
+        <translation>分組欄在剪貼簿視窗中的位置</translation>
+    </message>
+    <message>
+        <source>Right</source>
+        <translation>右側</translation>
+    </message>
+    <message>
+        <source>Left</source>
+        <translation>左側</translation>
+    </message>
+    <message>
+        <source>Top</source>
+        <translation>頂部</translation>
+    </message>
+    <message>
+        <source>Preserve Search on Reopen</source>
+        <translation>保留搜尋條件</translation>
+    </message>
+    <message>
+        <source>Keep the search text when the clipboard window opens again</source>
+        <translation>再次開啟剪貼簿視窗時保留上次的搜尋內容</translation>
+    </message>
+    <message>
+        <source>List Display</source>
+        <translation>列表顯示</translation>
+    </message>
+    <message>
+        <source>Show Time</source>
+        <translation>顯示時間</translation>
+    </message>
+    <message>
+        <source>Show when each item was copied</source>
+        <translation>在每筆記錄旁顯示複製的時間</translation>
+    </message>
+    <message>
+        <source>Max Display Lines</source>
+        <translation>最多顯示行數</translation>
+    </message>
+    <message>
+        <source>Longer text wraps onto at most this many lines</source>
+        <translation>較長的文字最多換行顯示這麼多行</translation>
+    </message>
+    <message>
+        <source>Image Size</source>
+        <translation>圖片大小</translation>
+    </message>
+    <message>
+        <source>Size of image thumbnails in the list</source>
+        <translation>列表中圖片縮圖的大小</translation>
+    </message>
+    <message>
+        <source>Hide Grouped Items from All</source>
+        <translation>「全部」中隱藏已分組內容</translation>
+    </message>
+    <message>
+        <source>Items in a group no longer show in All; filter groups still list them</source>
+        <translation>加入分組的內容不再出現在「全部」中，篩選分組照常顯示</translation>
+    </message>
+    <message>
+        <source>Close After Paste</source>
+        <translation>貼上後關閉視窗</translation>
+    </message>
+    <message>
+        <source>Turn off to paste several items in a row</source>
+        <translation>關閉後可連續貼上多筆</translation>
+    </message>
+    <message>
+        <source>Move to Top After Paste</source>
+        <translation>貼上後移到最前</translation>
+    </message>
+    <message>
+        <source>A pasted item moves to the top of the history</source>
+        <translation>貼上過的內容排到歷史最前面</translation>
+    </message>
+    <message>
+        <source>Paste with Format</source>
+        <translation>貼上帶格式</translation>
+    </message>
+    <message>
+        <source>Keep fonts, colors and links when pasting formatted text</source>
+        <translation>貼上含格式的文字時保留字型、顏色和連結</translation>
+    </message>
+    <message>
+        <source>Multi-Select Paste</source>
+        <translation>多選貼上</translation>
+    </message>
+    <message>
+        <source>Separator</source>
+        <translation>分隔符</translation>
+    </message>
+    <message>
+        <source>Placed between the items pasted together</source>
+        <translation>一起貼上的多筆內容之間插入的字元</translation>
+    </message>
+    <message>
+        <source>Custom</source>
+        <translation>自訂</translation>
+    </message>
+    <message>
+        <source>Paste Order</source>
+        <translation>貼上順序</translation>
+    </message>
+    <message>
+        <source>The order the selected items are pasted in</source>
+        <translation>多筆內容按選取的先後順序排列</translation>
+    </message>
+    <message>
+        <source>First Selected First</source>
+        <translation>先選在前</translation>
+    </message>
+    <message>
+        <source>Last Selected First</source>
+        <translation>後選在前</translation>
+    </message>
+    <message>
+        <source>Record Merged Content</source>
+        <translation>記錄合併後的內容</translation>
+    </message>
+    <message>
+        <source>Add the combined content to the history as a new item</source>
+        <translation>把合併後的內容作為新的一筆存入歷史</translation>
+    </message>
+    <message>
+        <source>💡 The clipboard window's theme, font size and opacity are on the Appearance page.</source>
+        <translation>💡 剪貼簿視窗的主題、字型大小和透明度在「外觀」頁設定。</translation>
     </message>
     <message>
         <source>History Limit</source>

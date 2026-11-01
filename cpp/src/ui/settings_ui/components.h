@@ -7,9 +7,13 @@
 #include <QPushButton>
 #include <QScrollArea>
 #include <QVBoxLayout>
+#include <optional>
+#include <utility>
+#include <vector>
 
 // Shared widgets of the settings window.
 namespace jietuba {
+class ComboBox;
 class SettingsDialog;
 
 // The outermost scroll area of a settings page, created under the page stack at once:
@@ -48,6 +52,13 @@ protected:
     void showEvent(QShowEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
 };
+
+// A combo of (label, stored value) for the app setting key, saved, reset and reloaded with the
+// other behaviour controls; a stored value outside the options shows the default.
+ComboBox *choice_combo(SettingsDialog *dialog, SettingCard *card, const QString &key, const std::vector<std::pair<QString, QVariant>> &items,
+                       const std::optional<QVariant> &current = std::nullopt);
+// A switch card for the app setting key, saved, reset and reloaded with the other behaviour controls.
+SwitchSettingCard *add_switch_card(SettingsDialog *dialog, SettingsCardGroup *grp, const IconSource &icon, const char *title, const char *desc, const QString &key);
 
 // Sizes a button for its current text and icon.
 void adjust_button_width(QPushButton *button, int min_width = 0, int horizontal_padding = 28);

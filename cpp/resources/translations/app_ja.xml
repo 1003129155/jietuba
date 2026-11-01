@@ -2922,6 +2922,10 @@ Replace it?</source>
         <translation>「すべて」にグループ内の項目を表示しない</translation>
     </message>
     <message>
+        <source>More Settings</source>
+        <translation>詳細設定</translation>
+    </message>
+    <message>
         <source>Preserve Search on Reopen</source>
         <translation>検索条件を保持</translation>
     </message>
@@ -4006,6 +4010,138 @@ Items in the group will be moved back to clipboard history.</source>
     <message>
         <source>Automatically send Ctrl+V after selecting an item</source>
         <translation>履歴を選択後に自動的にCtrl+Vを送信</translation>
+    </message>
+    <message>
+        <source>Group Bar Position</source>
+        <translation>グループバーの位置</translation>
+    </message>
+    <message>
+        <source>Where the group bar sits in the clipboard window</source>
+        <translation>クリップボードウィンドウでグループバーを置く位置</translation>
+    </message>
+    <message>
+        <source>Right</source>
+        <translation>右</translation>
+    </message>
+    <message>
+        <source>Left</source>
+        <translation>左</translation>
+    </message>
+    <message>
+        <source>Top</source>
+        <translation>上</translation>
+    </message>
+    <message>
+        <source>Preserve Search on Reopen</source>
+        <translation>検索条件を保持</translation>
+    </message>
+    <message>
+        <source>Keep the search text when the clipboard window opens again</source>
+        <translation>クリップボードウィンドウを開き直しても前回の検索内容を残します</translation>
+    </message>
+    <message>
+        <source>List Display</source>
+        <translation>リストの表示</translation>
+    </message>
+    <message>
+        <source>Show Time</source>
+        <translation>時刻を表示</translation>
+    </message>
+    <message>
+        <source>Show when each item was copied</source>
+        <translation>各項目にコピーした時刻を表示します</translation>
+    </message>
+    <message>
+        <source>Max Display Lines</source>
+        <translation>最大表示行数</translation>
+    </message>
+    <message>
+        <source>Longer text wraps onto at most this many lines</source>
+        <translation>長いテキストを折り返して表示する最大の行数</translation>
+    </message>
+    <message>
+        <source>Image Size</source>
+        <translation>画像サイズ</translation>
+    </message>
+    <message>
+        <source>Size of image thumbnails in the list</source>
+        <translation>リストに表示する画像サムネイルの大きさ</translation>
+    </message>
+    <message>
+        <source>Hide Grouped Items from All</source>
+        <translation>「すべて」にグループ内の項目を表示しない</translation>
+    </message>
+    <message>
+        <source>Items in a group no longer show in All; filter groups still list them</source>
+        <translation>グループに入れた項目を「すべて」に表示しません。フィルターグループには表示されます</translation>
+    </message>
+    <message>
+        <source>Close After Paste</source>
+        <translation>貼り付け後にウィンドウを閉じる</translation>
+    </message>
+    <message>
+        <source>Turn off to paste several items in a row</source>
+        <translation>オフにすると続けて何件も貼り付けられます</translation>
+    </message>
+    <message>
+        <source>Move to Top After Paste</source>
+        <translation>貼り付け後に先頭へ移動</translation>
+    </message>
+    <message>
+        <source>A pasted item moves to the top of the history</source>
+        <translation>貼り付けた項目を履歴の先頭に移動します</translation>
+    </message>
+    <message>
+        <source>Paste with Format</source>
+        <translation>書式付きで貼り付け</translation>
+    </message>
+    <message>
+        <source>Keep fonts, colors and links when pasting formatted text</source>
+        <translation>書式付きのテキストを貼り付けるとき、フォント・色・リンクを保持します</translation>
+    </message>
+    <message>
+        <source>Multi-Select Paste</source>
+        <translation>複数選択して貼り付け</translation>
+    </message>
+    <message>
+        <source>Separator</source>
+        <translation>区切り文字</translation>
+    </message>
+    <message>
+        <source>Placed between the items pasted together</source>
+        <translation>まとめて貼り付ける項目の間に入れる文字</translation>
+    </message>
+    <message>
+        <source>Custom</source>
+        <translation>カスタム</translation>
+    </message>
+    <message>
+        <source>Paste Order</source>
+        <translation>貼り付け順</translation>
+    </message>
+    <message>
+        <source>The order the selected items are pasted in</source>
+        <translation>選択した項目を貼り付ける順番</translation>
+    </message>
+    <message>
+        <source>First Selected First</source>
+        <translation>選択順</translation>
+    </message>
+    <message>
+        <source>Last Selected First</source>
+        <translation>選択の逆順</translation>
+    </message>
+    <message>
+        <source>Record Merged Content</source>
+        <translation>結合した内容を記録</translation>
+    </message>
+    <message>
+        <source>Add the combined content to the history as a new item</source>
+        <translation>まとめた内容を新しい項目として履歴に追加します</translation>
+    </message>
+    <message>
+        <source>💡 The clipboard window's theme, font size and opacity are on the Appearance page.</source>
+        <translation>💡 クリップボードウィンドウの配色・文字サイズ・不透明度は「外観」ページで設定します。</translation>
     </message>
     <message>
         <source>History Limit</source>

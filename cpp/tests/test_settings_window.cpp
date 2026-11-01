@@ -1105,7 +1105,7 @@ private slots:
         QVERIFY(keys.contains("app/screenshot_toolbar_layout"));
         QVERIFY(keys.contains("pin/toolbar_layout"));
         // Settings no page shows stay out: the window could never show what was imported.
-        for (const char *key : {"clipboard/show_metadata", "clipboard/preserve_search", "gif/fps", "app/screenshot_quality"})
+        for (const char *key : {"app/clipboard_window_width", "clipboard/starter_groups_seeded", "gif/fps", "app/screenshot_quality"})
             QVERIFY2(!keys.contains(key), key);
         for (const auto &key : LOCAL_SETTING_PATHS()) QVERIFY2(!keys.contains(key), qPrintable(key));
         // A control a page edits by name has its setting imported.
@@ -1122,11 +1122,11 @@ private slots:
             other.setValue("app/log_level", "DEBUG");
             other.setValue("app/screenshot_save_path", other_dir);
             other.setValue("app/program_path", QDir(other_dir).filePath("jietuba.exe"));
-            other.setValue("clipboard/show_metadata", true);
+            other.setValue("app/clipboard_window_width", 999);
         }
         const auto values = settings_transfer::read_settings_file(path);
         QCOMPARE(values.value("app/log_level").toString(), QString("DEBUG"));
-        for (const char *key : {"app/screenshot_save_path", "app/program_path", "clipboard/show_metadata"}) QVERIFY2(!values.contains(key), key);
+        for (const char *key : {"app/screenshot_save_path", "app/program_path", "app/clipboard_window_width"}) QVERIFY2(!values.contains(key), key);
         dialog.load_imported_settings(values);
         QCOMPARE(dialog.attr<QComboBox>("log_level_combo")->currentText(), QString("DEBUG"));
         QVERIFY(!dialog.has_unsaved_changes());
@@ -1190,6 +1190,66 @@ private slots:
         QCOMPARE(config_->get_app_setting("screenshot_toolbar_layout").toString(), screenshot_layout);
         QCOMPARE(config_->get_app_setting("pin_toolbar_layout").toString(), pin_layout);
         QVERIFY(config_->settings().contains("pin/toolbar_layout"));
+    }
+
+    // What the clipboard window's menu sets is on the clipboard page too, saved and reset with it.
+    void theClipboardPageCarriesTheWindowMenuSettings() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.on_nav_changed(2, "clipboard");
+        for (const auto &key : CLIPBOARD_BEHAVIOR_KEYS) QVERIFY2(dialog.behavior_control(key), qPrintable(key));
+        auto *lines = qobject_cast<QComboBox *>(dialog.behavior_control("clipboard_display_lines"));
+        auto *bar = qobject_cast<QComboBox *>(dialog.behavior_control("clipboard_group_bar_position"));
+        auto *hide = qobject_cast<SwitchSettingCard *>(dialog.behavior_control("clipboard_hide_grouped_in_history"));
+        auto *auto_paste = qobject_cast<SwitchSettingCard *>(dialog.behavior_control("clipboard_auto_paste"));
+        auto *separator = dialog.attr<QComboBox>("clipboard_separator_combo");
+        auto *custom = dialog.attr<QLineEdit>("clipboard_separator_edit");
+        QVERIFY(lines && bar && hide && auto_paste && separator && custom);
+        QCOMPARE(lines->count(), 5);
+        lines->setCurrentIndex(lines->findData(3));
+        bar->setCurrentIndex(bar->findData(QString("left")));
+        hide->setChecked(true);
+        auto_paste->setChecked(false);
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_clipboard_display_lines(), 3);
+        QCOMPARE(config_->get_clipboard_group_bar_position(), QString("left"));
+        QVERIFY(config_->get_clipboard_hide_grouped_in_history());
+        QVERIFY(!config_->get_clipboard_auto_paste());
+        QVERIFY(dialog.saved_keys().contains("clipboard_display_lines"));
+
+        // A separator outside the presets is typed beside Custom, \n for a line break.
+        QVERIFY(custom->isHidden());
+        separator->setCurrentIndex(separator->count() - 1);
+        QVERIFY(!custom->isHidden());
+        custom->setText("\\n--\\n");
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_clipboard_multi_paste_separator(), QString("\n--\n"));
+        QVERIFY(dialog.saved_keys().contains("clipboard_separator"));
+        // Changed in the window's menu meanwhile, the page shows it when it opens again.
+        config_->set_clipboard_multi_paste_separator(", ");
+        config_->set_clipboard_image_size("large");
+        dialog.hide();
+        dialog.show();
+        QCOMPARE(separator->currentData().toString(), QString(", "));
+        QVERIFY(custom->isHidden());
+        QCOMPARE(qobject_cast<QComboBox *>(dialog.behavior_control("clipboard_image_size"))->currentData().toString(), QString("large"));
+        config_->set_clipboard_multi_paste_separator("; ");
+        dialog.hide();
+        dialog.show();
+        QVERIFY(!custom->isHidden());
+        QCOMPARE(custom->text(), QString("; "));
+
+        reset_page(dialog);
+        QCOMPARE(lines->currentData().toInt(), 1);
+        QCOMPARE(bar->currentData().toString(), QString("top"));
+        QVERIFY(!hide->isChecked());
+        QVERIFY(auto_paste->isChecked());
+        QCOMPARE(separator->currentData().toString(), QString("\n"));
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_clipboard_display_lines(), 1);
+        QCOMPARE(config_->get_clipboard_image_size(), QString("small"));
+        QCOMPARE(config_->get_clipboard_multi_paste_separator(), QString("\n"));
+        QVERIFY(!config_->get_clipboard_hide_grouped_in_history());
+        dialog.hide();
     }
 
     void thePopupAutoCloseSwitchSavesAndResets() {

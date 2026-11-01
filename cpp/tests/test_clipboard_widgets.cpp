@@ -824,6 +824,7 @@ private slots:
         options.on_set_image_size = [&calls](const QString &value) { calls << "image " + value; };
         options.on_set_theme = [&calls](const QString &value) { calls << "theme " + value; };
         options.on_add_item = [&calls] { calls << "add"; };
+        options.on_open_settings = [&calls] { calls << "settings"; };
         options.on_clear_history = [&calls] { calls << "clear"; };
         options.on_set_group_bar_position = [&calls](const QString &value) { calls << "bar " + value; };
         options.open_position = "previous";
@@ -867,7 +868,7 @@ private slots:
         for (const char *label : {"New Line", "Comma", "No Separator"}) QVERIFY(!actions[label]->isChecked());
         for (const char *label : {"Paste with Format", "Auto Paste After Selection", "Close After Paste", "Move to Top After Paste", "Hide Grouped Items from All", "Show Time",
                                   "Preserve Search on Reopen", "Opaque", "17px", "Large", "First Selected First", "Record Content", "Comma", "Add Content",
-                                  "Clear History", "Follow Mouse"})
+                                  "Clear History", "More Settings", "Follow Mouse"})
             actions[label]->trigger();
         actions["Top"]->trigger();
         QVERIFY(calls.contains("html 0"));
@@ -881,6 +882,7 @@ private slots:
         QVERIFY(calls.contains("separator , "));
         QVERIFY(calls.contains("add"));
         QVERIFY(calls.contains("clear"));
+        QVERIFY(calls.contains("settings"));
         QVERIFY(calls.contains("bar top"));
         QVERIFY(calls.contains("position cursor"));
         // Theme swatches are buttons inside the menu; the current one is marked by an icon, not a ✓ character.
