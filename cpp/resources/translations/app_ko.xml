@@ -1002,6 +1002,14 @@ Replace it?</source>
         <translation>원본 텍스트 서식을 유지</translation>
     </message>
     <message>
+        <source>Close When Clicking Outside</source>
+        <translation>바깥을 클릭하면 닫기</translation>
+    </message>
+    <message>
+        <source>The translation popup opened by the shortcut closes when you click outside it or switch windows</source>
+        <translation>단축키로 연 번역 팝업을 바깥을 클릭하거나 창을 전환하면 닫습니다</translation>
+    </message>
+    <message>
         <source>Baidu APPID</source>
         <translation>Baidu APPID</translation>
     </message>

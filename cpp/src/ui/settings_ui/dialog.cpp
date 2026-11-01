@@ -792,6 +792,7 @@ void SettingsDialog::reset_translation_page() {
     select_data(attr<QComboBox>("translation_target_combo"), defaults.value("translation_target_lang"));
     if (auto *toggle = attr_widget("split_sentences_toggle")) set_checked(toggle, defaults.value("translation_split_sentences").toBool());
     if (auto *toggle = attr_widget("preserve_formatting_toggle")) set_checked(toggle, defaults.value("translation_preserve_formatting").toBool());
+    if (auto *toggle = attr_widget("translation_auto_close_toggle")) set_checked(toggle, defaults.value("translation_popup_auto_close").toBool());
     reset_speech_voices(this);
     refresh_behavior_controls(true, {}, std::set<QString>{"speech_rate", "speech_volume"});
 }
@@ -960,6 +961,8 @@ void SettingsDialog::save_changes(QSet<QString> changed) {
     if (auto *toggle = attr_widget("split_sentences_toggle"); toggle && has("split_sentences_toggle")) config_manager->set_translation_split_sentences(checked_of(toggle));
     if (auto *toggle = attr_widget("preserve_formatting_toggle"); toggle && has("preserve_formatting_toggle"))
         config_manager->set_translation_preserve_formatting(checked_of(toggle));
+    if (auto *toggle = attr_widget("translation_auto_close_toggle"); toggle && has("translation_auto_close_toggle"))
+        config_manager->set_translation_popup_auto_close(checked_of(toggle));
     if (has("speech_voice_combos")) config_manager->set_speech_voices(speech_voice_choices(this));
 
     // 6. Miscellaneous. Changing autostart or admin mode may ask for administrator permission;
@@ -1231,7 +1234,7 @@ QVariantMap SettingsDialog::snapshot_settings() const {
     for (const char *name : {"ocr_copy_directly_toggle", "barcode_copy_single_toggle", "cross_tool_selection_toggle", "text_always_on_top_toggle", "smart_animation_toggle",
                              "save_toggle", "screenshot_pin_save_toggle", "clipboard_file_reference_toggle", "screenshot_save_original_toggle", "watermark_auto_toggle",
                              "magnifier_enabled_toggle", "magnifier_grid_toggle", "magnifier_hint_toggle", "ocr_enable_toggle", "ocr_grayscale_toggle",
-                             "ocr_upscale_toggle", "split_sentences_toggle", "preserve_formatting_toggle", "log_toggle", "clipboard_enabled_toggle",
+                             "ocr_upscale_toggle", "split_sentences_toggle", "preserve_formatting_toggle", "translation_auto_close_toggle", "log_toggle", "clipboard_enabled_toggle",
                              "clipboard_auto_paste_toggle", "autostart_toggle", "run_as_admin_toggle", "show_main_window_toggle", "pin_auto_toolbar_toggle", "info_hide_on_drag_toggle",
                              "preload_screenshot_toggle", "preload_toolbar_toggle", "preload_ocr_toggle", "preload_settings_toggle", "preload_clipboard_toggle"})
         if (auto *widget = attr_widget(name)) snap[name] = checked_of(widget);
@@ -1403,6 +1406,7 @@ void SettingsDialog::refresh_settings() {
     select_data(attr<QComboBox>("translation_target_combo"), config_manager->get_saved_translation_target_lang());
     if (auto *toggle = attr_widget("split_sentences_toggle")) set_checked(toggle, config_manager->get_translation_split_sentences());
     if (auto *toggle = attr_widget("preserve_formatting_toggle")) set_checked(toggle, config_manager->get_translation_preserve_formatting());
+    if (auto *toggle = attr_widget("translation_auto_close_toggle")) set_checked(toggle, config_manager->get_translation_popup_auto_close());
     select_speech_voices(this, config_manager->get_speech_voices());
 
     if (auto *toggle = attr_widget("log_toggle")) set_checked(toggle, config_manager->get_log_enabled());

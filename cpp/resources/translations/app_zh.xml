@@ -1038,6 +1038,14 @@ Replace it?</source>
         <source>Keep original text formatting</source>
         <translation>保持原文格式</translation>
     </message>
+    <message>
+        <source>Close When Clicking Outside</source>
+        <translation>点击窗口外时关闭</translation>
+    </message>
+    <message>
+        <source>The translation popup opened by the shortcut closes when you click outside it or switch windows</source>
+        <translation>用快捷键打开的翻译小窗，点击窗口外或切换窗口时自动关闭</translation>
+    </message>
     <message><source>Color Formats</source><translation>颜色格式</translation></message>
     <message><source>Which formats Shift cycles through on the magnifier, for C to copy.</source><translation>放大镜上按 Shift 在哪些格式之间切换，按 C 复制当前显示的那个。</translation></message>
     <message><source>Manage Color Formats</source><translation>管理颜色格式</translation></message>

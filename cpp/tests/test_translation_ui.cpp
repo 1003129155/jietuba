@@ -1,5 +1,6 @@
 #include "core/ui_theme.h"
 #include "settings/tool_settings.h"
+#include "stub_input_hub.h"
 #include "translation/provider.h"
 #include "translation/providers/volcengine.h"
 #include "translation/registry.h"
@@ -495,6 +496,68 @@ private slots:
         QCOMPARE(changed.count(), 1);
         QCOMPARE(changed.first().at(0).toString(), QString("EN"));
         QCOMPARE(popup.current_target_lang(), QString("EN"));
+    }
+
+    void thePopupClosesOnAClickOutsideWhenAsked() {
+        StubHub stub(TranslationPopup::WATCHER);
+        TranslationPopup popup;
+        popup.set_input_hub(stub.hub.get());
+        const auto outside = [&popup] { return popup.frameGeometry().bottomRight() + QPoint(30, 30); };
+
+        // Off by default: nothing is watched.
+        popup.show_popup("hello", QPoint(100, 100));
+        QVERIFY(stub.native->mouse_watchers.isEmpty());
+        stub.button(0, true, outside());
+        QCoreApplication::processEvents();
+        QVERIFY(popup.isVisible());
+        popup.hide();
+
+        get_tool_settings_manager()->set_translation_popup_auto_close(true);
+        popup.show_popup("hello", QPoint(100, 100));
+        QCOMPARE(stub.native->mouse_watchers, QStringList{TranslationPopup::WATCHER});
+        // A press on it, a release outside, and another watcher's press keep it.
+        stub.button(0, true, popup.frameGeometry().center());
+        stub.button(0, false, outside());
+        stub.button(0, true, outside(), "someone else");
+        QCoreApplication::processEvents();
+        QVERIFY(popup.isVisible());
+
+        // Its own menu is a separate window outside it.
+        QMenu menu(&popup);
+        menu.addAction("item");
+        menu.popup(outside());
+        QTRY_VERIFY(menu.isVisible());
+        QVERIFY(!menu.frameGeometry().intersects(popup.frameGeometry()));
+        stub.button(0, true, menu.frameGeometry().center());
+        QCoreApplication::processEvents();
+        QVERIFY(popup.isVisible());
+        menu.close();
+
+        // Any button elsewhere closes it, and it stops watching.
+        stub.button(2, true, popup.frameGeometry().topLeft() - QPoint(5, 5));
+        QTRY_VERIFY(!popup.isVisible());
+        QVERIFY(stub.native->mouse_watchers.isEmpty());
+
+        // Turned off again, the next show watches nothing.
+        get_tool_settings_manager()->set_translation_popup_auto_close(false);
+        popup.show_popup("hello", QPoint(100, 100));
+        QVERIFY(stub.native->mouse_watchers.isEmpty());
+        popup.hide();
+    }
+
+    void anActivePopupClosesWhenAnotherWindowIsActivated() {
+        get_tool_settings_manager()->set_translation_popup_auto_close(true);
+        StubHub stub(TranslationPopup::WATCHER);
+        QWidget other;
+        other.setGeometry(600, 400, 100, 100);
+        other.show();
+        TranslationPopup popup;
+        popup.set_input_hub(stub.hub.get());
+        popup.show_popup({}, QPoint(100, 100), true);
+        QTRY_VERIFY(popup.isActiveWindow());
+        other.activateWindow();
+        QTRY_VERIFY(!popup.isVisible());
+        QVERIFY(stub.native->mouse_watchers.isEmpty());
     }
 
     void theWindowTracksLoadingErrorsAndSize() {

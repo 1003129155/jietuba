@@ -15,6 +15,7 @@
 #include "pin/pin_manager.h"
 #include "pin/pin_window.h"
 #include "settings/tool_settings.h"
+#include "stub_input_hub.h"
 #include "tools/controller.h"
 #include "ui/number_settings_panel.h"
 #include "ui/paint_settings_panel.h"
@@ -176,67 +177,6 @@ ProcessCounters process_counters() {
     return counters;
 }
 
-// A hub whose native side does nothing but remember what was watched, so the tests feed the events.
-class StubHubNative : public InputHubNative {
-public:
-    QStringList mouse_watchers;
-    std::optional<QPoint> pointer;
-    std::optional<InputHubEvent> next_event() override { return std::nullopt; }
-    void close() override {}
-    bool configure_gestures(const std::vector<std::pair<QStringList, QString>> &, bool) override { return true; }
-    void set_blocked(bool) override {}
-    void cancel_gesture() override {}
-    std::optional<QPoint> take_position(quint64) override { return std::nullopt; }
-    bool dragging() override { return false; }
-    bool accepts(quint64) override { return false; }
-    std::optional<std::pair<QStringList, QString>> gesture_binding(quint64) override { return std::nullopt; }
-    void configure_side_buttons(bool, const QStringList &, bool) override {}
-    bool bind_hotkey(const QString &, const QStringList &, quint32) override { return true; }
-    void unbind_hotkey(const QString &) override {}
-    void configure_key_capture(bool) override {}
-    void watch_wheel(const QString &, const std::optional<InputHubRect> &) override {}
-    void unwatch_wheel(const QString &) override {}
-    void watch_keys(const QString &, const std::vector<quint32> &) override {}
-    void unwatch_keys(const QString &) override {}
-    void watch_mouse(const QString &watcher) override {
-        if (!mouse_watchers.contains(watcher)) mouse_watchers << watcher;
-    }
-    void unwatch_mouse(const QString &watcher) override { mouse_watchers.removeAll(watcher); }
-    std::optional<QPoint> take_pointer(const QString &) override { return std::exchange(pointer, std::nullopt); }
-    void watch_foreground(const QString &) override {}
-    void unwatch_foreground(const QString &) override {}
-    bool hooks_installed() override { return false; }
-    void set_test_marker(quintptr) override {}
-};
-
-struct StubHub {
-    StubHubNative *native = nullptr;
-    std::unique_ptr<InputHub> hub;
-    StubHub() {
-        auto stub = std::make_unique<StubHubNative>();
-        native = stub.get();
-        hub = std::make_unique<InputHub>(std::move(stub));
-    }
-    // What the hook thread would send: the pointer moved to at, or a button pressed or released.
-    void move_to(const QPoint &at) {
-        native->pointer = at;
-        InputHubEvent event;
-        event.kind = InputHubEvent::Pointer;
-        event.text = CursorHighlight::WATCHER;
-        hub->dispatch(event);
-    }
-    void button(int button, bool pressed, const QPoint &at, const QString &watcher = CursorHighlight::WATCHER) {
-        InputHubEvent event;
-        event.kind = InputHubEvent::MouseButton;
-        event.text = watcher;
-        event.value = button;  // input::Button: 0 left, 1 middle, 2 right
-        event.flag = pressed;
-        event.x = at.x();
-        event.y = at.y();
-        hub->dispatch(event);
-    }
-};
-
 QColor pixel_at(const QImage &image, const QRectF &image_rect, const QPoint &global) {
     return image.pixelColor(global - image_rect.topLeft().toPoint());
 }
@@ -376,7 +316,7 @@ private:
 
     ScreenAnnotation &start() {
         annotation_ = std::make_unique<ScreenAnnotation>();
-        stub_ = std::make_unique<StubHub>();
+        stub_ = std::make_unique<StubHub>(CursorHighlight::WATCHER);
         annotation_->cursor_highlight()->set_hub(stub_->hub.get());
         annotation_->start();
         return *annotation_;
@@ -1645,7 +1585,7 @@ private slots:
 
     void startStopCyclesReleaseHandlesAndMemory() {
         if (offscreen()) QSKIP("GDI and USER objects need real windows");
-        StubHub stub;
+        StubHub stub(CursorHighlight::WATCHER);
         const auto cycle = [&stub](bool with_tools) {
             {
                 ScreenAnnotation annotation;

@@ -1009,6 +1009,14 @@ Replace it?</source>
         <translation>原文の書式を保持する</translation>
     </message>
     <message>
+        <source>Close When Clicking Outside</source>
+        <translation>外側をクリックしたら閉じる</translation>
+    </message>
+    <message>
+        <source>The translation popup opened by the shortcut closes when you click outside it or switch windows</source>
+        <translation>ショートカットで開いた翻訳ポップアップを、外側のクリックやウィンドウの切り替えで閉じます</translation>
+    </message>
+    <message>
         <source>Baidu APPID</source>
         <translation>Baidu APPID</translation>
     </message>

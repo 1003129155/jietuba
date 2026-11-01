@@ -1192,6 +1192,21 @@ private slots:
         QVERIFY(config_->settings().contains("pin/toolbar_layout"));
     }
 
+    void thePopupAutoCloseSwitchSavesAndResets() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.on_nav_changed(4, "translation");
+        auto *toggle = dialog.attr<SwitchSettingCard>("translation_auto_close_toggle");
+        QVERIFY(toggle);
+        QVERIFY(!toggle->isChecked());
+        toggle->setChecked(true);
+        QVERIFY(dialog.apply_settings());
+        QVERIFY(config_->get_translation_popup_auto_close());
+        reset_page(dialog);
+        QVERIFY(!toggle->isChecked());
+        QVERIFY(dialog.apply_settings());
+        QVERIFY(!config_->get_translation_popup_auto_close());
+    }
+
     // Test Connection and Fetch Models use the form's unsaved values.
     void pendingProviderValuesOverlayTheConfig() {
         SettingsDialog dialog(config_, config_->get_hotkey());

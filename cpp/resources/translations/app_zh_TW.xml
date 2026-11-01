@@ -1039,6 +1039,14 @@ Replace it?</source>
         <translation>保持原文格式</translation>
     </message>
     <message>
+        <source>Close When Clicking Outside</source>
+        <translation>點擊視窗外時關閉</translation>
+    </message>
+    <message>
+        <source>The translation popup opened by the shortcut closes when you click outside it or switch windows</source>
+        <translation>用快速鍵開啟的翻譯小視窗，點擊視窗外或切換視窗時自動關閉</translation>
+    </message>
+    <message>
         <source>Color Formats</source>
         <translation>顏色格式</translation>
     </message>

@@ -637,6 +637,13 @@ QWidget *create_translation_page(SettingsDialog *dialog) {
     lang_card->addControl(target_combo);
     grp_opts->addSettingCard(lang_card);
 
+    auto *auto_close_card = new SwitchSettingCard(FluentIcon::Hide, dialog->tr_text("Close When Clicking Outside"),
+                                                  dialog->tr_text("The translation popup opened by the shortcut closes when you click outside it or switch windows"),
+                                                  grp_opts, "translate");
+    auto_close_card->setChecked(config->get_translation_popup_auto_close());
+    dialog->set_attr("translation_auto_close_toggle", auto_close_card);
+    grp_opts->addSettingCard(auto_close_card);
+
     // Only some providers support these two; each card shows by the provider's declared
     // options (update_provider_groups). Each card brings its own separator, so the group adds none.
     auto *switches = new ProviderSection(grp_opts, true);

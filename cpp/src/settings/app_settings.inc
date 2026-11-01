@@ -256,6 +256,8 @@ SETTING(custom_llm_3_json_mode, "translation/providers/custom_llm_3/json_mode", 
 SETTING(translation_target_lang, "app/translation_target_lang", QString, "", Import, Own, Gen)
 SETTING(translation_split_sentences, "app/translation_split_sentences", bool, true, Import, Gen, Gen)
 SETTING(translation_preserve_formatting, "app/translation_preserve_formatting", bool, true, Import, Gen, Gen)
+// The compact popup closes on a click outside it or on switching to another window.
+SETTING(translation_popup_auto_close, "app/translation_popup_auto_close", bool, false, Import, Gen, Gen)
 SETTING(translation_on_top, "app/translation_on_top", bool, true, Internal, Gen, Gen)
 SETTING(speech_voices, "speech/voices", QStringList, {}, Import, Gen, Gen)
 SETTING(speech_rate, "speech/rate", int, 0, Import, Gen, Gen)

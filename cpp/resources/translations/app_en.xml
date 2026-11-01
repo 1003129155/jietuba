@@ -1002,6 +1002,14 @@ Replace it?</translation>
         <source>Keep original text formatting</source>
         <translation>Keep original text formatting</translation>
     </message>
+    <message>
+        <source>Close When Clicking Outside</source>
+        <translation>Close When Clicking Outside</translation>
+    </message>
+    <message>
+        <source>The translation popup opened by the shortcut closes when you click outside it or switch windows</source>
+        <translation>The translation popup opened by the shortcut closes when you click outside it or switch windows</translation>
+    </message>
     <message><source>Color Formats</source><translation>Color Formats</translation></message>
     <message><source>Which formats Shift cycles through on the magnifier, for C to copy.</source><translation>Which formats Shift cycles through on the magnifier, for C to copy.</translation></message>
     <message><source>Manage Color Formats</source><translation>Manage Color Formats</translation></message>
