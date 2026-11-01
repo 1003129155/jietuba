@@ -17,16 +17,17 @@ class ClipboardManager;
 
 // get_item comes from the controller in the clipboard window and from the manager on the
 // global hotkey path, which has no window. center, when given, is where the pin is centred
-// (global coordinates); otherwise the centre of the screen. A file item pins as its files
-// would from the clipboard.
+// (global coordinates); otherwise the centre of the screen. A file item, and path text while
+// any of its paths exists, pins as its files would from the clipboard.
 bool create_pin_from_clipboard_item(qint64 item_id, ClipboardController *controller, QWidget *clipboard_window = nullptr,
                                     std::optional<QPoint> center = std::nullopt);
 bool create_pin_from_clipboard_item(qint64 item_id, ClipboardManager *manager, QWidget *clipboard_window = nullptr, std::optional<QPoint> center = std::nullopt);
 // Both paths end here, so placement and the working set trim live in one place.
 bool create_pin_from_image(const QImage &image, QWidget *clipboard_window = nullptr, std::optional<QPoint> center = std::nullopt);
 // A pin per image and per text of items, in their order, and their files as the pin hotkey pins
-// copied files: a pin per picture file, the rest together on one card that opens first. Pins step
-// down and right from center. False when none of them can be pinned.
+// copied files: a pin per picture file, the rest together on one card that opens first. Path text
+// counts as files while any of its paths exists. Pins step down and right from center. False when
+// none of them can be pinned.
 bool create_pins_from_clipboard_items(const QList<ClipboardItem> &items, QWidget *clipboard_window = nullptr, std::optional<QPoint> center = std::nullopt);
 // A text-only pin, formatted as in html unless the settings turn formatting off; false for blank text.
 bool create_pin_from_text(const QString &text, const QString &html, QWidget *clipboard_window = nullptr, std::optional<QPoint> center = std::nullopt);

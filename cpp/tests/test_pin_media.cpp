@@ -880,6 +880,44 @@ private slots:
         QVERIFY(!clipboard::create_pins_from_clipboard_items({blank}, nullptr));
     }
 
+    void pathTextPinsAsTheFilesItNamesWhileTheyExist() {
+        auto &manager = clipboard::ClipboardManager::instance();
+        const QString database = QDir::toNativeSeparators(dir_.filePath("path_history/clipboard.db"));
+        config_->set_clipboard_db_path(database);
+        QVERIFY(manager.reset_storage(database));
+        // A folder path as the address bar copies it pins as the folder copied itself would.
+        const QString folder = QDir::toNativeSeparators(dir_.filePath("模型开发"));
+        QVERIFY(QDir().mkpath(folder));
+        const auto folder_id = manager.add_item(folder, "text");
+        QVERIFY(folder_id);
+        QCOMPARE(manager.get_item(*folder_id)->sub_kind, clipboard::SUB_KIND_PATH);
+        QVERIFY(clipboard::create_pin_from_clipboard_item(*folder_id, &manager, nullptr));
+        // Pins open from low-priority workers, which a fully loaded runner starves for seconds.
+        QTRY_COMPARE_WITH_TIMEOUT(pins().size(), 1, 15000);
+        QVERIFY(pins()[0]->file_card());
+        QCOMPARE(pins()[0]->file_card()->files(), QStringList{folder});
+        // A path that no longer exists pins its text.
+        const QString gone = QDir::toNativeSeparators(dir_.filePath("gone.txt"));
+        const auto gone_id = manager.add_item(gone, "text");
+        QVERIFY(gone_id);
+        QVERIFY(clipboard::create_pin_from_clipboard_item(*gone_id, &manager, nullptr));
+        QTRY_COMPARE_WITH_TIMEOUT(pins().size(), 2, 15000);
+        QVERIFY(pins()[1]->text_only());
+        QCOMPARE(pins()[1]->text_content()->text(), gone);
+        PinManager::instance()->close_all();
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        // Selected together: a quoted picture path pins the picture itself.
+        clipboard::ClipboardItem named;
+        named.content_type = "text";
+        named.sub_kind = clipboard::SUB_KIND_PATH;
+        named.content = "\"" + QDir::toNativeSeparators(picture("named.png", QSize(4, 3), Qt::blue)) + "\"";
+        QVERIFY(clipboard::create_pins_from_clipboard_items({*manager.get_item(*folder_id), named, *manager.get_item(*gone_id)}, nullptr, QPoint(400, 300)));
+        QTRY_COMPARE_WITH_TIMEOUT(pins().size(), 3, 15000);
+        QVERIFY(pins()[0]->file_card());
+        QCOMPARE(pins()[1]->orig_size(), QSize(4, 3));
+        QVERIFY(pins()[2]->text_only());
+    }
+
     void anAnimationPinPlaysWithoutTheImageTools() {
         auto source = load_animation(three_frames());
         QVERIFY(source);
