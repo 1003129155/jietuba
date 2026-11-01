@@ -208,11 +208,11 @@ impl Database {
             [],
         );
 
-        // 外键必须开，否则 ON DELETE CASCADE 不生效
+        // 外键必须开，否则 ON DELETE CASCADE 不生效。
+        // 页缓存用默认的 2 MB：每次只取一页，库文件本身在系统文件缓存里，调大只会留住写过的页
         conn.execute_batch(
             "PRAGMA foreign_keys = ON;
-             PRAGMA synchronous = NORMAL;
-             PRAGMA cache_size = 10000;"
+             PRAGMA synchronous = NORMAL;"
         ).map_err(|e| format!("设置参数失败: {}", e))?;
         // 日志模式记在库文件里，跟着库走：新库用 WAL，已有的库保持原样，由 set_single_file 切换。
         // 这样同步盘上多台电脑共用一个库时，不会各按各的设置来回改
