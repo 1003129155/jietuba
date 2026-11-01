@@ -2924,6 +2924,10 @@ Replace it?</source>
         <translation>顯示時間</translation>
     </message>
     <message>
+        <source>Hide Grouped Items from All</source>
+        <translation>「全部」中隱藏已分組內容</translation>
+    </message>
+    <message>
         <source>Preserve Search on Reopen</source>
         <translation>保留搜尋條件</translation>
     </message>

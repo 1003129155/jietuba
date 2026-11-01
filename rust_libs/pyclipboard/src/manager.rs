@@ -949,9 +949,11 @@ impl ClipboardManager {
     ///     limit: 每页数量，
     ///     search: 搜索关键词
     ///     filter: 内容类型和来源应用，空规则表示全部
+    ///     ungrouped_only: 只要未加入分组的
     /// 
     /// Returns:
     ///     这一页的记录
+    #[allow(clippy::too_many_arguments)]
     pub fn get_history(
         &self,
         offset: i64,
@@ -960,9 +962,10 @@ impl ClipboardManager {
         filter: &FilterRule,
         start_time: Option<i64>,
         end_time: Option<i64>,
+        ungrouped_only: bool,
     ) -> Result<Vec<PyClipboardItem>, String> {
         let db = self.db.lock();
-        db.query_items(offset, limit, search, filter, start_time, end_time)
+        db.query_items(offset, limit, search, filter, start_time, end_time, ungrouped_only)
     }
 
     /// 出现过的来源应用及条数，按条数从多到少；本程序的几种 exe 合并成 group_kind::OWN_APP
@@ -1050,7 +1053,7 @@ impl ClipboardManager {
     /// Returns:
     ///     List[PyClipboardItem]: 匹配的记录列表
     pub fn search(&self, keyword: String, limit: i64) -> Result<Vec<PyClipboardItem>, String> {
-        self.get_history(0, limit, Some(keyword), &FilterRule::default(), None, None)
+        self.get_history(0, limit, Some(keyword), &FilterRule::default(), None, None, false)
     }
 
     /// 手动添加内容到历史

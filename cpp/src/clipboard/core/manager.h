@@ -42,8 +42,9 @@ public:
     void resume_after_update();
     size_t pending_writes() const;
 
+    // ungrouped_only leaves out items that belong to a group.
     QList<ClipboardItem> get_history(qint64 offset = 0, qint64 limit = 50, const std::optional<QString> &search = std::nullopt, const FilterRule &filter = {},
-                                     std::optional<qint64> start_time = std::nullopt, std::optional<qint64> end_time = std::nullopt);
+                                     std::optional<qint64> start_time = std::nullopt, std::optional<qint64> end_time = std::nullopt, bool ungrouped_only = false);
     // Source apps in the history with their item counts, most first; this application's builds come as OWN_SOURCE_APP.
     QList<QPair<QString, qint64>> source_apps();
     qint64 get_total_count();

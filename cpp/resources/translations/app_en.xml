@@ -2818,6 +2818,10 @@ Replace it?</translation>
         <translation>Show Time</translation>
     </message>
     <message>
+        <source>Hide Grouped Items from All</source>
+        <translation>Hide Grouped Items from All</translation>
+    </message>
+    <message>
         <source>Preserve Search on Reopen</source>
         <translation>Preserve Search on Reopen</translation>
     </message>

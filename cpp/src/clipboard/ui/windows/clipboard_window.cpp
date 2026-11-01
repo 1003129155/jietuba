@@ -635,6 +635,7 @@ void ClipboardWindow::show_main_menu() {
     options.auto_paste = config->get_clipboard_auto_paste();
     options.close_after_paste = config->get_clipboard_close_after_paste();
     options.move_to_top = config->get_clipboard_move_to_top_on_paste();
+    options.hide_grouped = config->get_clipboard_hide_grouped_in_history();
     options.show_metadata = config->get_clipboard_show_metadata();
     options.preserve_search = config->get_clipboard_preserve_search();
     options.window_opacity = window_opacity;
@@ -649,6 +650,7 @@ void ClipboardWindow::show_main_menu() {
     options.on_toggle_auto_paste = [this](bool checked) { controller->set_auto_paste(checked); };
     options.on_toggle_close_after_paste = [this](bool checked) { config->set_clipboard_close_after_paste(checked); };
     options.on_toggle_move_to_top = [this](bool checked) { controller->set_move_to_top_on_paste(checked); };
+    options.on_toggle_hide_grouped = [this](bool checked) { controller->set_hide_grouped_in_history(checked); };
     options.on_toggle_show_metadata = [this](bool checked) {
         config->set_clipboard_show_metadata(checked);
         item_delegate->set_show_metadata(checked);

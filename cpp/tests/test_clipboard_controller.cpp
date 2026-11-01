@@ -21,6 +21,7 @@ private slots:
         QVERIFY(env_.fresh_database());
         env_.config->set_clipboard_show_metadata(true);
         env_.config->set_clipboard_move_to_top_on_paste(true);
+        env_.config->set_clipboard_hide_grouped_in_history(false);
         env_.config->set_clipboard_auto_paste(true);
         env_.config->set_clipboard_multi_paste_order("oldest_first");
         env_.config->set_clipboard_multi_paste_separator("\n");
@@ -489,6 +490,55 @@ private slots:
 
         QVERIFY(controller.clear_history());
         QVERIFY(controller.current_items.isEmpty());
+    }
+
+    void theHistoryCanLeaveOutGroupedItems() {
+        const auto group = manager().create_group("Saved");
+        const auto ids = add_texts({"select * from", "loose", "select 1"});
+        QVERIFY(manager().move_to_group(ids[0], *group));
+        ClipboardController controller(manager());
+        controller.load_history();
+        QCOMPARE(ids_of(controller.current_items), (QList<qint64>{ids[2], ids[1], ids[0]}));
+
+        controller.set_hide_grouped_in_history(true);
+        QVERIFY(env_.config->get_clipboard_hide_grouped_in_history());
+        QCOMPARE(ids_of(controller.current_items), (QList<qint64>{ids[2], ids[1]}));
+        controller.set_search_text("select");
+        QCOMPARE(ids_of(controller.current_items), QList<qint64>{ids[2]});
+        controller.set_search_text("");
+        // The group still lists them, and a filter group matches by its rule alone.
+        controller.switch_to_group(*group);
+        QCOMPARE(ids_of(controller.current_items), QList<qint64>{ids[0]});
+        const auto texts = manager().create_group("Texts", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILTER), FilterRule::of_kind("text"));
+        controller.switch_to_group(*texts);
+        QCOMPARE(controller.current_items.size(), 3);
+
+        // Moving into a group takes the row out of the history at once.
+        controller.switch_to_group(std::nullopt);
+        QSignalSpy removed(&controller, &ClipboardController::item_removed);
+        QVERIFY(controller.move_to_group(ids[1], *group));
+        QCOMPARE(removed.size(), 1);
+        QCOMPARE(ids_of(controller.current_items), QList<qint64>{ids[2]});
+
+        // Copying grouped content again moves the grouped row up instead of adding one; it stays out.
+        QSignalSpy inserted(&controller, &ClipboardController::item_inserted);
+        QSignalSpy loaded(&controller, &ClipboardController::data_loaded);
+        QCOMPARE(manager().add_item("select * from"), ids[0]);
+        auto copied = *manager().get_item(ids[0]);
+        QCOMPARE(copied.group_id, group);
+        // The watcher's item is the capture, which knows no group.
+        copied.group_id.reset();
+        controller.on_new_content(true, copied);
+        QCOMPARE(inserted.size(), 0);
+        QCOMPARE(loaded.size(), 0);
+        QCOMPARE(ids_of(controller.current_items), QList<qint64>{ids[2]});
+        const auto fresh = manager().add_item("fresh");
+        controller.on_new_content(true, manager().get_item(*fresh));
+        QCOMPARE(inserted.size(), 1);
+        QCOMPARE(ids_of(controller.current_items), (QList<qint64>{*fresh, ids[2]}));
+
+        controller.set_hide_grouped_in_history(false);
+        QCOMPARE(ids_of(controller.current_items), (QList<qint64>{*fresh, ids[0], ids[2], ids[1]}));
     }
 
     void clearingKeepsPinnedAndGroupedItems() {

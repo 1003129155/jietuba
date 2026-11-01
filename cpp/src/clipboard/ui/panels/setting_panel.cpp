@@ -112,6 +112,7 @@ QMenu *show_setting_menu(QWidget *parent, const SettingMenuOptions &o) {
     toggle_action("Close After Paste", o.close_after_paste, o.on_toggle_close_after_paste);
     toggle_action("Move to Top After Paste", o.move_to_top, o.on_toggle_move_to_top);
     toggle_action("Show Time", o.show_metadata, o.on_toggle_show_metadata);
+    toggle_action("Hide Grouped Items from All", o.hide_grouped, o.on_toggle_hide_grouped);
     toggle_action("Preserve Search on Reopen", o.preserve_search, o.on_toggle_preserve_search);
 
     if (o.on_set_multi_paste_separator) add_multi_paste_menu(menu, o);

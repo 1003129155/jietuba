@@ -242,7 +242,7 @@ bool jb_clipboard_pause_for_update(const JbClipboard *clipboard);
 void jb_clipboard_resume_after_update(const JbClipboard *clipboard);
 size_t jb_clipboard_pending_writes(const JbClipboard *clipboard);
 bool jb_clipboard_get_history(const JbClipboard *clipboard, int64_t offset, int64_t limit, const char *search, const char *kind, const char *app,
-                              const int64_t *start_time, const int64_t *end_time, char **out_json, char *error, size_t error_len);
+                              const int64_t *start_time, const int64_t *end_time, bool ungrouped_only, char **out_json, char *error, size_t error_len);
 bool jb_clipboard_source_apps(const JbClipboard *clipboard, char **out_json, char *error, size_t error_len);
 bool jb_clipboard_get_count(const JbClipboard *clipboard, int64_t *out, char *error, size_t error_len);
 bool jb_clipboard_get_item(const JbClipboard *clipboard, int64_t id, char **out_json, char *error, size_t error_len);

@@ -254,14 +254,14 @@ size_t ClipboardManager::pending_writes() const {
 }
 
 QList<ClipboardItem> ClipboardManager::get_history(qint64 offset, qint64 limit, const std::optional<QString> &search, const FilterRule &filter,
-                                                   std::optional<qint64> start_time, std::optional<qint64> end_time) {
+                                                   std::optional<qint64> start_time, std::optional<qint64> end_time, bool ungrouped_only) {
     const auto backend = this->backend();
     if (!backend) return {};
     QByteArray search_text, kind_text, app_text;
     char *json = nullptr;
     char error[ERROR_LEN] = {};
     if (!jb_clipboard_get_history(backend.get(), offset, limit, optional_arg(search, search_text), optional_arg(filter.kind, kind_text),
-                                  optional_arg(filter.app, app_text), optional_id(start_time), optional_id(end_time), &json, error, ERROR_LEN)) {
+                                  optional_arg(filter.app, app_text), optional_id(start_time), optional_id(end_time), ungrouped_only, &json, error, ERROR_LEN)) {
         log_error(T("获取历史失败: {e}", {{"e", QString::fromUtf8(error)}}), "Clipboard");
         return {};
     }

@@ -2890,6 +2890,10 @@ Replace it?</source>
         <translation>显示时间</translation>
     </message>
     <message>
+        <source>Hide Grouped Items from All</source>
+        <translation>「全部」中隐藏已分组内容</translation>
+    </message>
+    <message>
         <source>Preserve Search on Reopen</source>
         <translation>保留搜索条件</translation>
     </message>

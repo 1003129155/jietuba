@@ -814,6 +814,8 @@ private slots:
         options.on_toggle_auto_paste = [&calls](bool checked) { calls << QString("auto %1").arg(checked); };
         options.on_toggle_close_after_paste = [&calls](bool) { calls << "close"; };
         options.on_toggle_move_to_top = [&calls](bool) { calls << "top"; };
+        options.hide_grouped = true;
+        options.on_toggle_hide_grouped = [&calls](bool checked) { calls << QString("hide grouped %1").arg(checked); };
         options.on_toggle_show_metadata = [&calls](bool) { calls << "meta"; };
         options.on_toggle_preserve_search = [&calls](bool) { calls << "search"; };
         options.on_set_opacity = [&calls](int value) { calls << QString("opacity %1").arg(value); };
@@ -839,6 +841,7 @@ private slots:
         // Current values are checked.
         QVERIFY(actions["Paste with Format"]->isChecked());
         QVERIFY(!actions["Auto Paste After Selection"]->isChecked());
+        QVERIFY(actions["Hide Grouped Items from All"]->isChecked());
         QVERIFY(actions["20%"]->isChecked());
         QVERIFY(actions["15px"]->isChecked());
         QVERIFY(actions["Medium"]->isChecked());
@@ -862,13 +865,14 @@ private slots:
         QVERIFY(custom);
         QCOMPARE(custom->text(), QString(" | "));
         for (const char *label : {"New Line", "Comma", "No Separator"}) QVERIFY(!actions[label]->isChecked());
-        for (const char *label : {"Paste with Format", "Auto Paste After Selection", "Close After Paste", "Move to Top After Paste", "Show Time",
+        for (const char *label : {"Paste with Format", "Auto Paste After Selection", "Close After Paste", "Move to Top After Paste", "Hide Grouped Items from All", "Show Time",
                                   "Preserve Search on Reopen", "Opaque", "17px", "Large", "First Selected First", "Record Content", "Comma", "Add Content",
                                   "Clear History", "Follow Mouse"})
             actions[label]->trigger();
         actions["Top"]->trigger();
         QVERIFY(calls.contains("html 0"));
         QVERIFY(calls.contains("auto 1"));
+        QVERIFY(calls.contains("hide grouped 0"));
         QVERIFY(calls.contains("opacity 0"));
         QVERIFY(calls.contains("font 17"));
         QVERIFY(calls.contains("image large"));

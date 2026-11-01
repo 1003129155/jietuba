@@ -11,7 +11,7 @@ const COMPRESS_THRESHOLD: usize = 100 * 1024;
 
 /// 读一条记录要的列，顺序与 item_from_row 对应
 const ITEM_COLUMNS: &str = "id, title, content, html_content, content_type, image_id, thumbnail, is_pinned, \
-                            paste_count, source_app, char_count, created_at, updated_at, COALESCE(sub_kind, '')";
+                            paste_count, source_app, char_count, created_at, updated_at, COALESCE(sub_kind, ''), group_id";
 
 /// 历史的显示顺序，要和按类型取页的两个索引的排序列一致
 const HISTORY_ORDER: &str = "ORDER BY is_pinned DESC, item_order DESC";
@@ -64,6 +64,7 @@ fn item_from_row(row: &rusqlite::Row) -> rusqlite::Result<PyClipboardItem> {
         created_at: row.get(11)?,
         updated_at: row.get(12)?,
         sub_kind: row.get(13)?,
+        group_id: row.get(14)?,
     })
 }
 
@@ -374,7 +375,8 @@ impl Database {
         found.optional().map_err(|e| format!("查重失败: {}", e))
     }
 
-    /// 分页查询；不算总数，调用方按这一页是否取满判断还有没有下一页
+    /// 分页查询；不算总数，调用方按这一页是否取满判断还有没有下一页。ungrouped_only 去掉已加入分组的
+    #[allow(clippy::too_many_arguments)]
     pub fn query_items(
         &self,
         offset: i64,
@@ -383,10 +385,15 @@ impl Database {
         filter: &FilterRule,
         start_time: Option<i64>,
         end_time: Option<i64>,
+        ungrouped_only: bool,
     ) -> Result<Vec<PyClipboardItem>, String> {
         filter.check()?;
         let mut where_clauses = vec![];
         let mut params_vec: Vec<Value> = vec![];
+
+        if ungrouped_only {
+            where_clauses.push("group_id IS NULL".to_string());
+        }
 
         if let Some(ref s) = search {
             if !s.trim().is_empty() {
@@ -1086,7 +1093,7 @@ mod maintenance_tests {
     }
 
     fn search(db: &Database, keyword: &str) -> Vec<String> {
-        let mut found: Vec<String> = db.query_items(0, 50, Some(keyword.to_string()), &FilterRule::default(), None, None)
+        let mut found: Vec<String> = db.query_items(0, 50, Some(keyword.to_string()), &FilterRule::default(), None, None, false)
             .unwrap().into_iter().map(|item| item.content).collect();
         found.sort();
         found
@@ -1109,7 +1116,7 @@ mod maintenance_tests {
         let ids: Vec<i64> = ["一", "二", "三", "四"].iter().map(|text| add(&db, text)).collect();
         // 列表从新到旧：四 三 二 一；把「一」和「三」挪上去，传入顺序不影响结果
         db.move_items_to_top(&[ids[0], ids[2], 999]).unwrap();
-        let order: Vec<String> = db.query_items(0, 10, None, &FilterRule::default(), None, None)
+        let order: Vec<String> = db.query_items(0, 10, None, &FilterRule::default(), None, None, false)
             .unwrap().into_iter().map(|item| item.content).collect();
         assert_eq!(order, vec!["三", "一", "四", "二"]);
     }
@@ -1223,6 +1230,42 @@ mod maintenance_tests {
         add(&db, "没分组的");
         assert_eq!(group_contents(&db, Some(group)), vec!["分组里的"]);
         assert_eq!(group_contents(&db, None), vec!["没分组的"]);
+    }
+
+    #[test]
+    fn history_can_leave_out_grouped_items() {
+        let db = Database::new(":memory:").unwrap();
+        let group = db.create_group("收藏", None, None, 0, None).unwrap();
+        let grouped = add(&db, "select * from");
+        let pinned_grouped = add(&db, "置顶又分组");
+        db.move_to_group(grouped, Some(group)).unwrap();
+        db.move_to_group(pinned_grouped, Some(group)).unwrap();
+        db.toggle_pin(pinned_grouped).unwrap();
+        add(&db, "select 1");
+        let history = |ungrouped_only: bool, search: Option<&str>| -> Vec<String> {
+            db.query_items(0, 50, search.map(str::to_string), &FilterRule::default(), None, None, ungrouped_only)
+                .unwrap().into_iter().map(|item| item.content).collect()
+        };
+        assert_eq!(history(false, None), vec!["置顶又分组", "select 1", "select * from"]);
+        assert_eq!(history(true, None), vec!["select 1"]);
+        assert_eq!(history(true, Some("select")), vec!["select 1"]);
+        // 移出分组后回到历史
+        db.move_to_group(grouped, None).unwrap();
+        assert_eq!(history(true, None), vec!["select 1", "select * from"]);
+    }
+
+    #[test]
+    fn items_carry_their_group() {
+        let db = Database::new(":memory:").unwrap();
+        let group = db.create_group("收藏", None, None, 0, None).unwrap();
+        let grouped = add(&db, "分组里的");
+        let loose = add(&db, "没分组的");
+        db.move_to_group(grouped, Some(group)).unwrap();
+        assert_eq!(db.get_item_by_id(grouped).unwrap().unwrap().group_id, Some(group));
+        assert_eq!(db.get_item_by_id(loose).unwrap().unwrap().group_id, None);
+        // 再复制一次同样的内容，复用的仍是分组里那条
+        assert_eq!(add(&db, "分组里的"), grouped);
+        assert_eq!(db.get_item_by_id(grouped).unwrap().unwrap().group_id, Some(group));
     }
 
     fn add_file(db: &Database, path: &str) -> i64 {
@@ -1512,7 +1555,7 @@ mod maintenance_tests {
         assert_ne!(rich_id, plain);
         assert_eq!(db.insert_item(&rich).unwrap(), rich_id);
         // 合并后排到最前
-        let first = db.query_items(0, 1, None, &FilterRule::default(), None, None).unwrap()[0].id;
+        let first = db.query_items(0, 1, None, &FilterRule::default(), None, None, false).unwrap()[0].id;
         assert_eq!(first, rich_id);
     }
 }
@@ -1536,7 +1579,7 @@ mod sub_kind_tests {
     }
 
     fn matching(db: &Database, rule: FilterRule) -> Vec<String> {
-        let mut found: Vec<String> = db.query_items(0, 50, None, &rule, None, None)
+        let mut found: Vec<String> = db.query_items(0, 50, None, &rule, None, None, false)
             .unwrap().into_iter().map(|item| item.content).collect();
         found.sort();
         found
@@ -1645,7 +1688,7 @@ mod sub_kind_tests {
         assert_eq!(matching(&db, rule(None, Some("Chrome.exe"))), vec!["https://a.com", "普通"]);
         assert_eq!(matching(&db, rule(Some("url"), Some("chrome.exe"))), vec!["https://a.com"]);
         assert_eq!(matching(&db, rule(None, Some(group_kind::OWN_APP))), vec!["开发版取的", "截图吧取的"]);
-        assert!(db.query_items(0, 50, None, &FilterRule::kind("email"), None, None).is_err());
+        assert!(db.query_items(0, 50, None, &FilterRule::kind("email"), None, None, false).is_err());
     }
 
     #[test]

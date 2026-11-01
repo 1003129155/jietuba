@@ -2918,6 +2918,10 @@ Replace it?</source>
         <translation>時刻を表示</translation>
     </message>
     <message>
+        <source>Hide Grouped Items from All</source>
+        <translation>「すべて」にグループ内の項目を表示しない</translation>
+    </message>
+    <message>
         <source>Preserve Search on Reopen</source>
         <translation>検索条件を保持</translation>
     </message>

@@ -2896,6 +2896,10 @@ Replace it?</source>
         <translation>시간 표시</translation>
     </message>
     <message>
+        <source>Hide Grouped Items from All</source>
+        <translation>'전체'에서 그룹에 넣은 항목 숨기기</translation>
+    </message>
+    <message>
         <source>Preserve Search on Reopen</source>
         <translation>다시 열 때 검색 유지</translation>
     </message>

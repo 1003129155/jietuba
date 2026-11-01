@@ -53,6 +53,8 @@ struct ClipboardItem {
     std::optional<QColor> color;
     QDateTime created_at;
     QDateTime updated_at;
+    // Only items read back from the database carry it; a just-captured item has none.
+    std::optional<qint64> group_id;
 
     // From the native layer's JSON (attribute names of the binding's ClipboardItem).
     static ClipboardItem from_json(const QJsonObject &object);

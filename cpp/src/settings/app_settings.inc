@@ -185,6 +185,7 @@ SETTING(clipboard_preserve_search, "clipboard/preserve_search", bool, false, Int
 SETTING(clipboard_starter_groups_seeded, "clipboard/starter_groups_seeded", bool, false, Internal, Gen, Gen)
 SETTING(clipboard_open_position, "clipboard/open_position", QString, "cursor", Import, Gen, Gen)
 SETTING(clipboard_move_to_top_on_paste, "clipboard/move_to_top_on_paste", bool, true, Internal, Gen, Gen)
+SETTING(clipboard_hide_grouped_in_history, "clipboard/hide_grouped_in_history", bool, false, Internal, Gen, Gen)
 SETTING(clipboard_db_path, "clipboard/db_path", QString, "", Local, Gen, Gen)
 SETTING(clipboard_multi_paste_separator, "clipboard/multi_paste_separator", QString, "\n", Internal, Gen, Gen)
 SETTING(clipboard_multi_paste_order, "clipboard/multi_paste_order", QString, "oldest_first", Internal, Own, Own)
