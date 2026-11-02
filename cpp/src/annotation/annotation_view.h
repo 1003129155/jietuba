@@ -2,31 +2,31 @@
 #include "canvas/canvas_host.h"
 #include "gif/drawing_view.h"
 #include <QColor>
-#include <QPointer>
 #include <memory>
 #include <optional>
-
-class QScreen;
 
 namespace jietuba {
 class AnnotationBoard;
 class PointerLight;
 class ScreenAnnotation;
 
-// One screen of the screen annotation: the GIF drawing layer stretched over the whole screen. As the
-// window hosting the canvas it hands the shared toolbar to CanvasView, so selecting a drawing fills the
-// toolbar's panels as in a capture. Keys are handled by the session, not per layer.
+// The layer of the screen annotation: the GIF drawing layer stretched over the bounding rectangle of
+// every screen, as the capture window is, so a drawing can be moved from one screen to another. Its
+// scene is in desktop coordinates: a drawing keeps its place on the desktop when screens come and go.
+// As the window hosting the canvas it hands the shared toolbar to CanvasView, so selecting a drawing
+// fills the toolbar's panels as in a capture. Keys are handled by the session.
 class AnnotationView : public GifDrawingView, public CanvasHost {
     Q_OBJECT
 public:
-    AnnotationView(QScreen *screen, ScreenAnnotation *owner);
+    explicit AnnotationView(ScreenAnnotation *owner);
     ~AnnotationView() override;
-    QScreen *target_screen() const { return screen_; }
-    // Follows the screen after a resolution or position change; drawings keep their scene positions.
-    void fit_screen();
+    // The bounding rectangle of every screen.
+    static QRect desktop_rect();
+    // Follows the screens after one is added, removed, moved or resized.
+    void fit_desktop();
     Toolbar *canvas_toolbar() const override;
     CanvasView *canvas_view() const override { return const_cast<AnnotationView *>(this); }
-    // A solid board over the screen: a window of its own, so the session can stack the pins between it
+    // A solid board over the screens: a window of its own, so the session can stack the pins between it
     // and the drawings. nullopt takes it away.
     void set_board(const std::optional<QColor> &color);
     std::optional<QColor> board() const;
@@ -35,8 +35,8 @@ public:
     PointerLight *pointer_light(bool create);
     void remove_pointer_light();
 signals:
-    // A press on this layer: keys and toolbar syncing follow the layer being drawn on.
-    void pressed(AnnotationView *view);
+    // A press while drawing: the toolbar follows the tool's style.
+    void pressed();
 protected:
     // Only a new text is selected, to type into: selection handles on a shape would show on the screen
     // and in recordings. A drawing is still selected by clicking it.
@@ -45,7 +45,6 @@ protected:
     void mouseMoveEvent(QMouseEvent *event) override;
     void leaveEvent(QEvent *event) override;
 private:
-    QPointer<QScreen> screen_;
     std::unique_ptr<PointerLight> light_;
     std::unique_ptr<AnnotationBoard> board_;
     ScreenAnnotation *owner_;

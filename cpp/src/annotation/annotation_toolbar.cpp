@@ -144,7 +144,7 @@ void AnnotationToolbar::close_with_floating_windows() {
 
 QWidget *AnnotationToolbar::host_window() const {
     if (layout_dialog_parent_) return layout_dialog_parent_;
-    return owner_ ? owner_->active_view() : nullptr;
+    return owner_ ? owner_->view() : nullptr;
 }
 
 void AnnotationToolbar::reposition_self() {

@@ -195,7 +195,7 @@ ctest --test-dir build\msvc -C Release --output-on-failure -E "_desktop$|_window
 │
 ├── cpp/                     # C++（Qt6）實作
 │   ├── src/                 # 原始碼，按 <套件>/<模組> 組織
-│   │   ├── annotation/      # 螢幕即時標註 — 每屏一層、穿透切換、跨屏復原
+│   │   ├── annotation/      # 螢幕即時標註 — 一層蓋住所有螢幕、穿透切換、標註可跨螢幕拖動
 │   │   ├── barcode/         # QR Code/條碼辨識（zxing-cpp）
 │   │   ├── canvas/          # 畫布 — 圖形編輯核心、復原、圖層
 │   │   ├── capture/         # 截圖擷取 — 螢幕截圖、視窗與元素辨識

@@ -1435,8 +1435,8 @@ private slots:
             annotation = std::make_unique<ScreenAnnotation>();
             annotation->start();
             annotation->select_tool("pen");
-            QVERIFY(!annotation->views().empty());
-            tools = annotation->views().front()->scene_obj()->tool_controller.get();
+            QVERIFY(annotation->view());
+            tools = annotation->view()->scene_obj()->tool_controller.get();
         } else {
             window_ = new ScreenshotWindow(config_, dark(screen.size()), QRectF(screen));
             QApplication::processEvents();

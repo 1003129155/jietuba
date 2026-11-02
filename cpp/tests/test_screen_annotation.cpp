@@ -157,12 +157,6 @@ QString window_class(HWND hwnd) {
     return QString("%1 \"%2\" pid %3 %4").arg(QString::fromWCharArray(name), QString::fromWCharArray(title)).arg(pid).arg(widget ? widget->metaObject()->className() : "");
 }
 
-AnnotationView *view_on(ScreenAnnotation &annotation, QScreen *screen) {
-    for (auto *view : annotation.views())
-        if (view->target_screen() == screen) return view;
-    return nullptr;
-}
-
 struct ProcessCounters {
     DWORD gdi = 0, user = 0;
     SIZE_T private_bytes = 0;
@@ -186,6 +180,27 @@ bool near_grey(const QColor &color, int level, int tolerance) {
 }
 
 bool is_red(const QColor &color) { return color.red() > 180 && color.green() < 80 && color.blue() < 80; }
+
+// The bounding rectangle of the screens, as the layer is expected to cover it.
+QRect screens_bounds() {
+    QRect bounds;
+    for (auto *screen : QGuiApplication::screens()) bounds |= screen->geometry();
+    return bounds;
+}
+
+// A point on the screen as the layer's viewport sees it.
+QPoint on_layer(AnnotationView *view, const QPoint &global) { return view->viewport()->mapFromGlobal(global); }
+
+// The pen's red at a point of the screen or a few pixels from it: a selected drawing's frame runs along
+// the middle of its outline.
+bool layer_shows_red(AnnotationView *view, const QPoint &global) {
+    const QImage image = view->viewport()->grab().toImage();
+    const QPoint at = on_layer(view, global);
+    for (int dy = -3; dy <= 3; ++dy)
+        for (int dx = -3; dx <= 3; ++dx)
+            if (is_red(image.pixelColor(at + QPoint(dx, dy)))) return true;
+    return false;
+}
 
 // A stand-in desktop: a white page with lines of black "text", a coloured bar and a dark window with
 // light text, so a render shows what drawings do to each.
@@ -322,7 +337,7 @@ private:
         return *annotation_;
     }
 
-    // Mode, layers, buttons and undo history agree after every operation.
+    // Mode, layer, buttons and undo history agree after every operation.
     void check_consistent(ScreenAnnotation &annotation) {
         auto *toolbar = annotation.toolbar();
         QVERIFY(toolbar);
@@ -330,19 +345,16 @@ private:
         QCOMPARE(toolbar->pointer_btn->isChecked(), mode == Mode::PassThrough);
         QCOMPARE(toolbar->hide_btn->isChecked(), mode == Mode::Hidden);
         QCOMPARE(toolbar->current_tool.has_value(), mode == Mode::Drawing);
-        bool any_undo = false, any_redo = false;
-        for (auto *view : annotation.views()) {
-            QCOMPARE(view->isVisible(), mode != Mode::Hidden);
-            QCOMPARE(view->passthrough(), mode != Mode::Drawing);
-            QCOMPARE(view->scene_obj()->hit_rect->isVisible(), mode == Mode::Drawing);
-            QCOMPARE(view->tool_controller()->current_tool_id(), mode == Mode::Drawing ? *toolbar->current_tool : QString("cursor"));
-            QCOMPARE(view->board().has_value(), annotation.board_on());
-            any_undo = any_undo || view->undo_stack()->canUndo();
-            any_redo = any_redo || view->undo_stack()->canRedo();
-        }
-        // Every step on a layer is in the session's history.
-        QCOMPARE(annotation.can_undo(), any_undo);
-        if (annotation.can_redo()) QVERIFY(any_redo);
+        auto *view = annotation.view();
+        QVERIFY(view);
+        QCOMPARE(view->geometry(), screens_bounds());
+        QCOMPARE(view->isVisible(), mode != Mode::Hidden);
+        QCOMPARE(view->passthrough(), mode != Mode::Drawing);
+        QCOMPARE(view->scene_obj()->hit_rect->isVisible(), mode == Mode::Drawing);
+        QCOMPARE(view->tool_controller()->current_tool_id(), mode == Mode::Drawing ? *toolbar->current_tool : QString("cursor"));
+        QCOMPARE(view->board().has_value(), annotation.board_on());
+        QCOMPARE(annotation.can_undo(), view->undo_stack()->canUndo());
+        QCOMPARE(annotation.can_redo(), view->undo_stack()->canRedo());
     }
 
 private slots:
@@ -363,16 +375,18 @@ private slots:
         if (offscreen() && QGuiApplication::screens().size() != 2) set_offscreen_screens(TWO_SCREENS);
     }
 
-    void startShowsLayerPerScreenAndToolbar() {
+    // One layer covers every screen, as the capture window does, its scene in desktop coordinates.
+    void startShowsOneLayerOverEveryScreenAndToolbar() {
         auto &annotation = start();
         QCOMPARE(annotation.mode(), Mode::PassThrough);
-        QCOMPARE(static_cast<qsizetype>(annotation.views().size()), QGuiApplication::screens().size());
-        for (auto *view : annotation.views()) {
-            QVERIFY(view->isVisible());
-            QVERIFY(view->passthrough());
-            QCOMPARE(view->geometry(), view->target_screen()->geometry());
-            QVERIFY(!view->scene_obj()->hit_rect->isVisible());
-        }
+        auto *view = annotation.view();
+        QVERIFY(view->isVisible());
+        QVERIFY(view->passthrough());
+        if (offscreen()) QCOMPARE(view->geometry(), QRect(0, 0, 2304, 768));
+        QCOMPARE(view->geometry(), screens_bounds());
+        QCOMPARE(view->scene_obj()->sceneRect(), QRectF(view->geometry()));
+        QCOMPARE(view->scene_obj()->hit_rect->rect(), QRectF(view->geometry()));
+        QVERIFY(!view->scene_obj()->hit_rect->isVisible());
         auto *toolbar = annotation.toolbar();
         QVERIFY(toolbar->isVisible());
         QVERIFY(toolbar->pointer_btn->isChecked());
@@ -384,21 +398,20 @@ private slots:
     void stopRemovesEveryWindow() {
         auto &annotation = start();
         annotation.select_tool("pen");
-        draw_stroke(annotation.views().front());
+        draw_stroke(annotation.view());
         annotation.toggle_board();
-        QList<QPointer<QWidget>> windows;
-        for (auto *view : annotation.views()) windows << view << view->board_window();
+        QList<QPointer<QWidget>> windows{annotation.view(), annotation.view()->board_window()};
         windows.append(annotation.toolbar());
         for (auto *window : annotation.toolbar()->floating_windows()) windows.append(window);
         annotation.stop();
         QCOMPARE(annotation.mode(), Mode::Off);
         QVERIFY(!annotation.toolbar());
-        QVERIFY(annotation.views().empty());
+        QVERIFY(!annotation.view());
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
         for (const auto &window : windows) QVERIFY(window.isNull());
         // A new session starts empty.
         annotation.start();
-        for (auto *view : annotation.views()) QCOMPARE(drawing_count(view), 0);
+        QCOMPARE(drawing_count(annotation.view()), 0);
         QVERIFY(!annotation.can_undo());
     }
 
@@ -407,17 +420,16 @@ private slots:
         config->set_app_setting("screen_annotation_keep_drawings", true);
         auto &annotation = start();
         annotation.select_tool("pen");
-        auto *view = annotation.views().front();
+        auto *view = annotation.view();
         draw_stroke(view);
-        const auto layers = annotation.views();
         annotation.stop();
         QCOMPARE(annotation.mode(), Mode::Off);
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
-        QCOMPARE(annotation.views(), layers);
-        for (auto *layer : layers) QVERIFY(!layer->isVisible());
+        QCOMPARE(annotation.view(), view);
+        QVERIFY(!view->isVisible());
         annotation.start();
-        QCOMPARE(annotation.views(), layers);
-        for (auto *layer : layers) QVERIFY(layer->isVisible());
+        QCOMPARE(annotation.view(), view);
+        QVERIFY(view->isVisible());
         QCOMPARE(drawing_count(view), 1);
         // The undo step came along.
         annotation.undo();
@@ -430,7 +442,7 @@ private slots:
         annotation.start();
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
         QVERIFY(old.isNull());
-        for (auto *layer : annotation.views()) QCOMPARE(drawing_count(layer), 0);
+        QCOMPARE(drawing_count(annotation.view()), 0);
         QVERIFY(!annotation.can_undo());
     }
 
@@ -453,24 +465,23 @@ private slots:
         get_tool_settings_manager()->set_app_setting("annotation_toolbar_layout", "");
     }
 
-    void toolSelectionDrawsOnEveryScreen() {
+    void toolSelectionStartsDrawing() {
         auto &annotation = start();
         auto *toolbar = annotation.toolbar();
         QSignalSpy modes(&annotation, &ScreenAnnotation::mode_changed);
         annotation.select_tool("pen");
         QCOMPARE(annotation.mode(), Mode::Drawing);
         QCOMPARE(modes.size(), 1);
-        for (auto *view : annotation.views()) {
-            QVERIFY(!view->passthrough());
-            QCOMPARE(view->tool_controller()->current_tool_id(), QString("pen"));
-            QVERIFY(view->scene_obj()->hit_rect->isVisible());
-        }
+        auto *view = annotation.view();
+        QVERIFY(!view->passthrough());
+        QCOMPARE(view->tool_controller()->current_tool_id(), QString("pen"));
+        QVERIFY(view->scene_obj()->hit_rect->isVisible());
         QVERIFY(toolbar->pen_btn->isChecked());
         QVERIFY(!toolbar->pointer_btn->isChecked());
         // The same tool again returns to pass-through, as on the capture toolbar.
         toolbar->pen_btn->click();
         QCOMPARE(annotation.mode(), Mode::PassThrough);
-        for (auto *view : annotation.views()) QVERIFY(view->passthrough());
+        QVERIFY(view->passthrough());
         QVERIFY(toolbar->pointer_btn->isChecked());
         // Tools that need a captured image are not offered.
         annotation.select_tool("mosaic");
@@ -480,15 +491,15 @@ private slots:
         toolbar->pointer_btn->click();
         QCOMPARE(annotation.mode(), Mode::PassThrough);
         QVERIFY(toolbar->pointer_btn->isChecked());
-        for (auto *view : annotation.views()) QCOMPARE(view->tool_controller()->current_tool_id(), QString("cursor"));
+        QCOMPARE(view->tool_controller()->current_tool_id(), QString("cursor"));
     }
 
-    // While drawing a layer is see-through except for what is drawn; only the alpha 1 hit layer covers it.
+    // While drawing the layer is see-through except for what is drawn; only the alpha 1 hit layer covers it.
     void layersStayTransparentWhileDrawing() {
         get_tool_settings_manager()->update_settings("pen", {{"color", "#ff0000"}, {"stroke_width", 8}, {"opacity", 1.0}});
         auto &annotation = start();
         annotation.select_tool("pen");
-        auto *view = annotation.views().front();
+        auto *view = annotation.view();
         draw_stroke(view, QPoint(100, 100), QPoint(300, 100));
         const QImage image = view->viewport()->grab().toImage().convertToFormat(QImage::Format_ARGB32);
         const QColor stroke = image.pixelColor(200, 100);
@@ -503,7 +514,7 @@ private slots:
     void highlighterOverDocument() {
         get_tool_settings_manager()->reset_tool("highlighter");
         auto &annotation = start();
-        auto *view = annotation.views().front();
+        auto *view = annotation.view();
         const Backdrop backdrop = document_backdrop(view->size());
         annotation.select_tool("highlighter");
         const QRect line = backdrop.page_lines[1];
@@ -549,7 +560,7 @@ private slots:
     // text is, to type into.
     void newShapesAreNotSelected() {
         auto &annotation = start();
-        auto *view = annotation.views().front();
+        auto *view = annotation.view();
         // Apart, so no press lands on the shape before, which would select that one to edit.
         int y = 100;
         for (const char *tool : {"rect", "ellipse", "arrow"}) {
@@ -567,7 +578,7 @@ private slots:
 
     void panelStaysShownWhileNumbersAreSelectedAndDeleted() {
         auto &annotation = start();
-        auto *view = annotation.views().front();
+        auto *view = annotation.view();
         annotation.select_tool("number");
         auto *panel = annotation.toolbar()->number_panel;
         QVERIFY(panel && panel->isVisible());
@@ -670,7 +681,7 @@ private slots:
         config->set_app_setting("screen_annotation_click_ripples", false);
         auto &annotation = start();
         annotation.set_cursor_highlight(true, false);
-        auto *view = annotation.views().front();
+        auto *view = annotation.view();
         const QPoint at = view->geometry().topLeft() + QPoint(300, 300);
         annotation.cursor_highlight()->on_pointer(at);
         auto *light = view->pointer_light(false);
@@ -699,19 +710,17 @@ private slots:
     void boardTogglesWithOneClick() {
         get_tool_settings_manager()->update_settings("pen", {{"color", "#ff0000"}, {"stroke_width", 8}, {"opacity", 1.0}});
         auto &annotation = start();
-        auto *view = annotation.views().front();
+        auto *view = annotation.view();
         auto *button = annotation.toolbar()->board_btn;
         const auto layer_pixel = [view](const QPoint &at) {
             return view->viewport()->grab().toImage().convertToFormat(QImage::Format_ARGB32).pixelColor(at);
         };
-        const auto check_boards = [&annotation] {
-            for (auto *layer : annotation.views()) {
-                auto *board = layer->board_window();
-                QVERIFY(board && board->isVisible());
-                QCOMPARE(layer->board(), std::optional<QColor>(QColor(Qt::white)));
-                QCOMPARE(board->geometry(), layer->target_screen()->geometry());
-                QCOMPARE(board->grab().toImage().pixelColor(QPoint(500, 400)), QColor(Qt::white));
-            }
+        const auto check_boards = [view] {
+            auto *board = view->board_window();
+            QVERIFY(board && board->isVisible());
+            QCOMPARE(view->board(), std::optional<QColor>(QColor(Qt::white)));
+            QCOMPARE(board->geometry(), view->geometry());
+            QCOMPARE(board->grab().toImage().pixelColor(QPoint(500, 400)), QColor(Qt::white));
         };
         QCOMPARE(annotation.mode(), Mode::PassThrough);
         button->click();
@@ -751,7 +760,7 @@ private slots:
         QVERIFY(board.isNull());
         annotation.start();
         QVERIFY(!annotation.board_on());
-        for (auto *layer : annotation.views()) QVERIFY(!layer->board_window());
+        QVERIFY(!annotation.view()->board_window());
         annotation.stop();
         get_tool_settings_manager()->reset_tool("pen");
     }
@@ -765,7 +774,7 @@ private slots:
         auto *highlight = annotation.cursor_highlight();
         QVERIFY(highlight && highlight->enabled());
         QCOMPARE(stub_->native->mouse_watchers, QStringList{CursorHighlight::WATCHER});
-        auto *view = annotation.views().front();
+        auto *view = annotation.view();
         const QPoint at = view->geometry().topLeft() + QPoint(400, 300);
         stub_->move_to(at);
         // Events cross threads queued; here they are delivered with the event loop.
@@ -800,7 +809,7 @@ private slots:
         // Off the screen the disc goes.
         stub_->move_to(view->geometry().bottomRight() + QPoint(50, 50));
         QTRY_VERIFY(!light->disc_visible());
-        // Turning it off stops listening and takes the light off every layer.
+        // Turning it off stops listening and takes the light off the layer.
         annotation.set_cursor_highlight(false, false);
         QVERIFY(stub_->native->mouse_watchers.isEmpty());
         QVERIFY(!view->pointer_light(false));
@@ -816,7 +825,7 @@ private slots:
         auto &annotation = start();
         annotation.select_tool("pen");
         annotation.set_cursor_highlight(true, false);
-        auto *view = annotation.views().front();
+        auto *view = annotation.view();
         send_mouse(view->viewport(), QEvent::MouseMove, QPoint(321, 234), Qt::NoButton);
         auto *light = view->pointer_light(false);
         QVERIFY(light && light->disc_visible());
@@ -832,7 +841,7 @@ private slots:
         QCOMPARE(light->disc_position(), QPointF(260, 180));
         stub_->button(0, false, view->geometry().topLeft() + QPoint(260, 180));
         QTRY_VERIFY(!light->disc_pressed());
-        // Leaving the screen takes the disc off it.
+        // Leaving the layer takes the disc off it.
         QEvent leave(QEvent::Leave);
         QCoreApplication::sendEvent(view, &leave);
         QVERIFY(!light->disc_visible());
@@ -852,8 +861,7 @@ private slots:
         annotation.cursor_highlight()->set_hub(nullptr);
         QCOMPARE(annotation.mode(), Mode::PassThrough);
         annotation.set_cursor_highlight(true, false);
-        auto *view = view_on(annotation, QGuiApplication::primaryScreen());
-        QVERIFY(view);
+        auto *view = annotation.view();
         const auto move_to = [](int x, int y) {
             INPUT input{};
             input.type = INPUT_MOUSE;
@@ -890,8 +898,7 @@ private slots:
         if (offscreen()) QSKIP("needs the real cursor");
         auto &annotation = start();
         annotation.set_cursor_highlight(true, false);
-        auto *view = view_on(annotation, QGuiApplication::primaryScreen());
-        QVERIFY(view);
+        auto *view = annotation.view();
         SetCursorPos(640, 610);
         QTRY_VERIFY_WITH_TIMEOUT(view->pointer_light(false) && view->pointer_light(false)->disc_position() == QPointF(640, 610), 3000);
         SetCursorPos(900, 700);
@@ -907,61 +914,63 @@ private slots:
         QVERIFY(annotation.cursor_highlight_enabled());
         annotation.prepare_for_capture();
         QVERIFY(!annotation.cursor_highlight_enabled());
-        QVERIFY(!annotation.views().front()->pointer_light(false));
+        QVERIFY(!annotation.view()->pointer_light(false));
         QVERIFY(config->get_app_setting("screen_annotation_cursor_highlight", false).toBool());
         annotation.set_cursor_highlight(false);
     }
 
-    void undoFollowsDrawingOrderAcrossScreens() {
+    // A drawing is not tied to a screen: drawn across the edge between two it is one drawing, and moved
+    // from one onto the other it shows there.
+    void drawingsCrossFromOneScreenToAnother() {
+        if (QGuiApplication::screens().size() < 2) QSKIP("needs two screens");
+        auto *config = get_tool_settings_manager();
+        for (const char *tool : {"pen", "rect"}) config->update_settings(tool, {{"color", "#ff0000"}, {"stroke_width", 8}, {"opacity", 1.0}});
         auto &annotation = start();
-        if (annotation.views().size() < 2) QSKIP("needs two screens");
+        auto *view = annotation.view();
+        const QRect left = QGuiApplication::screens()[0]->geometry(), right = QGuiApplication::screens()[1]->geometry();
+        QVERIFY2(left.right() + 1 == right.left(), "the screens sit side by side");
+        const int edge = right.left(), y = left.top() + 300;
         annotation.select_tool("pen");
-        auto *a = annotation.views()[0], *b = annotation.views()[1];
-        draw_stroke(a);
-        draw_stroke(b);
-        draw_stroke(a, QPoint(300, 300), QPoint(400, 320));
-        QCOMPARE(drawing_count(a), 2);
-        QCOMPARE(drawing_count(b), 1);
+        draw_stroke(view, on_layer(view, QPoint(edge - 150, y)), on_layer(view, QPoint(edge + 150, y)));
+        QCOMPARE(drawing_count(view), 1);
+        QVERIFY(layer_shows_red(view, QPoint(edge - 100, y)));
+        QVERIFY(layer_shows_red(view, QPoint(edge + 100, y)));
+        // A rectangle on the first screen, dragged by its left edge onto the second.
+        annotation.select_tool("rect");
+        const QRect box(QPoint(edge - 400, y + 100), QSize(150, 100));
+        draw_stroke(view, on_layer(view, box.topLeft()), on_layer(view, box.bottomRight()));
+        QCOMPARE(drawing_count(view), 2);
+        // A quarter down the edge: the selection handles sit at its middle and the corners.
+        const QPoint grip(box.left(), box.top() + 25);
+        QVERIFY(layer_shows_red(view, grip));
+        drag(view, line_points(on_layer(view, grip), on_layer(view, grip + QPoint(600, 0)), 12));
+        QCOMPARE(drawing_count(view), 2);
+        QVERIFY(!layer_shows_red(view, grip));
+        QVERIFY(layer_shows_red(view, grip + QPoint(600, 0)));
+        QVERIFY(right.contains(grip + QPoint(600, 0)));
+        // Undo puts it back where it was drawn.
         annotation.undo();
-        QCOMPARE(drawing_count(a), 1);
-        QCOMPARE(drawing_count(b), 1);
-        annotation.toolbar()->undo_btn->click();
-        QCOMPARE(drawing_count(a), 1);
-        QCOMPARE(drawing_count(b), 0);
-        annotation.redo();
-        QCOMPARE(drawing_count(b), 1);
-        annotation.undo();
-        annotation.undo();
-        QCOMPARE(drawing_count(a), 0);
-        QCOMPARE(drawing_count(b), 0);
-        QVERIFY(!annotation.can_undo());
-        annotation.toolbar()->redo_btn->click();
-        QCOMPARE(drawing_count(a), 1);
-        QCOMPARE(drawing_count(b), 0);
-        // A new drawing drops what could be redone on every screen.
-        draw_stroke(b);
-        QVERIFY(!annotation.can_redo());
-        annotation.undo();
-        QCOMPARE(drawing_count(b), 0);
-        annotation.undo();
-        QCOMPARE(drawing_count(a), 0);
+        QVERIFY(layer_shows_red(view, grip));
+        QVERIFY(!layer_shows_red(view, grip + QPoint(600, 0)));
+        for (const char *tool : {"pen", "rect"}) config->reset_tool(tool);
     }
 
     void clearIsOneUndoStep() {
         auto &annotation = start();
         annotation.select_tool("pen");
-        for (auto *view : annotation.views()) draw_stroke(view);
+        auto *view = annotation.view();
+        draw_stroke(view);
+        draw_stroke(view, QPoint(300, 300), QPoint(400, 320));
         annotation.clear_drawings();
-        for (auto *view : annotation.views()) QCOMPARE(drawing_count(view), 0);
+        QCOMPARE(drawing_count(view), 0);
         annotation.undo();
-        for (auto *view : annotation.views()) QCOMPARE(drawing_count(view), 1);
+        QCOMPARE(drawing_count(view), 2);
         annotation.redo();
-        for (auto *view : annotation.views()) QCOMPARE(drawing_count(view), 0);
+        QCOMPARE(drawing_count(view), 0);
         annotation.undo();
+        // Then the strokes in the order they were drawn.
         annotation.undo();
-        // The last screen's stroke was the last step before clearing.
-        QCOMPARE(drawing_count(annotation.views().back()), 0);
-        if (annotation.views().size() > 1) QCOMPARE(drawing_count(annotation.views().front()), 1);
+        QCOMPARE(drawing_count(view), 1);
         // Nothing to clear adds no step.
         annotation.undo();
         QVERIFY(!annotation.can_undo());
@@ -973,76 +982,86 @@ private slots:
         auto &annotation = start();
         auto *toolbar = annotation.toolbar();
         annotation.select_tool("pen");
-        auto *view = annotation.views().front();
+        auto *view = annotation.view();
         draw_stroke(view);
         annotation.set_drawings_visible(false);
         QCOMPARE(annotation.mode(), Mode::Hidden);
-        for (auto *layer : annotation.views()) QVERIFY(!layer->isVisible());
+        QVERIFY(!view->isVisible());
         QCOMPARE(drawing_count(view), 1);
         QVERIFY(toolbar->hide_btn->isChecked());
         QVERIFY(!toolbar->current_tool);
         toolbar->hide_btn->click();
         QCOMPARE(annotation.mode(), Mode::PassThrough);
-        for (auto *layer : annotation.views()) QVERIFY(layer->isVisible());
+        QVERIFY(view->isVisible());
         // Picking a tool while hidden shows the drawings again.
         annotation.set_drawings_visible(false);
         annotation.select_tool("rect");
         QCOMPARE(annotation.mode(), Mode::Drawing);
-        for (auto *layer : annotation.views()) QVERIFY(layer->isVisible());
+        QVERIFY(view->isVisible());
         QCOMPARE(drawing_count(view), 1);
     }
 
     void prepareForCaptureLeavesDrawing() {
         auto &annotation = start();
         annotation.select_tool("pen");
-        draw_stroke(annotation.views().front());
+        auto *view = annotation.view();
+        draw_stroke(view);
         annotation.prepare_for_capture();
         QCOMPARE(annotation.mode(), Mode::PassThrough);
-        for (auto *view : annotation.views()) {
-            QVERIFY(view->passthrough());
-            QVERIFY(!view->scene_obj()->hit_rect->isVisible());
-        }
-        QCOMPARE(drawing_count(annotation.views().front()), 1);
+        QVERIFY(view->passthrough());
+        QVERIFY(!view->scene_obj()->hit_rect->isVisible());
+        QCOMPARE(drawing_count(view), 1);
         // Hidden drawings stay hidden.
         annotation.set_drawings_visible(false);
         annotation.prepare_for_capture();
         QCOMPARE(annotation.mode(), Mode::Hidden);
     }
 
+    // The layer follows the screens. Drawings keep their place on the desktop: those on a screen that is
+    // unplugged wait off the desktop and are back with it, and a screen joining on the left moves none.
     void screensPluggedAndUnpluggedDuringSession() {
         if (!offscreen()) QSKIP("the offscreen platform changes its screens on request");
+        get_tool_settings_manager()->update_settings("pen", {{"color", "#ff0000"}, {"stroke_width", 8}, {"opacity", 1.0}});
         auto &annotation = start();
         annotation.select_tool("pen");
-        QCOMPARE(static_cast<int>(annotation.views().size()), 2);
-        draw_stroke(annotation.views()[0]);
-        draw_stroke(annotation.views()[1]);
-        draw_stroke(annotation.views()[0], QPoint(300, 300), QPoint(400, 320));
+        auto *view = annotation.view();
+        QCOMPARE(view->geometry(), QRect(0, 0, 2304, 768));
+        draw_stroke(view, QPoint(100, 100), QPoint(260, 100));
+        draw_stroke(view, QPoint(1400, 100), QPoint(1560, 100));
         set_offscreen_screens({TWO_SCREENS[0]});
-        QTRY_COMPARE(static_cast<int>(annotation.views().size()), 1);
+        QTRY_COMPARE(view->geometry(), TWO_SCREENS[0]);
+        QCOMPARE(view->scene_obj()->sceneRect(), QRectF(TWO_SCREENS[0]));
         QCOMPARE(annotation.mode(), Mode::Drawing);
-        // The unplugged screen's step goes with it.
-        auto *left = annotation.views().front();
-        annotation.undo();
-        QCOMPARE(drawing_count(left), 1);
-        annotation.undo();
-        QCOMPARE(drawing_count(left), 0);
-        QVERIFY(!annotation.can_undo());
+        QCOMPARE(drawing_count(view), 2);
         QVERIFY(QGuiApplication::screenAt(annotation.toolbar()->geometry().center()));
-        // A screen plugged in joins with the current tool.
+        // The steps stay too: the last one is the stroke off the desktop.
+        annotation.undo();
+        QCOMPARE(drawing_count(view), 1);
+        annotation.redo();
+        // Plugged back in, the screen has its drawing again and the tool goes on.
         set_offscreen_screens(TWO_SCREENS);
-        QTRY_COMPARE(static_cast<int>(annotation.views().size()), 2);
-        auto *added = annotation.views()[1];
-        QVERIFY(added->isVisible());
-        QVERIFY(!added->passthrough());
-        QCOMPARE(added->tool_controller()->current_tool_id(), QString("pen"));
-        QCOMPARE(added->geometry(), TWO_SCREENS[1]);
-        // A resolution change resizes the layer and keeps its drawings.
-        draw_stroke(left);
+        QTRY_COMPARE(view->geometry(), QRect(0, 0, 2304, 768));
+        QVERIFY(view->isVisible());
+        QVERIFY(!view->passthrough());
+        QCOMPARE(view->tool_controller()->current_tool_id(), QString("pen"));
+        QVERIFY(layer_shows_red(view, QPoint(1480, 100)));
+        // A resolution change resizes the layer.
         set_offscreen_screens({QRect(0, 0, 1600, 900), TWO_SCREENS[1].translated(320, 0)});
-        QTRY_COMPARE(left->geometry(), QRect(0, 0, 1600, 900));
-        QCOMPARE(left->scene_obj()->sceneRect(), QRectF(0, 0, 1600, 900));
-        QCOMPARE(drawing_count(left), 1);
+        QTRY_COMPARE(view->geometry(), QRect(0, 0, 2624, 900));
+        QCOMPARE(view->scene_obj()->sceneRect(), QRectF(0, 0, 2624, 900));
+        QCOMPARE(drawing_count(view), 2);
         check_consistent(annotation);
+        // A screen to the left of the others: the layer grows left and the drawings stay put.
+        set_offscreen_screens({TWO_SCREENS[0], TWO_SCREENS[1], QRect(-1024, 0, 1024, 768)});
+        QTRY_COMPARE(view->geometry(), QRect(-1024, 0, 3328, 768));
+        QCOMPARE(view->scene_obj()->sceneRect(), QRectF(-1024, 0, 3328, 768));
+        QVERIFY(layer_shows_red(view, QPoint(180, 100)));
+        QVERIFY(layer_shows_red(view, QPoint(1480, 100)));
+        // Drawing there lands under the pointer.
+        draw_stroke(view, on_layer(view, QPoint(-800, 200)), on_layer(view, QPoint(-640, 200)));
+        QVERIFY(layer_shows_red(view, QPoint(-720, 200)));
+        check_consistent(annotation);
+        get_tool_settings_manager()->reset_tool("pen");
     }
 
     void randomOperationsKeepStateConsistent() {
@@ -1059,9 +1078,8 @@ private slots:
             case 4:
             case 5:
                 if (annotation.mode() == Mode::Drawing && drawable.contains(*annotation.toolbar()->current_tool)) {
-                    auto *view = annotation.views()[rng.bounded(static_cast<int>(annotation.views().size()))];
-                    const QPoint from(40 + rng.bounded(400), 40 + rng.bounded(300));
-                    draw_stroke(view, from, from + QPoint(rng.bounded(-30, 120), rng.bounded(-30, 120)));
+                    const QPoint from(40 + rng.bounded(1600), 40 + rng.bounded(300));
+                    draw_stroke(annotation.view(), from, from + QPoint(rng.bounded(-30, 120), rng.bounded(-30, 120)));
                 }
                 break;
             case 6: rng.bounded(2) ? annotation.undo() : annotation.redo(); break;
@@ -1085,7 +1103,7 @@ private slots:
     // Extremes: the widest pen, a long text, the whole screen filled; clearing and undoing stay quick.
     void extremeInputStaysResponsive() {
         auto &annotation = start();
-        auto *view = annotation.views().front();
+        auto *view = annotation.view();
         annotation.select_tool("pen");
         emit annotation.toolbar()->stroke_width_changed(10000);
         const double widest = view->tool_controller()->ctx.stroke_width;
@@ -1114,31 +1132,7 @@ private slots:
         get_tool_settings_manager()->reset_tool("pen");
     }
 
-    // A layer undone by itself (not through the session) drops those steps from the history, wherever
-    // they sit between the other layer's steps, and they can be redone from the session.
-    void aLayersOwnUndoLeavesTheSessionHistory() {
-        auto &annotation = start();
-        if (annotation.views().size() < 2) QSKIP("needs two screens");
-        annotation.select_tool("pen");
-        auto *a = annotation.views()[0], *b = annotation.views()[1];
-        draw_stroke(a);
-        draw_stroke(b);
-        draw_stroke(a, QPoint(300, 300), QPoint(400, 320));
-        a->undo_stack()->setIndex(0);
-        QCOMPARE(drawing_count(a), 0);
-        QCOMPARE(drawing_count(b), 1);
-        // Only the other layer's step is left to undo; the layer's two are waiting to be redone.
-        QVERIFY(annotation.can_redo());
-        annotation.undo();
-        QCOMPARE(drawing_count(b), 0);
-        QVERIFY(!annotation.can_undo());
-        for (int i = 0; i < 3; ++i) annotation.redo();
-        QCOMPARE(drawing_count(a), 2);
-        QCOMPARE(drawing_count(b), 1);
-        QVERIFY(!annotation.can_redo());
-    }
-
-    // The session's keys: Esc ends drawing, undo, redo and delete act on the layers, the tool keys pick
+    // The session's keys: Esc ends drawing, undo, redo and delete act on the layer, the tool keys pick
     // tools, and none of them takes a key while a text is being edited.
     void sessionKeysDriveTheLayers() {
         auto &annotation = start();
@@ -1148,7 +1142,7 @@ private slots:
             return handler.handle_key(&event);
         };
         annotation.select_tool("pen");
-        auto *view = annotation.views().front();
+        auto *view = annotation.view();
         draw_stroke(view);
         QCOMPARE(drawing_count(view), 1);
         QVERIFY(press(Qt::Key_Z, Qt::ControlModifier));
@@ -1193,22 +1187,6 @@ private slots:
         QVERIFY(!view->is_text_editing());
     }
 
-    // Before any layer is drawn on, the keys and the toolbar follow the layer on the screen under the
-    // pointer, or the first one when the pointer is on none.
-    void theActiveLayerFollowsThePointerBeforeAnyDrawing() {
-        auto &annotation = start();
-        QVERIFY(annotation.active_view());
-        QVERIFY(std::find(annotation.views().begin(), annotation.views().end(), annotation.active_view()) != annotation.views().end());
-        if (!offscreen()) return;
-        QCursor::setPos(-9000, -9000);
-        if (QGuiApplication::screenAt(QCursor::pos())) QSKIP("the platform keeps the pointer on a screen");
-        QCOMPARE(annotation.active_view(), annotation.views().front());
-        auto *second = annotation.views().back();
-        const QPoint inside = second->target_screen()->geometry().center();
-        QCursor::setPos(inside);
-        QCOMPARE(annotation.active_view(), second);
-    }
-
     // Switching to another program hands the mouse back; coming back changes nothing, and outside
     // drawing there is nothing to hand back.
     void leavingTheApplicationEndsDrawing() {
@@ -1235,9 +1213,9 @@ private slots:
         toolbar->move(home + QPoint(40, -60));
         emit toolbar->drag_handle->reset_requested();
         QCOMPARE(toolbar->pos(), home);
-        // The layer drawn on is the toolbar's host, and a layer is its own canvas.
+        // The layer is the toolbar's host and its own canvas.
         annotation.select_tool("pen");
-        auto *view = annotation.views().front();
+        auto *view = annotation.view();
         QCOMPARE(static_cast<CanvasHost *>(view)->canvas_view(), static_cast<CanvasView *>(view));
         emit toolbar->stroke_width_changed(11);
         emit toolbar->color_changed(QColor("#00aa00"));
@@ -1268,13 +1246,11 @@ private slots:
         auto &annotation = start();
         const auto centre = below.geometry().center();
         const POINT point{centre.x(), centre.y()};
-        for (auto *view : annotation.views()) {
-            QVERIFY(ex_style(view) & WS_EX_LAYERED);
-            QVERIFY(ex_style(view) & WS_EX_TRANSPARENT);
-        }
+        auto *view = annotation.view();
+        QVERIFY(ex_style(view) & WS_EX_LAYERED);
+        QVERIFY(ex_style(view) & WS_EX_TRANSPARENT);
         QTRY_VERIFY2(WindowFromPoint(point) == hwnd_of(&below), qPrintable(window_class(WindowFromPoint(point))));
         annotation.select_tool("pen");
-        auto *view = view_on(annotation, QGuiApplication::primaryScreen());
         QVERIFY(!(ex_style(view) & WS_EX_TRANSPARENT));
         // Drawing: the alpha 1 hit layer takes the point.
         QTRY_COMPARE(WindowFromPoint(point), hwnd_of(view));
@@ -1304,8 +1280,7 @@ private slots:
         auto &annotation = start();
         annotation.toolbar()->board_btn->click();
         QCOMPARE(annotation.mode(), Mode::Drawing);
-        auto *view = view_on(annotation, QGuiApplication::primaryScreen());
-        QVERIFY(view);
+        auto *view = annotation.view();
         auto *board = view->board_window();
         QVERIFY(board);
         QVERIFY(ex_style(board) & WS_EX_NOACTIVATE);
@@ -1393,9 +1368,10 @@ private slots:
         }
         QCOMPARE(toolbar->current_tool.value_or(QString()), QString("highlighter"));
         // A stroke on the layer, then the toolbar and the highlighter's panel again.
-        auto *view = view_on(annotation, QGuiApplication::screenAt(toolbar->geometry().center()));
-        QVERIFY(view);
-        const QPoint from = view->geometry().center() - QPoint(200, 100);
+        auto *view = annotation.view();
+        auto *screen = QGuiApplication::screenAt(toolbar->geometry().center());
+        QVERIFY(screen);
+        const QPoint from = screen->geometry().center() - QPoint(200, 100);
         SetCursorPos(from.x(), from.y());
         INPUT down = {};
         down.type = INPUT_MOUSE;
@@ -1478,14 +1454,14 @@ private slots:
         QVERIFY(QTest::qWaitForWindowExposed(&backdrop));
         auto &annotation = start();
         annotation.select_tool("pen");
-        auto *view = view_on(annotation, screen);
-        QVERIFY(view);
+        auto *view = annotation.view();
         const QRect area = screen->geometry();
-        const QPoint from(area.width() / 4, area.height() / 3), to(area.width() / 2, area.height() / 3);
+        const QPoint from = on_layer(view, area.topLeft() + QPoint(area.width() / 4, area.height() / 3));
+        const QPoint to = on_layer(view, area.topLeft() + QPoint(area.width() / 2, area.height() / 3));
         draw_stroke(view, from, to);
         QTest::qWait(300);
         const QPoint on_stroke = view->mapToGlobal((from + to) / 2);
-        const QPoint off_stroke = view->mapToGlobal(QPoint(area.width() / 3, area.height() / 2));
+        const QPoint off_stroke = area.topLeft() + QPoint(area.width() / 3, area.height() / 2);
         const QPoint on_toolbar = annotation.toolbar()->mapToGlobal(annotation.toolbar()->rect().center());
         // While drawing the hit layer darkens the screen by up to one level, so the exact check below can fail.
         const auto [drawing_image, drawing_rect] = CaptureService().capture_all_screens();
@@ -1517,10 +1493,10 @@ private slots:
         QVERIFY(QTest::qWaitForWindowExposed(&backdrop));
         auto &annotation = start();
         annotation.select_tool("pen");
-        auto *view = view_on(annotation, screen);
-        QVERIFY(view);
+        auto *view = annotation.view();
         const QRect area = screen->geometry();
-        const QPoint from(area.width() / 4, area.height() / 3), to(area.width() / 2, area.height() / 3);
+        const QPoint from = on_layer(view, area.topLeft() + QPoint(area.width() / 4, area.height() / 3));
+        const QPoint to = on_layer(view, area.topLeft() + QPoint(area.width() / 2, area.height() / 3));
         draw_stroke(view, from, to);
         // The MP4 frame is 1024 x 512: the decoder pads rows and columns to multiples of 16.
         const QRect region(view->mapToGlobal(from) - QPoint(96, 128), QSize(1026, 514));
@@ -1596,7 +1572,7 @@ private slots:
                 annotation.clear_drawings();
                 if (with_tools) {
                     annotation.select_tool("pen");
-                    draw_stroke(annotation.views().front());
+                    draw_stroke(annotation.view());
                     annotation.toggle_board();
                     annotation.set_cursor_highlight(true, false);
                     annotation.cursor_highlight()->on_pointer(QPoint(60, 60));
@@ -1687,10 +1663,9 @@ private slots:
             QElapsedTimer clock;
             clock.start();
             if (command != "quit") run(command);
-            // Until the layers are on the screen with the pen ready.
+            // Until the layer is on the screen with the pen ready.
             QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
-            for (auto *view : annotation.views())
-                if (view->isVisible()) view->viewport()->repaint();
+            if (auto *view = annotation.view(); view && view->isVisible()) view->viewport()->repaint();
             const qint64 elapsed = clock.elapsed();
             write(base + ".ack", QByteArray::number(++handled) + " " + command.toUtf8() + " " + QByteArray::number(elapsed));
             if (command == "quit") loop.quit();

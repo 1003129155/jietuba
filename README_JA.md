@@ -196,7 +196,7 @@ ctest --test-dir build\msvc -C Release --output-on-failure -E "_desktop$|_window
 │
 ├── cpp/                     # C++（Qt6）実装
 │   ├── src/                 # ソース（<パッケージ>/<モジュール> 構成）
-│   │   ├── annotation/      # 画面注釈 — 画面ごとのレイヤー、透過の切り替え、画面をまたぐ元に戻す
+│   │   ├── annotation/      # 画面注釈 — 全画面を覆う1枚のレイヤー、透過の切り替え、注釈は画面をまたいで移動可
 │   │   ├── barcode/         # QR コード・バーコード認識（zxing-cpp）
 │   │   ├── canvas/          # キャンバス — 編集の中核、元に戻す、レイヤー
 │   │   ├── capture/         # キャプチャ — スクリーンショット、ウィンドウ・要素の検出

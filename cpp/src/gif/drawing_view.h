@@ -26,7 +26,7 @@ class GifDrawingScene : public CanvasScene {
     Q_OBJECT
 public:
     GifDrawingScene(int width, int height);
-    void resize_scene(int width, int height);
+    void resize_scene(const QRectF &rect);
     void set_hit_test_visible(bool visible);
     // Annotations only: the hit rectangle, background and selection item are excluded.
     bool is_drawing(QGraphicsItem *item) const;
@@ -57,8 +57,7 @@ private:
 class GifDrawingView : public CanvasView {
     Q_OBJECT
 public:
-    // Owns its scene. Without own_shortcuts the owner handles the keys, as the screen annotation
-    // does across its per-screen layers.
+    // Owns its scene. Without own_shortcuts the owner handles the keys, as the screen annotation does.
     explicit GifDrawingView(const QRect &rect, bool own_shortcuts = true);
     ~GifDrawingView() override;
     GifDrawingScene *scene_obj() const { return gif_scene_; }

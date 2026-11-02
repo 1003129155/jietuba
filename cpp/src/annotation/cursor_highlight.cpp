@@ -142,7 +142,7 @@ CursorHighlight::~CursorHighlight() { set_enabled(false); }
 
 InputHub *CursorHighlight::hub() const { return hub_ ? hub_ : input_hub(); }
 
-void CursorHighlight::set_views(const std::vector<AnnotationView *> &views) { views_ = views; }
+void CursorHighlight::set_view(AnnotationView *view) { view_ = view; }
 
 qreal CursorHighlight::size_factor(const QString &name) {
     if (name == "small") return 0.7;
@@ -180,7 +180,7 @@ void CursorHighlight::set_enabled(bool enabled) {
     if (g_cursor_listener == this) g_cursor_listener = nullptr;
     if (auto *source = hub_ ? hub_ : existing_input_hub()) source->native->unwatch_mouse(WATCHER);
     ripple_timer_.stop();
-    for (auto *view : views_) view->remove_pointer_light();
+    if (view_) view_->remove_pointer_light();
 }
 
 void CursorHighlight::collect_pointer() {
@@ -190,19 +190,17 @@ void CursorHighlight::collect_pointer() {
 
 void CursorHighlight::show_at(const QPoint &global) {
     last_pos_ = global;
+    if (!view_) return;
     const bool pressed = buttons_down_ != 0;
-    for (auto *view : views_) {
-        auto *light = view->pointer_light(true);
-        light->set_size(size_);
-        const QRect screen = view->geometry();
-        const bool inside = screen.contains(global);
-        // While a layer takes the mouse it moves the disc itself, in the repaint of the stroke.
-        if (inside && !view->passthrough()) {
-            light->set_pressed(pressed);
-            continue;
-        }
-        light->set_pointer(inside ? std::optional<QPointF>(QPointF(global - screen.topLeft())) : std::nullopt, pressed);
+    auto *light = view_->pointer_light(true);
+    light->set_size(size_);
+    const bool inside = view_->geometry().contains(global);
+    // While the layer takes the mouse it moves the disc itself, in the repaint of the stroke.
+    if (inside && !view_->passthrough()) {
+        light->set_pressed(pressed);
+        return;
     }
+    light->set_pointer(inside ? std::optional<QPointF>(view_->mapToScene(view_->viewport()->mapFromGlobal(global))) : std::nullopt, pressed);
 }
 
 void CursorHighlight::on_pointer(const QPoint &global) { show_at(global); }
@@ -226,22 +224,14 @@ void CursorHighlight::on_button(const QString &button, bool pressed, const QPoin
     show_at(global);
     if (!pressed || !(left || right) || !ripples_) return;
     const qint64 now = clock_.elapsed();
-    for (auto *view : views_) {
-        const QRect screen = view->geometry();
-        if (screen.contains(global)) view->pointer_light(true)->add_ripple(QPointF(global - screen.topLeft()), right, now);
-    }
+    if (view_ && view_->geometry().contains(global)) view_->pointer_light(true)->add_ripple(view_->mapToScene(view_->viewport()->mapFromGlobal(global)), right, now);
     if (!ripple_timer_.isActive()) ripple_timer_.start();
 }
 
 void CursorHighlight::animate() {
     const qint64 now = clock_.elapsed();
-    bool any = false;
-    for (auto *view : views_) {
-        auto *light = view->pointer_light(false);
-        if (!light || light->ripple_count() == 0) continue;
-        light->advance(now);
-        any = any || light->ripple_count() > 0;
-    }
-    if (!any) ripple_timer_.stop();
+    auto *light = view_ ? view_->pointer_light(false) : nullptr;
+    if (light) light->advance(now);
+    if (!light || light->ripple_count() == 0) ripple_timer_.stop();
 }
 }

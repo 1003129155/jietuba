@@ -802,7 +802,7 @@ private slots:
         QElapsedTimer clock;
         clock.start();
         tray_action()->trigger();
-        for (auto *view : main_app_->screen_annotation->views()) view->viewport()->repaint();
+        main_app_->screen_annotation->view()->viewport()->repaint();
         qInfo("first session on screen after %lld ms", static_cast<long long>(clock.elapsed()));
         auto *annotation = main_app_->screen_annotation;
         QVERIFY(annotation && annotation->active());
