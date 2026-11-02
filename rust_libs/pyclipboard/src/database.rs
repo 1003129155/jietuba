@@ -237,7 +237,7 @@ impl Database {
     pub fn new(db_path: &str) -> Result<Self, String> {
         let conn = Connection::open(db_path)
             .map_err(|e| format!("打开数据库失败: {}", e))?;
-        // 分组内搜索要按 Unicode 忽略大小写，SQLite 自带的 LIKE 和 lower() 只认 ASCII；第二个参数由调用方用 fold_needle 转好
+        // 搜索按 Unicode 忽略大小写，SQLite 自带的 LIKE 和 lower() 只认 ASCII；第二个参数由调用方用 fold_needle 转好
         conn.create_scalar_function("contains_folded", 2, FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC, |ctx| {
             // 借用 SQLite 里的字节，不把每行正文复制成 String
             let ValueRef::Text(text) = ctx.get_raw(0) else { return Ok(false) };
@@ -506,13 +506,9 @@ impl Database {
             where_clauses.push("group_id IS NULL".to_string());
         }
 
-        if let Some(ref s) = search {
-            if !s.trim().is_empty() {
-                // 关键词按字面匹配：% 和 _ 在 LIKE 里是通配符，要转义
-                let escaped = s.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_");
-                where_clauses.push("content LIKE ? ESCAPE '\\'".to_string());
-                params_vec.push(Value::from(format!("%{}%", escaped)));
-            }
+        if let Some(s) = search.filter(|s| !s.trim().is_empty()) {
+            where_clauses.push("contains_folded(content, ?)".to_string());
+            params_vec.push(Value::from(fold_needle(&s)));
         }
 
         push_filter_conditions(filter, start_time, end_time, &mut where_clauses, &mut params_vec);
@@ -1239,6 +1235,23 @@ mod maintenance_tests {
         assert_eq!(search(&db, "50%"), vec!["50%"]);
         assert_eq!(search(&db, "a_b"), vec!["a_b"]);
         assert_eq!(search(&db, r"\t"), vec![r"C:\temp"]);
+    }
+
+    #[test]
+    fn history_search_ignores_case_beyond_ascii() {
+        let db = Database::new(":memory:").unwrap();
+        for text in ["École 50%", "ПРИВЕТ мир", "截图工具", "Apple pie", "plain", "ΟΔΟΣ", "İstanbul"] {
+            add(&db, text);
+        }
+        assert_eq!(search(&db, "ÉCOLE"), vec!["École 50%"]);
+        assert_eq!(search(&db, "привет"), vec!["ПРИВЕТ мир"]);
+        assert_eq!(search(&db, "工具"), vec!["截图工具"]);
+        assert_eq!(search(&db, "APPLE"), vec!["Apple pie"]);
+        assert!(search(&db, "工具箱").is_empty());
+        // 词尾的 Σ 和逐字转出的 σ 是同一个字；İ 转小写是 i 加一个附加点
+        assert_eq!(search(&db, "ΟΔΟΣ"), vec!["ΟΔΟΣ"]);
+        assert_eq!(search(&db, "οδος"), vec!["ΟΔΟΣ"]);
+        assert_eq!(search(&db, "İstanbul"), vec!["İstanbul"]);
     }
 
     #[test]
