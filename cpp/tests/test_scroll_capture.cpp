@@ -24,6 +24,7 @@
 #include <QCursor>
 #include <QDialog>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFileInfo>
 #include <QLabel>
 #include <QMenu>
@@ -176,7 +177,7 @@ private:
         if (!QTest::qWaitFor([&] { return window_ && window_->screenshots >= 1; }, 3000)) return nullptr;
         // The change watch starts after the first frame and takes its own first look as the
         // baseline; a person starts scrolling only once the window is up.
-        QTest::qWait(CHANGE_WATCH_IDLE_MS + 150);
+        QTest::qWait(CHANGE_WATCH_INTERVAL_MS + 150);
         return window_;
     }
 
@@ -321,6 +322,34 @@ private slots:
         QVERIFY2(std::abs(saved.height() - (VIEW_H + 300)) <= 2, qPrintable(QString::number(saved.height())));
         QCOMPARE(PinManager::instance()->count(), 0);
         QCOMPARE(clipboard_bitmap_size(), QSize());
+    }
+
+    // The page runs to its end at 1500 pixels a second without pausing: frames are taken while
+    // it moves, each still overlapping the one before.
+    void aFastScrollWithoutPausesJoins() {
+        auto *window = open();
+        QVERIFY(window);
+        const int end = PAGE_H - VIEW_H;
+        QElapsedTimer clock;
+        QTimer mover;
+        mover.setInterval(8);
+        connect(&mover, &QTimer::timeout, this, [&] {
+            page_window_->scroll_to(std::min(end, static_cast<int>(clock.elapsed() * 3 / 2)));
+            if (page_window_->top() == end) mover.stop();
+        });
+        clock.start();
+        mover.start();
+        QTRY_VERIFY_WITH_TIMEOUT(!mover.isActive(), 5000);
+        QTRY_VERIFY_WITH_TIMEOUT(window->toolbar->size_label->text().contains(QString::number(PAGE_H)), 3000);
+        window->toolbar->pin_btn->click();
+        const auto pins = PinManager::instance()->get_all_pins();
+        QCOMPARE(pins.size(), 1);
+        const auto image = pins.first()->base_pixmap().toImage().convertToFormat(QImage::Format_RGB32);
+        QCOMPARE(image.size(), page_.size());
+        int matching = 0;
+        for (int y = 0; y < PAGE_H; y += 37)
+            matching += image.copy(0, y, PAGE_W, 1) == page_.copy(0, y, PAGE_W, 1).convertToFormat(QImage::Format_RGB32);
+        QVERIFY2(matching >= 40, qPrintable(QString::number(matching)));
     }
 
     void scrollingBackDoesNotDuplicateTheTop() {

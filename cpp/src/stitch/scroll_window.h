@@ -14,8 +14,7 @@
 
 // Scrolling long-screenshot window: a click-through frame marking the capture region.
 // It captures whenever the region's picture changes (wheel, dragging the scroll bar or
-// content, keyboard paging), waiting for the picture to settle first so frames from
-// mid-animation are avoided; auto scrolling is optional.
+// content, keyboard paging), mid-scroll too; auto scrolling is optional.
 //
 //     auto *window = new ScrollCaptureWindow(capture_rect, parent);
 //     connect(window, &ScrollCaptureWindow::finished, ...);
@@ -150,7 +149,10 @@ private:
     void handle_stitch_failure(const QString &hint, bool immediate = false);
     // Click-through window plus the global keys (Shift in horizontal mode).
     void setup_input();
-    // The region changed: capture once it settles; auto scrolling decides by itself.
+    // The region changed: capture at once, even mid-scroll; auto scrolling decides by itself.
+    // Waiting for the picture to settle let a fast scroll carry the page past a whole frame
+    // between captures. Rows a frame caught mid-repaint newly exposes are replaced by the
+    // next frame where the two disagree.
     void on_screen_changed();
     // Starts or stops auto scrolling in the latest movement's direction, down or right before any.
     void toggle_auto_scroll();
@@ -190,11 +192,11 @@ private:
     // Hands a frame to the stitcher; returns its index (results go to on_frame_stitched).
     std::optional<int> submit_frame(const std::optional<GrabbedFrame> &frame);
     std::optional<int> do_capture();
-    // Captures once the picture settles: two grabs STILL_CHECK_MS apart must match,
-    // at most STILL_CHECK_TRIES grabs while it keeps changing. Smooth-scrolling programs
-    // often have an area not yet repainted mid-animation, which would show as a row of
-    // misaligned text. done gets the frame index (nullopt when nothing was captured);
-    // requests while waiting only add callbacks.
+    // Captures once the picture settles, for auto scrolling: one frame per notch, taken
+    // where the notch ended, so a notch that moved nothing is not mistaken for one still
+    // animating. Two grabs STILL_CHECK_MS apart must match, at most STILL_CHECK_TRIES
+    // grabs while it keeps changing. done gets the frame index (nullopt when nothing was
+    // captured); requests while waiting only add callbacks.
     void capture_when_still(std::function<void(std::optional<int>)> done = {});
     void check_still();
     void finish_still(std::optional<int> index);
