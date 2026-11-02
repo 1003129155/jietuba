@@ -145,7 +145,7 @@ private slots:
         Q_UNUSED(ids);
     }
 
-    void searchInsideAGroupLooksAtEveryPage() {
+    void searchAndFiltersInsideAGroupApplyBeforePaging() {
         const auto group = manager().create_group("Notes");
         QVERIFY(group);
         QStringList texts;
@@ -154,15 +154,24 @@ private slots:
         for (qint64 id : add_texts(texts)) QVERIFY(manager().move_to_group(id, *group));
         const auto titled = manager().add_item("body", "text", QString("Needle title"));
         QVERIFY(manager().move_to_group(*titled, *group));
+        const auto image = manager().add_item("[10x10]", "image");
+        QVERIFY(image && manager().move_to_group(*image, *group));
         ClipboardController controller(manager());
         controller.switch_to_group(*group);
         QCOMPARE(controller.current_items.size(), 38);
+        // Matches past the first page come on the first page, whatever the list's height.
         controller.set_search_text("NEEDLE");
-        // The first page has no match, yet more pages remain to be searched.
-        QVERIFY(controller.current_items.isEmpty());
-        QVERIFY(controller.has_more_items());
-        controller.load_more_if_needed();
         QCOMPARE(contents_of(controller.current_items), (QStringList{"needle at the end", "body"}));
+        QVERIFY(!controller.has_more_items());
+        controller.set_search_text("");
+        // The type button and the time range narrow a group as they do the history.
+        controller.set_content_type_filter(QString("image"));
+        QCOMPARE(contents_of(controller.current_items), QStringList{"[10x10]"});
+        controller.set_content_type_filter(std::nullopt);
+        QVERIFY(controller.set_time_range_text("2000/01/01-2000/01/02"));
+        QVERIFY(controller.current_items.isEmpty());
+        QVERIFY(controller.set_time_range_text(""));
+        QCOMPARE(controller.current_items.size(), 38);
     }
 
     void groupsSwitchMoveAndDelete() {
@@ -223,6 +232,9 @@ private slots:
         controller.switch_to_group(*plain);
         QVERIFY(!controller.shows_history());
         QVERIFY(!controller.current_filter_rule());
+        // There the type button, still on file, narrows the list again.
+        QVERIFY(controller.current_items.isEmpty());
+        controller.set_content_type_filter(std::nullopt);
         QCOMPARE(contents_of(controller.current_items), QStringList{"banana"});
     }
 

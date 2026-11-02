@@ -630,6 +630,34 @@ pub unsafe extern "C" fn jb_clipboard_get_by_group(
     })
 }
 
+/// One page of a group after search, kind, app and time filters, which apply before paging;
+/// null for any of them means no filter. Same order as jb_clipboard_get_by_group.
+#[no_mangle]
+#[allow(clippy::too_many_arguments)]
+pub unsafe extern "C" fn jb_clipboard_get_group_items(
+    ptr: *const JbClipboard,
+    group_id: i64,
+    offset: i64,
+    limit: i64,
+    search: *const c_char,
+    kind: *const c_char,
+    app: *const c_char,
+    start_time: *const i64,
+    end_time: *const i64,
+    out_json: *mut *mut c_char,
+    error: *mut c_char,
+    error_len: usize,
+) -> bool {
+    guard_error(false, error, error_len, || {
+        let manager = manager_or_fail!(ptr, error, error_len);
+        let filter = FilterRule { kind: opt_string(kind), app: opt_string(app) };
+        let result = manager.get_group_items(group_id, offset, limit, opt_string(search), &filter, opt_i64(start_time), opt_i64(end_time));
+        finish(result, error, error_len, |page| {
+            put_text(&serde_json::to_string(&page).unwrap_or_else(|_| "[]".to_string()), out_json)
+        })
+    })
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn jb_clipboard_paste_item(
     ptr: *const JbClipboard,

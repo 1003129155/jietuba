@@ -134,7 +134,7 @@ signals:
 
 private:
     int page_size() const;
-    std::pair<QList<ClipboardItem>, int> fetch_items_page(int limit, qint64 offset);
+    QList<ClipboardItem> fetch_items_page(int limit, qint64 offset);
     void send_paste_keystroke(bool explicit_paste);
     void on_multi_paste_finished(const QList<qint64> &used, bool move_to_top, bool explicit_paste);
     void move_items_to_top(const QList<qint64> &item_ids);

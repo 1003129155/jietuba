@@ -10,8 +10,8 @@ authors = ["JYAARU"]
 # 剪贴板操作
 clipboard-rs = "0.3.5"
 
-# SQLite 数据库（bundled 表示自带 SQLite）
-rusqlite = { version = "0.32", features = ["bundled"] }
+# SQLite 数据库（bundled 表示自带 SQLite；functions 用来注册分组内搜索的比较函数）
+rusqlite = { version = "0.32", features = ["bundled", "functions"] }
 
 # 序列化
 serde.workspace = true

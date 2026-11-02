@@ -570,6 +570,21 @@ QList<ClipboardItem> ClipboardManager::get_by_group(std::optional<qint64> group_
     return items_from(json);
 }
 
+QList<ClipboardItem> ClipboardManager::get_group_items(qint64 group_id, qint64 offset, qint64 limit, const std::optional<QString> &search,
+                                                       const FilterRule &filter, std::optional<qint64> start_time, std::optional<qint64> end_time) {
+    const auto backend = this->backend();
+    if (!backend) return {};
+    QByteArray search_text, kind_text, app_text;
+    char *json = nullptr;
+    char error[ERROR_LEN] = {};
+    if (!jb_clipboard_get_group_items(backend.get(), group_id, offset, limit, optional_arg(search, search_text), optional_arg(filter.kind, kind_text),
+                                      optional_arg(filter.app, app_text), optional_id(start_time), optional_id(end_time), &json, error, ERROR_LEN)) {
+        log_error(T("按分组查询失败: {e}", {{"e", QString::fromUtf8(error)}}), "Clipboard");
+        return {};
+    }
+    return items_from(json);
+}
+
 quint64 ClipboardManager::max_stitched_pixels() { return jb_clipboard_max_stitched_pixels(); }
 
 bool ClipboardManager::set_clipboard_text(const QString &text, QString *error) {

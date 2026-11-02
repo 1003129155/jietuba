@@ -1208,6 +1208,22 @@ impl ClipboardManager {
         db.query_by_group(group_id, offset, limit)
     }
 
+    /// 一个分组里按搜索词、类型和时间筛选后的一页，参数含义同 get_history
+    #[allow(clippy::too_many_arguments)]
+    pub fn get_group_items(
+        &self,
+        group_id: i64,
+        offset: i64,
+        limit: i64,
+        search: Option<String>,
+        filter: &FilterRule,
+        start_time: Option<i64>,
+        end_time: Option<i64>,
+    ) -> Result<Vec<PyClipboardItem>, String> {
+        let db = self.db.lock();
+        db.query_group_items(group_id, offset, limit, search, filter, start_time, end_time)
+    }
+
     /// 增加粘贴次数（当用户粘贴某项时调用）
     /// 
     /// Args:

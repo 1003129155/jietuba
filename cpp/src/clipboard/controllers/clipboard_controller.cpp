@@ -116,12 +116,10 @@ void ClipboardController::load_more_items() {
 
     const int current_page_size = page_size();
     const bool is_first_page = current_offset_ == 0;
-    const auto [new_items, raw_count] = fetch_items_page(current_page_size, current_offset_);
-    current_offset_ += raw_count;
+    const auto new_items = fetch_items_page(current_page_size, current_offset_);
+    current_offset_ += new_items.size();
     log_info(T("加载完成 - 获取到 {count} 条记录", {{"count", static_cast<int>(new_items.size())}}), "Clipboard");
-    // Judged by raw_count before filtering: searching inside a group filters on this side, so a page
-    // may match far fewer rows, which would wrongly mark a group with more pages as finished.
-    if (raw_count < current_page_size) has_more_ = false;
+    if (new_items.size() < current_page_size) has_more_ = false;
     current_items.append(new_items);
     emit data_loaded(new_items, is_first_page);
 
@@ -150,30 +148,18 @@ bool ClipboardController::shows_history() const { return !current_group_id || cu
 
 bool ClipboardController::hides_grouped() const { return !current_group_id && get_tool_settings_manager()->get_clipboard_hide_grouped_in_history(); }
 
-std::pair<QList<ClipboardItem>, int> ClipboardController::fetch_items_page(int limit, qint64 offset) {
+QList<ClipboardItem> ClipboardController::fetch_items_page(int limit, qint64 offset) {
+    std::optional<qint64> start_ts, end_ts;
+    if (time_range_) {
+        start_ts = time_range_->first.toSecsSinceEpoch();
+        end_ts = time_range_->second.toSecsSinceEpoch();
+    }
     const auto filter_rule = current_filter_rule();
-    if (!current_group_id || filter_rule) {
-        std::optional<qint64> start_ts, end_ts;
-        if (time_range_) {
-            start_ts = time_range_->first.toSecsSinceEpoch();
-            end_ts = time_range_->second.toSecsSinceEpoch();
-        }
-        // A filter group's kind is fixed; the type button still narrows a group that only picks a source app.
-        FilterRule filter = filter_rule.value_or(FilterRule{});
-        if (!filter.kind) filter.kind = content_type_;
-        const auto items = manager.get_history(offset, limit, search_text_, filter, start_ts, end_ts, hides_grouped());
-        return {items, static_cast<int>(items.size())};
-    }
-    auto items = manager.get_by_group(current_group_id, offset, limit);
-    const int raw_count = static_cast<int>(items.size());
-    if (search_text_) {
-        QList<ClipboardItem> matched;
-        for (const auto &item : items)
-            if (item.content.contains(*search_text_, Qt::CaseInsensitive) || (item.title && item.title->contains(*search_text_, Qt::CaseInsensitive)))
-                matched.append(item);
-        items = matched;
-    }
-    return {items, raw_count};
+    // A filter group's kind is fixed; the type button still narrows a group that only picks a source app.
+    FilterRule filter = filter_rule.value_or(FilterRule{});
+    if (!filter.kind) filter.kind = content_type_;
+    if (!current_group_id || filter_rule) return manager.get_history(offset, limit, search_text_, filter, start_ts, end_ts, hides_grouped());
+    return manager.get_group_items(*current_group_id, offset, limit, search_text_, filter, start_ts, end_ts);
 }
 
 void ClipboardController::check_scroll_load(int scroll_value, int scroll_max) {

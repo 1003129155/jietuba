@@ -86,6 +86,9 @@ public:
     bool move_group_between(qint64 group_id, std::optional<qint64> before_id = std::nullopt, std::optional<qint64> after_id = std::nullopt);
     bool move_item_between(qint64 item_id, std::optional<qint64> before_id = std::nullopt, std::optional<qint64> after_id = std::nullopt);
     QList<ClipboardItem> get_by_group(std::optional<qint64> group_id = std::nullopt, qint64 offset = 0, qint64 limit = 50);
+    // A page of one group with the filters applied before paging; the search matches content or title.
+    QList<ClipboardItem> get_group_items(qint64 group_id, qint64 offset, qint64 limit, const std::optional<QString> &search, const FilterRule &filter,
+                                         std::optional<qint64> start_time, std::optional<qint64> end_time);
 
     // Without a saved path the database lives under the application data folder.
     static QString default_db_path();
