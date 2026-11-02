@@ -452,7 +452,7 @@ private slots:
                              toolbar->text_btn, toolbar->eraser_btn, toolbar->undo_btn, toolbar->redo_btn, toolbar->pointer_btn, toolbar->clear_btn,
                              toolbar->hide_btn, toolbar->exit_btn})
             QVERIFY(button->isVisible());
-        for (auto *button : {toolbar->mosaic_btn, toolbar->spotlight_btn, toolbar->watermark_btn, toolbar->save_btn, toolbar->copy_btn, toolbar->confirm_btn,
+        for (auto *button : {toolbar->mosaic_btn, toolbar->spotlight_btn, toolbar->watermark_btn, toolbar->save_btn, toolbar->quick_save_btn, toolbar->copy_btn, toolbar->confirm_btn,
                              toolbar->cancel_btn, toolbar->pin_btn, toolbar->gif_btn, toolbar->long_screenshot_btn, toolbar->text_recognize_btn,
                              toolbar->scan_code_btn, toolbar->screenshot_translate_btn})
             QVERIFY(!button->isVisible());

@@ -1685,6 +1685,10 @@ Replace it?</source>
         <source>Save Failed</source>
         <translation>保存失败</translation>
     </message>
+    <message>
+        <source>Saved: %1</source>
+        <translation>已保存：%1</translation>
+    </message>
 </context>
 
 <context>
@@ -1729,6 +1733,10 @@ Replace it?</source>
     <message>
         <source>Save to file</source>
         <translation>保存到文件</translation>
+    </message>
+    <message>
+        <source>Quick save: straight to the save folder, no dialog</source>
+        <translation>快捷保存：不弹窗，直接存到保存文件夹</translation>
     </message>
     
     <message>
@@ -4612,6 +4620,10 @@ This action cannot be undone.</source>
         <translation>保存</translation>
     </message>
     <message>
+        <source>工具_快捷保存</source>
+        <translation>快捷保存</translation>
+    </message>
+    <message>
         <source>工具_完成截图</source>
         <translation>完成截图</translation>
     </message>
@@ -4666,6 +4678,10 @@ This action cannot be undone.</source>
     <message>
         <source>工具描述_保存</source>
         <translation>保存截图到本地文件</translation>
+    </message>
+    <message>
+        <source>工具描述_快捷保存</source>
+        <translation>不弹窗，直接存到保存文件夹</translation>
     </message>
     <message>
         <source>工具描述_完成截图</source>
@@ -5612,6 +5628,10 @@ Replace: move the current data there; the data already in that folder will be de
     <message>
         <source>Save</source>
         <translation>保存</translation>
+    </message>
+    <message>
+        <source>Quick save</source>
+        <translation>快捷保存</translation>
     </message>
     <message>
         <source>Copy</source>

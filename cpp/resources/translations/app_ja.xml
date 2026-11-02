@@ -1727,6 +1727,10 @@ Replace it?</source>
         <source>Save Failed</source>
         <translation>保存に失敗しました</translation>
     </message>
+    <message>
+        <source>Saved: %1</source>
+        <translation>保存しました：%1</translation>
+    </message>
 </context>
 
 <context>
@@ -1771,6 +1775,10 @@ Replace it?</source>
     <message>
         <source>Save to file</source>
         <translation>ファイルに保存</translation>
+    </message>
+    <message>
+        <source>Quick save: straight to the save folder, no dialog</source>
+        <translation>クイック保存：ダイアログなしで保存フォルダに保存</translation>
     </message>
     
 
@@ -4632,6 +4640,10 @@ This action cannot be undone.</source>
         <translation>保存</translation>
     </message>
     <message>
+        <source>工具_快捷保存</source>
+        <translation>クイック保存</translation>
+    </message>
+    <message>
         <source>工具_完成截图</source>
         <translation>完了</translation>
     </message>
@@ -4686,6 +4698,10 @@ This action cannot be undone.</source>
     <message>
         <source>工具描述_保存</source>
         <translation>スクショをファイルに保存</translation>
+    </message>
+    <message>
+        <source>工具描述_快捷保存</source>
+        <translation>ダイアログなしで保存フォルダに保存</translation>
     </message>
     <message>
         <source>工具描述_完成截图</source>
@@ -5622,6 +5638,10 @@ Replace: move the current data there; the data already in that folder will be de
     <message>
         <source>Save</source>
         <translation>保存</translation>
+    </message>
+    <message>
+        <source>Quick save</source>
+        <translation>クイック保存</translation>
     </message>
     <message>
         <source>Copy</source>

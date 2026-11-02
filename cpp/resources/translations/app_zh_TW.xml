@@ -1693,6 +1693,10 @@ Replace it?</source>
         <source>Save Failed</source>
         <translation>儲存失敗</translation>
     </message>
+    <message>
+        <source>Saved: %1</source>
+        <translation>已儲存：%1</translation>
+    </message>
 </context>
 <context>
     <name>PinTranslationHelper</name>
@@ -1734,6 +1738,10 @@ Replace it?</source>
     <message>
         <source>Save to file</source>
         <translation>儲存到檔案</translation>
+    </message>
+    <message>
+        <source>Quick save: straight to the save folder, no dialog</source>
+        <translation>快捷儲存：不跳出視窗，直接存到儲存資料夾</translation>
     </message>
     <message>
         <source>Copy image</source>
@@ -4640,6 +4648,10 @@ This action cannot be undone.</source>
         <translation>儲存</translation>
     </message>
     <message>
+        <source>工具_快捷保存</source>
+        <translation>快捷儲存</translation>
+    </message>
+    <message>
         <source>工具_完成截图</source>
         <translation>完成截圖</translation>
     </message>
@@ -4694,6 +4706,10 @@ This action cannot be undone.</source>
     <message>
         <source>工具描述_保存</source>
         <translation>儲存截圖到本機檔案</translation>
+    </message>
+    <message>
+        <source>工具描述_快捷保存</source>
+        <translation>不跳出視窗，直接存到儲存資料夾</translation>
     </message>
     <message>
         <source>工具描述_完成截图</source>
@@ -5984,6 +6000,10 @@ Replace: move the current data there; the data already in that folder will be de
     <message>
         <source>Save</source>
         <translation>儲存</translation>
+    </message>
+    <message>
+        <source>Quick save</source>
+        <translation>快捷儲存</translation>
     </message>
     <message>
         <source>Copy</source>

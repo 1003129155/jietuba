@@ -41,6 +41,7 @@ const ToolEntry TOOLS[] = {
     {"screenshot_translate", "svg/翻译.svg", "工具_截图翻译", "工具描述_截图翻译"},
     {"pin", "svg/钉图.svg", "工具_钉图", "工具描述_钉图"},
     {"save", "svg/下载.svg", "工具_保存", "工具描述_保存"},
+    {"quick_save", "svg/快速保存.svg", "工具_快捷保存", "工具描述_快捷保存"},
     {"confirm", "svg/确定.svg", "工具_完成截图", "工具描述_完成截图"},
 };
 constexpr int TOOL_COUNT = static_cast<int>(std::size(TOOLS));
@@ -66,6 +67,7 @@ QString tool_text(const char *key) {
         {"工具_截图翻译", "截图翻译"},
         {"工具_钉图", "钉图"},
         {"工具_保存", "保存"},
+        {"工具_快捷保存", "快捷保存"},
         {"工具_完成截图", "完成截图"},
         {"工具描述_画笔", "自由绘制线条，Shift 画直线"},
         {"工具描述_荧光笔", "半透明高亮，标记重点区域"},
@@ -85,6 +87,7 @@ QString tool_text(const char *key) {
         {"工具描述_截图翻译", "OCR 识别文字并即时翻译"},
         {"工具描述_钉图", "将截图悬浮置顶在屏幕上"},
         {"工具描述_保存", "保存截图到本地文件"},
+        {"工具描述_快捷保存", "不弹窗，直接存到保存文件夹"},
         {"工具描述_完成截图", "复制到剪贴板或保存文件"},
     };
     const QString source = QString::fromUtf8(key);

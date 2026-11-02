@@ -131,7 +131,7 @@ public:
     bool temporary_edit_active = false;
     QColor current_color = QColor(255, 0, 0);
     ToolbarDragHandle *drag_handle = nullptr;
-    QPushButton *long_screenshot_btn = nullptr, *save_btn = nullptr, *screenshot_translate_btn = nullptr;
+    QPushButton *long_screenshot_btn = nullptr, *save_btn = nullptr, *quick_save_btn = nullptr, *screenshot_translate_btn = nullptr;
     QPushButton *text_recognize_btn = nullptr, *scan_code_btn = nullptr, *gif_btn = nullptr, *copy_btn = nullptr;
     QPushButton *pen_btn = nullptr, *highlighter_btn = nullptr, *mosaic_btn = nullptr, *spotlight_btn = nullptr;
     QPushButton *watermark_btn = nullptr, *arrow_btn = nullptr, *number_btn = nullptr, *rect_btn = nullptr;
@@ -152,6 +152,7 @@ public:
 signals:
     void tool_changed(const QString &tool_id);
     void save_clicked();
+    void quick_save_clicked();
     void copy_clicked();
     void pin_clicked();
     void confirm_clicked();

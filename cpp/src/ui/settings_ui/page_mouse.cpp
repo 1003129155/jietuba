@@ -30,8 +30,8 @@ IconSource quick_capture_icon(const QString &action) {
 
 IconSource capture_mouse_icon(const QString &action) {
     static const QMap<QString, IconSource> icons{
-        {"copy", inapp_icon("inapp_confirm")}, {"pin", inapp_icon("inapp_pin")}, {"save", QString::fromUtf8("保存.svg")},
-        {"quick_save", FluentIcon::Download}, {"close", FluentIcon::Close},
+        {"copy", inapp_icon("inapp_confirm")}, {"pin", inapp_icon("inapp_pin")}, {"save", inapp_icon("inapp_save")},
+        {"quick_save", inapp_icon("inapp_quick_save")}, {"close", FluentIcon::Close},
     };
     return icons.value(action);
 }

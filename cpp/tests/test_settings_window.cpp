@@ -2310,6 +2310,22 @@ private slots:
         QCOMPARE(edit->text(), QString("ctrl+k"));
     }
 
+    // Save and quick save sit on the screenshot tab, and their defaults take no other capture key.
+    void saveKeysSitOnTheScreenshotTab() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        auto *stack = dialog.findChild<QStackedWidget *>("InAppShortcutStack");
+        QVERIFY(stack);
+        for (const auto &[key, value] : {std::pair{"inapp_save", "ctrl+s"}, std::pair{"inapp_quick_save", "ctrl+shift+s"}}) {
+            auto *edit = dialog.inapp_edit(key);
+            QVERIFY(edit);
+            QVERIFY(stack->widget(0)->isAncestorOf(edit));
+            QCOMPARE(edit->text(), QString(value));
+            QCOMPARE(dialog.inapp_groups.value(key), QString("screenshot"));
+            for (const auto &[other_key, other] : dialog.inapp_edits)
+                if (other_key != key && dialog.inapp_groups.value(other_key) == "screenshot") QVERIFY2(other->text() != value, qPrintable(other_key));
+        }
+    }
+
     void undoAndRedoBelongToAnnotationTools() {
         SettingsDialog dialog(config_, config_->get_hotkey());
         auto *stack = dialog.findChild<QStackedWidget *>("InAppShortcutStack");

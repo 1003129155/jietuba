@@ -1700,6 +1700,10 @@ Replace it?</source>
         <source>Save Failed</source>
         <translation>저장 실패</translation>
     </message>
+    <message>
+        <source>Saved: %1</source>
+        <translation>저장함: %1</translation>
+    </message>
 </context>
 
 <context>
@@ -1744,6 +1748,10 @@ Replace it?</source>
     <message>
         <source>Save to file</source>
         <translation>파일로 저장</translation>
+    </message>
+    <message>
+        <source>Quick save: straight to the save folder, no dialog</source>
+        <translation>빠른 저장: 대화 상자 없이 저장 폴더에 바로 저장</translation>
     </message>
     <message>
         <source>Copy image</source>
@@ -4619,6 +4627,10 @@ This action cannot be undone.</source>
         <translation>저장</translation>
     </message>
     <message>
+        <source>工具_快捷保存</source>
+        <translation>빠른 저장</translation>
+    </message>
+    <message>
         <source>工具_完成截图</source>
         <translation>완료</translation>
     </message>
@@ -4673,6 +4685,10 @@ This action cannot be undone.</source>
     <message>
         <source>工具描述_保存</source>
         <translation>스크린샷을 로컬 파일로 저장</translation>
+    </message>
+    <message>
+        <source>工具描述_快捷保存</source>
+        <translation>대화 상자 없이 저장 폴더에 바로 저장</translation>
     </message>
     <message>
         <source>工具描述_完成截图</source>
@@ -5610,6 +5626,10 @@ Replace: move the current data there; the data already in that folder will be de
     <message>
         <source>Save</source>
         <translation>저장</translation>
+    </message>
+    <message>
+        <source>Quick save</source>
+        <translation>빠른 저장</translation>
     </message>
     <message>
         <source>Copy</source>

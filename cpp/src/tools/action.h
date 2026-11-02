@@ -33,6 +33,8 @@ public:
     void handle_copy();
     // Asks where to save.
     void handle_save(bool close_after = true);
+    // Straight into the save folder without asking, whether or not auto-save is on.
+    void handle_quick_save();
     // A pin window gets the clean base image plus the annotations as vector items,
     // so they stay editable; the composite still goes to the clipboard.
     void handle_pin(bool close_after = true);

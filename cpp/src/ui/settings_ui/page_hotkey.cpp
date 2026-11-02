@@ -22,6 +22,8 @@ namespace {
 const std::vector<InAppKey> SCREENSHOT_KEYS = {
     {"inapp_confirm", "Copy to Clipboard", "ctrl+c"},
     {"inapp_pin", "Pin to Screen", "mousemiddle"},
+    {"inapp_save", "Save to File", "ctrl+s"},
+    {"inapp_quick_save", "Quick Save", "ctrl+shift+s"},
     {"inapp_delete", "Delete Selected", "delete"},
     {"inapp_restore_last_region", "Restore Last Region", "l"},
     {"inapp_zoom_in", "Magnifier Zoom In", "pageup"},
@@ -339,6 +341,8 @@ IconSource inapp_icon(const QString &cfg_key) {
     static const QMap<QString, IconSource> icons = {
         {"inapp_confirm", QString::fromUtf8("确定.svg")},
         {"inapp_pin", QString::fromUtf8("钉图.svg")},
+        {"inapp_save", QString::fromUtf8("下载.svg")},
+        {"inapp_quick_save", QString::fromUtf8("快速保存.svg")},
         {"inapp_undo", QString::fromUtf8("撤回.svg")},
         {"inapp_redo", QString::fromUtf8("复原.svg")},
         {"inapp_delete", FluentIcon::Delete},
