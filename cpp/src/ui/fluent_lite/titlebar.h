@@ -28,7 +28,7 @@ public:
     Q_INVOKABLE void _apply_theme();
     QString icon_path;
 protected:
-    // (icon colour, background); checked uses the accent background like a pressed caption button.
+    // (icon colour, background); checked keeps a contrasting fill after the pointer leaves.
     virtual std::pair<QColor, QColor> colors() const;
     void enterEvent(QEnterEvent *event) override;
     void leaveEvent(QEvent *event) override;

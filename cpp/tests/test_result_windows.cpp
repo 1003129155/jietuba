@@ -19,6 +19,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFontDatabase>
+#include <QFrame>
 #include <QMenu>
 #include <QMimeData>
 #include <QMouseEvent>
@@ -277,12 +278,17 @@ private slots:
         QVERIFY(!window->text_edit->toPlainText().isEmpty());
     }
 
-    void theCopyDirectlyCheckboxWritesTheSetting() {
+    void theCopyDirectlySwitchWritesTheSetting() {
         auto *window = new TextRecognitionWindow(blank_image());
         window->setAttribute(Qt::WA_DeleteOnClose);
-        window->copy_directly_check->setChecked(true);
+        window->show();
+        QApplication::processEvents();
+        QTest::mouseClick(window->copy_directly_switch, Qt::LeftButton, Qt::NoModifier, QPoint(8, window->copy_directly_switch->height() / 2));
         QVERIFY(config_->get_ocr_copy_directly_enabled());
-        window->copy_directly_check->setChecked(false);
+        QTest::keyClick(window->copy_directly_switch, Qt::Key_Space);
+        QVERIFY(!config_->get_ocr_copy_directly_enabled());
+        window->copy_directly_switch->setEnabled(false);
+        QTest::mouseClick(window->copy_directly_switch, Qt::LeftButton);
         QVERIFY(!config_->get_ocr_copy_directly_enabled());
     }
 
@@ -417,12 +423,6 @@ private slots:
         QApplication::sendEvent(view.viewport(), &again);
     }
 
-    void textOnlyResultsShowNoTableSwitch() {
-        auto *window = new TextRecognitionWindow(blank_image());
-        window->setAttribute(Qt::WA_DeleteOnClose);
-        // The blank image's own result arrives first.
-        QTRY_VERIFY_WITH_TIMEOUT(!window->status_label->text().startsWith("Recognizing"), 30000);
-        window->on_recognized(SMALL_LINES, {}, {});
     void theTableMenuInsertsMergesSplitsAndPastes() {
         RecognizedTableView view;
         // A | B B
@@ -511,6 +511,12 @@ private slots:
         QCOMPARE(view.item(1, 2)->text(), QString());
     }
 
+    void textOnlyResultsShowNoTableSwitch() {
+        auto *window = new TextRecognitionWindow(blank_image());
+        window->setAttribute(Qt::WA_DeleteOnClose);
+        // The blank image's own result arrives first.
+        QTRY_VERIFY_WITH_TIMEOUT(!window->status_label->text().startsWith("Recognizing"), 30000);
+        window->on_recognized(SMALL_LINES, {}, {});
         QVERIFY(window->view_switch->isHidden());
         QVERIFY(!window->showing_table());
         QCOMPARE(window->text_edit->toPlainText(), QString("Name Qty\nPear 7"));
@@ -642,8 +648,8 @@ private slots:
         window->show();
         QTRY_VERIFY_WITH_TIMEOUT(!window->status_label->text().startsWith("Recognizing"), 30000);
         window->on_recognized(SMALL_LINES, {}, {});
-        QVERIFY(!window->close_after_copy_check->isChecked());
-        window->close_after_copy_check->setChecked(true);
+        QVERIFY(!window->close_after_copy_switch->isChecked());
+        window->close_after_copy_switch->setChecked(true);
         QVERIFY(config_->get_ocr_close_after_copy());
         // With copy-on-close as well, the clipboard is still written once.
         config_->set_ocr_copy_on_close(true);
@@ -654,18 +660,83 @@ private slots:
         QCOMPARE(changes.count(), 1);
         QVERIFY(!window->isVisible());
         QTRY_VERIFY(alive.isNull());
-        // The next window starts with the box ticked.
+        // The next window keeps the enabled preference.
         TextRecognitionWindow next(blank_image());
-        QVERIFY(next.close_after_copy_check->isChecked());
+        QVERIFY(next.close_after_copy_switch->isChecked());
     }
 
-    void aPinnedWindowShowsItInTheIconAlone() {
+    void copyingKeepsTheIconVisibleAndRestartsTheFeedback() {
+        const auto theme = get_ui_theme()->mode();
+        const auto restore = qScopeGuard([theme] { get_ui_theme()->set_mode(ui_theme_mode_value(theme), false); });
+        auto *window = new TextRecognitionWindow(blank_image());
+        window->show();
+        QTRY_VERIFY_WITH_TIMEOUT(!window->status_label->text().startsWith("Recognizing"), 30000);
+        window->on_recognized(SMALL_LINES, {}, {});
+        auto *button = window->copy_button;
+        const auto button_size = button->size();
+        const auto has_ink = [](const QImage &image, const QColor &ink) {
+            int count = 0;
+            for (int y = 0; y < image.height(); ++y)
+                for (int x = 0; x < image.width(); ++x) {
+                    const auto pixel = image.pixelColor(x, y);
+                    if (pixel.alpha() > 180 && std::abs(pixel.red() - ink.red()) < 48 && std::abs(pixel.green() - ink.green()) < 48 &&
+                        std::abs(pixel.blue() - ink.blue()) < 48)
+                        ++count;
+                }
+            return count >= 4;
+        };
+        const auto verify_icon = [&] {
+            const int side = widget_scaled(button, 14);
+            const auto icon_rect = QRect(widget_scaled(button, 8) + 1, (button->height() - side) / 2, side, side);
+            return has_ink(button->grab().toImage().copy(icon_rect), css_color(ui_tokens(button).text));
+        };
+        for (const char *mode : {"light", "dark"}) {
+            get_ui_theme()->set_mode(mode, false);
+            QVERIFY(verify_icon());
+            QTest::mousePress(button, Qt::LeftButton);
+            QVERIFY(verify_icon());
+            QTest::mouseRelease(button, Qt::LeftButton);
+            QCOMPARE(button->text(), QString("Copied"));
+            QCOMPARE(button->size(), button_size);
+            QVERIFY(verify_icon());
+            const auto shots = qEnvironmentVariable("JIETUBA_OCR_BUTTON_SHOTS");
+            if (!shots.isEmpty()) {
+                QVERIFY(QDir().mkpath(shots));
+                QVERIFY(button->grab().save(QDir(shots).filePath(QString("copy-%1.png").arg(mode))));
+            }
+        }
+        QTest::qWait(800);
+        button->click();
+        QTest::qWait(900);
+        QCOMPARE(button->text(), QString("Copied"));
+        QTRY_COMPARE_WITH_TIMEOUT(button->text(), QString("Copy"), 2000);
+        QVERIFY(verify_icon());
+    }
+
+    void aPinnedWindowKeepsAClearlyVisibleFill() {
+        const auto theme = get_ui_theme()->mode();
+        const auto restore = qScopeGuard([theme] { get_ui_theme()->set_mode(ui_theme_mode_value(theme), false); });
         TextRecognitionWindow window(blank_image());
-        window.pin_button->setChecked(false);
-        const QColor off = window.pin_button->grab().toImage().pixelColor(1, 1);
-        window.pin_button->setChecked(true);
-        // No filled cell beside the caption buttons, which fill only on hover.
-        QCOMPARE(window.pin_button->grab().toImage().pixelColor(1, 1), off);
+        auto *button = window.pin_button;
+        for (const char *mode : {"light", "dark"}) {
+            get_ui_theme()->set_mode(mode, false);
+            button->setChecked(false);
+            const QPoint sample(widget_scaled(button, 10), button->height() / 2);
+            const auto off = button->grab().toImage().pixelColor(sample);
+            button->setChecked(true);
+            QEvent leave(QEvent::Leave);
+            QApplication::sendEvent(button, &leave);
+            const auto on = button->grab().toImage().pixelColor(sample);
+            QCOMPARE(on, css_color(ui_tokens(button).accent_strong));
+            QVERIFY(on != off);
+            const auto shots = qEnvironmentVariable("JIETUBA_OCR_BUTTON_SHOTS");
+            if (!shots.isEmpty()) {
+                QVERIFY(QDir().mkpath(shots));
+                QVERIFY(button->grab().save(QDir(shots).filePath(QString("pin-on-%1.png").arg(mode))));
+                button->setChecked(false);
+                QVERIFY(button->grab().save(QDir(shots).filePath(QString("pin-off-%1.png").arg(mode))));
+            }
+        }
     }
 
     void theViewSwitchSitsInsideTheTitleBar() {
@@ -717,6 +788,13 @@ private slots:
                 auto *bar = qobject_cast<FluentTitleBar *>(window->titleBar());
                 QCOMPARE(bar->width(), window->width());
                 bar->hBoxLayout->activate();
+                const QRect switch_rect(window->view_switch->mapTo(window, QPoint()), window->view_switch->size());
+                QVERIFY2(std::abs(switch_rect.center().x() - window->rect().center().x()) <= 1,
+                         qPrintable(QString("%1 at %2%: switch %3, window %4, title %5/%6, pin %7")
+                                        .arg(code).arg(percent).arg(switch_rect.center().x()).arg(window->rect().center().x())
+                                        .arg(bar->titleLabel->width()).arg(bar->titleLabel->sizeHint().width()).arg(window->pin_button->width())));
+                QVERIFY(switch_rect.left() > bar->titleLabel->geometry().right());
+                QVERIFY(switch_rect.right() < window->pin_button->geometry().left());
                 // A wrapping label's size hint allows for wrapping; its text must still fit on one line.
                 const auto needs = [](QWidget *part) {
                     const auto *label = qobject_cast<QLabel *>(part);
@@ -729,13 +807,15 @@ private slots:
                     // The text view's status is the character count.
                     window->view_switch->setCurrentItem(view);
                     window->layout()->activate();
+                    window->findChild<QFrame *>("recognitionToolbar")->layout()->activate();
+                    window->findChild<QFrame *>("recognitionFooter")->layout()->activate();
                     // The footer does not hold the window wider than its default.
                     QVERIFY2(window->layout()->minimumSize().width() <= dialog_scaled(TextRecognitionWindow::WIDTH),
                              qPrintable(QString("%1 at %2% in the %3 view: the footer needs %4")
                                             .arg(code).arg(percent).arg(view).arg(window->layout()->minimumSize().width())));
                     for (const auto &[what, part] : std::initializer_list<std::pair<QString, QWidget *>>{
                              {"the view switch", window->view_switch}, {"the title", bar->titleLabel}, {"the status", window->status_label},
-                             {"the copy-directly box", window->copy_directly_check}, {"the close-after-copy box", window->close_after_copy_check},
+                             {"the copy-directly switch", window->copy_directly_switch}, {"the close-after-copy switch", window->close_after_copy_switch},
                              {"the copy button", window->copy_button}})
                         QVERIFY2(part->width() >= needs(part), context(what, part));
                 }

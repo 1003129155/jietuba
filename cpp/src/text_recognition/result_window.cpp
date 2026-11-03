@@ -2,6 +2,7 @@
 #include "core/i18n.h"
 #include "core/logger.h"
 #include "core/platform_utils.h"
+#include "core/resource_manager.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
 #include "settings/tool_settings.h"
@@ -29,6 +30,7 @@
 #include <QScrollBar>
 #include <QSignalBlocker>
 #include <QStackedWidget>
+#include <QStyleOptionButton>
 #include <QTextCursor>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -88,32 +90,98 @@ QString table_size_text(const char *format, const text_table::Table &table) {
 }
 }
 
-LayoutMenuButton::LayoutMenuButton(const QString &text, QWidget *parent) : TransparentPushButton(text, parent) {
-    // The base constructor styled it with its own sheet.
+RecognitionCommandButton::RecognitionCommandButton(const QString &text, const IconSource &icon, bool menu, QWidget *parent)
+    : TransparentPushButton(text, parent, icon), menu_(menu) {
+    setBaseIconSize(14);
+    setAutoDefault(false);
+    setCursor(Qt::PointingHandCursor);
     _apply_theme();
 }
 
-QString LayoutMenuButton::style_sheet() const {
-    // Text and arrow each take a side; the right padding leaves room for the arrow.
-    // Full text colour, so it reads as a control beside the muted status.
-    return TransparentPushButton::style_sheet() +
-           QString("QPushButton { padding-right: %1px; color: %2; }").arg(widget_scaled(this, 22)).arg(ui_tokens(this).text);
+QString RecognitionCommandButton::style_sheet() const {
+    const auto &t = ui_tokens(this);
+    auto s = [this](double n) { return widget_scaled(this, n); };
+    return QString("QPushButton { min-height: %1px; padding: %2px %3px %2px %4px; color: %5; background: transparent; "
+                   "border: 1px solid transparent; border-radius: %6px; font: %7px %8; outline: none; }"
+                   "QPushButton:hover { background: %9; } QPushButton:pressed { background: %10; }"
+                   "QPushButton:focus { border-color: %11; } QPushButton:disabled { color: %12; }")
+        .arg(s(20)).arg(s(3)).arg(s(menu_ ? 23 : 8)).arg(s(8)).arg(t.text).arg(s(4)).arg(s(12))
+        .arg(FONT_FAMILY, t.surface_subtle, t.accent_soft, t.accent, t.text_disabled);
 }
 
-void LayoutMenuButton::paintEvent(QPaintEvent *event) {
-    TransparentPushButton::paintEvent(event);
-    const double arm = widget_scaled(this, 4);
-    const double x = width() - widget_scaled(this, 13);
-    const double y = height() / 2.0;
+QSize RecognitionCommandButton::sizeHint() const {
+    const int icon_width = icon().isNull() ? 0 : widget_scaled(this, 20);
+    return QSize(fontMetrics().horizontalAdvance(text()) + icon_width + widget_scaled(this, menu_ ? 31 : 16) + 2,
+                 widget_scaled(this, 28));
+}
+
+void RecognitionCommandButton::paintEvent(QPaintEvent *event) {
+    Q_UNUSED(event);
     QPainter painter(this);
+    QStyleOptionButton option;
+    initStyleOption(&option);
+    option.text.clear();
+    option.icon = QIcon();
+    style()->drawControl(QStyle::CE_PushButton, &option, &painter, this);
+    int left = widget_scaled(this, 8) + 1;
+    if (!icon().isNull()) {
+        const int side = widget_scaled(this, 14);
+        icon().paint(&painter, QRect(left, (height() - side) / 2, side, side), Qt::AlignCenter, isEnabled() ? QIcon::Normal : QIcon::Disabled);
+        left += side + widget_scaled(this, 6);
+    }
+    const auto &t = ui_tokens(this);
+    painter.setPen(css_color(isEnabled() ? t.text : t.text_disabled));
+    painter.drawText(QRect(left, 0, width() - left - widget_scaled(this, menu_ ? 23 : 8), height()), Qt::AlignLeft | Qt::AlignVCenter, text());
+    if (!menu_) return;
+    const double arm = widget_scaled(this, 3);
+    const double x = width() - widget_scaled(this, 11);
+    const double y = height() / 2.0;
     painter.setRenderHint(QPainter::Antialiasing);
-    QPen pen(QColor(ui_tokens(this).text_muted), std::max(1.2, widget_scaled(this, 1) * 1.2));
+    QPen pen(css_color(isEnabled() ? ui_tokens(this).text_muted : ui_tokens(this).text_disabled), std::max(1.0, widget_scaled(this, 1) * 1.1));
     pen.setCapStyle(Qt::RoundCap);
     pen.setJoinStyle(Qt::RoundJoin);
     painter.setPen(pen);
     const QPointF points[] = {QPointF(x - arm, y - arm / 2.0), QPointF(x, y + arm / 2.0), QPointF(x + arm, y - arm / 2.0)};
     painter.drawPolyline(points, 3);
 }
+
+class RecognitionStatusIcon : public QWidget {
+public:
+    enum State { Busy, Complete, Failed };
+    explicit RecognitionStatusIcon(QWidget *parent) : QWidget(parent), timer_(new QTimer(this)) {
+        setFixedSize(dialog_scaled(14), dialog_scaled(14));
+        connect(timer_, &QTimer::timeout, this, [this] { angle_ = (angle_ + 30) % 360; update(); });
+        timer_->start(80);
+    }
+    void set_state(State state) {
+        state_ = state;
+        timer_->stop();
+        update();
+    }
+protected:
+    void paintEvent(QPaintEvent *) override {
+        const auto &t = ui_tokens(this);
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing);
+        painter.scale(width() / 14.0, height() / 14.0);
+        QPen pen(css_color(state_ == Complete ? t.success : state_ == Failed ? t.danger : t.accent), 1.4, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+        painter.setPen(pen);
+        if (state_ == Busy) {
+            painter.drawArc(QRectF(2, 2, 10, 10), -angle_ * 16, 260 * 16);
+        } else if (state_ == Complete) {
+            const QPointF tick[] = {{2.5, 7}, {5.5, 10}, {11.5, 3.5}};
+            painter.drawPolyline(tick, 3);
+        } else {
+            painter.drawEllipse(QRectF(1.5, 1.5, 11, 11));
+            painter.drawLine(QPointF(7, 4), QPointF(7, 7.5));
+            painter.drawPoint(QPointF(7, 10));
+        }
+    }
+private:
+    State state_ = Busy;
+    QTimer *timer_;
+    int angle_ = 0;
+};
 
 TextRecognitionWindow::TextRecognitionWindow(const QImage &image, QWidget *parent, const std::optional<QRect> &anchor)
     : FrostedFramelessDialog(parent), anchor_(anchor) {
@@ -142,11 +210,16 @@ TextRecognitionWindow::TextRecognitionWindow(const QImage &image, QWidget *paren
     view_switch->hide();
     connect(view_switch, &SegmentedWidget::currentItemChanged, this, [this](const QString &view) { set_view(view, true); });
     const int after_title = title_bar->hBoxLayout->indexOf(title_bar->titleLabel) + 1;
-    title_bar->hBoxLayout->insertSpacing(after_title, dialog_scaled(12));
-    title_bar->hBoxLayout->insertWidget(after_title + 1, view_switch, 0, Qt::AlignVCenter);
+    // Equal space on either side keeps the switch centred on the content, regardless of title length.
+    const int caption_width = pin_button->width() + title_bar->minBtn->width() + title_bar->maxBtn->width() + title_bar->closeBtn->width();
+    const int title_width = title_bar->hBoxLayout->contentsMargins().left() + title_bar->iconLabel->width() + title_bar->titleLabel->sizeHint().width();
+    title_bar->hBoxLayout->insertSpacing(after_title, std::max(0, caption_width - title_width));
+    title_bar->hBoxLayout->insertWidget(after_title + 2, view_switch, 0, Qt::AlignVCenter);
+    title_bar->hBoxLayout->insertStretch(after_title + 3, 1);
 
     status_label = new CaptionLabel(tr_text("Recognizing..."), this);
     configure_dialog_control(*status_label);
+    status_icon_ = new RecognitionStatusIcon(this);
     text_edit = new TextEdit(this);
     text_edit->setAcceptRichText(false);
     // Not editable while recognizing.
@@ -165,43 +238,68 @@ TextRecognitionWindow::TextRecognitionWindow(const QImage &image, QWidget *paren
     pages_->addWidget(text_edit);
     pages_->addWidget(table_card_);
 
-    layout_button = new LayoutMenuButton(tr_text("Layout"), this);
+    layout_button = new RecognitionCommandButton(tr_text("Layout"), FluentIcon::Font, true, this);
     configure_dialog_control(*layout_button);
     layout_button->setEnabled(false);
     connect(layout_button, &QPushButton::clicked, this, &TextRecognitionWindow::show_layout_menu);
 
-    copy_button = new PrimaryPushButton(tr_text("Copy"), this);
+    copy_button = new RecognitionCommandButton(tr_text("Copy"), ResourceManager::get_icon_path("copy.svg"), false, this);
     configure_dialog_control(*copy_button);
+    const auto copy_metrics = copy_button->fontMetrics();
+    copy_button->setMinimumWidth(copy_button->sizeHint().width() +
+                                 std::max(0, copy_metrics.horizontalAdvance(tr_text("Copied")) - copy_metrics.horizontalAdvance(tr_text("Copy"))));
     copy_button->setEnabled(false);
     connect(copy_button, &QPushButton::clicked, this, &TextRecognitionWindow::copy);
+    copy_feedback_timer_ = new QTimer(copy_button);
+    copy_feedback_timer_->setSingleShot(true);
+    copy_feedback_timer_->setInterval(1500);
+    connect(copy_feedback_timer_, &QTimer::timeout, this, [this] {
+        copy_button->setText(tr_text("Copy"));
+        copy_button->setIcon(ResourceManager::get_icon_path("copy.svg"));
+    });
 
     // Takes effect at once: this window works as usual, later recognitions skip it;
     // turned off again on the settings' shortcut behaviour page.
-    copy_directly_check = new CheckBox(tr_text("Copy directly next time"), this);
-    configure_dialog_control(*copy_directly_check);
-    copy_directly_check->setChecked(manager->get_ocr_copy_directly_enabled());
-    connect(copy_directly_check, &QCheckBox::toggled, this, [](bool checked) { get_tool_settings_manager()->set_ocr_copy_directly_enabled(checked); });
+    copy_directly_switch = new LabeledSwitch(tr_text("Copy directly next time"), this);
+    configure_dialog_control(*copy_directly_switch);
+    copy_directly_switch->setChecked(manager->get_ocr_copy_directly_enabled());
+    connect(copy_directly_switch, &QAbstractButton::toggled, this, [](bool checked) { get_tool_settings_manager()->set_ocr_copy_directly_enabled(checked); });
 
-    close_after_copy_check = new CheckBox(tr_text("Close after copying"), this);
-    configure_dialog_control(*close_after_copy_check);
-    close_after_copy_check->setChecked(manager->get_ocr_close_after_copy());
-    connect(close_after_copy_check, &QCheckBox::toggled, this, [](bool checked) { get_tool_settings_manager()->set_ocr_close_after_copy(checked); });
+    close_after_copy_switch = new LabeledSwitch(tr_text("Close after copying"), this);
+    configure_dialog_control(*close_after_copy_switch);
+    close_after_copy_switch->setChecked(manager->get_ocr_close_after_copy());
+    connect(close_after_copy_switch, &QAbstractButton::toggled, this, [](bool checked) { get_tool_settings_manager()->set_ocr_close_after_copy(checked); });
 
-    auto *footer = new QHBoxLayout;
-    footer->setSpacing(dialog_scaled(8));
-    footer->addWidget(layout_button);
+    auto *toolbar = new QFrame(this);
+    toolbar->setObjectName("recognitionToolbar");
+    auto *tools = new QHBoxLayout(toolbar);
+    tools->setContentsMargins(dialog_scaled(12), dialog_scaled(5), dialog_scaled(12), dialog_scaled(5));
+    tools->addWidget(layout_button);
+    tools->addStretch();
+    tools->addWidget(copy_button);
+
+    auto *footer_frame = new QFrame(this);
+    footer_frame->setObjectName("recognitionFooter");
+    auto *footer = new QHBoxLayout(footer_frame);
+    footer->setContentsMargins(dialog_scaled(16), dialog_scaled(6), dialog_scaled(12), dialog_scaled(6));
+    footer->setSpacing(dialog_scaled(6));
+    footer->addWidget(status_icon_);
     footer->addWidget(status_label, 1);
-    footer->addWidget(copy_directly_check);
-    // Wider than a box's gap to its own label, so each box reads with the right text.
-    footer->addSpacing(dialog_scaled(8));
-    footer->addWidget(close_after_copy_check);
-    footer->addWidget(copy_button);
+    footer->addSpacing(dialog_scaled(10));
+    footer->addWidget(copy_directly_switch);
+    auto *separator = new QFrame(footer_frame);
+    separator->setObjectName("recognitionOptionDivider");
+    separator->setFixedSize(1, dialog_scaled(14));
+    footer->addWidget(separator);
+    footer->addWidget(close_after_copy_switch);
 
     auto *root = new QVBoxLayout(this);
-    root->setContentsMargins(dialog_scaled(12), title_bar->height() + dialog_scaled(8), dialog_scaled(12), dialog_scaled(12));
-    root->setSpacing(dialog_scaled(8));
+    root->setContentsMargins(1, title_bar->height(), 1, 1);
+    root->setSpacing(0);
+    root->addWidget(toolbar);
     root->addWidget(pages_, 1);
-    root->addLayout(footer);
+    root->addWidget(footer_frame);
+    configure_dialog_controls(*this);
 
     apply_theme();
     update_pin_tooltip();
@@ -217,14 +315,18 @@ TextRecognitionWindow::TextRecognitionWindow(const QImage &image, QWidget *paren
 
 void TextRecognitionWindow::apply_theme() {
     const auto &t = ui_tokens(this);
-    text_edit->setStyleSheet(QString("QTextEdit { background: %1; color: %2; border: 1px solid %3; border-radius: 6px; padding: %4px %5px; "
-                                     "font: %6px %7; selection-background-color: %8; selection-color: %9; }")
-                                 .arg(t.input_background, t.text, t.border)
-                                 .arg(dialog_scaled(8))
-                                 .arg(dialog_scaled(10))
-                                 .arg(dialog_scaled(14))
+    text_edit->setStyleSheet(QString("QTextEdit { background: %1; color: %2; border: none; padding: %3px %4px; "
+                                     "font: %5px %6; selection-background-color: %7; selection-color: %8; }")
+                                 .arg(t.input_background, t.text)
+                                 .arg(dialog_scaled(18))
+                                 .arg(dialog_scaled(20))
+                                 .arg(dialog_scaled(15))
                                  .arg(FONT_FAMILY, t.accent, t.selected_text) +
                              scrollbar_qss(this));
+    findChild<QFrame *>("recognitionToolbar")->setStyleSheet(
+        QString("#recognitionToolbar { background: %1; border-top: 1px solid %2; border-bottom: 1px solid %2; }").arg(t.input_background, t.separator));
+    findChild<QFrame *>("recognitionFooter")->setStyleSheet(
+        QString("#recognitionFooter { background: %1; border-top: 1px solid %2; } #recognitionOptionDivider { background: %2; }").arg(t.input_background, t.separator));
     table_card_->setStyleSheet(QString("#tableCard { background: %1; border: 1px solid %2; border-radius: 6px; }").arg(t.input_background, t.border));
     table_view->apply_theme();
 }
@@ -261,8 +363,7 @@ void TextRecognitionWindow::update_pin_tooltip() { pin_button->setToolTip(pin_bu
 
 void TextRecognitionWindow::show_layout_menu() {
     auto *menu = build_layout_menu();
-    // The button sits on the window's bottom edge, so the menu opens upwards.
-    menu->exec(layout_button->mapToGlobal(QPoint(0, -menu->sizeHint().height())));
+    menu->exec(layout_button->mapToGlobal(QPoint(0, layout_button->height() + dialog_scaled(3))));
     menu->deleteLater();
 }
 
@@ -382,10 +483,12 @@ void TextRecognitionWindow::fit_table_width() {
 
 void TextRecognitionWindow::on_recognized(const QVector<OcrTextLine> &lines, const QString &reason, const text_table::Table &table) {
     if (!reason.isEmpty()) {
+        status_icon_->set_state(RecognitionStatusIcon::Failed);
         status_label->setText(reason_text(reason));
         return;
     }
     lines_ = lines;
+    status_icon_->set_state(RecognitionStatusIcon::Complete);
     text_edit->setReadOnly(false);
     show_result(render_lines(lines));
     // The first fill is not an edit, or one Ctrl+Z would clear the result.
@@ -408,13 +511,15 @@ void TextRecognitionWindow::copy() {
         copy_table(table_view->table());
     else
         QApplication::clipboard()->setText(text_edit->toPlainText());
-    if (close_after_copy_check->isChecked()) {
+    if (close_after_copy_switch->isChecked()) {
         closing_after_copy_ = true;
         close();
         return;
     }
     copy_button->setText(tr_text("Copied"));
-    QTimer::singleShot(1500, copy_button, [button = copy_button] { button->setText(tr_text("Copy")); });
+    // A path follows the text colour; the white icon variant preserves white ink.
+    copy_button->setIcon(fluent_icon_path(FluentIcon::Check));
+    copy_feedback_timer_->start();
 }
 
 void TextRecognitionWindow::closeEvent(QCloseEvent *event) {

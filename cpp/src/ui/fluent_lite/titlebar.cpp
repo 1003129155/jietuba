@@ -47,6 +47,7 @@ void FluentCaptionButton::paintEvent(QPaintEvent *) {
 
 TitleBarPinButton::TitleBarPinButton(QWidget *parent) : QAbstractButton(parent) {
     setCheckable(true);
+    setFocusPolicy(Qt::StrongFocus);
     setCursor(Qt::PointingHandCursor);
     icon_path = ResourceManager::get_icon_path(QString::fromUtf8("钉图.svg"));
     icon_ = ResourceManager::get_icon(icon_path);
@@ -61,8 +62,9 @@ void TitleBarPinButton::_apply_theme() {
 
 std::pair<QColor, QColor> TitleBarPinButton::colors() const {
     const auto &tokens = ui_tokens(this);
-    // Pinned shows in the icon alone: a filled cell beside the caption buttons reads as a stuck hover.
-    const QColor icon = QColor::fromString(isChecked() ? tokens.accent : underMouse() || isDown() ? tokens.text : tokens.text_muted);
+    if (isChecked())
+        return {css_color(tokens.selected_text), css_color(isDown() ? tokens.accent_strong_pressed : underMouse() ? tokens.accent_strong_hover : tokens.accent_strong)};
+    const QColor icon = QColor::fromString(underMouse() || isDown() ? tokens.text : tokens.text_muted);
     if (isDown()) return {icon, QColor::fromString(tokens.accent_soft)};
     if (underMouse()) return {icon, QColor::fromString(tokens.surface_hover)};
     return {icon, QColor(0, 0, 0, 0)};
@@ -84,7 +86,15 @@ void TitleBarPinButton::paintEvent(QPaintEvent *) {
     painter.setRenderHint(QPainter::Antialiasing);
     painter.setPen(Qt::NoPen);
     painter.setBrush(background);
-    painter.drawRect(rect());
+    const auto bounds = QRectF(rect()).adjusted(widget_scaled(this, 7), widget_scaled(this, 4), -widget_scaled(this, 7), -widget_scaled(this, 4));
+    const int radius = widget_scaled(this, 4);
+    painter.drawRoundedRect(bounds, radius, radius);
+    if (hasFocus()) {
+        painter.setPen(QPen(css_color(ui_tokens(this).accent), 1));
+        painter.setBrush(Qt::NoBrush);
+        const int gap = widget_scaled(this, 2);
+        painter.drawRoundedRect(bounds.adjusted(-gap, -gap, gap, gap), radius, radius);
+    }
     // Rendered at twice the size and scaled back; the rotated icon would look ragged otherwise.
     const int side = widget_scaled(this, 18);
     QPixmap pixmap = icon_.pixmap(side * 2, side * 2);
@@ -96,7 +106,7 @@ void TitleBarPinButton::paintEvent(QPaintEvent *) {
     pixmap.setDevicePixelRatio(2.0);
     painter.setRenderHint(QPainter::SmoothPixmapTransform);
     painter.translate(width() / 2.0, height() / 2.0);
-    // Unpinned, the pin lies at an angle: the pale accent alone would not tell on from off.
+    // The tilted unchecked pin is a second state cue besides the fill.
     if (!isChecked()) painter.rotate(-45.0);
     painter.drawPixmap(QPointF(-side / 2.0, -side / 2.0), pixmap);
 }

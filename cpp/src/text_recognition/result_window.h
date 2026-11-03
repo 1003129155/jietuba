@@ -12,24 +12,28 @@
 class QFrame;
 class QMenu;
 class QStackedWidget;
+class QTimer;
 
 namespace jietuba {
 class CaptionLabel;
-class CheckBox;
+class LabeledSwitch;
+class RecognitionStatusIcon;
 class RecognizeThread;
 class RecognizedTableView;
 class SegmentedWidget;
 class TextEdit;
 class TitleBarPinButton;
 
-// The footer's layout entry; a drop-down arrow on the right marks it as a menu, not a toggle.
-class LayoutMenuButton : public TransparentPushButton {
+class RecognitionCommandButton : public TransparentPushButton {
     Q_OBJECT
 public:
-    explicit LayoutMenuButton(const QString &text, QWidget *parent = nullptr);
+    RecognitionCommandButton(const QString &text, const IconSource &icon, bool menu, QWidget *parent = nullptr);
+    QSize sizeHint() const override;
 protected:
     QString style_sheet() const override;
     void paintEvent(QPaintEvent *event) override;
+private:
+    bool menu_;
 };
 
 // Text recognition result: the recognized text in an editable box with a copy button.
@@ -57,11 +61,11 @@ public:
     TitleBarPinButton *pin_button;
     CaptionLabel *status_label;
     TextEdit *text_edit;
-    LayoutMenuButton *layout_button;
-    PrimaryPushButton *copy_button;
-    CheckBox *copy_directly_check;
-    // Ticked, Copy also closes the window.
-    CheckBox *close_after_copy_check;
+    RecognitionCommandButton *layout_button;
+    RecognitionCommandButton *copy_button;
+    LabeledSwitch *copy_directly_switch;
+    // When enabled, Copy also closes the window.
+    LabeledSwitch *close_after_copy_switch;
     // Hidden unless a table is found.
     SegmentedWidget *view_switch;
     RecognizedTableView *table_view;
@@ -101,6 +105,8 @@ private:
     QPointer<RecognizeThread> thread_;
     QStackedWidget *pages_ = nullptr;
     QFrame *table_card_ = nullptr;
+    RecognitionStatusIcon *status_icon_ = nullptr;
+    QTimer *copy_feedback_timer_ = nullptr;
     bool table_fitted_ = false;
     // Closing from Copy: the clipboard already holds the result.
     bool closing_after_copy_ = false;
