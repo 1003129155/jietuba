@@ -1,5 +1,6 @@
 #pragma once
 #include "ocr/ocr_manager.h"
+#include "text_recognition/table.h"
 #include "ui/fluent_lite/buttons.h"
 #include "ui/fluent_lite/frameless.h"
 #include "ui/toast.h"
@@ -8,12 +9,16 @@
 #include <QRect>
 #include <optional>
 
+class QFrame;
 class QMenu;
+class QStackedWidget;
 
 namespace jietuba {
 class CaptionLabel;
 class CheckBox;
 class RecognizeThread;
+class RecognizedTableView;
+class SegmentedWidget;
 class TextEdit;
 class TitleBarPinButton;
 
@@ -37,6 +42,10 @@ protected:
 // drifts. Re-rendering goes through the undo stack: after the user edits and then
 // changes the layout, one Ctrl+Z brings the edits back.
 //
+// When the lines form a table, a Text | Table switch appears in the title bar. The table
+// view keeps its own edits and undo stack; Copy and copy-on-close take whichever view is
+// showing. The view last chosen opens next time a table is found.
+//
 // Closing only drops the result; the thread runs to completion (see recognizer).
 class TextRecognitionWindow : public FrostedFramelessDialog {
     Q_OBJECT
@@ -51,6 +60,13 @@ public:
     LayoutMenuButton *layout_button;
     PrimaryPushButton *copy_button;
     CheckBox *copy_directly_check;
+    // Hidden unless a table is found.
+    SegmentedWidget *view_switch;
+    RecognizedTableView *table_view;
+    bool showing_table() const;
+    // Shows a recognition result: what the recognition thread reports. reason is empty on
+    // success; table is empty unless the lines form one.
+    void on_recognized(const QVector<OcrTextLine> &lines, const QString &reason, const text_table::Table &table);
 protected:
     void showEvent(QShowEvent *event) override;
     void closeEvent(QCloseEvent *event) override;
@@ -70,12 +86,20 @@ private:
     // Replaces the text through the cursor rather than setPlainText, so re-rendering
     // enters the undo stack; also updates the character count.
     void show_result(const QString &text);
-    void on_recognized(const QVector<OcrTextLine> &lines, const QString &reason);
+    // chosen: the user picked the view, which then opens next time.
+    void set_view(const QString &view, bool chosen);
+    void update_status();
+    // Widens the window once so the table fits, up to most of the screen.
+    void fit_table_width();
     void copy();
 
     std::optional<QRect> anchor_;
     QVector<OcrTextLine> lines_;
+    text_table::Table table_;
     QPointer<RecognizeThread> thread_;
+    QStackedWidget *pages_ = nullptr;
+    QFrame *table_card_ = nullptr;
+    bool table_fitted_ = false;
 };
 
 // Shows "Recognizing..." while recognizing, then copies the result and shows the
@@ -85,7 +109,7 @@ class RecognitionToast : public Toast {
 public:
     explicit RecognitionToast(const QImage &image);
 private:
-    void on_recognized(const QVector<OcrTextLine> &lines, const QString &reason);
+    void on_recognized(const QVector<OcrTextLine> &lines, const QString &reason, const text_table::Table &table);
 };
 
 // Recognizes image and opens the result window; the screenshot toolbar's text
@@ -93,6 +117,7 @@ private:
 // the window position setting refers to.
 TextRecognitionWindow *show_text_recognition(const QImage &image, const std::optional<QRect> &anchor = std::nullopt);
 // Recognizes image and copies the text, reporting only next to the cursor; used
-// when the "copy recognized text directly" shortcut behaviour is on.
+// when the "copy recognized text directly" shortcut behaviour is on. A table is copied
+// instead when the table view was the last one chosen.
 RecognitionToast *copy_text_recognition(const QImage &image);
 }

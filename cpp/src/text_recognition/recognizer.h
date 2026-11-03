@@ -1,12 +1,14 @@
 #pragma once
 #include "ocr/ocr_manager.h"
+#include "text_recognition/table.h"
 #include <QImage>
 #include <QThread>
 #include <atomic>
 #include <functional>
 
 // Runs one image through the OCR engine on a worker thread and reports (lines,
-// failure reason key).
+// failure reason key, table). The table comes from the same result in a few milliseconds,
+// and is empty unless the lines form one.
 //
 // Cancelling stops the result from being reported, and stops PP-OCR at its next tile
 // or line; the Snipping Tool OCR is one call that runs to the end. Process teardown
@@ -42,7 +44,7 @@ public:
 signals:
     // Lines rather than text: layout needs line positions to judge wrapping. The
     // reason is empty on success.
-    void recognized(const QVector<jietuba::OcrTextLine> &lines, const QString &reason);
+    void recognized(const QVector<jietuba::OcrTextLine> &lines, const QString &reason, const jietuba::text_table::Table &table);
 protected:
     void run() override;
 private:
@@ -50,7 +52,7 @@ private:
     std::atomic_bool cancelled_ = false;
 };
 
-using RecognizedCallback = std::function<void(const QVector<OcrTextLine> &, const QString &)>;
+using RecognizedCallback = std::function<void(const QVector<OcrTextLine> &, const QString &, const text_table::Table &)>;
 
 // Recognizes image in the background and reports to on_recognized. The connection
 // lives as long as context, so a window closed first is never called. It is made

@@ -1,10 +1,13 @@
 #include "barcode/reader.h"
 #include "barcode/result_window.h"
+#include "core/i18n.h"
+#include "core/ui_scale.h"
 #include "ocr/ocr_manager.h"
 #include "ocr/ppocr_models.h"
 #include "settings/tool_settings.h"
 #include "text_recognition/recognizer.h"
 #include "text_recognition/result_window.h"
+#include "text_recognition/table_view.h"
 #include "ui/fluent_lite/fluent_lite.h"
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/titlebar.h"
@@ -12,19 +15,24 @@
 #include "caption_check.h"
 #include <QApplication>
 #include <QClipboard>
+#include <QContextMenuEvent>
 #include <QDir>
 #include <QFile>
 #include <QFontDatabase>
 #include <QMenu>
+#include <QMimeData>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPushButton>
+#include <QResizeEvent>
+#include <QScreen>
 #include <QScopeGuard>
 #include <QSettings>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
 #include <QTranslator>
+#include <functional>
 
 using namespace jietuba;
 
@@ -60,6 +68,36 @@ void write_placeholder_model(const QString &root) {
     QFile manifest(folder.filePath("model.json"));
     QVERIFY(manifest.open(QIODevice::WriteOnly));
     manifest.write(R"({"name": "placeholder", "det": "det.onnx", "rec": "rec.onnx"})");
+}
+
+// A drawn three-by-three table with rules, large enough for either engine.
+QImage table_image() {
+    QImage image(600, 200, QImage::Format_RGB32);
+    image.fill(Qt::white);
+    QPainter painter(&image);
+    painter.setPen(Qt::black);
+    for (int y : {10, 70, 130, 190}) painter.drawLine(10, y, 590, y);
+    for (int x : {10, 200, 400, 590}) painter.drawLine(x, 10, x, 190);
+    painter.setFont(QFont(font_family, 24));
+    const QStringList cells = {"Name", "Qty", "Price", "Apple", "12", "3.50", "Pear", "7", "1.20"};
+    for (int k = 0; k < cells.size(); ++k) painter.drawText(QRect(10 + 190 * (k % 3) + 20, 10 + 60 * (k / 3), 170, 60), Qt::AlignVCenter | Qt::AlignLeft, cells[k]);
+    painter.end();
+    return image;
+}
+
+text_table::Table small_table() { return {2, 2, {{0, 0, 1, 1, "Name"}, {0, 1, 1, 1, "Qty"}, {1, 0, 1, 1, "Pear"}, {1, 1, 1, 1, "7"}}}; }
+
+// The first line stops short of the right edge, so the layout keeps the two apart.
+const QVector<OcrTextLine> SMALL_LINES = {{"Name Qty", 0, 60, 0, 20}, {"Pear 7", 0, 100, 30, 50}};
+
+// Runs check on the next popup menu, then closes it.
+void inspect_next_menu(std::function<void(QMenu *)> check) {
+    QTimer::singleShot(0, qApp, [check] {
+        auto *menu = qobject_cast<QMenu *>(QApplication::activePopupWidget());
+        if (!menu) return;
+        check(menu);
+        menu->close();
+    });
 }
 
 // Picks the menu entry whose text starts with label from the next popup menu.
@@ -273,7 +311,7 @@ private slots:
         painter.drawText(QRect(0, 10, 420, 60), Qt::AlignCenter, "First line");
         painter.drawText(QRect(0, 90, 420, 60), Qt::AlignCenter, "Second line");
         painter.end();
-        recognize_async(image, &context, [&](const QVector<OcrTextLine> &result, const QString &why) {
+        recognize_async(image, &context, [&](const QVector<OcrTextLine> &result, const QString &why, const text_table::Table &) {
             lines = result;
             reason = why;
         });
@@ -287,13 +325,285 @@ private slots:
         bool called = false;
         {
             QObject gone;
-            recognize_async(image, &gone, [&](const QVector<OcrTextLine> &, const QString &) { called = true; });
+            recognize_async(image, &gone, [&](const QVector<OcrTextLine> &, const QString &, const text_table::Table &) { called = true; });
         }
         shutdown_recognition(30000);
         QApplication::processEvents();
         QVERIFY(!called);
         // Shutting down with nothing running returns at once.
         shutdown_recognition(10);
+    }
+
+    // ---- Table view ----
+    void theTableViewShowsMergedCellsAndUndoesEdits() {
+        RecognizedTableView view;
+        const text_table::Table table{3, 3, {{0, 0, 2, 1, "A"}, {0, 1, 1, 2, "B"}, {1, 1, 1, 1, "c"}, {1, 2, 1, 1, "d"}, {2, 0, 1, 1, "e"}, {2, 1, 1, 1, "f"}, {2, 2, 1, 1, "g"}}};
+        view.set_table(table, false);
+        QCOMPARE(view.rowCount(), 3);
+        QCOMPARE(view.columnCount(), 3);
+        QCOMPARE(view.rowSpan(0, 0), 2);
+        QCOMPARE(view.columnSpan(0, 1), 2);
+        QCOMPARE(view.item(1, 2)->text(), QString("d"));
+        QVERIFY(!view.undo_stack()->canUndo());
+        QVERIFY(view.content_width() >= 3 * 48);
+        // An edit reaches the table once the editor is done, and undoes.
+        view.item(1, 2)->setText("D");
+        QTRY_COMPARE(text_table::cell_at(view.table(), 1, 2)->text, QString("D"));
+        view.undo_stack()->undo();
+        QCOMPARE(view.item(1, 2)->text(), QString("d"));
+        view.undo_stack()->redo();
+        QCOMPARE(view.item(1, 2)->text(), QString("D"));
+        // Deleting a row and a column, then undoing both.
+        view.setCurrentCell(2, 2);
+        view.delete_current_row();
+        QCOMPARE(view.rowCount(), 2);
+        view.setCurrentCell(0, 2);
+        view.delete_current_column();
+        QCOMPARE(view.columnCount(), 2);
+        QCOMPARE(view.columnSpan(0, 1), 1);
+        view.undo_stack()->undo();
+        view.undo_stack()->undo();
+        QCOMPARE(view.rowCount(), 3);
+        QCOMPARE(view.columnSpan(0, 1), 2);
+        // A fresh table cannot be undone away; the last row and column stay.
+        view.set_table({1, 1, {{0, 0, 1, 1, "x"}}}, false);
+        QVERIFY(!view.undo_stack()->canUndo());
+        view.setCurrentCell(0, 0);
+        view.delete_current_row();
+        view.delete_current_column();
+        QCOMPARE(view.rowCount(), 1);
+        QCOMPARE(view.columnCount(), 1);
+    }
+
+    void theTableViewCopiesTheSelectionAndClearsWithDelete() {
+        RecognizedTableView view;
+        view.set_table({2, 3, {{0, 0, 1, 1, "a"}, {0, 1, 1, 1, "b"}, {0, 2, 1, 1, "c"}, {1, 0, 1, 1, "d"}, {1, 1, 1, 1, "e"}, {1, 2, 1, 1, "f"}}}, false);
+        view.resize(400, 200);
+        view.show();
+        view.setRangeSelected(QTableWidgetSelectionRange(0, 1, 1, 2), true);
+        QTest::keyClick(&view, Qt::Key_C, Qt::ControlModifier);
+        const auto *mime = QApplication::clipboard()->mimeData();
+        QCOMPARE(mime->text(), QString("b\tc\ne\tf"));
+        QVERIFY(mime->html().contains("<td>e</td>"));
+        // Delete clears the selected cells; Ctrl+Z brings them back, Ctrl+Y clears again.
+        QTest::keyClick(&view, Qt::Key_Delete);
+        QCOMPARE(view.item(1, 2)->text(), QString());
+        QCOMPARE(view.item(0, 0)->text(), QString("a"));
+        QTest::keyClick(&view, Qt::Key_Z, Qt::ControlModifier);
+        QCOMPARE(view.item(1, 2)->text(), QString("f"));
+        QTest::keyClick(&view, Qt::Key_Y, Qt::ControlModifier);
+        QCOMPARE(view.item(1, 2)->text(), QString());
+        // Without a selection the current cell is copied.
+        view.clearSelection();
+        view.setCurrentCell(0, 0, QItemSelectionModel::NoUpdate);
+        view.copy_selection();
+        QCOMPARE(QApplication::clipboard()->text(), QString("a"));
+        // The context menu acts on the clicked cell's row.
+        const QPoint at = view.visualItemRect(view.item(1, 0)).center();
+        choose_from_next_menu("Delete row");
+        QContextMenuEvent event(QContextMenuEvent::Mouse, at, view.viewport()->mapToGlobal(at));
+        QApplication::sendEvent(view.viewport(), &event);
+        QCOMPARE(view.rowCount(), 1);
+        QCOMPARE(view.item(0, 0)->text(), QString("a"));
+        // Only one row left: deleting rows is off; undo is offered.
+        inspect_next_menu([](QMenu *menu) {
+            for (auto *action : menu->actions()) {
+                if (action->text().startsWith("Delete row")) QVERIFY(!action->isEnabled());
+                if (action->text().startsWith("Undo")) QVERIFY(action->isEnabled());
+            }
+        });
+        QContextMenuEvent again(QContextMenuEvent::Mouse, view.visualItemRect(view.item(0, 0)).center(), view.viewport()->mapToGlobal(at));
+        QApplication::sendEvent(view.viewport(), &again);
+    }
+
+    void textOnlyResultsShowNoTableSwitch() {
+        auto *window = new TextRecognitionWindow(blank_image());
+        window->setAttribute(Qt::WA_DeleteOnClose);
+        // The blank image's own result arrives first.
+        QTRY_VERIFY_WITH_TIMEOUT(!window->status_label->text().startsWith("Recognizing"), 30000);
+        window->on_recognized(SMALL_LINES, {}, {});
+        QVERIFY(window->view_switch->isHidden());
+        QVERIFY(!window->showing_table());
+        QCOMPARE(window->text_edit->toPlainText(), QString("Name Qty\nPear 7"));
+    }
+
+    void aTableAddsTheSwitchAndTheChosenViewOpensNextTime() {
+        auto *window = new TextRecognitionWindow(blank_image());
+        window->setAttribute(Qt::WA_DeleteOnClose);
+        QTRY_VERIFY_WITH_TIMEOUT(!window->status_label->text().startsWith("Recognizing"), 30000);
+        window->on_recognized(SMALL_LINES, {}, small_table());
+        QVERIFY(!window->view_switch->isHidden());
+        // Text first until the table view is chosen.
+        QVERIFY(!window->showing_table());
+        QVERIFY(window->status_label->text().startsWith("Recognized"));
+        window->view_switch->setCurrentItem("table");
+        QVERIFY(window->showing_table());
+        QCOMPARE(config_->get_ocr_result_view(), QString("table"));
+        QCOMPARE(window->status_label->text(), QString("2 rows × 2 columns"));
+        window->copy_button->click();
+        const auto *mime = QApplication::clipboard()->mimeData();
+        QCOMPARE(mime->text(), QString("Name\tQty\nPear\t7"));
+        QVERIFY(mime->html().contains("<table"));
+        // Deleting a row updates the count.
+        window->table_view->setCurrentCell(1, 0);
+        window->table_view->delete_current_row();
+        QCOMPARE(window->status_label->text(), QString("1 rows × 2 columns"));
+        window->view_switch->setCurrentItem("text");
+        QCOMPARE(config_->get_ocr_result_view(), QString("text"));
+        window->copy_button->click();
+        QCOMPARE(QApplication::clipboard()->text(), QString("Name Qty\nPear 7"));
+        window->view_switch->setCurrentItem("table");
+        window->close();
+
+        auto *next = new TextRecognitionWindow(blank_image());
+        next->setAttribute(Qt::WA_DeleteOnClose);
+        QTRY_VERIFY_WITH_TIMEOUT(!next->status_label->text().startsWith("Recognizing"), 30000);
+        next->on_recognized(SMALL_LINES, {}, small_table());
+        QVERIFY(next->showing_table());
+        // Choosing a view only by opening does not change the setting.
+        QCOMPARE(config_->get_ocr_result_view(), QString("table"));
+    }
+
+    void copyOnCloseTakesTheTableShowing() {
+        config_->set_ocr_copy_on_close(true);
+        config_->set_ocr_result_view("table");
+        auto *window = new TextRecognitionWindow(blank_image());
+        QTRY_VERIFY_WITH_TIMEOUT(!window->status_label->text().startsWith("Recognizing"), 30000);
+        window->on_recognized(SMALL_LINES, {}, small_table());
+        QApplication::clipboard()->setText("before");
+        window->close();
+        QCOMPARE(QApplication::clipboard()->text(), QString("Name\tQty\nPear\t7"));
+        delete window;
+    }
+
+    void layoutOptionsReachTheCellsAndUndo() {
+        config_->set_ocr_result_view("table");
+        auto *window = new TextRecognitionWindow(blank_image());
+        window->setAttribute(Qt::WA_DeleteOnClose);
+        QTRY_VERIFY_WITH_TIMEOUT(!window->status_label->text().startsWith("Recognizing"), 30000);
+        const auto cjk = QString::fromUtf8("汉 字");
+        window->on_recognized({{cjk + " 7", 0, 100, 0, 20}, {"a b", 0, 100, 30, 50}}, {}, {2, 2, {{0, 0, 1, 1, cjk}, {0, 1, 1, 1, "7"}, {1, 0, 1, 1, "a"}, {1, 1, 1, 1, "b"}}});
+        QVERIFY(window->showing_table());
+        // Line breaks do not apply to cells.
+        inspect_next_menu([](QMenu *menu) {
+            for (auto *action : menu->actions())
+                if (action->text() == "Auto" || action->text() == "Keep every line") QVERIFY(!action->isEnabled());
+        });
+        window->layout_button->click();
+        choose_from_next_menu("Remove spaces");
+        window->layout_button->click();
+        QCOMPARE(text_table::cell_at(window->table_view->table(), 0, 0)->text, QString::fromUtf8("汉字"));
+        window->table_view->undo_stack()->undo();
+        QCOMPARE(text_table::cell_at(window->table_view->table(), 0, 0)->text, cjk);
+    }
+
+    void aWideTableWidensTheWindowOnce() {
+        config_->set_ocr_result_view("table");
+        auto *window = new TextRecognitionWindow(blank_image());
+        window->setAttribute(Qt::WA_DeleteOnClose);
+        QTRY_VERIFY_WITH_TIMEOUT(!window->status_label->text().startsWith("Recognizing"), 30000);
+        const int before = window->width();
+        text_table::Table wide{1, 8, {}};
+        for (int c = 0; c < 8; ++c) wide.cells.append({0, c, 1, 1, "A rather long cell text"});
+        wide.rows = 2;
+        for (int c = 0; c < 8; ++c) wide.cells.append({1, c, 1, 1, "x"});
+        window->on_recognized(SMALL_LINES, {}, wide);
+        QVERIFY(window->showing_table());
+        QVERIFY(window->width() > before);
+        QVERIFY(window->width() <= window->screen()->availableGeometry().width() * 0.8 + 1);
+        QVERIFY(window->screen()->availableGeometry().contains(window->geometry().topLeft()));
+    }
+
+    void theGridLeavesTheOuterEdgeToTheCard() {
+        config_->set_ocr_result_view("table");
+        auto *window = new TextRecognitionWindow(blank_image());
+        window->setAttribute(Qt::WA_DeleteOnClose);
+        window->show();
+        QTRY_VERIFY_WITH_TIMEOUT(!window->status_label->text().startsWith("Recognizing"), 30000);
+        window->on_recognized(SMALL_LINES, {}, small_table());
+        QApplication::processEvents();
+        auto *view = window->table_view;
+        // Narrower than the card, the columns widen to fill it.
+        int columns = 0;
+        for (int c = 0; c < view->columnCount(); ++c) columns += view->columnWidth(c);
+        QCOMPARE(columns, view->viewport()->width());
+        QImage shot = view->viewport()->grab().toImage();
+        int beside = view->columnViewportPosition(1) - 3;
+        const int middle = view->rowHeight(0) / 2;
+        QVERIFY(shot.pixelColor(beside + 2, middle).alpha() > 0);
+        // The rows end above the card's bottom, so the last one closes the table.
+        QVERIFY(shot.pixelColor(beside, view->rowViewportPosition(1) + view->rowHeight(1) - 1).alpha() > 0);
+        // The card's border is the edge after the last column.
+        QCOMPARE(shot.pixelColor(shot.width() - 1, middle).alpha(), 0);
+        // Scrolled to the end, the last row sits on the border and draws no line of its own.
+        text_table::Table tall{30, 2, {}};
+        for (int r = 0; r < 30; ++r) tall.cells << text_table::Cell{r, 0, 1, 1, "a"} << text_table::Cell{r, 1, 1, 1, "b"};
+        view->set_table(tall, false);
+        QApplication::processEvents();
+        view->scrollToBottom();
+        QApplication::processEvents();
+        shot = view->viewport()->grab().toImage();
+        beside = view->columnViewportPosition(1) - 3;
+        QCOMPARE(shot.pixelColor(beside, shot.height() - 1).alpha(), 0);
+    }
+
+    void theViewSwitchSitsInsideTheTitleBar() {
+        TextRecognitionWindow window(blank_image());
+        QVERIFY(window.view_switch->sizeHint().height() <= window.titleBar()->height() - 2 * dialog_scaled(3));
+    }
+
+    void aDrawnTableIsFoundAndCopiedDirectly() {
+        if (!is_ocr_available()) QSKIP("no OCR engine on this machine");
+        auto *window = show_text_recognition(table_image());
+        QTRY_VERIFY_WITH_TIMEOUT(window->copy_button->isEnabled(), 30000);
+        QVERIFY(!window->view_switch->isHidden());
+        QCOMPARE(window->table_view->table().rows, 3);
+        QCOMPARE(window->table_view->table().columns, 3);
+        window->close();
+        // Copying directly takes the table when the table view was chosen last.
+        config_->set_ocr_result_view("table");
+        QApplication::clipboard()->setText("before");
+        QVERIFY(copy_text_recognition(table_image()));
+        QTRY_VERIFY_WITH_TIMEOUT(QApplication::clipboard()->mimeData()->html().contains("<table"), 30000);
+        QVERIFY(QApplication::clipboard()->text().contains('\t'));
+    }
+
+    void theTableViewFitsEveryLanguage() {
+        // Text widths need real fonts, which the offscreen platform does not have.
+        if (QGuiApplication::platformName() != "windows") QSKIP("needs -platform windows");
+        const QString language = I18nManager::get_current_language();
+        const auto restore = qScopeGuard([language] {
+            get_dialog_scale().set_percent(100);
+            I18nManager::load_language(language);
+        });
+        config_->set_ocr_result_view("table");
+        text_table::Table table{12, 2, {}};
+        for (int r = 0; r < 12; ++r) table.cells << text_table::Cell{r, 0, 1, 1, "a"} << text_table::Cell{r, 1, 1, 1, "b"};
+        for (const int percent : {100, 150, 200}) {
+            get_dialog_scale().set_percent(percent);
+            for (const char *code : {"zh", "zh_TW", "en", "ja", "ko"}) {
+                QVERIFY(I18nManager::load_language(code));
+                auto *window = new TextRecognitionWindow(blank_image());
+                QTRY_VERIFY_WITH_TIMEOUT(window->status_label->text() != i18n_tr("Recognizing...", "TextRecognitionWindow"), 30000);
+                window->on_recognized(SMALL_LINES, {}, table);
+                window->resize(dialog_scaled(TextRecognitionWindow::WIDTH), dialog_scaled(TextRecognitionWindow::HEIGHT));
+                // The title bar follows the window in its resize event, which a hidden window only gets when shown.
+                QResizeEvent resized(window->size(), QSize());
+                QApplication::sendEvent(window, &resized);
+                window->layout()->activate();
+                auto *bar = qobject_cast<FluentTitleBar *>(window->titleBar());
+                QCOMPARE(bar->width(), window->width());
+                bar->hBoxLayout->activate();
+                const auto context = [&](const QString &what, QWidget *part) {
+                    return qPrintable(QString("%1 at %2%: %3 is %4 wide, needs %5").arg(code).arg(percent).arg(what).arg(part->width()).arg(part->sizeHint().width()));
+                };
+                for (const auto &[what, part] : std::initializer_list<std::pair<QString, QWidget *>>{
+                         {"the view switch", window->view_switch}, {"the title", bar->titleLabel}, {"the status", window->status_label},
+                         {"the copy-directly box", window->copy_directly_check}, {"the copy button", window->copy_button}})
+                    QVERIFY2(part->width() >= part->sizeHint().width(), context(what, part));
+                delete window;
+            }
+        }
     }
 
     // ---- Barcode results ----

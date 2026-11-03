@@ -35,15 +35,24 @@ struct OcrCharSpan {
     float start = 0, center = 0, end = 0;
 };
 
+// One oneocr word: its text and four corners in source pixels.
+struct OcrWord {
+    QString text;
+    QVector<QPointF> box;
+};
+
 // One recognized line: four corners from top-left clockwise, text, confidence. Reading runs
 // from the top-right corner down when vertical, else from the top-left corner right. chars
 // has one entry per character (code point) of text, or none when the engine gave no positions.
+// words are the Snipping Tool engine's own boxes, which table recognition measures gaps on:
+// chars spread over them move by a pixel or two. PP-OCR gives none.
 struct OcrLine {
     QVector<QPointF> box;
     QString text;
     double score = 0;
     bool vertical = false;
     QVector<OcrCharSpan> chars;
+    QVector<OcrWord> words;
 };
 
 // Holds one oneocr engine. Not locked: callers ensure one thread at a time.

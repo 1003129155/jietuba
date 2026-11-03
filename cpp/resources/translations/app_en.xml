@@ -5911,6 +5911,38 @@ Replace: move the current data there; the data already in that folder will be de
         <source>Copied %1 characters</source>
         <translation>Copied %1 characters</translation>
     </message>
+    <message>
+        <source>Text</source>
+        <translation>Text</translation>
+    </message>
+    <message>
+        <source>Table</source>
+        <translation>Table</translation>
+    </message>
+    <message>
+        <source>%1 rows × %2 columns</source>
+        <translation>%1 rows × %2 columns</translation>
+    </message>
+    <message>
+        <source>Copy selected cells</source>
+        <translation>Copy selected cells</translation>
+    </message>
+    <message>
+        <source>Delete row</source>
+        <translation>Delete row</translation>
+    </message>
+    <message>
+        <source>Delete column</source>
+        <translation>Delete column</translation>
+    </message>
+    <message>
+        <source>Undo</source>
+        <translation>Undo</translation>
+    </message>
+    <message>
+        <source>Copied table (%1 rows × %2 columns)</source>
+        <translation>Copied table (%1 rows × %2 columns)</translation>
+    </message>
 </context>
 <context>
     <name>BarcodeResultWindow</name>

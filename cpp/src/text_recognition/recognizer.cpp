@@ -23,6 +23,7 @@ void retire(RecognizeThread *thread) {
 
 void RecognizeThread::run() {
     QVector<OcrTextLine> lines;
+    text_table::Table table;
     QString reason = recognition_reason::FAILED;
     try {
         if (!is_ocr_available()) {
@@ -34,13 +35,17 @@ void RecognizeThread::run() {
             lines = group_ocr_lines(result);
             const bool has_text = std::any_of(lines.begin(), lines.end(), [](const OcrTextLine &line) { return !line.text.trimmed().isEmpty(); });
             reason = has_text ? QString() : recognition_reason::NO_TEXT;
+            if (has_text && !cancelled_) {
+                auto built = text_table::build_table(image_, text_table::table_lines(result.data));
+                if (text_table::is_table(built)) table = std::move(built);
+            }
         }
     } catch (const std::exception &e) {
         log_error(T("文字识别失败: {e}", {{"e", QString::fromUtf8(e.what())}}), "OCR");
     }
     // Released once recognized; the thread object waits for the GUI thread to collect it.
     image_ = QImage();
-    if (!cancelled_) emit recognized(lines, reason);
+    if (!cancelled_) emit recognized(lines, reason, table);
 }
 
 RecognizeThread *recognize_async(const QImage &image, QObject *context, RecognizedCallback on_recognized) {

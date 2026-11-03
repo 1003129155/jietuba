@@ -161,6 +161,8 @@ SETTING(ocr_layout_mode, "app/ocr_layout_mode", QString, "auto", Internal, Own, 
 SETTING(ocr_remove_spaces, "app/ocr_remove_spaces", bool, false, Internal, Gen, Gen)
 SETTING(ocr_punctuation, "app/ocr_punctuation", QString, "keep", Internal, Own, Own)
 SETTING(ocr_copy_on_close, "app/ocr_copy_on_close", bool, false, Internal, Gen, Gen)
+// The result window's view when a table is found: "text" or "table", the one last chosen.
+SETTING(ocr_result_view, "app/ocr_result_view", QString, "text", Internal, Gen, Gen)
 SETTING_AS(ocr_grayscale_enabled, ocr_grayscale, "app/ocr_grayscale", bool, false, Internal, Gen, Gen)
 SETTING_AS(ocr_upscale_enabled, ocr_upscale, "app/ocr_upscale", bool, true, Internal, Gen, Gen)
 SETTING(ocr_upscale_factor, "app/ocr_upscale_factor", double, 2.0, Internal, Gen, Gen)

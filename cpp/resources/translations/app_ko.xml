@@ -5991,6 +5991,38 @@ Replace: move the current data there; the data already in that folder will be de
         <source>Copied %1 characters</source>
         <translation>%1자를 복사했습니다</translation>
     </message>
+    <message>
+        <source>Text</source>
+        <translation>텍스트</translation>
+    </message>
+    <message>
+        <source>Table</source>
+        <translation>표</translation>
+    </message>
+    <message>
+        <source>%1 rows × %2 columns</source>
+        <translation>%1행 × %2열</translation>
+    </message>
+    <message>
+        <source>Copy selected cells</source>
+        <translation>선택한 셀 복사</translation>
+    </message>
+    <message>
+        <source>Delete row</source>
+        <translation>행 삭제</translation>
+    </message>
+    <message>
+        <source>Delete column</source>
+        <translation>열 삭제</translation>
+    </message>
+    <message>
+        <source>Undo</source>
+        <translation>실행 취소</translation>
+    </message>
+    <message>
+        <source>Copied table (%1 rows × %2 columns)</source>
+        <translation>표를 복사했습니다(%1행 × %2열)</translation>
+    </message>
 </context>
 <context>
     <name>BarcodeResultWindow</name>

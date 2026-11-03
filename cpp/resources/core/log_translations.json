@@ -885,5 +885,7 @@
 "已复制 {count} 个文件": "Copied {count} file(s)",
 "已复制动图: {file_path}": "Copied animation: {file_path}",
 "已钉住剪贴板中的 {count} 个文件": "Pinned {count} file(s) from the clipboard",
-"动图复制失败: {file_path}": "Could not copy the animation: {file_path}"
+"动图复制失败: {file_path}": "Could not copy the animation: {file_path}",
+"文字识别发现表格: {rows} 行 {columns} 列": "Text recognition found a table: {rows} rows, {columns} columns",
+"文字识别完成并直接复制表格: {rows} 行 {columns} 列": "Recognized and copied a table directly: {rows} rows, {columns} columns"
 }

@@ -26,12 +26,6 @@ OcrLineFrame line_frame(const QVector<QPointF> &box, bool vertical);
 // next to a wide character counting as wide), for lines whose engine gave none.
 QVector<OcrCharSpan> estimate_char_spans(const QString &text);
 
-// One oneocr word: its text and four corners in source pixels.
-struct OcrWord {
-    QString text;
-    QVector<QPointF> box;
-};
-
 // Whether words run down rather than across: the direction from the first word to the last,
 // or with fewer than two words, a line at least 1.5 times as tall as wide.
 bool words_run_vertically(const QVector<QPointF> &box, const QVector<OcrWord> &words);

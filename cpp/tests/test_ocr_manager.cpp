@@ -614,7 +614,7 @@ private slots:
         };
         bool reported = false;
         QObject context;
-        auto *recognition = recognize_async(capture, &context, [&](const QVector<OcrTextLine> &, const QString &) { reported = true; });
+        auto *recognition = recognize_async(capture, &context, [&](const QVector<OcrTextLine> &, const QString &, const text_table::Table &) { reported = true; });
         const qint64 window_ms = stopping_time(*recognition, [&] { recognition->cancel(); });
         QVERIFY2(window_ms < 500, qPrintable(QString("result window: %1 ms").arg(window_ms)));
         QCoreApplication::processEvents();

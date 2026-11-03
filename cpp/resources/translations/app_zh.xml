@@ -5993,6 +5993,38 @@ Replace: move the current data there; the data already in that folder will be de
         <source>Copied %1 characters</source>
         <translation>已复制 %1 个字符</translation>
     </message>
+    <message>
+        <source>Text</source>
+        <translation>文本</translation>
+    </message>
+    <message>
+        <source>Table</source>
+        <translation>表格</translation>
+    </message>
+    <message>
+        <source>%1 rows × %2 columns</source>
+        <translation>%1 行 × %2 列</translation>
+    </message>
+    <message>
+        <source>Copy selected cells</source>
+        <translation>复制所选单元格</translation>
+    </message>
+    <message>
+        <source>Delete row</source>
+        <translation>删除所在行</translation>
+    </message>
+    <message>
+        <source>Delete column</source>
+        <translation>删除所在列</translation>
+    </message>
+    <message>
+        <source>Undo</source>
+        <translation>撤销</translation>
+    </message>
+    <message>
+        <source>Copied table (%1 rows × %2 columns)</source>
+        <translation>已复制表格（%1 行 × %2 列）</translation>
+    </message>
 </context>
 <context>
     <name>BarcodeResultWindow</name>

@@ -6003,6 +6003,38 @@ Replace: move the current data there; the data already in that folder will be de
         <source>Copied %1 characters</source>
         <translation>%1 文字をコピーしました</translation>
     </message>
+    <message>
+        <source>Text</source>
+        <translation>テキスト</translation>
+    </message>
+    <message>
+        <source>Table</source>
+        <translation>表</translation>
+    </message>
+    <message>
+        <source>%1 rows × %2 columns</source>
+        <translation>%1 行 × %2 列</translation>
+    </message>
+    <message>
+        <source>Copy selected cells</source>
+        <translation>選択したセルをコピー</translation>
+    </message>
+    <message>
+        <source>Delete row</source>
+        <translation>行を削除</translation>
+    </message>
+    <message>
+        <source>Delete column</source>
+        <translation>列を削除</translation>
+    </message>
+    <message>
+        <source>Undo</source>
+        <translation>元に戻す</translation>
+    </message>
+    <message>
+        <source>Copied table (%1 rows × %2 columns)</source>
+        <translation>表をコピーしました（%1 行 × %2 列）</translation>
+    </message>
 </context>
 <context>
     <name>BarcodeResultWindow</name>
