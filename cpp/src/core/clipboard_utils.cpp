@@ -6,6 +6,7 @@
 #include <QApplication>
 #include <QBuffer>
 #include <QClipboard>
+#include <QDir>
 #include <QMetaObject>
 #include <QThread>
 #include <atomic>
@@ -378,7 +379,9 @@ QByteArray build_hdrop(const QString &path) {
     QByteArray result;
     const qint32 header[5] = {20, 0, 0, 0, 1};
     result.append(reinterpret_cast<const char *>(header), sizeof header);
-    result.append(reinterpret_cast<const char *>(path.utf16()), path.size() * 2);
+    // OneNote, for one, refuses a file name with a forward slash in it.
+    const QString native = QDir::toNativeSeparators(path);
+    result.append(reinterpret_cast<const char *>(native.utf16()), native.size() * 2);
     result.append(QByteArray(4, '\0'));
     return result;
 }

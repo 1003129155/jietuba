@@ -276,6 +276,7 @@ fn ansi_to_string(bytes: &[u8]) -> String {
     }
 }
 
+/// 路径里的 `/` 换成 `\`：OneNote 等程序把 `/` 当成文件名里的非法字符
 pub fn build_hdrop(files: &[String]) -> Vec<u8> {
     const HEADER_LEN: u32 = 20;
     let mut data = Vec::new();
@@ -283,7 +284,7 @@ pub fn build_hdrop(files: &[String]) -> Vec<u8> {
     data.extend_from_slice(&[0u8; 12]);                // pt、fNC
     data.extend_from_slice(&1u32.to_le_bytes());       // fWide
     for file in files {
-        data.extend(file.encode_utf16().chain(std::iter::once(0)).flat_map(u16::to_le_bytes));
+        data.extend(file.replace('/', "\\").encode_utf16().chain(std::iter::once(0)).flat_map(u16::to_le_bytes));
     }
     data.extend_from_slice(&[0, 0]);
     data
@@ -376,6 +377,12 @@ mod tests {
     fn file_list_round_trips() {
         let files = vec![r"C:\图片\截图 1.png".to_string(), r"D:\a.txt".to_string()];
         assert_eq!(parse_hdrop(&build_hdrop(&files)), files);
+    }
+
+    #[test]
+    fn file_list_is_written_with_backslashes() {
+        let files = vec!["C:/图片/截图 1.png".to_string(), r"\\server/share\a.txt".to_string()];
+        assert_eq!(parse_hdrop(&build_hdrop(&files)), vec![r"C:\图片\截图 1.png".to_string(), r"\\server\share\a.txt".to_string()]);
     }
 
     #[test]
