@@ -69,6 +69,8 @@ public:
     // Feeds any OCR task's result into the same window and translates it.
     void complete_ocr_translation(bool success, const QString &result) { on_ocr_finished(success, result); }
     void close_dialog();
+    // Moves the open window and popup to the language just saved in the settings.
+    void apply_target_lang(const QString &lang);
     // Closes the translation UI and lets network and OCR workers finish before exit.
     // timeout_ms defaults to the longest running request's timeout plus slack.
     void shutdown(std::optional<int> timeout_ms = std::nullopt, int ocr_timeout_ms = 3000);

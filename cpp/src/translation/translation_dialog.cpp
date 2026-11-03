@@ -753,6 +753,13 @@ void TranslationDialog::on_translation_finished(bool success, const QString &tex
 QString TranslationDialog::get_source_lang() const { return source_language->currentData().toString(); }
 QString TranslationDialog::get_target_lang() const { return target_language->currentData().toString(); }
 
+void TranslationDialog::set_target_lang(const QString &lang) {
+    // Saving here would replace "Auto (System)" in the settings with the language it resolved to.
+    const QSignalBlocker blocker(target_language);
+    set_combo_data(target_language, lang, get_target_lang());
+    target_lang = get_target_lang();
+}
+
 void TranslationDialog::update_content(const QString &text, const QString &new_target_lang, const QString &new_source_lang) {
     original_text = text;
     source_edit->setPlainText(text);

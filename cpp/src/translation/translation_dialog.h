@@ -165,6 +165,8 @@ public:
     void on_translation_finished(bool success, const QString &translated_text, const QString &error, const QString &detected_lang = {});
     QString get_source_lang() const;
     QString get_target_lang() const;
+    // Shows a target language chosen elsewhere without saving it back.
+    void set_target_lang(const QString &lang);
     void update_content(const QString &text, const QString &target_lang = {}, const QString &source_lang = {});
     void set_backend_badge(const QString &text, bool configured = true);
     void set_theme(const QString &theme_name);

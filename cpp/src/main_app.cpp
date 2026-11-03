@@ -489,6 +489,8 @@ void MainApp::on_settings_accepted(SettingsDialog *accepted_window) {
     if (saved.contains("clipboard_enabled_toggle")) set_clipboard_monitoring_enabled(config_manager->get_clipboard_enabled());
     if (accepted_window->hotkeys_saved()) update_hotkey(true);
     if (saved.contains("capture_engine_combo")) apply_capture_engine(config_manager->get_capture_engine());
+    if (saved.contains("translation_target_combo") && TranslationManager::has_instance())
+        TranslationManager::instance()->apply_target_lang(config_manager->get_translation_target_lang());
     if (clipboard_window) {
         clipboard_window->load_settings();
         clipboard_window->controller->load_settings();

@@ -354,6 +354,41 @@ private slots:
         QVERIFY(!popup);
     }
 
+    // A target language saved in the settings reaches the open window and popup at once,
+    // and showing it does not write the resolved language back over "Auto (System)".
+    void openSurfacesFollowTheTargetLanguageSavedInTheSettings() {
+        auto *m = manager();
+        get_tool_settings_manager()->set_translation_target_lang("");
+        QSignalSpy finished(m, &TranslationManager::translation_finished);
+
+        m->translate("");
+        TranslationDialog *window = nullptr;
+        for (auto *widget : QApplication::topLevelWidgets())
+            if (auto *found = qobject_cast<TranslationDialog *>(widget); found && found->isVisible()) window = found;
+        QVERIFY(window);
+        m->apply_target_lang("JA");
+        QCOMPARE(window->get_target_lang(), QString("JA"));
+        QVERIFY(get_tool_settings_manager()->get_saved_translation_target_lang().isEmpty());
+        window->source_edit->setPlainText("window text");
+        window->translate_button->click();
+        QTRY_COMPARE(finished.count(), 1);
+        QCOMPARE(window->target_edit->toPlainText(), QString("[ja] window text"));
+
+        m->open_compact_input(QPoint(10, 10));
+        TranslationPopup *popup = nullptr;
+        for (auto *widget : QApplication::topLevelWidgets())
+            if (auto *found = qobject_cast<TranslationPopup *>(widget); found && found->isVisible()) popup = found;
+        QVERIFY(popup);
+        m->apply_target_lang("EN");
+        QCOMPARE(popup->current_target_lang(), QString("EN"));
+        popup->source_edit->setPlainText("popup text");
+        QTRY_COMPARE(finished.count(), 2);
+        QCOMPARE(popup->result_edit->toPlainText(), QString("[en] popup text"));
+        QVERIFY(get_tool_settings_manager()->get_saved_translation_target_lang().isEmpty());
+        m->close_dialog();
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    }
+
     void selectionTranslationUsesTheCompactPopup() {
         auto *m = manager();
         QSignalSpy finished(m, &TranslationManager::translation_finished);
