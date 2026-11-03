@@ -122,6 +122,75 @@ private slots:
         QCOMPARE(grid(table), QStringList({"Item|Notes|Qty", "Lamp|Arrives by Friday|3", "Desk|Spare|8"}));
     }
 
+    void linesBetweenTheSameRulesShareARow() {
+        // Rules under every row; the meaning of a+b wraps with more space between its lines than
+        // whitespace alone would join. Without the rule at y = 140 the two rows stay apart.
+        for (const bool missed : {false, true}) {
+            auto image = blank(400, 250);
+            QPainter painter(&image);
+            painter.setPen(Qt::black);
+            for (int y : {0, 40, 140, 190, 240})
+                if (!(missed && y == 140)) painter.drawLine(0, y, 380, y);
+            for (int x : {0, 120, 260, 380}) painter.drawLine(x, 0, x, 240);
+            painter.end();
+            const QVector<Line> lines = {line({{"Op", 10, 40}}, 10), line({{"Meaning", 130, 200}}, 10), line({{"Note", 270, 310}}, 10),
+                                         line({{"a+b", 10, 45}}, 55), line({{"Adds", 130, 170}, {"two", 176, 205}}, 55), line({{"ok", 270, 290}}, 55),
+                                         line({{"numbers", 130, 200}}, 91),
+                                         line({{"a-b", 10, 45}}, 155), line({{"Subtracts", 130, 210}}, 155), line({{"ok", 270, 290}}, 155),
+                                         line({{"a*b", 10, 45}}, 205), line({{"Multiplies", 130, 215}}, 205), line({{"no", 270, 290}}, 205)};
+            const auto table = build_table(image, lines);
+            QCOMPARE(grid(table), QStringList({"Op|Meaning|Note", "a+b|Adds two numbers|ok", "a-b|Subtracts|ok", "a*b|Multiplies|no"}));
+        }
+    }
+
+    void aBoxAroundInlineCodeSeparatesNothing() {
+        // Each line of the wrapped example is boxed as code; the boxes' edges lie between its lines.
+        auto image = blank(400, 250);
+        QPainter painter(&image);
+        painter.setPen(Qt::black);
+        for (int y : {0, 40, 140, 190, 240}) painter.drawLine(0, y, 380, y);
+        for (int x : {0, 160, 380}) painter.drawLine(x, 0, x, 240);
+        painter.drawRect(168, 52, 48, 25);
+        painter.drawRect(168, 88, 48, 25);
+        painter.end();
+        const QVector<Line> lines = {line({{"Use", 10, 45}}, 10), line({{"Example", 170, 240}}, 10),
+                                     line({{"Assign", 10, 70}}, 55), line({{"x", 172, 182}, {"=", 188, 196}, {"1", 202, 210}}, 55),
+                                     line({{"y", 172, 182}, {"=", 188, 196}, {"2", 202, 210}}, 91),
+                                     line({{"Print", 10, 55}}, 155), line({{"show", 170, 210}}, 155),
+                                     line({{"Exit", 10, 45}}, 205), line({{"quit", 170, 205}}, 205)};
+        const auto table = build_table(image, lines);
+        QCOMPARE(grid(table), QStringList({"Use|Example", "Assign|x = 1 y = 2", "Print|show", "Exit|quit"}));
+    }
+
+    void aSecondHeaderRowUnderAGroupKeepsItsRow() {
+        // Name and Status span both header rows; Sales heads Stock and Date. One filled band holds
+        // the whole header, with no rule between its two rows.
+        auto image = blank(440, 210);
+        QPainter painter(&image);
+        painter.setPen(Qt::black);
+        for (int y : {0, 80, 120, 160, 200}) painter.drawLine(0, y, 420, y);
+        painter.end();
+        const QVector<Line> lines = {line({{"Sales", 160, 210}}, 8), line({{"Name", 10, 60}}, 30), line({{"Status", 320, 380}}, 30),
+                                     line({{"Stock", 110, 160}}, 52), line({{"Date", 220, 260}}, 52),
+                                     line({{"Ann", 10, 45}}, 90), line({{"12", 110, 130}}, 90), line({{"May", 220, 255}}, 90), line({{"Open", 320, 365}}, 90),
+                                     line({{"Bo", 10, 35}}, 130), line({{"7", 110, 120}}, 130), line({{"June", 220, 260}}, 130), line({{"Shut", 320, 360}}, 130),
+                                     line({{"Cy", 10, 35}}, 170), line({{"30", 110, 130}}, 170), line({{"July", 220, 258}}, 170), line({{"Open", 320, 365}}, 170)};
+        const auto table = build_table(image, lines);
+        QCOMPARE(table.rows, 5);
+        QCOMPARE(text_at(table, 1, 1), QString("Stock"));
+        QCOMPARE(text_at(table, 1, 2), QString("Date"));
+        QCOMPARE(text_at(table, 2, 0), QString("Ann"));
+    }
+
+    void aLineCutByTheSelectionEdgeIsLeftOut() {
+        // The bottom half of a line above the table shows at the top edge; a tight crop through
+        // the header leaves it at full height.
+        auto lines = borderless_lines();
+        lines.prepend(line({{"Prices", 10, 70}, {"of", 76, 92}, {"fruit", 98, 140}}, 0, 9));
+        QCOMPARE(grid(build_table(blank(400, 130), lines)), QStringList({"Name|Qty|Price", "Apple|12|3.50", "Pear|7|12.00"}));
+        QCOMPARE(grid(build_table(blank(400, 110), borderless_lines(0))), QStringList({"Name|Qty|Price", "Apple|12|3.50", "Pear|7|12.00"}));
+    }
+
     void cellsReadAsOneLineArePartedAtTheColumnGap() {
         const QVector<Line> lines = {line({{"Name", 10, 50}}, 10), line({{"Qty", 72, 100}}, 10),
                                      line({{"Apple", 10, 60}, {"12", 72, 90}}, 50),

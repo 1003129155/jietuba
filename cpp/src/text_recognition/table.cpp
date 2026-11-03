@@ -228,6 +228,12 @@ private:
 };
 
 void Builder::make_segments(const QVector<Line> &lines) {
+    struct Group {
+        std::vector<PlacedWord> words;
+        QString line_text;
+        double y0, y1;
+    };
+    std::vector<Group> all;
     for (const auto &line : lines) {
         std::vector<PlacedWord> words;
         int pos = 0;
@@ -253,13 +259,37 @@ void Builder::make_segments(const QVector<Line> &lines) {
             groups.back().push_back(words[k]);
         }
         for (auto &g : groups) {
-            std::vector<PlacedWord> kept;
-            for (auto &w : g)
-                if (!is_junk(w.text)) kept.push_back(w);
-            if (kept.empty()) continue;
-            segs_.emplace_back(std::move(kept), line.text);
-            segs_.back().origin = static_cast<int>(segs_.size()) - 1;
+            double y0 = 1e18, y1 = -1e18;
+            for (const auto &w : g) {
+                y0 = std::min(y0, w.y0);
+                y1 = std::max(y1, w.y1);
+            }
+            all.push_back({std::move(g), line.text, y0, y1});
         }
+    }
+    // Lines cut short by the top or bottom edge of the selection are text around the table; a
+    // tight crop through a row of the table leaves some of its lines at full height.
+    std::vector<double> heights;
+    for (const auto &g : all) heights.push_back(g.y1 - g.y0);
+    const double line_h = median(heights);
+    const int height = image_.height();
+    std::vector<uint8_t> cut(all.size(), 0);
+    for (const bool at_top : {true, false}) {
+        double tallest = -1;
+        for (const auto &g : all)
+            if (at_top ? g.y0 <= 1 : g.y1 >= height - 2) tallest = std::max(tallest, g.y1 - g.y0);
+        if (tallest < 0 || tallest >= 0.8 * line_h) continue;
+        for (size_t k = 0; k < all.size(); ++k)
+            if (at_top ? all[k].y0 <= 1 : all[k].y1 >= height - 2) cut[k] = 1;
+    }
+    for (size_t k = 0; k < all.size(); ++k) {
+        if (cut[k]) continue;
+        std::vector<PlacedWord> kept;
+        for (auto &w : all[k].words)
+            if (!is_junk(w.text)) kept.push_back(w);
+        if (kept.empty()) continue;
+        segs_.emplace_back(std::move(kept), all[k].line_text);
+        segs_.back().origin = static_cast<int>(segs_.size()) - 1;
     }
 }
 
@@ -966,6 +996,136 @@ Table Builder::build() {
         for (int i : idx) unite(idx.front(), i);
     }
     for (int i : split_after) unite(i - 1, i);
+
+    // Lines between the same two rules share a row: a cell wrapped onto more lines than its
+    // neighbours, the single-line cells beside it centred. Only for lines closer than rows are to
+    // each other, as a missed rule leaves two rows. The table's outer border counts as a rule.
+    std::set<double> rule_set;
+    for (const auto &h : hrules_)
+        if (ty0 - 1.5 * text_h_ < h.pos && h.pos < ty1 + 1.5 * text_h_ && h.end - h.start >= 0.5 * twidth) rule_set.insert(std::nearbyint(h.pos));
+    const std::vector<double> rule_ys(rule_set.begin(), rule_set.end());
+    const int nbands = static_cast<int>(rule_ys.size());
+    auto band_of = [&](double y) { return static_cast<int>(std::count_if(rule_ys.begin(), rule_ys.end(), [&](double r) { return r < y; })); };
+    std::vector<int> bands;
+    std::map<int, int> per_band;
+    for (const auto &r : rows) {
+        bands.push_back(band_of((top(r) + bottom(r)) / 2));
+        ++per_band[bands.back()];
+    }
+    // A shorter rule inside a band divides spanned header cells; those rows stay as they are. It
+    // runs across a whole column in the space between lines; the box around inline code or a tag
+    // hugs its text.
+    std::vector<double> col_edges{tx0};
+    col_edges.insert(col_edges.end(), bounds_.begin(), bounds_.end());
+    col_edges.push_back(tx1);
+    std::vector<int> tsegs;
+    for (const auto &r : rows) tsegs.insert(tsegs.end(), r.begin(), r.end());
+    // One edge of a box around a line: a matching rule on the other side of the same line. A grid
+    // line broken by a descender also frames a line, but ends at a vertical rule crossing it; the
+    // box's own sides end at it.
+    auto hugs = [&](const Rule &h) {
+        for (const auto &v : vrules_)
+            if ((std::abs(v.pos - h.start) <= 3 || std::abs(v.pos - h.end) <= 3) && v.start < h.pos - 3 && v.end > h.pos + 3) return false;
+        for (int x : tsegs) {
+            const auto &s = segs_[x];
+            if (!(s.x0 - 0.8 * text_h_ <= h.start && h.end <= s.x1 + 0.8 * text_h_)) continue;
+            const double mid = (s.y0 + s.y1) / 2;
+            const bool above = s.y0 - 0.25 * text_h_ < h.pos && h.pos <= mid;
+            const bool below = mid <= h.pos && h.pos < s.y1 + 0.25 * text_h_;
+            if (!above && !below) continue;
+            for (const auto &o : hrules_)
+                if ((std::abs(o.start - h.start) <= 3 || std::abs(o.end - h.end) <= 3) &&
+                    ((above && mid < o.pos && o.pos < s.y1 + 0.25 * text_h_) || (below && s.y0 - 0.25 * text_h_ < o.pos && o.pos < mid)))
+                    return true;
+        }
+        return false;
+    };
+    std::vector<Rule> separators;
+    std::set<int> divided;
+    for (const auto &h : hrules_) {
+        const bool box = hugs(h);
+        if (!box) separators.push_back(h);
+        if (box || !(ty0 < h.pos && h.pos < ty1) || h.end - h.start < 1.5 * text_h_) continue;
+        if (std::any_of(rule_ys.begin(), rule_ys.end(), [&](double y) { return std::abs(h.pos - y) <= 3; })) continue;
+        bool across = false;
+        for (size_t k = 0; k + 1 < col_edges.size(); ++k)
+            if (std::min<double>(h.end, col_edges[k + 1]) - std::max<double>(h.start, col_edges[k]) >= 0.8 * (col_edges[k + 1] - col_edges[k])) across = true;
+        if (across) divided.insert(band_of(h.pos - 3));
+    }
+    // Sparse rules (above and below the header only, or every few rows) leave bands of many lines;
+    // rules between rows leave bands of one row, a few lines when cells wrap.
+    std::vector<int> closed;
+    for (const auto &[b, count] : per_band)
+        if (0 < b && b < nbands) closed.push_back(count);
+    std::sort(closed.begin(), closed.end());
+    if (closed.size() >= 3 && closed[closed.size() / 2] <= 3) {
+        // Only bands closed by a rule on both sides: rules missed at the top or bottom (a header
+        // fill matching the first row) leave open bands. A line crossing a rule spans rows.
+        std::vector<uint8_t> crosses;
+        for (const auto &r : rows)
+            crosses.push_back(std::any_of(rule_ys.begin(), rule_ys.end(), [&](double y) { return top(r) + 2 < y && y < bottom(r) - 2; }));
+        // A group header over two or more columns that later lines of its band fill heads a second
+        // header row.
+        for (int i = 0; i < n; ++i)
+            for (int u : rows[i]) {
+                const auto [c0, c1] = seg_cols(u);
+                if (c1 <= c0) continue;
+                for (int j = i + 1; j < n; ++j)
+                    if (bands[j] == bands[i] &&
+                        std::count_if(cols[j].begin(), cols[j].end(), [&](int c) { return c0 <= c && c <= c1; }) >= 2)
+                        divided.insert(bands[i]);
+            }
+        // In a wrapped row a cell that starts below the band's first line is a single line centred
+        // in the row; one lower down is a second header row under a group header.
+        std::map<int, std::vector<int>> members;
+        for (int i = 0; i < n; ++i) members[bands[i]].push_back(i);
+        for (const auto &[b, idx] : members) {
+            if (idx.size() < 2) continue;
+            double t = 1e18, btm = -1e18;
+            for (int i : idx) {
+                t = std::min(t, top(rows[i]));
+                btm = std::max(btm, bottom(rows[i]));
+            }
+            const double mid = (t + btm) / 2;
+            ColumnSet seen = cols[idx.front()];
+            for (size_t k = 1; k < idx.size(); ++k) {
+                for (int x : rows[idx[k]]) {
+                    const auto [c0, c1] = seg_cols(x);
+                    bool known = false;
+                    for (int c = c0; c <= c1; ++c) known = known || seen.count(c);
+                    if (!known && std::abs(segs_[x].yc() - mid) > 0.35 * text_h_) divided.insert(b);
+                }
+                seen.insert(cols[idx[k]].begin(), cols[idx[k]].end());
+            }
+        }
+        std::vector<double> ruled_gaps;
+        for (int i = 1; i < n; ++i)
+            if (bands[i] != bands[i - 1]) ruled_gaps.push_back(gap(rows[i - 1], rows[i]));
+        std::sort(ruled_gaps.begin(), ruled_gaps.end());
+        const double ruled_gap = ruled_gaps.empty() ? 0 : ruled_gaps[ruled_gaps.size() / 2];
+        auto separated = [&](double ya, double yb) {
+            for (const auto &h : separators)
+                if (ya - 2 <= h.pos && h.pos <= yb + 2 && std::min<double>(h.end, tx1) - std::max<double>(h.start, tx0) >= 1.5 * text_h_) return true;
+            return false;
+        };
+        // Line boxes padded until rows touch (PP-OCR's) leave no spacing to tell lines from rows.
+        const int last = ruled_gap > 0.2 * text_h_ ? n : 1;
+        for (int i = 1; i < last; ++i) {
+            if (bands[i] != bands[i - 1] || divided.count(bands[i]) || !(0 < bands[i] && bands[i] < nbands) || crosses[i] || crosses[i - 1]) continue;
+            // Cells centred between two lines span two rows, unless those lines are the only ones
+            // beside them: a single wrapped cell.
+            const int k = split_after.count(i) ? i : split_after.count(i - 1) ? i - 1 : -1;
+            if (k >= 0 && !(static_cast<int>(cols[k - 1].size()) < full && static_cast<int>(cols[k + 1].size()) < full)) continue;
+            const double g = gap(rows[i - 1], rows[i]);
+            // Boxes around inline code or tags between them separate nothing.
+            if ((g <= 0.1 * text_h_ || g < 0.7 * ruled_gap) && !separated(bottom(rows[i - 1]), top(rows[i]))) {
+                unite(i - 1, i);
+                // Centred between the lines of a wrapped cell, not over two rows.
+                for (int m : {i - 1, i})
+                    for (int x : rows[m]) down.erase(x);
+            }
+        }
+    }
 
     // Rows of the table: runs of united visual rows.
     std::vector<std::vector<int>> groups;
