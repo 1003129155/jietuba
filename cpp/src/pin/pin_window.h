@@ -24,6 +24,7 @@ class QPropertyAnimation;
 
 namespace jietuba {
 struct AnimationSource;
+class FolderDrop;
 class PinAnimation;
 class PinBorderOverlay;
 class PinCanvas;
@@ -121,6 +122,10 @@ public:
     const PinFileCard *file_card() const { return file_card_.get(); }
     // The file whose card is under global_pos, -1 elsewhere.
     int file_at(const QPoint &global_pos) const;
+    // The folder under global_pos that what is dragged there drops into, as into the folder in Explorer; empty off
+    // folders, while drawing and in thumbnail mode.
+    QString drop_folder_at(const QPoint &global_pos) const;
+    FolderDrop *folder_drop() const { return folder_drop_.get(); }
     PinFileSelection *file_selection() const { return file_selection_.get(); }
     // A click that stayed where it was pressed, on a file card.
     void click_file(const QPoint &global_pos, Qt::KeyboardModifiers modifiers);
@@ -349,5 +354,6 @@ private:
     WaitBar *seek_bar_ = nullptr;
     std::unique_ptr<PinFileCard> file_card_;
     std::unique_ptr<PinFileSelection> file_selection_;
+    std::unique_ptr<FolderDrop> folder_drop_;
 };
 }

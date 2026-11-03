@@ -36,6 +36,9 @@ public:
     // The selected cards in image pixels, with the count cell when files it stands for are selected.
     QRectF selected_bounds() const;
     bool in_effect() const;
+    // The folder something dragged over the card would be dropped into, outlined without a check; -1 for none.
+    void set_drop_target(int index);
+    int drop_target() const { return drop_target_; }
     // The painter is in image pixels (the view's drawForeground).
     void paint(QPainter *painter) const;
 private:
@@ -47,5 +50,6 @@ private:
     const PinFileCard *card_;
     std::vector<bool> selected_;
     int anchor_ = -1;
+    int drop_target_ = -1;
 };
 }

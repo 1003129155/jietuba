@@ -4,6 +4,7 @@
 #include "canvas/selection_model.h"
 #include "canvas/smart_erase_wait.h"
 #include "core/clipboard_utils.h"
+#include "core/folder_drop.h"
 #include "core/i18n.h"
 #include "core/logger.h"
 #include "core/platform_utils.h"
@@ -349,6 +350,8 @@ void PinWindow::showEvent(QShowEvent *event) {
     QWidget::showEvent(event);
     // Each show restores the system default corners (hiding, toggling topmost), so they are set again.
     apply_window_corners();
+    // Likewise Qt's drop target may be back, or the window have a new handle.
+    if (folder_drop_) folder_drop_->attach(winId());
     if (click_through_) {
         // Toggling topmost resets the window flags and drops the click-through style.
         set_window_click_through(static_cast<quintptr>(winId()), true);
@@ -1059,6 +1062,11 @@ void PinWindow::show_frame_unscaled() {
 void PinWindow::open_files(const PinFileCard &card) {
     file_card_ = std::make_unique<PinFileCard>(card);
     file_selection_ = std::make_unique<PinFileSelection>(this, file_card_.get());
+    folder_drop_ = std::make_unique<FolderDrop>([this](const QPoint &screen) { return drop_folder_at(screen); },
+                                                [this](const QString &folder) {
+                                                    file_selection_->set_drop_target(folder.isEmpty() ? -1 : static_cast<int>(file_card_->files().indexOf(folder)));
+                                                });
+    folder_drop_->attach(winId());
     // At 100% too: the first image has the screen's logical pixels only.
     last_background_scale_size_.reset();
     refresh_background_for_scale();
@@ -1067,6 +1075,12 @@ void PinWindow::open_files(const PinFileCard &card) {
 int PinWindow::file_at(const QPoint &global_pos) const {
     if (!file_card_ || !view) return -1;
     return file_card_->file_at(view->mapToScene(view->viewport()->mapFromGlobal(global_pos)));
+}
+
+QString PinWindow::drop_folder_at(const QPoint &global_pos) const {
+    if (!file_selection_ || !file_selection_->in_effect()) return {};
+    const int index = file_at(global_pos);
+    return file_card_->is_folder(index) ? file_card_->files()[index] : QString();
 }
 
 void PinWindow::click_file(const QPoint &global_pos, Qt::KeyboardModifiers modifiers) {
@@ -1648,6 +1662,7 @@ void PinWindow::cleanup() {
     PinShortcutController::instance()->unregister_pin(this);
     // The decoder thread stops before the window it draws on goes.
     if (animation_) animation_->stop();
+    folder_drop_.reset();
     if (hover_controls) hover_controls->stop();
     if (display_scaler_) display_scaler_->cancel();
     if (zoom_hide_timer_) zoom_hide_timer_->stop();

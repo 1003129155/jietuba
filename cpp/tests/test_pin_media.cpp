@@ -7,6 +7,7 @@
 #include "pin/pin_canvas_view.h"
 #include "pin/pin_file_card.h"
 #include "pin/pin_file_selection.h"
+#include "core/folder_drop.h"
 #include "core/i18n.h"
 #include "pin/pin_manager.h"
 #include "pin/pin_ocr_manager.h"
@@ -39,12 +40,34 @@
 #include <QTest>
 #include <QTimer>
 #include <QTranslator>
+#include <QScopeGuard>
 #include <QUrl>
 #include <optional>
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <shlobj.h>
+#include <wrl/client.h>
 
 using namespace jietuba;
 
 namespace {
+// The data Explorer drags its files with.
+Microsoft::WRL::ComPtr<IDataObject> shell_data(const QStringList &paths) {
+    std::vector<PIDLIST_ABSOLUTE> items;
+    for (const auto &path : paths) {
+        PIDLIST_ABSOLUTE item = nullptr;
+        if (SUCCEEDED(SHParseDisplayName(reinterpret_cast<PCWSTR>(QDir::toNativeSeparators(path).utf16()), nullptr, &item, 0, nullptr))) items.push_back(item);
+    }
+    Microsoft::WRL::ComPtr<IShellItemArray> array;
+    Microsoft::WRL::ComPtr<IDataObject> data;
+    if (SUCCEEDED(SHCreateShellItemArrayFromIDLists(static_cast<UINT>(items.size()), const_cast<PCIDLIST_ABSOLUTE_ARRAY>(items.data()), &array)))
+        array->BindToHandler(nullptr, BHID_DataObject, IID_PPV_ARGS(&data));
+    for (auto *item : items) CoTaskMemFree(item);
+    return data;
+}
+
 const QColor PALETTE[] = {Qt::red, Qt::green, Qt::blue, Qt::white};
 
 // A GIF of solid frames in a four-colour palette. Each frame is LZW-coded as literals with a
@@ -1151,6 +1174,55 @@ private slots:
         QDesktopServices::unsetUrlHandler("file");
         QVERIFY(asked);
         QVERIFY(opened_.isEmpty());
+    }
+
+    void aFolderOnACardTakesWhatIsDroppedOnItAsInExplorer() {
+        const HRESULT ole = OleInitialize(nullptr);
+        const auto uninitialize = qScopeGuard([ole] {
+            if (SUCCEEDED(ole)) OleUninitialize();
+        });
+        const QString notes = write("notes.txt", "n"), moved = write("moved.txt", "m");
+        const QString box = dir_.filePath("box");
+        QVERIFY(QDir().mkpath(box));
+        const PinFileCard card({notes, box}, QSize(3 * PinFileCard::CELL_WIDTH, PinFileCard::CELL_HEIGHT));
+        auto *pin = PinManager::instance()->create_file_pin(card, QPoint(100, 100), config_);
+        const auto global = [pin, &card](int index) { return pin->view->viewport()->mapToGlobal(pin->view->mapFromScene(QRectF(card.cell_rect(index)).center())); };
+        // The folder takes drops; the file, the empty cell and the margin do not.
+        QCOMPARE(pin->drop_folder_at(global(1)), box);
+        QVERIFY(pin->drop_folder_at(global(0)).isEmpty());
+        QVERIFY(pin->drop_folder_at(global(2)).isEmpty());
+        QVERIFY(pin->drop_folder_at(pin->mapToGlobal(QPoint(-5, -5))).isEmpty());
+        // Nor while drawing.
+        QVERIFY(pin->canvas->activate_tool("pen"));
+        QVERIFY(pin->drop_folder_at(global(1)).isEmpty());
+        pin->canvas->deactivate_tool();
+        QCOMPARE(pin->drop_folder_at(global(1)), box);
+        // A file dragged from Explorer outlines the folder it is over, outside the pin's image, and moves in.
+        const QImage clean = pin->get_current_image();
+        const QImage plain = pin->view->viewport()->grab().toImage();
+        auto *target = pin->folder_drop()->target();
+        auto data = shell_data({moved});
+        QVERIFY(data);
+        const POINTL over{global(1).x(), global(1).y()};
+        DWORD effect = DROPEFFECT_COPY | DROPEFFECT_MOVE | DROPEFFECT_LINK;
+        QCOMPARE(target->DragEnter(data.Get(), MK_LBUTTON, over, &effect), S_OK);
+        QCOMPARE(effect, DWORD(DROPEFFECT_MOVE));
+        QCOMPARE(pin->file_selection()->drop_target(), 1);
+        QVERIFY(pin->view->viewport()->grab().toImage() != plain);
+        QCOMPARE(pin->get_current_image(), clean);
+        effect = DROPEFFECT_COPY | DROPEFFECT_MOVE | DROPEFFECT_LINK;
+        QCOMPARE(target->Drop(data.Get(), MK_LBUTTON, over, &effect), S_OK);
+        QCOMPARE(pin->file_selection()->drop_target(), -1);
+        QTRY_VERIFY(QFileInfo::exists(QDir(box).filePath("moved.txt")));
+        QTRY_VERIFY(!QFileInfo::exists(moved));
+        // The file is no folder.
+        const POINTL beside{global(0).x(), global(0).y()};
+        data = shell_data({notes});
+        effect = DROPEFFECT_COPY | DROPEFFECT_MOVE;
+        target->DragEnter(data.Get(), MK_LBUTTON, beside, &effect);
+        QCOMPARE(effect, DWORD(DROPEFFECT_NONE));
+        QCOMPARE(pin->file_selection()->drop_target(), -1);
+        target->DragLeave();
     }
 
     // ---- Dragging content out ----

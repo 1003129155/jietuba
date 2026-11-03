@@ -35,9 +35,11 @@ public:
     QRect cell_rect(int index) const;
     // The file whose card holds pos (image coordinates); -1 between cards and on the count cell.
     int file_at(const QPointF &pos) const;
-    // Fetches the shown files' icons; any thread, which then needs COM. Rendering fetches them
-    // itself the first time when this was not done.
+    // Fetches the shown files' icons and which of them are folders; any thread, which then needs COM.
+    // Rendering fetches them itself the first time when this was not done.
     void load_icons() const;
+    // A shown file that was a folder when the icons were fetched.
+    bool is_folder(int index) const { return index >= 0 && index < folders_.size() && folders_[index]; }
     // The cards stretched to size, in pixels of the given ratio; drawn afresh rather than resampled, so zooming stays sharp.
     QImage render(const QSize &size, double device_pixel_ratio = 1.0) const;
     // "1.25 MB"; bytes as a whole number.
@@ -58,6 +60,7 @@ private:
     int columns_ = 1, rows_ = 1, shown_ = 0;
     // One per shown file once loaded; null where the system gives none.
     mutable QVector<QImage> icons_;
+    mutable QVector<bool> folders_;
     mutable bool icons_loaded_ = false;
 };
 }
