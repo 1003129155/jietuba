@@ -6032,6 +6032,42 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>列を削除</translation>
     </message>
     <message>
+        <source>Cut</source>
+        <translation>切り取り</translation>
+    </message>
+    <message>
+        <source>Paste</source>
+        <translation>貼り付け</translation>
+    </message>
+    <message>
+        <source>Redo</source>
+        <translation>やり直す</translation>
+    </message>
+    <message>
+        <source>Insert row above</source>
+        <translation>上に行を挿入</translation>
+    </message>
+    <message>
+        <source>Insert row below</source>
+        <translation>下に行を挿入</translation>
+    </message>
+    <message>
+        <source>Insert column left</source>
+        <translation>左に列を挿入</translation>
+    </message>
+    <message>
+        <source>Insert column right</source>
+        <translation>右に列を挿入</translation>
+    </message>
+    <message>
+        <source>Merge cells</source>
+        <translation>セルを結合</translation>
+    </message>
+    <message>
+        <source>Split cells</source>
+        <translation>セルの結合を解除</translation>
+    </message>
+    <message>
         <source>Undo</source>
         <translation>元に戻す</translation>
     </message>

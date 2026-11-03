@@ -6409,6 +6409,42 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>刪除所在欄</translation>
     </message>
     <message>
+        <source>Cut</source>
+        <translation>剪下</translation>
+    </message>
+    <message>
+        <source>Paste</source>
+        <translation>貼上</translation>
+    </message>
+    <message>
+        <source>Redo</source>
+        <translation>取消復原</translation>
+    </message>
+    <message>
+        <source>Insert row above</source>
+        <translation>在上方插入列</translation>
+    </message>
+    <message>
+        <source>Insert row below</source>
+        <translation>在下方插入列</translation>
+    </message>
+    <message>
+        <source>Insert column left</source>
+        <translation>在左側插入欄</translation>
+    </message>
+    <message>
+        <source>Insert column right</source>
+        <translation>在右側插入欄</translation>
+    </message>
+    <message>
+        <source>Merge cells</source>
+        <translation>合併儲存格</translation>
+    </message>
+    <message>
+        <source>Split cells</source>
+        <translation>分割儲存格</translation>
+    </message>
+    <message>
         <source>Undo</source>
         <translation>復原</translation>
     </message>

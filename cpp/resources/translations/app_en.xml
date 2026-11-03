@@ -5940,6 +5940,42 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>Delete column</translation>
     </message>
     <message>
+        <source>Cut</source>
+        <translation>Cut</translation>
+    </message>
+    <message>
+        <source>Paste</source>
+        <translation>Paste</translation>
+    </message>
+    <message>
+        <source>Redo</source>
+        <translation>Redo</translation>
+    </message>
+    <message>
+        <source>Insert row above</source>
+        <translation>Insert row above</translation>
+    </message>
+    <message>
+        <source>Insert row below</source>
+        <translation>Insert row below</translation>
+    </message>
+    <message>
+        <source>Insert column left</source>
+        <translation>Insert column left</translation>
+    </message>
+    <message>
+        <source>Insert column right</source>
+        <translation>Insert column right</translation>
+    </message>
+    <message>
+        <source>Merge cells</source>
+        <translation>Merge cells</translation>
+    </message>
+    <message>
+        <source>Split cells</source>
+        <translation>Split cells</translation>
+    </message>
+    <message>
         <source>Undo</source>
         <translation>Undo</translation>
     </message>

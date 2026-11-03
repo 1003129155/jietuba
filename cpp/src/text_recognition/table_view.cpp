@@ -13,6 +13,7 @@
 #include <QMimeData>
 #include <QPainter>
 #include <QUndoCommand>
+#include <functional>
 
 namespace jietuba {
 namespace {
@@ -195,20 +196,41 @@ void RecognizedTableView::on_item_changed(QTableWidgetItem *item) {
     QMetaObject::invokeMethod(this, [this, edited] { push(edited); }, Qt::QueuedConnection);
 }
 
-text_table::Table RecognizedTableView::selected_table() const {
+RecognizedTableView::Bounds RecognizedTableView::selection_bounds() const {
+    Bounds b;
     const auto ranges = selectedRanges();
     if (ranges.isEmpty()) {
-        if (currentRow() < 0 || currentColumn() < 0) return {};
-        return text_table::part(table_, currentRow(), currentColumn(), currentRow(), currentColumn());
+        if (currentRow() < 0 || currentColumn() < 0) return b;
+        b = {currentRow(), currentColumn(), currentRow(), currentColumn()};
+    } else {
+        b = {ranges.front().topRow(), ranges.front().leftColumn(), ranges.front().bottomRow(), ranges.front().rightColumn()};
+        for (const auto &range : ranges) {
+            b.row0 = std::min(b.row0, range.topRow());
+            b.row1 = std::max(b.row1, range.bottomRow());
+            b.column0 = std::min(b.column0, range.leftColumn());
+            b.column1 = std::max(b.column1, range.rightColumn());
+        }
     }
-    int r0 = ranges.front().topRow(), r1 = ranges.front().bottomRow(), c0 = ranges.front().leftColumn(), c1 = ranges.front().rightColumn();
-    for (const auto &range : ranges) {
-        r0 = std::min(r0, range.topRow());
-        r1 = std::max(r1, range.bottomRow());
-        c0 = std::min(c0, range.leftColumn());
-        c1 = std::max(c1, range.rightColumn());
+    // Growing over one merged cell can meet another; repeat until nothing grows.
+    for (bool grew = true; grew;) {
+        grew = false;
+        for (const auto &c : table_.cells) {
+            if (c.row > b.row1 || c.row + c.row_span <= b.row0 || c.column > b.column1 || c.column + c.column_span <= b.column0) continue;
+            const Bounds next{std::min(b.row0, c.row), std::min(b.column0, c.column), std::max(b.row1, c.row + c.row_span - 1),
+                              std::max(b.column1, c.column + c.column_span - 1)};
+            if (next.row0 != b.row0 || next.column0 != b.column0 || next.row1 != b.row1 || next.column1 != b.column1) {
+                b = next;
+                grew = true;
+            }
+        }
     }
-    return text_table::part(table_, r0, c0, r1, c1);
+    return b;
+}
+
+text_table::Table RecognizedTableView::selected_table() const {
+    const auto b = selection_bounds();
+    if (!b.valid()) return {};
+    return text_table::part(table_, b.row0, b.column0, b.row1, b.column1);
 }
 
 void RecognizedTableView::copy_selection() {
@@ -216,12 +238,66 @@ void RecognizedTableView::copy_selection() {
     if (!part.cells.isEmpty()) copy_table(part);
 }
 
-void RecognizedTableView::delete_current_row() {
-    if (table_.rows > 1 && currentRow() >= 0) push(text_table::without_row(table_, currentRow()));
+void RecognizedTableView::cut_selection() {
+    copy_selection();
+    clear_selection_text();
 }
 
-void RecognizedTableView::delete_current_column() {
-    if (table_.columns > 1 && currentColumn() >= 0) push(text_table::without_column(table_, currentColumn()));
+void RecognizedTableView::paste() {
+    const auto b = selection_bounds();
+    const auto grid = text_table::parse_tsv(QApplication::clipboard()->text());
+    if (!b.valid() || grid.isEmpty()) return;
+    if (grid.size() == 1 && grid.front().size() == 1 && selectedItems().size() > 1) {
+        auto table = table_;
+        for (const auto *selected : selectedItems()) table = text_table::with_text(table, selected->row(), selected->column(), grid.front().front());
+        push(table);
+        return;
+    }
+    push(text_table::pasted(table_, b.row0, b.column0, grid));
+}
+
+void RecognizedTableView::insert_row(bool below) {
+    const auto b = selection_bounds();
+    if (!b.valid()) return;
+    const int row = below ? b.row1 + 1 : b.row0, column = currentColumn();
+    push(text_table::with_row_inserted(table_, row));
+    setCurrentCell(row, std::max(0, column));
+}
+
+void RecognizedTableView::insert_column(bool right) {
+    const auto b = selection_bounds();
+    if (!b.valid()) return;
+    const int column = right ? b.column1 + 1 : b.column0, row = currentRow();
+    push(text_table::with_column_inserted(table_, column));
+    setCurrentCell(std::max(0, row), column);
+}
+
+void RecognizedTableView::delete_selected_rows() {
+    const auto b = selection_bounds();
+    if (!b.valid() || b.row1 - b.row0 + 1 >= table_.rows) return;
+    auto table = table_;
+    for (int r = b.row1; r >= b.row0; --r) table = text_table::without_row(table, r);
+    push(table);
+}
+
+void RecognizedTableView::delete_selected_columns() {
+    const auto b = selection_bounds();
+    if (!b.valid() || b.column1 - b.column0 + 1 >= table_.columns) return;
+    auto table = table_;
+    for (int c = b.column1; c >= b.column0; --c) table = text_table::without_column(table, c);
+    push(table);
+}
+
+void RecognizedTableView::merge_selection() {
+    const auto b = selection_bounds();
+    if (!b.valid() || !text_table::can_merge(table_, b.row0, b.column0, b.row1, b.column1)) return;
+    push(text_table::merged(table_, b.row0, b.column0, b.row1, b.column1));
+    setCurrentCell(b.row0, b.column0);
+}
+
+void RecognizedTableView::split_selection() {
+    const auto b = selection_bounds();
+    if (b.valid()) push(text_table::split(table_, b.row0, b.column0, b.row1, b.column1));
 }
 
 void RecognizedTableView::clear_selection_text() {
@@ -233,16 +309,30 @@ void RecognizedTableView::clear_selection_text() {
 void RecognizedTableView::contextMenuEvent(QContextMenuEvent *event) {
     if (const auto index = indexAt(viewport()->mapFromGlobal(event->globalPos())); index.isValid() && !selectionModel()->isSelected(index))
         setCurrentCell(index.row(), index.column());
+    const auto b = selection_bounds();
+    const bool any = b.valid();
     QMenu menu(this);
-    auto *copy = menu.addAction(tr_text("Copy selected cells"), this, &RecognizedTableView::copy_selection);
-    copy->setShortcut(QKeySequence::Copy);
+    auto add = [&](const char *text, std::function<void()> slot, bool enabled, const QKeySequence &shortcut = {}) {
+        auto *action = menu.addAction(tr_text(text), this, std::move(slot));
+        action->setEnabled(enabled);
+        action->setShortcut(shortcut);
+    };
+    add("Copy selected cells", [this] { copy_selection(); }, any, QKeySequence::Copy);
+    add("Cut", [this] { cut_selection(); }, any, QKeySequence::Cut);
+    add("Paste", [this] { paste(); }, any && !QApplication::clipboard()->text().isEmpty(), QKeySequence::Paste);
     menu.addSeparator();
-    menu.addAction(tr_text("Delete row"), this, &RecognizedTableView::delete_current_row)->setEnabled(table_.rows > 1);
-    menu.addAction(tr_text("Delete column"), this, &RecognizedTableView::delete_current_column)->setEnabled(table_.columns > 1);
+    add("Insert row above", [this] { insert_row(false); }, any);
+    add("Insert row below", [this] { insert_row(true); }, any);
+    add("Insert column left", [this] { insert_column(false); }, any);
+    add("Insert column right", [this] { insert_column(true); }, any);
+    add("Delete row", [this] { delete_selected_rows(); }, any && b.row1 - b.row0 + 1 < table_.rows);
+    add("Delete column", [this] { delete_selected_columns(); }, any && b.column1 - b.column0 + 1 < table_.columns);
     menu.addSeparator();
-    auto *undo = menu.addAction(tr_text("Undo"), &undo_, &QUndoStack::undo);
-    undo->setShortcut(QKeySequence::Undo);
-    undo->setEnabled(undo_.canUndo());
+    add("Merge cells", [this] { merge_selection(); }, any && text_table::can_merge(table_, b.row0, b.column0, b.row1, b.column1));
+    add("Split cells", [this] { split_selection(); }, any && !(text_table::split(table_, b.row0, b.column0, b.row1, b.column1) == table_));
+    menu.addSeparator();
+    add("Undo", [this] { undo_.undo(); }, undo_.canUndo(), QKeySequence::Undo);
+    add("Redo", [this] { undo_.redo(); }, undo_.canRedo(), QKeySequence::Redo);
     style_popup_menu(&menu, ui_tokens(this));
     menu.exec(event->globalPos());
 }
@@ -251,6 +341,14 @@ void RecognizedTableView::keyPressEvent(QKeyEvent *event) {
     if (state() != QAbstractItemView::EditingState) {
         if (event->matches(QKeySequence::Copy)) {
             copy_selection();
+            return;
+        }
+        if (event->matches(QKeySequence::Cut)) {
+            cut_selection();
+            return;
+        }
+        if (event->matches(QKeySequence::Paste)) {
+            paste();
             return;
         }
         if (event->matches(QKeySequence::Undo)) {

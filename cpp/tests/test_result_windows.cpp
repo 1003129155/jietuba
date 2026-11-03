@@ -356,10 +356,10 @@ private slots:
         QCOMPARE(view.item(1, 2)->text(), QString("D"));
         // Deleting a row and a column, then undoing both.
         view.setCurrentCell(2, 2);
-        view.delete_current_row();
+        view.delete_selected_rows();
         QCOMPARE(view.rowCount(), 2);
-        view.setCurrentCell(0, 2);
-        view.delete_current_column();
+        view.setCurrentCell(1, 2);
+        view.delete_selected_columns();
         QCOMPARE(view.columnCount(), 2);
         QCOMPARE(view.columnSpan(0, 1), 1);
         view.undo_stack()->undo();
@@ -370,8 +370,8 @@ private slots:
         view.set_table({1, 1, {{0, 0, 1, 1, "x"}}}, false);
         QVERIFY(!view.undo_stack()->canUndo());
         view.setCurrentCell(0, 0);
-        view.delete_current_row();
-        view.delete_current_column();
+        view.delete_selected_rows();
+        view.delete_selected_columns();
         QCOMPARE(view.rowCount(), 1);
         QCOMPARE(view.columnCount(), 1);
     }
@@ -423,6 +423,94 @@ private slots:
         // The blank image's own result arrives first.
         QTRY_VERIFY_WITH_TIMEOUT(!window->status_label->text().startsWith("Recognizing"), 30000);
         window->on_recognized(SMALL_LINES, {}, {});
+    void theTableMenuInsertsMergesSplitsAndPastes() {
+        RecognizedTableView view;
+        // A | B B
+        // A | c d
+        view.set_table({2, 3, {{0, 0, 2, 1, "A"}, {0, 1, 1, 2, "B"}, {1, 1, 1, 1, "c"}, {1, 2, 1, 1, "d"}}}, false);
+        view.resize(400, 200);
+        view.show();
+        const auto menu_at = [&](int row, int column, const QString &label) {
+            const QPoint at = view.visualRect(view.model()->index(row, column)).center();
+            choose_from_next_menu(label);
+            QContextMenuEvent event(QContextMenuEvent::Mouse, at, view.viewport()->mapToGlobal(at));
+            QApplication::sendEvent(view.viewport(), &event);
+        };
+        // Inserting below c's row adds a row and moves to it; inside A's rows A grows.
+        menu_at(1, 1, "Insert row below");
+        QCOMPARE(view.rowCount(), 3);
+        QCOMPARE(view.currentRow(), 2);
+        menu_at(1, 1, "Insert row above");
+        QCOMPARE(view.rowSpan(0, 0), 3);
+        QCOMPARE(view.item(1, 1)->text(), QString());
+        view.undo_stack()->undo();
+        view.undo_stack()->undo();
+        QCOMPARE(view.rowCount(), 2);
+        // Right of B's columns, a column after both of them.
+        menu_at(0, 1, "Insert column right");
+        QCOMPARE(view.columnCount(), 4);
+        QCOMPARE(view.columnSpan(0, 1), 2);
+        QCOMPARE(view.currentColumn(), 3);
+        menu_at(1, 1, "Insert column left");
+        QCOMPARE(view.columnSpan(0, 2), 2);
+        QCOMPARE(view.item(1, 2)->text(), QString("c"));
+        view.undo_stack()->undo();
+        view.undo_stack()->undo();
+
+        // c and d merge into one cell with both texts; split is offered only on merged cells.
+        inspect_next_menu([](QMenu *menu) {
+            for (auto *action : menu->actions()) {
+                if (action->text().startsWith("Merge cells") || action->text().startsWith("Split cells")) QVERIFY(!action->isEnabled());
+                if (action->text().startsWith("Redo")) QVERIFY(action->isEnabled());
+            }
+        });
+        const QPoint c_at = view.visualItemRect(view.item(1, 1)).center();
+        QContextMenuEvent probe(QContextMenuEvent::Mouse, c_at, view.viewport()->mapToGlobal(c_at));
+        QApplication::sendEvent(view.viewport(), &probe);
+        view.setRangeSelected(QTableWidgetSelectionRange(1, 1, 1, 2), true);
+        menu_at(1, 1, "Merge cells");
+        QCOMPARE(view.columnSpan(1, 1), 2);
+        QCOMPARE(view.item(1, 1)->text(), QString("c d"));
+        // Split acts on the merged cell the current cell is in.
+        view.clearSelection();
+        view.setCurrentCell(1, 1);
+        menu_at(1, 1, "Split cells");
+        QCOMPARE(view.columnSpan(1, 1), 1);
+        QCOMPARE(view.item(1, 1)->text(), QString("c d"));
+        QCOMPARE(view.item(1, 2)->text(), QString());
+
+        // Rows across A delete both of A's rows; the last row stays, so that is off.
+        view.setCurrentCell(0, 0);
+        inspect_next_menu([](QMenu *menu) {
+            for (auto *action : menu->actions())
+                if (action->text().startsWith("Delete row")) QVERIFY(!action->isEnabled());
+        });
+        const QPoint a_at = view.visualItemRect(view.item(0, 0)).center();
+        QContextMenuEvent rows(QContextMenuEvent::Mouse, a_at, view.viewport()->mapToGlobal(a_at));
+        QApplication::sendEvent(view.viewport(), &rows);
+
+        // Pasting a spreadsheet's copy from c grows the table; Ctrl+X empties what it copied.
+        QApplication::clipboard()->setText("1\t2\t3\n4\t5\t6\n");
+        view.setCurrentCell(1, 1);
+        QTest::keyClick(&view, Qt::Key_V, Qt::ControlModifier);
+        QCOMPARE(view.rowCount(), 3);
+        QCOMPARE(view.columnCount(), 4);
+        QCOMPARE(view.item(1, 3)->text(), QString("3"));
+        QCOMPARE(view.item(2, 1)->text(), QString("4"));
+        QCOMPARE(view.rowSpan(0, 0), 2);
+        QTest::keyClick(&view, Qt::Key_Z, Qt::ControlModifier);
+        QCOMPARE(view.rowCount(), 2);
+        // One value fills every selected cell.
+        QApplication::clipboard()->setText("x");
+        view.setRangeSelected(QTableWidgetSelectionRange(1, 1, 1, 2), true);
+        QTest::keyClick(&view, Qt::Key_V, Qt::ControlModifier);
+        QCOMPARE(view.item(1, 1)->text(), QString("x"));
+        QCOMPARE(view.item(1, 2)->text(), QString("x"));
+        QTest::keyClick(&view, Qt::Key_X, Qt::ControlModifier);
+        QCOMPARE(QApplication::clipboard()->text(), QString("x\tx"));
+        QCOMPARE(view.item(1, 2)->text(), QString());
+    }
+
         QVERIFY(window->view_switch->isHidden());
         QVERIFY(!window->showing_table());
         QCOMPARE(window->text_edit->toPlainText(), QString("Name Qty\nPear 7"));
@@ -447,7 +535,7 @@ private slots:
         QVERIFY(mime->html().contains("<table"));
         // Deleting a row updates the count.
         window->table_view->setCurrentCell(1, 0);
-        window->table_view->delete_current_row();
+        window->table_view->delete_selected_rows();
         QCOMPARE(window->status_label->text(), QString("1 rows × 2 columns"));
         window->view_switch->setCurrentItem("text");
         QCOMPARE(config_->get_ocr_result_view(), QString("text"));

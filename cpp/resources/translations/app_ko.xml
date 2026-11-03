@@ -6020,6 +6020,42 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>열 삭제</translation>
     </message>
     <message>
+        <source>Cut</source>
+        <translation>잘라내기</translation>
+    </message>
+    <message>
+        <source>Paste</source>
+        <translation>붙여넣기</translation>
+    </message>
+    <message>
+        <source>Redo</source>
+        <translation>다시 실행</translation>
+    </message>
+    <message>
+        <source>Insert row above</source>
+        <translation>위에 행 삽입</translation>
+    </message>
+    <message>
+        <source>Insert row below</source>
+        <translation>아래에 행 삽입</translation>
+    </message>
+    <message>
+        <source>Insert column left</source>
+        <translation>왼쪽에 열 삽입</translation>
+    </message>
+    <message>
+        <source>Insert column right</source>
+        <translation>오른쪽에 열 삽입</translation>
+    </message>
+    <message>
+        <source>Merge cells</source>
+        <translation>셀 병합</translation>
+    </message>
+    <message>
+        <source>Split cells</source>
+        <translation>셀 분할</translation>
+    </message>
+    <message>
         <source>Undo</source>
         <translation>실행 취소</translation>
     </message>

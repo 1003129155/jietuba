@@ -1434,6 +1434,44 @@ Table without_column(const Table &table, int column) {
     return out;
 }
 
+Table with_row_inserted(const Table &table, int row) {
+    row = std::clamp(row, 0, table.rows);
+    Table out{table.rows + 1, table.columns, {}};
+    QVector<bool> covered(table.columns, false);
+    for (auto c : table.cells) {
+        if (c.row < row && row < c.row + c.row_span) {
+            ++c.row_span;
+            for (int k = c.column; k < c.column + c.column_span; ++k) covered[k] = true;
+        } else if (c.row >= row) {
+            ++c.row;
+        }
+        out.cells.append(c);
+    }
+    for (int k = 0; k < table.columns; ++k)
+        if (!covered[k]) out.cells.append({row, k, 1, 1, {}});
+    sort_cells(out);
+    return out;
+}
+
+Table with_column_inserted(const Table &table, int column) {
+    column = std::clamp(column, 0, table.columns);
+    Table out{table.rows, table.columns + 1, {}};
+    QVector<bool> covered(table.rows, false);
+    for (auto c : table.cells) {
+        if (c.column < column && column < c.column + c.column_span) {
+            ++c.column_span;
+            for (int r = c.row; r < c.row + c.row_span; ++r) covered[r] = true;
+        } else if (c.column >= column) {
+            ++c.column;
+        }
+        out.cells.append(c);
+    }
+    for (int r = 0; r < table.rows; ++r)
+        if (!covered[r]) out.cells.append({r, column, 1, 1, {}});
+    sort_cells(out);
+    return out;
+}
+
 Table part(const Table &table, int row0, int column0, int row1, int column1) {
     row0 = std::max(row0, 0);
     column0 = std::max(column0, 0);
@@ -1449,6 +1487,98 @@ Table part(const Table &table, int row0, int column0, int row1, int column1) {
     }
     sort_cells(out);
     return out;
+}
+
+bool can_merge(const Table &table, int row0, int column0, int row1, int column1) {
+    if (row0 < 0 || column0 < 0 || row1 >= table.rows || column1 >= table.columns || row1 < row0 || column1 < column0) return false;
+    int inside = 0;
+    for (const auto &c : table.cells) {
+        const bool meets = c.row <= row1 && row0 < c.row + c.row_span && c.column <= column1 && column0 < c.column + c.column_span;
+        if (!meets) continue;
+        if (c.row < row0 || c.row + c.row_span - 1 > row1 || c.column < column0 || c.column + c.column_span - 1 > column1) return false;
+        ++inside;
+    }
+    return inside >= 2;
+}
+
+Table merged(const Table &table, int row0, int column0, int row1, int column1) {
+    if (!can_merge(table, row0, column0, row1, column1)) return table;
+    Table out{table.rows, table.columns, {}};
+    QString text;
+    for (const auto &c : table.cells) {
+        if (c.row < row0 || c.row > row1 || c.column < column0 || c.column > column1) {
+            out.cells.append(c);
+            continue;
+        }
+        const QString t = c.text.trimmed();
+        if (t.isEmpty()) continue;
+        if (!text.isEmpty() && !(ends_cjk(text) || starts_cjk(t))) text += ' ';
+        text += t;
+    }
+    out.cells.append({row0, column0, row1 - row0 + 1, column1 - column0 + 1, text});
+    sort_cells(out);
+    return out;
+}
+
+Table split(const Table &table, int row0, int column0, int row1, int column1) {
+    Table out{table.rows, table.columns, {}};
+    for (const auto &c : table.cells) {
+        const bool meets = c.row <= row1 && row0 < c.row + c.row_span && c.column <= column1 && column0 < c.column + c.column_span;
+        if (!meets || (c.row_span == 1 && c.column_span == 1)) {
+            out.cells.append(c);
+            continue;
+        }
+        for (int r = c.row; r < c.row + c.row_span; ++r)
+            for (int k = c.column; k < c.column + c.column_span; ++k) out.cells.append({r, k, 1, 1, r == c.row && k == c.column ? c.text : QString()});
+    }
+    sort_cells(out);
+    return out;
+}
+
+QVector<QStringList> parse_tsv(const QString &text) {
+    QVector<QStringList> rows;
+    QStringList row;
+    QString field;
+    bool quoted = false, any = false;
+    for (int i = 0; i < text.size(); ++i) {
+        const QChar ch = text[i];
+        if (quoted) {
+            if (ch != '"') field += ch;
+            else if (i + 1 < text.size() && text[i + 1] == '"') field += '"', ++i;
+            else quoted = false;
+        } else if (ch == '"' && field.isEmpty()) {
+            quoted = true;
+        } else if (ch == '\t') {
+            row << field;
+            field.clear();
+        } else if (ch == '\n' || ch == '\r') {
+            if (ch == '\r' && i + 1 < text.size() && text[i + 1] == '\n') ++i;
+            rows << (row << field);
+            row.clear();
+            field.clear();
+            any = false;
+            continue;
+        } else {
+            field += ch;
+        }
+        any = true;
+    }
+    // A trailing line break, as spreadsheets end their copies, adds no empty row.
+    if (any || !row.isEmpty()) rows << (row << field);
+    return rows;
+}
+
+Table pasted(Table table, int row, int column, const QVector<QStringList> &grid) {
+    if (row < 0 || column < 0) return table;
+    int width = 0;
+    for (const auto &line : grid) width = std::max(width, int(line.size()));
+    while (table.rows < row + grid.size()) table = with_row_inserted(table, table.rows);
+    while (table.columns < column + width) table = with_column_inserted(table, table.columns);
+    for (auto &c : table.cells) {
+        const int r = c.row - row, k = c.column - column;
+        if (r >= 0 && r < grid.size() && k >= 0 && k < grid[r].size()) c.text = grid[r][k];
+    }
+    return table;
 }
 
 Table map_text(Table table, const std::function<QString(const QString &)> &convert) {

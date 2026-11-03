@@ -279,6 +279,66 @@ private slots:
         QCOMPARE(text_at(upper, 1, 2), QString("D"));
     }
 
+    void insertedRowsAndColumnsGrowTheMergedCellsTheyPass() {
+        const auto table = sample();
+        // Between the two rows A spans: A grows, the other columns get empty cells.
+        const auto inside = with_row_inserted(table, 1);
+        QCOMPARE(inside.rows, 4);
+        QCOMPARE(grid(inside), QStringList({"A|B|<none>", "<none>||", "<none>|c|d", "e|f|g"}));
+        QCOMPARE(cell_at(inside, 2, 0)->row_span, 3);
+        QCOMPARE(grid(with_row_inserted(table, 0)), QStringList({"||", "A|B|<none>", "<none>|c|d", "e|f|g"}));
+        QCOMPARE(grid(with_row_inserted(table, 3)).last(), QString("||"));
+        // B spans columns 1-2, so a column before 2 widens it.
+        const auto column = with_column_inserted(table, 2);
+        QCOMPARE(column.columns, 4);
+        QCOMPARE(grid(column), QStringList({"A|B|<none>|<none>", "<none>|c||d", "e|f||g"}));
+        QCOMPARE(cell_at(column, 0, 3)->column_span, 3);
+        QCOMPARE(grid(with_column_inserted(table, 0)), QStringList({"|A|B|<none>", "|<none>|c|d", "|e|f|g"}));
+    }
+
+    void mergingKeepsEveryTextAndSplittingKeepsItTopLeft() {
+        const auto table = sample();
+        QVERIFY(can_merge(table, 1, 1, 2, 2));
+        QVERIFY(can_merge(table, 0, 0, 2, 0));
+        // A rectangle cutting B, or holding one cell, does not merge.
+        QVERIFY(!can_merge(table, 0, 0, 1, 1));
+        QVERIFY(!can_merge(table, 0, 1, 0, 2));
+        QVERIFY(!can_merge(table, 2, 2, 2, 2));
+        QVERIFY(!can_merge(table, 2, 2, 3, 3));
+        QVERIFY(merged(table, 0, 0, 1, 1) == table);
+
+        const auto block = merged(table, 1, 1, 2, 2);
+        QCOMPARE(grid(block), QStringList({"A|B|<none>", "<none>|c d f g|<none>", "e|<none>|<none>"}));
+        QCOMPARE(cell_at(block, 2, 2)->row_span, 2);
+        QCOMPARE(block.cells.size(), 4);
+        // No space where CJK text meets; empty cells add nothing.
+        const Table words{1, 4, {{0, 0, 1, 1, "Total"}, {0, 1, 1, 1, " "}, {0, 2, 1, 1, "amount"}, {0, 3, 1, 1, "金额"}}};
+        QCOMPARE(merged(words, 0, 0, 0, 3).cells[0].text, QString::fromUtf8("Total amount金额"));
+
+        QCOMPARE(grid(split(table, 0, 0, 0, 0)), QStringList({"A|B|<none>", "|c|d", "e|f|g"}));
+        QCOMPARE(grid(split(table, 0, 0, 2, 2)), QStringList({"A|B|", "|c|d", "e|f|g"}));
+        QVERIFY(split(table, 2, 0, 2, 2) == table);
+    }
+
+    void pastedTextFillsFromACellAndGrowsTheTable() {
+        QCOMPARE(parse_tsv("a\tb\r\nc\t\"x\ny\"\n"), QVector<QStringList>({{"a", "b"}, {"c", "x\ny"}}));
+        QCOMPARE(parse_tsv("\"say \"\"hi\"\"\""), QVector<QStringList>({{"say \"hi\""}}));
+        QCOMPARE(parse_tsv("a\n\nb"), QVector<QStringList>({{"a"}, {""}, {"b"}}));
+        QCOMPARE(parse_tsv("a\"b"), QVector<QStringList>({{"a\"b"}}));
+        QVERIFY(parse_tsv("").isEmpty());
+
+        const auto table = sample();
+        const auto grown = pasted(table, 2, 1, {{"1", "2", "3"}, {"4"}});
+        QCOMPARE(grown.rows, 4);
+        QCOMPARE(grown.columns, 4);
+        QCOMPARE(grid(grown), QStringList({"A|B|<none>|", "<none>|c|d|", "e|1|2|3", "|4||"}));
+        // Only the merged cell's top-left takes a value.
+        const auto over = pasted(table, 0, 1, {{"x", "y"}});
+        QCOMPARE(cell_at(over, 0, 2)->text, QString("x"));
+        QCOMPARE(over.columns, 3);
+        QVERIFY(pasted(table, -1, 0, {{"x"}}) == table);
+    }
+
     void clipboardFormats() {
         const Table table{2, 2, {{0, 0, 1, 2, "a"}, {1, 0, 1, 1, "b<"}, {1, 1, 1, 1, "c\td"}}};
         QCOMPARE(table_html(table), QString("<table border=\"1\" cellspacing=\"0\" cellpadding=\"4\" style=\"border-collapse:collapse\">"

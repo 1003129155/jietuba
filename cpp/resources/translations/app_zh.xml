@@ -6022,6 +6022,42 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>删除所在列</translation>
     </message>
     <message>
+        <source>Cut</source>
+        <translation>剪切</translation>
+    </message>
+    <message>
+        <source>Paste</source>
+        <translation>粘贴</translation>
+    </message>
+    <message>
+        <source>Redo</source>
+        <translation>重做</translation>
+    </message>
+    <message>
+        <source>Insert row above</source>
+        <translation>在上方插入行</translation>
+    </message>
+    <message>
+        <source>Insert row below</source>
+        <translation>在下方插入行</translation>
+    </message>
+    <message>
+        <source>Insert column left</source>
+        <translation>在左侧插入列</translation>
+    </message>
+    <message>
+        <source>Insert column right</source>
+        <translation>在右侧插入列</translation>
+    </message>
+    <message>
+        <source>Merge cells</source>
+        <translation>合并单元格</translation>
+    </message>
+    <message>
+        <source>Split cells</source>
+        <translation>拆分单元格</translation>
+    </message>
+    <message>
         <source>Undo</source>
         <translation>撤销</translation>
     </message>

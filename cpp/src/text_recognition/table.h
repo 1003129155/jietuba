@@ -67,8 +67,24 @@ Table with_text(Table table, int row, int column, const QString &text);
 // Without one row or column: merged cells across it shrink, cells only in it go.
 Table without_row(const Table &table, int row);
 Table without_column(const Table &table, int column);
+// An empty row or column inserted before index row/column (rows/columns appends); merged
+// cells it passes through grow over it.
+Table with_row_inserted(const Table &table, int row);
+Table with_column_inserted(const Table &table, int column);
 // Rows row0..row1 and columns column0..column1, merged cells cut to them with their text.
 Table part(const Table &table, int row0, int column0, int row1, int column1);
+// Whether the rectangle holds two or more cells and cuts no merged cell.
+bool can_merge(const Table &table, int row0, int column0, int row1, int column1);
+// The rectangle as one cell. Every cell's text is kept, in reading order: merging mostly
+// repairs text the recognition split, so keeping only the top-left would lose it.
+Table merged(const Table &table, int row0, int column0, int row1, int column1);
+// Merged cells meeting the rectangle split into single cells, each text in its top-left.
+Table split(const Table &table, int row0, int column0, int row1, int column1);
+// Tab-separated rows, quoted as spreadsheets copy them, parsed into a grid.
+QVector<QStringList> parse_tsv(const QString &text);
+// grid written from (row, column), the table growing to hold it. A position inside a merged
+// cell but not at its top-left is skipped, so the merged cell takes one value.
+Table pasted(Table table, int row, int column, const QVector<QStringList> &grid);
 // Every cell's text passed through convert.
 Table map_text(Table table, const std::function<QString(const QString &)> &convert);
 }
