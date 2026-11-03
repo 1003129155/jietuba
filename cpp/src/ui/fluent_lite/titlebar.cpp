@@ -61,10 +61,11 @@ void TitleBarPinButton::_apply_theme() {
 
 std::pair<QColor, QColor> TitleBarPinButton::colors() const {
     const auto &tokens = ui_tokens(this);
-    if (isChecked()) return {QColor::fromString(tokens.accent), QColor::fromString(tokens.accent_soft)};
-    if (isDown()) return {QColor::fromString(tokens.text), QColor::fromString(tokens.accent_soft)};
-    if (underMouse()) return {QColor::fromString(tokens.text), QColor::fromString(tokens.surface_hover)};
-    return {QColor::fromString(tokens.text_muted), QColor(0, 0, 0, 0)};
+    // Pinned shows in the icon alone: a filled cell beside the caption buttons reads as a stuck hover.
+    const QColor icon = QColor::fromString(isChecked() ? tokens.accent : underMouse() || isDown() ? tokens.text : tokens.text_muted);
+    if (isDown()) return {icon, QColor::fromString(tokens.accent_soft)};
+    if (underMouse()) return {icon, QColor::fromString(tokens.surface_hover)};
+    return {icon, QColor(0, 0, 0, 0)};
 }
 
 void TitleBarPinButton::enterEvent(QEnterEvent *event) {

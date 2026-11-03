@@ -50,8 +50,8 @@ protected:
 class TextRecognitionWindow : public FrostedFramelessDialog {
     Q_OBJECT
 public:
-    static constexpr int WIDTH = 520;
-    static constexpr int HEIGHT = 420;
+    static constexpr int WIDTH = 624;
+    static constexpr int HEIGHT = 504;
     // image is the selection's base image; recognition starts on construction.
     explicit TextRecognitionWindow(const QImage &image, QWidget *parent = nullptr, const std::optional<QRect> &anchor = std::nullopt);
     TitleBarPinButton *pin_button;

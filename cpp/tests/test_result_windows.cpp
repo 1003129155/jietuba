@@ -547,6 +547,15 @@ private slots:
         QCOMPARE(shot.pixelColor(beside, shot.height() - 1).alpha(), 0);
     }
 
+    void aPinnedWindowShowsItInTheIconAlone() {
+        TextRecognitionWindow window(blank_image());
+        window.pin_button->setChecked(false);
+        const QColor off = window.pin_button->grab().toImage().pixelColor(1, 1);
+        window.pin_button->setChecked(true);
+        // No filled cell beside the caption buttons, which fill only on hover.
+        QCOMPARE(window.pin_button->grab().toImage().pixelColor(1, 1), off);
+    }
+
     void theViewSwitchSitsInsideTheTitleBar() {
         TextRecognitionWindow window(blank_image());
         QVERIFY(window.view_switch->sizeHint().height() <= window.titleBar()->height() - 2 * dialog_scaled(3));

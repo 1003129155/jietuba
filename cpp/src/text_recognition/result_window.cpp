@@ -95,7 +95,9 @@ LayoutMenuButton::LayoutMenuButton(const QString &text, QWidget *parent) : Trans
 
 QString LayoutMenuButton::style_sheet() const {
     // Text and arrow each take a side; the right padding leaves room for the arrow.
-    return TransparentPushButton::style_sheet() + QString("QPushButton { padding-right: %1px; }").arg(widget_scaled(this, 22));
+    // Full text colour, so it reads as a control beside the muted status.
+    return TransparentPushButton::style_sheet() +
+           QString("QPushButton { padding-right: %1px; color: %2; }").arg(widget_scaled(this, 22)).arg(ui_tokens(this).text);
 }
 
 void LayoutMenuButton::paintEvent(QPaintEvent *event) {
@@ -188,7 +190,7 @@ TextRecognitionWindow::TextRecognitionWindow(const QImage &image, QWidget *paren
     footer->addWidget(copy_button);
 
     auto *root = new QVBoxLayout(this);
-    root->setContentsMargins(dialog_scaled(12), title_bar->height() + dialog_scaled(4), dialog_scaled(12), dialog_scaled(12));
+    root->setContentsMargins(dialog_scaled(12), title_bar->height() + dialog_scaled(8), dialog_scaled(12), dialog_scaled(12));
     root->setSpacing(dialog_scaled(8));
     root->addWidget(pages_, 1);
     root->addLayout(footer);
