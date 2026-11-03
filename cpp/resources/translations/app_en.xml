@@ -5706,7 +5706,7 @@ Replace: move the current data there; the data already in that folder will be de
     </message>
     <message>
         <source>Recognized %1 characters</source>
-        <translation>Recognized %1 characters</translation>
+        <translation>%1 characters</translation>
     </message>
     <message>
         <source>No text found in the selection.</source>
@@ -5906,6 +5906,10 @@ Replace: move the current data there; the data already in that folder will be de
     <message>
         <source>Copy directly next time</source>
         <translation>Copy directly next time</translation>
+    </message>
+    <message>
+        <source>Close after copying</source>
+        <translation>Close after copy</translation>
     </message>
     <message>
         <source>Copied %1 characters</source>

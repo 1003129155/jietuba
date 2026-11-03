@@ -182,11 +182,19 @@ TextRecognitionWindow::TextRecognitionWindow(const QImage &image, QWidget *paren
     copy_directly_check->setChecked(manager->get_ocr_copy_directly_enabled());
     connect(copy_directly_check, &QCheckBox::toggled, this, [](bool checked) { get_tool_settings_manager()->set_ocr_copy_directly_enabled(checked); });
 
+    close_after_copy_check = new CheckBox(tr_text("Close after copying"), this);
+    configure_dialog_control(*close_after_copy_check);
+    close_after_copy_check->setChecked(manager->get_ocr_close_after_copy());
+    connect(close_after_copy_check, &QCheckBox::toggled, this, [](bool checked) { get_tool_settings_manager()->set_ocr_close_after_copy(checked); });
+
     auto *footer = new QHBoxLayout;
     footer->setSpacing(dialog_scaled(8));
     footer->addWidget(layout_button);
     footer->addWidget(status_label, 1);
     footer->addWidget(copy_directly_check);
+    // Wider than a box's gap to its own label, so each box reads with the right text.
+    footer->addSpacing(dialog_scaled(8));
+    footer->addWidget(close_after_copy_check);
     footer->addWidget(copy_button);
 
     auto *root = new QVBoxLayout(this);
@@ -400,6 +408,11 @@ void TextRecognitionWindow::copy() {
         copy_table(table_view->table());
     else
         QApplication::clipboard()->setText(text_edit->toPlainText());
+    if (close_after_copy_check->isChecked()) {
+        closing_after_copy_ = true;
+        close();
+        return;
+    }
     copy_button->setText(tr_text("Copied"));
     QTimer::singleShot(1500, copy_button, [button = copy_button] { button->setText(tr_text("Copy")); });
 }
@@ -412,9 +425,10 @@ void TextRecognitionWindow::closeEvent(QCloseEvent *event) {
     }
     auto *manager = get_tool_settings_manager();
     const auto text = text_edit->toPlainText();
-    if (manager->get_ocr_copy_on_close() && showing_table())
+    const bool copy_on_close = manager->get_ocr_copy_on_close() && !closing_after_copy_;
+    if (copy_on_close && showing_table())
         copy_table(table_view->table());
-    else if (manager->get_ocr_copy_on_close() && !text.isEmpty())
+    else if (copy_on_close && !text.isEmpty())
         QApplication::clipboard()->setText(text);
     if (manager->get_ocr_result_position() == "last_position") {
         const auto center = geometry().center();

@@ -6377,6 +6377,10 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>下次直接複製結果</translation>
     </message>
     <message>
+        <source>Close after copying</source>
+        <translation>複製後關閉</translation>
+    </message>
+    <message>
         <source>Copied %1 characters</source>
         <translation>已複製 %1 個字元</translation>
     </message>

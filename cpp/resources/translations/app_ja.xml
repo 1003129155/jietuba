@@ -6000,6 +6000,10 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>次回から直接コピー</translation>
     </message>
     <message>
+        <source>Close after copying</source>
+        <translation>コピー後に閉じる</translation>
+    </message>
+    <message>
         <source>Copied %1 characters</source>
         <translation>%1 文字をコピーしました</translation>
     </message>

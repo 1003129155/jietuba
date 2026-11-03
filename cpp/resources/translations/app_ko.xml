@@ -5988,6 +5988,10 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>다음부터 바로 복사</translation>
     </message>
     <message>
+        <source>Close after copying</source>
+        <translation>복사 후 닫기</translation>
+    </message>
+    <message>
         <source>Copied %1 characters</source>
         <translation>%1자를 복사했습니다</translation>
     </message>

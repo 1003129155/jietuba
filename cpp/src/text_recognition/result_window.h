@@ -60,6 +60,8 @@ public:
     LayoutMenuButton *layout_button;
     PrimaryPushButton *copy_button;
     CheckBox *copy_directly_check;
+    // Ticked, Copy also closes the window.
+    CheckBox *close_after_copy_check;
     // Hidden unless a table is found.
     SegmentedWidget *view_switch;
     RecognizedTableView *table_view;
@@ -100,6 +102,8 @@ private:
     QStackedWidget *pages_ = nullptr;
     QFrame *table_card_ = nullptr;
     bool table_fitted_ = false;
+    // Closing from Copy: the clipboard already holds the result.
+    bool closing_after_copy_ = false;
 };
 
 // Shows "Recognizing..." while recognizing, then copies the result and shows the

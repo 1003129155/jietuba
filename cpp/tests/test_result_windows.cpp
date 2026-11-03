@@ -28,6 +28,7 @@
 #include <QScreen>
 #include <QScopeGuard>
 #include <QSettings>
+#include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
@@ -547,6 +548,29 @@ private slots:
         QCOMPARE(shot.pixelColor(beside, shot.height() - 1).alpha(), 0);
     }
 
+    void closeAfterCopyClosesTheWindowOnCopy() {
+        auto *window = new TextRecognitionWindow(blank_image());
+        QPointer<TextRecognitionWindow> alive = window;
+        window->show();
+        QTRY_VERIFY_WITH_TIMEOUT(!window->status_label->text().startsWith("Recognizing"), 30000);
+        window->on_recognized(SMALL_LINES, {}, {});
+        QVERIFY(!window->close_after_copy_check->isChecked());
+        window->close_after_copy_check->setChecked(true);
+        QVERIFY(config_->get_ocr_close_after_copy());
+        // With copy-on-close as well, the clipboard is still written once.
+        config_->set_ocr_copy_on_close(true);
+        QApplication::clipboard()->setText("before");
+        QSignalSpy changes(QApplication::clipboard(), &QClipboard::dataChanged);
+        window->copy_button->click();
+        QCOMPARE(QApplication::clipboard()->text(), QString("Name Qty\nPear 7"));
+        QCOMPARE(changes.count(), 1);
+        QVERIFY(!window->isVisible());
+        QTRY_VERIFY(alive.isNull());
+        // The next window starts with the box ticked.
+        TextRecognitionWindow next(blank_image());
+        QVERIFY(next.close_after_copy_check->isChecked());
+    }
+
     void aPinnedWindowShowsItInTheIconAlone() {
         TextRecognitionWindow window(blank_image());
         window.pin_button->setChecked(false);
@@ -577,7 +601,7 @@ private slots:
         QVERIFY(QApplication::clipboard()->text().contains('\t'));
     }
 
-    void theTableViewFitsEveryLanguage() {
+    void theResultWindowFitsEveryLanguage() {
         // Text widths need real fonts, which the offscreen platform does not have.
         if (QGuiApplication::platformName() != "windows") QSKIP("needs -platform windows");
         const QString language = I18nManager::get_current_language();
@@ -588,13 +612,15 @@ private slots:
         config_->set_ocr_result_view("table");
         text_table::Table table{12, 2, {}};
         for (int r = 0; r < 12; ++r) table.cells << text_table::Cell{r, 0, 1, 1, "a"} << text_table::Cell{r, 1, 1, 1, "b"};
+        // A four-digit count, as a page of text gives.
+        const QVector<OcrTextLine> long_text = {{QString(1234, 'a'), 0, 100, 0, 20}};
         for (const int percent : {100, 150, 200}) {
             get_dialog_scale().set_percent(percent);
             for (const char *code : {"zh", "zh_TW", "en", "ja", "ko"}) {
                 QVERIFY(I18nManager::load_language(code));
                 auto *window = new TextRecognitionWindow(blank_image());
                 QTRY_VERIFY_WITH_TIMEOUT(window->status_label->text() != i18n_tr("Recognizing...", "TextRecognitionWindow"), 30000);
-                window->on_recognized(SMALL_LINES, {}, table);
+                window->on_recognized(long_text, {}, table);
                 window->resize(dialog_scaled(TextRecognitionWindow::WIDTH), dialog_scaled(TextRecognitionWindow::HEIGHT));
                 // The title bar follows the window in its resize event, which a hidden window only gets when shown.
                 QResizeEvent resized(window->size(), QSize());
@@ -603,13 +629,28 @@ private slots:
                 auto *bar = qobject_cast<FluentTitleBar *>(window->titleBar());
                 QCOMPARE(bar->width(), window->width());
                 bar->hBoxLayout->activate();
-                const auto context = [&](const QString &what, QWidget *part) {
-                    return qPrintable(QString("%1 at %2%: %3 is %4 wide, needs %5").arg(code).arg(percent).arg(what).arg(part->width()).arg(part->sizeHint().width()));
+                // A wrapping label's size hint allows for wrapping; its text must still fit on one line.
+                const auto needs = [](QWidget *part) {
+                    const auto *label = qobject_cast<QLabel *>(part);
+                    return label && label->wordWrap() ? label->fontMetrics().horizontalAdvance(label->text()) : part->sizeHint().width();
                 };
-                for (const auto &[what, part] : std::initializer_list<std::pair<QString, QWidget *>>{
-                         {"the view switch", window->view_switch}, {"the title", bar->titleLabel}, {"the status", window->status_label},
-                         {"the copy-directly box", window->copy_directly_check}, {"the copy button", window->copy_button}})
-                    QVERIFY2(part->width() >= part->sizeHint().width(), context(what, part));
+                const auto context = [&](const QString &what, QWidget *part) {
+                    return qPrintable(QString("%1 at %2%: %3 is %4 wide, needs %5").arg(code).arg(percent).arg(what).arg(part->width()).arg(needs(part)));
+                };
+                for (const char *view : {"table", "text"}) {
+                    // The text view's status is the character count.
+                    window->view_switch->setCurrentItem(view);
+                    window->layout()->activate();
+                    // The footer does not hold the window wider than its default.
+                    QVERIFY2(window->layout()->minimumSize().width() <= dialog_scaled(TextRecognitionWindow::WIDTH),
+                             qPrintable(QString("%1 at %2% in the %3 view: the footer needs %4")
+                                            .arg(code).arg(percent).arg(view).arg(window->layout()->minimumSize().width())));
+                    for (const auto &[what, part] : std::initializer_list<std::pair<QString, QWidget *>>{
+                             {"the view switch", window->view_switch}, {"the title", bar->titleLabel}, {"the status", window->status_label},
+                             {"the copy-directly box", window->copy_directly_check}, {"the close-after-copy box", window->close_after_copy_check},
+                             {"the copy button", window->copy_button}})
+                        QVERIFY2(part->width() >= needs(part), context(what, part));
+                }
                 delete window;
             }
         }

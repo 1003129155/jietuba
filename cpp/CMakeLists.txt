@@ -412,8 +412,8 @@ if(BUILD_TESTING)
     add_test(NAME result_windows COMMAND jietuba_result_windows_tests -o ${JIETUBA_TEST_REPORTS}/result_windows.txt,txt)
     set_tests_properties(result_windows PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     if(WIN32)
-        # Whether the table view's switch and status fit needs real fonts.
-        add_test(NAME result_windows_desktop COMMAND jietuba_result_windows_tests -o ${JIETUBA_TEST_REPORTS}/result_windows_desktop.txt,txt -platform windows theTableViewFitsEveryLanguage)
+        # Whether the result window's labels fit needs real fonts.
+        add_test(NAME result_windows_desktop COMMAND jietuba_result_windows_tests -o ${JIETUBA_TEST_REPORTS}/result_windows_desktop.txt,txt -platform windows theResultWindowFitsEveryLanguage)
         set_tests_properties(result_windows_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
     endif()
     qt_add_executable(jietuba_ui_widgets_tests tests/test_ui_widgets.cpp)
