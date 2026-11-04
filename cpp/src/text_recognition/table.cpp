@@ -1230,6 +1230,11 @@ Table Builder::build() {
     std::map<int, std::vector<int>> members;
     for (int k = 0; k < nrows * ncols; ++k) members[find(k)].push_back(k);
     std::vector<Cell> out;
+    auto boxes_of = [&](const std::vector<int> &segments) {
+        QVector<QRectF> boxes;
+        for (int s : segments) boxes.append(QRectF(QPointF(segs_[s].x0, segs_[s].y0), QPointF(segs_[s].x1, segs_[s].y1)));
+        return boxes;
+    };
     for (const auto &[root, mem] : members) {
         int r1 = 0, c1 = 0;
         std::vector<int> segments;
@@ -1241,7 +1246,7 @@ Table Builder::build() {
                 for (const auto &p : it->second) segments.push_back(p.seg);
         }
         const int r0 = root / ncols, c0 = root % ncols;
-        out.push_back({r0, c0, r1 - r0 + 1, c1 - c0 + 1, join_text(segments)});
+        out.push_back({r0, c0, r1 - r0 + 1, c1 - c0 + 1, join_text(segments), boxes_of(segments)});
     }
     std::set<int> used_r, used_c;
     for (const auto &c : out)
@@ -1265,7 +1270,7 @@ Table Builder::build() {
         const int r = index_of(rlist, c.row), col = index_of(clist, c.column);
         const int r_end = index_of(rlist, last_before(rlist, c.row + c.row_span));
         const int c_end = index_of(clist, last_before(clist, c.column + c.column_span));
-        table.cells.push_back({r, col, r_end - r + 1, c_end - col + 1, c.text});
+        table.cells.push_back({r, col, r_end - r + 1, c_end - col + 1, c.text, c.boxes});
     }
     std::sort(table.cells.begin(), table.cells.end(), [](const Cell &a, const Cell &b) { return std::tie(a.row, a.column) < std::tie(b.row, b.column); });
     return table;
@@ -1398,7 +1403,10 @@ const Cell *cell_at(const Table &table, int row, int column) {
 
 Table with_text(Table table, int row, int column, const QString &text) {
     for (auto &c : table.cells)
-        if (c.row <= row && row < c.row + c.row_span && c.column <= column && column < c.column + c.column_span) c.text = text;
+        if (c.row <= row && row < c.row + c.row_span && c.column <= column && column < c.column + c.column_span && c.text != text) {
+            c.text = text;
+            c.boxes.clear();
+        }
     return table;
 }
 
@@ -1483,7 +1491,7 @@ Table part(const Table &table, int row0, int column0, int row1, int column1) {
         const int r0 = std::max(c.row, row0), r1 = std::min(c.row + c.row_span - 1, row1);
         const int k0 = std::max(c.column, column0), k1 = std::min(c.column + c.column_span - 1, column1);
         if (r1 < r0 || k1 < k0) continue;
-        out.cells.append({r0 - row0, k0 - column0, r1 - r0 + 1, k1 - k0 + 1, c.text});
+        out.cells.append({r0 - row0, k0 - column0, r1 - r0 + 1, k1 - k0 + 1, c.text, c.boxes});
     }
     sort_cells(out);
     return out;
@@ -1505,17 +1513,19 @@ Table merged(const Table &table, int row0, int column0, int row1, int column1) {
     if (!can_merge(table, row0, column0, row1, column1)) return table;
     Table out{table.rows, table.columns, {}};
     QString text;
+    QVector<QRectF> boxes;
     for (const auto &c : table.cells) {
         if (c.row < row0 || c.row > row1 || c.column < column0 || c.column > column1) {
             out.cells.append(c);
             continue;
         }
+        boxes += c.boxes;
         const QString t = c.text.trimmed();
         if (t.isEmpty()) continue;
         if (!text.isEmpty() && !(ends_cjk(text) || starts_cjk(t))) text += ' ';
         text += t;
     }
-    out.cells.append({row0, column0, row1 - row0 + 1, column1 - column0 + 1, text});
+    out.cells.append({row0, column0, row1 - row0 + 1, column1 - column0 + 1, text, boxes});
     sort_cells(out);
     return out;
 }
@@ -1529,7 +1539,10 @@ Table split(const Table &table, int row0, int column0, int row1, int column1) {
             continue;
         }
         for (int r = c.row; r < c.row + c.row_span; ++r)
-            for (int k = c.column; k < c.column + c.column_span; ++k) out.cells.append({r, k, 1, 1, r == c.row && k == c.column ? c.text : QString()});
+            for (int k = c.column; k < c.column + c.column_span; ++k) {
+                const bool top_left = r == c.row && k == c.column;
+                out.cells.append({r, k, 1, 1, top_left ? c.text : QString(), top_left ? c.boxes : QVector<QRectF>()});
+            }
     }
     sort_cells(out);
     return out;
@@ -1576,7 +1589,10 @@ Table pasted(Table table, int row, int column, const QVector<QStringList> &grid)
     while (table.columns < column + width) table = with_column_inserted(table, table.columns);
     for (auto &c : table.cells) {
         const int r = c.row - row, k = c.column - column;
-        if (r >= 0 && r < grid.size() && k >= 0 && k < grid[r].size()) c.text = grid[r][k];
+        if (r >= 0 && r < grid.size() && k >= 0 && k < grid[r].size() && c.text != grid[r][k]) {
+            c.text = grid[r][k];
+            c.boxes.clear();
+        }
     }
     return table;
 }

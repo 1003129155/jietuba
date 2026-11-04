@@ -24,6 +24,8 @@ public:
     text_table::Table selected_table() const;
     // Width of all columns as fitted to their text, for fitting the window to the table.
     int content_width() const;
+    // Where the selected cells' text sits in the image; edited cells have none.
+    QVector<QRectF> selected_boxes() const;
     void copy_selection();
     void cut_selection();
     // Clipboard text from the selection's top-left, the table growing to hold it; one value

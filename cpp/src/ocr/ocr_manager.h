@@ -22,10 +22,19 @@ struct OcrResult {
     QString reason;
 };
 
+// Where one character of a reading-order line came from: the result's item and the
+// character's index in its text; -1 for a space joining items.
+struct OcrCharSource {
+    int item = -1, index = -1;
+    bool operator==(const OcrCharSource &other) const { return item == other.item && index == other.index; }
+};
+
 // One reading-order line with its bounding box.
 struct OcrTextLine {
     QString text;
     double left = 0, right = 0, top = 0, bottom = 0;
+    // One per character (code point) of text; empty when unknown.
+    QVector<OcrCharSource> sources;
 };
 
 class PpocrEngine;

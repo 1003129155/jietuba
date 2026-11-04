@@ -5,6 +5,7 @@
 #include "ocr/ocr_manager.h"
 #include "ocr/ppocr_models.h"
 #include "settings/tool_settings.h"
+#include "text_recognition/original_image_view.h"
 #include "text_recognition/recognizer.h"
 #include "text_recognition/result_window.h"
 #include "text_recognition/table_view.h"
@@ -28,12 +29,15 @@
 #include <QResizeEvent>
 #include <QScreen>
 #include <QScopeGuard>
+#include <QScrollBar>
 #include <QSettings>
 #include <QSignalSpy>
+#include <QSplitter>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
 #include <QTranslator>
+#include <QWheelEvent>
 #include <functional>
 
 using namespace jietuba;
@@ -91,6 +95,26 @@ text_table::Table small_table() { return {2, 2, {{0, 0, 1, 1, "Name"}, {0, 1, 1,
 
 // The first line stops short of the right edge, so the layout keeps the two apart.
 const QVector<OcrTextLine> SMALL_LINES = {{"Name Qty", 0, 60, 0, 20}, {"Pear 7", 0, 100, 30, 50}};
+
+// Two recognized lines on a 400 × 200 image: "Hello world" across the top, "第二行" below it.
+OcrResult two_line_result() {
+    OcrResult result;
+    result.data = {OcrLine{{{10, 10}, {230, 10}, {230, 40}, {10, 40}}, "Hello world", 1},
+                   OcrLine{{{10, 60}, {100, 60}, {100, 90}, {10, 90}}, QString::fromUtf8("第二行"), 1}};
+    return result;
+}
+
+QImage plain_image(int width = 400, int height = 200) {
+    QImage image(width, height, QImage::Format_RGB32);
+    image.fill(Qt::white);
+    return image;
+}
+
+QRectF area_bounds(const QVector<QPolygonF> &areas) {
+    QRectF bounds;
+    for (const auto &area : areas) bounds = bounds.isNull() ? area.boundingRect() : bounds.united(area.boundingRect());
+    return bounds;
+}
 
 // Runs check on the next popup menu, then closes it.
 void inspect_next_menu(std::function<void(QMenu *)> check) {
@@ -318,7 +342,7 @@ private slots:
         painter.drawText(QRect(0, 10, 420, 60), Qt::AlignCenter, "First line");
         painter.drawText(QRect(0, 90, 420, 60), Qt::AlignCenter, "Second line");
         painter.end();
-        recognize_async(image, &context, [&](const QVector<OcrTextLine> &result, const QString &why, const text_table::Table &) {
+        recognize_async(image, &context, [&](const QVector<OcrTextLine> &result, const QString &why, const text_table::Table &, const OcrResult &) {
             lines = result;
             reason = why;
         });
@@ -332,7 +356,7 @@ private slots:
         bool called = false;
         {
             QObject gone;
-            recognize_async(image, &gone, [&](const QVector<OcrTextLine> &, const QString &, const text_table::Table &) { called = true; });
+            recognize_async(image, &gone, [&](const QVector<OcrTextLine> &, const QString &, const text_table::Table &, const OcrResult &) { called = true; });
         }
         shutdown_recognition(30000);
         QApplication::processEvents();
@@ -511,6 +535,224 @@ private slots:
         QCOMPARE(view.item(1, 2)->text(), QString());
     }
 
+    // ---- Original image ----
+    void theOriginalImageFitsZoomsAndCopies() {
+        OriginalImageView pane(plain_image(800, 400));
+        pane.resize(400, 300);
+        pane.show();
+        QApplication::processEvents();
+        QCOMPARE(pane.size_label->text(), QString("800 × 400 px"));
+        // Fitted, and a large image is shrunk.
+        QCOMPARE(pane.fit(), OriginalImageView::Fit::Window);
+        QVERIFY(pane.scale() < 0.5);
+        QVERIFY(pane.scale_label->text().endsWith('%'));
+        pane.fit_button->click();
+        QCOMPARE(pane.fit(), OriginalImageView::Fit::Actual);
+        QCOMPARE(pane.scale(), 1.0);
+        QCOMPARE(pane.scale_label->text(), QString("100%"));
+        // The wheel zooms by steps; zooming stops at the ends of the range.
+        const QPointF middle = pane.view()->viewport()->rect().center();
+        QWheelEvent wheel(middle, pane.view()->viewport()->mapToGlobal(middle), {}, QPoint(0, 120), Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+        QApplication::sendEvent(pane.view()->viewport(), &wheel);
+        QVERIFY(std::abs(pane.scale() - 1.15) < 1e-9);
+        QCOMPARE(pane.fit(), OriginalImageView::Fit::Custom);
+        pane.zoom_by(1000, middle);
+        QCOMPARE(pane.scale(), OriginalImageView::MAX_SCALE);
+        QVERIFY(!pane.zoom_in_button->isEnabled());
+        pane.zoom_out_button->click();
+        QVERIFY(pane.zoom_in_button->isEnabled());
+        pane.zoom_by(1e-6, middle);
+        QCOMPARE(pane.scale(), OriginalImageView::MIN_SCALE);
+        QVERIFY(!pane.zoom_out_button->isEnabled());
+        // A double click off the text switches between fitting and 1:1.
+        QTest::mouseDClick(pane.view()->viewport(), Qt::LeftButton, Qt::NoModifier, middle.toPoint());
+        QCOMPARE(pane.fit(), OriginalImageView::Fit::Window);
+        QTest::mouseDClick(pane.view()->viewport(), Qt::LeftButton, Qt::NoModifier, middle.toPoint());
+        QCOMPARE(pane.fit(), OriginalImageView::Fit::Actual);
+        // Dragging off the text moves the image.
+        const int before = pane.view()->horizontalScrollBar()->value();
+        QTest::mousePress(pane.view()->viewport(), Qt::LeftButton, Qt::NoModifier, QPoint(200, 100));
+        QMouseEvent drag(QEvent::MouseMove, QPointF(120, 100), pane.view()->viewport()->mapToGlobal(QPointF(120, 100)), Qt::NoButton, Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(pane.view()->viewport(), &drag);
+        QTest::mouseRelease(pane.view()->viewport(), Qt::LeftButton, Qt::NoModifier, QPoint(120, 100));
+        QCOMPARE(pane.view()->horizontalScrollBar()->value(), before + 80);
+        pane.copy_button->click();
+        QCOMPARE(QApplication::clipboard()->image().size(), QSize(800, 400));
+    }
+
+    void theOriginalImageSelectsItsTextAndShowsTheResultSelection() {
+        OriginalImageView pane(plain_image());
+        pane.resize(500, 300);
+        pane.show();
+        pane.set_text(OcrTextLayout(two_line_result()));
+        pane.view()->setFocus();
+        QTest::keyClick(pane.view()->viewport(), Qt::Key_A, Qt::ControlModifier);
+        QVERIFY(pane.text_selection()->has_selection());
+        QTest::keyClick(pane.view(), Qt::Key_C, Qt::ControlModifier);
+        QCOMPARE(QApplication::clipboard()->text(), QString::fromUtf8("Hello world\n第二行"));
+        // A press on the text starts a selection rather than a drag.
+        const QPoint on_text = pane.view()->mapFromScene(QPointF(40, 25));
+        const int scrolled = pane.view()->horizontalScrollBar()->value();
+        QTest::mousePress(pane.view()->viewport(), Qt::LeftButton, Qt::NoModifier, on_text);
+        QTest::mouseRelease(pane.view()->viewport(), Qt::LeftButton, Qt::NoModifier, on_text);
+        QCOMPARE(pane.view()->horizontalScrollBar()->value(), scrolled);
+        QVERIFY(!pane.text_selection()->has_selection());
+        const QPolygonF area(QRectF(10, 60, 30, 30));
+        pane.set_highlight({area});
+        QCOMPARE(pane.highlight(), QVector<QPolygonF>({area}));
+    }
+
+    void selectedTextIsShadedOnTheOriginalImage() {
+        config_->set_ocr_layout_mode("multiline");
+        auto *window = new TextRecognitionWindow(plain_image());
+        window->setAttribute(Qt::WA_DeleteOnClose);
+        window->show();
+        QTRY_VERIFY_WITH_TIMEOUT(!window->status_label->text().startsWith("Recognizing"), 30000);
+        const auto result = two_line_result();
+        window->on_recognized(group_ocr_lines(result), {}, {}, result);
+        QCOMPARE(window->text_edit->toPlainText(), QString::fromUtf8("Hello world\n第二行"));
+        auto select = [&](int from, int to) {
+            auto cursor = window->text_edit->textCursor();
+            cursor.setPosition(from);
+            cursor.setPosition(to, QTextCursor::KeepAnchor);
+            window->text_edit->setTextCursor(cursor);
+            return window->original_view->highlight();
+        };
+        // "Hello" lies at the start of the first line, "第二" at the start of the second.
+        const auto hello = select(0, 5);
+        QCOMPARE(hello.size(), 1);
+        QVERIFY(QRectF(10, 10, 220, 30).contains(area_bounds(hello)));
+        QVERIFY(area_bounds(hello).width() < 120);
+        const auto second = select(12, 14);
+        QCOMPARE(second.size(), 1);
+        QVERIFY(QRectF(10, 60, 90, 30).contains(area_bounds(second)));
+        QCOMPARE(select(0, 14).size(), 2);
+        QVERIFY(select(3, 3).isEmpty());
+        // Typed text comes from nowhere; the recognized text after it still points home.
+        auto cursor = window->text_edit->textCursor();
+        cursor.setPosition(0);
+        cursor.insertText("XY");
+        QCOMPARE(select(0, 2).size(), 0);
+        QCOMPARE(area_bounds(select(2, 7)), area_bounds(hello));
+        cursor.setPosition(8);
+        cursor.setPosition(13, QTextCursor::KeepAnchor);
+        cursor.insertText("there");
+        QVERIFY(select(8, 13).isEmpty());
+        // A new layout lays the text out afresh and points it all home again.
+        config_->set_ocr_punctuation("halfwidth");
+        window->on_recognized(group_ocr_lines(result), {}, {}, result);
+        QCOMPARE(area_bounds(select(0, 5)), area_bounds(hello));
+        // Turned off, the image keeps nothing selected.
+        window->original_switch->setChecked(false);
+        QVERIFY(window->original_view->isHidden());
+        QVERIFY(!window->original_view->text_selection()->has_selection());
+    }
+
+    void undoAndRedoKeepTheShadingOnTheOriginalImage() {
+        config_->set_ocr_layout_mode("multiline");
+        auto *window = new TextRecognitionWindow(plain_image());
+        window->setAttribute(Qt::WA_DeleteOnClose);
+        window->show();
+        QTRY_VERIFY_WITH_TIMEOUT(!window->status_label->text().startsWith("Recognizing"), 30000);
+        const auto result = two_line_result();
+        window->on_recognized(group_ocr_lines(result), {}, {}, result);
+        auto select = [&](int from, int to) {
+            auto cursor = window->text_edit->textCursor();
+            cursor.setPosition(from);
+            cursor.setPosition(to, QTextCursor::KeepAnchor);
+            window->text_edit->setTextCursor(cursor);
+            return area_bounds(window->original_view->highlight());
+        };
+        const QRectF hello = select(0, 5), second = select(12, 14);
+        QVERIFY(!hello.isNull() && !second.isNull());
+        // A new layout, then undoing and redoing it.
+        choose_from_next_menu("Remove line breaks");
+        window->layout_button->click();
+        QCOMPARE(window->text_edit->toPlainText(), QString::fromUtf8("Hello world第二行"));
+        QCOMPARE(select(11, 13), second);
+        window->text_edit->undo();
+        QCOMPARE(window->text_edit->toPlainText(), QString::fromUtf8("Hello world\n第二行"));
+        QCOMPARE(select(0, 5), hello);
+        QCOMPARE(select(12, 14), second);
+        window->text_edit->redo();
+        QCOMPARE(select(11, 13), second);
+        // Deleted recognized text points home again when the deletion is undone.
+        window->text_edit->undo();
+        auto cursor = window->text_edit->textCursor();
+        cursor.setPosition(0);
+        cursor.setPosition(5, QTextCursor::KeepAnchor);
+        cursor.removeSelectedText();
+        QVERIFY(select(0, 3).width() < hello.width());
+        window->text_edit->undo();
+        QCOMPARE(select(0, 5), hello);
+        // After an edit on a new branch, nothing is taken from the old one.
+        cursor.setPosition(0);
+        cursor.insertText("Z");
+        QCOMPARE(select(1, 6), hello);
+        QVERIFY(select(0, 1).isNull());
+    }
+
+    void selectedCellsAreShadedOnTheOriginalImage() {
+        config_->set_ocr_result_view("table");
+        auto *window = new TextRecognitionWindow(plain_image());
+        window->setAttribute(Qt::WA_DeleteOnClose);
+        window->show();
+        QTRY_VERIFY_WITH_TIMEOUT(!window->status_label->text().startsWith("Recognizing"), 30000);
+        const QRectF a(10, 10, 40, 20), b(100, 10, 40, 20);
+        const text_table::Table table{2, 2, {{0, 0, 1, 1, "a", {a}}, {0, 1, 1, 1, "b", {b}}, {1, 0, 1, 1, "c", {}}, {1, 1, 1, 1, "d", {}}}};
+        window->on_recognized(SMALL_LINES, {}, table);
+        QVERIFY(window->showing_table());
+        window->table_view->setCurrentCell(0, 1);
+        QCOMPARE(window->original_view->highlight(), QVector<QPolygonF>({QPolygonF(b)}));
+        window->table_view->setRangeSelected(QTableWidgetSelectionRange(0, 0, 0, 1), true);
+        QCOMPARE(window->original_view->highlight().size(), 2);
+        // An edited cell no longer points into the image.
+        window->table_view->item(0, 1)->setText("B");
+        QTRY_COMPARE(text_table::cell_at(window->table_view->table(), 0, 1)->text, QString("B"));
+        window->table_view->setCurrentCell(0, 1);
+        QVERIFY(window->original_view->highlight().isEmpty());
+        // Back in the text view the table's shading goes.
+        window->view_switch->setCurrentItem("text");
+        QVERIFY(window->original_view->highlight().isEmpty());
+    }
+
+    void theOriginalImageSplitsTheWindowWithoutResizingIt() {
+        for (const int percent : {100, 150}) {
+            get_dialog_scale().set_percent(percent);
+            const auto restore = qScopeGuard([] { get_dialog_scale().set_percent(100); });
+            config_->set_ocr_show_original(true);
+            auto *window = new TextRecognitionWindow(plain_image());
+            const int available = window->screen()->availableGeometry().width();
+            // Opens wide enough for both sides.
+            const int wide = dialog_scaled(OriginalImageView::WIDTH) + window->splitter->handleWidth() + dialog_scaled(TextRecognitionWindow::RESULT_WIDTH_BESIDE_IMAGE);
+            QCOMPARE(window->width(), std::min(wide, available));
+            window->resize(std::min(available, dialog_scaled(1100)), window->height());
+            window->show();
+            QApplication::processEvents();
+            const int width = window->width();
+            window->original_switch->setChecked(false);
+            QVERIFY(!config_->get_ocr_show_original());
+            QVERIFY(window->original_view->isHidden());
+            QCOMPARE(window->width(), width);
+            window->original_switch->setChecked(true);
+            QVERIFY(window->original_view->isVisible());
+            QCOMPARE(window->width(), width);
+            // As wide as it opens, or what the result side's minimum leaves on a narrow screen.
+            const int room = window->splitter->width() - window->splitter->handleWidth() - window->splitter->widget(1)->minimumSizeHint().width();
+            QCOMPARE(window->splitter->sizes().value(0), std::min(dialog_scaled(OriginalImageView::WIDTH), room));
+            delete window;
+            // Off, the next window opens at the usual width.
+            config_->set_ocr_show_original(false);
+            TextRecognitionWindow narrow(plain_image());
+            QCOMPARE(narrow.width(), std::min(dialog_scaled(TextRecognitionWindow::WIDTH), available));
+            QVERIFY(narrow.original_view->isHidden());
+        }
+        // No image, no switch.
+        TextRecognitionWindow bare{QImage()};
+        QVERIFY(!bare.original_switch);
+        QVERIFY(!bare.original_view);
+    }
+
     void textOnlyResultsShowNoTableSwitch() {
         auto *window = new TextRecognitionWindow(blank_image());
         window->setAttribute(Qt::WA_DeleteOnClose);
@@ -594,6 +836,7 @@ private slots:
 
     void aWideTableWidensTheWindowOnce() {
         config_->set_ocr_result_view("table");
+        config_->set_ocr_show_original(false);
         auto *window = new TextRecognitionWindow(blank_image());
         window->setAttribute(Qt::WA_DeleteOnClose);
         QTRY_VERIFY_WITH_TIMEOUT(!window->status_label->text().startsWith("Recognizing"), 30000);
@@ -816,7 +1059,7 @@ private slots:
                     for (const auto &[what, part] : std::initializer_list<std::pair<QString, QWidget *>>{
                              {"the view switch", window->view_switch}, {"the title", bar->titleLabel}, {"the status", window->status_label},
                              {"the copy-directly switch", window->copy_directly_switch}, {"the close-after-copy switch", window->close_after_copy_switch},
-                             {"the copy button", window->copy_button}})
+                             {"the copy button", window->copy_button}, {"the original image switch", window->original_switch}})
                         QVERIFY2(part->width() >= needs(part), context(what, part));
                 }
                 delete window;

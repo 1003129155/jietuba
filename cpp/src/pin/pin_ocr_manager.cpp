@@ -208,7 +208,9 @@ void PinOCRManager::load_text(OcrTextLayout layout) {
 
 void PinOCRManager::ensure_selection() {
     if (!selection_ && win_->view) {
-        selection_ = std::make_unique<PinTextSelection>(win_->view);
+        PinCanvasView *view = win_->view;
+        // While editing the tool owns the cursor.
+        selection_ = std::make_unique<PinTextSelection>(view, [view] { return view->pin_canvas && view->pin_canvas->is_editing(); });
         win_->view->text_selection = selection_.get();
     }
     apply_text_selection_active();

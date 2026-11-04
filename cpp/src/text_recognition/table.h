@@ -1,6 +1,7 @@
 #pragma once
 #include "ocr/snipping_tool_ocr.h"
 #include <QImage>
+#include <QRectF>
 #include <QString>
 #include <QVector>
 #include <functional>
@@ -33,6 +34,8 @@ struct Line {
 struct Cell {
     int row = 0, column = 0, row_span = 1, column_span = 1;
     QString text;
+    // Where the recognized text sits in the image; dropped once the text is replaced.
+    QVector<QRectF> boxes;
 };
 
 // Cells cover the grid once each; a merged cell is listed at its top-left position.
@@ -62,7 +65,7 @@ QString table_tsv(const Table &table);
 // ---- Edits, each returning the edited table ----
 // The cell covering (row, column), or nullptr.
 const Cell *cell_at(const Table &table, int row, int column);
-// The cell covering (row, column) given text.
+// The cell covering (row, column) given text; it no longer points into the image.
 Table with_text(Table table, int row, int column, const QString &text);
 // Without one row or column: merged cells across it shrink, cells only in it go.
 Table without_row(const Table &table, int row);

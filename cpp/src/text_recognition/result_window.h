@@ -7,16 +7,19 @@
 #include <QImage>
 #include <QPointer>
 #include <QRect>
+#include <map>
 #include <optional>
 
 class QFrame;
 class QMenu;
+class QSplitter;
 class QStackedWidget;
 class QTimer;
 
 namespace jietuba {
 class CaptionLabel;
 class LabeledSwitch;
+class OriginalImageView;
 class RecognitionStatusIcon;
 class RecognizeThread;
 class RecognizedTableView;
@@ -46,6 +49,10 @@ private:
 // drifts. Re-rendering goes through the undo stack: after the user edits and then
 // changes the layout, one Ctrl+Z brings the edits back.
 //
+// The original image can sit on the left, its text selectable as on a pin; what the result
+// side selects is shaded on it. Turning it on or off splits the window's width rather than
+// resizing the window; with it on, a new window opens wide enough for both.
+//
 // When the lines form a table, a Text | Table switch appears in the title bar. The table
 // view keeps its own edits and undo stack; Copy and copy-on-close take whichever view is
 // showing. The view last chosen opens next time a table is found.
@@ -56,6 +63,8 @@ class TextRecognitionWindow : public FrostedFramelessDialog {
 public:
     static constexpr int WIDTH = 624;
     static constexpr int HEIGHT = 504;
+    // The result side's width when the window opens with the original image beside it.
+    static constexpr int RESULT_WIDTH_BESIDE_IMAGE = 520;
     // image is the selection's base image; recognition starts on construction.
     explicit TextRecognitionWindow(const QImage &image, QWidget *parent = nullptr, const std::optional<QRect> &anchor = std::nullopt);
     TitleBarPinButton *pin_button;
@@ -69,10 +78,14 @@ public:
     // Hidden unless a table is found.
     SegmentedWidget *view_switch;
     RecognizedTableView *table_view;
+    // Both null without an image.
+    LabeledSwitch *original_switch = nullptr;
+    OriginalImageView *original_view = nullptr;
+    QSplitter *splitter;
     bool showing_table() const;
     // Shows a recognition result: what the recognition thread reports. reason is empty on
-    // success; table is empty unless the lines form one.
-    void on_recognized(const QVector<OcrTextLine> &lines, const QString &reason, const text_table::Table &table);
+    // success; table is empty unless the lines form one; result places the text on the image.
+    void on_recognized(const QVector<OcrTextLine> &lines, const QString &reason, const text_table::Table &table, const OcrResult &result = {});
 protected:
     void showEvent(QShowEvent *event) override;
     void closeEvent(QCloseEvent *event) override;
@@ -95,12 +108,29 @@ private:
     // chosen: the user picked the view, which then opens next time.
     void set_view(const QString &view, bool chosen);
     void update_status();
+    void set_original_visible(bool visible);
+    // Shades on the image what the text or table selection came from.
+    void update_highlight();
+    // Keeps text_sources_ in step with edits: typed text comes from nowhere in the image.
+    void on_text_changed(int position, int removed, int added);
+    // After every change: an undo or redo back to a state seen before takes that state's
+    // sources, since reinserted text would otherwise come from nowhere.
+    void record_text_state();
     // Widens the window once so the table fits, up to most of the screen.
     void fit_table_width();
     void copy();
 
     std::optional<QRect> anchor_;
     QVector<OcrTextLine> lines_;
+    // Per UTF-16 unit of the text box, the recognized character it shows.
+    QVector<OcrCharSource> text_sources_;
+    bool filling_text_ = false;
+    struct TextState {
+        QString text;
+        QVector<OcrCharSource> sources;
+    };
+    // By the number of undo steps behind each state; the text tells a state on another branch.
+    std::map<int, TextState> text_states_;
     text_table::Table table_;
     QPointer<RecognizeThread> thread_;
     QStackedWidget *pages_ = nullptr;

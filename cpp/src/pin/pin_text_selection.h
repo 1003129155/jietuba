@@ -1,23 +1,25 @@
 #pragma once
 #include "pin/ocr_text_layout.h"
 #include <QElapsedTimer>
+#include <QGraphicsView>
 #include <QPointer>
+#include <functional>
 
 class QKeyEvent;
 class QMouseEvent;
 class QPainter;
 
 namespace jietuba {
-class PinCanvasView;
-
-// Selecting a pin's recognized text: the I-beam over text, dragging, a double click for a word and a
-// triple click for a paragraph, Ctrl+A,
-// and the highlight. Everything is in image pixels and the view paints it over the scene, so
-// zooming, rotating and flipping the pin need nothing here; the highlight is neither in the
-// scene's items nor in its exported image.
+// Selecting recognized text over an image, on a pin or in the recognition window's original
+// image: the I-beam over text, dragging, a double click for a word and a triple click for a
+// paragraph, Ctrl+A, and the highlight. Everything is in image pixels and the view paints it
+// over the scene, so zooming, rotating and flipping need nothing here; the highlight is neither
+// in the scene's items nor in its exported image.
 class PinTextSelection {
 public:
-    explicit PinTextSelection(PinCanvasView *view);
+    // The view's scene is in image pixels. cursor_taken tells when the view's own tool sets the
+    // cursor, so leaving text does not reset it.
+    explicit PinTextSelection(QGraphicsView *view, std::function<bool()> cursor_taken = {});
     void set_layout(OcrTextLayout layout);
     const OcrTextLayout &layout() const { return layout_; }
     bool has_text() const { return !layout_.empty(); }
@@ -49,7 +51,9 @@ private:
     double slack() const;
     QPointF image_pos(const QMouseEvent *event) const;
     void show_beam(bool on);
-    QPointer<PinCanvasView> view_;
+    void set_cursor(Qt::CursorShape shape);
+    QPointer<QGraphicsView> view_;
+    std::function<bool()> cursor_taken_;
     OcrTextLayout layout_;
     bool active_ = true;
     bool selecting_ = false;

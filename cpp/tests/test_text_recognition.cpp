@@ -53,6 +53,52 @@ QRect placed(const QString &position, const ScreenArea &screen = MAIN, std::opti
 class TextRecognitionTests : public QObject {
     Q_OBJECT
 private slots:
+    void everyRenderedCharacterKnowsWhereItCameFrom() {
+        // Item 0 is "ab-", item 1 "cd", item 2 the two halves of a CJK line.
+        auto tag = [](OcrTextLine line, int item) {
+            for (int k = 0; k < line.text.toUcs4().size(); ++k) line.sources.append({item, k});
+            return line;
+        };
+        const QVector<OcrTextLine> lines = {tag(line("ab-", 0), 0), tag(line("cd", 1), 1)};
+        // The hyphen splitting a word goes, and with it its source.
+        const auto joined = render_with_sources(lines, MODE_SINGLE_LINE);
+        QCOMPARE(joined.text, QString("abcd"));
+        QCOMPARE(joined.sources, QVector<OcrCharSource>({{0, 0}, {0, 1}, {1, 0}, {1, 1}}));
+        // A line break comes from nowhere.
+        const auto kept = render_with_sources(lines, MODE_MULTILINE);
+        QCOMPARE(kept.text, QString("ab-\ncd"));
+        QCOMPARE(kept.sources, QVector<OcrCharSource>({{0, 0}, {0, 1}, {0, 2}, {}, {1, 0}, {1, 1}}));
+        // Western words joined by a new space; spaces beside CJK removed with theirs.
+        const auto words = render_with_sources({tag(line("hello", 0), 0), tag(line("world", 1), 1)}, MODE_SINGLE_LINE);
+        QCOMPARE(words.text, QString("hello world"));
+        QCOMPARE(words.sources[5], OcrCharSource{});
+        QCOMPARE(words.sources[6], (OcrCharSource{1, 0}));
+        const auto cjk = render_with_sources({tag(line(QString::fromUtf8("中 文，"), 0), 0)}, MODE_MULTILINE, true, PUNCT_HALFWIDTH);
+        QCOMPARE(cjk.text, QString::fromUtf8("中文,"));
+        QCOMPARE(cjk.sources, QVector<OcrCharSource>({{0, 0}, {0, 2}, {0, 3}}));
+        // A character outside the BMP is two units with one source.
+        const QString emoji = QString::fromUcs4(U"a\U0001F600b");
+        const auto wide = render_with_sources({tag(line(emoji, 0), 0)}, MODE_MULTILINE);
+        QCOMPARE(wide.text, emoji);
+        QCOMPARE(wide.sources, QVector<OcrCharSource>({{0, 0}, {0, 1}, {0, 1}, {0, 2}}));
+        // Lines without sources still render, every unit from nowhere.
+        const auto bare = render_with_sources({line("xy", 0)}, MODE_MULTILINE);
+        QCOMPARE(bare.sources, QVector<OcrCharSource>(2));
+        QCOMPARE(render(lines, MODE_AUTO), render_with_sources(lines, MODE_AUTO).text);
+    }
+
+    void groupedLinesPointBackIntoTheResult() {
+        OcrResult result;
+        result.data = {OcrLine{{{100, 0}, {140, 0}, {140, 20}, {100, 20}}, "cd", 1}, OcrLine{{{0, 0}, {40, 0}, {40, 20}, {0, 20}}, "ab", 1},
+                       OcrLine{{{0, 40}, {40, 40}, {40, 60}, {0, 60}}, "e", 1}};
+        const auto lines = group_ocr_lines(result);
+        QCOMPARE(lines.size(), 2);
+        // Blocks of one line joined left to right with a space between.
+        QCOMPARE(lines[0].text, QString("ab cd"));
+        QCOMPARE(lines[0].sources, QVector<OcrCharSource>({{1, 0}, {1, 1}, {}, {0, 0}, {0, 1}}));
+        QCOMPARE(lines[1].sources, QVector<OcrCharSource>({{2, 0}}));
+    }
+
     void layoutModes() {
         QCOMPARE(render(paragraph({"第一行", "第二行"}), MODE_MULTILINE), QString("第一行\n第二行"));
         QCOMPARE(render(paragraph({"第一段。", "第二段。"}), MODE_SINGLE_LINE), QString("第一段。第二段。"));

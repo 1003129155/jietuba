@@ -6058,6 +6058,30 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>拆分单元格</translation>
     </message>
     <message>
+        <source>Original image</source>
+        <translation>原图</translation>
+    </message>
+    <message>
+        <source>Zoom in</source>
+        <translation>放大</translation>
+    </message>
+    <message>
+        <source>Zoom out</source>
+        <translation>缩小</translation>
+    </message>
+    <message>
+        <source>Actual size</source>
+        <translation>实际大小</translation>
+    </message>
+    <message>
+        <source>Fit to window</source>
+        <translation>适应窗口</translation>
+    </message>
+    <message>
+        <source>Copy image</source>
+        <translation>复制图片</translation>
+    </message>
+    <message>
         <source>Undo</source>
         <translation>撤销</translation>
     </message>

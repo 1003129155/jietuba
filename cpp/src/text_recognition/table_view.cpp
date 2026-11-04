@@ -233,6 +233,15 @@ text_table::Table RecognizedTableView::selected_table() const {
     return text_table::part(table_, b.row0, b.column0, b.row1, b.column1);
 }
 
+QVector<QRectF> RecognizedTableView::selected_boxes() const {
+    const auto b = selection_bounds();
+    QVector<QRectF> boxes;
+    if (!b.valid()) return boxes;
+    for (const auto &c : table_.cells)
+        if (c.row >= b.row0 && c.row <= b.row1 && c.column >= b.column0 && c.column <= b.column1) boxes += c.boxes;
+    return boxes;
+}
+
 void RecognizedTableView::copy_selection() {
     const auto part = selected_table();
     if (!part.cells.isEmpty()) copy_table(part);

@@ -1,7 +1,5 @@
 #include "pin/pin_text_selection.h"
 #include "core/logger.h"
-#include "pin/pin_canvas.h"
-#include "pin/pin_canvas_view.h"
 #include <QApplication>
 #include <QClipboard>
 #include <QKeyEvent>
@@ -26,7 +24,7 @@ bool axis_aligned(const QPolygonF &polygon) {
 }
 }
 
-PinTextSelection::PinTextSelection(PinCanvasView *view) : view_(view) {}
+PinTextSelection::PinTextSelection(QGraphicsView *view, std::function<bool()> cursor_taken) : view_(view), cursor_taken_(std::move(cursor_taken)) {}
 
 void PinTextSelection::set_layout(OcrTextLayout layout) {
     selecting_ = false;
@@ -187,16 +185,21 @@ QPointF PinTextSelection::image_pos(const QMouseEvent *event) const {
     return view_ ? view_->viewportTransform().inverted().map(event->position()) : event->position();
 }
 
+// On the view and its viewport, as the pin's view does: the viewport is what shows it.
+void PinTextSelection::set_cursor(Qt::CursorShape shape) {
+    view_->setCursor(shape);
+    view_->viewport()->setCursor(shape);
+}
+
 void PinTextSelection::show_beam(bool on) {
     if (!view_) return;
     const auto shape = view_->viewport()->cursor().shape();
     if (on) {
-        if (shape != Qt::IBeamCursor) view_->setCursor(QCursor(Qt::IBeamCursor));
+        if (shape != Qt::IBeamCursor) set_cursor(Qt::IBeamCursor);
         beam_ = true;
     } else if (beam_) {
         beam_ = false;
-        // While editing the tool owns the cursor.
-        if (shape == Qt::IBeamCursor && !(view_->pin_canvas && view_->pin_canvas->is_editing())) view_->setCursor(QCursor(Qt::ArrowCursor));
+        if (shape == Qt::IBeamCursor && !(cursor_taken_ && cursor_taken_())) set_cursor(Qt::ArrowCursor);
     }
 }
 }

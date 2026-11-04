@@ -6068,6 +6068,30 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>セルの結合を解除</translation>
     </message>
     <message>
+        <source>Original image</source>
+        <translation>元画像</translation>
+    </message>
+    <message>
+        <source>Zoom in</source>
+        <translation>拡大</translation>
+    </message>
+    <message>
+        <source>Zoom out</source>
+        <translation>縮小</translation>
+    </message>
+    <message>
+        <source>Actual size</source>
+        <translation>実際のサイズ</translation>
+    </message>
+    <message>
+        <source>Fit to window</source>
+        <translation>ウィンドウに合わせる</translation>
+    </message>
+    <message>
+        <source>Copy image</source>
+        <translation>画像をコピー</translation>
+    </message>
+    <message>
         <source>Undo</source>
         <translation>元に戻す</translation>
     </message>

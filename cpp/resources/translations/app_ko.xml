@@ -6056,6 +6056,30 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>셀 분할</translation>
     </message>
     <message>
+        <source>Original image</source>
+        <translation>원본 이미지</translation>
+    </message>
+    <message>
+        <source>Zoom in</source>
+        <translation>확대</translation>
+    </message>
+    <message>
+        <source>Zoom out</source>
+        <translation>축소</translation>
+    </message>
+    <message>
+        <source>Actual size</source>
+        <translation>실제 크기</translation>
+    </message>
+    <message>
+        <source>Fit to window</source>
+        <translation>창에 맞추기</translation>
+    </message>
+    <message>
+        <source>Copy image</source>
+        <translation>이미지 복사</translation>
+    </message>
+    <message>
         <source>Undo</source>
         <translation>실행 취소</translation>
     </message>

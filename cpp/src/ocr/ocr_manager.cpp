@@ -600,8 +600,11 @@ namespace {
 OcrTextLine join_line(QVector<OcrTextLine> blocks) {
     std::stable_sort(blocks.begin(), blocks.end(), [](const OcrTextLine &a, const OcrTextLine &b) { return a.left < b.left; });
     OcrTextLine line = blocks.front();
+    line.sources.clear();
     QStringList texts;
     for (const auto &block : blocks) {
+        if (!texts.isEmpty()) line.sources.append(OcrCharSource{});
+        line.sources += block.sources;
         texts.append(block.text);
         line.left = std::min(line.left, block.left);
         line.right = std::max(line.right, block.right);
@@ -630,15 +633,18 @@ QVector<OcrTextLine> group_ocr_lines(const OcrResult &result) {
     if (result.code != 100 || result.data.isEmpty()) return {};
     const QTransform level = level_page(result);
     QVector<OcrTextLine> blocks;
-    for (const auto &item : result.data) {
+    for (int i = 0; i < result.data.size(); ++i) {
+        const auto &item = result.data[i];
         if (item.text.isEmpty()) continue;
+        QVector<OcrCharSource> sources;
+        for (int k = 0; k < item.text.toUcs4().size(); ++k) sources.append({i, k});
         if (item.box.isEmpty()) {
             // A single block without coordinates still gives its text: no layout, but nothing lost.
-            if (result.data.size() == 1) blocks.append(OcrTextLine{item.text, 0, 0, 0, 0});
+            if (result.data.size() == 1) blocks.append(OcrTextLine{item.text, 0, 0, 0, 0, sources});
             continue;
         }
         const QRectF bounds = level.map(QPolygonF(item.box)).boundingRect();
-        blocks.append(OcrTextLine{item.text, bounds.left(), bounds.right(), bounds.top(), bounds.bottom()});
+        blocks.append(OcrTextLine{item.text, bounds.left(), bounds.right(), bounds.top(), bounds.bottom(), sources});
     }
     if (blocks.isEmpty()) return {};
     // Blocks whose vertical centres differ by less than this share a line.

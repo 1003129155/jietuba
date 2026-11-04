@@ -6445,6 +6445,30 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>分割儲存格</translation>
     </message>
     <message>
+        <source>Original image</source>
+        <translation>原圖</translation>
+    </message>
+    <message>
+        <source>Zoom in</source>
+        <translation>放大</translation>
+    </message>
+    <message>
+        <source>Zoom out</source>
+        <translation>縮小</translation>
+    </message>
+    <message>
+        <source>Actual size</source>
+        <translation>實際大小</translation>
+    </message>
+    <message>
+        <source>Fit to window</source>
+        <translation>符合視窗</translation>
+    </message>
+    <message>
+        <source>Copy image</source>
+        <translation>複製圖片</translation>
+    </message>
+    <message>
         <source>Undo</source>
         <translation>復原</translation>
     </message>

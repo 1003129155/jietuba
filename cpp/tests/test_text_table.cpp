@@ -339,6 +339,26 @@ private slots:
         QVERIFY(pasted(table, -1, 0, {{"x"}}) == table);
     }
 
+    void cellsKeepTheirPlaceInTheImageUntilTheirTextChanges() {
+        const QRectF a(0, 0, 10, 10), c(0, 20, 10, 10), d(20, 20, 10, 10);
+        const Table table{2, 2, {{0, 0, 1, 1, "a", {a}}, {0, 1, 1, 1, "", {}}, {1, 0, 1, 1, "c", {c}}, {1, 1, 1, 1, "d", {d}}}};
+        // Merging gathers every box; splitting leaves them with the top-left.
+        const auto bottom = merged(table, 1, 0, 1, 1);
+        QCOMPARE(cell_at(bottom, 1, 1)->boxes, QVector<QRectF>({c, d}));
+        QCOMPARE(cell_at(split(bottom, 1, 0, 1, 1), 1, 0)->boxes, QVector<QRectF>({c, d}));
+        QVERIFY(cell_at(split(bottom, 1, 0, 1, 1), 1, 1)->boxes.isEmpty());
+        // New text points nowhere; the same text keeps its place.
+        QVERIFY(cell_at(with_text(table, 1, 1, "x"), 1, 1)->boxes.isEmpty());
+        QCOMPARE(cell_at(with_text(table, 1, 1, "d"), 1, 1)->boxes, QVector<QRectF>({d}));
+        QVERIFY(cell_at(pasted(table, 1, 0, {{"y"}}), 1, 0)->boxes.isEmpty());
+        QCOMPARE(cell_at(pasted(table, 1, 0, {{"c"}}), 1, 0)->boxes, QVector<QRectF>({c}));
+        QCOMPARE(cell_at(with_row_inserted(table, 0), 1, 0)->boxes, QVector<QRectF>({a}));
+        QCOMPARE(cell_at(part(table, 1, 1, 1, 1), 0, 0)->boxes, QVector<QRectF>({d}));
+        // Cells built from recognized words carry where those words sit.
+        const auto built = build_table(blank(400, 140), borderless_lines());
+        QCOMPARE(cell_at(built, 1, 0)->boxes, QVector<QRectF>({QRectF(QPointF(10, 50), QPointF(62, 70))}));
+    }
+
     void clipboardFormats() {
         const Table table{2, 2, {{0, 0, 1, 2, "a"}, {1, 0, 1, 1, "b<"}, {1, 1, 1, 1, "c\td"}}};
         QCOMPARE(table_html(table), QString("<table border=\"1\" cellspacing=\"0\" cellpadding=\"4\" style=\"border-collapse:collapse\">"
