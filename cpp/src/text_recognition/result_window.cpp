@@ -10,6 +10,7 @@
 #include "text_recognition/original_image_view.h"
 #include "text_recognition/placement.h"
 #include "text_recognition/recognizer.h"
+#include "text_recognition/result_zoom.h"
 #include "text_recognition/table_view.h"
 #include "ui/dialogs.h"
 #include "ui/fluent_lite/fluent_lite.h"
@@ -38,6 +39,7 @@
 #include <QTextDocumentFragment>
 #include <QTimer>
 #include <QVBoxLayout>
+#include <cmath>
 
 namespace jietuba {
 namespace {
@@ -231,6 +233,11 @@ TextRecognitionWindow::TextRecognitionWindow(const QImage &image, QWidget *paren
     configure_dialog_control(*status_label);
     status_icon_ = new RecognitionStatusIcon(this);
     text_edit = new TextEdit(this);
+    text_zoom_ = new ResultZoom(text_edit);
+    connect(text_zoom_, &ResultZoom::changed, this, [this] {
+        apply_text_theme();
+        update_status();
+    });
     text_edit->setAcceptRichText(false);
     // Not editable while recognizing.
     text_edit->setReadOnly(true);
@@ -362,16 +369,21 @@ TextRecognitionWindow::TextRecognitionWindow(const QImage &image, QWidget *paren
     });
 }
 
-void TextRecognitionWindow::apply_theme() {
+void TextRecognitionWindow::apply_text_theme() {
     const auto &t = ui_tokens(this);
     text_edit->setStyleSheet(QString("QTextEdit { background: %1; color: %2; border: none; padding: %3px %4px; "
                                      "font: %5px %6; selection-background-color: %7; selection-color: %8; }")
                                  .arg(t.input_background, t.text)
                                  .arg(dialog_scaled(18))
                                  .arg(dialog_scaled(20))
-                                 .arg(dialog_scaled(15))
+                                 .arg(std::max(1, int(std::lround(dialog_scaled(15) * text_zoom_->factor()))))
                                  .arg(FONT_FAMILY, t.accent, t.selected_text) +
                              scrollbar_qss(this));
+}
+
+void TextRecognitionWindow::apply_theme() {
+    apply_text_theme();
+    const auto &t = ui_tokens(this);
     findChild<QFrame *>("recognitionToolbar")->setStyleSheet(
         QString("#recognitionToolbar { background: %1; border-top: 1px solid %2; border-bottom: 1px solid %2; }").arg(t.input_background, t.separator));
     findChild<QFrame *>("recognitionFooter")->setStyleSheet(
@@ -610,12 +622,15 @@ void TextRecognitionWindow::update_status() {
     } else if (showing_table()) {
         QString text = table_view->selection_summary();
         if (text.isEmpty()) text = table_size_text("%1 rows × %2 columns", table_view->table());
-        if (const int zoom = table_view->zoom_percent(); zoom != 100) text += QString(" · %1%").arg(zoom);
         status_label->setText(text);
     } else if (const auto cursor = text_edit->textCursor(); cursor.hasSelection()) {
         status_label->setText(selected(cursor.selection().toPlainText()));
     } else {
         status_label->setText(tr_text("Recognized %1 characters").replace("%1", QString::number(char_count(text_edit->toPlainText()))));
+    }
+    if (!original_view || original_view->selected_text().isEmpty()) {
+        const int zoom = showing_table() ? table_view->zoom_percent() : text_zoom_->percent();
+        if (zoom != 100) status_label->setText(status_label->text() + QString(" · %1%").arg(zoom));
     }
 }
 

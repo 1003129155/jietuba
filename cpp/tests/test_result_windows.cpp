@@ -623,6 +623,97 @@ private slots:
         QCOMPARE(view.zoom_percent(), 110);
     }
 
+    void ctrlWheelZoomsTheText_data() {
+        QTest::addColumn<int>("scale");
+        QTest::newRow("normal") << 100;
+        QTest::newRow("large-window") << 150;
+    }
+
+    void ctrlWheelZoomsTheText() {
+        QFETCH(int, scale);
+        get_dialog_scale().set_percent(scale);
+        const auto theme = get_ui_theme()->mode();
+        const auto restore = qScopeGuard([theme] {
+            get_dialog_scale().set_percent(100);
+            get_ui_theme()->set_mode(ui_theme_mode_value(theme), false);
+        });
+        config_->set_ocr_show_original(false);
+        config_->set_ocr_result_view("text");
+        auto *window = show_text_recognition(blank_image());
+        QTRY_VERIFY_WITH_TIMEOUT(!window->status_label->text().startsWith("Recognizing"), 30000);
+        window->on_recognized(SMALL_LINES, {}, small_table());
+        auto *edit = window->text_edit;
+        auto *zoom = edit->findChild<ResultZoom *>();
+        QVERIFY(zoom);
+        const int font = edit->font().pixelSize();
+        QCOMPARE(font, dialog_scaled(15));
+        const int cursor_height = edit->cursorRect().height();
+        edit->moveCursor(QTextCursor::End);
+        edit->insertPlainText("!");
+        const QString text = edit->toPlainText();
+        const int undo_steps = edit->document()->availableUndoSteps();
+        auto cursor = edit->textCursor();
+        cursor.setPosition(0);
+        cursor.setPosition(4, QTextCursor::KeepAnchor);
+        edit->setTextCursor(cursor);
+        const auto wheel = [&](int delta, Qt::KeyboardModifiers modifiers = Qt::ControlModifier) {
+            const QPointF at(50, 20);
+            QWheelEvent event(at, edit->viewport()->mapToGlobal(at), {}, {0, delta}, Qt::NoButton, modifiers, Qt::NoScrollPhase, false);
+            QApplication::sendEvent(edit->viewport(), &event);
+        };
+        wheel(120);
+        QCOMPARE(zoom->percent(), 110);
+        QVERIFY(edit->font().pixelSize() > font);
+        QVERIFY(edit->cursorRect().height() > cursor_height);
+        QCOMPARE(window->status_label->text(), QString("Selected 4 characters · 110%"));
+        wheel(60);
+        QCOMPARE(zoom->percent(), 110);
+        wheel(60);
+        QCOMPARE(zoom->percent(), 120);
+        wheel(-120, Qt::NoModifier);
+        QCOMPARE(zoom->percent(), 120);
+        wheel(-120 * 50);
+        QCOMPARE(zoom->percent(), 50);
+        wheel(120 * 50);
+        QCOMPARE(zoom->percent(), 300);
+        QTest::keyClick(edit, Qt::Key_Minus, Qt::ControlModifier);
+        QCOMPARE(zoom->percent(), 290);
+        QTest::keyClick(edit, Qt::Key_0, Qt::ControlModifier);
+        QCOMPARE(zoom->percent(), 100);
+        QCOMPARE(edit->font().pixelSize(), font);
+        QCOMPARE(window->status_label->text(), QString("Selected 4 characters"));
+        QTest::keyClick(edit, Qt::Key_Equal, Qt::ControlModifier);
+        QCOMPARE(zoom->percent(), 110);
+        QTest::keyClick(edit, Qt::Key_Plus, Qt::ControlModifier | Qt::ShiftModifier);
+        QCOMPARE(zoom->percent(), 120);
+        QCOMPARE(edit->toPlainText(), text);
+        QCOMPARE(edit->textCursor().selectedText(), QString("Name"));
+        QCOMPARE(edit->document()->availableUndoSteps(), undo_steps);
+        window->copy_button->click();
+        QCOMPARE(QApplication::clipboard()->text(), QString("Name"));
+        get_ui_theme()->set_mode("dark", false);
+        get_ui_theme()->set_mode("light", false);
+        QCOMPARE(zoom->percent(), 120);
+        QVERIFY(edit->font().pixelSize() > font);
+        window->view_switch->setCurrentItem("table");
+        QVERIFY(window->showing_table());
+        window->table_view->set_zoom_percent(160);
+        window->view_switch->setCurrentItem("text");
+        QVERIFY(!window->showing_table());
+        QCOMPARE(zoom->percent(), 120);
+        QCOMPARE(window->table_view->zoom_percent(), 160);
+        edit->undo();
+        QVERIFY(!edit->toPlainText().endsWith('!'));
+        edit->redo();
+        QCOMPARE(edit->toPlainText(), text);
+        choose_from_next_menu("Remove line breaks");
+        window->layout_button->click();
+        QCOMPARE(zoom->percent(), 120);
+        QVERIFY(window->status_label->text().endsWith(" · 120%"));
+        QVERIFY(edit->font().pixelSize() > font);
+        window->close();
+    }
+
     void columnEdgesDragAndFitTheWidth() {
         RecognizedTableView view;
         const QString long_text = QString("A cell text long enough to wrap in a column of the usual fitted width. ").repeated(3);

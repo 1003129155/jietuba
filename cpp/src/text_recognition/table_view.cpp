@@ -13,7 +13,6 @@
 #include <QMimeData>
 #include <QPainter>
 #include <QUndoCommand>
-#include <QWheelEvent>
 #include <cmath>
 #include <functional>
 
@@ -57,7 +56,11 @@ private:
     text_table::Table before_, after_;
 };
 
-RecognizedTableView::RecognizedTableView(QWidget *parent) : QTableWidget(parent) {
+RecognizedTableView::RecognizedTableView(QWidget *parent) : QTableWidget(parent), zoom_(new ResultZoom(this)) {
+    connect(zoom_, &ResultZoom::changed, this, [this] {
+        apply_theme();
+        emit zoom_changed();
+    });
     setFrameShape(QFrame::NoFrame);
     // Drawn in paintEvent: the view's own grid also draws a line after the last column.
     setShowGrid(false);
@@ -199,7 +202,7 @@ void RecognizedTableView::spread_columns() {
     QVector<int> widths(columnCount());
     int total = 0, fitted = 0, last_fitted = -1;
     for (int c = 0; c < columnCount(); ++c) {
-        widths[c] = manual(c) ? int(std::lround(manual_widths_[c] * zoom_)) : fitted_widths_[c];
+        widths[c] = manual(c) ? int(std::lround(manual_widths_[c] * zoom_->factor())) : fitted_widths_[c];
         total += widths[c];
         if (!manual(c)) {
             fitted += fitted_widths_[c];
@@ -431,29 +434,11 @@ void RecognizedTableView::set_headers_visible(bool visible) {
 
 bool RecognizedTableView::headers_visible() const { return !horizontalHeader()->isHidden(); }
 
-int RecognizedTableView::zoomed(int px) const { return std::max(1, int(std::lround(dialog_scaled(px) * zoom_))); }
+int RecognizedTableView::zoomed(int px) const { return std::max(1, int(std::lround(dialog_scaled(px) * zoom_->factor()))); }
 
-int RecognizedTableView::zoom_percent() const { return int(std::lround(zoom_ * 100)); }
+int RecognizedTableView::zoom_percent() const { return zoom_->percent(); }
 
-void RecognizedTableView::set_zoom_percent(int percent) {
-    percent = std::clamp(percent, MIN_ZOOM, MAX_ZOOM);
-    if (percent == zoom_percent()) return;
-    zoom_ = percent / 100.0;
-    apply_theme();
-    emit zoom_changed();
-}
-
-void RecognizedTableView::wheelEvent(QWheelEvent *event) {
-    if (!(event->modifiers() & Qt::ControlModifier)) {
-        QTableWidget::wheelEvent(event);
-        return;
-    }
-    wheel_delta_ += event->angleDelta().y();
-    const int notches = wheel_delta_ / QWheelEvent::DefaultDeltasPerStep;
-    wheel_delta_ -= notches * QWheelEvent::DefaultDeltasPerStep;
-    if (notches) set_zoom_percent(zoom_percent() + notches * ZOOM_STEP);
-    event->accept();
-}
+void RecognizedTableView::set_zoom_percent(int percent) { zoom_->set_percent(percent); }
 
 int RecognizedTableView::sizeHintForColumn(int column) const {
     const QFontMetrics metrics(font());
@@ -465,7 +450,7 @@ int RecognizedTableView::sizeHintForColumn(int column) const {
 
 void RecognizedTableView::on_column_resized(int column, int size) {
     if (spreading_ || showing_ || column >= manual_widths_.size()) return;
-    manual_widths_[column] = size / zoom_;
+    manual_widths_[column] = size / zoom_->factor();
     spread_columns();
 }
 
@@ -516,21 +501,6 @@ void RecognizedTableView::keyPressEvent(QKeyEvent *event) {
         }
         if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace) {
             clear_selection_text();
-            return;
-        }
-    }
-    if (event->modifiers() & Qt::ControlModifier) {
-        // Ctrl+= as well as Ctrl++, which needs Shift on most keyboards.
-        if (event->matches(QKeySequence::ZoomIn) || event->key() == Qt::Key_Equal) {
-            set_zoom_percent(zoom_percent() + ZOOM_STEP);
-            return;
-        }
-        if (event->matches(QKeySequence::ZoomOut)) {
-            set_zoom_percent(zoom_percent() - ZOOM_STEP);
-            return;
-        }
-        if (event->key() == Qt::Key_0) {
-            set_zoom_percent(100);
             return;
         }
     }

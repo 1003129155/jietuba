@@ -23,6 +23,7 @@ class OriginalImageView;
 class RecognitionStatusIcon;
 class RecognizeThread;
 class RecognizedTableView;
+class ResultZoom;
 class SegmentedWidget;
 class TextEdit;
 class TitleBarPinButton;
@@ -95,6 +96,7 @@ protected:
     void closeEvent(QCloseEvent *event) override;
 private:
     void apply_theme();
+    void apply_text_theme();
     // Places by the configured position, shrinking on small screens.
     void place();
     void on_toggle_pin(bool checked);
@@ -145,6 +147,7 @@ private:
     QFrame *table_card_ = nullptr;
     RecognitionStatusIcon *status_icon_ = nullptr;
     QTimer *copy_feedback_timer_ = nullptr;
+    ResultZoom *text_zoom_ = nullptr;
     bool table_fitted_ = false;
     // Closing from Copy: the clipboard already holds the result.
     bool closing_after_copy_ = false;

@@ -1,5 +1,6 @@
 #pragma once
 #include "text_recognition/table.h"
+#include "text_recognition/result_zoom.h"
 #include <QTableWidget>
 #include <QUndoStack>
 
@@ -19,9 +20,9 @@ void copy_table(const text_table::Table &table);
 class RecognizedTableView : public QTableWidget {
     Q_OBJECT
 public:
-    static constexpr int MIN_ZOOM = 50;
-    static constexpr int MAX_ZOOM = 300;
-    static constexpr int ZOOM_STEP = 10;
+    static constexpr int MIN_ZOOM = ResultZoom::MIN_ZOOM;
+    static constexpr int MAX_ZOOM = ResultZoom::MAX_ZOOM;
+    static constexpr int ZOOM_STEP = ResultZoom::ZOOM_STEP;
     explicit RecognizedTableView(QWidget *parent = nullptr);
     // undoable: one Ctrl+Z brings the previous table back; a fresh result is not undoable.
     void set_table(const text_table::Table &table, bool undoable);
@@ -68,7 +69,6 @@ signals:
 protected:
     void contextMenuEvent(QContextMenuEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
-    void wheelEvent(QWheelEvent *event) override;
     void paintEvent(QPaintEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
 private:
@@ -97,9 +97,7 @@ private:
     QVector<int> fitted_widths_;
     // Widths dragged or fitted by hand at 100% zoom; 0 for columns fitted automatically.
     QVector<double> manual_widths_;
-    double zoom_ = 1.0;
-    // Wheel movement short of a whole notch, from touchpads.
-    int wheel_delta_ = 0;
+    ResultZoom *zoom_;
     QColor grid_color_;
     bool showing_ = false;
     bool spreading_ = false;
