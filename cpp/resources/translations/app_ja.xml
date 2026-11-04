@@ -6068,6 +6068,22 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>セルの結合を解除</translation>
     </message>
     <message>
+        <source>Show row and column headers</source>
+        <translation>行と列の見出しを表示</translation>
+    </message>
+    <message>
+        <source>Average: %1</source>
+        <translation>平均: %1</translation>
+    </message>
+    <message>
+        <source>Count: %1</source>
+        <translation>個数: %1</translation>
+    </message>
+    <message>
+        <source>Sum: %1</source>
+        <translation>合計: %1</translation>
+    </message>
+    <message>
         <source>Original image</source>
         <translation>元画像</translation>
     </message>

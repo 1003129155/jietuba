@@ -5976,6 +5976,22 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>Split cells</translation>
     </message>
     <message>
+        <source>Show row and column headers</source>
+        <translation>Show row and column headers</translation>
+    </message>
+    <message>
+        <source>Average: %1</source>
+        <translation>Average: %1</translation>
+    </message>
+    <message>
+        <source>Count: %1</source>
+        <translation>Count: %1</translation>
+    </message>
+    <message>
+        <source>Sum: %1</source>
+        <translation>Sum: %1</translation>
+    </message>
+    <message>
         <source>Original image</source>
         <translation>Original image</translation>
     </message>

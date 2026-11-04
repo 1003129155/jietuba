@@ -3,8 +3,10 @@
 #include <QImage>
 #include <QRectF>
 #include <QString>
+#include <QStringList>
 #include <QVector>
 #include <functional>
+#include <optional>
 
 // Rebuilds a table from recognized words and the screenshot's ruling lines, without a
 // table model: what a table recognition service returns, at the cost of a pass over the
@@ -90,4 +92,30 @@ QVector<QStringList> parse_tsv(const QString &text);
 Table pasted(Table table, int row, int column, const QVector<QStringList> &grid);
 // Every cell's text passed through convert.
 Table map_text(Table table, const std::function<QString(const QString &)> &convert);
+
+// ---- Reading cells as a spreadsheet does ----
+// A, B, ..., Z, AA, AB, ...
+QString column_name(int column);
+struct Number {
+    double value = 0;
+    // Digits after the point, as written.
+    int decimals = 0;
+    bool percent = false;
+};
+// Digits with optional thousands commas and decimals; a sign or accounting parentheses, a
+// leading currency sign and a trailing % are allowed, full-width forms included. 12% reads
+// as 12, so a column of percentages adds up in percent.
+std::optional<Number> parse_number(const QString &text);
+struct Summary {
+    // Non-empty cells, and how many of them are numbers.
+    int count = 0;
+    int numbers = 0;
+    double sum = 0;
+    int decimals = 0;
+    // Every number was a percentage.
+    bool percent = false;
+};
+Summary summarize(const QStringList &texts);
+// Thousands separated by commas.
+QString format_number(double value, int decimals);
 }

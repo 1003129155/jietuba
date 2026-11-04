@@ -6445,6 +6445,22 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>分割儲存格</translation>
     </message>
     <message>
+        <source>Show row and column headers</source>
+        <translation>顯示列與欄標題</translation>
+    </message>
+    <message>
+        <source>Average: %1</source>
+        <translation>平均值：%1</translation>
+    </message>
+    <message>
+        <source>Count: %1</source>
+        <translation>計數：%1</translation>
+    </message>
+    <message>
+        <source>Sum: %1</source>
+        <translation>加總：%1</translation>
+    </message>
+    <message>
         <source>Original image</source>
         <translation>原圖</translation>
     </message>

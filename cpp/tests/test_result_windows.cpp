@@ -21,6 +21,7 @@
 #include <QFile>
 #include <QFontDatabase>
 #include <QFrame>
+#include <QHeaderView>
 #include <QMenu>
 #include <QMimeData>
 #include <QMouseEvent>
@@ -535,6 +536,156 @@ private slots:
         QCOMPARE(view.item(1, 2)->text(), QString());
     }
 
+    void theTableHasSpreadsheetHeaders() {
+        RecognizedTableView view;
+        view.set_table({3, 3, {{0, 0, 1, 1, "Item"}, {0, 1, 1, 1, "Qty"}, {0, 2, 1, 1, "Note"}, {1, 0, 1, 1, "a"}, {1, 1, 1, 1, "1,000"}, {1, 2, 1, 1, "x"},
+                               {2, 0, 1, 1, "b"}, {2, 1, 1, 1, "2.5"}, {2, 2, 1, 1, "y"}}},
+                       false);
+        view.resize(500, 300);
+        view.show();
+        QApplication::processEvents();
+        auto *columns = view.horizontalHeader();
+        auto *rows = view.verticalHeader();
+        QVERIFY(view.headers_visible());
+        QCOMPARE(view.model()->headerData(2, Qt::Horizontal).toString(), QString("C"));
+        QCOMPARE(view.model()->headerData(0, Qt::Vertical).toString(), QString("1"));
+        // A column's header selects the column; its numbers are summed in the status.
+        QTest::mouseClick(columns->viewport(), Qt::LeftButton, {}, QPoint(columns->sectionViewportPosition(1) + 5, columns->height() / 2));
+        QVERIFY(view.selectionModel()->isColumnSelected(1, QModelIndex()));
+        QCOMPARE(view.selection_summary(), QString("Average: 501.25   Count: 3   Sum: 1,002.5"));
+        // Text alone is counted; one cell has no summary.
+        view.clearSelection();
+        view.setRangeSelected(QTableWidgetSelectionRange(1, 2, 2, 2), true);
+        QCOMPARE(view.selection_summary(), QString("Count: 2"));
+        view.clearSelection();
+        view.setCurrentCell(1, 1);
+        QCOMPARE(view.selection_summary(), QString());
+        // A row's header selects the row; its menu acts on the row right-clicked.
+        QTest::mouseClick(rows->viewport(), Qt::LeftButton, {}, QPoint(rows->width() / 2, rows->sectionViewportPosition(2) + 5));
+        QVERIFY(view.selectionModel()->isRowSelected(2, QModelIndex()));
+        choose_from_next_menu("Delete row");
+        emit rows->customContextMenuRequested(QPoint(rows->width() / 2, rows->sectionViewportPosition(1) + 5));
+        QCOMPARE(view.rowCount(), 2);
+        QCOMPARE(view.item(1, 0)->text(), QString("b"));
+        choose_from_next_menu("Delete column");
+        emit columns->customContextMenuRequested(QPoint(columns->sectionViewportPosition(2) + 5, columns->height() / 2));
+        QCOMPARE(view.columnCount(), 2);
+        // The menu turns the headers off and says so, for the window to remember.
+        QSignalSpy chosen(&view, &RecognizedTableView::headers_visibility_chosen);
+        choose_from_next_menu("Show row and column headers");
+        const QPoint at = view.visualItemRect(view.item(0, 0)).center();
+        QContextMenuEvent event(QContextMenuEvent::Mouse, at, view.viewport()->mapToGlobal(at));
+        QApplication::sendEvent(view.viewport(), &event);
+        QVERIFY(!view.headers_visible());
+        QVERIFY(columns->isHidden() && rows->isHidden());
+        QCOMPARE(chosen.size(), 1);
+        QCOMPARE(chosen.front().front().toBool(), false);
+    }
+
+    void ctrlWheelZoomsTheTable() {
+        RecognizedTableView view;
+        view.set_table(small_table(), false);
+        view.resize(400, 200);
+        view.show();
+        QApplication::processEvents();
+        const int font = view.font().pixelSize();
+        const int row = view.rowHeight(0);
+        QSignalSpy zoomed(&view, &RecognizedTableView::zoom_changed);
+        const auto wheel = [&](int delta, Qt::KeyboardModifiers modifiers = Qt::ControlModifier) {
+            const QPointF at(50, 20);
+            QWheelEvent event(at, view.viewport()->mapToGlobal(at), {}, {0, delta}, Qt::NoButton, modifiers, Qt::NoScrollPhase, false);
+            QApplication::sendEvent(view.viewport(), &event);
+        };
+        wheel(120);
+        QCOMPARE(view.zoom_percent(), 110);
+        QCOMPARE(zoomed.size(), 1);
+        QVERIFY(view.font().pixelSize() > font);
+        QVERIFY(view.rowHeight(0) > row);
+        // Half notches from a touchpad add up.
+        wheel(60);
+        QCOMPARE(view.zoom_percent(), 110);
+        wheel(60);
+        QCOMPARE(view.zoom_percent(), 120);
+        // Without Ctrl the wheel scrolls.
+        wheel(-120, Qt::NoModifier);
+        QCOMPARE(view.zoom_percent(), 120);
+        wheel(-120 * 50);
+        QCOMPARE(view.zoom_percent(), RecognizedTableView::MIN_ZOOM);
+        wheel(120 * 50);
+        QCOMPARE(view.zoom_percent(), RecognizedTableView::MAX_ZOOM);
+        QTest::keyClick(&view, Qt::Key_Minus, Qt::ControlModifier);
+        QCOMPARE(view.zoom_percent(), RecognizedTableView::MAX_ZOOM - RecognizedTableView::ZOOM_STEP);
+        QTest::keyClick(&view, Qt::Key_0, Qt::ControlModifier);
+        QCOMPARE(view.zoom_percent(), 100);
+        QCOMPARE(view.font().pixelSize(), font);
+        QCOMPARE(view.rowHeight(0), row);
+        QTest::keyClick(&view, Qt::Key_Equal, Qt::ControlModifier);
+        QCOMPARE(view.zoom_percent(), 110);
+    }
+
+    void columnEdgesDragAndFitTheWidth() {
+        RecognizedTableView view;
+        const QString long_text = QString("A cell text long enough to wrap in a column of the usual fitted width. ").repeated(3);
+        view.set_table({2, 3, {{0, 0, 1, 1, long_text}, {0, 1, 1, 1, "b"}, {0, 2, 1, 1, "c"}, {1, 0, 1, 1, "d"}, {1, 1, 1, 1, "e"}, {1, 2, 1, 1, "f"}}}, false);
+        view.resize(600, 300);
+        view.show();
+        QApplication::processEvents();
+        auto *columns = view.horizontalHeader();
+        const auto total = [&] {
+            int sum = 0;
+            for (int c = 0; c < view.columnCount(); ++c) sum += view.columnWidth(c);
+            return sum;
+        };
+        // Fitted, the long text wraps.
+        QVERIFY(view.columnWidth(0) < view.sizeHintForColumn(0));
+        const int wrapped_row = view.rowHeight(0);
+        // A double-click on the edge fits the column to its text on one line.
+        emit columns->sectionHandleDoubleClicked(0);
+        QCOMPARE(view.columnWidth(0), view.sizeHintForColumn(0));
+        QVERIFY(view.columnWidth(0) > view.fontMetrics().horizontalAdvance(long_text));
+        QVERIFY(view.rowHeight(0) <= wrapped_row);
+        // A dragged width stays while the view resizes; the other columns fill the rest.
+        columns->resizeSection(0, 100);
+        columns->resizeSection(1, 150);
+        QCOMPARE(view.columnWidth(1), 150);
+        view.resize(1400, 300);
+        QApplication::processEvents();
+        QCOMPARE(view.columnWidth(1), 150);
+        QCOMPARE(total(), view.viewport()->width());
+        // Zooming keeps its share.
+        view.set_zoom_percent(200);
+        QCOMPARE(view.columnWidth(1), 300);
+        // A fresh table starts over.
+        view.set_zoom_percent(100);
+        view.set_table(small_table(), false);
+        QApplication::processEvents();
+        QCOMPARE(total(), view.viewport()->width());
+        QVERIFY(view.columnWidth(1) != 150);
+    }
+
+    void theWindowRemembersTheHeadersAndShowsZoomAndSums() {
+        config_->set_ocr_result_view("table");
+        config_->set_ocr_show_original(false);
+        auto *window = new TextRecognitionWindow(blank_image());
+        window->setAttribute(Qt::WA_DeleteOnClose);
+        QTRY_VERIFY_WITH_TIMEOUT(!window->status_label->text().startsWith("Recognizing"), 30000);
+        window->on_recognized(SMALL_LINES, {}, {2, 2, {{0, 0, 1, 1, "7"}, {0, 1, 1, 1, "8"}, {1, 0, 1, 1, "9"}, {1, 1, 1, 1, "x"}}});
+        auto *view = window->table_view;
+        QVERIFY(view->headers_visible());
+        QCOMPARE(window->status_label->text(), QString("2 rows × 2 columns"));
+        view->setRangeSelected(QTableWidgetSelectionRange(0, 0, 1, 1), true);
+        QCOMPARE(window->status_label->text(), QString("Average: 8   Count: 4   Sum: 24"));
+        view->set_zoom_percent(130);
+        QCOMPARE(window->status_label->text(), QString("Average: 8   Count: 4   Sum: 24 · 130%"));
+        view->clearSelection();
+        QCOMPARE(window->status_label->text(), QString("2 rows × 2 columns · 130%"));
+        emit view->headers_visibility_chosen(false);
+        QVERIFY(!config_->get_ocr_table_headers());
+        window->close();
+        TextRecognitionWindow next(blank_image());
+        QVERIFY(!next.table_view->headers_visible());
+    }
+
     // ---- Original image ----
     void theOriginalImageFitsZoomsAndCopies() {
         OriginalImageView pane(plain_image(800, 400));
@@ -1015,7 +1166,8 @@ private slots:
         });
         config_->set_ocr_result_view("table");
         text_table::Table table{12, 2, {}};
-        for (int r = 0; r < 12; ++r) table.cells << text_table::Cell{r, 0, 1, 1, "a"} << text_table::Cell{r, 1, 1, 1, "b"};
+        // Long numbers, for the longest selection summary.
+        for (int r = 0; r < 12; ++r) table.cells << text_table::Cell{r, 0, 1, 1, "a"} << text_table::Cell{r, 1, 1, 1, "1,234,567.89"};
         // A four-digit count, as a page of text gives.
         const QVector<OcrTextLine> long_text = {{QString(1234, 'a'), 0, 100, 0, 20}};
         for (const int percent : {100, 150, 200}) {
@@ -1051,6 +1203,11 @@ private slots:
                 for (const char *view : {"table", "text"}) {
                     // The text view's status is the character count.
                     window->view_switch->setCurrentItem(view);
+                    if (window->showing_table()) {
+                        window->table_view->selectAll();
+                        window->table_view->set_zoom_percent(RecognizedTableView::MAX_ZOOM);
+                        QVERIFY(window->status_label->text().contains("14,814,814.68") && window->status_label->text().endsWith("300%"));
+                    }
                     window->layout()->activate();
                     window->findChild<QFrame *>("recognitionToolbar")->layout()->activate();
                     window->findChild<QFrame *>("recognitionFooter")->layout()->activate();

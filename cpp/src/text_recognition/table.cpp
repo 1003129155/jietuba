@@ -1,6 +1,7 @@
 #include "text_recognition/table.h"
 #include "ocr/ocr_line_geometry.h"
 #include <QPolygonF>
+#include <QRegularExpression>
 #include <algorithm>
 #include <cmath>
 #include <map>
@@ -1600,5 +1601,74 @@ Table pasted(Table table, int row, int column, const QVector<QStringList> &grid)
 Table map_text(Table table, const std::function<QString(const QString &)> &convert) {
     for (auto &c : table.cells) c.text = convert(c.text);
     return table;
+}
+
+QString column_name(int column) {
+    QString name;
+    for (int n = column + 1; n > 0; n = (n - 1) / 26) name.prepend(QChar('A' + (n - 1) % 26));
+    return name;
+}
+
+std::optional<Number> parse_number(const QString &text) {
+    QString s = text.normalized(QString::NormalizationForm_KC).trimmed();
+    s.replace(QChar(0x2212), '-');
+    bool negative = false;
+    if (s.size() > 2 && s.front() == '(' && s.back() == ')') {
+        negative = true;
+        s = s.mid(1, s.size() - 2).trimmed();
+    }
+    Number number;
+    if (s.endsWith('%')) {
+        number.percent = true;
+        s = s.chopped(1).trimmed();
+    }
+    const auto take_sign = [&] {
+        if (!s.startsWith('-') && !s.startsWith('+')) return false;
+        if (s.front() == '-') negative = !negative;
+        s = s.mid(1).trimmed();
+        return true;
+    };
+    // The sign may come before or after the currency: -$5 and $-5.
+    const bool signed_first = take_sign();
+    if (!s.isEmpty() && QStringLiteral("$¥€£").contains(s.front())) {
+        s = s.mid(1).trimmed();
+        if (!signed_first) take_sign();
+    }
+    static const QRegularExpression pattern(R"(^([0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)(?:\.([0-9]+))?$)");
+    const auto match = pattern.match(s);
+    if (!match.hasMatch()) return std::nullopt;
+    const QString fraction = match.captured(2);
+    bool ok = false;
+    number.value = (match.captured(1).remove(',') + (fraction.isEmpty() ? QString() : "." + fraction)).toDouble(&ok);
+    if (!ok) return std::nullopt;
+    number.decimals = int(fraction.size());
+    if (negative) number.value = -number.value;
+    return number;
+}
+
+Summary summarize(const QStringList &texts) {
+    Summary summary;
+    summary.percent = true;
+    for (const auto &text : texts) {
+        if (text.trimmed().isEmpty()) continue;
+        ++summary.count;
+        const auto number = parse_number(text);
+        if (!number) continue;
+        ++summary.numbers;
+        summary.sum += number->value;
+        summary.decimals = std::max(summary.decimals, number->decimals);
+        summary.percent = summary.percent && number->percent;
+    }
+    summary.percent = summary.percent && summary.numbers > 0;
+    return summary;
+}
+
+QString format_number(double value, int decimals) {
+    QString digits = QString::number(std::abs(value), 'f', decimals);
+    const auto point = digits.indexOf('.');
+    for (auto k = (point < 0 ? digits.size() : point) - 3; k > 0; k -= 3) digits.insert(k, ',');
+    // No minus on a value that rounds to zero.
+    const bool zero = std::all_of(digits.begin(), digits.end(), [](QChar ch) { return !ch.isDigit() || ch == '0'; });
+    return value < 0 && !zero ? "-" + digits : digits;
 }
 }

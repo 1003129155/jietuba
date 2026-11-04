@@ -13,6 +13,8 @@
 #include <QMimeData>
 #include <QPainter>
 #include <QUndoCommand>
+#include <QWheelEvent>
+#include <cmath>
 #include <functional>
 
 namespace jietuba {
@@ -26,6 +28,13 @@ bool same_shape(const text_table::Table &a, const text_table::Table &b) {
         if (x.row != y.row || x.column != y.column || x.row_span != y.row_span || x.column_span != y.column_span) return false;
     }
     return true;
+}
+
+// The longest line, as a cell's text breaks only where it has line breaks.
+int text_width(const QFontMetrics &metrics, const QString &text) {
+    int widest = 0;
+    for (const auto &line : text.split('\n')) widest = std::max(widest, metrics.horizontalAdvance(line));
+    return widest;
 }
 }
 
@@ -52,8 +61,27 @@ RecognizedTableView::RecognizedTableView(QWidget *parent) : QTableWidget(parent)
     setFrameShape(QFrame::NoFrame);
     // Drawn in paintEvent: the view's own grid also draws a line after the last column.
     setShowGrid(false);
-    horizontalHeader()->hide();
-    verticalHeader()->hide();
+    horizontalHeader()->setDefaultAlignment(Qt::AlignCenter);
+    verticalHeader()->setDefaultAlignment(Qt::AlignCenter);
+    horizontalHeader()->setHighlightSections(true);
+    verticalHeader()->setHighlightSections(true);
+    // Row heights follow the wrapped text, so only columns are dragged.
+    verticalHeader()->setSectionResizeMode(QHeaderView::Fixed);
+    connect(horizontalHeader(), &QHeaderView::sectionResized, this, [this](int column, int, int size) { on_column_resized(column, size); });
+    for (auto *header : {horizontalHeader(), verticalHeader()}) {
+        header->setContextMenuPolicy(Qt::CustomContextMenu);
+        connect(header, &QWidget::customContextMenuRequested, this, [this, header](const QPoint &pos) {
+            // The menu acts on the row or column clicked, unless it is already selected.
+            if (const int section = header->logicalIndexAt(pos); section >= 0) {
+                if (header->orientation() == Qt::Horizontal) {
+                    if (!selectionModel()->isColumnSelected(section, rootIndex())) selectColumn(section);
+                } else if (!selectionModel()->isRowSelected(section, rootIndex())) {
+                    selectRow(section);
+                }
+            }
+            show_menu(header->viewport()->mapToGlobal(pos));
+        });
+    }
     setWordWrap(true);
     setSelectionMode(QAbstractItemView::ExtendedSelection);
     setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::EditKeyPressed | QAbstractItemView::AnyKeyPressed);
@@ -73,13 +101,26 @@ void RecognizedTableView::apply_theme() {
                           "QTableWidget QLineEdit { background: %7; color: %1; border: 1px solid %8; padding: 0 %9px; "
                           "selection-background-color: %8; selection-color: %10; }")
                       .arg(t.text)
-                      .arg(dialog_scaled(14))
+                      .arg(zoomed(14))
                       .arg(FONT_FAMILY, t.accent_soft)
-                      .arg(dialog_scaled(8))
+                      .arg(zoomed(8))
                       .arg(t.input_background, t.accent)
-                      .arg(dialog_scaled(6))
+                      .arg(zoomed(6))
                       .arg(t.selected_text) +
+                  // Headers shade the rows and columns holding the selection, as spreadsheets do.
+                  // Only the sections are filled, so the row numbers end with the last row.
+                  QString("QHeaderView { background: transparent; border: none; }"
+                          "QHeaderView::section { background: %1; color: %2; border: none; border-right: 1px solid %3; "
+                          "border-bottom: 1px solid %3; padding: 0 %4px; font: %5px %6; }"
+                          "QHeaderView::section:checked { background: %7; color: %8; }"
+                          "QTableCornerButton::section { background: %1; border: none; border-right: 1px solid %3; border-bottom: 1px solid %3; }")
+                      .arg(t.surface_subtle, t.text_muted, t.border)
+                      .arg(zoomed(6))
+                      .arg(zoomed(12))
+                      .arg(FONT_FAMILY, t.accent_soft, t.text) +
                   scrollbar_qss(this));
+    horizontalHeader()->setMinimumHeight(zoomed(26));
+    verticalHeader()->setMinimumWidth(zoomed(36));
     if (!table_.cells.isEmpty()) fit_columns();
 }
 
@@ -89,6 +130,7 @@ void RecognizedTableView::set_table(const text_table::Table &table, bool undoabl
         return;
     }
     undo_.clear();
+    manual_widths_.clear();
     show_table(table);
 }
 
@@ -106,6 +148,11 @@ void RecognizedTableView::show_table(const text_table::Table &table) {
         clearContents();
         setRowCount(table.rows);
         setColumnCount(table.columns);
+        QStringList columns, rows;
+        for (int c = 0; c < table.columns; ++c) columns << text_table::column_name(c);
+        for (int r = 0; r < table.rows; ++r) rows << QString::number(r + 1);
+        setHorizontalHeaderLabels(columns);
+        setVerticalHeaderLabels(rows);
         for (const auto &cell : table.cells) {
             auto *item = new QTableWidgetItem(cell.text);
             const bool merged = cell.row_span > 1 || cell.column_span > 1;
@@ -125,39 +172,56 @@ void RecognizedTableView::show_table(const text_table::Table &table) {
 void RecognizedTableView::fit_columns() {
     ensurePolished();
     const QFontMetrics metrics(font());
-    const int padding = dialog_scaled(28);
-    const int widest = dialog_scaled(320);
-    QVector<int> widths(table_.columns, dialog_scaled(48));
+    const int padding = zoomed(28);
+    const int widest = zoomed(320);
+    QVector<int> widths(table_.columns, zoomed(48));
     for (const auto &cell : table_.cells)
-        if (cell.column_span == 1) widths[cell.column] = std::max(widths[cell.column], std::min(widest, metrics.horizontalAdvance(cell.text) + padding));
+        if (cell.column_span == 1) widths[cell.column] = std::max(widths[cell.column], std::min(widest, text_width(metrics, cell.text) + padding));
     // A merged cell wider than its columns widens them evenly.
     for (const auto &cell : table_.cells) {
         if (cell.column_span == 1) continue;
         int have = 0;
         for (int c = cell.column; c < cell.column + cell.column_span; ++c) have += widths[c];
-        const int need = std::min(widest * cell.column_span, metrics.horizontalAdvance(cell.text) + padding);
+        const int need = std::min(widest * cell.column_span, text_width(metrics, cell.text) + padding);
         if (need > have)
             for (int c = cell.column; c < cell.column + cell.column_span; ++c) widths[c] += (need - have + cell.column_span - 1) / cell.column_span;
     }
     fitted_widths_ = widths;
+    // Inserting or deleting a column shifts the columns; their hand-set widths start over.
+    if (manual_widths_.size() != table_.columns) manual_widths_ = QVector<double>(table_.columns, 0);
     spread_columns();
 }
 
 void RecognizedTableView::spread_columns() {
     if (spreading_ || fitted_widths_.size() != columnCount()) return;
     spreading_ = true;
-    const int fitted = content_width();
-    const int extra = std::max(0, viewport()->width() - fitted);
+    const auto manual = [this](int c) { return c < manual_widths_.size() && manual_widths_[c] > 0; };
+    QVector<int> widths(columnCount());
+    int total = 0, fitted = 0, last_fitted = -1;
+    for (int c = 0; c < columnCount(); ++c) {
+        widths[c] = manual(c) ? int(std::lround(manual_widths_[c] * zoom_)) : fitted_widths_[c];
+        total += widths[c];
+        if (!manual(c)) {
+            fitted += fitted_widths_[c];
+            last_fitted = c;
+        }
+    }
+    // Only the automatically fitted columns widen; with every column set by hand the grid
+    // may end short of the view.
+    const int extra = fitted > 0 ? std::max(0, viewport()->width() - total) : 0;
     int given = 0;
     for (int c = 0; c < columnCount(); ++c) {
-        // In proportion to the fitted widths; the last column takes the rounding remainder.
-        const int add = c + 1 == columnCount() ? extra - given : extra * fitted_widths_[c] / fitted;
-        given += add;
-        setColumnWidth(c, fitted_widths_[c] + add);
+        if (!manual(c)) {
+            // In proportion to the fitted widths; the last such column takes the rounding remainder.
+            const int add = c == last_fitted ? extra - given : extra * fitted_widths_[c] / fitted;
+            given += add;
+            widths[c] += add;
+        }
+        setColumnWidth(c, widths[c]);
     }
     // Long text wraps within the widest column; rows grow to fit it.
     resizeRowsToContents();
-    const int row_height = dialog_scaled(30);
+    const int row_height = zoomed(30);
     for (int r = 0; r < rowCount(); ++r) setRowHeight(r, std::max(row_height, rowHeight(r)));
     spreading_ = false;
 }
@@ -181,10 +245,12 @@ void RecognizedTableView::paintEvent(QPaintEvent *event) {
     QPainter painter(viewport());
     painter.setPen(grid_color_);
     const int bottom = viewport()->height() - 1;
+    const int right = viewport()->width() - 1;
     for (const auto &cell : table_.cells) {
         const QRect rect = visualRect(model()->index(cell.row, cell.column));
         if (!rect.intersects(event->rect())) continue;
-        if (cell.column + cell.column_span < table_.columns) painter.drawLine(rect.right(), rect.top(), rect.right(), rect.bottom() - 1);
+        if (cell.column + cell.column_span < table_.columns || rect.right() != right)
+            painter.drawLine(rect.right(), rect.top(), rect.right(), rect.bottom() - 1);
         if (rect.bottom() != bottom) painter.drawLine(rect.left(), rect.bottom(), rect.right(), rect.bottom());
     }
 }
@@ -318,6 +384,10 @@ void RecognizedTableView::clear_selection_text() {
 void RecognizedTableView::contextMenuEvent(QContextMenuEvent *event) {
     if (const auto index = indexAt(viewport()->mapFromGlobal(event->globalPos())); index.isValid() && !selectionModel()->isSelected(index))
         setCurrentCell(index.row(), index.column());
+    show_menu(event->globalPos());
+}
+
+void RecognizedTableView::show_menu(const QPoint &global_pos) {
     const auto b = selection_bounds();
     const bool any = b.valid();
     QMenu menu(this);
@@ -342,8 +412,84 @@ void RecognizedTableView::contextMenuEvent(QContextMenuEvent *event) {
     menu.addSeparator();
     add("Undo", [this] { undo_.undo(); }, undo_.canUndo(), QKeySequence::Undo);
     add("Redo", [this] { undo_.redo(); }, undo_.canRedo(), QKeySequence::Redo);
+    menu.addSeparator();
+    auto *headers = menu.addAction(tr_text("Show row and column headers"));
+    headers->setCheckable(true);
+    headers->setChecked(headers_visible());
+    connect(headers, &QAction::toggled, this, [this](bool visible) {
+        set_headers_visible(visible);
+        emit headers_visibility_chosen(visible);
+    });
     style_popup_menu(&menu, ui_tokens(this));
-    menu.exec(event->globalPos());
+    menu.exec(global_pos);
+}
+
+void RecognizedTableView::set_headers_visible(bool visible) {
+    horizontalHeader()->setVisible(visible);
+    verticalHeader()->setVisible(visible);
+}
+
+bool RecognizedTableView::headers_visible() const { return !horizontalHeader()->isHidden(); }
+
+int RecognizedTableView::zoomed(int px) const { return std::max(1, int(std::lround(dialog_scaled(px) * zoom_))); }
+
+int RecognizedTableView::zoom_percent() const { return int(std::lround(zoom_ * 100)); }
+
+void RecognizedTableView::set_zoom_percent(int percent) {
+    percent = std::clamp(percent, MIN_ZOOM, MAX_ZOOM);
+    if (percent == zoom_percent()) return;
+    zoom_ = percent / 100.0;
+    apply_theme();
+    emit zoom_changed();
+}
+
+void RecognizedTableView::wheelEvent(QWheelEvent *event) {
+    if (!(event->modifiers() & Qt::ControlModifier)) {
+        QTableWidget::wheelEvent(event);
+        return;
+    }
+    wheel_delta_ += event->angleDelta().y();
+    const int notches = wheel_delta_ / QWheelEvent::DefaultDeltasPerStep;
+    wheel_delta_ -= notches * QWheelEvent::DefaultDeltasPerStep;
+    if (notches) set_zoom_percent(zoom_percent() + notches * ZOOM_STEP);
+    event->accept();
+}
+
+int RecognizedTableView::sizeHintForColumn(int column) const {
+    const QFontMetrics metrics(font());
+    int widest = zoomed(48);
+    for (const auto &cell : table_.cells)
+        if (cell.column == column && cell.column_span == 1) widest = std::max(widest, text_width(metrics, cell.text) + zoomed(28));
+    return widest;
+}
+
+void RecognizedTableView::on_column_resized(int column, int size) {
+    if (spreading_ || showing_ || column >= manual_widths_.size()) return;
+    manual_widths_[column] = size / zoom_;
+    spread_columns();
+}
+
+QString RecognizedTableView::selection_summary() const {
+    const auto selected = selectedItems();
+    if (selected.size() < 2) return {};
+    QStringList texts;
+    for (const auto *item : selected) texts << item->text();
+    const auto summary = text_table::summarize(texts);
+    if (summary.count < 2) return {};
+    const auto label = [](const char *text, const QString &value) { return tr_text(text).replace("%1", value); };
+    QStringList parts;
+    const QString percent = summary.percent ? "%" : "";
+    if (summary.numbers > 0) {
+        // At least two places, trailing zeros beyond the cells' own places dropped.
+        QString average = text_table::format_number(summary.sum / summary.numbers, std::min(10, std::max(2, summary.decimals)));
+        const auto point = average.indexOf('.');
+        while (point >= 0 && average.size() - point - 1 > summary.decimals && average.endsWith('0')) average.chop(1);
+        if (average.endsWith('.')) average.chop(1);
+        parts << label("Average: %1", average + percent);
+    }
+    parts << label("Count: %1", QString::number(summary.count));
+    if (summary.numbers > 0) parts << label("Sum: %1", text_table::format_number(summary.sum, summary.decimals) + percent);
+    return parts.join("   ");
 }
 
 void RecognizedTableView::keyPressEvent(QKeyEvent *event) {
@@ -370,6 +516,21 @@ void RecognizedTableView::keyPressEvent(QKeyEvent *event) {
         }
         if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace) {
             clear_selection_text();
+            return;
+        }
+    }
+    if (event->modifiers() & Qt::ControlModifier) {
+        // Ctrl+= as well as Ctrl++, which needs Shift on most keyboards.
+        if (event->matches(QKeySequence::ZoomIn) || event->key() == Qt::Key_Equal) {
+            set_zoom_percent(zoom_percent() + ZOOM_STEP);
+            return;
+        }
+        if (event->matches(QKeySequence::ZoomOut)) {
+            set_zoom_percent(zoom_percent() - ZOOM_STEP);
+            return;
+        }
+        if (event->key() == Qt::Key_0) {
+            set_zoom_percent(100);
             return;
         }
     }

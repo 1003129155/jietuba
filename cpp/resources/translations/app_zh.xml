@@ -6058,6 +6058,22 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>拆分单元格</translation>
     </message>
     <message>
+        <source>Show row and column headers</source>
+        <translation>显示行号列标</translation>
+    </message>
+    <message>
+        <source>Average: %1</source>
+        <translation>平均值：%1</translation>
+    </message>
+    <message>
+        <source>Count: %1</source>
+        <translation>计数：%1</translation>
+    </message>
+    <message>
+        <source>Sum: %1</source>
+        <translation>求和：%1</translation>
+    </message>
+    <message>
         <source>Original image</source>
         <translation>原图</translation>
     </message>

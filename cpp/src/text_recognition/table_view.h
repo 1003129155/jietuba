@@ -12,9 +12,16 @@ void copy_table(const text_table::Table &table);
 // place; rows and columns inserted and deleted, cells merged and split from the context menu.
 // Every change goes through the undo stack, so Ctrl+Z also brings back a table re-rendered by
 // a layout option.
+//
+// As in a spreadsheet: lettered column and numbered row headers select whole columns and
+// rows, a column's edge drags its width and a double-click fits it to its text, and
+// Ctrl+wheel zooms the text and grid together.
 class RecognizedTableView : public QTableWidget {
     Q_OBJECT
 public:
+    static constexpr int MIN_ZOOM = 50;
+    static constexpr int MAX_ZOOM = 300;
+    static constexpr int ZOOM_STEP = 10;
     explicit RecognizedTableView(QWidget *parent = nullptr);
     // undoable: one Ctrl+Z brings the previous table back; a fresh result is not undoable.
     void set_table(const text_table::Table &table, bool undoable);
@@ -41,11 +48,26 @@ public:
     void clear_selection_text();
     QUndoStack *undo_stack() { return &undo_; }
     void apply_theme();
+    void set_headers_visible(bool visible);
+    bool headers_visible() const;
+    // Percent of the normal size; columns sized by hand keep their share.
+    int zoom_percent() const;
+    void set_zoom_percent(int percent);
+    // Average, count and sum of the selected cells as a spreadsheet's status bar shows them;
+    // empty unless two or more selected cells have text.
+    QString selection_summary() const;
+    // Width of the column's widest single cell on one line, so a double-click on the
+    // column's edge fits it without wrapping.
+    int sizeHintForColumn(int column) const override;
 signals:
     void table_changed();
+    void zoom_changed();
+    // From the context menu, for remembering.
+    void headers_visibility_chosen(bool visible);
 protected:
     void contextMenuEvent(QContextMenuEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
+    void wheelEvent(QWheelEvent *event) override;
     void paintEvent(QPaintEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
 private:
@@ -57,17 +79,26 @@ private:
     // The selection's bounding rectangle grown over the merged cells it meets; the current
     // cell without a selection.
     Bounds selection_bounds() const;
+    void show_menu(const QPoint &global_pos);
+    // px at the dialog scale and the zoom.
+    int zoomed(int px) const;
     // Shows table, rebuilding the grid only when its shape or merged cells change.
     void show_table(const text_table::Table &table);
     void fit_columns();
     // Widens the fitted columns to fill the view, so the grid ends at the card's edge.
     void spread_columns();
     void on_item_changed(QTableWidgetItem *item);
+    void on_column_resized(int column, int size);
     void push(const text_table::Table &table);
 
     text_table::Table table_;
     QUndoStack undo_;
     QVector<int> fitted_widths_;
+    // Widths dragged or fitted by hand at 100% zoom; 0 for columns fitted automatically.
+    QVector<double> manual_widths_;
+    double zoom_ = 1.0;
+    // Wheel movement short of a whole notch, from touchpads.
+    int wheel_delta_ = 0;
     QColor grid_color_;
     bool showing_ = false;
     bool spreading_ = false;

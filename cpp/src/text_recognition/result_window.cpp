@@ -20,6 +20,7 @@
 #include "ui/fluent_lite/titlebar.h"
 #include "ui/submenu_position.h"
 #include <QApplication>
+#include <QHeaderView>
 #include <QClipboard>
 #include <QCloseEvent>
 #include <QCursor>
@@ -241,7 +242,12 @@ TextRecognitionWindow::TextRecognitionWindow(const QImage &image, QWidget *paren
     // The grid runs up to the card's border, which closes its edges.
     card_layout->setContentsMargins(0, 0, 0, 0);
     card_layout->addWidget(table_view);
+    table_view->set_headers_visible(get_tool_settings_manager()->get_ocr_table_headers());
+    connect(table_view, &RecognizedTableView::headers_visibility_chosen, this,
+            [](bool visible) { get_tool_settings_manager()->set_ocr_table_headers(visible); });
     connect(table_view, &RecognizedTableView::table_changed, this, &TextRecognitionWindow::update_status);
+    connect(table_view, &RecognizedTableView::zoom_changed, this, &TextRecognitionWindow::update_status);
+    connect(table_view, &QTableWidget::itemSelectionChanged, this, &TextRecognitionWindow::update_status);
     connect(table_view, &QTableWidget::itemSelectionChanged, this, &TextRecognitionWindow::update_highlight);
     connect(text_edit, &QTextEdit::selectionChanged, this, &TextRecognitionWindow::update_highlight);
     connect(text_edit->document(), &QTextDocument::contentsChange, this, &TextRecognitionWindow::on_text_changed);
@@ -572,9 +578,12 @@ void TextRecognitionWindow::update_highlight() {
 bool TextRecognitionWindow::showing_table() const { return pages_->currentWidget() == table_card_; }
 
 void TextRecognitionWindow::update_status() {
-    if (showing_table())
-        status_label->setText(table_size_text("%1 rows × %2 columns", table_view->table()));
-    else
+    if (showing_table()) {
+        QString text = table_view->selection_summary();
+        if (text.isEmpty()) text = table_size_text("%1 rows × %2 columns", table_view->table());
+        if (const int zoom = table_view->zoom_percent(); zoom != 100) text += QString(" · %1%").arg(zoom);
+        status_label->setText(text);
+    } else
         status_label->setText(tr_text("Recognized %1 characters").replace("%1", QString::number(char_count(text_edit->toPlainText()))));
 }
 
@@ -599,7 +608,8 @@ void TextRecognitionWindow::fit_table_width() {
     if (table_fitted_) return;
     table_fitted_ = true;
     const int margins = width() - pages_->width();
-    const int needed = table_view->content_width() + table_view->verticalScrollBar()->sizeHint().width() + dialog_scaled(4) + margins;
+    const int row_numbers = table_view->headers_visible() ? table_view->verticalHeader()->sizeHint().width() : 0;
+    const int needed = table_view->content_width() + row_numbers + table_view->verticalScrollBar()->sizeHint().width() + dialog_scaled(4) + margins;
     const QRect available = screen()->availableGeometry();
     const int target = std::min(needed, static_cast<int>(available.width() * 0.8));
     if (target <= width()) return;

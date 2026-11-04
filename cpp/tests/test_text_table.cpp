@@ -376,6 +376,60 @@ private slots:
         QVERIFY(!is_table({3, 2, {{0, 0, 1, 1, "a"}, {0, 1, 1, 1, "b"}, {1, 0, 1, 1, "c"}, {1, 1, 1, 1, ""}, {2, 0, 1, 1, "e"}, {2, 1, 1, 1, ""}}}));
         QVERIFY(!is_table({2, 1, {{0, 0, 1, 1, "a"}, {1, 0, 1, 1, "b"}}}));
     }
+
+    void columnsAreLetteredAsInASpreadsheet() {
+        QCOMPARE(column_name(0), QString("A"));
+        QCOMPARE(column_name(25), QString("Z"));
+        QCOMPARE(column_name(26), QString("AA"));
+        QCOMPARE(column_name(51), QString("AZ"));
+        QCOMPARE(column_name(52), QString("BA"));
+        QCOMPARE(column_name(701), QString("ZZ"));
+        QCOMPARE(column_name(702), QString("AAA"));
+    }
+
+    void cellsReadAsNumbersTheWaySpreadsheetsReadThem() {
+        const auto value = [](const QString &text) { return parse_number(text).value_or(Number{-9999, -1, false}); };
+        QCOMPARE(value("42").value, 42.0);
+        QCOMPARE(value(" 1,234.50 ").value, 1234.5);
+        QCOMPARE(value("1,234.50").decimals, 2);
+        QCOMPARE(value("-3").value, -3.0);
+        QCOMPARE(value("+3").value, 3.0);
+        QCOMPARE(value("−3").value, -3.0);
+        QCOMPARE(value("(1,200)").value, -1200.0);
+        QCOMPARE(value("$5").value, 5.0);
+        QCOMPARE(value("-$5").value, -5.0);
+        QCOMPARE(value("¥-5").value, -5.0);
+        QCOMPARE(value("€ 7.5").value, 7.5);
+        // Full-width digits, currency and percent, as recognition gives them in CJK text.
+        QCOMPARE(value("￥１２３").value, 123.0);
+        QVERIFY(value("５０％").percent);
+        QCOMPARE(value("12.5%").value, 12.5);
+        QVERIFY(value("12.5%").percent);
+        for (const char *text : {"", "abc", "12a", "1,23", "12,34.5", "1.2.3", "$", "1.", "--5", "١٢", "5 kg"})
+            QVERIFY2(!parse_number(QString::fromUtf8(text)), text);
+    }
+
+    void aSelectionSumsAndAveragesItsNumbers() {
+        auto s = summarize({"10", "20.5", "", "n/a", " "});
+        QCOMPARE(s.count, 3);
+        QCOMPARE(s.numbers, 2);
+        QCOMPARE(s.sum, 30.5);
+        QCOMPARE(s.decimals, 1);
+        QVERIFY(!s.percent);
+        s = summarize({"10%", "２０％"});
+        QVERIFY(s.percent);
+        QCOMPARE(s.sum, 30.0);
+        // Text only: counted, nothing summed, not percent.
+        s = summarize({"a", "b"});
+        QCOMPARE(s.count, 2);
+        QCOMPARE(s.numbers, 0);
+        QVERIFY(!s.percent);
+        QCOMPARE(format_number(1234567.891, 2), QString("1,234,567.89"));
+        QCOMPARE(format_number(-1234, 0), QString("-1,234"));
+        QCOMPARE(format_number(999, 0), QString("999"));
+        QCOMPARE(format_number(0.1 + 0.2, 1), QString("0.3"));
+        QCOMPARE(format_number(-0.001, 2), QString("0.00"));
+    }
 };
 
 QTEST_MAIN(TextTableTests)

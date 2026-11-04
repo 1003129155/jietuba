@@ -166,6 +166,8 @@ SETTING(ocr_close_after_copy, "app/ocr_close_after_copy", bool, false, Internal,
 SETTING(ocr_result_view, "app/ocr_result_view", QString, "text", Internal, Gen, Gen)
 // Whether the result window shows the original image beside the result.
 SETTING(ocr_show_original, "app/ocr_show_original", bool, true, Internal, Gen, Gen)
+// Whether the result window's table shows lettered columns and numbered rows.
+SETTING(ocr_table_headers, "app/ocr_table_headers", bool, true, Internal, Gen, Gen)
 SETTING_AS(ocr_grayscale_enabled, ocr_grayscale, "app/ocr_grayscale", bool, false, Internal, Gen, Gen)
 SETTING_AS(ocr_upscale_enabled, ocr_upscale, "app/ocr_upscale", bool, true, Internal, Gen, Gen)
 SETTING(ocr_upscale_factor, "app/ocr_upscale_factor", double, 2.0, Internal, Gen, Gen)
