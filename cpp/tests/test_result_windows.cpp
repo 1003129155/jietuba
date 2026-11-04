@@ -751,6 +751,86 @@ private slots:
         const QPolygonF area(QRectF(10, 60, 30, 30));
         pane.set_highlight({area});
         QCOMPARE(pane.highlight(), QVector<QPolygonF>({area}));
+        // The pointer turns to an I-beam over text with no button held, as on a pin.
+        auto *viewport = pane.view()->viewport();
+        QVERIFY(viewport->hasMouseTracking());
+        const auto hover = [&](const QPoint &at) {
+            QMouseEvent move(QEvent::MouseMove, at, viewport->mapToGlobal(at), Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+            QApplication::sendEvent(viewport, &move);
+            return viewport->cursor().shape();
+        };
+        QCOMPARE(hover(on_text), Qt::IBeamCursor);
+        QCOMPARE(hover(pane.view()->mapFromScene(QPointF(300, 150))), Qt::ArrowCursor);
+    }
+
+    void theWindowHasOneSelectionAtATime() {
+        config_->set_ocr_layout_mode("multiline");
+        config_->set_ocr_result_view("text");
+        auto *window = new TextRecognitionWindow(plain_image());
+        window->setAttribute(Qt::WA_DeleteOnClose);
+        window->show();
+        QTRY_VERIFY_WITH_TIMEOUT(!window->status_label->text().startsWith("Recognizing"), 30000);
+        const auto result = two_line_result();
+        window->on_recognized(group_ocr_lines(result), {}, small_table(), result);
+        QVERIFY(!window->showing_table());
+        auto *image = window->original_view;
+        const auto select_text = [&](int from, int to) {
+            auto cursor = window->text_edit->textCursor();
+            cursor.setPosition(from);
+            cursor.setPosition(to, QTextCursor::KeepAnchor);
+            window->text_edit->setTextCursor(cursor);
+        };
+        const auto select_image = [&] {
+            image->view()->setFocus();
+            QTest::keyClick(image->view()->viewport(), Qt::Key_A, Qt::ControlModifier);
+        };
+        select_text(0, 5);
+        QVERIFY(!image->highlight().isEmpty());
+        QCOMPARE(window->status_label->text(), QString("Selected 5 characters"));
+        window->copy_button->click();
+        QCOMPARE(QApplication::clipboard()->text(), QString("Hello"));
+        // Selecting on the image clears the text's selection and its shading; Copy takes the image's.
+        select_image();
+        QVERIFY(image->text_selection()->has_selection());
+        QVERIFY(!window->text_edit->textCursor().hasSelection());
+        QVERIFY(image->highlight().isEmpty());
+        QCOMPARE(window->status_label->text(), QString("Selected 15 characters"));
+        window->copy_button->click();
+        QCOMPARE(QApplication::clipboard()->text(), QString::fromUtf8("Hello world\n第二行"));
+        // And the other way round.
+        select_text(12, 14);
+        QVERIFY(!image->text_selection()->has_selection());
+        QVERIFY(!image->highlight().isEmpty());
+        window->copy_button->click();
+        QCOMPARE(QApplication::clipboard()->text(), QString::fromUtf8("第二"));
+        // Nothing selected: everything.
+        select_text(3, 3);
+        QCOMPARE(window->status_label->text(), QString("Recognized 15 characters"));
+        window->copy_button->click();
+        QCOMPARE(QApplication::clipboard()->text(), QString::fromUtf8("Hello world\n第二行"));
+
+        // The table likewise; one cell alone copies the whole table.
+        window->view_switch->setCurrentItem("table");
+        QVERIFY(window->showing_table());
+        auto *table = window->table_view;
+        table->setCurrentCell(1, 0);
+        window->copy_button->click();
+        QCOMPARE(QApplication::clipboard()->text(), QString("Name\tQty\nPear\t7"));
+        table->setRangeSelected(QTableWidgetSelectionRange(1, 0, 1, 1), true);
+        window->copy_button->click();
+        QCOMPARE(QApplication::clipboard()->text(), QString("Pear\t7"));
+        select_image();
+        QVERIFY(table->selectedRanges().isEmpty());
+        QCOMPARE(window->status_label->text(), QString("Selected 15 characters"));
+        window->copy_button->click();
+        QCOMPARE(QApplication::clipboard()->text(), QString::fromUtf8("Hello world\n第二行"));
+        table->setCurrentCell(0, 0);
+        QVERIFY(!image->text_selection()->has_selection());
+        QCOMPARE(window->status_label->text(), QString("2 rows × 2 columns"));
+        // Closing the image drops its selection.
+        select_image();
+        window->original_switch->setChecked(false);
+        QCOMPARE(window->status_label->text(), QString("2 rows × 2 columns"));
     }
 
     void selectedTextIsShadedOnTheOriginalImage() {

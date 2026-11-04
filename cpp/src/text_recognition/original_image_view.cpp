@@ -99,8 +99,25 @@ protected:
             event->accept();
             return;
         }
-        if (owner_->selection_->key_press(event)) return;
+        if (owner_->selection_->key_press(event)) {
+            owner_->notify_selection();
+            return;
+        }
         QGraphicsView::keyPressEvent(event);
+    }
+    bool viewportEvent(QEvent *event) override {
+        const bool handled = QGraphicsView::viewportEvent(event);
+        switch (event->type()) {
+        case QEvent::MouseButtonPress:
+        case QEvent::MouseButtonDblClick:
+        case QEvent::MouseMove:
+        case QEvent::MouseButtonRelease:
+            owner_->notify_selection();
+            break;
+        default:
+            break;
+        }
+        return handled;
     }
     void contextMenuEvent(QContextMenuEvent *event) override {
         if (!owner_->selection_->has_selection()) return;
@@ -199,7 +216,22 @@ void OriginalImageView::apply_theme() {
     findChild<QFrame *>("originalImageToolbar")->setStyleSheet(QString("#originalImageToolbar { background: %1; border-top: 1px solid %2; }").arg(t.input_background, t.separator));
 }
 
-void OriginalImageView::set_text(OcrTextLayout layout) { selection_->set_layout(std::move(layout)); }
+void OriginalImageView::set_text(OcrTextLayout layout) {
+    selection_->set_layout(std::move(layout));
+    notify_selection();
+}
+
+void OriginalImageView::clear_text_selection() {
+    selection_->clear_selection();
+    notify_selection();
+}
+
+void OriginalImageView::notify_selection() {
+    QString text = selection_->selected_text();
+    if (text == selected_text_) return;
+    selected_text_ = std::move(text);
+    emit text_selection_changed();
+}
 
 void OriginalImageView::set_highlight(QVector<QPolygonF> areas) {
     highlight_ = std::move(areas);

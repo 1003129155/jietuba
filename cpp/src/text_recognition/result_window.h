@@ -53,6 +53,10 @@ private:
 // side selects is shaded on it. Turning it on or off splits the window's width rather than
 // resizing the window; with it on, a new window opens wide enough for both.
 //
+// The window has one selection at a time: selecting on the image clears the result side's
+// selection and the other way round. Copy and the status take whichever selection there is,
+// and everything without one.
+//
 // When the lines form a table, a Text | Table switch appears in the title bar. The table
 // view keeps its own edits and undo stack; Copy and copy-on-close take whichever view is
 // showing. The view last chosen opens next time a table is found.
@@ -111,6 +115,9 @@ private:
     void set_original_visible(bool visible);
     // Shades on the image what the text or table selection came from.
     void update_highlight();
+    bool result_has_selection() const;
+    void on_result_selection_changed();
+    void on_image_selection_changed();
     // Keeps text_sources_ in step with edits: typed text comes from nowhere in the image.
     void on_text_changed(int position, int removed, int added);
     // After every change: an undo or redo back to a state seen before takes that state's
@@ -122,6 +129,7 @@ private:
 
     std::optional<QRect> anchor_;
     QVector<OcrTextLine> lines_;
+    bool recognized_ = false;
     // Per UTF-16 unit of the text box, the recognized character it shows.
     QVector<OcrCharSource> text_sources_;
     bool filling_text_ = false;

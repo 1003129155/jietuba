@@ -5916,6 +5916,10 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>Copied %1 characters</translation>
     </message>
     <message>
+        <source>Selected %1 characters</source>
+        <translation>Selected %1 characters</translation>
+    </message>
+    <message>
         <source>Text</source>
         <translation>Text</translation>
     </message>

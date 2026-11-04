@@ -300,9 +300,9 @@ text_table::Table RecognizedTableView::selected_table() const {
 }
 
 QVector<QRectF> RecognizedTableView::selected_boxes() const {
-    const auto b = selection_bounds();
     QVector<QRectF> boxes;
-    if (!b.valid()) return boxes;
+    if (selectedRanges().isEmpty()) return boxes;
+    const auto b = selection_bounds();
     for (const auto &c : table_.cells)
         if (c.row >= b.row0 && c.row <= b.row1 && c.column >= b.column0 && c.column <= b.column1) boxes += c.boxes;
     return boxes;

@@ -5998,6 +5998,10 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>已复制 %1 个字符</translation>
     </message>
     <message>
+        <source>Selected %1 characters</source>
+        <translation>已选 %1 个字符</translation>
+    </message>
+    <message>
         <source>Text</source>
         <translation>文本</translation>
     </message>

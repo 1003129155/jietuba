@@ -6385,6 +6385,10 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>已複製 %1 個字元</translation>
     </message>
     <message>
+        <source>Selected %1 characters</source>
+        <translation>已選取 %1 個字元</translation>
+    </message>
+    <message>
         <source>Text</source>
         <translation>文字</translation>
     </message>

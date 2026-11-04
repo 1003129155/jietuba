@@ -24,7 +24,11 @@ bool axis_aligned(const QPolygonF &polygon) {
 }
 }
 
-PinTextSelection::PinTextSelection(QGraphicsView *view, std::function<bool()> cursor_taken) : view_(view), cursor_taken_(std::move(cursor_taken)) {}
+PinTextSelection::PinTextSelection(QGraphicsView *view, std::function<bool()> cursor_taken) : view_(view), cursor_taken_(std::move(cursor_taken)) {
+    // The I-beam follows the pointer over text, which needs moves with no button held; a view
+    // otherwise tracks them only once its scene has items that take hover events.
+    if (view_) view_->viewport()->setMouseTracking(true);
+}
 
 void PinTextSelection::set_layout(OcrTextLayout layout) {
     selecting_ = false;

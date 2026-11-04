@@ -39,6 +39,9 @@ public:
     void zoom_by(double factor, const QPointF &anchor);
     QGraphicsView *view() const;
     PinTextSelection *text_selection() const { return selection_.get(); }
+    // The text selected on the image; empty without a selection.
+    QString selected_text() const { return selection_->selected_text(); }
+    void clear_text_selection();
 
     CaptionLabel *size_label;
     TransparentToolButton *zoom_out_button;
@@ -47,6 +50,9 @@ public:
     // Switches between fitting the window and 1:1.
     TransparentToolButton *fit_button;
     TransparentToolButton *copy_button;
+signals:
+    // The text selected on the image changed, by the mouse, the keyboard or new text.
+    void text_selection_changed();
 private:
     class View;
     friend class View;
@@ -54,6 +60,7 @@ private:
     void set_view_scale(double scale, const QPointF &anchor);
     void apply_fit();
     void update_toolbar();
+    void notify_selection();
     // Displayed scale to the view's own, which works in device-independent pixels.
     double device_ratio() const;
 
@@ -62,6 +69,8 @@ private:
     QGraphicsPixmapItem *pixmap_item_;
     std::unique_ptr<PinTextSelection> selection_;
     QVector<QPolygonF> highlight_;
+    // As last reported by text_selection_changed.
+    QString selected_text_;
     Fit fit_ = Fit::Window;
 };
 }

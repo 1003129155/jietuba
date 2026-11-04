@@ -5996,6 +5996,10 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>%1자를 복사했습니다</translation>
     </message>
     <message>
+        <source>Selected %1 characters</source>
+        <translation>%1자 선택됨</translation>
+    </message>
+    <message>
         <source>Text</source>
         <translation>텍스트</translation>
     </message>

@@ -6008,6 +6008,10 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>%1 文字をコピーしました</translation>
     </message>
     <message>
+        <source>Selected %1 characters</source>
+        <translation>%1 文字を選択中</translation>
+    </message>
+    <message>
         <source>Text</source>
         <translation>テキスト</translation>
     </message>

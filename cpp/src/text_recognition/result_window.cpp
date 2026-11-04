@@ -35,6 +35,7 @@
 #include <QStackedWidget>
 #include <QStyleOptionButton>
 #include <QTextCursor>
+#include <QTextDocumentFragment>
 #include <QTimer>
 #include <QVBoxLayout>
 
@@ -247,9 +248,8 @@ TextRecognitionWindow::TextRecognitionWindow(const QImage &image, QWidget *paren
             [](bool visible) { get_tool_settings_manager()->set_ocr_table_headers(visible); });
     connect(table_view, &RecognizedTableView::table_changed, this, &TextRecognitionWindow::update_status);
     connect(table_view, &RecognizedTableView::zoom_changed, this, &TextRecognitionWindow::update_status);
-    connect(table_view, &QTableWidget::itemSelectionChanged, this, &TextRecognitionWindow::update_status);
-    connect(table_view, &QTableWidget::itemSelectionChanged, this, &TextRecognitionWindow::update_highlight);
-    connect(text_edit, &QTextEdit::selectionChanged, this, &TextRecognitionWindow::update_highlight);
+    connect(table_view, &QTableWidget::itemSelectionChanged, this, &TextRecognitionWindow::on_result_selection_changed);
+    connect(text_edit, &QTextEdit::selectionChanged, this, &TextRecognitionWindow::on_result_selection_changed);
     connect(text_edit->document(), &QTextDocument::contentsChange, this, &TextRecognitionWindow::on_text_changed);
     connect(text_edit->document(), &QTextDocument::contentsChanged, this, &TextRecognitionWindow::record_text_state);
     pages_ = new QStackedWidget(this);
@@ -337,6 +337,7 @@ TextRecognitionWindow::TextRecognitionWindow(const QImage &image, QWidget *paren
     splitter->setHandleWidth(1);
     if (!image.isNull()) {
         original_view = new OriginalImageView(image, splitter);
+        connect(original_view, &OriginalImageView::text_selection_changed, this, &TextRecognitionWindow::on_image_selection_changed);
         splitter->addWidget(original_view);
     }
     splitter->addWidget(result_side);
@@ -403,7 +404,7 @@ void TextRecognitionWindow::set_original_visible(bool visible) {
     if (!original_view) return;
     original_view->setVisible(visible);
     if (!visible) {
-        original_view->text_selection()->clear_selection();
+        original_view->clear_text_selection();
         return;
     }
     // Within the window's width, as the window's layout gives the splitter.
@@ -577,14 +578,45 @@ void TextRecognitionWindow::update_highlight() {
 
 bool TextRecognitionWindow::showing_table() const { return pages_->currentWidget() == table_card_; }
 
+bool TextRecognitionWindow::result_has_selection() const {
+    return showing_table() ? !table_view->selectedRanges().isEmpty() : text_edit->textCursor().hasSelection();
+}
+
+void TextRecognitionWindow::on_result_selection_changed() {
+    if (original_view && result_has_selection()) original_view->clear_text_selection();
+    update_highlight();
+    update_status();
+}
+
+void TextRecognitionWindow::on_image_selection_changed() {
+    if (!original_view->selected_text().isEmpty()) {
+        // Both views, so switching views brings back no older selection.
+        auto cursor = text_edit->textCursor();
+        if (cursor.hasSelection()) {
+            cursor.clearSelection();
+            text_edit->setTextCursor(cursor);
+        }
+        table_view->clearSelection();
+    }
+    update_status();
+}
+
 void TextRecognitionWindow::update_status() {
-    if (showing_table()) {
+    // Until a result arrives the status says what recognition is doing, or why it failed.
+    if (!recognized_) return;
+    const auto selected = [](const QString &text) { return tr_text("Selected %1 characters").replace("%1", QString::number(char_count(text))); };
+    if (const QString image = original_view ? original_view->selected_text() : QString(); !image.isEmpty()) {
+        status_label->setText(selected(image));
+    } else if (showing_table()) {
         QString text = table_view->selection_summary();
         if (text.isEmpty()) text = table_size_text("%1 rows × %2 columns", table_view->table());
         if (const int zoom = table_view->zoom_percent(); zoom != 100) text += QString(" · %1%").arg(zoom);
         status_label->setText(text);
-    } else
+    } else if (const auto cursor = text_edit->textCursor(); cursor.hasSelection()) {
+        status_label->setText(selected(cursor.selection().toPlainText()));
+    } else {
         status_label->setText(tr_text("Recognized %1 characters").replace("%1", QString::number(char_count(text_edit->toPlainText()))));
+    }
 }
 
 void TextRecognitionWindow::set_view(const QString &view, bool chosen) {
@@ -629,6 +661,7 @@ void TextRecognitionWindow::on_recognized(const QVector<OcrTextLine> &lines, con
         return;
     }
     lines_ = lines;
+    recognized_ = true;
     if (original_view) original_view->set_text(OcrTextLayout(result));
     status_icon_->set_state(RecognitionStatusIcon::Complete);
     text_edit->setReadOnly(false);
@@ -651,10 +684,18 @@ void TextRecognitionWindow::on_recognized(const QVector<OcrTextLine> &lines, con
 }
 
 void TextRecognitionWindow::copy() {
-    if (showing_table())
-        copy_table(table_view->table());
-    else
-        QApplication::clipboard()->setText(text_edit->toPlainText());
+    if (const QString image = original_view ? original_view->selected_text() : QString(); !image.isEmpty()) {
+        QApplication::clipboard()->setText(image);
+    } else if (showing_table()) {
+        // One selected cell is mostly where a click landed; the table goes whole then.
+        if (table_view->selectedItems().size() > 1)
+            table_view->copy_selection();
+        else
+            copy_table(table_view->table());
+    } else {
+        const auto cursor = text_edit->textCursor();
+        QApplication::clipboard()->setText(cursor.hasSelection() ? cursor.selection().toPlainText() : text_edit->toPlainText());
+    }
     if (close_after_copy_switch->isChecked()) {
         closing_after_copy_ = true;
         close();
