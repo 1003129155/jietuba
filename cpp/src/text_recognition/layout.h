@@ -31,4 +31,13 @@ constexpr double GAP_LIMIT = 1.2;
 
 // The lines as one text. mode is one of LAYOUT_MODES, punctuation one of PUNCTUATION_MODES.
 QString render(const QVector<OcrTextLine> &lines, const QString &mode = MODE_AUTO, bool remove_spaces = false, const QString &punctuation = PUNCT_KEEP);
+
+// The rendered text and, per UTF-16 unit, the recognized character it came from; line
+// breaks and joining spaces have none.
+struct Rendered {
+    QString text;
+    QVector<OcrCharSource> sources;
+};
+Rendered render_with_sources(const QVector<OcrTextLine> &lines, const QString &mode = MODE_AUTO, bool remove_spaces = false,
+                             const QString &punctuation = PUNCT_KEEP);
 }

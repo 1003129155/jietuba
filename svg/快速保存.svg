@@ -1,0 +1,9 @@
+<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+  <g fill="none" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+    <path d="M5 9.5l4.5 4.5 4.5-4.5"/>
+    <path d="M9.5 14V3"/>
+  </g>
+  <!-- 闪电不碰箭头：设置页把图标整体染成单色，相接会糊成一团 -->
+  <path d="M19.8 1 L15.8 7.6 H18.8 L17.6 13 L23 5.6 H20 L21.8 1 Z" fill="#FFB300" stroke="#E39A00" stroke-width="0.6" stroke-linejoin="round"/>
+</svg>

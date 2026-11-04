@@ -196,7 +196,7 @@ ctest --test-dir build\msvc -C Release --output-on-failure -E "_desktop$|_window
 │
 ├── cpp/                     # C++（Qt6）实现
 │   ├── src/                 # 源码，按 <包>/<模块> 组织
-│   │   ├── annotation/      # 屏幕实时标注 — 每屏一层、穿透切换、跨屏撤销
+│   │   ├── annotation/      # 屏幕实时标注 — 一层盖住所有屏幕、穿透切换、标注可跨屏拖动
 │   │   ├── barcode/         # 二维码/条形码识别（zxing-cpp）
 │   │   ├── canvas/          # 画布 — 图形编辑核心、撤销、图层
 │   │   ├── capture/         # 截图捕获 — 屏幕截图、窗口与元素识别

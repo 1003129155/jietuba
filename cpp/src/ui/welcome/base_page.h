@@ -22,6 +22,8 @@ struct WelcomeTheme {
     QString page, panel, panel_subtle, illustration, sidebar, border, border_strong, separator;
     QString text, text_muted, text_soft, accent, accent_hover, accent_soft, toolbar, canvas;
     bool is_dark;
+    // The demo stage: the page tinted with the accent, the one coloured area of a page.
+    QString stage;
 };
 WelcomeTheme welcome_theme();
 
@@ -41,8 +43,8 @@ signals:
     void toggled(bool checked);
 };
 
-// The illustration on the page's left. Subclasses fill it in build_content(); the base is
-// a plain background.
+// The demo stage on the wizard's left. Subclasses fill it in build_content(); the base paints
+// the tinted stage with capture-selection corners.
 class IllustrationArea : public QFrame {
     Q_OBJECT
 public:
@@ -56,6 +58,7 @@ public:
     void set_pixmap(const QPixmap &pixmap, std::optional<QSize> max_size = std::nullopt);
 protected:
     virtual void build_content() {}
+    void paintEvent(QPaintEvent *event) override;
     QVBoxLayout *layout_;
 };
 
@@ -80,6 +83,13 @@ protected:
     virtual void build_controls(QVBoxLayout *) {}
     // A "text left, control right" row with an optional description: (container, label, description or null).
     static std::tuple<QWidget *, QLabel *, QLabel *> make_setting_row_with_refs(const QString &label_text, QWidget *widget, const QString &description = {});
+    // A row of the settings list: the name left, the control right, a hairline above every
+    // row but the first. Returns the name; its parent is the row.
+    static QLabel *add_list_row(QVBoxLayout *layout, const QString &name, QWidget *control, bool first);
+    // Marks the row the stage is showing with the stage's colour.
+    static void set_list_row_current(QLabel *name, bool current);
+    // The same for a card from make_setting_row_with_refs.
+    static void set_setting_row_current(QWidget *card, bool current);
     QVBoxLayout *content_layout = nullptr;
 private:
     QVBoxLayout *root_ = nullptr;

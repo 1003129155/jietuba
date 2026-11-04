@@ -100,6 +100,11 @@ const QSet<QString> &LOCAL_SETTING_PATHS() {
 
 QSettings &SettingsStore::store(const QString &key) const { return LOCAL_SETTING_PATHS().contains(key) ? *local_ : *settings_; }
 
+void SettingsStore::rebind(QSettings &settings) {
+    if (local_ == settings_) local_ = &settings;
+    settings_ = &settings;
+}
+
 void SettingsStore::sync() const {
     settings_->sync();
     if (local_ != settings_) local_->sync();
@@ -317,6 +322,31 @@ void ToolSettingsManager::import_settings(const QVariantMap &values) {
         _save_tool_settings(*tool);
     }
 }
+void ToolSettingsManager::keep_older_hotkey_defaults() {
+    constexpr int CURRENT = 2;
+    if (get_hotkey_defaults_version() >= CURRENT) return;
+    // A settings file with anything in it, or a computer this ran on, means an earlier version.
+    if (!is_first_run() || !qsettings.settings().allKeys().isEmpty()) {
+        static const std::pair<const char *, const char *> OLDER[] = {
+            {"clipboard/hotkey", "ctrl+2"},
+            {"clipboard/pin_hotkey", ""},
+            {"app/translation_hotkey", ""},
+            {"app/screen_annotation_hotkey", ""},
+        };
+        for (const auto &[path, value] : OLDER)
+            if (!qsettings.contains(path)) qsettings.setValue(path, QString::fromLatin1(value));
+    }
+    set_hotkey_defaults_version(CURRENT);
+}
+
+void ToolSettingsManager::use_settings_file(const QString &path) {
+    qsettings.sync();
+    auto next = std::make_unique<QSettings>(path, QSettings::IniFormat);
+    qsettings.rebind(*next);
+    // The one handed in at construction belongs to its creator; earlier switches' files are ours.
+    owned_settings_ = std::move(next);
+}
+
 void ToolSettingsManager::mark_as_run() {
     set_has_run_before(true);
     qsettings.sync();

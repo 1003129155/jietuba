@@ -1,20 +1,25 @@
 use rusqlite::{Connection, OptionalExtension, params, params_from_iter};
-use rusqlite::types::Value;
+use rusqlite::functions::FunctionFlags;
+use rusqlite::types::{Value, ValueRef};
 use crate::file_kind;
 use crate::group_kind::{self, FilterRule};
 use crate::text_kind;
 use crate::types::{PyClipboardItem, PyGroup};
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 // 压缩阈值：超过 100KB 的 data 用 zstd 压缩
 const COMPRESS_THRESHOLD: usize = 100 * 1024;
 
 /// 读一条记录要的列，顺序与 item_from_row 对应
 const ITEM_COLUMNS: &str = "id, title, content, html_content, content_type, image_id, thumbnail, is_pinned, \
-                            paste_count, source_app, char_count, created_at, updated_at, COALESCE(sub_kind, '')";
+                            paste_count, source_app, char_count, created_at, updated_at, COALESCE(sub_kind, ''), group_id";
 
 /// 历史的显示顺序，要和按类型取页的两个索引的排序列一致
 const HISTORY_ORDER: &str = "ORDER BY is_pinned DESC, item_order DESC";
+
+/// 分组内的显示顺序：新内容在下
+const GROUP_ORDER: &str = "ORDER BY is_pinned DESC, item_order ASC";
 
 /// 文本和文件子类型判定规则的版本，存在 PRAGMA user_version；text_kind 或 file_kind 的规则改了就加一，
 /// 打开库时重判全部文本和文件
@@ -64,7 +69,107 @@ fn item_from_row(row: &rusqlite::Row) -> rusqlite::Result<PyClipboardItem> {
         created_at: row.get(11)?,
         updated_at: row.get(12)?,
         sub_kind: row.get(13)?,
+        group_id: row.get(14)?,
     })
+}
+
+/// 类型、来源和时间范围的条件，历史和分组内共用
+fn push_filter_conditions(filter: &FilterRule, start_time: Option<i64>, end_time: Option<i64>,
+                          where_clauses: &mut Vec<String>, params_vec: &mut Vec<Value>) {
+    let (conditions, filter_params) = filter.sql_conditions();
+    where_clauses.extend(conditions.into_iter().map(|condition| format!("({condition})")));
+    params_vec.extend(filter_params);
+
+    if let Some(start) = start_time {
+        where_clauses.push("created_at >= ?".to_string());
+        params_vec.push(Value::from(start));
+    }
+
+    if let Some(end) = end_time {
+        where_clauses.push("created_at < ?".to_string());
+        params_vec.push(Value::from(end));
+    }
+}
+
+/// 搜索比较用的小写：逐字转，词尾的 ς 也当 σ。str::to_lowercase 会按词尾把 Σ 转成 ς，
+/// 逐字转只会得到 σ，搜索词和正文必须用同一种转法
+fn fold_case(c: char) -> impl Iterator<Item = char> {
+    c.to_lowercase().map(|c| if c == 'ς' { 'σ' } else { c })
+}
+
+/// contains_folded 的第二个参数
+fn fold_needle(search: &str) -> String {
+    search.chars().flat_map(fold_case).collect()
+}
+
+fn single_uppercase(c: char) -> Option<char> {
+    let mut upper = c.to_uppercase();
+    match (upper.next(), upper.next()) {
+        (Some(c), None) => Some(c),
+        _ => None,
+    }
+}
+
+/// (转小写后的首字, 原字)，原字既不是首字本身也不是它的单字大写，如 İ→i、K（开尔文）→k、ǅ→ǆ。
+/// 按首字排序，每个首字至多一个；从全部码位里找，第一次搜带大小写的非英文词时建一次
+fn odd_capitals() -> &'static [(char, char)] {
+    static TABLE: OnceLock<Vec<(char, char)>> = OnceLock::new();
+    TABLE.get_or_init(|| {
+        let mut table: Vec<(char, char)> = (0..=char::MAX as u32)
+            .filter_map(char::from_u32)
+            .filter_map(|c| {
+                let first = fold_case(c).next()?;
+                (first != c && single_uppercase(first) != Some(c)).then_some((first, c))
+            })
+            .collect();
+        table.sort_unstable();
+        table
+    })
+}
+
+/// 不区分大小写的包含判断，needle 已由 fold_needle 转好。每行都要过一遍，所以尽量不转小写：
+/// 英文搜索词逐字节比较（UTF-8 里多字节字符的每个字节都不是 ASCII），没有大小写的词（中日韩文字、数字、标点）
+/// 直接找子串，其余只在转小写后以首字开头的字出现的位置转小写比较
+fn contains_folded(text: &[u8], needle: &str) -> bool {
+    if needle.is_ascii() {
+        return contains_ignore_ascii_case(text, needle.as_bytes());
+    }
+    let Ok(text) = std::str::from_utf8(text) else { return false };
+    if needle.chars().all(|c| !c.is_lowercase() && !c.is_uppercase()) {
+        return text.contains(needle);
+    }
+    let first = needle.chars().next().unwrap_or_default();
+    let first_upper = single_uppercase(first).unwrap_or(first);
+    let table = odd_capitals();
+    let odd = table.binary_search_by_key(&first, |&(f, _)| f).map_or(first, |i| table[i].1);
+    let length = needle.chars().count();
+    let mut at = 0;
+    while let Some(offset) = text[at..].find([first, first_upper, odd]) {
+        let start = at + offset;
+        if text[start..].chars().flat_map(fold_case).take(length).eq(needle.chars()) {
+            return true;
+        }
+        at = start + text[start..].chars().next().map_or(1, char::len_utf8);
+    }
+    false
+}
+
+fn contains_ignore_ascii_case(text: &[u8], needle: &[u8]) -> bool {
+    let Some((&first, rest)) = needle.split_first() else { return true };
+    if text.len() < needle.len() {
+        return false;
+    }
+    let (lower, upper) = (first.to_ascii_lowercase(), first.to_ascii_uppercase());
+    let last = text.len() - needle.len();
+    let mut at = 0;
+    while let Some(offset) = text[at..=last].iter().position(|&b| b == lower || b == upper) {
+        let start = at + offset;
+        if text[start + 1..start + needle.len()].eq_ignore_ascii_case(rest) {
+            return true;
+        }
+        at = start + 1;
+    }
+    false
 }
 
 /// 图片按 image_id 存成 images 目录下的 PNG
@@ -132,6 +237,13 @@ impl Database {
     pub fn new(db_path: &str) -> Result<Self, String> {
         let conn = Connection::open(db_path)
             .map_err(|e| format!("打开数据库失败: {}", e))?;
+        // 搜索按 Unicode 忽略大小写，SQLite 自带的 LIKE 和 lower() 只认 ASCII；第二个参数由调用方用 fold_needle 转好
+        conn.create_scalar_function("contains_folded", 2, FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC, |ctx| {
+            // 借用 SQLite 里的字节，不把每行正文复制成 String
+            let ValueRef::Text(text) = ctx.get_raw(0) else { return Ok(false) };
+            let needle: String = ctx.get(1)?;
+            Ok(contains_folded(text, &needle))
+        }).map_err(|e| format!("打开数据库失败: {}", e))?;
         let is_new: bool = conn.query_row("SELECT COUNT(*) = 0 FROM sqlite_master", [], |row| row.get(0))
             .map_err(|e| format!("打开数据库失败: {}", e))?;
 
@@ -207,11 +319,11 @@ impl Database {
             [],
         );
 
-        // 外键必须开，否则 ON DELETE CASCADE 不生效
+        // 外键必须开，否则 ON DELETE CASCADE 不生效。
+        // 页缓存用默认的 2 MB：每次只取一页，库文件本身在系统文件缓存里，调大只会留住写过的页
         conn.execute_batch(
             "PRAGMA foreign_keys = ON;
-             PRAGMA synchronous = NORMAL;
-             PRAGMA cache_size = 10000;"
+             PRAGMA synchronous = NORMAL;"
         ).map_err(|e| format!("设置参数失败: {}", e))?;
         // 日志模式记在库文件里，跟着库走：新库用 WAL，已有的库保持原样，由 set_single_file 切换。
         // 这样同步盘上多台电脑共用一个库时，不会各按各的设置来回改
@@ -374,7 +486,8 @@ impl Database {
         found.optional().map_err(|e| format!("查重失败: {}", e))
     }
 
-    /// 分页查询；不算总数，调用方按这一页是否取满判断还有没有下一页
+    /// 分页查询；不算总数，调用方按这一页是否取满判断还有没有下一页。ungrouped_only 去掉已加入分组的
+    #[allow(clippy::too_many_arguments)]
     pub fn query_items(
         &self,
         offset: i64,
@@ -383,34 +496,55 @@ impl Database {
         filter: &FilterRule,
         start_time: Option<i64>,
         end_time: Option<i64>,
+        ungrouped_only: bool,
     ) -> Result<Vec<PyClipboardItem>, String> {
         filter.check()?;
         let mut where_clauses = vec![];
         let mut params_vec: Vec<Value> = vec![];
 
-        if let Some(ref s) = search {
-            if !s.trim().is_empty() {
-                // 关键词按字面匹配：% 和 _ 在 LIKE 里是通配符，要转义
-                let escaped = s.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_");
-                where_clauses.push("content LIKE ? ESCAPE '\\'".to_string());
-                params_vec.push(Value::from(format!("%{}%", escaped)));
-            }
+        if ungrouped_only {
+            where_clauses.push("group_id IS NULL".to_string());
         }
 
-        let (conditions, filter_params) = filter.sql_conditions();
-        where_clauses.extend(conditions.into_iter().map(|condition| format!("({condition})")));
-        params_vec.extend(filter_params);
-
-        if let Some(start) = start_time {
-            where_clauses.push("created_at >= ?".to_string());
-            params_vec.push(Value::from(start));
+        if let Some(s) = search.filter(|s| !s.trim().is_empty()) {
+            where_clauses.push("contains_folded(content, ?)".to_string());
+            params_vec.push(Value::from(fold_needle(&s)));
         }
 
-        if let Some(end) = end_time {
-            where_clauses.push("created_at < ?".to_string());
-            params_vec.push(Value::from(end));
+        push_filter_conditions(filter, start_time, end_time, &mut where_clauses, &mut params_vec);
+        self.query_page(&where_clauses, params_vec, HISTORY_ORDER, offset, limit)
+    }
+
+    /// 一个分组里的一页，先按搜索词、类型和时间筛选再分页，顺序同 query_by_group；
+    /// 搜索词匹配内容或标题，按 Unicode 忽略大小写
+    #[allow(clippy::too_many_arguments)]
+    pub fn query_group_items(
+        &self,
+        group_id: i64,
+        offset: i64,
+        limit: i64,
+        search: Option<String>,
+        filter: &FilterRule,
+        start_time: Option<i64>,
+        end_time: Option<i64>,
+    ) -> Result<Vec<PyClipboardItem>, String> {
+        filter.check()?;
+        let mut where_clauses = vec!["group_id = ?".to_string()];
+        let mut params_vec = vec![Value::from(group_id)];
+
+        if let Some(s) = search.filter(|s| !s.trim().is_empty()) {
+            let needle = fold_needle(&s);
+            where_clauses.push("(contains_folded(content, ?) OR contains_folded(title, ?))".to_string());
+            params_vec.push(Value::from(needle.clone()));
+            params_vec.push(Value::from(needle));
         }
 
+        push_filter_conditions(filter, start_time, end_time, &mut where_clauses, &mut params_vec);
+        self.query_page(&where_clauses, params_vec, GROUP_ORDER, offset, limit)
+    }
+
+    fn query_page(&self, where_clauses: &[String], mut params_vec: Vec<Value>, order: &str, offset: i64, limit: i64)
+        -> Result<Vec<PyClipboardItem>, String> {
         let where_clause = if where_clauses.is_empty() {
             String::new()
         } else {
@@ -418,7 +552,7 @@ impl Database {
         };
 
         let mut stmt = self.conn.prepare(&format!(
-            "SELECT {ITEM_COLUMNS} FROM clipboard {where_clause} {HISTORY_ORDER} LIMIT ? OFFSET ?"
+            "SELECT {ITEM_COLUMNS} FROM clipboard {where_clause} {order} LIMIT ? OFFSET ?"
         )).map_err(|e| format!("准备查询失败: {}", e))?;
         params_vec.push(Value::from(limit));
         params_vec.push(Value::from(offset));
@@ -681,7 +815,7 @@ impl Database {
     pub fn query_by_group(&self, group_id: Option<i64>, offset: i64, limit: i64) -> Result<Vec<PyClipboardItem>, String> {
         // IS 对 NULL 也成立，有分组、未分组走同一条语句
         let mut stmt = self.conn.prepare(&format!(
-            "SELECT {ITEM_COLUMNS} FROM clipboard WHERE group_id IS ?1 ORDER BY is_pinned DESC, item_order ASC LIMIT ?2 OFFSET ?3"
+            "SELECT {ITEM_COLUMNS} FROM clipboard WHERE group_id IS ?1 {GROUP_ORDER} LIMIT ?2 OFFSET ?3"
         )).map_err(|e| format!("准备查询失败: {}", e))?;
         stmt.query_map(params![group_id, limit, offset], item_from_row)
             .and_then(|rows| rows.collect::<rusqlite::Result<Vec<_>>>())
@@ -1086,7 +1220,7 @@ mod maintenance_tests {
     }
 
     fn search(db: &Database, keyword: &str) -> Vec<String> {
-        let mut found: Vec<String> = db.query_items(0, 50, Some(keyword.to_string()), &FilterRule::default(), None, None)
+        let mut found: Vec<String> = db.query_items(0, 50, Some(keyword.to_string()), &FilterRule::default(), None, None, false)
             .unwrap().into_iter().map(|item| item.content).collect();
         found.sort();
         found
@@ -1104,12 +1238,60 @@ mod maintenance_tests {
     }
 
     #[test]
+    fn history_search_ignores_case_beyond_ascii() {
+        let db = Database::new(":memory:").unwrap();
+        for text in ["École 50%", "ПРИВЕТ мир", "截图工具", "Apple pie", "plain", "ΟΔΟΣ", "İstanbul"] {
+            add(&db, text);
+        }
+        assert_eq!(search(&db, "ÉCOLE"), vec!["École 50%"]);
+        assert_eq!(search(&db, "привет"), vec!["ПРИВЕТ мир"]);
+        assert_eq!(search(&db, "工具"), vec!["截图工具"]);
+        assert_eq!(search(&db, "APPLE"), vec!["Apple pie"]);
+        assert!(search(&db, "工具箱").is_empty());
+        // 词尾的 Σ 和逐字转出的 σ 是同一个字；İ 转小写是 i 加一个附加点
+        assert_eq!(search(&db, "ΟΔΟΣ"), vec!["ΟΔΟΣ"]);
+        assert_eq!(search(&db, "οδος"), vec!["ΟΔΟΣ"]);
+        assert_eq!(search(&db, "İstanbul"), vec!["İstanbul"]);
+    }
+
+    #[test]
+    fn folded_contains_takes_each_path() {
+        for (text, needle, expected) in [
+            ("Hello World", "world", true),
+            ("Hello World", "worlds", false),
+            // The first candidate fails, a later one matches.
+            ("aaab", "aab", true),
+            ("ab", "abc", false),
+            ("abc", "", true),
+            ("Ééx", "éx", true),
+            ("价格 CAFÉ", "café", true),
+            ("CAFE", "café", false),
+            ("截图工具", "工具", true),
+            ("截图工具", "工具箱", false),
+            // Candidates whose lowercase starts with the first character but are not its uppercase.
+            ("ǅemal", "ǆemal", true),
+            ("İstanbul", "i\u{307}stanbul", true),
+            ("ΟΔΟΣ", "οδοσ", true),
+            ("οδος", "οδοσ", true),
+        ] {
+            assert_eq!(super::contains_folded(text.as_bytes(), needle), expected, "{text} / {needle}");
+        }
+    }
+
+    #[test]
+    fn odd_capitals_hold_one_per_first_character() {
+        let table = super::odd_capitals();
+        assert!(table.windows(2).all(|pair| pair[0].0 != pair[1].0));
+        assert!(table.contains(&('i', 'İ')) && table.contains(&('σ', 'ς')) && table.contains(&('k', '\u{212A}')));
+    }
+
+    #[test]
     fn items_moved_to_the_top_together_keep_their_order() {
         let db = Database::new(":memory:").unwrap();
         let ids: Vec<i64> = ["一", "二", "三", "四"].iter().map(|text| add(&db, text)).collect();
         // 列表从新到旧：四 三 二 一；把「一」和「三」挪上去，传入顺序不影响结果
         db.move_items_to_top(&[ids[0], ids[2], 999]).unwrap();
-        let order: Vec<String> = db.query_items(0, 10, None, &FilterRule::default(), None, None)
+        let order: Vec<String> = db.query_items(0, 10, None, &FilterRule::default(), None, None, false)
             .unwrap().into_iter().map(|item| item.content).collect();
         assert_eq!(order, vec!["三", "一", "四", "二"]);
     }
@@ -1223,6 +1405,81 @@ mod maintenance_tests {
         add(&db, "没分组的");
         assert_eq!(group_contents(&db, Some(group)), vec!["分组里的"]);
         assert_eq!(group_contents(&db, None), vec!["没分组的"]);
+    }
+
+    #[test]
+    fn a_group_is_searched_and_filtered_before_paging() {
+        let db = Database::new(":memory:").unwrap();
+        let group = db.create_group("收藏", None, None, 0, None).unwrap();
+        let other = db.create_group("其他", None, None, 0, None).unwrap();
+        let in_group = |id: i64, group_id: i64| db.move_to_group(id, Some(group_id)).unwrap();
+        for index in 0..60 {
+            in_group(add(&db, &format!("plain {index}")), group);
+        }
+        let ecole = add(&db, "École 50%");
+        in_group(ecole, group);
+        let mut titled = PyClipboardItem::new(0, "body".to_string(), "text".to_string());
+        titled.title = Some("Ünïcode title".to_string());
+        in_group(db.insert_item(&titled).unwrap(), group);
+        in_group(db.insert_item(&PyClipboardItem::new(0, "[10x10]".to_string(), "image".to_string())).unwrap(), group);
+        in_group(add(&db, "école elsewhere"), other);
+
+        let page = |offset: i64, limit: i64, search: Option<&str>, kind: Option<&str>, range: Option<(i64, i64)>| -> Vec<String> {
+            let filter = FilterRule { kind: kind.map(str::to_string), app: None };
+            db.query_group_items(group, offset, limit, search.map(str::to_string), &filter, range.map(|r| r.0), range.map(|r| r.1))
+                .unwrap().into_iter().map(|item| item.content).collect()
+        };
+        // 匹配项排在 60 条之后，第一页照样能找到；大小写不同的非英文字母也算匹配
+        assert_eq!(page(0, 10, Some("écOLE"), None, None), vec!["École 50%"]);
+        assert_eq!(page(0, 10, Some("ÜNÏCODE"), None, None), vec!["body"]);
+        assert_eq!(page(0, 10, Some("50%"), None, None), vec!["École 50%"]);
+        assert_eq!(page(0, 10, Some("   "), None, None).len(), 10);
+        // 筛选后再分页：plain 1、plain 10…plain 19 共 11 条
+        assert_eq!(page(0, 100, Some("plain 1"), None, None).len(), 11);
+        assert_eq!(page(10, 5, Some("plain 1"), None, None), vec!["plain 19"]);
+        assert_eq!(page(0, 100, None, Some("image"), None), vec!["[10x10]"]);
+        assert_eq!(page(0, 100, None, Some("text"), None).len(), 62);
+
+        db.conn.execute("UPDATE clipboard SET created_at = 1000 WHERE id = ?1", [ecole]).unwrap();
+        assert_eq!(page(0, 100, None, None, Some((500, 2000))), vec!["École 50%"]);
+        assert!(page(0, 100, Some("plain"), None, Some((500, 2000))).is_empty());
+        assert!(db.query_group_items(group, 0, 10, None, &FilterRule::kind("email"), None, None).is_err());
+    }
+
+    #[test]
+    fn history_can_leave_out_grouped_items() {
+        let db = Database::new(":memory:").unwrap();
+        let group = db.create_group("收藏", None, None, 0, None).unwrap();
+        let grouped = add(&db, "select * from");
+        let pinned_grouped = add(&db, "置顶又分组");
+        db.move_to_group(grouped, Some(group)).unwrap();
+        db.move_to_group(pinned_grouped, Some(group)).unwrap();
+        db.toggle_pin(pinned_grouped).unwrap();
+        add(&db, "select 1");
+        let history = |ungrouped_only: bool, search: Option<&str>| -> Vec<String> {
+            db.query_items(0, 50, search.map(str::to_string), &FilterRule::default(), None, None, ungrouped_only)
+                .unwrap().into_iter().map(|item| item.content).collect()
+        };
+        assert_eq!(history(false, None), vec!["置顶又分组", "select 1", "select * from"]);
+        assert_eq!(history(true, None), vec!["select 1"]);
+        assert_eq!(history(true, Some("select")), vec!["select 1"]);
+        // 移出分组后回到历史
+        db.move_to_group(grouped, None).unwrap();
+        assert_eq!(history(true, None), vec!["select 1", "select * from"]);
+    }
+
+    #[test]
+    fn items_carry_their_group() {
+        let db = Database::new(":memory:").unwrap();
+        let group = db.create_group("收藏", None, None, 0, None).unwrap();
+        let grouped = add(&db, "分组里的");
+        let loose = add(&db, "没分组的");
+        db.move_to_group(grouped, Some(group)).unwrap();
+        assert_eq!(db.get_item_by_id(grouped).unwrap().unwrap().group_id, Some(group));
+        assert_eq!(db.get_item_by_id(loose).unwrap().unwrap().group_id, None);
+        // 再复制一次同样的内容，复用的仍是分组里那条
+        assert_eq!(add(&db, "分组里的"), grouped);
+        assert_eq!(db.get_item_by_id(grouped).unwrap().unwrap().group_id, Some(group));
     }
 
     fn add_file(db: &Database, path: &str) -> i64 {
@@ -1512,7 +1769,7 @@ mod maintenance_tests {
         assert_ne!(rich_id, plain);
         assert_eq!(db.insert_item(&rich).unwrap(), rich_id);
         // 合并后排到最前
-        let first = db.query_items(0, 1, None, &FilterRule::default(), None, None).unwrap()[0].id;
+        let first = db.query_items(0, 1, None, &FilterRule::default(), None, None, false).unwrap()[0].id;
         assert_eq!(first, rich_id);
     }
 }
@@ -1536,7 +1793,7 @@ mod sub_kind_tests {
     }
 
     fn matching(db: &Database, rule: FilterRule) -> Vec<String> {
-        let mut found: Vec<String> = db.query_items(0, 50, None, &rule, None, None)
+        let mut found: Vec<String> = db.query_items(0, 50, None, &rule, None, None, false)
             .unwrap().into_iter().map(|item| item.content).collect();
         found.sort();
         found
@@ -1645,7 +1902,7 @@ mod sub_kind_tests {
         assert_eq!(matching(&db, rule(None, Some("Chrome.exe"))), vec!["https://a.com", "普通"]);
         assert_eq!(matching(&db, rule(Some("url"), Some("chrome.exe"))), vec!["https://a.com"]);
         assert_eq!(matching(&db, rule(None, Some(group_kind::OWN_APP))), vec!["开发版取的", "截图吧取的"]);
-        assert!(db.query_items(0, 50, None, &FilterRule::kind("email"), None, None).is_err());
+        assert!(db.query_items(0, 50, None, &FilterRule::kind("email"), None, None, false).is_err());
     }
 
     #[test]

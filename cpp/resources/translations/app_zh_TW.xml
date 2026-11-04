@@ -249,14 +249,6 @@
         <translation>全域快速鍵</translation>
     </message>
     <message>
-        <source>Screenshot Hotkey</source>
-        <translation>截圖</translation>
-    </message>
-    <message>
-        <source>Clipboard Hotkey</source>
-        <translation>剪貼簿</translation>
-    </message>
-    <message>
         <source>e.g.: ctrl+shift+a</source>
         <translation>例如: ctrl+shift+a</translation>
     </message>
@@ -1039,6 +1031,14 @@ Replace it?</source>
         <translation>保持原文格式</translation>
     </message>
     <message>
+        <source>Close When Clicking Outside</source>
+        <translation>點擊視窗外時關閉</translation>
+    </message>
+    <message>
+        <source>The translation popup opened by the shortcut closes when you click outside it or switch windows</source>
+        <translation>用快速鍵開啟的翻譯小視窗，點擊視窗外或切換視窗時自動關閉</translation>
+    </message>
+    <message>
         <source>Color Formats</source>
         <translation>顏色格式</translation>
     </message>
@@ -1519,10 +1519,6 @@ Replace it?</source>
         <translation>管理</translation>
     </message>
     <message>
-        <source>Screen Annotation Hotkey</source>
-        <translation>螢幕標註</translation>
-    </message>
-    <message>
         <source>Keep Screen Annotations</source>
         <translation>保留螢幕標註</translation>
     </message>
@@ -1650,6 +1646,22 @@ Replace it?</source>
         <source>A ring spreads from every click: yellow for the left button, blue for the right.</source>
         <translation>每次點擊擴散出一圈漣漪：左鍵黃色，右鍵藍色。</translation>
     </message>
+    <message>
+        <source>Green Mode</source>
+        <translation>綠色模式</translation>
+    </message>
+    <message>
+        <source>Keep the settings in the program's folder; copy the whole folder to take them along.</source>
+        <translation>設定儲存在程式所在資料夾，複製整個資料夾即可帶走。</translation>
+    </message>
+    <message>
+        <source>The program's folder cannot be written to.</source>
+        <translation>程式所在資料夾無法寫入。</translation>
+    </message>
+    <message>
+        <source>Could not move the settings file: %1</source>
+        <translation>無法移動設定檔：%1</translation>
+    </message>
 </context>
 <context>
     <name>ActionTools</name>
@@ -1684,6 +1696,10 @@ Replace it?</source>
     <message>
         <source>Save Failed</source>
         <translation>儲存失敗</translation>
+    </message>
+    <message>
+        <source>Saved: %1</source>
+        <translation>已儲存：%1</translation>
     </message>
 </context>
 <context>
@@ -1726,6 +1742,10 @@ Replace it?</source>
     <message>
         <source>Save to file</source>
         <translation>儲存到檔案</translation>
+    </message>
+    <message>
+        <source>Quick save: straight to the save folder, no dialog</source>
+        <translation>快捷儲存：不跳出視窗，直接存到儲存資料夾</translation>
     </message>
     <message>
         <source>Copy image</source>
@@ -2685,10 +2705,6 @@ Replace it?</source>
 <context>
     <name>SettingsDialog</name>
     <message>
-        <source>Translation Hotkey</source>
-        <translation>翻譯快速鍵</translation>
-    </message>
-    <message>
         <source>Pin Clipboard Image</source>
         <translation>生成釘圖</translation>
     </message>
@@ -2914,6 +2930,14 @@ Replace it?</source>
     <message>
         <source>Show Time</source>
         <translation>顯示時間</translation>
+    </message>
+    <message>
+        <source>Hide Grouped Items from All</source>
+        <translation>「全部」中隱藏已分組內容</translation>
+    </message>
+    <message>
+        <source>More Settings</source>
+        <translation>詳細設定</translation>
     </message>
     <message>
         <source>Preserve Search on Reopen</source>
@@ -3999,6 +4023,138 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>選擇專案後自動傳送 Ctrl+V</translation>
     </message>
     <message>
+        <source>Group Bar Position</source>
+        <translation>分組欄位置</translation>
+    </message>
+    <message>
+        <source>Where the group bar sits in the clipboard window</source>
+        <translation>分組欄在剪貼簿視窗中的位置</translation>
+    </message>
+    <message>
+        <source>Right</source>
+        <translation>右側</translation>
+    </message>
+    <message>
+        <source>Left</source>
+        <translation>左側</translation>
+    </message>
+    <message>
+        <source>Top</source>
+        <translation>頂部</translation>
+    </message>
+    <message>
+        <source>Preserve Search on Reopen</source>
+        <translation>保留搜尋條件</translation>
+    </message>
+    <message>
+        <source>Keep the search text when the clipboard window opens again</source>
+        <translation>再次開啟剪貼簿視窗時保留上次的搜尋內容</translation>
+    </message>
+    <message>
+        <source>List Display</source>
+        <translation>列表顯示</translation>
+    </message>
+    <message>
+        <source>Show Time</source>
+        <translation>顯示時間</translation>
+    </message>
+    <message>
+        <source>Show when each item was copied</source>
+        <translation>在每筆記錄旁顯示複製的時間</translation>
+    </message>
+    <message>
+        <source>Max Display Lines</source>
+        <translation>最多顯示行數</translation>
+    </message>
+    <message>
+        <source>Longer text wraps onto at most this many lines</source>
+        <translation>較長的文字最多換行顯示這麼多行</translation>
+    </message>
+    <message>
+        <source>Image Size</source>
+        <translation>圖片大小</translation>
+    </message>
+    <message>
+        <source>Size of image thumbnails in the list</source>
+        <translation>列表中圖片縮圖的大小</translation>
+    </message>
+    <message>
+        <source>Hide Grouped Items from All</source>
+        <translation>「全部」中隱藏已分組內容</translation>
+    </message>
+    <message>
+        <source>Items in a group no longer show in All; filter groups still list them</source>
+        <translation>加入分組的內容不再出現在「全部」中，篩選分組照常顯示</translation>
+    </message>
+    <message>
+        <source>Close After Paste</source>
+        <translation>貼上後關閉視窗</translation>
+    </message>
+    <message>
+        <source>Turn off to paste several items in a row</source>
+        <translation>關閉後可連續貼上多筆</translation>
+    </message>
+    <message>
+        <source>Move to Top After Paste</source>
+        <translation>貼上後移到最前</translation>
+    </message>
+    <message>
+        <source>A pasted item moves to the top of the history</source>
+        <translation>貼上過的內容排到歷史最前面</translation>
+    </message>
+    <message>
+        <source>Paste with Format</source>
+        <translation>貼上帶格式</translation>
+    </message>
+    <message>
+        <source>Keep fonts, colors and links when pasting formatted text</source>
+        <translation>貼上含格式的文字時保留字型、顏色和連結</translation>
+    </message>
+    <message>
+        <source>Multi-Select Paste</source>
+        <translation>多選貼上</translation>
+    </message>
+    <message>
+        <source>Separator</source>
+        <translation>分隔符</translation>
+    </message>
+    <message>
+        <source>Placed between the items pasted together</source>
+        <translation>一起貼上的多筆內容之間插入的字元</translation>
+    </message>
+    <message>
+        <source>Custom</source>
+        <translation>自訂</translation>
+    </message>
+    <message>
+        <source>Paste Order</source>
+        <translation>貼上順序</translation>
+    </message>
+    <message>
+        <source>The order the selected items are pasted in</source>
+        <translation>多筆內容按選取的先後順序排列</translation>
+    </message>
+    <message>
+        <source>First Selected First</source>
+        <translation>先選在前</translation>
+    </message>
+    <message>
+        <source>Last Selected First</source>
+        <translation>後選在前</translation>
+    </message>
+    <message>
+        <source>Record Merged Content</source>
+        <translation>記錄合併後的內容</translation>
+    </message>
+    <message>
+        <source>Add the combined content to the history as a new item</source>
+        <translation>把合併後的內容作為新的一筆存入歷史</translation>
+    </message>
+    <message>
+        <source>💡 The clipboard window's theme, font size and opacity are on the Appearance page.</source>
+        <translation>💡 剪貼簿視窗的主題、字型大小和透明度在「外觀」頁設定。</translation>
+    </message>
+    <message>
         <source>History Limit</source>
         <translation>歷史記錄限制</translation>
     </message>
@@ -4492,6 +4648,10 @@ This action cannot be undone.</source>
         <translation>儲存</translation>
     </message>
     <message>
+        <source>工具_快捷保存</source>
+        <translation>快捷儲存</translation>
+    </message>
+    <message>
         <source>工具_完成截图</source>
         <translation>完成截圖</translation>
     </message>
@@ -4546,6 +4706,10 @@ This action cannot be undone.</source>
     <message>
         <source>工具描述_保存</source>
         <translation>儲存截圖到本機檔案</translation>
+    </message>
+    <message>
+        <source>工具描述_快捷保存</source>
+        <translation>不跳出視窗，直接存到儲存資料夾</translation>
     </message>
     <message>
         <source>工具描述_完成截图</source>
@@ -4988,6 +5152,34 @@ This action cannot be undone.</source>
     <message>
         <source>活动海报.png</source>
         <translation>活動海報.png</translation>
+    </message>
+    <message>
+        <source>截图、钉图、剪贴板、翻译和屏幕标注各设一个快捷键。</source>
+        <translation>截圖、釘圖、剪貼簿、翻譯和螢幕標註各設一個快速鍵。</translation>
+    </message>
+    <message>
+        <source>点击输入框后，按下快捷键或鼠标侧键即可录入。备用快捷键可以在设置的「快捷键」页添加。</source>
+        <translation>點擊輸入框後，按下快速鍵或滑鼠側鍵即可錄入。備用快速鍵可以在設定的「快速鍵」頁新增。</translation>
+    </message>
+    <message>
+        <source>截图、剪贴板记录和设置各自存在哪里，之后也可以在设置里改。</source>
+        <translation>截圖、剪貼簿記錄和設定各自存在哪裡，之後也可以在設定裡更改。</translation>
+    </message>
+    <message>
+        <source>存储位置</source>
+        <translation>儲存位置</translation>
+    </message>
+    <message>
+        <source>剪贴板数据</source>
+        <translation>剪貼簿資料</translation>
+    </message>
+    <message>
+        <source>剪贴板历史的数据库和图片都放在这个文件夹。</source>
+        <translation>剪貼簿歷史的資料庫和圖片都放在這個資料夾。</translation>
+    </message>
+    <message>
+        <source>把托盘图标从「^」里拖到任务栏上，就能一直看到它。</source>
+        <translation>把系統匣圖示從「^」裡拖到工作列上，就能一直看到它。</translation>
     </message>
 </context>
 <context>
@@ -5838,6 +6030,10 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>儲存</translation>
     </message>
     <message>
+        <source>Quick save</source>
+        <translation>快捷儲存</translation>
+    </message>
+    <message>
         <source>Copy</source>
         <translation>複製</translation>
     </message>
@@ -6209,8 +6405,124 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>下次直接複製結果</translation>
     </message>
     <message>
+        <source>Close after copying</source>
+        <translation>複製後關閉</translation>
+    </message>
+    <message>
         <source>Copied %1 characters</source>
         <translation>已複製 %1 個字元</translation>
+    </message>
+    <message>
+        <source>Selected %1 characters</source>
+        <translation>已選取 %1 個字元</translation>
+    </message>
+    <message>
+        <source>Text</source>
+        <translation>文字</translation>
+    </message>
+    <message>
+        <source>Table</source>
+        <translation>表格</translation>
+    </message>
+    <message>
+        <source>%1 rows × %2 columns</source>
+        <translation>%1 列 × %2 欄</translation>
+    </message>
+    <message>
+        <source>Copy selected cells</source>
+        <translation>複製所選儲存格</translation>
+    </message>
+    <message>
+        <source>Delete row</source>
+        <translation>刪除所在列</translation>
+    </message>
+    <message>
+        <source>Delete column</source>
+        <translation>刪除所在欄</translation>
+    </message>
+    <message>
+        <source>Cut</source>
+        <translation>剪下</translation>
+    </message>
+    <message>
+        <source>Paste</source>
+        <translation>貼上</translation>
+    </message>
+    <message>
+        <source>Redo</source>
+        <translation>取消復原</translation>
+    </message>
+    <message>
+        <source>Insert row above</source>
+        <translation>在上方插入列</translation>
+    </message>
+    <message>
+        <source>Insert row below</source>
+        <translation>在下方插入列</translation>
+    </message>
+    <message>
+        <source>Insert column left</source>
+        <translation>在左側插入欄</translation>
+    </message>
+    <message>
+        <source>Insert column right</source>
+        <translation>在右側插入欄</translation>
+    </message>
+    <message>
+        <source>Merge cells</source>
+        <translation>合併儲存格</translation>
+    </message>
+    <message>
+        <source>Split cells</source>
+        <translation>分割儲存格</translation>
+    </message>
+    <message>
+        <source>Show row and column headers</source>
+        <translation>顯示列與欄標題</translation>
+    </message>
+    <message>
+        <source>Average: %1</source>
+        <translation>平均值：%1</translation>
+    </message>
+    <message>
+        <source>Count: %1</source>
+        <translation>計數：%1</translation>
+    </message>
+    <message>
+        <source>Sum: %1</source>
+        <translation>加總：%1</translation>
+    </message>
+    <message>
+        <source>Original image</source>
+        <translation>原圖</translation>
+    </message>
+    <message>
+        <source>Zoom in</source>
+        <translation>放大</translation>
+    </message>
+    <message>
+        <source>Zoom out</source>
+        <translation>縮小</translation>
+    </message>
+    <message>
+        <source>Actual size</source>
+        <translation>實際大小</translation>
+    </message>
+    <message>
+        <source>Fit to window</source>
+        <translation>符合視窗</translation>
+    </message>
+    <message>
+        <source>Copy image</source>
+        <translation>複製圖片</translation>
+    </message>
+    <message>
+        <source>Undo</source>
+        <translation>復原</translation>
+    </message>
+    <message>
+        <source>Copied table (%1 rows × %2 columns)</source>
+        <translation>已複製表格（%1 列 × %2 欄）</translation>
     </message>
 </context>
 <context>

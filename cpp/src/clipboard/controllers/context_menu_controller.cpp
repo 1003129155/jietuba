@@ -191,6 +191,11 @@ bool can_pin(const ClipboardItem &item) {
     return item.content_type == "image" || item.content_type == "text";
 }
 
+bool pins_as_files(const ClipboardItem &item) {
+    if (item.content_type == "file") return true;
+    return item.content_type == "text" && item.sub_kind == SUB_KIND_PATH && any_path_exists(item);
+}
+
 QList<MenuAction> normalize_menu_actions(QList<MenuAction> actions) {
     QList<MenuAction> normalized;
     for (auto &action : actions) {

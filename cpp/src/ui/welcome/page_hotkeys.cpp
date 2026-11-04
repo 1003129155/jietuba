@@ -1,318 +1,287 @@
+#include "core/i18n.h"
 #include "core/logger.h"
 #include "core/ui_scale.h"
 #include "settings/tool_settings.h"
 #include "ui/hotkey_edit.h"
+#include "core/resource_manager.h"
+#include "ui/fluent_lite/icons.h"
+#include "ui/fluent_lite/theme.h"
+#include "ui/welcome/demo_paint.h"
 #include "ui/welcome/pages.h"
 #include <QApplication>
 #include <QHBoxLayout>
-#include <QHash>
 #include <QPainter>
-#include <QSet>
+#include <QFontMetricsF>
+#include <QPainterPath>
+#include <cmath>
+#include <functional>
 
 namespace jietuba {
 namespace {
-// Whether a key can be part of a global hotkey.
-constexpr bool BINDABLE = true;
-constexpr bool UNBOUND = false;
+using namespace welcome_demo;
 
-// Key cap label -> the token the editor writes (lower case); only these differ.
-QString label_token(const QString &label) {
-    static const QHash<QString, QString> overrides{{QString::fromUtf8("⌫"), "backspace"}, {QString::fromUtf8("↵"), "enter"}, {"Caps", "capslock"}};
-    return overrides.value(label, label.toLower());
-}
-
-// "ctrl+shift+a" as key cap tokens. Halfway through a combination the editor holds "ctrl+",
-// whose split leaves an empty part, dropped here.
-QSet<QString> pressed_tokens(const QString &hotkey_text) {
-    QSet<QString> result;
-    for (const auto &part : hotkey_text.trimmed().toLower().split('+'))
-        if (!part.isEmpty()) result.insert(part);
-    return result;
-}
-
-struct Key {
-    QString label;
-    double width;
-    bool bindable;
-};
-
-// A static availability map: bindable keys highlighted, others greyed. It follows the key
-// table in core/global_hotkey: every key but Caps can be the main key of a combination.
-// Change it with the table.
-class KeyboardMap : public QWidget {
+// What each hotkey does, on the mouse shortcut page's desktop, as the real windows look at a
+// small size; the row beside it names the hotkey. While no slot is being edited the set
+// hotkeys take turns; the edited slot repeats alone. Drawn in 100% units under the window scale.
+class HotkeyScene : public LoopingDemo {
 public:
-    // Rows of (label, width in letter-key units, bindable).
-    static const std::vector<std::vector<Key>> &rows() {
-        static const std::vector<std::vector<Key>> keyboard = [] {
-            std::vector<std::vector<Key>> rows;
-            std::vector<Key> row{{"Esc", 2, BINDABLE}};
-            for (int n = 1; n <= 12; ++n) row.push_back({QString("F%1").arg(n), 1, BINDABLE});
-            rows.push_back(row);
-            row = {{"`", 1, BINDABLE}};
-            for (QChar c : QString("1234567890")) row.push_back({c, 1, BINDABLE});
-            row.insert(row.end(), {{"-", 1, BINDABLE}, {"=", 1, BINDABLE}, {QString::fromUtf8("⌫"), 2, BINDABLE}});
-            rows.push_back(row);
-            row = {{"Tab", 1.5, BINDABLE}};
-            for (QChar c : QString("QWERTYUIOP")) row.push_back({c, 1, BINDABLE});
-            row.insert(row.end(), {{"[", 1, BINDABLE}, {"]", 1, BINDABLE}, {"\\", 1.5, BINDABLE}});
-            rows.push_back(row);
-            row = {{"Caps", 1.75, UNBOUND}};
-            for (QChar c : QString("ASDFGHJKL")) row.push_back({c, 1, BINDABLE});
-            row.insert(row.end(), {{";", 1, BINDABLE}, {"'", 1, BINDABLE}, {QString::fromUtf8("↵"), 2.25, BINDABLE}});
-            rows.push_back(row);
-            row = {{"Shift", 2.25, BINDABLE}};
-            for (QChar c : QString("ZXCVBNM")) row.push_back({c, 1, BINDABLE});
-            row.insert(row.end(), {{",", 1, BINDABLE}, {".", 1, BINDABLE}, {"/", 1, BINDABLE}, {"Shift", 2.75, BINDABLE}});
-            rows.push_back(row);
-            rows.push_back({{"Ctrl", 2, BINDABLE}, {"Win", 1.5, BINDABLE}, {"Alt", 1.5, BINDABLE}, {"Space", 6.5, BINDABLE}, {"Alt", 1.5, BINDABLE}, {"Ctrl", 2, BINDABLE}});
-            return rows;
-        }();
-        return keyboard;
-    }
-    // The widest row's units.
-    static constexpr double GRID_UNITS = 15;
-    static constexpr double KEY_GAP = 1.6;
-    static constexpr double ROW_GAP = 2.4;
-    static constexpr double LEGEND_SWATCH_W = 14;
-    static constexpr double LEGEND_TEXT_GAP = 5;
-    static constexpr double LEGEND_ITEM_GAP = 14;
-    static constexpr double LEGEND_LINE_H = 16;
+    // The functions in the hotkey page's order.
+    enum Scene { SCREENSHOT, PIN, CLIPBOARD, TRANSLATION, ANNOTATION, SCENE_COUNT };
+    static constexpr int SLOT_MS = 2600;
+    static constexpr int PLAY_MS = 300;
 
-    explicit KeyboardMap(QWidget *parent = nullptr) : QWidget(parent) {
-        setMinimumHeight(dialog_scaled(230));
-        setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    }
-
-    // Highlights the keys of a hotkey; empty clears. It follows the editor's text rather than
-    // physical key state: keyboard combinations, system hotkeys and side buttons all end as
-    // that text, so one path covers all three without tracking which keys are held.
-    void set_highlight(const QString &hotkey_text) {
-        const auto pressed = pressed_tokens(hotkey_text);
-        if (pressed == pressed_) return;
-        pressed_ = pressed;
+    explicit HotkeyScene(QWidget *parent = nullptr) : LoopingDemo(SLOT_MS, parent) { setMinimumHeight(dialog_scaled(260)); }
+    // The slots' hotkeys in the page's order; the empty ones are skipped.
+    void set_hotkeys(const QStringList &hotkeys) {
+        shown_.clear();
+        for (int i = 0; i < std::min<int>(SCENE_COUNT, static_cast<int>(hotkeys.size())); ++i)
+            if (!hotkeys[i].trimmed().isEmpty()) shown_.push_back(i);
+        set_duration(SLOT_MS * std::max<int>(1, static_cast<int>(shown_.size())));
+        time_changed();
         update();
     }
-
+    // The slot being edited, or -1.
+    void set_editing(int index) {
+        editing_ = index;
+        time_changed();
+        update();
+    }
+    // The entry playing, or -1.
+    int current_index() const {
+        if (editing_ >= 0) return editing_;
+        return shown_.empty() ? -1 : shown_[time() / SLOT_MS % shown_.size()];
+    }
+    // The entry playing changed.
+    std::function<void(int)> on_current;
 protected:
+    void time_changed() override {
+        if (const int now = current_index(); now != reported_) {
+            reported_ = now;
+            if (on_current) on_current(now);
+        }
+    }
     void paintEvent(QPaintEvent *) override {
-        const auto theme = welcome_theme();
         QPainter p(this);
         p.setRenderHint(QPainter::Antialiasing);
-        const QRectF rect(this->rect());
-        const double unit = (rect.width() - KEY_GAP * (GRID_UNITS - 1)) / GRID_UNITS;
-        const double key_h = std::max(13.0, unit * 1.06);
-        const double keyboard_h = rows().size() * key_h + (rows().size() - 1) * ROW_GAP;
-        const double mouse_h = 74.0;
-        const double legend_h = legend_layout(p, theme, rect.width() - 8).size() * LEGEND_LINE_H;
-        const double block_h = keyboard_h + 22 + mouse_h + 8 + legend_h;
-        const double top = std::max(rect.top(), rect.center().y() - block_h / 2);
-        draw_keyboard(p, theme, rect, top, unit, key_h);
-        draw_mouse(p, theme, rect.center().x(), top + keyboard_h + 22);
-        draw_legend(p, theme, rect, top + keyboard_h + 22 + mouse_h + 8);
-        p.end();
-    }
+        const double scale = demo_scale();
+        p.scale(scale, scale);
+        const double w = width() / scale, h = height() / scale;
+        const auto theme = welcome_theme();
 
+        const double screen_w = w - 8;
+        const double screen_h = std::min(screen_w * 0.95, h - 8);
+        const QRectF screen((w - screen_w) / 2, (h - screen_h) / 2, screen_w, screen_h);
+        draw_screen(p, theme, screen);
+
+        const int index = current_index();
+        if (index < 0 || index >= SCENE_COUNT) return;
+        const int t = time() % SLOT_MS;
+        // The function's windows leave before the next one plays.
+        p.save();
+        p.setOpacity(1.0 - phase(t, SLOT_MS - 350, SLOT_MS - 50));
+        QPainterPath clip;
+        clip.addRoundedRect(screen, 10, 10);
+        p.setClipPath(clip);
+        switch (index) {
+        case SCREENSHOT: play_screenshot(p, theme, screen, t); break;
+        case PIN: play_pin(p, theme, screen, t); break;
+        case CLIPBOARD: play_clipboard(p, theme, screen, t); break;
+        case TRANSLATION: play_translation(p, theme, screen, t); break;
+        case ANNOTATION: play_annotation(p, theme, screen, t); break;
+        default: break;
+        }
+        p.restore();
+    }
 private:
-    // System fallback fonts, so Chinese, Japanese and Korean never show as boxes.
-    static QFont font(int pixel_size, bool bold = false) {
-        QFont f;
-        f.setPixelSize(pixel_size);
-        f.setBold(bold);
-        return f;
-    }
-    static QColor with_alpha(const QString &color, int alpha) {
-        QColor result(color);
-        result.setAlpha(std::max(0, std::min(255, alpha)));
-        return result;
-    }
-    // Key colours for pressed / bindable / unbindable. Not accent_soft against panel_subtle:
-    // in the light theme they are nearly equal and the map would blur; translucent accent
-    // keeps contrast in both themes, and a pressed key is solid.
-    static std::tuple<QColor, QColor, QString> key_colors(const WelcomeTheme &theme, bool bindable, bool pressed = false) {
-        if (pressed) return {QColor(theme.accent), QColor(theme.accent), "#FFFFFF"};
-        if (bindable) return {with_alpha(theme.accent, 58), with_alpha(theme.accent, 170), theme.text};
-        return {with_alpha(theme.text_soft, 26), with_alpha(theme.text_soft, 90), theme.text_soft};
-    }
+    static double move(int t, int start, int end) { return ease(QEasingCurve::InOutCubic, phase(t, start, end)); }
 
-    // A font size that fits this key cap: F12 is twice as wide as Q, so one size never fits all.
-    QFont fitted_font(QPainter &p, const QString &label, const QRectF &box) {
-        const auto cache_key = qMakePair(label, static_cast<int>(std::round(box.width())));
-        if (const auto it = font_cache_.find(cache_key); it != font_cache_.end()) return *it;
-        int size = std::max(6, static_cast<int>(box.height() * 0.44));
-        QFont f = font(size);
-        const double available = box.width() - 3;
-        while (size > 5) {
-            f.setPixelSize(size);
-            p.setFont(f);
-            if (p.fontMetrics().horizontalAdvance(label) <= available) break;
-            --size;
-        }
-        font_cache_.insert(cache_key, f);
-        return f;
-    }
+    // Ctrl+1: a screenshot of the chart.
+    static void play_screenshot(QPainter &p, const WelcomeTheme &theme, const QRectF &screen, int t) { draw_capture(p, theme, screen, t - PLAY_MS); }
 
-    void draw_keyboard(QPainter &p, const WelcomeTheme &theme, const QRectF &rect, double top, double unit, double key_h) {
-        for (size_t row_index = 0; row_index < rows().size(); ++row_index) {
-            const auto &row = rows()[row_index];
-            double row_units = 0;
-            for (const auto &key : row) row_units += key.width;
-            const double row_w = row_units * unit + KEY_GAP * (row.size() - 1);
-            double x = rect.center().x() - row_w / 2;
-            const double y = top + row_index * (key_h + ROW_GAP);
-            for (const auto &key : row) {
-                const double key_w = key.width * unit;
-                draw_key(p, theme, QRectF(x, y, key_w, key_h), key.label, key.bindable);
-                x += key_w + KEY_GAP;
-            }
-        }
-    }
-
-    void draw_key(QPainter &p, const WelcomeTheme &theme, const QRectF &box, const QString &label, bool bindable) {
-        const bool pressed = pressed_.contains(label_token(label));
-        const auto [fill, border, text] = key_colors(theme, bindable, pressed);
-        p.setBrush(fill);
-        p.setPen(QPen(border, pressed ? 1.6 : 1));
-        p.drawRoundedRect(box, 2.5, 2.5);
-        p.setFont(fitted_font(p, label, box));
-        p.setPen(QColor(text));
-        p.drawText(box, Qt::AlignCenter, label);
-    }
-
-    void draw_mouse(QPainter &p, const WelcomeTheme &theme, double center_x, double top) {
-        const QRectF body(center_x - 25, top, 50, 74);
-        p.setBrush(QColor(theme.panel_subtle));
-        p.setPen(QPen(QColor(theme.border), 1.2));
-        p.drawRoundedRect(body, 24, 24);
-        // The button split and wheel only make it look like a mouse; neither is bindable.
-        p.setPen(QPen(QColor(theme.border), 1));
-        p.drawLine(static_cast<int>(body.center().x()), static_cast<int>(body.top() + 6), static_cast<int>(body.center().x()), static_cast<int>(body.top() + 27));
-        p.setBrush(QColor(theme.border));
+    // Ctrl+2: the clipboard's image comes out as a pinned image with the theme-coloured edge.
+    static void play_pin(QPainter &p, const WelcomeTheme &theme, const QRectF &screen, int t) {
+        const double rise = ease(QEasingCurve::OutBack, phase(t, PLAY_MS, PLAY_MS + 380));
+        if (rise <= 0) return;
+        const QRectF pin = chart_region(screen).translated(-14 * rise, -16 * rise);
+        p.save();
+        p.setOpacity(p.opacity() * std::min(1.0, rise));
+        draw_shadow(p, theme, pin, 1);
         p.setPen(Qt::NoPen);
-        p.drawRoundedRect(QRectF(body.center().x() - 3, body.top() + 10, 6, 13), 3, 3);
-        // The two side buttons are bindable and use the keyboard's colours; the upper one,
-        // nearer the front, is "forward", the lower one "back".
-        const char *tokens[] = {"mouseforward", "mouseback"};
-        for (int index = 0; index < 2; ++index) {
-            const bool pressed = pressed_.contains(tokens[index]);
-            const auto [fill, border, text] = key_colors(theme, true, pressed);
-            Q_UNUSED(text);
-            p.setBrush(fill);
-            p.setPen(QPen(border, pressed ? 1.6 : 1.2));
-            p.drawRoundedRect(QRectF(body.left() - 6, body.top() + 26 + index * 17, 10, 14), 3, 3);
-        }
-        // The label sits on the side-button side, right aligned: on the right it would read as the right button.
-        p.setFont(font(10));
-        p.setPen(QColor(theme.text_muted));
-        const double label_right = body.left() - 12;
-        p.drawText(QRectF(label_right - 110, body.top() + 26, 110, 20), Qt::AlignRight | Qt::AlignVCenter, welcome_tr("鼠标侧键"));
+        p.setBrush(QColor(theme.panel));
+        p.drawRect(pin);
+        draw_chart(p, theme, pin.adjusted(6, 6, -6, -6));
+        p.setPen(QPen(theme_color(), 1.6));
+        p.setBrush(Qt::NoBrush);
+        p.drawRect(pin);
+        p.restore();
     }
 
-    struct LegendEntry {
-        QColor fill, border;
-        QString text_color, text;
-    };
-    std::vector<LegendEntry> legend_entries(const WelcomeTheme &theme) const {
-        const auto [bindable_fill, bindable_border, unused_text] = key_colors(theme, true);
-        const auto [unbound_fill, unbound_border, unused_text_2] = key_colors(theme, false);
-        Q_UNUSED(unused_text);
-        Q_UNUSED(unused_text_2);
-        std::vector<LegendEntry> entries{
-            {bindable_fill, bindable_border, theme.text_muted, welcome_tr("可设为快捷键")},
-            {unbound_fill, unbound_border, theme.text_soft, welcome_tr("不可用")},
+    // Ctrl+3: the clipboard window opens.
+    static void play_clipboard(QPainter &p, const WelcomeTheme &theme, const QRectF &screen, int t) {
+        const double in = ease(QEasingCurve::OutCubic, phase(t, PLAY_MS, PLAY_MS + 300));
+        if (in <= 0) return;
+        p.save();
+        p.setOpacity(p.opacity() * in);
+        draw_clipboard_window(p, theme, clipboard_window_rect(screen).translated(0, 8 * (1 - in)));
+        p.restore();
+    }
+
+    // Ctrl+4: the text lines are picked up and the translation window opens: the two languages
+    // with the swap between them, the source and the translation side by side.
+    static void play_translation(QPainter &p, const WelcomeTheme &theme, const QRectF &screen, int t) {
+        const QRectF window = window_rect(screen);
+        const QRectF source(window.x() + window.width() * 0.08 - 3, window.y() + window.height() * 0.2 - 3, window.width() * 0.62 + 6, window.height() * 0.1 + 12);
+        const double mark = phase(t, PLAY_MS, PLAY_MS + 150);
+        if (mark <= 0) return;
+        QColor select = theme_color();
+        select.setAlpha(static_cast<int>(70 * mark));
+        p.setPen(Qt::NoPen);
+        p.setBrush(select);
+        p.drawRoundedRect(source, 2, 2);
+        const double in = ease(QEasingCurve::OutCubic, phase(t, PLAY_MS + 200, PLAY_MS + 480));
+        if (in <= 0) return;
+        const double win_w = screen.width() * 0.8, win_h = screen.height() * 0.56;
+        const QRectF win(screen.center().x() - win_w / 2, screen.bottom() - win_h - screen.height() * 0.08 + 8 * (1 - in), win_w, win_h);
+        p.save();
+        p.setOpacity(p.opacity() * in);
+        draw_shadow(p, theme, win, 6);
+        p.setPen(QPen(QColor(theme.border), 0.8));
+        p.setBrush(QColor(theme.panel));
+        p.drawRoundedRect(win, 6, 6);
+        // Title bar: the translate icon, the pin button and the window buttons.
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor("#3B82F6"));
+        p.drawRoundedRect(QRectF(win.x() + 6, win.y() + 5, 8, 8), 2, 2);
+        p.setBrush(with_alpha(theme.text_soft, 110));
+        p.drawRoundedRect(QRectF(win.x() + 17, win.y() + 8, 18, 2.5), 1.2, 1.2);
+        for (int i = 0; i < 3; ++i) p.drawRoundedRect(QRectF(win.right() - 10 - i * 10, win.y() + 8, 5, 2), 1, 1);
+        // The language pills with the swap button.
+        const double pill_w = win.width() * 0.24, pills_y = win.y() + 18;
+        const QRectF left_pill(win.center().x() - 9 - pill_w, pills_y, pill_w, 11), right_pill(win.center().x() + 9, pills_y, pill_w, 11);
+        for (const QRectF &pill : {left_pill, right_pill}) {
+            p.setBrush(QColor(theme.panel_subtle));
+            p.drawRoundedRect(pill, 5.5, 5.5);
+            p.setBrush(with_alpha(theme.text, 110));
+            p.drawRoundedRect(QRectF(pill.x() + 6, pill.center().y() - 1.2, 10, 2.4), 1.2, 1.2);
+        }
+        p.setBrush(with_alpha(theme.accent, theme.is_dark ? 70 : 40));
+        p.drawEllipse(QPointF(win.center().x(), pills_y + 5.5), 6, 6);
+        demo_icon("swap").paint(&p, QRectF(win.center().x() - 3.5, pills_y + 2, 7, 7).toRect());
+        // The source and the translation, which types itself in.
+        const double pane_top = pills_y + 17, pane_h = win.bottom() - 20 - pane_top;
+        const double pane_w = (win.width() - 18) / 2;
+        const QRectF left_pane(win.x() + 6, pane_top, pane_w, pane_h), right_pane(left_pane.right() + 6, pane_top, pane_w, pane_h);
+        for (const QRectF &pane : {left_pane, right_pane}) {
+            p.setBrush(QColor(theme.panel_subtle));
+            p.drawRoundedRect(pane, 4, 4);
+        }
+        p.setBrush(with_alpha(theme.text, 120));
+        p.drawRoundedRect(QRectF(left_pane.x() + 5, left_pane.y() + 6, pane_w * 0.75, 2.6), 1.3, 1.3);
+        p.drawRoundedRect(QRectF(left_pane.x() + 5, left_pane.y() + 12, pane_w * 0.5, 2.6), 1.3, 1.3);
+        const double typed = phase(t, PLAY_MS + 520, PLAY_MS + 1100);
+        p.drawRoundedRect(QRectF(right_pane.x() + 5, right_pane.y() + 6, pane_w * 0.7 * std::min(1.0, typed * 1.6), 2.6), 1.3, 1.3);
+        if (typed > 0.6) p.drawRoundedRect(QRectF(right_pane.x() + 5, right_pane.y() + 12, pane_w * 0.4 * (typed - 0.6) / 0.4, 2.6), 1.3, 1.3);
+        demo_icon("copy").paint(&p, QRectF(left_pane.x() + 4, left_pane.bottom() - 9, 6, 6).toRect());
+        demo_icon("copy").paint(&p, QRectF(right_pane.x() + 4, right_pane.bottom() - 9, 6, 6).toRect());
+        // The translate button.
+        const QRectF button(win.right() - 34, win.bottom() - 15, 28, 10);
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor("#3B82F6"));
+        p.drawRoundedRect(button, 5, 5);
+        p.setBrush(QColor(255, 255, 255, 220));
+        p.drawRoundedRect(QRectF(button.center().x() - 7, button.center().y() - 1, 14, 2), 1, 1);
+        p.restore();
+    }
+
+    // Ctrl+5: the annotation toolbar comes up at the bottom of the screen with the pen on, and
+    // the pen circles the tallest bar and points at it.
+    static void play_annotation(QPainter &p, const WelcomeTheme &theme, const QRectF &screen, int t) {
+        const double in = ease(QEasingCurve::OutCubic, phase(t, PLAY_MS, PLAY_MS + 300));
+        if (in <= 0) return;
+        QRectF bar = toolbar_size(annotation_tools());
+        bar.moveTo(screen.center().x() - bar.width() / 2, screen.bottom() - bar.height() - 8 + 8 * (1 - in));
+        const QRectF chart_bar_rect = chart_bar(chart_rect(screen), 3);
+        const QRectF ring(chart_bar_rect.center().x() - chart_bar_rect.width() * 1.3, chart_bar_rect.top() - 6, chart_bar_rect.width() * 2.6, chart_bar_rect.height() * 0.55);
+        const auto ring_point = [&ring](double k) {
+            const double angle = (-35 - k * 385) * 3.14159265358979323846 / 180.0;
+            return QPointF(ring.center().x() + ring.width() / 2 * std::cos(angle), ring.center().y() + ring.height() / 2 * std::sin(angle));
         };
-        // Without a pressed key this entry takes no space: an unseen colour needs no explanation.
-        if (!pressed_.isEmpty()) {
-            const auto [pressed_fill, pressed_border, unused_text_3] = key_colors(theme, true, true);
-            Q_UNUSED(unused_text_3);
-            entries.push_back({pressed_fill, pressed_border, theme.text_muted, welcome_tr("当前按下")});
+        QPen pen(QColor("#FF0000"), 2.4);
+        pen.setCapStyle(Qt::RoundCap);
+        pen.setJoinStyle(Qt::RoundJoin);
+        p.setPen(pen);
+        p.setBrush(Qt::NoBrush);
+        const double drawn = ease(QEasingCurve::InOutSine, phase(t, PLAY_MS + 350, PLAY_MS + 1050));
+        QPointF tip = ring_point(0);
+        if (drawn > 0) {
+            QPainterPath path(ring_point(0));
+            const int steps = std::max(2, static_cast<int>(64 * drawn));
+            for (int i = 1; i <= steps; ++i) path.lineTo(ring_point(drawn * i / steps));
+            p.drawPath(path);
+            tip = ring_point(drawn);
         }
-        return entries;
-    }
-
-    // Legend entries split into lines by the available width: translations differ a lot in
-    // length, and one forced line would paint outside a narrow panel.
-    std::vector<std::pair<std::vector<std::pair<LegendEntry, double>>, double>> legend_layout(QPainter &p, const WelcomeTheme &theme, double available_w) const {
-        p.setFont(font(10));
-        const auto metrics = p.fontMetrics();
-        std::vector<std::pair<std::vector<std::pair<LegendEntry, double>>, double>> lines;
-        std::vector<std::pair<LegendEntry, double>> current;
-        double current_w = 0;
-        for (const auto &entry : legend_entries(theme)) {
-            const double width = LEGEND_SWATCH_W + LEGEND_TEXT_GAP + metrics.horizontalAdvance(entry.text);
-            const double extra = current.empty() ? width : width + LEGEND_ITEM_GAP;
-            if (!current.empty() && current_w + extra > available_w) {
-                lines.emplace_back(current, current_w);
-                current = {{entry, width}};
-                current_w = width;
-                continue;
+        const QPointF from(screen.x() + screen.width() * 0.86, screen.y() + screen.height() * 0.24);
+        const QPointF to = ring_point(0.06) + QPointF(4, -2);
+        const double arrow = ease(QEasingCurve::OutCubic, phase(t, PLAY_MS + 1150, PLAY_MS + 1450));
+        if (arrow > 0) {
+            const QPointF end = lerp(from, to, arrow);
+            p.drawLine(from, end);
+            if (arrow >= 1) {
+                const QPointF dir = (to - from) / std::hypot(to.x() - from.x(), to.y() - from.y());
+                const QPointF side(-dir.y(), dir.x());
+                p.drawLine(to, to - dir * 9 + side * 5);
+                p.drawLine(to, to - dir * 9 - side * 5);
             }
-            current.emplace_back(entry, width);
-            current_w += extra;
+            tip = end;
         }
-        if (!current.empty()) lines.emplace_back(current, current_w);
-        return lines;
+        p.save();
+        p.setOpacity(p.opacity() * in);
+        draw_toolbar(p, theme, bar, annotation_tools(), 0);
+        p.restore();
+        if (t >= PLAY_MS + 250) draw_cursor(p, t < PLAY_MS + 350 ? lerp(from, ring_point(0), move(t, PLAY_MS + 250, PLAY_MS + 350)) : tip);
     }
 
-    void draw_legend(QPainter &p, const WelcomeTheme &theme, const QRectF &rect, double top) {
-        const auto lines = legend_layout(p, theme, rect.width() - 8);
-        for (size_t line_index = 0; line_index < lines.size(); ++line_index) {
-            const auto &[items, line_w] = lines[line_index];
-            double x = std::max(rect.left() + 4, rect.center().x() - line_w / 2);
-            const double y = top + line_index * LEGEND_LINE_H;
-            for (const auto &[entry, width] : items) {
-                p.setBrush(entry.fill);
-                p.setPen(QPen(entry.border, 1));
-                p.drawRoundedRect(QRectF(x, y + 3, LEGEND_SWATCH_W, 10), 2, 2);
-                p.setPen(QColor(entry.text_color));
-                p.drawText(QRectF(x + LEGEND_SWATCH_W + LEGEND_TEXT_GAP, y, width, LEGEND_LINE_H), Qt::AlignLeft | Qt::AlignVCenter, entry.text);
-                x += width + LEGEND_ITEM_GAP;
-            }
-        }
-    }
-
-    QSet<QString> pressed_;
-    // Per-key fitted fonts by (label, width): the keyboard is static.
-    QHash<QPair<QString, int>, QFont> font_cache_;
+    // Indices of the slots with a hotkey, the ones taking turns.
+    std::vector<int> shown_;
+    int editing_ = -1;
+    int reported_ = -2;
 };
 
 class HotkeyIllus : public IllustrationArea {
 public:
     using IllustrationArea::IllustrationArea;
-    void retranslate() override { keyboard_map->update(); }
     void apply_welcome_theme() override {
         IllustrationArea::apply_welcome_theme();
-        if (keyboard_map) keyboard_map->update();
+        if (scene) scene->update();
     }
-    KeyboardMap *keyboard_map = nullptr;
+    HotkeyScene *scene = nullptr;
 protected:
     void build_content() override {
-        layout_->setContentsMargins(dialog_scaled(10), dialog_scaled(10), dialog_scaled(10), dialog_scaled(10));
-        keyboard_map = new KeyboardMap(this);
-        layout_->addWidget(keyboard_map, 1);
+        layout_->setContentsMargins(dialog_scaled(22), dialog_scaled(22), dialog_scaled(22), dialog_scaled(22));
+        scene = new HotkeyScene(this);
+        layout_->addWidget(scene, 1);
     }
 };
 
-constexpr int SLOT_LABEL_W = 62;
+QString settings_text(const char *text) { return i18n_tr(text, "SettingsDialog"); }
+QString page_subtitle() { return welcome_tr("截图、钉图、剪贴板、翻译和屏幕标注各设一个快捷键。"); }
+QString input_hint() { return welcome_tr("点击输入框后，按下快捷键或鼠标侧键即可录入。备用快捷键可以在设置的「快捷键」页添加。"); }
 }
 
 const std::vector<HotkeyPage::Row> &HotkeyPage::rows() {
-    static const std::vector<Row> rows = [] {
-        return std::vector<Row>{
-            {[](ToolSettingsManager *c) { return c->get_hotkey(); }, [](ToolSettingsManager *c, const QString &v) { c->set_hotkey(v); },
-             [](ToolSettingsManager *c) { return c->get_hotkey_2(); }, [](ToolSettingsManager *c, const QString &v) { c->set_hotkey_2(v); }, "截图"},
-            {[](ToolSettingsManager *c) { return c->get_clipboard_hotkey(); }, [](ToolSettingsManager *c, const QString &v) { c->set_clipboard_hotkey(v); },
-             [](ToolSettingsManager *c) { return c->get_clipboard_hotkey_2(); }, [](ToolSettingsManager *c, const QString &v) { c->set_clipboard_hotkey_2(v); },
-             "剪贴板"},
-            {[](ToolSettingsManager *c) { return c->get_translation_hotkey(); }, [](ToolSettingsManager *c, const QString &v) { c->set_translation_hotkey(v); },
-             [](ToolSettingsManager *c) { return c->get_translation_hotkey_2(); }, [](ToolSettingsManager *c, const QString &v) { c->set_translation_hotkey_2(v); },
-             "智能翻译"},
-        };
-    }();
+    // The settings window's order and names; only the screenshot hotkey keeps its value when
+    // left blank, since the others are also reached from the tray menu.
+    static const std::vector<Row> rows = {
+        {"screenshot", "Screenshot", true},
+        {"pin_clipboard", "Pin", false},
+        {"clipboard", "Clipboard", false},
+        {"translation", "Translation", false},
+        {"screen_annotation", "Screen Annotation", false},
+    };
     return rows;
 }
 
-HotkeyPage::HotkeyPage(ToolSettingsManager *config, QWidget *parent)
-    : BasePage(welcome_tr("快捷键"), welcome_tr("截图、剪贴板和翻译各可设置一个主快捷键和一个备用快捷键。"), parent), config_(config) {
+HotkeyPage::HotkeyPage(ToolSettingsManager *config, QWidget *parent) : BasePage(welcome_tr("快捷键"), page_subtitle(), parent), config_(config) {
     init();
 }
 
@@ -321,47 +290,23 @@ HotkeyPage::~HotkeyPage() { disconnect(focus_connection_); }
 IllustrationArea *HotkeyPage::create_illustration() { return new HotkeyIllus(this); }
 
 void HotkeyPage::build_controls(QVBoxLayout *layout) {
-    // Each feature has its own block with the title on its own line; a three-column grid
-    // squeezed both editors beside the title and the status icon overlapped the input.
+    layout->setSpacing(0);
     for (size_t index = 0; index < rows().size(); ++index) {
-        const auto &row_spec = rows()[index];
-        if (index) layout->addSpacing(dialog_scaled(14));
-        auto *section_lbl = new QLabel(welcome_tr(row_spec.title));
-        set_welcome_label_style(section_lbl, "primary", 14, 600);
-        layout->addWidget(section_lbl);
-        section_labels_.emplace_back(section_lbl, row_spec.title);
-        layout->addSpacing(dialog_scaled(6));
-
-        std::vector<HotkeyEdit *> pair;
-        for (const auto &[slot_title, getter] : {std::make_pair("主快捷键", row_spec.get), std::make_pair("备用", row_spec.get_2)}) {
-            auto *edit = new HotkeyEdit;
-            QString value;
-            try {
-                value = getter(config_);
-            } catch (const std::exception &e) {
-                log_exception(e, T("读取全局快捷键 {accessor}", {{"accessor", QString::fromUtf8(slot_title)}}));
-            }
-            edit->setText(value);
-            edit->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-            auto *slot_lbl = new QLabel(welcome_tr(slot_title));
-            slot_lbl->setFixedWidth(dialog_scaled(SLOT_LABEL_W));
-            set_welcome_label_style(slot_lbl, "muted", 12, 400);
-            slot_labels_.emplace_back(slot_lbl, slot_title);
-            auto *row = new QHBoxLayout;
-            row->setContentsMargins(0, 0, 0, 0);
-            row->setSpacing(dialog_scaled(8));
-            row->addWidget(slot_lbl);
-            row->addWidget(edit, 1);
-            layout->addLayout(row);
-            if (QString::fromUtf8(slot_title) == QString::fromUtf8("主快捷键")) layout->addSpacing(dialog_scaled(6));
-            edits_.push_back(edit);
-            pair.push_back(edit);
-        }
-        row_edits_.emplace_back(pair[0], pair[1]);
+        const auto &row = rows()[index];
+        auto *edit = new HotkeyEdit;
+        edit->setText(config_->get_global_hotkeys(row.function).value(0));
+        edit->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+        labels_.emplace_back(add_list_row(layout, settings_text(row.title), edit, index == 0), row.title);
+        edits_.push_back(edit);
     }
+    // The row the stage is playing takes the stage's colour.
+    if (auto *scene = static_cast<HotkeyIllus *>(illus_area)->scene)
+        scene->on_current = [this](int current) {
+            for (size_t i = 0; i < labels_.size(); ++i) set_list_row_current(labels_[i].first, static_cast<int>(i) == current);
+        };
 
-    layout->addSpacing(dialog_scaled(14));
-    hint_ = new QLabel(welcome_tr("点击输入框后，按下快捷键或鼠标侧键即可录入。"));
+    layout->addSpacing(dialog_scaled(16));
+    hint_ = new QLabel(input_hint());
     hint_->setWordWrap(true);
     set_welcome_label_style(hint_, "muted", 12, 400);
     layout->addWidget(hint_);
@@ -374,6 +319,7 @@ void HotkeyPage::build_controls(QVBoxLayout *layout) {
             sync_key_highlight();
         });
     revalidate();
+    sync_key_highlight();
 
     // The illustration follows the slot being edited, through the global focusChanged rather
     // than a new signal on the shared editor: this linkage belongs to this page only.
@@ -388,54 +334,44 @@ void HotkeyPage::on_focus_changed(QWidget *now) {
 }
 
 void HotkeyPage::sync_key_highlight() {
-    auto *illus = static_cast<HotkeyIllus *>(illus_area);
-    if (!illus->keyboard_map) return;
-    illus->keyboard_map->set_highlight(active_edit_ ? active_edit_->text() : QString());
-}
-
-bool HotkeyPage::revalidate() {
-    std::vector<HotkeyEdit *> group = edits_;
-    group.insert(group.end(), peer_edits_.begin(), peer_edits_.end());
-    return validate_hotkey_group(group);
-}
-
-void HotkeyPage::join_conflict_group(const std::vector<HotkeyEdit *> &edits) {
-    for (auto *edit : edits) {
-        peer_edits_.push_back(edit);
-        connect(edit, &HotkeyEdit::textChanged, this, [this] { revalidate(); });
+    auto *scene = static_cast<HotkeyIllus *>(illus_area)->scene;
+    if (!scene) return;
+    QStringList hotkeys;
+    int editing = -1;
+    for (size_t i = 0; i < edits_.size(); ++i) {
+        hotkeys << edits_[i]->text();
+        if (edits_[i] == active_edit_) editing = static_cast<int>(i);
     }
-    revalidate();
+    scene->set_hotkeys(hotkeys);
+    scene->set_editing(editing);
 }
+
+bool HotkeyPage::revalidate() { return validate_hotkey_group(edits_); }
 
 void HotkeyPage::retranslate() {
     title_label->setText(welcome_tr("快捷键"));
-    subtitle_label->setText(welcome_tr("截图、剪贴板和翻译各可设置一个主快捷键和一个备用快捷键。"));
-    for (const auto &[label, text] : section_labels_) label->setText(welcome_tr(text));
-    for (const auto &[label, text] : slot_labels_) label->setText(welcome_tr(text));
-    if (hint_) hint_->setText(welcome_tr("点击输入框后，按下快捷键或鼠标侧键即可录入。"));
+    subtitle_label->setText(page_subtitle());
+    for (const auto &[label, text] : labels_) label->setText(settings_text(text));
+    if (hint_) hint_->setText(input_hint());
+    sync_key_highlight();
     // The conflict message follows the language too.
     revalidate();
-    illus_area->retranslate();
 }
 
 void HotkeyPage::save() {
     const bool conflicted = !revalidate();
     for (size_t i = 0; i < rows().size(); ++i) {
-        write(rows()[i].set, row_edits_[i].first, conflicted, true);
-        write(rows()[i].set_2, row_edits_[i].second, conflicted, false);
-    }
-}
-
-void HotkeyPage::write(const Setter &setter, HotkeyEdit *edit, bool conflicted, bool keep_when_blank) {
-    if (conflicted && !edit->validation_error().isEmpty()) return;
-    const QString value = edit->text().trimmed();
-    // An empty main hotkey would leave no entry at all, so the old value stays; an empty
-    // alternate is a normal choice.
-    if (keep_when_blank && value.isEmpty()) return;
-    try {
-        setter(config_, value);
-    } catch (const std::exception &e) {
-        log_exception(e, T("保存全局快捷键 {accessor}", {{"accessor", QString::fromUtf8(edit->objectName().toUtf8())}}));
+        auto *edit = edits_[i];
+        if (conflicted && !edit->validation_error().isEmpty()) continue;
+        const QString value = edit->text().trimmed();
+        if (rows()[i].keep_when_blank && value.isEmpty()) continue;
+        QStringList values = config_->get_global_hotkeys(rows()[i].function);
+        values[0] = value;
+        try {
+            config_->set_global_hotkeys(rows()[i].function, values);
+        } catch (const std::exception &e) {
+            log_exception(e, T("保存全局快捷键 {accessor}", {{"accessor", rows()[i].function}}));
+        }
     }
 }
 }

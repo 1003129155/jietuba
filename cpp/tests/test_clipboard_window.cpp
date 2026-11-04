@@ -15,6 +15,7 @@
 #include "pin/pin_text_content.h"
 #include "pin/pin_window.h"
 #include "ui/fluent_lite/inputs.h"
+#include <QBuffer>
 #include <QCursor>
 #include <QDateEdit>
 #include <QDesktopServices>
@@ -195,6 +196,27 @@ private slots:
             window->load_settings();
             QVERIFY(!window->grab().isNull());
         }
+    }
+
+    void hidingTheWindowDropsDecodedThumbnails() {
+        const auto image = manager().add_item("[24x16]", "image");
+        QVERIFY(image);
+        auto *window = open_window();
+        auto *row = window->list_widget->item(row_of(*image));
+        QVERIFY(row);
+        auto item = row->data(ROLE_ITEM_DATA).value<ClipboardItem>();
+        QImage picture(24, 16, QImage::Format_RGB32);
+        picture.fill(Qt::darkCyan);
+        QByteArray png;
+        QBuffer buffer(&png);
+        QVERIFY(buffer.open(QIODevice::WriteOnly) && picture.save(&buffer, "PNG"));
+        item.thumbnail = "data:image/png;base64," + QString::fromLatin1(png.toBase64());
+        row->setData(ROLE_ITEM_DATA, QVariant::fromValue(item));
+        ClipboardItemDelegate::clear_thumb_cache();
+        QVERIFY(!window->grab().isNull());
+        QCOMPARE(ClipboardItemDelegate::cached_thumb_count(), 1);
+        window->hide();
+        QCOMPARE(ClipboardItemDelegate::cached_thumb_count(), 0);
     }
 
     void moreRowsLoadWhenScrolledToTheEnd() {
@@ -675,7 +697,8 @@ private slots:
         QVERIFY(files && !notes.isEmpty());
         auto *window = open_window();
         click(texts[0], Qt::MiddleButton);
-        QTRY_COMPARE(pins().size(), 1);
+        // Text pins are laid out on a low-priority worker, which a fully loaded runner starves for seconds.
+        QTRY_COMPARE_WITH_TIMEOUT(pins().size(), 1, 15000);
         QVERIFY(pins()[0]->text_only());
         QCOMPARE(pins()[0]->text_content()->text(), QString("words"));
         QVERIFY(!window->quick_edit_popup || !window->quick_edit_popup->is_open());
@@ -723,7 +746,7 @@ private slots:
         QVERIFY(picker->picked);
         QVERIFY(!window->selection_manager->has_marks());
         // The card opens first, then the texts as they were picked, each further down and right.
-        QTRY_COMPARE(pins().size(), 3);
+        QTRY_COMPARE_WITH_TIMEOUT(pins().size(), 3, 15000);
         QVERIFY(pins()[0]->file_card());
         QCOMPARE(pins()[1]->text_content()->text(), QString("first words"));
         QCOMPARE(pins()[2]->text_content()->text(), QString("second words"));

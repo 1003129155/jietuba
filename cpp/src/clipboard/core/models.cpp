@@ -41,6 +41,7 @@ ClipboardItem ClipboardItem::from_json(const QJsonObject &object) {
     if (item.sub_kind == SUB_KIND_COLOR && jb_clipboard_parse_color(item.content.toUtf8().constData(), rgba)) item.color = QColor(rgba[0], rgba[1], rgba[2], rgba[3]);
     item.created_at = timestamp(object, "created_at");
     item.updated_at = timestamp(object, "updated_at");
+    if (const auto group = object.value("group_id"); !group.isNull() && !group.isUndefined()) item.group_id = group.toInteger();
     return item;
 }
 

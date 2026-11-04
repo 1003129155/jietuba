@@ -196,7 +196,7 @@ Releases are made by [build.yml](.github/workflows/build.yml): the tag must be `
 │
 ├── cpp/                     # C++ (Qt6) implementation
 │   ├── src/                 # Source, organized as <package>/<module>
-│   │   ├── annotation/      # Live screen annotation — one layer per screen, pass-through, cross-screen undo
+│   │   ├── annotation/      # Live screen annotation — one layer over every screen, pass-through, drawings move across screens
 │   │   ├── barcode/         # QR code and barcode recognition (zxing-cpp)
 │   │   ├── canvas/          # Canvas — editing core, undo, layers
 │   │   ├── capture/         # Capture — screenshots, window and element detection

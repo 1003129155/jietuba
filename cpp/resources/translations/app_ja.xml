@@ -268,14 +268,6 @@
         <translation>グローバルホットキー</translation>
     </message>
     <message>
-        <source>Screenshot Hotkey</source>
-        <translation>スクリーンショット</translation>
-    </message>
-    <message>
-        <source>Clipboard Hotkey</source>
-        <translation>クリップボード</translation>
-    </message>
-    <message>
         <source>e.g.: ctrl+shift+a</source>
         <translation>例: ctrl+shift+a</translation>
     </message>
@@ -1009,6 +1001,14 @@ Replace it?</source>
         <translation>原文の書式を保持する</translation>
     </message>
     <message>
+        <source>Close When Clicking Outside</source>
+        <translation>外側をクリックしたら閉じる</translation>
+    </message>
+    <message>
+        <source>The translation popup opened by the shortcut closes when you click outside it or switch windows</source>
+        <translation>ショートカットで開いた翻訳ポップアップを、外側のクリックやウィンドウの切り替えで閉じます</translation>
+    </message>
+    <message>
         <source>Baidu APPID</source>
         <translation>Baidu APPID</translation>
     </message>
@@ -1512,10 +1512,6 @@ Replace it?</source>
         <translation>管理</translation>
     </message>
     <message>
-        <source>Screen Annotation Hotkey</source>
-        <translation>画面注釈</translation>
-    </message>
-    <message>
         <source>Keep Screen Annotations</source>
         <translation>画面注釈を保持</translation>
     </message>
@@ -1683,6 +1679,22 @@ Replace it?</source>
         <source>Storage</source>
         <translation>保存先</translation>
     </message>
+    <message>
+        <source>Green Mode</source>
+        <translation>ポータブルモード</translation>
+    </message>
+    <message>
+        <source>Keep the settings in the program's folder; copy the whole folder to take them along.</source>
+        <translation>設定をプログラムのフォルダーに保存します。フォルダーごとコピーすれば設定も持ち運べます。</translation>
+    </message>
+    <message>
+        <source>The program's folder cannot be written to.</source>
+        <translation>プログラムのフォルダーに書き込めません。</translation>
+    </message>
+    <message>
+        <source>Could not move the settings file: %1</source>
+        <translation>設定ファイルを移動できませんでした: %1</translation>
+    </message>
 </context>
 
 <context>
@@ -1718,6 +1730,10 @@ Replace it?</source>
     <message>
         <source>Save Failed</source>
         <translation>保存に失敗しました</translation>
+    </message>
+    <message>
+        <source>Saved: %1</source>
+        <translation>保存しました：%1</translation>
     </message>
 </context>
 
@@ -1763,6 +1779,10 @@ Replace it?</source>
     <message>
         <source>Save to file</source>
         <translation>ファイルに保存</translation>
+    </message>
+    <message>
+        <source>Quick save: straight to the save folder, no dialog</source>
+        <translation>クイック保存：ダイアログなしで保存フォルダに保存</translation>
     </message>
     
 
@@ -2695,7 +2715,6 @@ Replace it?</source>
 <!-- ========== Translation Settings ========== -->
 <context>
     <name>SettingsDialog</name>
-    <message><source>Translation Hotkey</source><translation>翻訳ショートカット</translation></message>
     <message>
         <source>Get your API key from DeepL website (free tier available)</source>
         <translation>DeepLウェブサイトからAPIキーを取得（無料版あり）</translation>
@@ -2908,6 +2927,14 @@ Replace it?</source>
     <message>
         <source>Show Time</source>
         <translation>時刻を表示</translation>
+    </message>
+    <message>
+        <source>Hide Grouped Items from All</source>
+        <translation>「すべて」にグループ内の項目を表示しない</translation>
+    </message>
+    <message>
+        <source>More Settings</source>
+        <translation>詳細設定</translation>
     </message>
     <message>
         <source>Preserve Search on Reopen</source>
@@ -3996,6 +4023,138 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>履歴を選択後に自動的にCtrl+Vを送信</translation>
     </message>
     <message>
+        <source>Group Bar Position</source>
+        <translation>グループバーの位置</translation>
+    </message>
+    <message>
+        <source>Where the group bar sits in the clipboard window</source>
+        <translation>クリップボードウィンドウでグループバーを置く位置</translation>
+    </message>
+    <message>
+        <source>Right</source>
+        <translation>右</translation>
+    </message>
+    <message>
+        <source>Left</source>
+        <translation>左</translation>
+    </message>
+    <message>
+        <source>Top</source>
+        <translation>上</translation>
+    </message>
+    <message>
+        <source>Preserve Search on Reopen</source>
+        <translation>検索条件を保持</translation>
+    </message>
+    <message>
+        <source>Keep the search text when the clipboard window opens again</source>
+        <translation>クリップボードウィンドウを開き直しても前回の検索内容を残します</translation>
+    </message>
+    <message>
+        <source>List Display</source>
+        <translation>リストの表示</translation>
+    </message>
+    <message>
+        <source>Show Time</source>
+        <translation>時刻を表示</translation>
+    </message>
+    <message>
+        <source>Show when each item was copied</source>
+        <translation>各項目にコピーした時刻を表示します</translation>
+    </message>
+    <message>
+        <source>Max Display Lines</source>
+        <translation>最大表示行数</translation>
+    </message>
+    <message>
+        <source>Longer text wraps onto at most this many lines</source>
+        <translation>長いテキストを折り返して表示する最大の行数</translation>
+    </message>
+    <message>
+        <source>Image Size</source>
+        <translation>画像サイズ</translation>
+    </message>
+    <message>
+        <source>Size of image thumbnails in the list</source>
+        <translation>リストに表示する画像サムネイルの大きさ</translation>
+    </message>
+    <message>
+        <source>Hide Grouped Items from All</source>
+        <translation>「すべて」にグループ内の項目を表示しない</translation>
+    </message>
+    <message>
+        <source>Items in a group no longer show in All; filter groups still list them</source>
+        <translation>グループに入れた項目を「すべて」に表示しません。フィルターグループには表示されます</translation>
+    </message>
+    <message>
+        <source>Close After Paste</source>
+        <translation>貼り付け後にウィンドウを閉じる</translation>
+    </message>
+    <message>
+        <source>Turn off to paste several items in a row</source>
+        <translation>オフにすると続けて何件も貼り付けられます</translation>
+    </message>
+    <message>
+        <source>Move to Top After Paste</source>
+        <translation>貼り付け後に先頭へ移動</translation>
+    </message>
+    <message>
+        <source>A pasted item moves to the top of the history</source>
+        <translation>貼り付けた項目を履歴の先頭に移動します</translation>
+    </message>
+    <message>
+        <source>Paste with Format</source>
+        <translation>書式付きで貼り付け</translation>
+    </message>
+    <message>
+        <source>Keep fonts, colors and links when pasting formatted text</source>
+        <translation>書式付きのテキストを貼り付けるとき、フォント・色・リンクを保持します</translation>
+    </message>
+    <message>
+        <source>Multi-Select Paste</source>
+        <translation>複数選択して貼り付け</translation>
+    </message>
+    <message>
+        <source>Separator</source>
+        <translation>区切り文字</translation>
+    </message>
+    <message>
+        <source>Placed between the items pasted together</source>
+        <translation>まとめて貼り付ける項目の間に入れる文字</translation>
+    </message>
+    <message>
+        <source>Custom</source>
+        <translation>カスタム</translation>
+    </message>
+    <message>
+        <source>Paste Order</source>
+        <translation>貼り付け順</translation>
+    </message>
+    <message>
+        <source>The order the selected items are pasted in</source>
+        <translation>選択した項目を貼り付ける順番</translation>
+    </message>
+    <message>
+        <source>First Selected First</source>
+        <translation>選択順</translation>
+    </message>
+    <message>
+        <source>Last Selected First</source>
+        <translation>選択の逆順</translation>
+    </message>
+    <message>
+        <source>Record Merged Content</source>
+        <translation>結合した内容を記録</translation>
+    </message>
+    <message>
+        <source>Add the combined content to the history as a new item</source>
+        <translation>まとめた内容を新しい項目として履歴に追加します</translation>
+    </message>
+    <message>
+        <source>💡 The clipboard window's theme, font size and opacity are on the Appearance page.</source>
+        <translation>💡 クリップボードウィンドウの配色・文字サイズ・不透明度は「外観」ページで設定します。</translation>
+    </message>
+    <message>
         <source>History Limit</source>
         <translation>履歴の上限</translation>
     </message>
@@ -4484,6 +4643,10 @@ This action cannot be undone.</source>
         <translation>保存</translation>
     </message>
     <message>
+        <source>工具_快捷保存</source>
+        <translation>クイック保存</translation>
+    </message>
+    <message>
         <source>工具_完成截图</source>
         <translation>完了</translation>
     </message>
@@ -4538,6 +4701,10 @@ This action cannot be undone.</source>
     <message>
         <source>工具描述_保存</source>
         <translation>スクショをファイルに保存</translation>
+    </message>
+    <message>
+        <source>工具描述_快捷保存</source>
+        <translation>ダイアログなしで保存フォルダに保存</translation>
     </message>
     <message>
         <source>工具描述_完成截图</source>
@@ -4947,6 +5114,34 @@ This action cannot be undone.</source>
     <message>
         <source>活动海报.png</source>
         <translation>イベントポスター.png</translation>
+    </message>
+    <message>
+        <source>截图、钉图、剪贴板、翻译和屏幕标注各设一个快捷键。</source>
+        <translation>スクリーンショット・ピン留め・クリップボード・翻訳・画面注釈のショートカットをそれぞれ設定します。</translation>
+    </message>
+    <message>
+        <source>点击输入框后，按下快捷键或鼠标侧键即可录入。备用快捷键可以在设置的「快捷键」页添加。</source>
+        <translation>入力欄をクリックし、キーの組み合わせかマウスのサイドボタンを押してください。予備のショートカットは設定の「ショートカット」で追加できます。</translation>
+    </message>
+    <message>
+        <source>截图、剪贴板记录和设置各自存在哪里，之后也可以在设置里改。</source>
+        <translation>スクリーンショット、クリップボード履歴、設定の保存先です。あとから設定で変更できます。</translation>
+    </message>
+    <message>
+        <source>存储位置</source>
+        <translation>保存先</translation>
+    </message>
+    <message>
+        <source>剪贴板数据</source>
+        <translation>クリップボードのデータ</translation>
+    </message>
+    <message>
+        <source>剪贴板历史的数据库和图片都放在这个文件夹。</source>
+        <translation>クリップボード履歴のデータベースと画像はこのフォルダーに保存されます。</translation>
+    </message>
+    <message>
+        <source>把托盘图标从「^」里拖到任务栏上，就能一直看到它。</source>
+        <translation>トレイアイコンを「^」の中からタスクバーへドラッグすると、常に表示されます。</translation>
     </message>
 </context>
 
@@ -5476,6 +5671,10 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>保存</translation>
     </message>
     <message>
+        <source>Quick save</source>
+        <translation>クイック保存</translation>
+    </message>
+    <message>
         <source>Copy</source>
         <translation>コピー</translation>
     </message>
@@ -5832,8 +6031,124 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>次回から直接コピー</translation>
     </message>
     <message>
+        <source>Close after copying</source>
+        <translation>コピー後に閉じる</translation>
+    </message>
+    <message>
         <source>Copied %1 characters</source>
         <translation>%1 文字をコピーしました</translation>
+    </message>
+    <message>
+        <source>Selected %1 characters</source>
+        <translation>%1 文字を選択中</translation>
+    </message>
+    <message>
+        <source>Text</source>
+        <translation>テキスト</translation>
+    </message>
+    <message>
+        <source>Table</source>
+        <translation>表</translation>
+    </message>
+    <message>
+        <source>%1 rows × %2 columns</source>
+        <translation>%1 行 × %2 列</translation>
+    </message>
+    <message>
+        <source>Copy selected cells</source>
+        <translation>選択したセルをコピー</translation>
+    </message>
+    <message>
+        <source>Delete row</source>
+        <translation>行を削除</translation>
+    </message>
+    <message>
+        <source>Delete column</source>
+        <translation>列を削除</translation>
+    </message>
+    <message>
+        <source>Cut</source>
+        <translation>切り取り</translation>
+    </message>
+    <message>
+        <source>Paste</source>
+        <translation>貼り付け</translation>
+    </message>
+    <message>
+        <source>Redo</source>
+        <translation>やり直す</translation>
+    </message>
+    <message>
+        <source>Insert row above</source>
+        <translation>上に行を挿入</translation>
+    </message>
+    <message>
+        <source>Insert row below</source>
+        <translation>下に行を挿入</translation>
+    </message>
+    <message>
+        <source>Insert column left</source>
+        <translation>左に列を挿入</translation>
+    </message>
+    <message>
+        <source>Insert column right</source>
+        <translation>右に列を挿入</translation>
+    </message>
+    <message>
+        <source>Merge cells</source>
+        <translation>セルを結合</translation>
+    </message>
+    <message>
+        <source>Split cells</source>
+        <translation>セルの結合を解除</translation>
+    </message>
+    <message>
+        <source>Show row and column headers</source>
+        <translation>行と列の見出しを表示</translation>
+    </message>
+    <message>
+        <source>Average: %1</source>
+        <translation>平均: %1</translation>
+    </message>
+    <message>
+        <source>Count: %1</source>
+        <translation>個数: %1</translation>
+    </message>
+    <message>
+        <source>Sum: %1</source>
+        <translation>合計: %1</translation>
+    </message>
+    <message>
+        <source>Original image</source>
+        <translation>元画像</translation>
+    </message>
+    <message>
+        <source>Zoom in</source>
+        <translation>拡大</translation>
+    </message>
+    <message>
+        <source>Zoom out</source>
+        <translation>縮小</translation>
+    </message>
+    <message>
+        <source>Actual size</source>
+        <translation>実際のサイズ</translation>
+    </message>
+    <message>
+        <source>Fit to window</source>
+        <translation>ウィンドウに合わせる</translation>
+    </message>
+    <message>
+        <source>Copy image</source>
+        <translation>画像をコピー</translation>
+    </message>
+    <message>
+        <source>Undo</source>
+        <translation>元に戻す</translation>
+    </message>
+    <message>
+        <source>Copied table (%1 rows × %2 columns)</source>
+        <translation>表をコピーしました（%1 行 × %2 列）</translation>
     </message>
 </context>
 <context>

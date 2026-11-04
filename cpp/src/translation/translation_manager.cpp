@@ -255,6 +255,12 @@ void TranslationManager::on_popup_target_lang_changed(const QString &new_lang) {
     log_debug(T("小窗目标语言已更新: {new_lang}", {{"new_lang", new_lang}}), "Translation");
 }
 
+void TranslationManager::apply_target_lang(const QString &lang) {
+    target_lang_ = lang;
+    if (is_popup_valid()) popup_->set_target_lang(lang);
+    if (is_dialog_valid()) dialog_->set_target_lang(lang);
+}
+
 TranslationPopup *TranslationManager::ensure_popup() {
     // Created lazily and reused so later calls are fast.
     if (!is_popup_valid()) {

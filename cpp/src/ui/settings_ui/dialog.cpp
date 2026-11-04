@@ -792,6 +792,7 @@ void SettingsDialog::reset_translation_page() {
     select_data(attr<QComboBox>("translation_target_combo"), defaults.value("translation_target_lang"));
     if (auto *toggle = attr_widget("split_sentences_toggle")) set_checked(toggle, defaults.value("translation_split_sentences").toBool());
     if (auto *toggle = attr_widget("preserve_formatting_toggle")) set_checked(toggle, defaults.value("translation_preserve_formatting").toBool());
+    if (auto *toggle = attr_widget("translation_auto_close_toggle")) set_checked(toggle, defaults.value("translation_popup_auto_close").toBool());
     reset_speech_voices(this);
     refresh_behavior_controls(true, {}, std::set<QString>{"speech_rate", "speech_volume"});
 }
@@ -799,9 +800,9 @@ void SettingsDialog::reset_translation_page() {
 void SettingsDialog::reset_clipboard_page() {
     const auto &defaults = config_manager->app_defaults();
     if (auto *toggle = attr_widget("clipboard_enabled_toggle")) set_checked(toggle, defaults.value("clipboard_enabled").toBool());
-    if (auto *toggle = attr_widget("clipboard_auto_paste_toggle")) set_checked(toggle, defaults.value("clipboard_auto_paste").toBool());
     if (auto *spin = attr<QSpinBox>("clipboard_history_limit_spin")) spin->setValue(defaults.value("clipboard_history_limit").toInt());
-    refresh_behavior_controls(true, {}, std::set<QString>{"clipboard_open_position"});
+    refresh_behavior_controls(true, {}, CLIPBOARD_BEHAVIOR_KEYS);
+    select_clipboard_separator(this, defaults.value("clipboard_multi_paste_separator").toString());
     if (clipboard_special_paste_entries) clipboard_special_paste_entries = special_paste::default_entries();
 }
 
@@ -960,6 +961,8 @@ void SettingsDialog::save_changes(QSet<QString> changed) {
     if (auto *toggle = attr_widget("split_sentences_toggle"); toggle && has("split_sentences_toggle")) config_manager->set_translation_split_sentences(checked_of(toggle));
     if (auto *toggle = attr_widget("preserve_formatting_toggle"); toggle && has("preserve_formatting_toggle"))
         config_manager->set_translation_preserve_formatting(checked_of(toggle));
+    if (auto *toggle = attr_widget("translation_auto_close_toggle"); toggle && has("translation_auto_close_toggle"))
+        config_manager->set_translation_popup_auto_close(checked_of(toggle));
     if (has("speech_voice_combos")) config_manager->set_speech_voices(speech_voice_choices(this));
 
     // 6. Miscellaneous. Changing autostart or admin mode may ask for administrator permission;
@@ -983,6 +986,7 @@ void SettingsDialog::save_changes(QSet<QString> changed) {
     if (has("clipboard_special_paste_entries")) save_special_paste_entries();
     if (auto *toggle = attr_widget("clipboard_enabled_toggle"); toggle && has("clipboard_enabled_toggle")) config_manager->set_clipboard_enabled(checked_of(toggle));
     if (auto *spin = attr<QSpinBox>("clipboard_history_limit_spin"); spin && has("clipboard_history_limit_spin")) config_manager->set_clipboard_history_limit(spin->value());
+    if (has("clipboard_separator")) config_manager->set_clipboard_multi_paste_separator(clipboard_separator_value(this));
 
     // 7.5 In-app shortcuts. Unfinished prefixes keep their saved value.
     if (std::any_of(inapp_edits.begin(), inapp_edits.end(), [&has](const auto &entry) { return has("inapp_" + entry.first); })) {
@@ -1231,8 +1235,8 @@ QVariantMap SettingsDialog::snapshot_settings() const {
     for (const char *name : {"ocr_copy_directly_toggle", "barcode_copy_single_toggle", "cross_tool_selection_toggle", "text_always_on_top_toggle", "smart_animation_toggle",
                              "save_toggle", "screenshot_pin_save_toggle", "clipboard_file_reference_toggle", "screenshot_save_original_toggle", "watermark_auto_toggle",
                              "magnifier_enabled_toggle", "magnifier_grid_toggle", "magnifier_hint_toggle", "ocr_enable_toggle", "ocr_grayscale_toggle",
-                             "ocr_upscale_toggle", "split_sentences_toggle", "preserve_formatting_toggle", "log_toggle", "clipboard_enabled_toggle",
-                             "clipboard_auto_paste_toggle", "autostart_toggle", "run_as_admin_toggle", "show_main_window_toggle", "pin_auto_toolbar_toggle", "info_hide_on_drag_toggle",
+                             "ocr_upscale_toggle", "split_sentences_toggle", "preserve_formatting_toggle", "translation_auto_close_toggle", "log_toggle", "clipboard_enabled_toggle",
+                             "autostart_toggle", "run_as_admin_toggle", "show_main_window_toggle", "pin_auto_toolbar_toggle", "info_hide_on_drag_toggle",
                              "preload_screenshot_toggle", "preload_toolbar_toggle", "preload_ocr_toggle", "preload_settings_toggle", "preload_clipboard_toggle"})
         if (auto *widget = attr_widget(name)) snap[name] = checked_of(widget);
     // Combos.
@@ -1259,6 +1263,7 @@ QVariantMap SettingsDialog::snapshot_settings() const {
         for (const auto &fmt : *magnifier_color_formats) formats.append(QVariantList{fmt.name, fmt.template_string, fmt.enabled});
         snap["magnifier_color_formats"] = formats;
     }
+    if (has_attr("clipboard_separator_combo")) snap["clipboard_separator"] = clipboard_separator_value(this);
     if (clipboard_special_paste_entries) {
         QVariantList entries;
         for (const auto &[key, enabled] : *clipboard_special_paste_entries) entries.append(QVariant(QVariantList{key, enabled}));
@@ -1403,6 +1408,7 @@ void SettingsDialog::refresh_settings() {
     select_data(attr<QComboBox>("translation_target_combo"), config_manager->get_saved_translation_target_lang());
     if (auto *toggle = attr_widget("split_sentences_toggle")) set_checked(toggle, config_manager->get_translation_split_sentences());
     if (auto *toggle = attr_widget("preserve_formatting_toggle")) set_checked(toggle, config_manager->get_translation_preserve_formatting());
+    if (auto *toggle = attr_widget("translation_auto_close_toggle")) set_checked(toggle, config_manager->get_translation_popup_auto_close());
     select_speech_voices(this, config_manager->get_speech_voices());
 
     if (auto *toggle = attr_widget("log_toggle")) set_checked(toggle, config_manager->get_log_enabled());
@@ -1415,8 +1421,8 @@ void SettingsDialog::refresh_settings() {
     if (auto *label = attr_widget("path_lbl")) set_text(label, config_manager->get_log_dir());
 
     if (auto *toggle = attr_widget("clipboard_enabled_toggle")) set_checked(toggle, config_manager->get_clipboard_enabled());
-    if (auto *toggle = attr_widget("clipboard_auto_paste_toggle")) set_checked(toggle, config_manager->get_clipboard_auto_paste());
     if (auto *spin = attr<QSpinBox>("clipboard_history_limit_spin")) spin->setValue(static_cast<int>(config_manager->get_clipboard_history_limit()));
+    select_clipboard_separator(this, config_manager->get_clipboard_multi_paste_separator());
     if (clipboard_special_paste_entries) clipboard_special_paste_entries = special_paste::load(config_manager);
 
     if (auto *toggle = attr_widget("autostart_toggle")) set_checked(toggle, config_manager->get_autostart_enabled());

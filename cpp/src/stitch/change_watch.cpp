@@ -2,7 +2,6 @@
 #include "core/logger.h"
 #include <chrono>
 #include <cstring>
-#include <optional>
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -89,19 +88,13 @@ void ChangeWatch::run() {
         log_exception(e, "ChangeWatch");
         return;
     }
-    using clock = std::chrono::steady_clock;
     try {
-        std::optional<clock::time_point> last_change;
         while (true) {
-            const bool active = last_change && clock::now() - *last_change < std::chrono::milliseconds(CHANGE_WATCH_ACTIVE_HOLD_MS);
             {
                 std::unique_lock lock(mutex_);
-                if (wake_.wait_for(lock, std::chrono::milliseconds(active ? CHANGE_WATCH_ACTIVE_MS : CHANGE_WATCH_IDLE_MS), [this] { return stop_; })) break;
+                if (wake_.wait_for(lock, std::chrono::milliseconds(CHANGE_WATCH_INTERVAL_MS), [this] { return stop_; })) break;
             }
-            if (region->changed()) {
-                last_change = clock::now();
-                emit changed();
-            }
+            if (region->changed()) emit changed();
         }
     } catch (const std::exception &e) {
         log_exception(e, "ChangeWatch");

@@ -26,6 +26,8 @@ struct OcrLayoutLine {
     QRectF reading_bounds;
     // Positions estimated from character widths: the engine gave none.
     bool estimated = false;
+    // The line's index in the recognition result.
+    int source = -1;
     int length() const { return static_cast<int>(chars.size()); }
     // Characters [first, last).
     QString slice(int first, int last) const;
@@ -73,6 +75,8 @@ public:
     QString all_text(const QString &separator = "\n") const;
     // A line's selected run in image pixels; empty without a selection there.
     QPolygonF selection_outline(int index) const;
+    // Characters [first, last) of a line in image pixels; empty for an empty run.
+    QPolygonF run_outline(int index, int first, int last) const;
     // What the selection covers in image pixels.
     QRectF selection_bounds() const;
     // What the text covers in image pixels.

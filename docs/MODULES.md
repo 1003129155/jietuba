@@ -4,15 +4,15 @@
 
 ### annotation/ — Screen Annotation Module
 
-Draws straight on the screen being used. Every screen gets a full-screen transparent layer that reuses the GIF recording's drawing layer (`GifDrawingView`) and the capture toolbar (`Toolbar`, layout profile `toolbar_layout::ANNOTATION`), so tools, settings panels and undo are the same ones.
+Draws straight on the screen being used. One transparent layer covers every screen, as the capture window does, and reuses the GIF recording's drawing layer (`GifDrawingView`) and the capture toolbar (`Toolbar`, layout profile `toolbar_layout::ANNOTATION`), so tools, settings panels and undo are the same ones.
 
 <details>
 <summary>Show directory structure</summary>
 
 ```text
 annotation/
-├── screen_annotation.h/.cpp   # ScreenAnnotation — the session: a layer per screen, pass-through/drawing/hidden, cross-screen undo, focus hand-back; ScreenAnnotationShortcutHandler — keys while drawing
-├── annotation_view.h/.cpp     # AnnotationView — one screen's drawing layer; as the canvas host it hands the shared toolbar to CanvasView
+├── screen_annotation.h/.cpp   # ScreenAnnotation — the session: the layer, pass-through/drawing/hidden, focus hand-back; ScreenAnnotationShortcutHandler — keys while drawing
+├── annotation_view.h/.cpp     # AnnotationView — the drawing layer over every screen, its scene in desktop coordinates; as the canvas host it hands the shared toolbar to CanvasView
 ├── annotation_toolbar.h/.cpp  # AnnotationToolbar — floating toolbar with pass-through, clear, hide and exit; never takes the focus, kept out of captures and recordings
 └── cursor_highlight.h/.cpp    # CursorHighlight and PointerLight — the light around the pointer and the click rings
 ```
@@ -20,13 +20,13 @@ annotation/
 </details>
 
 **Key features:**
-- In pass-through the layers carry `WS_EX_TRANSPARENT`, so the mouse reaches the windows below; picking a tool takes the mouse, and returning to pass-through gives the focus back to the previous foreground window
-- One canvas and undo stack per screen; the session records which screens each step changed, so undo and redo follow the drawing order across screens, and clearing is one undoable step
-- Layers are added, removed or resized as screens are plugged in or change resolution, and the toolbar always stays on a visible screen
+- In pass-through the layer carries `WS_EX_TRANSPARENT`, so the mouse reaches the windows below; picking a tool takes the mouse, and returning to pass-through gives the focus back to the previous foreground window
+- One canvas and undo stack for all screens: a drawing can be drawn across the edge between two screens or dragged from one to another, and clearing is one undoable step
+- The layer follows the screens as they are plugged in, unplugged or change resolution. Drawings keep their place on the desktop: those on an unplugged screen wait off the desktop and come back with it. The toolbar always stays on a visible screen
 - Before a capture the session returns to pass-through and waits for that frame to reach the screen: captures include the drawings but not the hit layer, and the toolbar is kept out of captures and recordings with `WDA_EXCLUDEFROMCAPTURE`
-- The layers have no captured image under the drawings, so the highlighter cannot multiply onto what it covers; it is laid on at 35% opacity instead, each stroke in one pass so it keeps one tint, and a rectangle highlight fills its border and inside as one shape
+- The layer has no captured image under the drawings, so the highlighter cannot multiply onto what it covers; it is laid on at 35% opacity instead, each stroke in one pass so it keeps one tint, and a rectangle highlight fills its border and inside as one shape
 - A shape just drawn is not selected, so no handles show on the screen or in recordings; clicking a drawing with its tool still selects it
-- The whiteboard is a white window of its own on each screen, on and off with one click; it stays through pass-through so the desktop does not show by accident, and lies below the windows kept on top, so pins sit on the board and the drawings go over them
+- The whiteboard is a white window of its own under the layer, on and off with one click; it stays through pass-through so the desktop does not show by accident, and lies below the windows kept on top, so pins sit on the board and the drawings go over them
 - The cursor highlight takes the pointer and the buttons from the input hub's mouse events (the system hook), so it works in pass-through too, runs nothing while the pointer rests and misses no click; while drawing, its disc moves in the same repaint as the stroke, and a screenshot leaves it out
 
 ---
@@ -749,7 +749,7 @@ tests/
 ├── test_result_windows.cpp        # OCR and barcode result windows
 ├── test_sandbox.cpp               # Linked into every test program: points settings, data and logs at a temporary folder
 ├── test_save_image_dialog.cpp     # Save image dialog: folder tags, format and quality
-├── test_screen_annotation.cpp     # Screen annotation: per-screen layers, click-through and focus, cross-screen undo, screens plugged in or out
+├── test_screen_annotation.cpp     # Screen annotation: one layer over every screen, click-through and focus, drawings across screens, screens plugged in or out
 ├── test_screenshot_window.cpp     # Screenshot window
 ├── test_scroll_capture.cpp        # Scroll capture
 ├── test_settings_window.cpp       # Settings window

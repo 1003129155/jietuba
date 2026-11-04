@@ -132,9 +132,11 @@ QString PinFileCard::format_size(qint64 bytes) {
 
 void PinFileCard::load_icons() const {
     icons_.resize(shown_);
+    folders_.resize(shown_);
     for (int i = 0; i < shown_; ++i) {
         const QImage icon = system_icon(files_[i]);
         icons_[i] = icon.width() > ICON_KEPT_PIXELS ? icon.scaled(ICON_KEPT_PIXELS, ICON_KEPT_PIXELS, Qt::KeepAspectRatio, Qt::SmoothTransformation) : icon;
+        folders_[i] = QFileInfo(files_[i]).isDir();
     }
     icons_loaded_ = true;
 }

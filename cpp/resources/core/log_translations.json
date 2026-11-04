@@ -385,7 +385,7 @@
 "屏幕标注工具: {tool_id}": "Screen annotation tool: {tool_id}",
 "屏幕标注工具栏未能排除出截图: {error_code}": "Could not keep the screen annotation toolbar out of captures: {error_code}",
 "录制工具栏未能排除出截图: {error_code}": "Could not keep the recording toolbar out of captures: {error_code}",
-"屏幕标注已清空: {count} 个屏幕": "Screen annotation cleared: {count} screens",
+"屏幕标注已清空: {count} 个标注": "Screen annotation cleared: {count} drawings",
 "屏幕标注开始": "Screen annotation started",
 "屏幕标注结束": "Screen annotation ended",
 "工具不存在: {tool_id}": "Tool does not exist: {tool_id}",
@@ -409,6 +409,7 @@
 "已复制设置: {source} → {target}": "Settings copied: {source} → {target}",
 "旧设置已迁移过，不再复制: {source}": "Old settings were already migrated, not copied again: {source}",
 "无法写入设置文件: {path}": "Could not write the settings file: {path}",
+"设置文件已移到: {path}": "Settings file moved to: {path}",
 "这台电脑上没有管理员启动的计划任务，管理员启动已关闭": "No run-as-administrator task on this computer; run as administrator turned off",
 "开机自启已改为启动当前位置的程序": "Autostart now starts the program at its current location",
 "开机自启已关闭，已删除启动项": "Autostart is off; its startup entry was removed",
@@ -885,5 +886,7 @@
 "已复制 {count} 个文件": "Copied {count} file(s)",
 "已复制动图: {file_path}": "Copied animation: {file_path}",
 "已钉住剪贴板中的 {count} 个文件": "Pinned {count} file(s) from the clipboard",
-"动图复制失败: {file_path}": "Could not copy the animation: {file_path}"
+"动图复制失败: {file_path}": "Could not copy the animation: {file_path}",
+"文字识别发现表格: {rows} 行 {columns} 列": "Text recognition found a table: {rows} rows, {columns} columns",
+"文字识别完成并直接复制表格: {rows} 行 {columns} 列": "Recognized and copied a table directly: {rows} rows, {columns} columns"
 }

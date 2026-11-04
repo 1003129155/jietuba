@@ -12,14 +12,15 @@ namespace jietuba {
 class BasePage;
 class ToolSettingsManager;
 
-// A step in the sidebar.
-class StepItem : public QFrame {
+// One segment of the progress bar over the settings; clicking it goes to that page.
+class StepItem : public QWidget {
     Q_OBJECT
 public:
     StepItem(int index, QWidget *parent = nullptr);
+    // The page title, as tooltip and accessible name.
     void set_text(const QString &text);
     void set_state(bool active, bool completed);
-    void apply_welcome_theme();
+    void apply_welcome_theme() { update(); }
 signals:
     void clicked(int index);
 protected:
@@ -29,25 +30,22 @@ protected:
     void focusOutEvent(QFocusEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
-    void resizeEvent(QResizeEvent *event) override;
+    void paintEvent(QPaintEvent *event) override;
 private:
-    // Long titles end in an ellipsis instead of being cut mid-character; the tooltip has them whole.
-    void elide_text();
     int index_;
-    QString full_text_;
     bool hovered_ = false;
     bool active_ = false;
     bool completed_ = false;
-    QLabel *number_;
-    QLabel *text_;
 };
 
 class WelcomeWizard : public FrostedFramelessDialog {
     Q_OBJECT
 public:
     static constexpr int WINDOW_W = 1040;
-    static constexpr int WINDOW_H = 740;
-    static constexpr int PAGE_COUNT = 8;
+    static constexpr int WINDOW_H = 620;
+    // The demo stage's column, left of the settings.
+    static constexpr int STAGE_W = 440;
+    static constexpr int PAGE_COUNT = 5;
     explicit WelcomeWizard(ToolSettingsManager *config, QWidget *parent = nullptr);
     // Refreshes every text after a language switch (navigation and pages).
     void retranslate_ui();
@@ -69,7 +67,7 @@ private:
     void go_next();
     void go_back();
     void update_nav();
-    // Sidebar titles follow the pages' language and actual titles.
+    // The progress segments carry the pages' titles in the current language.
     void refresh_step_labels();
     // Saves every page once and marks the wizard as run.
     void save_all();
@@ -79,13 +77,12 @@ private:
     int current_ = 0;
     bool saved_ = false;
     QFrame *shell_ = nullptr;
-    QFrame *sidebar_ = nullptr;
     QWidget *right_ = nullptr;
-    QWidget *nav_ = nullptr;
-    QFrame *nav_line_ = nullptr;
-    QLabel *brand_icon_ = nullptr, *brand_name_ = nullptr, *brand_meta_ = nullptr, *setup_meta_ = nullptr, *page_count_ = nullptr;
+    QLabel *page_count_ = nullptr;
     std::vector<StepItem *> step_items_;
     std::vector<BasePage *> pages_;
+    // The pages' stages and the pages, switched together.
+    QStackedWidget *stage_ = nullptr;
     QStackedWidget *stack_ = nullptr;
     QPushButton *btn_skip_ = nullptr, *btn_back_ = nullptr, *btn_next_ = nullptr;
 };

@@ -101,6 +101,41 @@ const SIMILAR_ROW_DIFF: f32 = 2.0;
 const SIMILAR_FLAT: u32 = 2;
 /// 按像素找到的位置至少要有这么多行对上。
 const SIMILAR_MIN_ROWS: usize = 8;
+/// 比了这么多行、又有这么大比例对上的最好位置，才有资格把「明显差得多」的位置排除在对手之外：
+/// 只对上一半多的位置（一部分各自滚动的画面）本身就不可信，别处对上三成多也得当对手。
+const SIMILAR_EVIDENCE_ROWS: usize = 32;
+const SIMILAR_EVIDENCE_RATE: f32 = 2.0 / 3.0;
+/// 明显差得多：对上的行比例不到最好位置的这个倍数，或平均差比最好的大这么多倍（再加一个下限，
+/// 最好的位置几乎逐像素相同时倍数没有意义）。真正的对手（重复内容）和最好的位置差不多好，错开几行的位置差得多。
+const SIMILAR_RIVAL_RATE_FACTOR: f32 = 0.6;
+const SIMILAR_RIVAL_MEAN_FACTOR: f32 = 8.0;
+const SIMILAR_RIVAL_MEAN_FLOOR: f32 = 0.5;
+/// 对手自己对上的行至少要占它比较的行的这个比例：大片重叠里零星对上几行（最好的位置只比了十几行时，
+/// 几行就够「过半」）说明不了它像。
+const SIMILAR_RIVAL_MIN_RATE: f32 = 0.25;
+/// 按分段比较时，一段比所在行的中位数亮或暗这么多（每像素每通道平均）算「有内容」；两边都没内容的段不参与，
+/// 大片空白不会把哪里都摊成很像。
+const FIT_INK: f32 = 4.0;
+/// 两段相差超过这么多（每像素每通道平均）算对不上：轻微的像素抖动、换了抗锯齿差不到这么多，文字错开一两行就差得多。
+const FIT_DIFF: f32 = 4.0;
+/// 对不上的段占有内容的段的比例不超过这么多才接受。
+const FIT_MAX_SCORE: f32 = 0.3;
+/// 别处的比例不超过最好位置的这么多倍（再加一点余量），就说明像它的不止一处（重复内容、隔一个周期）：
+/// 真位置几乎全对上，错开的位置对不上一大片；根本不重叠时各处都是碰巧对上一部分，彼此差不出几倍。
+/// 余量要盖住「错开几行只差一点」：几乎一样的列表里错开 3 行仍只有一成多对不上，这块内容错开也像。
+const FIT_RIVAL_FACTOR: f32 = 3.0;
+const FIT_RIVAL_FLOOR: f32 = 0.1;
+/// 有内容的段至少这么多，比例才有意义。
+const FIT_MIN_SEGMENTS: u32 = 64;
+/// 最好的位置比到的段至少占帧里有内容、又变了的段的这个比例才接受：比较时至少重叠四分之一帧，内容均匀时
+/// 比到的也有这么多；只比到一小部分（重叠的一截正好空白多）时，几乎一样的列表里的别名位置能比真位置对得还好。
+const FIT_MIN_SHARE: f32 = 0.2;
+/// 比例超过 `FIT_MAX_SCORE` 但不超过这么多时，只有别处都比它差这么多倍才接受：画面里有一块落后、换了抗锯齿时
+/// 真位置也会有三成多对不上，但它仍是唯一说得过去的地方；根本不重叠时各处碰巧对上的比例差不了这么多。
+const FIT_LONE_MAX_SCORE: f32 = 0.45;
+const FIT_LONE_SEPARATION: f32 = 1.5;
+/// 按行比较印证不了时，错开两行以外的位置都至少这么多段对不上才接受。
+const FIT_CLEAR_SECOND: f32 = 0.5;
 
 fn distinct_rows(hashes: &[u64]) -> usize {
     let mut sorted = hashes.to_vec();
@@ -130,11 +165,42 @@ impl Similarity {
     fn alike(&self) -> bool {
         self.matched * 4 >= self.compared * 3
     }
+
+    /// 按像素找到的位置本身说得过去：至少 `SIMILAR_MIN_ROWS` 行、一半以上的行对上。
+    fn plausible(&self) -> bool {
+        self.matched >= SIMILAR_MIN_ROWS && self.matched * 2 >= self.compared
+    }
+}
+
+/// 一处位置上按分段的比较：有内容的段有多少、其中对不上的有多少、比了多少行。
+#[derive(Clone, Copy, Debug)]
+struct Fit {
+    mismatched: u32,
+    informative: u32,
+    rows: u32,
+}
+
+impl Fit {
+    fn score(&self) -> f32 {
+        if self.informative == 0 { f32::MAX } else { self.mismatched as f32 / self.informative as f32 }
+    }
+
+    fn usable(&self) -> bool {
+        self.informative >= FIT_MIN_SEGMENTS && self.rows as usize >= SIMILAR_MIN_ROWS
+    }
+}
+
+/// 每行各段亮度的中位数，判断一段有没有内容时作这一行的底色。
+fn row_median(profile: &[u32]) -> u32 {
+    let mut sorted = profile.to_vec();
+    sorted.sort_unstable();
+    sorted.get(sorted.len() / 2).copied().unwrap_or(0)
 }
 
 /// 帧里参与比较的行 [start, end) 的亮度分段（按行号减 `start` 存放），以及其中均匀取样、不是空白的行号。
 struct SampledFrame {
     profiles: Vec<Vec<u32>>,
+    medians: Vec<u32>,
     rows: Vec<usize>,
     bins: usize,
     start: usize,
@@ -167,6 +233,82 @@ impl SampledFrame {
         let rows = self.rows.iter().map(|&j| j as isize).filter(|j| (first..last).contains(j));
         Some(self.tally(rows.map(|j| (&self.profiles[j as usize - self.start], &result[(top + j - lo) as usize]))))
     }
+
+    /// 帧放在 `top` 时按分段比较重叠部分：只数两边至少一边有内容、且和最近接上的那一帧同一位置相比变了的段，看其中多少段对不上。
+    /// 原地没变的段（不跟着滚的侧栏、固定栏）在哪个位置都对不上或都对得上，说明不了位置。
+    /// 一段里几个像素的抖动摊到 8 个像素上差不到阈值，文字错开一行就有整笔对不上。
+    fn fit(&self, result: &[Vec<u32>], medians: &[u32], changed: &[Vec<bool>], lo: isize, hi: isize, top: isize, min_overlap: isize) -> Option<Fit> {
+        let first = (self.start as isize).max(lo - top);
+        let last = (self.end as isize).min(hi - top);
+        if last - first < min_overlap {
+            return None;
+        }
+        let unit = (SIMILAR_BIN * 3) as f32;
+        let (ink, diff) = ((FIT_INK * unit) as u32, (FIT_DIFF * unit) as u32);
+        let mut fit = Fit { mismatched: 0, informative: 0, rows: 0 };
+        for j in self.rows.iter().map(|&j| j as isize).filter(|j| (first..last).contains(j)) {
+            let (a, a_floor) = (&self.profiles[j as usize - self.start], self.medians[j as usize - self.start]);
+            let r = (top + j - lo) as usize;
+            let (b, b_floor) = (&result[r], medians[r]);
+            let moved = &changed[j as usize - self.start];
+            fit.rows += 1;
+            for ((&x, &y), &moved) in a.iter().zip(b).zip(moved) {
+                if moved && (x.abs_diff(a_floor) > ink || y.abs_diff(b_floor) > ink) {
+                    fit.informative += 1;
+                    if x.abs_diff(y) > diff {
+                        fit.mismatched += 1;
+                    }
+                }
+            }
+        }
+        Some(fit)
+    }
+}
+
+/// 按分段比较的最好位置本身站得住：对不上的不超过 `FIT_MAX_SCORE`，或稍多一些、但错开两行以外最好的比例
+/// （`second`）也差得多；而且比到了帧里有内容又变了的 `moved` 段里足够多的一部分。
+fn fit_holds(best: &Fit, second: f32, moved: u32) -> bool {
+    let score = best.score();
+    let alone = score <= FIT_LONE_MAX_SCORE && second >= score * FIT_LONE_SEPARATION;
+    (score <= FIT_MAX_SCORE || alone) && best.informative as f32 >= moved as f32 * FIT_MIN_SHARE
+}
+
+/// 按分段比较找到的 `top` 有旁证：它就是按行比较找到的那一处（`row_top`，相差两行以内），而按行比较本身说得过去、
+/// 只是因为别处也像才没接受，两种比法互相印证；或者错开两行以外最好的比例（`second`）也有一半对不上。
+/// 重复的条目、悬停高亮下，按分段比较单独找到的别处多半是别名，别处也只差一点；真位置之外，文字错开就整片对不上。
+fn fit_confirmed(top: isize, best: &Fit, second: f32, row_top: isize, row_best: &Similarity) -> bool {
+    let agrees = row_best.plausible() && (top - row_top).abs() <= 2;
+    agrees || best.score() <= FIT_MAX_SCORE && second >= FIT_CLEAR_SECOND
+}
+
+/// 按分段比较时另一处也像：本身说得过去（不超过 `FIT_LONE_MAX_SCORE`）、比例又和最好的位置差不出几倍（重复内容、
+/// 隔一个周期；根本不重叠时各处碰巧对上的比例也差不多；错开几行仍一路缓缓变差，说明这块内容错开也像）；
+/// 对不上一大半的位置不算，否则最好的位置稍差一点时到处都是对手。行哈希已经指出的位置（`pinned`）只要本身够格就算，
+/// 最好的位置只是一个逐行对上的别名时不能把它压过去。错开一两行的是同一处，不算。
+fn has_rival_fit(scores: &[(isize, Fit)], top: isize, best: &Fit, pinned: Option<isize>) -> bool {
+    scores.iter().filter(|s| (s.0 - top).abs() > 2 && s.1.usable()).any(|s| {
+        let close = s.1.score() <= (best.score() * FIT_RIVAL_FACTOR + FIT_RIVAL_FLOOR).min(FIT_LONE_MAX_SCORE);
+        close || pinned.is_some_and(|p| (s.0 - p).abs() <= 2) && s.1.score() <= FIT_MAX_SCORE
+    })
+}
+
+/// 另一处也像（哪怕只重叠一小段）就说明像它的不止一处：重复的条目、周期比一帧还长的重复内容。
+/// 错开几行的位置靠竖笔画、平滑的内容也能对上不少行，但对上的行比例低得多、或平均差大得多；
+/// 最好的位置比了足够多的行、又大都对上时，这样的位置不当对手。重复内容里的另一处和最好的位置差不多好，照旧算。
+/// `pinned` 是行哈希已经指出的位置：它不是零星的假位置，最好的位置对不上多少时不能被一个逐行对上的别名压过去，不排除。
+fn has_rival(scores: &[(isize, Similarity)], top: isize, best: &Similarity, pinned: Option<isize>) -> bool {
+    let rate = |s: &Similarity| s.matched as f32 / s.compared.max(1) as f32;
+    let strong = best.compared >= SIMILAR_EVIDENCE_ROWS && rate(best) >= SIMILAR_EVIDENCE_RATE;
+    let clearly_worse = |r: &Similarity, at: isize| {
+        strong
+            && pinned.is_none_or(|p| (at - p).abs() > 2)
+            && (rate(r) < rate(best) * SIMILAR_RIVAL_RATE_FACTOR || r.mean >= best.mean * SIMILAR_RIVAL_MEAN_FACTOR + SIMILAR_RIVAL_MEAN_FLOOR)
+    };
+    scores.iter().filter(|s| (s.0 - top).abs() > 2).any(|s| {
+        let r = &s.1;
+        let alike_enough = r.matched * 2 > best.matched && rate(r) >= SIMILAR_RIVAL_MIN_RATE;
+        !clearly_worse(r, s.0) && (alike_enough || r.compared >= SIMILAR_MIN_ROWS && r.alike())
+    })
 }
 
 fn occurrences(hashes: &[u64]) -> HashMap<u64, u32> {
@@ -244,6 +386,8 @@ pub struct StitchSession {
     last_move: Option<Heading>,
     /// 上一次推入的帧的逐像素指纹（不论接没接上），用来认出固定栏。
     last_frame: Vec<u64>,
+    /// 最近接上的一帧（第 0 行在 `position`）的像素，按分段比较时用来认出这一帧里原地没变的部分。
+    placed_frame: Vec<u8>,
     /// 最近一次真正挪了位置的帧所用的固定栏行数；还没挪过时为 `None`。
     settled_bars: Option<(usize, usize)>,
 }
@@ -272,6 +416,7 @@ impl StitchSession {
             position: 0,
             last_move: None,
             last_frame: Vec::new(),
+            placed_frame: Vec::new(),
             settled_bars: None,
         })
     }
@@ -309,6 +454,7 @@ impl StitchSession {
         let frame_rows = self.row_hashes(&frame);
 
         if self.rows.len() == 0 {
+            self.placed_frame = frame.clone();
             self.segments = vec![frame];
             self.last_frame = frame_rows.exact.clone();
             self.rows = frame_rows;
@@ -337,15 +483,18 @@ impl StitchSession {
             }
         }
         // 行哈希没找到，或找到的位置整帧一比对不上：按像素相近再找，找到可信的才用。
-        // 行哈希说没滚动时不复核：与上一帧相同的行是没动的内容，剩下能比的只有原地变了的那几行
+        // 行哈希说没滚动、且大半行确实和上一帧一样时不复核：那些行是没动的内容，剩下能比的只有原地变了的那几行。
+        // 大半行都变了却说没滚动，多半是画面里有一块不跟着滚（侧栏、输入框）在原地对上了，要复核
         let alike = match &located {
             Ok(((placement, _), bars)) => {
-                placement.top() == self.position as isize || self.looks_alike(&Query { bars: *bars, ..query }, placement.top())
+                placement.top() == self.position as isize && self.mostly_unchanged(&frame_rows.exact)
+                    || self.looks_alike(&Query { bars: *bars, ..query }, placement.top())
             }
             Err(_) => false,
         };
         if !alike {
-            if let Some(placement) = self.locate_similar(&query) {
+            let hash_top = located.as_ref().ok().map(|((found, _), _)| found.top());
+            if let Some(placement) = self.locate_similar(&query, hash_top) {
                 if located.as_ref().map_or(true, |((found, _), _)| found.top() != placement.top()) {
                     located = Ok(((placement, HashKind::Similar), query.bars));
                 }
@@ -356,7 +505,14 @@ impl StitchSession {
         if placement.top() != self.position as isize {
             self.settled_bars = Some(bars);
         }
-        Ok(self.commit(placement, kind, &frame, &frame_rows))
+        let outcome = self.commit(placement, kind, &frame, &frame_rows);
+        self.placed_frame = frame;
+        Ok(outcome)
+    }
+
+    /// 至少一半的行与上一帧同一位置完全相同。
+    fn mostly_unchanged(&self, frame: &[u64]) -> bool {
+        frame.iter().zip(&self.last_frame).filter(|(a, b)| a == b).count() * 2 >= frame.len()
     }
 
     /// 与上一帧同一位置完全相同的顶部、底部连续行数：内容滚动了而这些行没动，是固定的标题栏、底栏。
@@ -434,6 +590,7 @@ impl StitchSession {
         self.position = 0;
         self.last_move = None;
         self.last_frame = Vec::new();
+        self.placed_frame = Vec::new();
         self.settled_bars = None;
     }
 
@@ -582,6 +739,7 @@ impl StitchSession {
         let stride = self.stride();
         let profiles: Vec<Vec<u32>> =
             (start..end).into_par_iter().map(|j| brightness_profile(&query.frame[j * stride..(j + 1) * stride], bins)).collect();
+        let medians = profiles.iter().map(|p| row_median(p)).collect();
         let flat = SIMILAR_FLAT * SIMILAR_BIN as u32 * 3;
         let rows = (start..end)
             .step_by((end - start).div_ceil(SIMILAR_SAMPLE_ROWS))
@@ -590,7 +748,7 @@ impl StitchSession {
                 profile.iter().max().unwrap_or(&0) - profile.iter().min().unwrap_or(&0) > flat
             })
             .collect();
-        Some(SampledFrame { profiles, rows, bins, start, end })
+        Some(SampledFrame { profiles, medians, rows, bins, start, end })
     }
 
     /// 结果第 [start, end) 行的亮度分段。
@@ -617,7 +775,8 @@ impl StitchSession {
     /// 行哈希要求逐行完全相同或平均色相同，同一内容换了渲染时都找不到：浏览器滚动途中会把部分文字从彩色抗锯齿
     /// 换成灰度，横向截图时一行是原图一整列，穿过每行文字，一处变了整行就对不上，而各列平均色又几乎一样。
     /// 这时在上一帧附近按行亮度逐段比较，取对上的行最多的位置；只接受大半行都对上、且两行以外别处都不像的。
-    fn locate_similar(&self, query: &Query) -> Option<Placement> {
+    /// 整帧有轻微抖动时错开几行的位置也显得像，再逐段数对不上的段（`fit_confirmed` 说明什么时候信它）。
+    fn locate_similar(&self, query: &Query, hash_top: Option<isize>) -> Option<Placement> {
         let len = self.height();
         let frame = self.sample_frame(query)?;
         let min_overlap = ((frame.end - frame.start) / 4).max(1) as isize;
@@ -627,29 +786,93 @@ impl StitchSession {
         let result = self.result_profiles(lo, hi, frame.bins);
         let (lo, hi) = (lo as isize, hi as isize);
         let (first_top, last_top) = (lo - frame.end as isize + min_overlap, hi - frame.start as isize - min_overlap);
+        // 贴着搜索范围边上的，真正的位置可能就在范围外（重叠太少没比），这里只是范围内最接近的
+        let inside = |top: isize| top - first_top > 2 && last_top - top > 2;
+        // 先按整行平均差找；它找不到可信的位置（多半是整帧有轻微抖动，错开几行的位置也显得像），再按分段比较找
         let scores: Vec<(isize, Similarity)> = (first_top..=last_top)
             .into_par_iter()
             .filter_map(|top| frame.similarity(&result, lo, hi, top, min_overlap).map(|s| (top, s)))
             .collect();
-        let &(top, best) = scores.iter().max_by(|a, b| a.1.matched.cmp(&b.1.matched).then(b.1.mean.total_cmp(&a.1.mean)))?;
-        // 另一处也像（哪怕只重叠一小段）就说明像它的不止一处：重复的条目、周期比一帧还长的重复内容
-        let rival = scores
-            .iter()
-            .filter(|s| (s.0 - top).abs() > 2)
-            .any(|s| s.1.matched * 2 > best.matched || s.1.compared >= SIMILAR_MIN_ROWS && s.1.alike());
-        // 贴着搜索范围边上的，真正的位置可能就在范围外（重叠太少没比），这里只是范围内最接近的
-        let inside = top - first_top > 2 && last_top - top > 2;
-        let accepted = best.matched >= SIMILAR_MIN_ROWS && best.matched * 2 >= best.compared && inside && !rival;
+        let &(row_top, row_best) = scores.iter().max_by(|a, b| a.1.matched.cmp(&b.1.matched).then(b.1.mean.total_cmp(&a.1.mean)))?;
+        let row_rival = has_rival(&scores, row_top, &row_best, hash_top);
+        let row_accepted = row_best.plausible() && inside(row_top) && !row_rival;
         if query.debug {
-            println!("  🔍 Similar: 在结果 [{lo}:{hi}) 里找，最好 top={top} {best:?}，在范围内 {inside}，另有相像处 {rival}，接受 {accepted}");
+            println!("  🔍 Similar: 在结果 [{lo}:{hi}) 里找，最好 top={row_top} {row_best:?}，在范围内 {}，另有相像处 {row_rival}，接受 {row_accepted}", inside(row_top));
         }
+        let (top, accepted) = if row_accepted {
+            (row_top, true)
+        } else {
+            let medians: Vec<u32> = result.iter().map(|p| row_median(p)).collect();
+            // 取样的行里每段和最近接上的那一帧同一位置相比是否变了
+            let placed: Vec<Vec<u32>> =
+                self.placed_frame.par_chunks_exact(self.stride()).map(|row| brightness_profile(row, frame.bins)).collect();
+            let diff = (FIT_DIFF * (SIMILAR_BIN * 3) as f32) as u32;
+            let mut changed = vec![Vec::new(); frame.end - frame.start];
+            for &j in &frame.rows {
+                let a = &frame.profiles[j - frame.start];
+                changed[j - frame.start] = match placed.get(j) {
+                    Some(b) => a.iter().zip(b).map(|(x, y)| x.abs_diff(*y) > diff).collect(),
+                    None => vec![true; a.len()],
+                };
+            }
+            // 和那一帧比哪儿都没变就是没滚动：重叠部分里有一块是别的帧接上的、和这一帧对不上时，各处都比不出可信的位置。
+            // 那一帧错开一个周期也像这一帧（内容在一帧之内就重复）时不算，滚过整数个周期也会看着没变
+            if !frame.rows.is_empty() && changed.iter().flatten().all(|&c| !c) {
+                let medians: Vec<u32> = placed.iter().map(|p| row_median(p)).collect();
+                let everywhere = vec![vec![true; frame.bins]; frame.end - frame.start];
+                let h = placed.len() as isize;
+                let echoes: Vec<(isize, Fit)> = (-h..=h)
+                    .into_par_iter()
+                    .filter_map(|s| frame.fit(&placed, &medians, &everywhere, 0, h, s, min_overlap).map(|f| (s, f)))
+                    .collect();
+                let unshifted = echoes.iter().find(|e| e.0 == 0).map(|e| e.1);
+                let periodic = unshifted.is_none_or(|f| !f.usable() || has_rival_fit(&echoes, 0, &f, None));
+                if query.debug {
+                    println!("  🔍 Fit: 和上一次接上的帧相比没变，内容重复 {periodic}");
+                }
+                if !periodic {
+                    return Some(self.placement_at(&frame, self.position as isize));
+                }
+            }
+            let fits: Vec<(isize, Fit)> = (first_top..=last_top)
+                .into_par_iter()
+                .filter_map(|top| frame.fit(&result, &medians, &changed, lo, hi, top, min_overlap).map(|f| (top, f)))
+                .collect();
+            // 帧里有内容、又变了的段
+            let ink = (FIT_INK * (SIMILAR_BIN * 3) as f32) as u32;
+            let moved: u32 = frame
+                .rows
+                .iter()
+                .map(|&j| {
+                    let (profile, floor) = (&frame.profiles[j - frame.start], frame.medians[j - frame.start]);
+                    profile.iter().zip(&changed[j - frame.start]).filter(|&(x, &c)| c && x.abs_diff(floor) > ink).count() as u32
+                })
+                .sum();
+            let &(top, best) = fits
+                .iter()
+                .filter(|s| s.1.usable())
+                .min_by(|a, b| a.1.score().total_cmp(&b.1.score()).then(b.1.informative.cmp(&a.1.informative)))?;
+            let rival = has_rival_fit(&fits, top, &best, hash_top);
+            let second = fits.iter().filter(|s| (s.0 - top).abs() > 2 && s.1.usable()).map(|s| s.1.score()).fold(f32::MAX, f32::min);
+            let holds = fit_holds(&best, second, moved);
+            let confirmed = fit_confirmed(top, &best, second, row_top, &row_best);
+            let accepted = holds && confirmed && inside(top) && !rival;
+            if query.debug {
+                println!("  🔍 Fit: 最好 top={top} {best:?} 比例 {:.3}，次好 {second:.3}，帧里有内容又变了的段 {moved}，站得住 {holds}，有印证 {confirmed}，另有相像处 {rival}，接受 {accepted}", best.score());
+            }
+            (top, accepted)
+        };
         if !accepted {
             return None;
         }
-        // 与整个结果的重叠，接缝由 commit 判断
+        Some(self.placement_at(&frame, top))
+    }
+
+    /// 帧放在 `top` 时与整个结果的重叠，接缝由 commit 判断。
+    fn placement_at(&self, frame: &SampledFrame, top: isize) -> Placement {
         let first = (frame.start as isize).max(-top);
-        let last = (frame.end as isize).min(len as isize - top);
-        Some(Placement { start_i: (top + first) as usize, start_j: first as usize, len: (last - first).max(0) as usize })
+        let last = (frame.end as isize).min(self.height() as isize - top);
+        Placement { start_i: (top + first) as usize, start_j: first as usize, len: (last - first).max(0) as usize }
     }
 
     /// 结果第 [start, end) 行的像素。
@@ -1240,6 +1463,265 @@ mod tests {
             let f = frame(if k < 2 { &sharp } else { &smooth }, t);
             assert_eq!(s.push_bgra(&to_bgra(&f), None, 0.0, 0.0, false).map(|o| o.top), Ok(t as usize), "frame at {t}");
         }
+    }
+
+    /// 一行行的字，每 22 行一行，字是一排竖笔画（高 10 行）加一道横笔画：错开几行时竖笔画还能对上一大半的行，
+    /// 整体却差得远。
+    fn stroked_page(height: u32) -> RgbaImage {
+        RgbaImage::from_fn(W, height, |x, y| {
+            let (line, row) = (y / 22, y % 22);
+            let stroke = (4..14).contains(&row) && (0..9).any(|k| mix(line, k) % (W - 20) == x);
+            let from = mix(line, 51) % 40;
+            let bar = row == 4 + mix(line, 50) % 10 && (from..from + 50).contains(&x);
+            if stroke || bar { Rgba([30, 40, 70, 255]) } else { Rgba([250, 250, 250, 255]) }
+        })
+    }
+
+    #[test]
+    fn noise_in_text_does_not_stop_the_pixel_search_at_a_nearby_offset() {
+        // 新帧每个像素都差一点（颜色管理、抖动）：指纹处处对不上，平均色也定不了位置，只能按像素找。
+        // 竖笔画让错开几行的位置也对上一半的行，逐行都对上的真位置不能被它们挡住
+        let p = stroked_page(900);
+        let tall = |top: u32| image::imageops::crop_imm(&p, 0, top, W, 300).to_image();
+        let mut s = StitchSession::new(W, 300, 20, 0, 0.01).unwrap();
+        s.push_bgra(&to_bgra(&tall(0)), None, 0.0, 0.0, false).unwrap();
+        let mut noisy = tall(150);
+        for (x, y, px) in noisy.enumerate_pixels_mut() {
+            if mix(x + y * W, 5) % 3 == 0 {
+                px.0[1] ^= 1;
+            }
+        }
+        let outcome = s.push_bgra(&to_bgra(&noisy), None, 0.0, 0.0, false);
+        assert_eq!(outcome.map(|o| o.top), Ok(150));
+    }
+
+    fn sim(matched: usize, compared: usize, mean: f32) -> Similarity {
+        Similarity { matched, compared, mean }
+    }
+
+    #[test]
+    fn a_nearby_offset_sharing_only_vertical_strokes_is_no_rival() {
+        let best = sim(110, 110, 0.1);
+        // 错开 4 行：对上一半多一点的行，平均差却大出两个数量级
+        assert!(!has_rival(&[(100, best), (104, sim(57, 111, 11.0))], 100, &best, None));
+        // 对上的行多，平均差还是大得多（平滑内容里错开十来行）：最好的逐行都对上，不算对手
+        assert!(!has_rival(&[(100, best), (112, sim(105, 138, 1.4))], 100, &best, None));
+        // 平均差差不多好、又对上大部分的行：另一处也像
+        assert!(has_rival(&[(100, best), (104, sim(100, 111, 0.5))], 100, &best, None));
+        assert!(has_rival(&[(100, best), (240, sim(90, 110, 0.4))], 100, &best, None));
+        // 相差两行以内是同一处
+        assert!(!has_rival(&[(100, best), (102, sim(110, 110, 0.1))], 100, &best, None));
+    }
+
+    #[test]
+    fn the_place_the_row_hashes_pointed_at_stays_a_rival() {
+        // 重复内容：隔一个周期的位置逐行对得上，真位置（行哈希指出的）因为悬停只对上一半多，不能被它压过去
+        let best = sim(68, 68, 0.0);
+        assert!(!has_rival(&[(100, best), (294, sim(50, 87, 1.29))], 100, &best, None));
+        assert!(has_rival(&[(100, best), (294, sim(50, 87, 1.29))], 100, &best, Some(294)));
+        assert!(has_rival(&[(100, best), (294, sim(50, 87, 1.29))], 100, &best, Some(293)));
+    }
+
+    #[test]
+    fn a_nearby_offset_matching_far_fewer_rows_is_no_rival() {
+        // 最好的位置自己也只对上七成（画面里有随滚动错位的部分、平均差不小）：别处对上的行比例低得多，平均差只大两三倍
+        let best = sim(161, 222, 3.7);
+        assert!(!has_rival(&[(100, best), (112, sim(85, 222, 9.0))], 100, &best, None));
+        // 对上的行比例差不多，平均差也没大多少：不能分出高下
+        assert!(has_rival(&[(100, best), (112, sim(150, 222, 9.0))], 100, &best, None));
+        // 最好的位置只比了十几行：大片重叠里零星对上的几行（占不到三分之一）不算像
+        let few = sim(17, 17, 0.07);
+        assert!(!has_rival(&[(100, few), (-300, sim(9, 61, 16.0))], 100, &few, None));
+        assert!(has_rival(&[(100, few), (-300, sim(30, 61, 16.0))], 100, &few, None));
+    }
+
+    #[test]
+    fn a_best_position_with_little_evidence_keeps_its_rivals() {
+        // 只比了十几行（整帧几乎没变，只剩原地变了的几行）：错开几行的位置也对上一半，不能凭它定位
+        let best = sim(13, 15, 2.4);
+        assert!(has_rival(&[(100, best), (104, sim(8, 15, 11.0))], 100, &best, None));
+        assert!(has_rival(&[(100, best), (112, sim(11, 15, 30.0))], 100, &best, None));
+    }
+
+    #[test]
+    fn a_best_position_matching_only_part_of_the_frame_keeps_its_rivals() {
+        // 画面里一部分各自滚动（实测数）：最好的位置比了很多行，却只对上一半多一点，别处对上三成多，不能凭它定位
+        let best = sim(109, 190, 3.49);
+        assert!(has_rival(&[(120, best), (116, sim(64, 192, 8.99)), (117, sim(65, 192, 8.53))], 120, &best, None));
+        // 对上的行不到四分之一的零星位置不算
+        assert!(!has_rival(&[(120, best), (116, sim(55, 240, 9.0))], 120, &best, None));
+    }
+
+    #[test]
+    fn a_part_that_does_not_scroll_does_not_hold_the_frame_in_place() {
+        // 选区左边一块不跟着滚（侧栏、输入框），右边的内容滚了 30 行：右边空白的那些行连同左边一起和上一帧相同，
+        // 行哈希就说没滚动；可大半行都变了，要复核，按跟着滚的内容接
+        let p = page(600);
+        let side: Vec<[u8; 4]> = (0..H).map(|y| { let v = (mix(y, 77) % 200) as u8; [v, 255 - v, 90, 255] }).collect();
+        let shot = |t: u32| {
+            let mut f = frame(&p, t);
+            for y in 0..H {
+                for x in 0..24 {
+                    f.put_pixel(x, y, Rgba(side[y as usize]));
+                }
+            }
+            f
+        };
+        let mut s = session();
+        s.push_bgra(&to_bgra(&shot(0)), None, 0.15, 0.0, false).unwrap();
+        let outcome = s.push_bgra(&to_bgra(&shot(30)), None, 0.15, 0.0, false).map(|o| o.top);
+        assert_eq!(outcome, Ok(30));
+    }
+
+    /// 粗笔画的字：每笔高 12 行，整行平均差在错开几行时仍然很小，按行比较分不出真位置和邻位。
+    fn bold_page(height: u32) -> RgbaImage {
+        RgbaImage::from_fn(W, height, |x, y| {
+            let (line, row) = (y / 30, y % 30);
+            let stroke = (6..18).contains(&row) && (0..6).any(|k| (mix(line, k) % (W - 30)..mix(line, k) % (W - 30) + 6).contains(&x));
+            if stroke { Rgba([40, 40, 40, 255]) } else { Rgba([248, 248, 248, 255]) }
+        })
+    }
+
+    #[test]
+    fn noise_over_bold_strokes_still_joins_by_segments() {
+        // 新帧每个像素都抖一点：指纹、平均色都对不上；按行比较时错开几行的位置也大都对得上，分不出来。
+        // 按分段比较，真位置几乎每段都对上，邻位在笔画边缘整段对不上
+        let p = bold_page(900);
+        let tall = |top: u32| image::imageops::crop_imm(&p, 0, top, W, 300).to_image();
+        let mut s = StitchSession::new(W, 300, 20, 0, 0.01).unwrap();
+        s.push_bgra(&to_bgra(&tall(0)), None, 0.0, 0.0, false).unwrap();
+        let mut noisy = tall(150);
+        for (x, y, px) in noisy.enumerate_pixels_mut() {
+            if mix(x + y * W, 9) % 3 == 0 {
+                px.0[1] ^= 1;
+            }
+        }
+        let outcome = s.push_bgra(&to_bgra(&noisy), None, 0.0, 0.0, false);
+        assert_eq!(outcome.map(|o| o.top), Ok(150));
+    }
+
+    /// 整帧亮一点（换了抗锯齿、伽马）：指纹、平均色都对不上，按行比较也差出了门槛，每段又差得远不到算「变了」。
+    fn brighter(img: &RgbaImage, by: u8) -> RgbaImage {
+        let mut out = img.clone();
+        for px in out.pixels_mut() {
+            for c in &mut px.0[..3] {
+                *c = c.saturating_add(by);
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn a_part_that_stays_put_is_left_out_and_a_still_frame_keeps_its_place() {
+        // 选区左半边是一块各自滚动的区域（侧栏），这次没动，右半边的正文滚了 30 行，整帧又亮了一点：侧栏在哪个位置
+        // 都对不上，按分段比较时不算它，按正文接上。下一帧什么都没动，重叠部分里的侧栏却是第一帧的，哪里都比不出
+        // 可信的位置；和刚接上的那帧一样，就是没滚动
+        let (text, side) = (page(900), distinct_rows_page(900));
+        let shot = |t: u32, by: u8| {
+            let f = RgbaImage::from_fn(W, 300, |x, y| if x < 48 { *side.get_pixel(x, y) } else { *text.get_pixel(x, t + y) });
+            brighter(&f, by)
+        };
+        let mut s = StitchSession::new(W, 300, 20, 0, 0.01).unwrap();
+        s.push_bgra(&to_bgra(&shot(0, 0)), None, 0.0, 0.0, false).unwrap();
+        assert_eq!(s.push_bgra(&to_bgra(&shot(30, 3)), None, 0.0, 0.0, false).map(|o| o.top), Ok(30));
+        assert_eq!(s.push_bgra(&to_bgra(&shot(30, 6)), None, 0.0, 0.0, false).map(|o| o.top), Ok(30));
+    }
+
+    #[test]
+    fn a_repeating_page_scrolled_by_whole_periods_is_not_taken_as_still() {
+        // 一列相同的条目（每 30 行重复）一下滚过 10 个周期、又亮了一点：和第一帧看着一样，可滚过几个周期都是这个样子，
+        // 不能断定没滚动。它和第一帧并不重叠
+        let block = page(30);
+        let p = RgbaImage::from_fn(W, 600, |x, y| *block.get_pixel(x, y % 30));
+        let mut s = session();
+        s.push_bgra(&to_bgra(&frame(&p, 0)), None, 0.0, 0.0, false).unwrap();
+        let outcome = s.push_bgra(&to_bgra(&brighter(&frame(&p, 300), 3)), None, 0.0, 0.0, false).map(|o| o.top);
+        assert!(matches!(outcome, Err(StitchError::NoOverlap)), "{outcome:?}");
+    }
+
+    fn fit_of(mismatched: u32, informative: u32) -> Fit {
+        Fit { mismatched, informative, rows: 100 }
+    }
+
+    #[test]
+    fn a_slowly_worsening_neighbour_is_a_rival_by_segments() {
+        // 几乎一样的列表条目、帧根本不重叠（实测数）：最好的位置 23‰ 的段对不上，错开 3 行也只有 125‰，一路缓缓变差，
+        // 这块内容错开也像，定不了位置
+        let best = fit_of(23, 1000);
+        assert!(has_rival_fit(&[(100, best), (103, fit_of(125, 1000))], 100, &best, None));
+        // 粗笔画上叠噪声：真位置全对上，错开 3 行就有 129‰ 对不上，是同一处
+        let exact = fit_of(0, 1000);
+        assert!(!has_rival_fit(&[(100, exact), (103, fit_of(129, 1000))], 100, &exact, None));
+        // 相差两行以内是同一处
+        assert!(!has_rival_fit(&[(100, best), (102, fit_of(23, 1000))], 100, &best, None));
+    }
+
+    #[test]
+    fn a_rival_by_segments_must_itself_be_plausible() {
+        // 最好的位置两成对不上，倍数放宽到七成；别处对不上一半，本身说不过去，不算
+        let best = fit_of(200, 1000);
+        assert!(!has_rival_fit(&[(100, best), (140, fit_of(500, 1000))], 100, &best, None));
+        assert!(has_rival_fit(&[(100, best), (140, fit_of(400, 1000))], 100, &best, None));
+    }
+
+    #[test]
+    fn the_place_the_row_hashes_pointed_at_stays_a_rival_by_segments() {
+        let best = fit_of(50, 1000);
+        assert!(!has_rival_fit(&[(100, best), (160, fit_of(280, 1000))], 100, &best, None));
+        assert!(has_rival_fit(&[(100, best), (160, fit_of(280, 1000))], 100, &best, Some(161)));
+        // 本身三成多对不上时不算
+        assert!(!has_rival_fit(&[(100, best), (160, fit_of(350, 1000))], 100, &best, Some(160)));
+    }
+
+    #[test]
+    fn a_best_position_by_segments_with_a_lagging_part_holds_only_when_alone() {
+        // 实测数：横向截图换了抗锯齿、侧栏落后几行，真位置四成多对不上，别处都对不上七成；稠密页叠噪声同样
+        assert!(fit_holds(&fit_of(445, 1000), 0.696, 1000));
+        assert!(fit_holds(&fit_of(318, 1000), 0.835, 1000));
+        // 停着不动、只有悬停高亮那块变了：那几段在别处碰巧对上三成多，次好的也只差一点，不算
+        assert!(!fit_holds(&fit_of(325, 1000), 0.475, 1000));
+    }
+
+    #[test]
+    fn segments_blank_on_both_sides_do_not_count() {
+        // 一行 12 段里只有 2 段有字，放到一片空白上：那两段都对不上。两边都空白的段不参与，
+        // 否则十段「对上」会把它摊成只有一成多对不上、看着说得过去
+        let (blank, ink) = (6000, 2880);
+        let mut line = vec![blank; 12];
+        line[3] = ink;
+        line[8] = ink;
+        let frame = SampledFrame { profiles: vec![line; 40], medians: vec![blank; 40], rows: (0..40).collect(), bins: 12, start: 0, end: 40 };
+        let fit = frame.fit(&vec![vec![blank; 12]; 40], &[blank; 40], &vec![vec![true; 12]; 40], 0, 40, 0, 1).unwrap();
+        assert_eq!((fit.mismatched, fit.informative), (80, 80));
+    }
+
+    #[test]
+    fn a_handful_of_segments_cannot_place_a_frame() {
+        // 有内容的段太少时，几段碰巧对上比例就是零
+        assert!(!fit_of(0, 40).usable());
+        assert!(fit_of(0, 400).usable());
+    }
+
+    #[test]
+    fn a_position_found_by_segments_needs_corroboration() {
+        // 粗笔画上叠噪声：按行比较最好的位置逐行对上，只是错开几行也像；按分段找到的是同一处
+        assert!(fit_confirmed(150, &fit_of(0, 240), 0.129, 151, &sim(30, 30, 0.11)));
+        // 几乎一样的列表、停着不动只有悬停变了（实测数）：按行比较一行都没对上，它的「最好」说明不了什么；
+        // 按分段找到的那处错开几行也只有两成多对不上，是别名
+        assert!(!fit_confirmed(505, &fit_of(17, 326), 0.264, 505, &sim(0, 36, 6.2)));
+        // 另一段（实测数）：按行比较说得过去，但不是同一处；别处只差到四成多
+        assert!(!fit_confirmed(433, &fit_of(4, 99), 0.425, 411, &sim(34, 55, 3.1)));
+        // 按行比较无从下手（整帧亮了一点），按分段找到的位置之外都对不上七成：可信
+        assert!(fit_confirmed(30, &fit_of(0, 196), 0.702, 72, &sim(3, 114, 38.8)));
+    }
+
+    #[test]
+    fn a_best_position_by_segments_must_cover_enough_of_what_changed() {
+        // 几乎一样的列表、帧里变了的有内容的段 696 段（实测数）：只重叠一截、比到 87 段的别名位置对得最好，
+        // 真位置因为悬停反而对不上，不能凭这一小截定位
+        assert!(!fit_holds(&fit_of(6, 87), 1.0, 696));
+        // 各自滚动的侧栏占了大半帧，比到的仍有变了的一半
+        assert!(fit_holds(&fit_of(6, 348), 1.0, 696));
     }
 
     #[test]

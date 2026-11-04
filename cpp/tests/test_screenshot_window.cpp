@@ -39,6 +39,8 @@
 #include "ui/paint_settings_panel.h"
 #include "ui/shape_settings_panel.h"
 #include "ui/text_settings_panel.h"
+#include "ui/toast.h"
+#include "ui/toolbar_layout.h"
 #include "ui/toolbar_layout_dialog.h"
 #include "barcode/result_window.h"
 #include "text_recognition/recognizer.h"
@@ -1389,6 +1391,71 @@ private slots:
         TranslationManager::cleanup();
     }
 
+    // Ctrl+S opens the save window; Ctrl+Shift+S writes into the save folder with auto-save off, reports the
+    // file and asks nothing. Without a confirmed selection neither key is taken.
+    void saveKeysSaveWithAndWithoutTheDialog() {
+        QCOMPARE(config_->get_inapp_shortcut("inapp_save"), QString("ctrl+s"));
+        QCOMPARE(config_->get_inapp_shortcut("inapp_quick_save"), QString("ctrl+shift+s"));
+        const auto bindings = load_inapp_bindings();
+        const auto press = [&bindings](ScreenshotWindow *window, const QString &key) {
+            const auto binding = bindings.value(key);
+            QTest::keyClick(window, Qt::Key(binding.first), binding.second);
+        };
+        auto *window = open();
+        press(window, "inapp_save");
+        press(window, "inapp_quick_save");
+        QVERIFY(window->session_active());
+        QVERIFY(saved_files().isEmpty());
+
+        QTemporaryDir out;
+        window = open_with_selection();
+        {
+            SaveDialogAnswerer answer(out.filePath("keyed.png"));
+            press(window, "inapp_save");
+            QVERIFY(!window->session_active());
+            QTRY_VERIFY(answer.answered);
+        }
+        QTRY_VERIFY(QFileInfo::exists(out.filePath("keyed.png")));
+        QVERIFY(saved_files().isEmpty());
+
+        // A held-down key repeats; the repeats do nothing.
+        window = open_with_selection();
+        QKeyEvent repeat(QEvent::KeyPress, Qt::Key_S, Qt::ControlModifier | Qt::ShiftModifier, QString(), true);
+        QApplication::sendEvent(window, &repeat);
+        QVERIFY(window->session_active());
+        QVERIFY(saved_files().isEmpty());
+
+        // Toasts of earlier quick saves may still be fading out.
+        for (auto *widget : QApplication::topLevelWidgets())
+            if (qobject_cast<Toast *>(widget)) widget->close();
+        press(window, "inapp_quick_save");
+        QVERIFY(!window->session_active());
+        QCOMPARE(saved_files().size(), 1);
+        QCOMPARE(QImage(QDir(dir_.filePath("captures")).filePath(saved_files().first())).size(), QSize(200, 150));
+        auto *toast = visible_window<Toast>();
+        QVERIFY(toast);
+        // Offscreen fonts measure wide, so the tail may be elided; what shows must still start naming the file.
+        QString shown = toast->label->text();
+        shown.remove(QChar(0x2026));
+        const QString full = "Saved: " + saved_files().first();
+        QVERIFY2(full.startsWith(shown) && shown.size() > QString("Saved: ").size(), qPrintable(toast->label->text()));
+        QVERIFY(!QApplication::activeModalWidget());
+    }
+
+    // The quick-save button sits beside save, folded into "..." by default, and saves like the key.
+    void quickSaveButtonIsFoldedAndSavesToTheFolder() {
+        auto *window = open_with_selection();
+        auto *toolbar = window->toolbar;
+        QVERIFY(toolbar->save_btn->parentWidget() == toolbar && toolbar->save_btn->isVisible());
+        QVERIFY(toolbar->quick_save_btn->parentWidget() != toolbar || toolbar->quick_save_btn->isHidden());
+        QCOMPARE(toolbar_layout::SCREENSHOT.default_mode("quick_save"), toolbar_layout::MORE);
+        QCOMPARE(toolbar_layout::default_order().indexOf("quick_save"), toolbar_layout::default_order().indexOf("save") + 1);
+        QVERIFY(!toolbar->quick_save_btn->icon().isNull());
+        toolbar->quick_save_btn->click();
+        QVERIFY(!window->session_active());
+        QCOMPARE(saved_files().size(), 1);
+    }
+
     // A host for the external pen latency measurement: with JIETUBA_CANVAS_BENCH=<base path> it opens a
     // capture over the primary screen on a dark image, or with JIETUBA_CANVAS_BENCH_TARGET a pin ("pin"),
     // the GIF drawing layer ("gif") or the screen annotation ("annotation") over a dark backdrop, with a
@@ -1435,8 +1502,8 @@ private slots:
             annotation = std::make_unique<ScreenAnnotation>();
             annotation->start();
             annotation->select_tool("pen");
-            QVERIFY(!annotation->views().empty());
-            tools = annotation->views().front()->scene_obj()->tool_controller.get();
+            QVERIFY(annotation->view());
+            tools = annotation->view()->scene_obj()->tool_controller.get();
         } else {
             window_ = new ScreenshotWindow(config_, dark(screen.size()), QRectF(screen));
             QApplication::processEvents();

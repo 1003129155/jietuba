@@ -265,10 +265,6 @@
         <translation>전역 단축키</translation>
     </message>
     <message>
-        <source>Screenshot Hotkey</source>
-        <translation>스크린샷</translation>
-    </message>
-    <message>
         <source>e.g.: ctrl+shift+a</source>
         <translation>예: ctrl+shift+a</translation>
     </message>
@@ -1002,6 +998,14 @@ Replace it?</source>
         <translation>원본 텍스트 서식을 유지</translation>
     </message>
     <message>
+        <source>Close When Clicking Outside</source>
+        <translation>바깥을 클릭하면 닫기</translation>
+    </message>
+    <message>
+        <source>The translation popup opened by the shortcut closes when you click outside it or switch windows</source>
+        <translation>단축키로 연 번역 팝업을 바깥을 클릭하거나 창을 전환하면 닫습니다</translation>
+    </message>
+    <message>
         <source>Baidu APPID</source>
         <translation>Baidu APPID</translation>
     </message>
@@ -1505,10 +1509,6 @@ Replace it?</source>
         <translation>관리</translation>
     </message>
     <message>
-        <source>Screen Annotation Hotkey</source>
-        <translation>화면 주석</translation>
-    </message>
-    <message>
         <source>Keep Screen Annotations</source>
         <translation>화면 주석 유지</translation>
     </message>
@@ -1656,6 +1656,22 @@ Replace it?</source>
         <source>Window Scale</source>
         <translation>창 배율</translation>
     </message>
+    <message>
+        <source>Green Mode</source>
+        <translation>포터블 모드</translation>
+    </message>
+    <message>
+        <source>Keep the settings in the program's folder; copy the whole folder to take them along.</source>
+        <translation>설정을 프로그램 폴더에 저장합니다. 폴더째 복사하면 설정도 함께 옮겨집니다.</translation>
+    </message>
+    <message>
+        <source>The program's folder cannot be written to.</source>
+        <translation>프로그램 폴더에 쓸 수 없습니다.</translation>
+    </message>
+    <message>
+        <source>Could not move the settings file: %1</source>
+        <translation>설정 파일을 옮길 수 없습니다: %1</translation>
+    </message>
 </context>
 
 <context>
@@ -1691,6 +1707,10 @@ Replace it?</source>
     <message>
         <source>Save Failed</source>
         <translation>저장 실패</translation>
+    </message>
+    <message>
+        <source>Saved: %1</source>
+        <translation>저장함: %1</translation>
     </message>
 </context>
 
@@ -1736,6 +1756,10 @@ Replace it?</source>
     <message>
         <source>Save to file</source>
         <translation>파일로 저장</translation>
+    </message>
+    <message>
+        <source>Quick save: straight to the save folder, no dialog</source>
+        <translation>빠른 저장: 대화 상자 없이 저장 폴더에 바로 저장</translation>
     </message>
     <message>
         <source>Copy image</source>
@@ -2670,7 +2694,6 @@ Replace it?</source>
 <!-- ========== Translation Settings ========== -->
 <context>
     <name>SettingsDialog</name>
-    <message><source>Translation Hotkey</source><translation>번역 단축키</translation></message>
     <message>
         <source>Get your API key from DeepL website (free tier available)</source>
         <translation>DeepL 웹사이트에서 API 키를 발급받으세요(무료 요금제 제공)</translation>
@@ -2886,6 +2909,14 @@ Replace it?</source>
     <message>
         <source>Show Time</source>
         <translation>시간 표시</translation>
+    </message>
+    <message>
+        <source>Hide Grouped Items from All</source>
+        <translation>'전체'에서 그룹에 넣은 항목 숨기기</translation>
+    </message>
+    <message>
+        <source>More Settings</source>
+        <translation>상세 설정</translation>
     </message>
     <message>
         <source>Preserve Search on Reopen</source>
@@ -3975,6 +4006,138 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>항목 선택 후 자동으로 Ctrl+V를 보냅니다</translation>
     </message>
     <message>
+        <source>Group Bar Position</source>
+        <translation>그룹 바 위치</translation>
+    </message>
+    <message>
+        <source>Where the group bar sits in the clipboard window</source>
+        <translation>클립보드 창에서 그룹 바를 둘 위치</translation>
+    </message>
+    <message>
+        <source>Right</source>
+        <translation>오른쪽</translation>
+    </message>
+    <message>
+        <source>Left</source>
+        <translation>왼쪽</translation>
+    </message>
+    <message>
+        <source>Top</source>
+        <translation>위쪽</translation>
+    </message>
+    <message>
+        <source>Preserve Search on Reopen</source>
+        <translation>다시 열 때 검색 유지</translation>
+    </message>
+    <message>
+        <source>Keep the search text when the clipboard window opens again</source>
+        <translation>클립보드 창을 다시 열어도 마지막 검색어를 유지합니다</translation>
+    </message>
+    <message>
+        <source>List Display</source>
+        <translation>목록 표시</translation>
+    </message>
+    <message>
+        <source>Show Time</source>
+        <translation>시간 표시</translation>
+    </message>
+    <message>
+        <source>Show when each item was copied</source>
+        <translation>각 항목에 복사한 시간을 표시합니다</translation>
+    </message>
+    <message>
+        <source>Max Display Lines</source>
+        <translation>최대 표시 줄 수</translation>
+    </message>
+    <message>
+        <source>Longer text wraps onto at most this many lines</source>
+        <translation>긴 텍스트를 줄바꿈해 보여 주는 최대 줄 수</translation>
+    </message>
+    <message>
+        <source>Image Size</source>
+        <translation>이미지 크기</translation>
+    </message>
+    <message>
+        <source>Size of image thumbnails in the list</source>
+        <translation>목록에 표시되는 이미지 썸네일 크기</translation>
+    </message>
+    <message>
+        <source>Hide Grouped Items from All</source>
+        <translation>'전체'에서 그룹에 넣은 항목 숨기기</translation>
+    </message>
+    <message>
+        <source>Items in a group no longer show in All; filter groups still list them</source>
+        <translation>그룹에 넣은 항목은 '전체'에 표시하지 않습니다. 필터 그룹에는 그대로 표시됩니다</translation>
+    </message>
+    <message>
+        <source>Close After Paste</source>
+        <translation>붙여넣기 후 창 닫기</translation>
+    </message>
+    <message>
+        <source>Turn off to paste several items in a row</source>
+        <translation>끄면 여러 항목을 연달아 붙여넣을 수 있습니다</translation>
+    </message>
+    <message>
+        <source>Move to Top After Paste</source>
+        <translation>붙여넣기 후 맨 위로 이동</translation>
+    </message>
+    <message>
+        <source>A pasted item moves to the top of the history</source>
+        <translation>붙여넣은 항목을 기록 맨 위로 옮깁니다</translation>
+    </message>
+    <message>
+        <source>Paste with Format</source>
+        <translation>형식 유지 붙여넣기</translation>
+    </message>
+    <message>
+        <source>Keep fonts, colors and links when pasting formatted text</source>
+        <translation>서식 있는 텍스트를 붙여넣을 때 글꼴, 색, 링크를 유지합니다</translation>
+    </message>
+    <message>
+        <source>Multi-Select Paste</source>
+        <translation>다중 선택 붙여넣기</translation>
+    </message>
+    <message>
+        <source>Separator</source>
+        <translation>구분자</translation>
+    </message>
+    <message>
+        <source>Placed between the items pasted together</source>
+        <translation>함께 붙여넣는 항목 사이에 넣을 문자</translation>
+    </message>
+    <message>
+        <source>Custom</source>
+        <translation>사용자 지정</translation>
+    </message>
+    <message>
+        <source>Paste Order</source>
+        <translation>붙여넣기 순서</translation>
+    </message>
+    <message>
+        <source>The order the selected items are pasted in</source>
+        <translation>선택한 항목을 붙여넣는 순서</translation>
+    </message>
+    <message>
+        <source>First Selected First</source>
+        <translation>선택 순서</translation>
+    </message>
+    <message>
+        <source>Last Selected First</source>
+        <translation>선택 역순</translation>
+    </message>
+    <message>
+        <source>Record Merged Content</source>
+        <translation>합친 내용 기록</translation>
+    </message>
+    <message>
+        <source>Add the combined content to the history as a new item</source>
+        <translation>합친 내용을 새 항목으로 기록에 추가합니다</translation>
+    </message>
+    <message>
+        <source>💡 The clipboard window's theme, font size and opacity are on the Appearance page.</source>
+        <translation>💡 클립보드 창의 테마, 글꼴 크기, 불투명도는 '모양' 페이지에서 설정합니다.</translation>
+    </message>
+    <message>
         <source>History Limit</source>
         <translation>기록 한도</translation>
     </message>
@@ -4471,6 +4634,10 @@ This action cannot be undone.</source>
         <translation>저장</translation>
     </message>
     <message>
+        <source>工具_快捷保存</source>
+        <translation>빠른 저장</translation>
+    </message>
+    <message>
         <source>工具_完成截图</source>
         <translation>완료</translation>
     </message>
@@ -4525,6 +4692,10 @@ This action cannot be undone.</source>
     <message>
         <source>工具描述_保存</source>
         <translation>스크린샷을 로컬 파일로 저장</translation>
+    </message>
+    <message>
+        <source>工具描述_快捷保存</source>
+        <translation>대화 상자 없이 저장 폴더에 바로 저장</translation>
     </message>
     <message>
         <source>工具描述_完成截图</source>
@@ -4935,6 +5106,34 @@ This action cannot be undone.</source>
         <source>活动海报.png</source>
         <translation>행사 포스터.png</translation>
     </message>
+    <message>
+        <source>截图、钉图、剪贴板、翻译和屏幕标注各设一个快捷键。</source>
+        <translation>스크린샷, 고정, 클립보드, 번역, 화면 주석의 단축키를 하나씩 설정합니다.</translation>
+    </message>
+    <message>
+        <source>点击输入框后，按下快捷键或鼠标侧键即可录入。备用快捷键可以在设置的「快捷键」页添加。</source>
+        <translation>입력란을 클릭한 뒤 키 조합이나 마우스 사이드 버튼을 누르세요. 보조 단축키는 설정의 ‘단축키’에서 추가할 수 있습니다.</translation>
+    </message>
+    <message>
+        <source>截图、剪贴板记录和设置各自存在哪里，之后也可以在设置里改。</source>
+        <translation>스크린샷, 클립보드 기록, 설정이 저장되는 위치입니다. 나중에 설정에서 바꿀 수 있습니다.</translation>
+    </message>
+    <message>
+        <source>存储位置</source>
+        <translation>저장 위치</translation>
+    </message>
+    <message>
+        <source>剪贴板数据</source>
+        <translation>클립보드 데이터</translation>
+    </message>
+    <message>
+        <source>剪贴板历史的数据库和图片都放在这个文件夹。</source>
+        <translation>클립보드 기록의 데이터베이스와 이미지가 이 폴더에 저장됩니다.</translation>
+    </message>
+    <message>
+        <source>把托盘图标从「^」里拖到任务栏上，就能一直看到它。</source>
+        <translation>트레이 아이콘을 「^」 안에서 작업 표시줄로 끌어다 놓으면 항상 표시됩니다.</translation>
+    </message>
 </context>
 
 <!-- ========== GIF Record Toolbar ========== -->
@@ -5174,7 +5373,6 @@ SOFTWARE.</translation></message>
     <message><source>Storage</source><translation>저장소</translation></message>
     <!-- Translation page -->
     <!-- Missing from EN only -->
-    <message><source>Clipboard Hotkey</source><translation>클립보드 단축키</translation></message>
     <!-- Changed strings (new code versions) -->
     <message><source>Save Format</source><translation>저장 형식</translation></message>
     <message><source>OCR</source><translation>OCR</translation></message>
@@ -5462,6 +5660,10 @@ Replace: move the current data there; the data already in that folder will be de
     <message>
         <source>Save</source>
         <translation>저장</translation>
+    </message>
+    <message>
+        <source>Quick save</source>
+        <translation>빠른 저장</translation>
     </message>
     <message>
         <source>Copy</source>
@@ -5820,8 +6022,124 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>다음부터 바로 복사</translation>
     </message>
     <message>
+        <source>Close after copying</source>
+        <translation>복사 후 닫기</translation>
+    </message>
+    <message>
         <source>Copied %1 characters</source>
         <translation>%1자를 복사했습니다</translation>
+    </message>
+    <message>
+        <source>Selected %1 characters</source>
+        <translation>%1자 선택됨</translation>
+    </message>
+    <message>
+        <source>Text</source>
+        <translation>텍스트</translation>
+    </message>
+    <message>
+        <source>Table</source>
+        <translation>표</translation>
+    </message>
+    <message>
+        <source>%1 rows × %2 columns</source>
+        <translation>%1행 × %2열</translation>
+    </message>
+    <message>
+        <source>Copy selected cells</source>
+        <translation>선택한 셀 복사</translation>
+    </message>
+    <message>
+        <source>Delete row</source>
+        <translation>행 삭제</translation>
+    </message>
+    <message>
+        <source>Delete column</source>
+        <translation>열 삭제</translation>
+    </message>
+    <message>
+        <source>Cut</source>
+        <translation>잘라내기</translation>
+    </message>
+    <message>
+        <source>Paste</source>
+        <translation>붙여넣기</translation>
+    </message>
+    <message>
+        <source>Redo</source>
+        <translation>다시 실행</translation>
+    </message>
+    <message>
+        <source>Insert row above</source>
+        <translation>위에 행 삽입</translation>
+    </message>
+    <message>
+        <source>Insert row below</source>
+        <translation>아래에 행 삽입</translation>
+    </message>
+    <message>
+        <source>Insert column left</source>
+        <translation>왼쪽에 열 삽입</translation>
+    </message>
+    <message>
+        <source>Insert column right</source>
+        <translation>오른쪽에 열 삽입</translation>
+    </message>
+    <message>
+        <source>Merge cells</source>
+        <translation>셀 병합</translation>
+    </message>
+    <message>
+        <source>Split cells</source>
+        <translation>셀 분할</translation>
+    </message>
+    <message>
+        <source>Show row and column headers</source>
+        <translation>행/열 머리글 표시</translation>
+    </message>
+    <message>
+        <source>Average: %1</source>
+        <translation>평균: %1</translation>
+    </message>
+    <message>
+        <source>Count: %1</source>
+        <translation>개수: %1</translation>
+    </message>
+    <message>
+        <source>Sum: %1</source>
+        <translation>합계: %1</translation>
+    </message>
+    <message>
+        <source>Original image</source>
+        <translation>원본 이미지</translation>
+    </message>
+    <message>
+        <source>Zoom in</source>
+        <translation>확대</translation>
+    </message>
+    <message>
+        <source>Zoom out</source>
+        <translation>축소</translation>
+    </message>
+    <message>
+        <source>Actual size</source>
+        <translation>실제 크기</translation>
+    </message>
+    <message>
+        <source>Fit to window</source>
+        <translation>창에 맞추기</translation>
+    </message>
+    <message>
+        <source>Copy image</source>
+        <translation>이미지 복사</translation>
+    </message>
+    <message>
+        <source>Undo</source>
+        <translation>실행 취소</translation>
+    </message>
+    <message>
+        <source>Copied table (%1 rows × %2 columns)</source>
+        <translation>표를 복사했습니다(%1행 × %2열)</translation>
     </message>
 </context>
 <context>

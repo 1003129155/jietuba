@@ -25,6 +25,7 @@ struct SettingMenuOptions {
     bool auto_paste = true;
     bool close_after_paste = true;
     bool move_to_top = true;
+    bool hide_grouped = false;
     bool show_metadata = true;
     bool preserve_search = false;
     int window_opacity = 0;
@@ -39,6 +40,7 @@ struct SettingMenuOptions {
     std::function<void(bool)> on_toggle_auto_paste;
     std::function<void(bool)> on_toggle_close_after_paste;
     std::function<void(bool)> on_toggle_move_to_top;
+    std::function<void(bool)> on_toggle_hide_grouped;
     std::function<void(bool)> on_toggle_show_metadata;
     std::function<void(bool)> on_toggle_preserve_search;
     std::function<void(int)> on_set_opacity;
@@ -47,6 +49,7 @@ struct SettingMenuOptions {
     std::function<void(const QString &)> on_set_image_size;
     std::function<void(const QString &)> on_set_theme;
     std::function<void()> on_add_item;
+    std::function<void()> on_open_settings;
     // Without it the menu has no clear entry.
     std::function<void()> on_clear_history;
     std::function<void(const QString &)> on_set_group_bar_position;

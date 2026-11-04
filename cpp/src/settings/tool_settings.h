@@ -45,6 +45,8 @@ public:
     void sync() const;
     // The settings file.
     QSettings &settings() const { return *settings_; }
+    // Reads and writes settings from now on; Local settings kept in the same file move with it.
+    void rebind(QSettings &settings);
 private:
     QSettings &store(const QString &key) const;
     QSettings *settings_;
@@ -125,6 +127,11 @@ public:
     void import_settings(const QVariantMap &values);
     bool is_first_run() const { return !get_has_run_before(); }
     void mark_as_run();
+    // Settings from before the Ctrl+1 to Ctrl+5 defaults store the older defaults of the
+    // hotkeys they never set, so an update moves nobody's hotkeys. Once per settings file.
+    void keep_older_hotkey_defaults();
+    // Reads and writes the settings file at path from now on (data_folder::move_settings_file).
+    void use_settings_file(const QString &path);
     static bool is_absolute_save_path(const QString &value);
     QSettings &settings() { return qsettings.settings(); }
 
@@ -238,6 +245,7 @@ private:
     QVariant typed_value(const QString &path, const QVariant &fallback) const;
     // Until the third clipboard slot is saved it follows the old switch; nothing is written.
     void migrate_win_v_slot(QStringList &values) const;
+    std::unique_ptr<QSettings> owned_settings_;
     QVariantMap app_defaults_, tool_defaults_;
     QStringList tool_order_;
     QMap<QString, ToolSettings> tools_;

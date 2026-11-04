@@ -1,5 +1,6 @@
 #include "clipboard/ui/windows/pin_window.h"
 #include "clipboard/controllers/clipboard_controller.h"
+#include "clipboard/controllers/context_menu_controller.h"
 #include "clipboard/core/manager.h"
 #include "core/i18n.h"
 #include "core/logger.h"
@@ -48,9 +49,11 @@ QString pin_tr(const char *text) { return i18n_tr(text, "PinWindow"); }
 
 bool pin_item(qint64 item_id, const std::function<std::optional<ClipboardItem>(qint64)> &get_item, QWidget *clipboard_window, std::optional<QPoint> center) {
     const auto clipboard_item = get_item(item_id);
+    // Path text is left to the batch, which checks the disk once to pin it as files or as text.
+    if (clipboard_item && (clipboard_item->content_type == "file" || clipboard_item->sub_kind == SUB_KIND_PATH))
+        return create_pins_from_clipboard_items({*clipboard_item}, clipboard_window, center);
     if (clipboard_item && clipboard_item->content_type == "text")
         return create_pin_from_text(clipboard_item->content, clipboard_item->html_content.value_or(QString()), clipboard_window, center);
-    if (clipboard_item && clipboard_item->content_type == "file") return create_pins_from_clipboard_items({*clipboard_item}, clipboard_window, center);
     if (!clipboard_item || clipboard_item->content_type != "image") {
         log_error(T("无法创建钉图：item_id={item_id} 不是图片", {{"item_id", item_id}}), "Clipboard");
         return false;
@@ -394,13 +397,13 @@ bool create_pins_from_clipboard_items(const QList<ClipboardItem> &items, QWidget
     for (const auto &item : items) {
         if (item.content_type == "image" && item.image_id && !item.image_id->isEmpty()) {
             pieces.append({Piece::StoredImage, *item.image_id});
-        } else if (item.content_type == "text" && !item.content.trimmed().isEmpty()) {
-            pieces.append({Piece::Text, item.content, item.html_content.value_or(QString())});
-        } else if (item.content_type == "file") {
+        } else if (pins_as_files(item)) {
             for (const auto &file : item_paths(item)) {
                 if (picture_name(file)) pieces.append({Piece::PictureFile, file});
                 else others.append(file);
             }
+        } else if (item.content_type == "text" && !item.content.trimmed().isEmpty()) {
+            pieces.append({Piece::Text, item.content, item.html_content.value_or(QString())});
         }
     }
     const auto *screen = target_screen(clipboard_window, center);

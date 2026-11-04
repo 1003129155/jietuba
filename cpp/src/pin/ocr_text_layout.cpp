@@ -73,9 +73,10 @@ QString OcrLayoutLine::slice(int first, int last) const {
 
 OcrTextLayout::OcrTextLayout(const OcrResult &result, const QTransform &to_image) {
     if (result.code != 100) return;
-    for (const auto &source : result.data) {
-        auto line = make_line(source, to_image);
+    for (int i = 0; i < result.data.size(); ++i) {
+        auto line = make_line(result.data[i], to_image);
         if (!line) continue;
+        line->source = i;
         bounds_ = bounds_.isNull() ? line->bounds : bounds_.united(line->bounds);
         lines_.push_back(std::move(*line));
     }
@@ -276,9 +277,16 @@ QString OcrTextLayout::all_text(const QString &separator) const {
 
 QPolygonF OcrTextLayout::selection_outline(int index) const {
     const auto range = selection(index);
-    if (!range) return {};
+    return range ? run_outline(index, range->first, range->second) : QPolygonF();
+}
+
+QPolygonF OcrTextLayout::run_outline(int index, int first, int last) const {
+    if (index < 0 || index >= static_cast<int>(lines_.size())) return {};
     const auto &line = lines_[index];
-    const double start = line.starts[range->first], end = line.ends[range->second - 1];
+    first = std::max(first, 0);
+    last = std::min(last, line.length());
+    if (first >= last) return {};
+    const double start = line.starts[first], end = line.ends[last - 1];
     const auto to_source = line.frame.to_source();
     return QPolygonF({to_source.map(QPointF(start, 0)), to_source.map(QPointF(end, 0)), to_source.map(QPointF(end, line.frame.thickness)),
                       to_source.map(QPointF(start, line.frame.thickness))});

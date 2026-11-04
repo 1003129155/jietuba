@@ -36,6 +36,7 @@
 #include <cstring>
 #include <windows.h>
 #include <shellapi.h>
+#include <shlobj.h>
 #include <atomic>
 #include <cstdlib>
 #include <memory>
@@ -238,6 +239,16 @@ private slots:
         QVERIFY(wait_for_clipboard_writes(5.0));
         QTRY_COMPARE(system_clipboard_image_size(), QSize(12, 9));
         QVERIFY(!IsClipboardFormatAvailable(CF_HDROP));
+    }
+
+    void theFileReferenceIsAWindowsPath() {
+        // Save paths come from Qt with forward slashes, which some paste targets refuse in a file name.
+        const QByteArray bytes = build_hdrop("C:/shots/2026/a b.png");
+        const auto *header = reinterpret_cast<const DROPFILES *>(bytes.constData());
+        QCOMPARE(header->pFiles, DWORD(sizeof(DROPFILES)));
+        QVERIFY(header->fWide);
+        QCOMPARE(QString::fromUtf16(reinterpret_cast<const char16_t *>(bytes.constData() + header->pFiles)), QString("C:\\shots\\2026\\a b.png"));
+        QVERIFY(bytes.endsWith(QByteArray(4, '\0')));
     }
 
     void groupsAndOrderingThroughTheBackend() {

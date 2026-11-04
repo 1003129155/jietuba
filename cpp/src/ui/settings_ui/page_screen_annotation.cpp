@@ -26,13 +26,6 @@ void add_choice_card(SettingsDialog *dialog, SettingsCardGroup *grp, const IconS
     grp->addSettingCard(card);
 }
 
-void add_switch_card(SettingsDialog *dialog, SettingsCardGroup *grp, const IconSource &icon, const char *title, const char *desc, const QString &key) {
-    auto *card = new SwitchSettingCard(icon, dialog->tr_text(title), dialog->tr_text(desc), grp);
-    card->setChecked(dialog->config_manager->get_app_setting(key).toBool());
-    dialog->behavior_controls.emplace_back(key, card);
-    grp->addSettingCard(card);
-}
-
 void build_start_section(SettingsDialog *dialog, SettingsCardGroup *grp) {
     add_choice_card(dialog, grp, ResourceManager::get_icon_path(QString::fromUtf8("画笔.svg")), "Start With",
                     "What screen annotation starts with. In pass-through the mouse keeps working the windows below until a tool is picked.",

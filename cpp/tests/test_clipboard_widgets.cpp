@@ -213,6 +213,27 @@ private slots:
         QVERIFY(!paint_row(2).isNull());
     }
 
+    void decodedThumbnailsAreKeptForAtMost256Images() {
+        ClipboardItemDelegate::clear_thumb_cache();
+        QListWidget list;
+        list.resize(360, 400);
+        ClipboardItemDelegate delegate(&list, get_theme_manager()->get_current_theme(), 15, false);
+        for (int n = 0; n < 300; ++n) {
+            auto item = make_item(n + 1, "image", "[image]");
+            item.thumbnail = png_data_url(QSize(10 + n, 10));
+            add_row(list, item);
+        }
+        const QImage first = paint_row_image(delegate, list, 0, 360, Qt::white);
+        QVERIFY(!paint_row_image(delegate, list, 0, 360, Qt::white).isNull());
+        // Painting the row again reuses its decoded thumbnail.
+        QCOMPARE(ClipboardItemDelegate::cached_thumb_count(), 1);
+        for (int row = 1; row < list.count(); ++row) paint_row_image(delegate, list, row, 360, Qt::white);
+        QCOMPARE(ClipboardItemDelegate::cached_thumb_count(), 256);
+        // A thumbnail dropped from the cache is decoded again and paints the same.
+        QCOMPARE(paint_row_image(delegate, list, 0, 360, Qt::white), first);
+        ClipboardItemDelegate::clear_thumb_cache();
+    }
+
     void nonImageRowsShareTheLineLimit() {
         QListWidget list;
         list.resize(360, 600);
@@ -814,6 +835,8 @@ private slots:
         options.on_toggle_auto_paste = [&calls](bool checked) { calls << QString("auto %1").arg(checked); };
         options.on_toggle_close_after_paste = [&calls](bool) { calls << "close"; };
         options.on_toggle_move_to_top = [&calls](bool) { calls << "top"; };
+        options.hide_grouped = true;
+        options.on_toggle_hide_grouped = [&calls](bool checked) { calls << QString("hide grouped %1").arg(checked); };
         options.on_toggle_show_metadata = [&calls](bool) { calls << "meta"; };
         options.on_toggle_preserve_search = [&calls](bool) { calls << "search"; };
         options.on_set_opacity = [&calls](int value) { calls << QString("opacity %1").arg(value); };
@@ -822,6 +845,7 @@ private slots:
         options.on_set_image_size = [&calls](const QString &value) { calls << "image " + value; };
         options.on_set_theme = [&calls](const QString &value) { calls << "theme " + value; };
         options.on_add_item = [&calls] { calls << "add"; };
+        options.on_open_settings = [&calls] { calls << "settings"; };
         options.on_clear_history = [&calls] { calls << "clear"; };
         options.on_set_group_bar_position = [&calls](const QString &value) { calls << "bar " + value; };
         options.open_position = "previous";
@@ -839,6 +863,7 @@ private slots:
         // Current values are checked.
         QVERIFY(actions["Paste with Format"]->isChecked());
         QVERIFY(!actions["Auto Paste After Selection"]->isChecked());
+        QVERIFY(actions["Hide Grouped Items from All"]->isChecked());
         QVERIFY(actions["20%"]->isChecked());
         QVERIFY(actions["15px"]->isChecked());
         QVERIFY(actions["Medium"]->isChecked());
@@ -862,13 +887,14 @@ private slots:
         QVERIFY(custom);
         QCOMPARE(custom->text(), QString(" | "));
         for (const char *label : {"New Line", "Comma", "No Separator"}) QVERIFY(!actions[label]->isChecked());
-        for (const char *label : {"Paste with Format", "Auto Paste After Selection", "Close After Paste", "Move to Top After Paste", "Show Time",
+        for (const char *label : {"Paste with Format", "Auto Paste After Selection", "Close After Paste", "Move to Top After Paste", "Hide Grouped Items from All", "Show Time",
                                   "Preserve Search on Reopen", "Opaque", "17px", "Large", "First Selected First", "Record Content", "Comma", "Add Content",
-                                  "Clear History", "Follow Mouse"})
+                                  "Clear History", "More Settings", "Follow Mouse"})
             actions[label]->trigger();
         actions["Top"]->trigger();
         QVERIFY(calls.contains("html 0"));
         QVERIFY(calls.contains("auto 1"));
+        QVERIFY(calls.contains("hide grouped 0"));
         QVERIFY(calls.contains("opacity 0"));
         QVERIFY(calls.contains("font 17"));
         QVERIFY(calls.contains("image large"));
@@ -877,6 +903,7 @@ private slots:
         QVERIFY(calls.contains("separator , "));
         QVERIFY(calls.contains("add"));
         QVERIFY(calls.contains("clear"));
+        QVERIFY(calls.contains("settings"));
         QVERIFY(calls.contains("bar top"));
         QVERIFY(calls.contains("position cursor"));
         // Theme swatches are buttons inside the menu; the current one is marked by an icon, not a ✓ character.

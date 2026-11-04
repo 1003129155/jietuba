@@ -86,6 +86,11 @@ void ClipboardController::set_paste_with_html(bool enabled) {
 
 void ClipboardController::set_move_to_top_on_paste(bool enabled) { get_tool_settings_manager()->set_clipboard_move_to_top_on_paste(enabled); }
 
+void ClipboardController::set_hide_grouped_in_history(bool enabled) {
+    get_tool_settings_manager()->set_clipboard_hide_grouped_in_history(enabled);
+    if (!current_group_id) load_history();
+}
+
 // ==================== Loading ====================
 
 int ClipboardController::page_size() const { return page_size_; }
@@ -111,12 +116,10 @@ void ClipboardController::load_more_items() {
 
     const int current_page_size = page_size();
     const bool is_first_page = current_offset_ == 0;
-    const auto [new_items, raw_count] = fetch_items_page(current_page_size, current_offset_);
-    current_offset_ += raw_count;
+    const auto new_items = fetch_items_page(current_page_size, current_offset_);
+    current_offset_ += new_items.size();
     log_info(T("加载完成 - 获取到 {count} 条记录", {{"count", static_cast<int>(new_items.size())}}), "Clipboard");
-    // Judged by raw_count before filtering: searching inside a group filters on this side, so a page
-    // may match far fewer rows, which would wrongly mark a group with more pages as finished.
-    if (raw_count < current_page_size) has_more_ = false;
+    if (new_items.size() < current_page_size) has_more_ = false;
     current_items.append(new_items);
     emit data_loaded(new_items, is_first_page);
 
@@ -143,30 +146,20 @@ std::optional<FilterRule> ClipboardController::current_filter_rule() const {
 
 bool ClipboardController::shows_history() const { return !current_group_id || current_filter_rule().has_value(); }
 
-std::pair<QList<ClipboardItem>, int> ClipboardController::fetch_items_page(int limit, qint64 offset) {
+bool ClipboardController::hides_grouped() const { return !current_group_id && get_tool_settings_manager()->get_clipboard_hide_grouped_in_history(); }
+
+QList<ClipboardItem> ClipboardController::fetch_items_page(int limit, qint64 offset) {
+    std::optional<qint64> start_ts, end_ts;
+    if (time_range_) {
+        start_ts = time_range_->first.toSecsSinceEpoch();
+        end_ts = time_range_->second.toSecsSinceEpoch();
+    }
     const auto filter_rule = current_filter_rule();
-    if (!current_group_id || filter_rule) {
-        std::optional<qint64> start_ts, end_ts;
-        if (time_range_) {
-            start_ts = time_range_->first.toSecsSinceEpoch();
-            end_ts = time_range_->second.toSecsSinceEpoch();
-        }
-        // A filter group's kind is fixed; the type button still narrows a group that only picks a source app.
-        FilterRule filter = filter_rule.value_or(FilterRule{});
-        if (!filter.kind) filter.kind = content_type_;
-        const auto items = manager.get_history(offset, limit, search_text_, filter, start_ts, end_ts);
-        return {items, static_cast<int>(items.size())};
-    }
-    auto items = manager.get_by_group(current_group_id, offset, limit);
-    const int raw_count = static_cast<int>(items.size());
-    if (search_text_) {
-        QList<ClipboardItem> matched;
-        for (const auto &item : items)
-            if (item.content.contains(*search_text_, Qt::CaseInsensitive) || (item.title && item.title->contains(*search_text_, Qt::CaseInsensitive)))
-                matched.append(item);
-        items = matched;
-    }
-    return {items, raw_count};
+    // A filter group's kind is fixed; the type button still narrows a group that only picks a source app.
+    FilterRule filter = filter_rule.value_or(FilterRule{});
+    if (!filter.kind) filter.kind = content_type_;
+    if (!current_group_id || filter_rule) return manager.get_history(offset, limit, search_text_, filter, start_ts, end_ts, hides_grouped());
+    return manager.get_group_items(*current_group_id, offset, limit, search_text_, filter, start_ts, end_ts);
 }
 
 void ClipboardController::check_scroll_load(int scroll_value, int scroll_max) {
@@ -576,8 +569,8 @@ void ClipboardController::toggle_pin(qint64 item_id) {
 bool ClipboardController::move_to_group(qint64 item_id, std::optional<qint64> group_id) {
     if (!manager.move_to_group(item_id, group_id)) return false;
     log_info(T("已移动到分组 {group_id}", {{"group_id", group_id ? QVariant(*group_id) : QVariant()}}), "Clipboard");
-    // History and filter groups do not filter by group, so the row stays; a group view has lost it.
-    if (!shows_history() && group_id != current_group_id) remove_loaded_item(item_id);
+    // A group view has lost the row; the history loses it only when it leaves grouped items out, filter groups never.
+    if (shows_history() ? group_id && hides_grouped() : group_id != current_group_id) remove_loaded_item(item_id);
     return true;
 }
 
@@ -720,6 +713,10 @@ bool ClipboardController::insert_item(const ClipboardItem &item) {
     // A repeated copy is moved to the top by the backend instead of added; its old row is still in the list at another place.
     for (const auto &existing : current_items)
         if (existing.id == item.id) return false;
+    // Copying a grouped item's content again moves that row up instead; the list does not show it.
+    if (hides_grouped()) {
+        if (const auto stored = manager.get_item(item.id); stored && stored->group_id) return true;
+    }
     const int row = first_unpinned_row();
     current_items.insert(row, item);
     // Pages are fetched by offset; one more row at the head moves the next page on, or the boundary row is fetched twice.

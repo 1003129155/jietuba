@@ -1,5 +1,6 @@
 #include "core/ui_theme.h"
 #include "settings/tool_settings.h"
+#include "stub_input_hub.h"
 #include "translation/provider.h"
 #include "translation/providers/volcengine.h"
 #include "translation/registry.h"
@@ -353,6 +354,41 @@ private slots:
         QVERIFY(!popup);
     }
 
+    // A target language saved in the settings reaches the open window and popup at once,
+    // and showing it does not write the resolved language back over "Auto (System)".
+    void openSurfacesFollowTheTargetLanguageSavedInTheSettings() {
+        auto *m = manager();
+        get_tool_settings_manager()->set_translation_target_lang("");
+        QSignalSpy finished(m, &TranslationManager::translation_finished);
+
+        m->translate("");
+        TranslationDialog *window = nullptr;
+        for (auto *widget : QApplication::topLevelWidgets())
+            if (auto *found = qobject_cast<TranslationDialog *>(widget); found && found->isVisible()) window = found;
+        QVERIFY(window);
+        m->apply_target_lang("JA");
+        QCOMPARE(window->get_target_lang(), QString("JA"));
+        QVERIFY(get_tool_settings_manager()->get_saved_translation_target_lang().isEmpty());
+        window->source_edit->setPlainText("window text");
+        window->translate_button->click();
+        QTRY_COMPARE(finished.count(), 1);
+        QCOMPARE(window->target_edit->toPlainText(), QString("[ja] window text"));
+
+        m->open_compact_input(QPoint(10, 10));
+        TranslationPopup *popup = nullptr;
+        for (auto *widget : QApplication::topLevelWidgets())
+            if (auto *found = qobject_cast<TranslationPopup *>(widget); found && found->isVisible()) popup = found;
+        QVERIFY(popup);
+        m->apply_target_lang("EN");
+        QCOMPARE(popup->current_target_lang(), QString("EN"));
+        popup->source_edit->setPlainText("popup text");
+        QTRY_COMPARE(finished.count(), 2);
+        QCOMPARE(popup->result_edit->toPlainText(), QString("[en] popup text"));
+        QVERIFY(get_tool_settings_manager()->get_saved_translation_target_lang().isEmpty());
+        m->close_dialog();
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    }
+
     void selectionTranslationUsesTheCompactPopup() {
         auto *m = manager();
         QSignalSpy finished(m, &TranslationManager::translation_finished);
@@ -495,6 +531,68 @@ private slots:
         QCOMPARE(changed.count(), 1);
         QCOMPARE(changed.first().at(0).toString(), QString("EN"));
         QCOMPARE(popup.current_target_lang(), QString("EN"));
+    }
+
+    void thePopupClosesOnAClickOutsideWhenAsked() {
+        StubHub stub(TranslationPopup::WATCHER);
+        TranslationPopup popup;
+        popup.set_input_hub(stub.hub.get());
+        const auto outside = [&popup] { return popup.frameGeometry().bottomRight() + QPoint(30, 30); };
+
+        // Off by default: nothing is watched.
+        popup.show_popup("hello", QPoint(100, 100));
+        QVERIFY(stub.native->mouse_watchers.isEmpty());
+        stub.button(0, true, outside());
+        QCoreApplication::processEvents();
+        QVERIFY(popup.isVisible());
+        popup.hide();
+
+        get_tool_settings_manager()->set_translation_popup_auto_close(true);
+        popup.show_popup("hello", QPoint(100, 100));
+        QCOMPARE(stub.native->mouse_watchers, QStringList{TranslationPopup::WATCHER});
+        // A press on it, a release outside, and another watcher's press keep it.
+        stub.button(0, true, popup.frameGeometry().center());
+        stub.button(0, false, outside());
+        stub.button(0, true, outside(), "someone else");
+        QCoreApplication::processEvents();
+        QVERIFY(popup.isVisible());
+
+        // Its own menu is a separate window outside it.
+        QMenu menu(&popup);
+        menu.addAction("item");
+        menu.popup(outside());
+        QTRY_VERIFY(menu.isVisible());
+        QVERIFY(!menu.frameGeometry().intersects(popup.frameGeometry()));
+        stub.button(0, true, menu.frameGeometry().center());
+        QCoreApplication::processEvents();
+        QVERIFY(popup.isVisible());
+        menu.close();
+
+        // Any button elsewhere closes it, and it stops watching.
+        stub.button(2, true, popup.frameGeometry().topLeft() - QPoint(5, 5));
+        QTRY_VERIFY(!popup.isVisible());
+        QVERIFY(stub.native->mouse_watchers.isEmpty());
+
+        // Turned off again, the next show watches nothing.
+        get_tool_settings_manager()->set_translation_popup_auto_close(false);
+        popup.show_popup("hello", QPoint(100, 100));
+        QVERIFY(stub.native->mouse_watchers.isEmpty());
+        popup.hide();
+    }
+
+    void anActivePopupClosesWhenAnotherWindowIsActivated() {
+        get_tool_settings_manager()->set_translation_popup_auto_close(true);
+        StubHub stub(TranslationPopup::WATCHER);
+        QWidget other;
+        other.setGeometry(600, 400, 100, 100);
+        other.show();
+        TranslationPopup popup;
+        popup.set_input_hub(stub.hub.get());
+        popup.show_popup({}, QPoint(100, 100), true);
+        QTRY_VERIFY(popup.isActiveWindow());
+        other.activateWindow();
+        QTRY_VERIFY(!popup.isVisible());
+        QVERIFY(stub.native->mouse_watchers.isEmpty());
     }
 
     void theWindowTracksLoadingErrorsAndSize() {

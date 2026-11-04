@@ -4,9 +4,11 @@
 #include "core/logger.h"
 #include "settings/tool_settings.h"
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QLockFile>
 #include <QSettings>
+#include <QTemporaryFile>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -28,6 +30,53 @@ void defer(int level, const LogMsg &message) { deferred().emplace_back(level, me
 
 QString shown(const QString &path) { return QDir::toNativeSeparators(path); }
 
+bool same_file(const QString &a, const QString &b);
+}
+
+QString green_mode_dir() { return test_sandbox_dir().isEmpty() ? program_dir() : QDir(test_sandbox_dir()).filePath("program"); }
+
+QString set_green_mode(ToolSettingsManager &config, bool on) {
+    const QString roaming = test_sandbox_dir().isEmpty() ? roaming_app_data_dir() : QDir(test_sandbox_dir()).filePath("roaming");
+    return move_settings_file(config, on, green_mode_dir(), roaming);
+}
+
+bool folder_writable(const QString &dir) {
+    if (dir.isEmpty() || !QDir().mkpath(dir)) return false;
+    QTemporaryFile probe(QDir(dir).filePath("write_test_XXXXXX"));
+    return probe.open();
+}
+
+QString move_settings_file(ToolSettingsManager &config, bool beside_program, const QString &program_dir, const QString &roaming_dir) {
+    const DataLocation target = beside_program ? DataLocation{QDir::cleanPath(QDir::fromNativeSeparators(program_dir)), true}
+                                               : DataLocation{QDir(QDir::fromNativeSeparators(roaming_dir)).filePath("Jietuba"), false};
+    const QString from = config.qsettings.settings().fileName();
+    const QString to = target.settings_file();
+    if (same_file(from, to)) {
+        set_data_location(target);
+        return {};
+    }
+    if (!folder_writable(target.dir)) return QDir::toNativeSeparators(target.dir);
+    config.qsettings.sync();
+    // Through a temporary name, so a failed copy leaves no half file the next start would pick.
+    const QString part = to + ".part";
+    QFile::remove(part);
+    const bool copied = QFileInfo::exists(from) ? QFile::copy(from, part) : QFile(part).open(QIODevice::WriteOnly);
+    if (!copied || (QFileInfo::exists(to) && !QFile::remove(to)) || !QFile::rename(part, to)) {
+        QFile::remove(part);
+        return QDir::toNativeSeparators(to);
+    }
+    // A settings file left beside the program would be picked again at the next start.
+    if (QFileInfo::exists(from) && !QFile::remove(from) && !beside_program) {
+        QFile::remove(to);
+        return QDir::toNativeSeparators(from);
+    }
+    config.use_settings_file(to);
+    set_data_location(target);
+    log_info(T("设置文件已移到: {path}", {{"path", QDir::toNativeSeparators(to)}}), "Settings");
+    return {};
+}
+
+namespace {
 bool same_file(const QString &a, const QString &b) {
     return !a.isEmpty() && QDir::cleanPath(QDir::fromNativeSeparators(a)).compare(QDir::cleanPath(QDir::fromNativeSeparators(b)), Qt::CaseInsensitive) == 0;
 }

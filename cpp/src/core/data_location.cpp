@@ -32,11 +32,18 @@ DataLocation resolve_data_location(const QString &program_dir, const QString &ro
     return {QDir(QDir::fromNativeSeparators(roaming_dir)).filePath("Jietuba"), false};
 }
 
-const DataLocation &data_location() {
-    static const DataLocation location =
-        resolve_data_location(test_sandbox_dir().isEmpty() ? QFileInfo(program_file()).absolutePath() : QString(), roaming_app_data_dir());
+namespace {
+DataLocation &current_location() {
+    static DataLocation location = resolve_data_location(test_sandbox_dir().isEmpty() ? program_dir() : QString(), roaming_app_data_dir());
     return location;
 }
+}
+
+const DataLocation &data_location() { return current_location(); }
+
+void set_data_location(const DataLocation &location) { current_location() = location; }
+
+QString program_dir() { return QFileInfo(program_file()).absolutePath(); }
 
 QString roaming_app_data_dir() {
     const QString base = qEnvironmentVariable("APPDATA");

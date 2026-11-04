@@ -1,6 +1,8 @@
 #include "translation/translation_popup.h"
 #include "core/i18n.h"
+#include "core/input_hub.h"
 #include "core/ui_scale.h"
+#include "settings/tool_settings.h"
 #include "translation/languages.h"
 #include "translation/speech_service.h"
 #include "translation/translation_dialog.h"
@@ -52,6 +54,8 @@ TranslationPopup::TranslationPopup(QWidget *parent)
     fade_->setDuration(140);
     refresh_speech();
 }
+
+TranslationPopup::~TranslationPopup() { watch_outside_clicks(false); }
 
 void TranslationPopup::build_ui() {
     auto *root = new QVBoxLayout(this);
@@ -204,6 +208,9 @@ void TranslationPopup::show_popup(const QString &source_text, std::optional<QPoi
     else hide_result();
     fit_content();
     place_near(position.value_or(QCursor::pos()));
+    // Selection translation shows the popup without focus, so focus loss alone cannot tell
+    // that the user went back to work: a press anywhere outside it can.
+    watch_outside_clicks(get_tool_settings_manager()->get_translation_popup_auto_close());
     show_animated();
     if (activate) {
         activateWindow();
@@ -478,6 +485,34 @@ void TranslationPopup::hide_popup() {
     hide();
 }
 
+void TranslationPopup::watch_outside_clicks(bool on) {
+    if (on == watching_) return;
+    auto *source = hub_ ? hub_ : on ? input_hub() : existing_input_hub();
+    watching_ = on;
+    if (!source) return;
+    if (!on) {
+        disconnect(press_connection_);
+        source->native->unwatch_mouse(WATCHER);
+        return;
+    }
+    // Queued: the events come from the hub's event thread.
+    press_connection_ = connect(source, &InputHub::mouse_button, this, [this](const QString &watcher, const QString &, bool pressed, int x, int y) {
+        if (watcher == WATCHER && pressed) on_global_press(QPoint(x, y));
+    }, Qt::QueuedConnection);
+    source->native->watch_mouse(WATCHER);
+}
+
+void TranslationPopup::on_global_press(const QPoint &global) {
+    if (!watching_ || !isVisible()) return;
+    // Its menus are windows of their own.
+    for (auto *window : QApplication::topLevelWidgets()) {
+        if (!window->isVisible() || !window->frameGeometry().contains(global)) continue;
+        for (QWidget *widget = window; widget; widget = widget->parentWidget())
+            if (widget == this) return;
+    }
+    hide_popup();
+}
+
 void TranslationPopup::paintEvent(QPaintEvent *) {
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
@@ -520,6 +555,13 @@ void TranslationPopup::mouseReleaseEvent(QMouseEvent *event) {
 void TranslationPopup::hideEvent(QHideEvent *event) {
     source_speech_->stop();
     result_speech_->stop();
+    watch_outside_clicks(false);
     QWidget::hideEvent(event);
+}
+
+void TranslationPopup::changeEvent(QEvent *event) {
+    QWidget::changeEvent(event);
+    // Opening its own menu moves activation into the menu without leaving the popup.
+    if (event->type() == QEvent::ActivationChange && watching_ && isVisible() && !isActiveWindow() && !QApplication::activePopupWidget()) hide_popup();
 }
 }

@@ -47,8 +47,8 @@ GifDrawingScene::GifDrawingScene(int width, int height) : CanvasScene(QImage(), 
     addItem(hit_rect);
 }
 
-void GifDrawingScene::resize_scene(int width, int height) {
-    scene_rect = QRectF(0, 0, width, height);
+void GifDrawingScene::resize_scene(const QRectF &rect) {
+    scene_rect = rect;
     setSceneRect(scene_rect);
     hit_rect->setRect(scene_rect);
 }
@@ -137,7 +137,7 @@ CommandUndoStack *GifDrawingView::undo_stack() const { return gif_scene_->undo_s
 
 void GifDrawingView::update_rect(const QRect &rect) {
     setGeometry(rect);
-    gif_scene_->resize_scene(rect.width(), rect.height());
+    gif_scene_->resize_scene(QRectF(0, 0, rect.width(), rect.height()));
 }
 
 void GifDrawingView::activate_tool(const QString &tool_id) { gif_scene_->tool_controller->activate(tool_id); }

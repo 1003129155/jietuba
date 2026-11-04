@@ -28,6 +28,8 @@ struct ContextMenuData {
 bool is_quick_editable(const ClipboardItem &item);
 // Images and text always; files while any of them still exists.
 bool can_pin(const ClipboardItem &item);
+// File items, and path text while any path it names exists: these pin as the files, not as text.
+bool pins_as_files(const ClipboardItem &item);
 
 // Which entries the item, group and multi-select menus show, from the controller's state.
 class ClipboardContextMenuController {

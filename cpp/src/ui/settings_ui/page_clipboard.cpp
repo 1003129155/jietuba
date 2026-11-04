@@ -1,4 +1,5 @@
 #include "clipboard/core/manager.h"
+#include "clipboard/ui/panels/setting_panel.h"
 #include "clipboard/ui/windows/clipboard_window.h"
 #include "core/logger.h"
 #include "core/ui_scale.h"
@@ -30,6 +31,9 @@
 namespace jietuba {
 namespace {
 using clipboard::ClipboardManager;
+
+// Labels shared with the clipboard window's menu, so both places name them alike.
+QString window_tr(const char *text, int n = -1) { return QCoreApplication::translate("ClipboardWindow", text, nullptr, n); }
 
 QString format_size(qint64 value) {
     if (value < 1024) return QString("%1 B").arg(value);
@@ -276,8 +280,9 @@ private:
     MoveTexts texts_;
 };
 
-// The storage is reopened even when the settings window is gone, so the clipboard is never left released.
-void on_clipboard_move_completed(SettingsDialog *dialog, QProgressDialog *progress, const QString &new_db_path, const QString &cleanup_error) {
+// The storage is reopened even when the window that asked is gone, so the clipboard is never left released.
+void on_clipboard_move_completed(QWidget *parent, QProgressDialog *progress, const QString &new_db_path, const QString &cleanup_error,
+                                 const std::function<void(const QString &)> &on_changed) {
     if (progress) {
         progress->setValue(100);
         progress->close();
@@ -286,102 +291,95 @@ void on_clipboard_move_completed(SettingsDialog *dialog, QProgressDialog *progre
     get_tool_settings_manager()->set_clipboard_db_path(new_db_path);
     const bool reopened = ClipboardManager::instance().reset_storage(new_db_path);
     if (reopened) refresh_open_clipboard_windows();
-    if (!dialog) return;
-    dialog->clipboard_move_thread = nullptr;
+    if (!parent) return;
     if (reopened) {
-        set_storage_path_label(dialog, new_db_path);
-        sync_single_file_toggle(dialog);
-        dialog->refresh_clipboard_size();
+        on_changed(new_db_path);
         if (!cleanup_error.isEmpty())
-            show_warning_dialog(dialog, dialog->tr_text("Success"),
-                                dialog
-                                    ->tr_text("Clipboard data location changed successfully, but the old files are still in use and could not be deleted. You "
-                                              "can remove them after restarting the app.\n{error}")
+            show_warning_dialog(parent, settings_tr("Success"),
+                                settings_tr("Clipboard data location changed successfully, but the old files are still in use and could not be deleted. You "
+                                            "can remove them after restarting the app.\n{error}")
                                     .replace("{error}", cleanup_error));
     } else {
-        show_warning_dialog(dialog, dialog->tr_text("Error"), dialog->tr_text("Clipboard data moved, but reopening the database failed. Please restart the app."));
+        show_warning_dialog(parent, settings_tr("Error"), settings_tr("Clipboard data moved, but reopening the database failed. Please restart the app."));
     }
 }
 
-void on_clipboard_move_failed(SettingsDialog *dialog, QProgressDialog *progress, const QString &old_db_path, const QString &message) {
+void on_clipboard_move_failed(QWidget *parent, QProgressDialog *progress, const QString &old_db_path, const QString &message) {
     if (progress) {
         progress->close();
         progress->deleteLater();
     }
     ClipboardManager::instance().reset_storage(old_db_path);
-    if (!dialog) return;
-    dialog->clipboard_move_thread = nullptr;
-    show_warning_dialog(dialog, dialog->tr_text("Error"), message);
+    if (parent) show_warning_dialog(parent, settings_tr("Error"), message);
 }
 
 // Opens the database already in the target folder; nothing is copied or deleted on either side.
-void switch_clipboard_data_location(SettingsDialog *dialog, const QString &current_db_path, const QString &target_dir) {
+void switch_clipboard_data_location(QWidget *parent, const QString &current_db_path, const QString &target_dir,
+                                    const std::function<void(const QString &)> &on_changed) {
     auto &cm = ClipboardManager::instance();
     const QString new_db_path = path_join(absolute_path(target_dir), "clipboard.db");
     if (!cm.reset_storage(new_db_path)) {
         cm.reset_storage(current_db_path);
-        show_warning_dialog(dialog, dialog->tr_text("Error"),
-                            dialog->tr_text("Cannot open the clipboard data in the selected folder. The current data is still in use."));
+        show_warning_dialog(parent, settings_tr("Error"), settings_tr("Cannot open the clipboard data in the selected folder. The current data is still in use."));
         return;
     }
     get_tool_settings_manager()->set_clipboard_db_path(new_db_path);
     refresh_open_clipboard_windows();
-    set_storage_path_label(dialog, new_db_path);
-    sync_single_file_toggle(dialog);
-    dialog->refresh_clipboard_size();
+    on_changed(new_db_path);
+}
 }
 
-void change_clipboard_data_location(SettingsDialog *dialog) {
+QThread *change_clipboard_data_location(QWidget *parent, std::function<void(const QString &)> on_changed) {
     auto &cm = ClipboardManager::instance();
     if (!cm.is_available()) {
-        show_warning_dialog(dialog, dialog->tr_text("Error"), dialog->tr_text("Clipboard module not available"));
-        return;
+        show_warning_dialog(parent, settings_tr("Error"), settings_tr("Clipboard module not available"));
+        return nullptr;
     }
     const QString current_db_path = cm.get_db_path().value_or(QString());
     if (current_db_path.isEmpty()) {
-        show_warning_dialog(dialog, dialog->tr_text("Error"), dialog->tr_text("Current clipboard database path is unavailable."));
-        return;
+        show_warning_dialog(parent, settings_tr("Error"), settings_tr("Current clipboard database path is unavailable."));
+        return nullptr;
     }
     const QString current_dir = parent_dir(current_db_path);
-    const QString target_dir = get_existing_directory(dialog, dialog->tr_text("Choose Clipboard Data Folder"), current_dir);
-    if (target_dir.isEmpty()) return;
+    const QString target_dir = get_existing_directory(parent, settings_tr("Choose Clipboard Data Folder"), current_dir);
+    if (target_dir.isEmpty()) return nullptr;
 
     const QString current_dir_norm = absolute_path(current_dir);
     const QString target_dir_norm = absolute_path(target_dir);
     if (current_dir_norm.compare(target_dir_norm, Qt::CaseInsensitive) == 0) {
-        show_info_dialog(dialog, dialog->tr_text("Info"), dialog->tr_text("The selected folder is already the current location."));
-        return;
+        show_info_dialog(parent, settings_tr("Info"), settings_tr("The selected folder is already the current location."));
+        return nullptr;
     }
     const QString images_dir = path_join(current_dir, "images");
     if (QFileInfo(images_dir).isDir()) {
         const QString images_dir_norm = absolute_path(images_dir);
         // The target is the images folder or inside it.
         if (target_dir_norm.compare(images_dir_norm, Qt::CaseInsensitive) == 0 || target_dir_norm.startsWith(images_dir_norm + "\\", Qt::CaseInsensitive)) {
-            show_warning_dialog(dialog, dialog->tr_text("Error"), dialog->tr_text("Please choose a folder outside the current clipboard images folder."));
-            return;
+            show_warning_dialog(parent, settings_tr("Error"), settings_tr("Please choose a folder outside the current clipboard images folder."));
+            return nullptr;
         }
     }
     if (target_has_clipboard_data(target_dir)) {
         const QVariant choice = show_custom_confirm_dialog(
-            dialog, dialog->tr_text("Existing Clipboard Data"),
-            dialog->tr_text("The selected folder already contains clipboard data.\n"
-                            "Use That Data: switch to it and leave the current data where it is.\n"
-                            "Replace: move the current data there; the data already in that folder will be deleted."),
-            {{"use", dialog->tr_text("Use That Data"), QDialogButtonBox::AcceptRole},
-             {"replace", dialog->tr_text("Replace"), QDialogButtonBox::DestructiveRole},
-             {"cancel", dialog->tr_text("Cancel"), QDialogButtonBox::RejectRole, true}});
-        if (choice.toString() == "use") switch_clipboard_data_location(dialog, current_db_path, target_dir);
-        if (choice.toString() != "replace") return;
+            parent, settings_tr("Existing Clipboard Data"),
+            settings_tr("The selected folder already contains clipboard data.\n"
+                        "Use That Data: switch to it and leave the current data where it is.\n"
+                        "Replace: move the current data there; the data already in that folder will be deleted."),
+            {{"use", settings_tr("Use That Data"), QDialogButtonBox::AcceptRole},
+             {"replace", settings_tr("Replace"), QDialogButtonBox::DestructiveRole},
+             {"cancel", settings_tr("Cancel"), QDialogButtonBox::RejectRole, true}});
+        if (choice.toString() == "use") switch_clipboard_data_location(parent, current_db_path, target_dir, on_changed);
+        if (choice.toString() != "replace") return nullptr;
     }
 
     close_open_clipboard_windows();
     if (!cm.release_storage()) {
-        show_warning_dialog(dialog, dialog->tr_text("Error"), dialog->tr_text("Failed to close the current clipboard database."));
-        return;
+        show_warning_dialog(parent, settings_tr("Error"), settings_tr("Failed to close the current clipboard database."));
+        return nullptr;
     }
 
-    auto *progress = new QProgressDialog(dialog->tr_text("Preparing migration..."), "", 0, 100, dialog);
-    progress->setWindowTitle(dialog->tr_text("Moving Clipboard Data"));
+    auto *progress = new QProgressDialog(settings_tr("Preparing migration..."), "", 0, 100, parent);
+    progress->setWindowTitle(settings_tr("Moving Clipboard Data"));
     progress->setCancelButton(nullptr);
     progress->setAutoClose(false);
     progress->setAutoReset(false);
@@ -391,10 +389,10 @@ void change_clipboard_data_location(SettingsDialog *dialog) {
 
     auto mover = std::make_shared<ClipboardStorageMover>(
         current_db_path, target_dir,
-        MoveTexts{dialog->tr_text("Finalizing migration..."), dialog->tr_text("Migration complete."), dialog->tr_text("No clipboard data files were found to move."),
-                  dialog->tr_text("Moving clipboard data... {done} / {total}")});
+        MoveTexts{settings_tr("Finalizing migration..."), settings_tr("Migration complete."), settings_tr("No clipboard data files were found to move."),
+                  settings_tr("Moving clipboard data... {done} / {total}")});
     QPointer<QProgressDialog> progress_guard(progress);
-    QPointer<SettingsDialog> dialog_guard(dialog);
+    QPointer<QWidget> parent_guard(parent);
     // The worker's calls are queued to the application object and run on the GUI thread.
     mover->progress = [progress_guard](int value, const QString &text) {
         QMetaObject::invokeMethod(qApp, [progress_guard, value, text] {
@@ -403,23 +401,24 @@ void change_clipboard_data_location(SettingsDialog *dialog) {
             progress_guard->setLabelText(text);
         }, Qt::QueuedConnection);
     };
-    mover->completed = [dialog_guard, progress_guard](const QString &new_path, const QString &cleanup_error) {
-        QMetaObject::invokeMethod(qApp, [dialog_guard, progress_guard, new_path, cleanup_error] {
-            on_clipboard_move_completed(dialog_guard, progress_guard, new_path, cleanup_error);
+    mover->completed = [parent_guard, progress_guard, on_changed](const QString &new_path, const QString &cleanup_error) {
+        QMetaObject::invokeMethod(qApp, [parent_guard, progress_guard, new_path, cleanup_error, on_changed] {
+            on_clipboard_move_completed(parent_guard, progress_guard, new_path, cleanup_error, on_changed);
         }, Qt::QueuedConnection);
     };
-    mover->failed = [dialog_guard, progress_guard, current_db_path](const QString &message) {
-        QMetaObject::invokeMethod(qApp, [dialog_guard, progress_guard, current_db_path, message] {
-            on_clipboard_move_failed(dialog_guard, progress_guard, current_db_path, message);
+    mover->failed = [parent_guard, progress_guard, current_db_path](const QString &message) {
+        QMetaObject::invokeMethod(qApp, [parent_guard, progress_guard, current_db_path, message] {
+            on_clipboard_move_failed(parent_guard, progress_guard, current_db_path, message);
         }, Qt::QueuedConnection);
     };
     // Not parented to the window: destroying a running thread with it would abort the process.
     QThread *worker = QThread::create([mover] { mover->run(); });
     QObject::connect(worker, &QThread::finished, worker, &QObject::deleteLater);
-    dialog->clipboard_move_thread = worker;
     worker->start();
+    return worker;
 }
 
+namespace {
 void open_clipboard_data_folder(SettingsDialog *dialog, const QString &path) {
     const QString folder = QFileInfo(path).isFile() ? parent_dir(path) : path;
     if (QFileInfo::exists(folder)) {
@@ -445,6 +444,51 @@ void clear_clipboard_history(SettingsDialog *dialog) {
         show_warning_dialog(dialog, dialog->tr_text("Error"), dialog->tr_text("Failed to clear clipboard history"));
     }
 }
+
+// The preset separators and Custom, whose text is typed into the field beside it with \n and \t escapes.
+void build_separator_card(SettingsDialog *dialog, SettingsCardGroup *grp) {
+    auto *card = new SettingCard(FluentIcon::Alignment, dialog->tr_text("Separator"), dialog->tr_text("Placed between the items pasted together"), grp);
+    auto *edit = new LineEdit(card);
+    edit->setPlaceholderText(window_tr("Custom, \\n for a new line"));
+    edit->setMinimumWidth(dialog_scaled(150));
+    auto *combo = new ComboBox(card);
+    for (const auto &[label, value] : clipboard::MULTI_PASTE_SEPARATORS()) combo->addItem(window_tr(label), value);
+    combo->addItem(dialog->tr_text("Custom"));
+    dialog->set_attr("clipboard_separator_combo", combo);
+    dialog->set_attr("clipboard_separator_edit", edit);
+    QObject::connect(combo, &QComboBox::currentIndexChanged, edit, [combo, edit] { edit->setVisible(!combo->currentData().isValid()); });
+    QObject::connect(combo, &QComboBox::activated, edit, [combo, edit] {
+        if (!combo->currentData().isValid()) edit->setFocus();
+    });
+    card->addControl(edit);
+    card->addControl(combo);
+    select_clipboard_separator(dialog, dialog->config_manager->get_clipboard_multi_paste_separator());
+    grp->addSettingCard(card);
+}
+}
+
+const std::set<QString> CLIPBOARD_BEHAVIOR_KEYS = {
+    "clipboard_open_position", "clipboard_group_bar_position", "clipboard_preserve_search", "clipboard_show_metadata",
+    "clipboard_display_lines", "clipboard_image_size", "clipboard_hide_grouped_in_history", "clipboard_auto_paste",
+    "clipboard_close_after_paste", "clipboard_move_to_top_on_paste", "clipboard_paste_with_html", "clipboard_multi_paste_order",
+    "clipboard_multi_paste_keep_merged",
+};
+
+QString clipboard_separator_value(const SettingsDialog *dialog) {
+    auto *combo = dialog->attr<QComboBox>("clipboard_separator_combo");
+    auto *edit = dialog->attr<QLineEdit>("clipboard_separator_edit");
+    if (!combo || !edit) return dialog->config_manager->get_clipboard_multi_paste_separator();
+    return combo->currentData().isValid() ? combo->currentData().toString() : clipboard::unescape_separator(edit->text());
+}
+
+void select_clipboard_separator(SettingsDialog *dialog, const QString &separator) {
+    auto *combo = dialog->attr<QComboBox>("clipboard_separator_combo");
+    auto *edit = dialog->attr<QLineEdit>("clipboard_separator_edit");
+    if (!combo || !edit) return;
+    const int preset = combo->findData(separator);
+    edit->setText(preset >= 0 ? QString() : clipboard::escape_separator(separator));
+    combo->setCurrentIndex(preset >= 0 ? preset : combo->count() - 1);
+    edit->setVisible(preset < 0);
 }
 
 QWidget *create_clipboard_page(SettingsDialog *dialog) {
@@ -474,36 +518,29 @@ QWidget *create_clipboard_page(SettingsDialog *dialog) {
     dialog->behavior_controls.emplace_back("clipboard_open_position", position_combo);
     position_card->addControl(position_combo);
     grp_basic->addSettingCard(position_card);
+
+    auto *bar_card = new SettingCard(FluentIcon::Layout, dialog->tr_text("Group Bar Position"), dialog->tr_text("Where the group bar sits in the clipboard window"), grp_basic);
+    choice_combo(dialog, bar_card, "clipboard_group_bar_position",
+                 {{dialog->tr_text("Right"), QString("right")}, {dialog->tr_text("Left"), QString("left")}, {dialog->tr_text("Top"), QString("top")}});
+    grp_basic->addSettingCard(bar_card);
+    add_switch_card(dialog, grp_basic, FluentIcon::Search, "Preserve Search on Reopen", "Keep the search text when the clipboard window opens again",
+                    "clipboard_preserve_search");
     layout->addWidget(grp_basic);
-
-    // ════ History ════
-    auto *grp_history = new SettingsCardGroup(dialog->tr_text("History"), view, "clipboard");
-    auto *limit_card = new SettingCard(FluentIcon::History, dialog->tr_text("History Limit"), dialog->tr_text("Maximum number of items to keep (0 = unlimited)"), grp_history);
-    auto *limit_spin = new SpinBox(limit_card);
-    limit_spin->setRange(0, 10000);
-    limit_spin->setValue(static_cast<int>(dialog->config_manager->get_clipboard_history_limit()));
-    dialog->set_attr("clipboard_history_limit_spin", limit_spin);
-    limit_card->addControl(limit_spin);
-    grp_history->addSettingCard(limit_card);
-    layout->addWidget(grp_history);
-
-    auto *grp_special_paste = new SettingsCardGroup(dialog->tr_text("Special Paste"), view, "clipboard");
-    auto *special_paste_card = new SettingCard(FluentIcon::Paste, dialog->tr_text("Special Paste Menu"),
-                                               dialog->tr_text("Choose which paste options appear and arrange their order."), grp_special_paste);
-    dialog->clipboard_special_paste_entries = special_paste::load(dialog->config_manager);
-    auto *manage_btn = new PushButton(dialog->tr_text("Manage"), special_paste_card);
-    dialog->set_attr("special_paste_manage_btn", manage_btn);
-    QObject::connect(manage_btn, &QPushButton::clicked, dialog, [dialog] { manage_special_paste(dialog); });
-    special_paste_card->addControl(manage_btn);
-    grp_special_paste->addSettingCard(special_paste_card);
-    layout->addWidget(grp_special_paste);
 
     // ════ Data ════
     auto *grp_data = new SettingsCardGroup(dialog->tr_text("Data"), view, "clipboard");
     auto *storage_card = new SettingCard(FluentIcon::Folder, dialog->tr_text("Data Storage Location"), get_clipboard_db_path(dialog), grp_data);
     dialog->set_attr("_clipboard_storage_card", storage_card);
     auto *change_folder_btn = new PushButton(dialog->tr_text("Change"), storage_card);
-    QObject::connect(change_folder_btn, &QPushButton::clicked, dialog, [dialog] { change_clipboard_data_location(dialog); });
+    QObject::connect(change_folder_btn, &QPushButton::clicked, dialog, [dialog] {
+        QPointer<SettingsDialog> guard(dialog);
+        dialog->clipboard_move_thread = change_clipboard_data_location(dialog, [guard](const QString &new_db_path) {
+            if (!guard) return;
+            set_storage_path_label(guard, new_db_path);
+            sync_single_file_toggle(guard);
+            guard->refresh_clipboard_size();
+        });
+    });
     auto *open_folder_btn = new PushButton(dialog->tr_text("Open"), storage_card);
     QObject::connect(open_folder_btn, &QPushButton::clicked, dialog, [dialog] { open_clipboard_data_folder(dialog, get_clipboard_db_path(dialog)); });
     storage_card->addControl(change_folder_btn);
@@ -538,9 +575,69 @@ QWidget *create_clipboard_page(SettingsDialog *dialog) {
     grp_data->addSettingCard(cleanup_card);
     layout->addWidget(grp_data);
 
+    // ════ List ════
+    auto *grp_list = new SettingsCardGroup(dialog->tr_text("List Display"), view, "clipboard");
+    add_switch_card(dialog, grp_list, FluentIcon::DateTime, "Show Time", "Show when each item was copied", "clipboard_show_metadata");
+    auto *lines_card = new SettingCard(FluentIcon::Alignment, dialog->tr_text("Max Display Lines"), dialog->tr_text("Longer text wraps onto at most this many lines"), grp_list);
+    std::vector<std::pair<QString, QVariant>> lines;
+    for (int count = 1; count <= 5; ++count) lines.emplace_back(window_tr("%n line(s)", count), count);
+    choice_combo(dialog, lines_card, "clipboard_display_lines", lines);
+    grp_list->addSettingCard(lines_card);
+    auto *image_card = new SettingCard(FluentIcon::Camera, dialog->tr_text("Image Size"), dialog->tr_text("Size of image thumbnails in the list"), grp_list);
+    choice_combo(dialog, image_card, "clipboard_image_size",
+                 {{dialog->tr_text("Small"), QString("small")}, {dialog->tr_text("Medium"), QString("medium")}, {dialog->tr_text("Large"), QString("large")}});
+    grp_list->addSettingCard(image_card);
+    add_switch_card(dialog, grp_list, FluentIcon::Hide, "Hide Grouped Items from All", "Items in a group no longer show in All; filter groups still list them",
+                    "clipboard_hide_grouped_in_history");
+    layout->addWidget(grp_list);
+
+    // ════ Paste ════
+    auto *grp_paste = new SettingsCardGroup(dialog->tr_text("Paste"), view, "clipboard");
+    add_switch_card(dialog, grp_paste, FluentIcon::Paste, "Auto Paste After Selection", "Automatically send Ctrl+V after selecting an item", "clipboard_auto_paste");
+    add_switch_card(dialog, grp_paste, FluentIcon::Close, "Close After Paste", "Turn off to paste several items in a row", "clipboard_close_after_paste");
+    add_switch_card(dialog, grp_paste, FluentIcon::History, "Move to Top After Paste", "A pasted item moves to the top of the history", "clipboard_move_to_top_on_paste");
+    add_switch_card(dialog, grp_paste, FluentIcon::Font, "Paste with Format", "Keep fonts, colors and links when pasting formatted text", "clipboard_paste_with_html");
+    layout->addWidget(grp_paste);
+
+    // ════ Multi-select paste ════
+    auto *grp_multi = new SettingsCardGroup(dialog->tr_text("Multi-Select Paste"), view, "clipboard");
+    build_separator_card(dialog, grp_multi);
+    auto *order_card = new SettingCard(FluentIcon::Sync, dialog->tr_text("Paste Order"), dialog->tr_text("The order the selected items are pasted in"), grp_multi);
+    choice_combo(dialog, order_card, "clipboard_multi_paste_order",
+                 {{dialog->tr_text("First Selected First"), QString("oldest_first")}, {dialog->tr_text("Last Selected First"), QString("newest_first")}});
+    grp_multi->addSettingCard(order_card);
+    add_switch_card(dialog, grp_multi, FluentIcon::Save, "Record Merged Content", "Add the combined content to the history as a new item",
+                    "clipboard_multi_paste_keep_merged");
+    layout->addWidget(grp_multi);
+
+    // ════ History ════
+    auto *grp_history = new SettingsCardGroup(dialog->tr_text("History"), view, "clipboard");
+    auto *limit_card = new SettingCard(FluentIcon::History, dialog->tr_text("History Limit"), dialog->tr_text("Maximum number of items to keep (0 = unlimited)"), grp_history);
+    auto *limit_spin = new SpinBox(limit_card);
+    limit_spin->setRange(0, 10000);
+    limit_spin->setValue(static_cast<int>(dialog->config_manager->get_clipboard_history_limit()));
+    dialog->set_attr("clipboard_history_limit_spin", limit_spin);
+    limit_card->addControl(limit_spin);
+    grp_history->addSettingCard(limit_card);
+    layout->addWidget(grp_history);
+
+    auto *grp_special_paste = new SettingsCardGroup(dialog->tr_text("Special Paste"), view, "clipboard");
+    auto *special_paste_card = new SettingCard(FluentIcon::Paste, dialog->tr_text("Special Paste Menu"),
+                                               dialog->tr_text("Choose which paste options appear and arrange their order."), grp_special_paste);
+    dialog->clipboard_special_paste_entries = special_paste::load(dialog->config_manager);
+    auto *manage_btn = new PushButton(dialog->tr_text("Manage"), special_paste_card);
+    dialog->set_attr("special_paste_manage_btn", manage_btn);
+    QObject::connect(manage_btn, &QPushButton::clicked, dialog, [dialog] { manage_special_paste(dialog); });
+    special_paste_card->addControl(manage_btn);
+    grp_special_paste->addSettingCard(special_paste_card);
+    layout->addWidget(grp_special_paste);
+
     auto *hint = new CaptionLabel(dialog->tr_text("💡 Hint: Set clipboard hotkey in Shortcuts settings."), view);
     hint->setStyleSheet("padding: 5px;");
     layout->addWidget(hint);
+    auto *appearance_hint = new CaptionLabel(dialog->tr_text("💡 The clipboard window's theme, font size and opacity are on the Appearance page."), view);
+    appearance_hint->setStyleSheet("padding: 5px;");
+    layout->addWidget(appearance_hint);
 
     layout->addStretch();
     scroll->setWidget(view);

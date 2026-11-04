@@ -64,6 +64,8 @@ public:
     void start_screenshot();
     void start_delayed_screenshot();
     void open_settings();
+    // Opens the settings window on one page (SettingsDialog::on_nav_changed's index and route).
+    void open_settings_page(int stack_index, const QString &route_key);
     void open_translator();
     void open_clipboard_window();
     // The tray switch: saves the setting and starts or stops the watcher. The hotkey and the recorded

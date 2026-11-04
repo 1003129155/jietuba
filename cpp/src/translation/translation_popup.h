@@ -10,6 +10,7 @@
 
 namespace jietuba {
 class EllipsisAnimator;
+class InputHub;
 class SpeechButton;
 class TextEdit;
 class VectorToolButton;
@@ -32,7 +33,12 @@ public:
     static constexpr int RESULT_MIN_HEIGHT = 44;
     static constexpr int RESULT_MAX_HEIGHT = 208;
 
+    static constexpr const char *WATCHER = "translation_popup";
+
     explicit TranslationPopup(QWidget *parent = nullptr);
+    ~TranslationPopup() override;
+    // Tests feed the clicks from a stub hub.
+    void set_input_hub(InputHub *hub) { hub_ = hub; }
     // Set the target language from outside.
     void set_target_lang(const QString &lang_code);
     const QString &current_target_lang() const { return target_lang_; }
@@ -75,6 +81,7 @@ protected:
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
     void hideEvent(QHideEvent *event) override;
+    void changeEvent(QEvent *event) override;
 
 private:
     void build_ui();
@@ -97,6 +104,9 @@ private:
     void copy_translation();
     void open_full();
     void hide_popup();
+    // The global mouse watcher behind translation_popup_auto_close, on only while the popup shows.
+    void watch_outside_clicks(bool on);
+    void on_global_press(const QPoint &global);
     QString speakable_result() const;
     void refresh_speech();
 
@@ -118,5 +128,8 @@ private:
     QString detected_for_text_;
     // The target language the shown translation was made for.
     QString result_lang_;
+    InputHub *hub_ = nullptr;
+    QMetaObject::Connection press_connection_;
+    bool watching_ = false;
 };
 }

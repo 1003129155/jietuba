@@ -266,10 +266,6 @@
         <translation>Global Hotkeys</translation>
     </message>
     <message>
-        <source>Screenshot Hotkey</source>
-        <translation>Screenshot</translation>
-    </message>
-    <message>
         <source>e.g.: ctrl+shift+a</source>
         <translation>e.g.: ctrl+shift+a</translation>
     </message>
@@ -1002,6 +998,14 @@ Replace it?</translation>
         <source>Keep original text formatting</source>
         <translation>Keep original text formatting</translation>
     </message>
+    <message>
+        <source>Close When Clicking Outside</source>
+        <translation>Close When Clicking Outside</translation>
+    </message>
+    <message>
+        <source>The translation popup opened by the shortcut closes when you click outside it or switch windows</source>
+        <translation>The translation popup opened by the shortcut closes when you click outside it or switch windows</translation>
+    </message>
     <message><source>Color Formats</source><translation>Color Formats</translation></message>
     <message><source>Which formats Shift cycles through on the magnifier, for C to copy.</source><translation>Which formats Shift cycles through on the magnifier, for C to copy.</translation></message>
     <message><source>Manage Color Formats</source><translation>Manage Color Formats</translation></message>
@@ -1390,10 +1394,6 @@ Replace it?</translation>
         <translation>Manage</translation>
     </message>
     <message>
-        <source>Screen Annotation Hotkey</source>
-        <translation>Screen Annotation</translation>
-    </message>
-    <message>
         <source>Keep Screen Annotations</source>
         <translation>Keep Screen Annotations</translation>
     </message>
@@ -1617,6 +1617,22 @@ Replace it?</translation>
         <source>Custom LLM-2</source>
         <translation>Custom LLM-2</translation>
     </message>
+    <message>
+        <source>Green Mode</source>
+        <translation>Portable mode</translation>
+    </message>
+    <message>
+        <source>Keep the settings in the program's folder; copy the whole folder to take them along.</source>
+        <translation>Keep the settings in the program's folder; copy the whole folder to take them along.</translation>
+    </message>
+    <message>
+        <source>The program's folder cannot be written to.</source>
+        <translation>The program's folder cannot be written to.</translation>
+    </message>
+    <message>
+        <source>Could not move the settings file: %1</source>
+        <translation>Could not move the settings file: %1</translation>
+    </message>
 </context>
 
 <context>
@@ -1652,6 +1668,10 @@ Replace it?</translation>
     <message>
         <source>Save Failed</source>
         <translation>Save Failed</translation>
+    </message>
+    <message>
+        <source>Saved: %1</source>
+        <translation>Saved: %1</translation>
     </message>
 </context>
 
@@ -1697,6 +1717,10 @@ Replace it?</translation>
     <message>
         <source>Save to file</source>
         <translation>Save to file</translation>
+    </message>
+    <message>
+        <source>Quick save: straight to the save folder, no dialog</source>
+        <translation>Quick save: straight to the save folder, no dialog</translation>
     </message>
     <message>
         <source>Copy image</source>
@@ -2583,7 +2607,6 @@ Replace it?</translation>
 <!-- ========== Translation Settings ========== -->
 <context>
     <name>SettingsDialog</name>
-    <message><source>Translation Hotkey</source><translation>Translation Hotkey</translation></message>
     <message><source>Pin Clipboard Image</source><translation>Create Pin Image</translation></message>
     <message>
         <source>Get your API key from DeepL website (free tier available)</source>
@@ -2808,6 +2831,14 @@ Replace it?</translation>
     <message>
         <source>Show Time</source>
         <translation>Show Time</translation>
+    </message>
+    <message>
+        <source>Hide Grouped Items from All</source>
+        <translation>Hide Grouped Items from All</translation>
+    </message>
+    <message>
+        <source>More Settings</source>
+        <translation>More Settings</translation>
     </message>
     <message>
         <source>Preserve Search on Reopen</source>
@@ -3897,6 +3928,138 @@ Items in the group will be moved back to clipboard history.</translation>
         <translation>Automatically send Ctrl+V after selecting an item</translation>
     </message>
     <message>
+        <source>Group Bar Position</source>
+        <translation>Group Bar Position</translation>
+    </message>
+    <message>
+        <source>Where the group bar sits in the clipboard window</source>
+        <translation>Where the group bar sits in the clipboard window</translation>
+    </message>
+    <message>
+        <source>Right</source>
+        <translation>Right</translation>
+    </message>
+    <message>
+        <source>Left</source>
+        <translation>Left</translation>
+    </message>
+    <message>
+        <source>Top</source>
+        <translation>Top</translation>
+    </message>
+    <message>
+        <source>Preserve Search on Reopen</source>
+        <translation>Preserve Search on Reopen</translation>
+    </message>
+    <message>
+        <source>Keep the search text when the clipboard window opens again</source>
+        <translation>Keep the search text when the clipboard window opens again</translation>
+    </message>
+    <message>
+        <source>List Display</source>
+        <translation>List Display</translation>
+    </message>
+    <message>
+        <source>Show Time</source>
+        <translation>Show Time</translation>
+    </message>
+    <message>
+        <source>Show when each item was copied</source>
+        <translation>Show when each item was copied</translation>
+    </message>
+    <message>
+        <source>Max Display Lines</source>
+        <translation>Max Display Lines</translation>
+    </message>
+    <message>
+        <source>Longer text wraps onto at most this many lines</source>
+        <translation>Longer text wraps onto at most this many lines</translation>
+    </message>
+    <message>
+        <source>Image Size</source>
+        <translation>Image Size</translation>
+    </message>
+    <message>
+        <source>Size of image thumbnails in the list</source>
+        <translation>Size of image thumbnails in the list</translation>
+    </message>
+    <message>
+        <source>Hide Grouped Items from All</source>
+        <translation>Hide Grouped Items from All</translation>
+    </message>
+    <message>
+        <source>Items in a group no longer show in All; filter groups still list them</source>
+        <translation>Items in a group no longer show in All; filter groups still list them</translation>
+    </message>
+    <message>
+        <source>Close After Paste</source>
+        <translation>Close After Paste</translation>
+    </message>
+    <message>
+        <source>Turn off to paste several items in a row</source>
+        <translation>Turn off to paste several items in a row</translation>
+    </message>
+    <message>
+        <source>Move to Top After Paste</source>
+        <translation>Move to Top After Paste</translation>
+    </message>
+    <message>
+        <source>A pasted item moves to the top of the history</source>
+        <translation>A pasted item moves to the top of the history</translation>
+    </message>
+    <message>
+        <source>Paste with Format</source>
+        <translation>Paste with Format</translation>
+    </message>
+    <message>
+        <source>Keep fonts, colors and links when pasting formatted text</source>
+        <translation>Keep fonts, colors and links when pasting formatted text</translation>
+    </message>
+    <message>
+        <source>Multi-Select Paste</source>
+        <translation>Multi-Select Paste</translation>
+    </message>
+    <message>
+        <source>Separator</source>
+        <translation>Separator</translation>
+    </message>
+    <message>
+        <source>Placed between the items pasted together</source>
+        <translation>Placed between the items pasted together</translation>
+    </message>
+    <message>
+        <source>Custom</source>
+        <translation>Custom</translation>
+    </message>
+    <message>
+        <source>Paste Order</source>
+        <translation>Paste Order</translation>
+    </message>
+    <message>
+        <source>The order the selected items are pasted in</source>
+        <translation>The order the selected items are pasted in</translation>
+    </message>
+    <message>
+        <source>First Selected First</source>
+        <translation>First Selected First</translation>
+    </message>
+    <message>
+        <source>Last Selected First</source>
+        <translation>Last Selected First</translation>
+    </message>
+    <message>
+        <source>Record Merged Content</source>
+        <translation>Record Merged Content</translation>
+    </message>
+    <message>
+        <source>Add the combined content to the history as a new item</source>
+        <translation>Add the combined content to the history as a new item</translation>
+    </message>
+    <message>
+        <source>💡 The clipboard window's theme, font size and opacity are on the Appearance page.</source>
+        <translation>💡 The clipboard window's theme, font size and opacity are on the Appearance page.</translation>
+    </message>
+    <message>
         <source>History Limit</source>
         <translation>History Limit</translation>
     </message>
@@ -4393,6 +4556,10 @@ This action cannot be undone.</translation>
         <translation>Save</translation>
     </message>
     <message>
+        <source>工具_快捷保存</source>
+        <translation>Quick save</translation>
+    </message>
+    <message>
         <source>工具_完成截图</source>
         <translation>Done</translation>
     </message>
@@ -4447,6 +4614,10 @@ This action cannot be undone.</translation>
     <message>
         <source>工具描述_保存</source>
         <translation>Save screenshot to a local file</translation>
+    </message>
+    <message>
+        <source>工具描述_快捷保存</source>
+        <translation>Save straight to the save folder, no dialog</translation>
     </message>
     <message>
         <source>工具描述_完成截图</source>
@@ -4857,6 +5028,34 @@ You can tweak more options in Settings anytime.</translation>
         <source>Custom LLM-2</source>
         <translation>Custom LLM-2</translation>
     </message>
+    <message>
+        <source>截图、钉图、剪贴板、翻译和屏幕标注各设一个快捷键。</source>
+        <translation>One hotkey each for screenshot, pin, clipboard, translation and screen annotation.</translation>
+    </message>
+    <message>
+        <source>点击输入框后，按下快捷键或鼠标侧键即可录入。备用快捷键可以在设置的「快捷键」页添加。</source>
+        <translation>Click a field, then press a key combination or a mouse side button. Backup hotkeys can be added on the Shortcuts page in Settings.</translation>
+    </message>
+    <message>
+        <source>截图、剪贴板记录和设置各自存在哪里，之后也可以在设置里改。</source>
+        <translation>Where screenshots, clipboard history and settings are kept. All of it can be changed later in Settings.</translation>
+    </message>
+    <message>
+        <source>存储位置</source>
+        <translation>Storage</translation>
+    </message>
+    <message>
+        <source>剪贴板数据</source>
+        <translation>Clipboard data</translation>
+    </message>
+    <message>
+        <source>剪贴板历史的数据库和图片都放在这个文件夹。</source>
+        <translation>The clipboard history’s database and images are kept in this folder.</translation>
+    </message>
+    <message>
+        <source>把托盘图标从「^」里拖到任务栏上，就能一直看到它。</source>
+        <translation>Drag the tray icon from the ^ menu onto the taskbar to keep it in view.</translation>
+    </message>
 </context>
 
 <!-- ========== GIF Record Toolbar ========== -->
@@ -5097,7 +5296,6 @@ SOFTWARE.</translation></message>
     <message><source>Storage</source><translation>Storage</translation></message>
     <!-- Translation page -->
     <!-- Missing from EN only -->
-    <message><source>Clipboard Hotkey</source><translation>Clipboard</translation></message>
     <!-- Changed strings (new code versions) -->
     <message><source>Save Format</source><translation>Save Format</translation></message>
     <message><source>OCR</source><translation>OCR</translation></message>
@@ -5391,6 +5589,10 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>Save</translation>
     </message>
     <message>
+        <source>Quick save</source>
+        <translation>Quick save</translation>
+    </message>
+    <message>
         <source>Copy</source>
         <translation>Copy</translation>
     </message>
@@ -5538,7 +5740,7 @@ Replace: move the current data there; the data already in that folder will be de
     </message>
     <message>
         <source>Recognized %1 characters</source>
-        <translation>Recognized %1 characters</translation>
+        <translation>%1 characters</translation>
     </message>
     <message>
         <source>No text found in the selection.</source>
@@ -5740,8 +5942,124 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>Copy directly next time</translation>
     </message>
     <message>
+        <source>Close after copying</source>
+        <translation>Close after copy</translation>
+    </message>
+    <message>
         <source>Copied %1 characters</source>
         <translation>Copied %1 characters</translation>
+    </message>
+    <message>
+        <source>Selected %1 characters</source>
+        <translation>Selected %1 characters</translation>
+    </message>
+    <message>
+        <source>Text</source>
+        <translation>Text</translation>
+    </message>
+    <message>
+        <source>Table</source>
+        <translation>Table</translation>
+    </message>
+    <message>
+        <source>%1 rows × %2 columns</source>
+        <translation>%1 rows × %2 columns</translation>
+    </message>
+    <message>
+        <source>Copy selected cells</source>
+        <translation>Copy selected cells</translation>
+    </message>
+    <message>
+        <source>Delete row</source>
+        <translation>Delete row</translation>
+    </message>
+    <message>
+        <source>Delete column</source>
+        <translation>Delete column</translation>
+    </message>
+    <message>
+        <source>Cut</source>
+        <translation>Cut</translation>
+    </message>
+    <message>
+        <source>Paste</source>
+        <translation>Paste</translation>
+    </message>
+    <message>
+        <source>Redo</source>
+        <translation>Redo</translation>
+    </message>
+    <message>
+        <source>Insert row above</source>
+        <translation>Insert row above</translation>
+    </message>
+    <message>
+        <source>Insert row below</source>
+        <translation>Insert row below</translation>
+    </message>
+    <message>
+        <source>Insert column left</source>
+        <translation>Insert column left</translation>
+    </message>
+    <message>
+        <source>Insert column right</source>
+        <translation>Insert column right</translation>
+    </message>
+    <message>
+        <source>Merge cells</source>
+        <translation>Merge cells</translation>
+    </message>
+    <message>
+        <source>Split cells</source>
+        <translation>Split cells</translation>
+    </message>
+    <message>
+        <source>Show row and column headers</source>
+        <translation>Show row and column headers</translation>
+    </message>
+    <message>
+        <source>Average: %1</source>
+        <translation>Average: %1</translation>
+    </message>
+    <message>
+        <source>Count: %1</source>
+        <translation>Count: %1</translation>
+    </message>
+    <message>
+        <source>Sum: %1</source>
+        <translation>Sum: %1</translation>
+    </message>
+    <message>
+        <source>Original image</source>
+        <translation>Original image</translation>
+    </message>
+    <message>
+        <source>Zoom in</source>
+        <translation>Zoom in</translation>
+    </message>
+    <message>
+        <source>Zoom out</source>
+        <translation>Zoom out</translation>
+    </message>
+    <message>
+        <source>Actual size</source>
+        <translation>Actual size</translation>
+    </message>
+    <message>
+        <source>Fit to window</source>
+        <translation>Fit to window</translation>
+    </message>
+    <message>
+        <source>Copy image</source>
+        <translation>Copy image</translation>
+    </message>
+    <message>
+        <source>Undo</source>
+        <translation>Undo</translation>
+    </message>
+    <message>
+        <source>Copied table (%1 rows × %2 columns)</source>
+        <translation>Copied table (%1 rows × %2 columns)</translation>
     </message>
 </context>
 <context>

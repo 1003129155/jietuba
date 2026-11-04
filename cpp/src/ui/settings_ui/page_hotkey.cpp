@@ -22,6 +22,8 @@ namespace {
 const std::vector<InAppKey> SCREENSHOT_KEYS = {
     {"inapp_confirm", "Copy to Clipboard", "ctrl+c"},
     {"inapp_pin", "Pin to Screen", "mousemiddle"},
+    {"inapp_save", "Save to File", "ctrl+s"},
+    {"inapp_quick_save", "Quick Save", "ctrl+shift+s"},
     {"inapp_delete", "Delete Selected", "delete"},
     {"inapp_restore_last_region", "Restore Last Region", "l"},
     {"inapp_zoom_in", "Magnifier Zoom In", "pageup"},
@@ -80,11 +82,12 @@ struct GlobalRow {
 
 const std::vector<GlobalRow> &GLOBAL_HOTKEY_ROWS() {
     static const std::vector<GlobalRow> rows = {
-        {"screenshot", "hotkey_input", "Screenshot Hotkey", "capture", FluentIcon::Camera},
-        {"clipboard", "clipboard_hotkey_edit", "Clipboard Hotkey", "clipboard", FluentIcon::Paste},
-        {"pin_clipboard", "pin_clipboard_hotkey_edit", "Pin Clipboard Image", "pin", FluentIcon::Pin},
-        {"translation", "translation_hotkey_edit", "Translation Hotkey", "translate", FluentIcon::Language},
-        {"screen_annotation", "screen_annotation_hotkey_edit", "Screen Annotation Hotkey", "capture", FluentIcon::Brush},
+        // Plain feature names, as the settings pages are named; the order is the default Ctrl+1 to Ctrl+5.
+        {"screenshot", "hotkey_input", "Screenshot", "capture", FluentIcon::Camera},
+        {"pin_clipboard", "pin_clipboard_hotkey_edit", "Pin", "pin", FluentIcon::Pin},
+        {"clipboard", "clipboard_hotkey_edit", "Clipboard", "clipboard", FluentIcon::Paste},
+        {"translation", "translation_hotkey_edit", "Translation", "translate", FluentIcon::Language},
+        {"screen_annotation", "screen_annotation_hotkey_edit", "Screen Annotation", "capture", FluentIcon::Brush},
     };
     return rows;
 }
@@ -339,6 +342,8 @@ IconSource inapp_icon(const QString &cfg_key) {
     static const QMap<QString, IconSource> icons = {
         {"inapp_confirm", QString::fromUtf8("确定.svg")},
         {"inapp_pin", QString::fromUtf8("钉图.svg")},
+        {"inapp_save", QString::fromUtf8("下载.svg")},
+        {"inapp_quick_save", QString::fromUtf8("快速保存.svg")},
         {"inapp_undo", QString::fromUtf8("撤回.svg")},
         {"inapp_redo", QString::fromUtf8("复原.svg")},
         {"inapp_delete", FluentIcon::Delete},

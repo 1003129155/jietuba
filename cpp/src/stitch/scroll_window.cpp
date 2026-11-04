@@ -605,7 +605,7 @@ void ScrollCaptureWindow::setup_input() {
 
 void ScrollCaptureWindow::on_screen_changed() {
     if (auto_scroller_->running()) return;
-    capture_when_still();
+    do_capture();
 }
 
 void ScrollCaptureWindow::toggle_auto_scroll() {

@@ -195,7 +195,7 @@ ctest --test-dir build\msvc -C Release --output-on-failure -E "_desktop$|_window
 │
 ├── cpp/                     # C++(Qt6) 구현
 │   ├── src/                 # 소스 코드, <패키지>/<모듈> 구조
-│   │   ├── annotation/      # 화면 실시간 주석 — 화면마다 한 레이어, 클릭 통과 전환, 화면 간 실행 취소
+│   │   ├── annotation/      # 화면 실시간 주석 — 모든 화면을 덮는 한 레이어, 클릭 통과 전환, 화면 간 이동
 │   │   ├── barcode/         # QR 코드/바코드 인식(zxing-cpp)
 │   │   ├── canvas/          # 캔버스 — 그래픽 편집 코어, 실행 취소, 레이어
 │   │   ├── capture/         # 캡처 — 화면 스크린샷, 창과 요소 인식

@@ -4,7 +4,6 @@
 #include <QMetaObject>
 #include <QMouseEvent>
 #include <QObject>
-#include <QPointer>
 #include <memory>
 #include <vector>
 
@@ -17,13 +16,13 @@ class AnnotationView;
 class CursorHighlight;
 class ScreenAnnotation;
 
-// Keys of the session while drawing: Esc returns to pass-through, undo and redo run across the
-// screens, and the capture tool keys pick tools.
+// Keys of the session while drawing: Esc returns to pass-through, undo and redo act on the layer, and
+// the capture tool keys pick tools.
 class ScreenAnnotationShortcutHandler : public ShortcutHandler {
 public:
     explicit ScreenAnnotationShortcutHandler(ScreenAnnotation *owner);
     QString handler_name() const override { return "ScreenAnnotation"; }
-    // The drawing layers, the toolbar and its floating panels.
+    // The drawing layer, the toolbar and its floating panels.
     bool owns_window(const QWidget *window) const override;
     bool is_active() override;
     bool handle_mouse(QMouseEvent *event) override { return handle_key(event); }
@@ -36,14 +35,12 @@ private:
     std::vector<std::pair<QString, QString>> tool_shortcuts_;
 };
 
-// The screen annotation session (#93): a drawing layer on every screen, a floating toolbar and the
+// The screen annotation session (#93): one drawing layer over every screen, a floating toolbar and the
 // capture tools that need no captured image.
-// PassThrough: the layers ignore the mouse (WS_EX_TRANSPARENT) and the focus stays where it was.
-// Drawing: a tool is active and the layers take the mouse; leaving gives the focus back to the window
+// PassThrough: the layer ignores the mouse (WS_EX_TRANSPARENT) and the focus stays where it was.
+// Drawing: a tool is active and the layer takes the mouse; leaving gives the focus back to the window
 // that had it, so keys such as a slide show's page keys keep working.
-// Hidden: the layers are off the screen and keep their drawings.
-// Each layer keeps its own undo stack; history_ records which layers each step changed, so undo and
-// redo follow the drawing order across screens.
+// Hidden: the layer is off the screen and keeps its drawings.
 class ScreenAnnotation : public QObject {
     Q_OBJECT
 public:
@@ -58,7 +55,7 @@ public:
     void toggle();
     void start();
     void stop();
-    // "cursor" is pass-through; another tool starts drawing on every screen.
+    // "cursor" is pass-through; another tool starts drawing.
     void select_tool(const QString &tool_id);
     void set_drawings_visible(bool visible);
     // A light around the pointer and a ring for every click, in pass-through too.
@@ -70,37 +67,37 @@ public:
     // below the pins: pass-through moves them on the board, a tool draws over them.
     void toggle_board();
     bool board_on() const { return board_; }
-    // One undo step that removes every drawing on every screen.
+    // One undo step that removes every drawing.
     void clear_drawings();
     void undo();
     void redo();
-    bool can_undo() const { return !history_.empty(); }
-    bool can_redo() const { return !redo_.empty(); }
+    bool can_undo() const;
+    bool can_redo() const;
     // Before a capture: back to pass-through with the hit layer off the screen, so the capture window
     // is not covered and the captured pixels are not darkened by it. The drawings and the board are captured.
     void prepare_for_capture();
-    const std::vector<AnnotationView *> &views() const { return views_; }
+    AnnotationView *view() const { return view_; }
     AnnotationToolbar *toolbar() const { return toolbar_; }
-    // The layer drawn on last (keys, toolbar syncing); the one under the pointer before that.
-    AnnotationView *active_view() const;
-    // Whether widget's window is a layer, the toolbar or one of its floating windows.
+    // Whether widget's window is the layer, the toolbar or one of its floating windows.
     bool owns_window(const QWidget *widget) const;
 signals:
     void mode_changed(ScreenAnnotation::Mode mode);
 private:
-    // "Keep Screen Annotations": leaving hides the layers instead of removing them.
+    // "Keep Screen Annotations": leaving hides the layer instead of removing it.
     bool keep_drawings() const;
-    void discard_views();
-    void add_view(QScreen *screen);
-    void remove_view(AnnotationView *view);
+    void discard_view();
+    void create_view();
+    // The layer follows the screens; connected for every screen of the session.
+    void watch_screen(QScreen *screen);
+    void fit_view();
     void connect_toolbar();
     void on_tool_changed(const QString &tool_id);
     void enter_drawing(const QString &tool_id);
     void enter_pass_through(bool restore_focus);
     void set_mode(Mode mode);
     void apply_board();
-    // Puts the boards right below this application's windows that are kept on top.
-    void stack_boards();
+    // Puts the board right below this application's windows that are kept on top.
+    void stack_board();
     void on_pin_created();
     void sync_effect_buttons();
     void sync_toolbar_style();
@@ -108,26 +105,19 @@ private:
     void remember_foreground();
     void restore_foreground();
     void on_application_state_changed(Qt::ApplicationState state);
-    void on_stack_index_changed(AnnotationView *view, int index);
-    AnnotationView *view_under_cursor() const;
-    // Applies f to every layer, as the toolbar's style signals do.
+    // Applies f to the layer when there is one, as the toolbar's style signals do.
     template <class F>
-    void for_each_view(F &&f) {
-        for (auto *view : views_) f(view);
+    void with_view(F &&f) {
+        if (view_) f(view_);
     }
 
     Mode mode_ = Mode::Off;
     CursorHighlight *highlight_ = nullptr;
     bool board_ = false;
-    std::vector<AnnotationView *> views_;
+    AnnotationView *view_ = nullptr;
     AnnotationToolbar *toolbar_ = nullptr;
-    QPointer<AnnotationView> active_view_;
     std::unique_ptr<ScreenAnnotationShortcutHandler> shortcuts_;
     quintptr previous_foreground_ = 0;
-    std::vector<std::vector<AnnotationView *>> history_, redo_;
-    QHash<AnnotationView *, int> stack_index_;
-    // Set while the session itself moves a stack, so the index signals are not taken as new steps.
-    bool coordinating_ = false;
     std::vector<QMetaObject::Connection> session_connections_;
 };
 }

@@ -21,6 +21,7 @@ private slots:
         QVERIFY(env_.fresh_database());
         env_.config->set_clipboard_show_metadata(true);
         env_.config->set_clipboard_move_to_top_on_paste(true);
+        env_.config->set_clipboard_hide_grouped_in_history(false);
         env_.config->set_clipboard_auto_paste(true);
         env_.config->set_clipboard_multi_paste_order("oldest_first");
         env_.config->set_clipboard_multi_paste_separator("\n");
@@ -144,7 +145,7 @@ private slots:
         Q_UNUSED(ids);
     }
 
-    void searchInsideAGroupLooksAtEveryPage() {
+    void searchAndFiltersInsideAGroupApplyBeforePaging() {
         const auto group = manager().create_group("Notes");
         QVERIFY(group);
         QStringList texts;
@@ -153,15 +154,24 @@ private slots:
         for (qint64 id : add_texts(texts)) QVERIFY(manager().move_to_group(id, *group));
         const auto titled = manager().add_item("body", "text", QString("Needle title"));
         QVERIFY(manager().move_to_group(*titled, *group));
+        const auto image = manager().add_item("[10x10]", "image");
+        QVERIFY(image && manager().move_to_group(*image, *group));
         ClipboardController controller(manager());
         controller.switch_to_group(*group);
         QCOMPARE(controller.current_items.size(), 38);
+        // Matches past the first page come on the first page, whatever the list's height.
         controller.set_search_text("NEEDLE");
-        // The first page has no match, yet more pages remain to be searched.
-        QVERIFY(controller.current_items.isEmpty());
-        QVERIFY(controller.has_more_items());
-        controller.load_more_if_needed();
         QCOMPARE(contents_of(controller.current_items), (QStringList{"needle at the end", "body"}));
+        QVERIFY(!controller.has_more_items());
+        controller.set_search_text("");
+        // The type button and the time range narrow a group as they do the history.
+        controller.set_content_type_filter(QString("image"));
+        QCOMPARE(contents_of(controller.current_items), QStringList{"[10x10]"});
+        controller.set_content_type_filter(std::nullopt);
+        QVERIFY(controller.set_time_range_text("2000/01/01-2000/01/02"));
+        QVERIFY(controller.current_items.isEmpty());
+        QVERIFY(controller.set_time_range_text(""));
+        QCOMPARE(controller.current_items.size(), 38);
     }
 
     void groupsSwitchMoveAndDelete() {
@@ -222,6 +232,9 @@ private slots:
         controller.switch_to_group(*plain);
         QVERIFY(!controller.shows_history());
         QVERIFY(!controller.current_filter_rule());
+        // There the type button, still on file, narrows the list again.
+        QVERIFY(controller.current_items.isEmpty());
+        controller.set_content_type_filter(std::nullopt);
         QCOMPARE(contents_of(controller.current_items), QStringList{"banana"});
     }
 
@@ -489,6 +502,55 @@ private slots:
 
         QVERIFY(controller.clear_history());
         QVERIFY(controller.current_items.isEmpty());
+    }
+
+    void theHistoryCanLeaveOutGroupedItems() {
+        const auto group = manager().create_group("Saved");
+        const auto ids = add_texts({"select * from", "loose", "select 1"});
+        QVERIFY(manager().move_to_group(ids[0], *group));
+        ClipboardController controller(manager());
+        controller.load_history();
+        QCOMPARE(ids_of(controller.current_items), (QList<qint64>{ids[2], ids[1], ids[0]}));
+
+        controller.set_hide_grouped_in_history(true);
+        QVERIFY(env_.config->get_clipboard_hide_grouped_in_history());
+        QCOMPARE(ids_of(controller.current_items), (QList<qint64>{ids[2], ids[1]}));
+        controller.set_search_text("select");
+        QCOMPARE(ids_of(controller.current_items), QList<qint64>{ids[2]});
+        controller.set_search_text("");
+        // The group still lists them, and a filter group matches by its rule alone.
+        controller.switch_to_group(*group);
+        QCOMPARE(ids_of(controller.current_items), QList<qint64>{ids[0]});
+        const auto texts = manager().create_group("Texts", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILTER), FilterRule::of_kind("text"));
+        controller.switch_to_group(*texts);
+        QCOMPARE(controller.current_items.size(), 3);
+
+        // Moving into a group takes the row out of the history at once.
+        controller.switch_to_group(std::nullopt);
+        QSignalSpy removed(&controller, &ClipboardController::item_removed);
+        QVERIFY(controller.move_to_group(ids[1], *group));
+        QCOMPARE(removed.size(), 1);
+        QCOMPARE(ids_of(controller.current_items), QList<qint64>{ids[2]});
+
+        // Copying grouped content again moves the grouped row up instead of adding one; it stays out.
+        QSignalSpy inserted(&controller, &ClipboardController::item_inserted);
+        QSignalSpy loaded(&controller, &ClipboardController::data_loaded);
+        QCOMPARE(manager().add_item("select * from"), ids[0]);
+        auto copied = *manager().get_item(ids[0]);
+        QCOMPARE(copied.group_id, group);
+        // The watcher's item is the capture, which knows no group.
+        copied.group_id.reset();
+        controller.on_new_content(true, copied);
+        QCOMPARE(inserted.size(), 0);
+        QCOMPARE(loaded.size(), 0);
+        QCOMPARE(ids_of(controller.current_items), QList<qint64>{ids[2]});
+        const auto fresh = manager().add_item("fresh");
+        controller.on_new_content(true, manager().get_item(*fresh));
+        QCOMPARE(inserted.size(), 1);
+        QCOMPARE(ids_of(controller.current_items), (QList<qint64>{*fresh, ids[2]}));
+
+        controller.set_hide_grouped_in_history(false);
+        QCOMPARE(ids_of(controller.current_items), (QList<qint64>{*fresh, ids[0], ids[2], ids[1]}));
     }
 
     void clearingKeepsPinnedAndGroupedItems() {

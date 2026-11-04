@@ -43,6 +43,7 @@ public:
     void set_theme(const Theme &theme);
     void set_font_size(int size);
     void set_display_lines(int lines) { display_lines_ = std::clamp(lines, 1, 5); }
+    int display_lines() const { return display_lines_; }
     // Follows the toolbar and panel scale: fonts rebuilt, sizes computed while painting.
     void apply_scale() { rebuild_font_cache(); }
     // Shows or hides the time at the end of the first line.
@@ -62,6 +63,7 @@ public:
     // The circle at the start of a one-line text row while anything is marked: filled with a check when marked, hollow otherwise.
     QRectF mark_circle_rect(const QRect &row_rect) const;
     static void clear_thumb_cache();
+    static int cached_thumb_count();
 
     void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override;
     QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override;

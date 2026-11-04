@@ -279,6 +279,7 @@ QVector<OcrLine> SnippingToolOcr::recognize(const QImage &source) {
             if (words_complete && !words.isEmpty()) {
                 out.vertical = words_run_vertically(out.box, words);
                 out.chars = spans_from_words(out.text, line_frame(out.box, out.vertical), words);
+                out.words = words;
             }
             lines.append(out);
         }

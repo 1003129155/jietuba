@@ -37,6 +37,7 @@ public:
     void set_auto_paste(bool enabled);
     void set_paste_with_html(bool enabled);
     void set_move_to_top_on_paste(bool enabled);
+    void set_hide_grouped_in_history(bool enabled);
 
     // Reloads from the first page.
     void load_history();
@@ -59,6 +60,8 @@ public:
     std::optional<FilterRule> current_filter_rule() const;
     // History and filter groups follow the history rules; real groups do not.
     bool shows_history() const;
+    // The history (not a filter group) leaves out items that belong to a group.
+    bool hides_grouped() const;
     void switch_to_group(std::optional<qint64> group_id);
     // Asks first when parent_widget is given; tr translates in the caller's context.
     bool delete_group(qint64 group_id, QWidget *parent_widget = nullptr, const std::function<QString(const char *)> &tr = {});
@@ -131,7 +134,7 @@ signals:
 
 private:
     int page_size() const;
-    std::pair<QList<ClipboardItem>, int> fetch_items_page(int limit, qint64 offset);
+    QList<ClipboardItem> fetch_items_page(int limit, qint64 offset);
     void send_paste_keystroke(bool explicit_paste);
     void on_multi_paste_finished(const QList<qint64> &used, bool move_to_top, bool explicit_paste);
     void move_items_to_top(const QList<qint64> &item_ids);

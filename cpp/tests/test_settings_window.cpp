@@ -1,4 +1,5 @@
 #include "core/data_location.h"
+#include "settings/data_folder.h"
 #include "core/elevation.h"
 #include "core/i18n.h"
 #include "core/resource_manager.h"
@@ -22,6 +23,7 @@
 #include "ui/settings_ui/pages.h"
 #include "ui/settings_ui/search.h"
 #include "ui/toolbar_layout.h"
+#include "ui/welcome/demo_paint.h"
 #include "ui/welcome/pages.h"
 #include "ui/welcome/wizard.h"
 #include "caption_check.h"
@@ -936,13 +938,47 @@ private slots:
         }
     }
 
+    // New settings take Ctrl+1 to Ctrl+5; settings from earlier versions keep the hotkeys they had.
+    void olderSettingsKeepTheirHotkeyDefaults() {
+        const auto open = [&](const QString &name, const std::function<void(QSettings &)> &before) {
+            QFile::remove(dir_.filePath(name));
+            auto settings = std::make_unique<QSettings>(dir_.filePath(name), QSettings::IniFormat);
+            before(*settings);
+            return settings;
+        };
+        const auto hotkeys = [](ToolSettingsManager &config) {
+            return QStringList{config.get_hotkey(), config.get_pin_clipboard_hotkey(), config.get_clipboard_hotkey(),
+                               config.get_translation_hotkey(), config.get_screen_annotation_hotkey()};
+        };
+        {
+            auto fresh = open("fresh.ini", [](QSettings &) {});
+            ToolSettingsManager config(*fresh);
+            config.keep_older_hotkey_defaults();
+            QCOMPARE(hotkeys(config), QStringList({"ctrl+1", "ctrl+2", "ctrl+3", "ctrl+4", "ctrl+5"}));
+            QVERIFY(!fresh->contains("clipboard/hotkey"));
+        }
+        // Run before, or any setting stored: an earlier version. What the user set stays.
+        for (const auto &before : std::vector<std::function<void(QSettings &)>>{
+                 [](QSettings &s) { s.setValue("app/has_run_before", true); }, [](QSettings &s) { s.setValue("app/translation_hotkey", "f3"); }}) {
+            auto older = open("older.ini", before);
+            ToolSettingsManager config(*older);
+            const QString translation = config.get_translation_hotkey() == "f3" ? "f3" : "";
+            config.keep_older_hotkey_defaults();
+            QCOMPARE(hotkeys(config), QStringList({"ctrl+1", "", "ctrl+2", translation, ""}));
+            // Once only: a hotkey removed later takes the new default.
+            older->remove("clipboard/hotkey");
+            config.keep_older_hotkey_defaults();
+            QCOMPARE(config.get_clipboard_hotkey(), QString("ctrl+3"));
+        }
+    }
+
     // Until the third clipboard slot is saved it follows the old switch, without writing.
     void winVMigrationFollowsTheOldSwitch() {
         // A repeated run (check.ps1 -Mode Leak) would find the slots the first run saved.
         QFile::remove(dir_.filePath("migration.ini"));
         QSettings settings(dir_.filePath("migration.ini"), QSettings::IniFormat);
         ToolSettingsManager config(settings);
-        QCOMPARE(config.get_global_hotkeys("clipboard"), QStringList({"ctrl+2", "", "win+v", ""}));
+        QCOMPARE(config.get_global_hotkeys("clipboard"), QStringList({"ctrl+3", "", "win+v", ""}));
         QVERIFY(!settings.contains("clipboard/hotkey_3"));
         config.set_app_setting("clipboard_take_over_win_v", false);
         QCOMPARE(config.get_global_hotkeys("clipboard")[2], QString());
@@ -1105,7 +1141,7 @@ private slots:
         QVERIFY(keys.contains("app/screenshot_toolbar_layout"));
         QVERIFY(keys.contains("pin/toolbar_layout"));
         // Settings no page shows stay out: the window could never show what was imported.
-        for (const char *key : {"clipboard/show_metadata", "clipboard/preserve_search", "gif/fps", "app/screenshot_quality"})
+        for (const char *key : {"app/clipboard_window_width", "clipboard/starter_groups_seeded", "gif/fps", "app/screenshot_quality"})
             QVERIFY2(!keys.contains(key), key);
         for (const auto &key : LOCAL_SETTING_PATHS()) QVERIFY2(!keys.contains(key), qPrintable(key));
         // A control a page edits by name has its setting imported.
@@ -1122,11 +1158,11 @@ private slots:
             other.setValue("app/log_level", "DEBUG");
             other.setValue("app/screenshot_save_path", other_dir);
             other.setValue("app/program_path", QDir(other_dir).filePath("jietuba.exe"));
-            other.setValue("clipboard/show_metadata", true);
+            other.setValue("app/clipboard_window_width", 999);
         }
         const auto values = settings_transfer::read_settings_file(path);
         QCOMPARE(values.value("app/log_level").toString(), QString("DEBUG"));
-        for (const char *key : {"app/screenshot_save_path", "app/program_path", "clipboard/show_metadata"}) QVERIFY2(!values.contains(key), key);
+        for (const char *key : {"app/screenshot_save_path", "app/program_path", "app/clipboard_window_width"}) QVERIFY2(!values.contains(key), key);
         dialog.load_imported_settings(values);
         QCOMPARE(dialog.attr<QComboBox>("log_level_combo")->currentText(), QString("DEBUG"));
         QVERIFY(!dialog.has_unsaved_changes());
@@ -1190,6 +1226,81 @@ private slots:
         QCOMPARE(config_->get_app_setting("screenshot_toolbar_layout").toString(), screenshot_layout);
         QCOMPARE(config_->get_app_setting("pin_toolbar_layout").toString(), pin_layout);
         QVERIFY(config_->settings().contains("pin/toolbar_layout"));
+    }
+
+    // What the clipboard window's menu sets is on the clipboard page too, saved and reset with it.
+    void theClipboardPageCarriesTheWindowMenuSettings() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.on_nav_changed(2, "clipboard");
+        for (const auto &key : CLIPBOARD_BEHAVIOR_KEYS) QVERIFY2(dialog.behavior_control(key), qPrintable(key));
+        auto *lines = qobject_cast<QComboBox *>(dialog.behavior_control("clipboard_display_lines"));
+        auto *bar = qobject_cast<QComboBox *>(dialog.behavior_control("clipboard_group_bar_position"));
+        auto *hide = qobject_cast<SwitchSettingCard *>(dialog.behavior_control("clipboard_hide_grouped_in_history"));
+        auto *auto_paste = qobject_cast<SwitchSettingCard *>(dialog.behavior_control("clipboard_auto_paste"));
+        auto *separator = dialog.attr<QComboBox>("clipboard_separator_combo");
+        auto *custom = dialog.attr<QLineEdit>("clipboard_separator_edit");
+        QVERIFY(lines && bar && hide && auto_paste && separator && custom);
+        QCOMPARE(lines->count(), 5);
+        lines->setCurrentIndex(lines->findData(3));
+        bar->setCurrentIndex(bar->findData(QString("left")));
+        hide->setChecked(true);
+        auto_paste->setChecked(false);
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_clipboard_display_lines(), 3);
+        QCOMPARE(config_->get_clipboard_group_bar_position(), QString("left"));
+        QVERIFY(config_->get_clipboard_hide_grouped_in_history());
+        QVERIFY(!config_->get_clipboard_auto_paste());
+        QVERIFY(dialog.saved_keys().contains("clipboard_display_lines"));
+
+        // A separator outside the presets is typed beside Custom, \n for a line break.
+        QVERIFY(custom->isHidden());
+        separator->setCurrentIndex(separator->count() - 1);
+        QVERIFY(!custom->isHidden());
+        custom->setText("\\n--\\n");
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_clipboard_multi_paste_separator(), QString("\n--\n"));
+        QVERIFY(dialog.saved_keys().contains("clipboard_separator"));
+        // Changed in the window's menu meanwhile, the page shows it when it opens again.
+        config_->set_clipboard_multi_paste_separator(", ");
+        config_->set_clipboard_image_size("large");
+        dialog.hide();
+        dialog.show();
+        QCOMPARE(separator->currentData().toString(), QString(", "));
+        QVERIFY(custom->isHidden());
+        QCOMPARE(qobject_cast<QComboBox *>(dialog.behavior_control("clipboard_image_size"))->currentData().toString(), QString("large"));
+        config_->set_clipboard_multi_paste_separator("; ");
+        dialog.hide();
+        dialog.show();
+        QVERIFY(!custom->isHidden());
+        QCOMPARE(custom->text(), QString("; "));
+
+        reset_page(dialog);
+        QCOMPARE(lines->currentData().toInt(), 1);
+        QCOMPARE(bar->currentData().toString(), QString("top"));
+        QVERIFY(!hide->isChecked());
+        QVERIFY(auto_paste->isChecked());
+        QCOMPARE(separator->currentData().toString(), QString("\n"));
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_clipboard_display_lines(), 1);
+        QCOMPARE(config_->get_clipboard_image_size(), QString("small"));
+        QCOMPARE(config_->get_clipboard_multi_paste_separator(), QString("\n"));
+        QVERIFY(!config_->get_clipboard_hide_grouped_in_history());
+        dialog.hide();
+    }
+
+    void thePopupAutoCloseSwitchSavesAndResets() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.on_nav_changed(4, "translation");
+        auto *toggle = dialog.attr<SwitchSettingCard>("translation_auto_close_toggle");
+        QVERIFY(toggle);
+        QVERIFY(!toggle->isChecked());
+        toggle->setChecked(true);
+        QVERIFY(dialog.apply_settings());
+        QVERIFY(config_->get_translation_popup_auto_close());
+        reset_page(dialog);
+        QVERIFY(!toggle->isChecked());
+        QVERIFY(dialog.apply_settings());
+        QVERIFY(!config_->get_translation_popup_auto_close());
     }
 
     // Test Connection and Fetch Models use the form's unsaved values.
@@ -1300,7 +1411,7 @@ private slots:
 
     void wizardNavigatesAcrossEveryPage() {
         WelcomeWizard wizard(config_);
-        QCOMPARE(wizard.page_count(), 8);
+        QCOMPARE(wizard.page_count(), 5);
         QCOMPARE(wizard.current_page(), 0);
         wizard.go_to_page(3);
         QCOMPARE(wizard.current_page(), 3);
@@ -1314,137 +1425,274 @@ private slots:
         VERIFY_STANDARD_CAPTION(wizard);
     }
 
-    // A conflicting hotkey keeps its stored value; an empty main hotkey keeps the old one.
+    // One main hotkey per function, in the settings window's order. A conflicting hotkey keeps
+    // its stored value; an empty screenshot hotkey keeps the old one, the others clear.
     void wizardHotkeyPageSkipsConflicts() {
         config_->set_hotkey("ctrl+1");
+        config_->set_hotkey_2("f1");
         config_->set_translation_hotkey("");
+        config_->set_pin_clipboard_hotkey("ctrl+2");
         HotkeyPage page(config_);
         auto edits = page.findChildren<HotkeyEdit *>();
-        QCOMPARE(edits.size(), 6);
-        // Order: screenshot, clipboard and translation, each main then alternate.
-        edits[4]->setText("ctrl+1");
+        QCOMPARE(edits.size(), 5);
+        QCOMPARE(edits[0]->text(), QString("ctrl+1"));
+        QCOMPARE(edits[1]->text(), QString("ctrl+2"));
+        // Translation taking the screenshot's key is not written.
+        edits[3]->setText("ctrl+1");
         page.save();
         QCOMPARE(config_->get_hotkey(), QString("ctrl+1"));
         QCOMPARE(config_->get_translation_hotkey(), QString(""));
-        edits[4]->setText("ctrl+7");
+        edits[3]->setText("ctrl+7");
         edits[0]->setText("");
+        edits[1]->setText("");
         page.save();
         QCOMPARE(config_->get_hotkey(), QString("ctrl+1"));
         QCOMPARE(config_->get_translation_hotkey(), QString("ctrl+7"));
+        QCOMPARE(config_->get_pin_clipboard_hotkey(), QString(""));
+        // The settings window's further slots stay as they are.
+        QCOMPARE(config_->get_hotkey_2(), QString("f1"));
+        config_->set_hotkey_2("");
     }
 
-    void wizardScreenshotPageSaves() {
-        config_->set_screenshot_format("PNG");
-        ScreenshotHotkeyPage page(config_);
-        auto *combo = page.findChild<QComboBox *>();
-        QVERIFY(combo);
-        combo->setCurrentIndex(combo->findData("WEBP"));
+    // Saving off greys out the folder; the folder is written with the page.
+    void wizardStoragePageSavesTheScreenshotFolder() {
+        const QString folder = dir_.filePath("shots");
+        StoragePage page(config_);
+        auto *autosave = page.findChildren<WelcomeToggleSwitch *>().first();
+        QLineEdit *path = nullptr;
+        for (auto *edit : page.findChildren<QLineEdit *>())
+            if (!edit->isReadOnly()) path = edit;
+        QVERIFY(path);
+        autosave->setChecked(false);
+        QVERIFY(!path->isEnabled());
+        autosave->setChecked(true);
+        QVERIFY(path->isEnabled());
+        path->setText(QDir::toNativeSeparators(folder));
         page.save();
-        QCOMPARE(config_->get_screenshot_format(), QString("WEBP"));
-        // Detection precision sits in the smart selection card and is greyed out while it is off.
-        QComboBox *precision = nullptr;
-        for (auto *candidate : page.findChildren<QComboBox *>())
-            if (candidate->findData("element") >= 0) precision = candidate;
-        QVERIFY(precision);
-        auto *smart = page.findChildren<WelcomeToggleSwitch *>().last();
-        smart->setChecked(true);
-        precision->setCurrentIndex(precision->findData("element"));
-        page.save();
-        QCOMPARE(config_->get_smart_selection_mode(), QString("element"));
-        smart->setChecked(false);
-        QVERIFY(!precision->isEnabled());
-        page.save();
-        QCOMPARE(config_->get_smart_selection_mode(), QString("off"));
-        config_->set_smart_selection_mode("window");
+        QCOMPARE(QDir::fromNativeSeparators(config_->get_screenshot_save_path()), folder);
+        QVERIFY(QFileInfo(folder).isDir());
+        QVERIFY(config_->get_screenshot_save_enabled());
+        // The settings file it shows is where the settings are.
+        bool shown = false;
+        for (auto *edit : page.findChildren<QLineEdit *>())
+            shown = shown || edit->text() == QDir::toNativeSeparators(data_location().settings_file());
+        QVERIFY(shown);
+        page.retranslate();
     }
 
-    // Every tool of the capture toolbar shows in the screenshot page's preview, and only those.
-    void wizardToolPreviewCoversTheCaptureToolbar() {
-        const QStringList preview = screenshot_preview_tools();
-        QStringList expected;
-        for (const auto &key : toolbar_layout::default_order())
-            if (key != "undo" && key != "redo" && key != "cancel") expected.append(key);
-        QCOMPARE(QSet<QString>(preview.begin(), preview.end()), QSet<QString>(expected.begin(), expected.end()));
-        QCOMPARE(preview.size(), expected.size());
+    // Green mode moves the settings file between the program's folder and %APPDATA%, the
+    // running program going on with the moved file.
+    void greenModeMovesTheSettingsFile() {
+        const DataLocation original = data_location();
+        const auto restore = qScopeGuard([original] { set_data_location(original); });
+        QTemporaryDir root;
+        const QString program = root.filePath("program"), roaming = root.filePath("roaming");
+        QDir().mkpath(program);
+        QDir().mkpath(roaming + "/Jietuba");
+        const QString appdata_file = roaming + "/Jietuba/settings.ini", beside_file = program + "/settings.ini";
+        QSettings start(appdata_file, QSettings::IniFormat);
+        ToolSettingsManager config(start);
+        config.set_hotkey("ctrl+9");
+        QVERIFY(data_folder::move_settings_file(config, true, program, roaming).isEmpty());
+        QVERIFY(QFileInfo(beside_file).isFile());
+        QVERIFY(!QFileInfo::exists(appdata_file));
+        QVERIFY(data_location().beside_program);
+        QCOMPARE(QDir::cleanPath(data_location().settings_file()), QDir::cleanPath(beside_file));
+        QCOMPARE(QSettings(beside_file, QSettings::IniFormat).value("app/hotkey").toString(), QString("ctrl+9"));
+        // Later writes go to the moved file, which the next start finds first.
+        config.set_hotkey("ctrl+8");
+        config.qsettings.sync();
+        QCOMPARE(QSettings(beside_file, QSettings::IniFormat).value("app/hotkey").toString(), QString("ctrl+8"));
+        QVERIFY(resolve_data_location(program, roaming).beside_program);
+        // Again is nothing to do.
+        QVERIFY(data_folder::move_settings_file(config, true, program, roaming).isEmpty());
+        // Off, nothing is left beside the program.
+        QVERIFY(data_folder::move_settings_file(config, false, program, roaming).isEmpty());
+        QVERIFY(!QFileInfo::exists(beside_file));
+        QCOMPARE(QSettings(appdata_file, QSettings::IniFormat).value("app/hotkey").toString(), QString("ctrl+8"));
+        QVERIFY(!data_location().beside_program);
+        QVERIFY(!resolve_data_location(program, roaming).beside_program);
+        // A folder that cannot be made changes nothing.
+        QFile blocker(root.filePath("blocked"));
+        QVERIFY(blocker.open(QIODevice::WriteOnly));
+        blocker.close();
+        QVERIFY(!data_folder::folder_writable(root.filePath("blocked")));
+        QVERIFY(!data_folder::move_settings_file(config, true, root.filePath("blocked"), roaming).isEmpty());
+        QVERIFY(QFileInfo(appdata_file).isFile());
+        QVERIFY(!data_location().beside_program);
     }
 
-    // The screen annotation hotkey shares the hotkey page's duplicate check; a duplicate keeps the stored value.
-    void wizardAnnotationHotkeyJoinsTheConflictCheck() {
-        const auto restore = qScopeGuard([this] { config_->set_app_setting("screen_annotation_hotkey", ""); });
-        WelcomeWizard wizard(config_);
-        auto *hotkeys = wizard.findChild<HotkeyPage *>();
-        auto *annotation = wizard.findChild<ScreenAnnotationPage *>();
-        QVERIFY(hotkeys && annotation);
-        auto *screenshot_edit = hotkeys->findChildren<HotkeyEdit *>().first();
-        auto *annotation_edit = annotation->hotkey_edits().front();
-        QVERIFY(annotation_edit->text().isEmpty());
-        annotation_edit->setText(screenshot_edit->text());
-        QVERIFY(!annotation_edit->validation_error().isEmpty());
-        QVERIFY(!screenshot_edit->validation_error().isEmpty());
-        annotation->save();
-        QCOMPARE(config_->get_global_hotkeys("screen_annotation").first(), QString());
-        annotation_edit->setText("ctrl+alt+shift+f9");
-        QVERIFY(annotation_edit->validation_error().isEmpty());
-        QVERIFY(screenshot_edit->validation_error().isEmpty());
-        annotation->save();
-        QCOMPARE(config_->get_global_hotkeys("screen_annotation").first(), QString("ctrl+alt+shift+f9"));
-    }
-
-    // Mouse shortcuts are written back; two actions sharing a gesture keep their stored bindings.
+    // All global mouse shortcuts save; conflicting actions keep their stored bindings.
     void wizardMousePageSavesBindingsAndSkipsConflicts() {
         const auto restore = qScopeGuard([this] {
             for (const auto &action : QUICK_CAPTURE_ACTIONS()) config_->set_app_setting(QString("quick_capture_") + action.key, action.binding);
         });
+        config_->set_app_setting("quick_capture_scan_code", "ctrl+alt+dragright");
         MouseShortcutPage page(config_);
         const auto editors = page.findChildren<MouseBindingEditor *>();
-        QCOMPARE(editors.size(), static_cast<qsizetype>(QUICK_CAPTURE_ACTIONS().size()));
-        const auto editor_for = [&](const QString &key) {
-            for (size_t i = 0; i < QUICK_CAPTURE_ACTIONS().size(); ++i)
-                if (key == QUICK_CAPTURE_ACTIONS()[i].key) return editors[static_cast<qsizetype>(i)];
-            return static_cast<MouseBindingEditor *>(nullptr);
-        };
-        QCOMPARE(editor_for("pin")->currentData(), QString("win+dragleft"));
-        QVERIFY(editor_for("scan_code"));
-        QVERIFY(editor_for("scan_code")->currentData().isEmpty());
-        editor_for("scan_code")->setBinding("ctrl+alt+dragright");
+        QCOMPARE(editors.size(), 7);
+        const auto copy = editors[0], pin = editors[1], ocr = editors[3];
+        QCOMPARE(pin->currentData(), QString("win+dragleft"));
         QLabel *conflict = nullptr;
         for (auto *label : page.findChildren<QLabel *>())
             if (label->styleSheet().contains("#D9534F")) conflict = label;
         QVERIFY(conflict && conflict->isHidden());
-        editor_for("ocr")->setBinding("ctrl+win+dragleft");
-        editor_for("copy")->setBinding("win+dragleft");
+        // Taking the scan action's gesture is a conflict too.
+        ocr->setBinding("ctrl+alt+dragright");
         QVERIFY(!conflict->isHidden());
+        QVERIFY(conflict->text().contains(settings_tr("Scan QR code / barcode")));
+        page.save();
+        QCOMPARE(get_quick_capture_binding(config_, "ocr"), QString(""));
+        QCOMPARE(get_quick_capture_binding(config_, "scan_code"), QString("ctrl+alt+dragright"));
+        ocr->setBinding("ctrl+win+dragleft");
+        copy->setBinding("win+dragleft");
         QVERIFY(conflict->text().contains(settings_tr("Pin to Screen")));
         page.save();
         QCOMPARE(get_quick_capture_binding(config_, "ocr"), QString("ctrl+win+dragleft"));
-        QCOMPARE(get_quick_capture_binding(config_, "scan_code"), QString("ctrl+alt+dragright"));
         QCOMPARE(get_quick_capture_binding(config_, "copy"), QString(""));
         QCOMPARE(get_quick_capture_binding(config_, "pin"), QString("win+dragleft"));
-        editor_for("pin")->setBinding("");
+        pin->setBinding("");
         QVERIFY(conflict->isHidden());
         page.save();
         QCOMPARE(get_quick_capture_binding(config_, "copy"), QString("win+dragleft"));
         QCOMPARE(get_quick_capture_binding(config_, "pin"), QString(""));
+        editors[2]->setBinding("shift+win+dragmiddle");
+        editors[5]->setBinding("alt+win+dragx1");
+        editors[6]->setBinding("ctrl+win+dragx2");
+        page.save();
+        QCOMPARE(get_quick_capture_binding(config_, "copy_pin"), QString("shift+win+dragmiddle"));
+        QCOMPARE(get_quick_capture_binding(config_, "scan_code"), QString("alt+win+dragx1"));
+        QCOMPARE(get_quick_capture_binding(config_, "edit"), QString("ctrl+win+dragx2"));
+    }
+
+    void wizardMouseGridFitsEveryLanguage() {
+        if (QGuiApplication::platformName() != "windows") QSKIP("Needs desktop fonts.");
+        const QString language = I18nManager::get_current_language();
+        const int scale = get_dialog_scale().percent();
+        const QString saved_language = config_->get_language();
+        const auto restore = qScopeGuard([&] {
+            get_dialog_scale().set_percent(scale);
+            config_->set_language(saved_language);
+            I18nManager::load_language(language);
+        });
+        for (int percent : {100, 150, 200}) {
+            get_dialog_scale().set_percent(percent);
+            for (const QString &lang : {QString("zh"), QString("zh_TW"), QString("en"), QString("ja"), QString("ko")}) {
+                config_->set_language(lang);
+                WelcomeWizard wizard(config_);
+                wizard.setAttribute(Qt::WA_DontShowOnScreen);
+                wizard.show();
+                wizard.go_to_page(2);
+                QTest::qWait(80);
+                auto *page = wizard.findChild<MouseShortcutPage *>();
+                page->set_animation_time(1400);
+                const QString out = qEnvironmentVariable("JIETUBA_SETTINGS_SHOTS");
+                if (!out.isEmpty() && percent == 100)
+                    QVERIFY(wizard.grab().save(QDir(out).filePath(QString("mouse_grid_%1.png").arg(lang))));
+                const auto editors = page->findChildren<MouseBindingEditor *>();
+                QCOMPARE(editors.size(), 7);
+                const QPoint left = editors[0]->mapTo(page, QPoint()), right = editors[1]->mapTo(page, QPoint());
+                QCOMPARE(left.y(), right.y());
+                QVERIFY(right.x() > left.x() + editors[0]->width());
+                QCOMPARE(editors[6]->width(), editors[0]->width());
+                for (auto *editor : editors) {
+                    QVERIFY(page->rect().contains(QRect(editor->mapTo(page, QPoint()), editor->size())));
+                    for (auto *combo : {editor->modifiers, editor->gesture}) {
+                        for (int item = 0; item < combo->count(); ++item) {
+                            const QString text = combo->itemText(item);
+                            QVERIFY2(combo->width() >= combo->fontMetrics().horizontalAdvance(text) + dialog_scaled(8),
+                                     qPrintable(QString("%1 %2%%: %3 needs %4, has %5").arg(lang).arg(percent).arg(text)
+                                                    .arg(combo->fontMetrics().horizontalAdvance(text) + dialog_scaled(8)).arg(combo->width())));
+                        }
+                    }
+                }
+                for (auto *label : page->findChildren<QLabel *>()) {
+                    if (!label->isVisible()) continue;
+                    QVERIFY(page->rect().contains(QRect(label->mapTo(page, QPoint()), label->size())));
+                    QVERIFY2(label->height() >= label->heightForWidth(label->width()),
+                             qPrintable(QString("%1 %2%%: %3 needs height %4, has %5 at width %6").arg(lang).arg(percent).arg(label->text())
+                                            .arg(label->heightForWidth(label->width())).arg(label->height()).arg(label->width())));
+                }
+                wizard.hide();
+            }
+        }
     }
 
     // The two new demos paint through every phase of their loop.
     void wizardDemosPaintEveryPhase() {
         MouseShortcutPage mouse(config_);
-        ScreenAnnotationPage annotation(config_);
-        for (BasePage *page : std::initializer_list<BasePage *>{&mouse, &annotation}) {
-            page->resize(900, 560);
-            page->show();
+        mouse.resize(900, 560);
+        mouse.show();
+        QImage previous;
+        for (int ms : {0, 600, 1400, 2200, 2800, 4000, 5500}) {
+            mouse.set_animation_time(ms);
+            const QImage frame = mouse.illus_area->grab().toImage();
+            QVERIFY(!frame.isNull());
+            if (ms == 1400) QVERIFY(frame != previous);
+            previous = frame;
+        }
+        mouse.hide();
+    }
+
+    // The stage demos of the welcome, hotkey, storage and finish pages paint through their loops,
+    // and the row or card beside the stage is lit for what plays.
+    void wizardStageDemosPaintAndLightTheirRow() {
+        config_->set_hotkey("ctrl+alt+shift+f10");
+        config_->set_pin_clipboard_hotkey("ctrl+alt+shift+f9");
+        const auto restore = qScopeGuard([this] { config_->set_pin_clipboard_hotkey(""); });
+        WelcomeWizard wizard(config_);
+        wizard.setAttribute(Qt::WA_DontShowOnScreen);
+        wizard.show();
+        const auto stage_demo = [&wizard](int page) -> welcome_demo::LoopingDemo * {
+            wizard.go_to_page(page);
+            for (auto *widget : wizard.findChildren<QWidget *>())
+                if (auto *demo = dynamic_cast<welcome_demo::LoopingDemo *>(widget); demo && demo->isVisible()) return demo;
+            return nullptr;
+        };
+        for (int page : {0, 1, 3, 4}) {
+            auto *demo = stage_demo(page);
+            QVERIFY2(demo, qPrintable(QString::number(page)));
             QImage previous;
-            for (int ms : {0, 600, 1400, 2200, 2800, 4000, 5500}) {
-                if (page == &mouse) mouse.set_animation_time(ms);
-                else annotation.set_animation_time(ms);
-                const QImage frame = page->illus_area->grab().toImage();
+            int distinct = 0;
+            for (int ms = 0; ms < 9000; ms += 300) {
+                demo->set_time(ms);
+                const QImage frame = demo->grab().toImage();
                 QVERIFY(!frame.isNull());
-                if (ms == 1400) QVERIFY(frame != previous);
+                distinct += frame != previous;
                 previous = frame;
             }
-            page->hide();
+            QVERIFY2(distinct >= 15, qPrintable(QString("page %1: %2").arg(page).arg(distinct)));
         }
+        // Hotkeys: the screenshot plays first, then the pin; the rows follow.
+        auto *hotkeys = stage_demo(1);
+        const auto lit_rows = [&wizard] {
+            QList<int> lit;
+            const auto rows = wizard.findChild<HotkeyPage *>()->findChildren<QWidget *>("ListRow");
+            for (int i = 0; i < rows.size(); ++i)
+                if (rows[i]->property("listRowCurrent").toBool()) lit << i;
+            return lit;
+        };
+        hotkeys->set_time(100);
+        QCOMPARE(lit_rows(), QList<int>{0});
+        hotkeys->set_time(2600 + 100);
+        QCOMPARE(lit_rows(), QList<int>{1});
+        // Storage: screenshots, the clipboard, then the settings file.
+        auto *storage = stage_demo(3);
+        const auto lit_cards = [&wizard] {
+            QList<int> lit;
+            int index = 0;
+            for (auto *card : wizard.findChild<StoragePage *>()->findChildren<QWidget *>("SettingRow")) {
+                if (card->property("welcomeRowCurrent").toBool()) lit << index;
+                ++index;
+            }
+            return lit;
+        };
+        for (int slot : {0, 1, 2}) {
+            storage->set_time(slot * 3000 + 100);
+            QCOMPARE(lit_cards(), QList<int>{slot});
+        }
+        wizard.retranslate_ui();
+        wizard.hide();
     }
 
     // The shared switch follows the window scale only, and its knob stays centred at any size.
@@ -1502,7 +1750,7 @@ private slots:
         wizard.show();
         QVERIFY(QTest::qWaitForWindowExposed(&wizard));
         auto steps = wizard.findChildren<StepItem *>();
-        QCOMPARE(steps.size(), 8);
+        QCOMPARE(steps.size(), 5);
         QTest::mouseClick(steps[2], Qt::LeftButton);
         QCOMPARE(wizard.current_page(), 2);
         steps[1]->setFocus();
@@ -1542,7 +1790,7 @@ private slots:
         wizard.hide();
     }
 
-    // Focusing a hotkey slot lights its keys on the keyboard map.
+    // Focusing a hotkey slot plays its function alone on the stage and lights its row.
     void wizardHotkeyMapFollowsTheFocusedSlot() {
         config_->set_hotkey("ctrl+shift+a");
         WelcomeWizard wizard(config_);
@@ -1554,19 +1802,31 @@ private slots:
         auto *page = wizard.findChild<HotkeyPage *>();
         QVERIFY(page);
         auto edits = page->findChildren<HotkeyEdit *>();
-        QCOMPARE(edits.size(), 6);
-        const QImage idle = page->grab().toImage();
-        edits[0]->edit->setFocus();
+        QCOMPARE(edits.size(), 5);
+        welcome_demo::LoopingDemo *demo = nullptr;
+        for (auto *widget : page->illus_area->findChildren<QWidget *>())
+            if (auto *found = dynamic_cast<welcome_demo::LoopingDemo *>(widget)) demo = found;
+        QVERIFY(demo);
+        const auto lit_row = [page] {
+            const auto rows = page->findChildren<QWidget *>("ListRow");
+            for (int i = 0; i < rows.size(); ++i)
+                if (rows[i]->property("listRowCurrent").toBool()) return i;
+            return -1;
+        };
+        // The screenshot plays first; the clipboard slot, even unset, takes over once focused.
+        demo->set_time(1500);
+        QCOMPARE(lit_row(), 0);
+        const QImage idle = page->illus_area->grab().toImage();
+        edits[2]->setText("");
+        edits[2]->edit->setFocus();
         QApplication::processEvents();
-        QVERIFY(edits[0]->edit->hasFocus());
-        const QImage focused = page->grab().toImage();
-        QVERIFY(focused != idle);
-        // Typing into the slot changes the lit keys with it.
-        edits[0]->setText("alt+x1");
-        QApplication::processEvents();
-        QVERIFY(page->grab().toImage() != focused);
+        QVERIFY(edits[2]->edit->hasFocus());
+        demo->set_time(1500);
+        QCOMPARE(lit_row(), 2);
+        QVERIFY(page->illus_area->grab().toImage() != idle);
         edits[1]->edit->setFocus();
         QApplication::processEvents();
+        QCOMPARE(lit_row(), 1);
         page->retranslate();
         wizard.hide();
     }
@@ -1601,30 +1861,6 @@ private slots:
         lang->setCurrentIndex(original >= 0 ? original : 0);
         wizard.hide();
         config_->set_app_setting("language", language);
-    }
-
-    // The translation page shows one credential form per provider and saves the choice.
-    void wizardTranslationPageSwitchesProviders() {
-        TranslationPage page(config_);
-        page.show();
-        auto *stack = page.findChild<QStackedWidget *>();
-        QVERIFY(stack);
-        auto combos = page.findChildren<QComboBox *>();
-        QComboBox *providers = nullptr;
-        for (auto *combo : combos)
-            if (combo->count() == stack->count()) providers = combo;
-        QVERIFY(providers);
-        QSet<QWidget *> forms;
-        for (int index = 0; index < providers->count(); ++index) {
-            providers->setCurrentIndex(index);
-            forms.insert(stack->currentWidget());
-            QVERIFY(!page.grab().isNull());
-        }
-        QCOMPARE(forms.size(), providers->count());
-        providers->setCurrentIndex(0);
-        page.retranslate();
-        page.save();
-        QCOMPARE(config_->get_translation_provider(), providers->currentData().toString());
     }
 
     // "Reset This Page" asks, then puts the shown page back to the defaults and saves them.
@@ -2233,6 +2469,22 @@ private slots:
         QKeyEvent with_ctrl(QEvent::KeyPress, Qt::Key_K, Qt::ControlModifier);
         QApplication::sendEvent(edit, &with_ctrl);
         QCOMPARE(edit->text(), QString("ctrl+k"));
+    }
+
+    // Save and quick save sit on the screenshot tab, and their defaults take no other capture key.
+    void saveKeysSitOnTheScreenshotTab() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        auto *stack = dialog.findChild<QStackedWidget *>("InAppShortcutStack");
+        QVERIFY(stack);
+        for (const auto &[key, value] : {std::pair{"inapp_save", "ctrl+s"}, std::pair{"inapp_quick_save", "ctrl+shift+s"}}) {
+            auto *edit = dialog.inapp_edit(key);
+            QVERIFY(edit);
+            QVERIFY(stack->widget(0)->isAncestorOf(edit));
+            QCOMPARE(edit->text(), QString(value));
+            QCOMPARE(dialog.inapp_groups.value(key), QString("screenshot"));
+            for (const auto &[other_key, other] : dialog.inapp_edits)
+                if (other_key != key && dialog.inapp_groups.value(other_key) == "screenshot") QVERIFY2(other->text() != value, qPrintable(other_key));
+        }
     }
 
     void undoAndRedoBelongToAnnotationTools() {

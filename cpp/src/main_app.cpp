@@ -97,6 +97,8 @@ MainApp::MainApp(int &argc, char **argv) : app(std::make_unique<QApplication>(ar
     // The reference also installs a main-thread Python garbage collector here; C++ has none.
 
     config_manager = get_tool_settings_manager();
+    // Before anything else writes to the settings, which would make a new install look old.
+    config_manager->keep_older_hotkey_defaults();
     data_folder::align_startup(*config_manager, QCoreApplication::applicationFilePath());
 
     // The UI theme must exist before any window; the capture accent colour is managed
@@ -489,9 +491,12 @@ void MainApp::on_settings_accepted(SettingsDialog *accepted_window) {
     if (saved.contains("clipboard_enabled_toggle")) set_clipboard_monitoring_enabled(config_manager->get_clipboard_enabled());
     if (accepted_window->hotkeys_saved()) update_hotkey(true);
     if (saved.contains("capture_engine_combo")) apply_capture_engine(config_manager->get_capture_engine());
+    if (saved.contains("translation_target_combo") && TranslationManager::has_instance())
+        TranslationManager::instance()->apply_target_lang(config_manager->get_translation_target_lang());
     if (clipboard_window) {
         clipboard_window->load_settings();
         clipboard_window->controller->load_settings();
+        clipboard_window->apply_saved_settings(saved);
         if (clipboard_manager) clipboard_manager->apply_history_limit();
     }
     PinManager::instance()->refresh_all_appearance();
@@ -551,6 +556,13 @@ void MainApp::open_settings() {
     settings_window->show();
     settings_window->raise();
     settings_window->activateWindow();
+}
+
+void MainApp::open_settings_page(int stack_index, const QString &route_key) {
+    if (update_preparing) return;
+    if (!settings_window) preload_settings();
+    settings_window->restore_view_state({stack_index, route_key});
+    open_settings();
 }
 
 void MainApp::open_translator() {
@@ -630,7 +642,10 @@ void MainApp::open_clipboard_window() {
             clipboard_window->close();
             return;
         }
-        if (!clipboard_window) clipboard_window = new clipboard::ClipboardWindow;
+        if (!clipboard_window) {
+            clipboard_window = new clipboard::ClipboardWindow;
+            connect(clipboard_window, &clipboard::ClipboardWindow::settings_requested, this, [this] { open_settings_page(2, "clipboard"); });
+        }
         if (screenshot_window && screenshot_window->session_active()) {
             attach_clipboard_to_capture();
             // The text being typed stays in view while picking what goes into it.

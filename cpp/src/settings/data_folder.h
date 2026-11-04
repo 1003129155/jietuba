@@ -59,6 +59,19 @@ void align_startup(ToolSettingsManager &config, const QString &program,
                    const std::function<StartupEntries(bool)> &read_entries = read_startup_entries,
                    const std::function<void(bool)> &write_run_entry = set_autostart);
 
+// Green mode: the settings file beside the program, so copying the program's folder takes the
+// settings along; otherwise it is in roaming_dir\Jietuba. Moves the file there, removes the old
+// copy and switches config and data_location() to it. The settings this computer keeps in the
+// registry (Local) stay where they are. Empty on success, else what went wrong; nothing changes then.
+QString move_settings_file(ToolSettingsManager &config, bool beside_program, const QString &program_dir, const QString &roaming_dir);
+// Whether a file can be created in the folder.
+bool folder_writable(const QString &dir);
+// Where green mode keeps the settings: the program's folder; inside the test sandbox a folder of the
+// sandbox, so tests never write beside the test program.
+QString green_mode_dir();
+// move_settings_file for this program, between green_mode_dir() and %APPDATA%.
+QString set_green_mode(ToolSettingsManager &config, bool on);
+
 // migrate and align_startup run before the log file opens; their messages wait for this.
 void write_deferred_log();
 QStringList deferred_log_text();

@@ -33,6 +33,9 @@ pub struct PyClipboardItem {
     pub char_count: Option<i64>,
     pub created_at: i64,
     pub updated_at: i64,
+    /// 所在的分组，未分组为 None；只从库里读出，写入时不看它
+    #[serde(default)]
+    pub group_id: Option<i64>,
 }
 
 impl PyClipboardItem {
@@ -53,6 +56,7 @@ impl PyClipboardItem {
             char_count: None,
             created_at: now,
             updated_at: now,
+            group_id: None,
         }
     }
 }

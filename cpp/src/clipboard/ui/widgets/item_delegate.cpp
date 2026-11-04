@@ -4,7 +4,7 @@
 #include "core/resource_manager.h"
 #include "core/ui_scale.h"
 #include "ui/fluent_lite/icons.h"
-#include <QHash>
+#include <QCache>
 #include <QListWidget>
 #include <QPainter>
 #include <QPainterPath>
@@ -56,8 +56,10 @@ QColor parse_rgba(const QString &rgba_str) {
     return QColor(r, g, b, static_cast<int>(a * 255));
 }
 
-QHash<QString, std::optional<QPixmap>> &thumb_cache() {
-    static QHash<QString, std::optional<QPixmap>> cache;
+// Painting a row would decode its thumbnail every time without it; the loaded pages stay well below the limit,
+// and the clipboard window empties it when it hides.
+QCache<QString, std::optional<QPixmap>> &thumb_cache() {
+    static QCache<QString, std::optional<QPixmap>> cache(256);
     return cache;
 }
 
@@ -316,6 +318,8 @@ void ClipboardItemDelegate::rebuild_color_cache() {
 
 void ClipboardItemDelegate::clear_thumb_cache() { thumb_cache().clear(); }
 
+int ClipboardItemDelegate::cached_thumb_count() { return static_cast<int>(thumb_cache().count()); }
+
 void ClipboardItemDelegate::rebuild_font_cache() {
     const int size = font_size();
     content_font_ = QFont();
@@ -469,14 +473,14 @@ QSize ClipboardItemDelegate::sizeHint(const QStyleOptionViewItem &option, const 
 
 std::optional<QPixmap> ClipboardItemDelegate::get_thumbnail(const QString &data_url) {
     auto &cache = thumb_cache();
-    if (const auto found = cache.constFind(data_url); found != cache.constEnd()) return *found;
+    if (const auto *cached = cache.object(data_url)) return *cached;
     std::optional<QPixmap> result;
     if (data_url.startsWith("data:image") && data_url.contains(u',')) {
         QPixmap pixmap;
         pixmap.loadFromData(QByteArray::fromBase64(data_url.mid(data_url.indexOf(u',') + 1).toLatin1()));
         result = pixmap;
     }
-    cache.insert(data_url, result);
+    cache.insert(data_url, new std::optional<QPixmap>(result));
     return result;
 }
 }

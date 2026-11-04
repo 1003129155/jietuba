@@ -28,7 +28,7 @@ public:
     ~PointerLight();
     PointerLight(const PointerLight &) = delete;
     PointerLight &operator=(const PointerLight &) = delete;
-    // The pointer in scene coordinates, or nullopt while it is on another screen.
+    // The pointer in scene coordinates, or nullopt while it is off the layer.
     void set_pointer(const std::optional<QPointF> &pos, bool pressed);
     // The disc alone, where it is.
     void set_pressed(bool pressed);
@@ -51,8 +51,8 @@ private:
     qreal size_ = 1.0;
 };
 
-// Shows the light on the layers from the input hub's mouse events: the position and the buttons come
-// from the system hook, so it works while the layers pass the mouse through, nothing runs while the
+// Shows the light on the layer from the input hub's mouse events: the position and the buttons come
+// from the system hook, so it works while the layer passes the mouse through, nothing runs while the
 // pointer rests, and a click shorter than a frame is not missed. A timer runs only while a ring spreads.
 // A hook installed after ours can keep the events from it (a live wallpaper does while the desktop has
 // the focus), so the system's cursor location events move the light as well.
@@ -61,9 +61,9 @@ class CursorHighlight : public QObject {
 public:
     explicit CursorHighlight(QObject *parent = nullptr);
     ~CursorHighlight() override;
-    // The layers that show the light; each gets its own PointerLight while enabled.
-    void set_views(const std::vector<AnnotationView *> &views);
-    // Starts or ends listening to the hub and takes the light off the layers when it ends. Starting reads
+    // The layer that shows the light, with a PointerLight of its own while enabled.
+    void set_view(AnnotationView *view);
+    // Starts or ends listening to the hub and takes the light off the layer when it ends. Starting reads
     // the size and whether clicks leave rings (screen_annotation_highlight_size, _click_ripples).
     void set_enabled(bool enabled);
     // small, medium or large as a share of the default size.
@@ -82,7 +82,7 @@ private:
     void show_at(const QPoint &global);
     void animate();
     InputHub *hub() const;
-    std::vector<AnnotationView *> views_;
+    AnnotationView *view_ = nullptr;
     InputHub *hub_ = nullptr;
     bool enabled_ = false;
     QMetaObject::Connection moved_connection_, button_connection_;

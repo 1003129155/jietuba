@@ -100,14 +100,24 @@ void PinFileSelection::repaint() const {
     if (pin_ && pin_->view) pin_->view->viewport()->update();
 }
 
+void PinFileSelection::set_drop_target(int index) {
+    if (index == drop_target_) return;
+    drop_target_ = index;
+    repaint();
+}
+
 void PinFileSelection::paint(QPainter *painter) const {
     if (!in_effect()) return;
+    const auto outline_of = [](const QRectF &cell) {
+        QPainterPath outline;
+        outline.addRoundedRect(cell.adjusted(INSET, INSET, -INSET, -INSET), RADIUS, RADIUS);
+        return outline;
+    };
     // An outline and a checked corner rather than a fill, so the card reads the same; grey on an inactive pin.
     const QColor color = pin_->has_keyboard_focus() ? get_theme().theme_color() : QColor(0xa0, 0xa0, 0xa0);
-    const auto draw = [painter, &color](const QRectF &cell) {
+    const auto draw = [painter, &color, &outline_of](const QRectF &cell) {
         const QRectF r = cell.adjusted(INSET, INSET, -INSET, -INSET);
-        QPainterPath outline;
-        outline.addRoundedRect(r, RADIUS, RADIUS);
+        const QPainterPath outline = outline_of(cell);
         QPainterPath corner;
         corner.moveTo(r.right(), r.bottom() - BADGE);
         corner.lineTo(r.right(), r.bottom());
@@ -132,6 +142,8 @@ void PinFileSelection::paint(QPainter *painter) const {
         else draw(cell(i));
     }
     if (hidden_selected) draw(cell(shown));
+    // The pin is not active while something is dragged over it.
+    if (drop_target_ >= 0 && drop_target_ < shown) painter->strokePath(outline_of(cell(drop_target_)), QPen(get_theme().theme_color(), OUTLINE));
     painter->restore();
 }
 }

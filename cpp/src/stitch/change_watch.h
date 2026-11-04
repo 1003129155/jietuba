@@ -9,18 +9,17 @@
 #include <thread>
 
 // Change watching for long screenshots: a background thread captures the region every
-// so often and tells the window to capture when it differs from the last look.
+// CHANGE_WATCH_INTERVAL_MS and tells the window to capture when it differs from the last look.
 //
 // It only decides whether the picture moved; the frames for stitching are still
 // captured by the window. The screen DC BitBlt and the comparison stay off the UI
-// thread. Idle, it looks every IDLE_MS; on change it switches to ACTIVE_MS until
-// ACTIVE_HOLD_MS pass without change. Each wait starts after the look finishes, so a
-// slow machine looks less often instead of piling up. The app's own toolbar and
-// preview inside the region also trigger captures; stitching then only records the position.
+// thread. It does not look less often while idle: the first frame after a pause is the
+// one furthest from the last, and a quick scroll would carry it past a whole frame.
+// Each wait starts after the look finishes, so a slow machine looks less often instead
+// of piling up. The app's own toolbar and preview inside the region also trigger
+// captures; stitching then only records the position.
 namespace jietuba {
-constexpr int CHANGE_WATCH_IDLE_MS = 300;
-constexpr int CHANGE_WATCH_ACTIVE_MS = 100;
-constexpr int CHANGE_WATCH_ACTIVE_HOLD_MS = 1000;
+constexpr int CHANGE_WATCH_INTERVAL_MS = 100;
 
 // A region to compare against its previous capture.
 class ChangeRegion {

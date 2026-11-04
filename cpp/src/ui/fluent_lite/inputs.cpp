@@ -52,8 +52,8 @@ ComboBox::ComboBox(QWidget *parent) : QComboBox(parent) {
 
 void ComboBox::_apply_theme() {
     apply_style_sheet(this, input_qss(this));
-    // A scaled floor must not exceed a width pinned with setFixedWidth: Qt would honour the minimum.
-    setMinimumWidth(std::min(widget_scaled(this, BASE_MIN_WIDTH), maximumWidth()));
+    // A width pinned with setFixedWidth stays; otherwise a scaled floor, never above the maximum.
+    if (minimumWidth() != maximumWidth()) setMinimumWidth(std::min(widget_scaled(this, BASE_MIN_WIDTH), maximumWidth()));
 }
 
 void ComboBox::paintEvent(QPaintEvent *) {

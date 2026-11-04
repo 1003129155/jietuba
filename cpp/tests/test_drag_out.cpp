@@ -1,4 +1,5 @@
 #include "core/drag_out.h"
+#include "core/folder_drop.h"
 #include <QDir>
 #include <QDrag>
 #include <QElapsedTimer>
@@ -13,10 +14,36 @@
 #include <chrono>
 #include <memory>
 #include <stdexcept>
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <shlobj.h>
+#include <wrl/client.h>
 
 using namespace jietuba;
+using Microsoft::WRL::ComPtr;
 
 namespace {
+constexpr DWORD ANY_EFFECT = DROPEFFECT_COPY | DROPEFFECT_MOVE | DROPEFFECT_LINK;
+
+// The data Explorer drags its files with.
+ComPtr<IDataObject> shell_data(const QStringList &paths) {
+    std::vector<PIDLIST_ABSOLUTE> items;
+    for (const auto &path : paths) {
+        PIDLIST_ABSOLUTE item = nullptr;
+        if (SUCCEEDED(SHParseDisplayName(reinterpret_cast<PCWSTR>(QDir::toNativeSeparators(path).utf16()), nullptr, &item, 0, nullptr))) items.push_back(item);
+    }
+    ComPtr<IShellItemArray> array;
+    ComPtr<IDataObject> data;
+    if (SUCCEEDED(SHCreateShellItemArrayFromIDLists(static_cast<UINT>(items.size()), const_cast<PCIDLIST_ABSOLUTE_ARRAY>(items.data()), &array)))
+        array->BindToHandler(nullptr, BHID_DataObject, IID_PPV_ARGS(&data));
+    for (auto *item : items) CoTaskMemFree(item);
+    return data;
+}
+
+POINTL at(int x) { return POINTL{x, 10}; }
+
 // The most opaque pixel of a drag preview, 0-255.
 int max_alpha(const QPixmap &pixmap) {
     const QImage image = pixmap.toImage().convertToFormat(QImage::Format_ARGB32);
@@ -46,8 +73,120 @@ class DragOutTests : public QObject {
 
     QString temp_root() const { return dir_.filePath("drag"); }
 
+    QString make_dir(const QString &name) const {
+        const QString path = dir_.filePath(name);
+        return QDir().mkpath(path) ? path : QString();
+    }
+
+    QString make_file(const QString &name) const {
+        const QString path = dir_.filePath(name);
+        QFile file(path);
+        return file.open(QIODevice::WriteOnly) && file.write(name.toUtf8()) > 0 ? path : QString();
+    }
+
 private slots:
+    // The shell's drop targets live in a single-threaded apartment.
+    void initTestCase() { QVERIFY(SUCCEEDED(OleInitialize(nullptr))); }
+    void cleanupTestCase() { OleUninitialize(); }
+
     void init() { QDir(temp_root()).removeRecursively(); }
+
+    // ---- Dropping onto folders ----
+
+    void aFileDroppedOnAFolderMovesInOnTheSameDriveAndCopiesWithCtrl() {
+        const QString moved = make_file("moved.txt"), copied = make_file("copied.txt"), box = make_dir("box");
+        QStringList hovered;
+        // Left of x = 100 is the folder.
+        FolderDrop drop([&box](const QPoint &screen) { return screen.x() < 100 ? box : QString(); }, [&hovered](const QString &folder) { hovered.append(folder); });
+        auto *target = drop.target();
+        auto data = shell_data({moved});
+        QVERIFY(data);
+        // Beside the folder nothing may drop, and nothing is outlined.
+        DWORD effect = ANY_EFFECT;
+        QCOMPARE(target->DragEnter(data.Get(), MK_LBUTTON, at(200), &effect), S_OK);
+        QCOMPARE(effect, DWORD(DROPEFFECT_NONE));
+        QVERIFY(hovered.isEmpty());
+        // On it the effect is Explorer's: move on the same drive, copy with Ctrl.
+        effect = ANY_EFFECT;
+        QCOMPARE(target->DragOver(MK_LBUTTON, at(10), &effect), S_OK);
+        QCOMPARE(effect, DWORD(DROPEFFECT_MOVE));
+        QCOMPARE(hovered, QStringList{box});
+        effect = ANY_EFFECT;
+        target->DragOver(MK_LBUTTON | MK_CONTROL, at(10), &effect);
+        QCOMPARE(effect, DWORD(DROPEFFECT_COPY));
+        effect = ANY_EFFECT;
+        QCOMPARE(target->Drop(data.Get(), MK_LBUTTON, at(10), &effect), S_OK);
+        // Having moved the file itself, the folder tells the source there is nothing left to delete.
+        QCOMPARE(effect, DWORD(DROPEFFECT_NONE));
+        QCOMPARE(hovered, (QStringList{box, QString()}));
+        QTRY_VERIFY(QFileInfo::exists(QDir(box).filePath("moved.txt")));
+        QTRY_VERIFY(!QFileInfo::exists(moved));
+        // A drag whose source allows copying only, like one out of a pin, copies.
+        data = shell_data({copied});
+        effect = DROPEFFECT_COPY;
+        target->DragEnter(data.Get(), MK_LBUTTON, at(10), &effect);
+        QCOMPARE(effect, DWORD(DROPEFFECT_COPY));
+        effect = DROPEFFECT_COPY;
+        QCOMPARE(target->Drop(data.Get(), MK_LBUTTON, at(10), &effect), S_OK);
+        QCOMPARE(effect, DWORD(DROPEFFECT_COPY));
+        QTRY_VERIFY(QFileInfo::exists(QDir(box).filePath("copied.txt")));
+        QVERIFY(QFileInfo::exists(copied));
+    }
+
+    void aFolderNeverTakesItselfOrWhatHoldsIt() {
+        const QString box = make_dir("outer/box"), inner = make_dir("outer/box/inner"), other = make_dir("other");
+        QString under;
+        QStringList hovered;
+        FolderDrop drop([&under](const QPoint &) { return under; }, [&hovered](const QString &folder) { hovered.append(folder); });
+        auto *target = drop.target();
+        auto data = shell_data({box});
+        DWORD effect = ANY_EFFECT;
+        under = box;
+        target->DragEnter(data.Get(), MK_LBUTTON, at(10), &effect);
+        QCOMPARE(effect, DWORD(DROPEFFECT_NONE));
+        under = inner;
+        effect = ANY_EFFECT;
+        target->DragOver(MK_LBUTTON, at(10), &effect);
+        QCOMPARE(effect, DWORD(DROPEFFECT_NONE));
+        QVERIFY(hovered.isEmpty());
+        // A name that only starts the same is another folder.
+        const QString sibling = make_dir("outer/box2");
+        under = sibling;
+        effect = ANY_EFFECT;
+        target->DragOver(MK_LBUTTON, at(10), &effect);
+        QCOMPARE(effect, DWORD(DROPEFFECT_MOVE));
+        under = other;
+        effect = ANY_EFFECT;
+        target->DragOver(MK_LBUTTON, at(10), &effect);
+        QCOMPARE(effect, DWORD(DROPEFFECT_MOVE));
+        QCOMPARE(hovered, (QStringList{sibling, other}));
+        QCOMPARE(target->DragLeave(), S_OK);
+        QCOMPARE(hovered, (QStringList{sibling, other, QString()}));
+        QVERIFY(QFileInfo(box).isDir());
+        QVERIFY(QDir(other).isEmpty());
+    }
+
+    void aDragOutlivingTheOwnerFindsNoFolders() {
+        const QString file = make_file("kept.txt"), box = make_dir("box");
+        int hovered = 0;
+        auto drop = std::make_unique<FolderDrop>([&box](const QPoint &) { return box; }, [&hovered](const QString &) { ++hovered; });
+        ComPtr<IDropTarget> target(drop->target());
+        drop.reset();
+        auto data = shell_data({file});
+        DWORD effect = ANY_EFFECT;
+        QCOMPARE(target->DragEnter(data.Get(), MK_LBUTTON, at(10), &effect), S_OK);
+        QCOMPARE(effect, DWORD(DROPEFFECT_NONE));
+        effect = ANY_EFFECT;
+        QCOMPARE(target->Drop(data.Get(), MK_LBUTTON, at(10), &effect), S_OK);
+        QCOMPARE(effect, DWORD(DROPEFFECT_NONE));
+        QCOMPARE(hovered, 0);
+        QVERIFY(QFileInfo::exists(file));
+    }
+
+    void aWindowHandleIsNeededToTakeDrops() {
+        FolderDrop drop([](const QPoint &) { return QString(); }, [](const QString &) {});
+        QVERIFY(!drop.attach(0));
+    }
 
     void textAndHtmlAloneOfferNoFiles() {
         DragOutContent content;
