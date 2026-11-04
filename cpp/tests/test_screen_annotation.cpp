@@ -1227,7 +1227,9 @@ private slots:
         auto *config = get_tool_settings_manager();
         const auto values = config->get_global_hotkeys("screen_annotation");
         QCOMPARE(values.size(), GLOBAL_HOTKEY_SLOTS);
-        for (const auto &value : values) QVERIFY(value.isEmpty());
+        // The main slot starts on its default, Ctrl+5; the others are empty.
+        QCOMPARE(values.front(), QString("ctrl+5"));
+        for (qsizetype i = 1; i < values.size(); ++i) QVERIFY(values[i].isEmpty());
         config->set_global_hotkeys("screen_annotation", {"ctrl+alt+f9", "", "", ""});
         QCOMPARE(settings_->value("app/screen_annotation_hotkey").toString(), QString("ctrl+alt+f9"));
         QCOMPARE(config->get_global_hotkeys("screen_annotation").front(), QString("ctrl+alt+f9"));
