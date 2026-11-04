@@ -5124,10 +5124,6 @@ This action cannot be undone.</source>
         <translation>入力欄をクリックし、キーの組み合わせかマウスのサイドボタンを押してください。予備のショートカットは設定の「ショートカット」で追加できます。</translation>
     </message>
     <message>
-        <source>更多动作，以及截图、钉图和剪贴板窗口里的鼠标操作，可以在设置的「鼠标快捷键」页调整。</source>
-        <translation>ほかの操作や、スクリーンショット・ピン留め・クリップボードの各ウィンドウ内のマウス操作は、設定の「マウスショートカット」で変更できます。</translation>
-    </message>
-    <message>
         <source>截图、剪贴板记录和设置各自存在哪里，之后也可以在设置里改。</source>
         <translation>スクリーンショット、クリップボード履歴、設定の保存先です。あとから設定で変更できます。</translation>
     </message>

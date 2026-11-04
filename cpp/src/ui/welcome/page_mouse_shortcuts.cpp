@@ -16,9 +16,7 @@
 namespace jietuba {
 namespace {
 QString settings_text(const char *text) { return i18n_tr(text, "SettingsDialog"); }
-// QUICK_CAPTURE_ACTIONS keys shown here.
-const QStringList WIZARD_ACTIONS = {"copy", "pin", "ocr", "translate"};
-QString page_hint() { return welcome_tr("更多动作，以及截图、钉图和剪贴板窗口里的鼠标操作，可以在设置的「鼠标快捷键」页调整。"); }
+QString page_hint() { return welcome_tr("截图、钉图和剪贴板窗口里的鼠标操作，可以在设置的「鼠标快捷键」页调整。"); }
 
 QColor with_alpha(const QString &color, int alpha) {
     QColor result(color);
@@ -237,33 +235,43 @@ MouseShortcutPage::MouseShortcutPage(ToolSettingsManager *config, QWidget *paren
 IllustrationArea *MouseShortcutPage::create_illustration() { return new GestureIllus(this); }
 
 void MouseShortcutPage::build_controls(QVBoxLayout *layout) {
-    // The name over its two combos, as on the hotkey page, so long names leave them their width.
-    bool first = true;
+    auto *grid = new QGridLayout;
+    grid->setContentsMargins(0, 0, 0, 0);
+    grid->setHorizontalSpacing(dialog_scaled(20));
+    grid->setVerticalSpacing(dialog_scaled(4));
+    grid->setColumnStretch(0, 1);
+    grid->setColumnStretch(1, 1);
+    int index = 0;
     for (const auto &action : QUICK_CAPTURE_ACTIONS()) {
-        // The ones a new user reaches for; the rest are in the settings window.
-        if (!WIZARD_ACTIONS.contains(QString::fromLatin1(action.key))) continue;
         auto *label = new QLabel(settings_text(action.label));
+        label->setWordWrap(true);
         set_welcome_label_style(label, "primary", 13, 600);
         auto *editor = new MouseBindingEditor(action.kind);
+        editor->setObjectName(QString("WizardMouse_%1").arg(action.key));
+        editor->setMinimumHeight(dialog_scaled(36));
         // The combos share the row instead of asking for their widest item; gestures read longer.
         for (QComboBox *combo : {static_cast<QComboBox *>(editor->modifiers), static_cast<QComboBox *>(editor->gesture)}) {
             combo->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
             combo->setMinimumContentsLength(3);
         }
+        editor->modifiers->setFixedWidth(dialog_scaled(88));
         if (auto *row_layout = qobject_cast<QHBoxLayout *>(editor->layout())) {
-            row_layout->setStretchFactor(editor->modifiers, 2);
-            row_layout->setStretchFactor(editor->gesture, 3);
+            row_layout->setSpacing(dialog_scaled(6));
+            row_layout->setStretchFactor(editor->modifiers, 0);
+            row_layout->setStretchFactor(editor->gesture, 1);
         }
         editor->setBinding(get_quick_capture_binding(config_, action.key));
         connect(editor->modifiers, &QComboBox::currentIndexChanged, this, &MouseShortcutPage::refresh_conflict_hint);
         connect(editor->gesture, &QComboBox::currentIndexChanged, this, &MouseShortcutPage::refresh_conflict_hint);
-        if (!first) layout->addSpacing(dialog_scaled(6));
-        first = false;
-        layout->addWidget(label);
-        layout->addWidget(editor);
+        const int row = index / 2 * 3, column = index % 2;
+        grid->addWidget(label, row, column);
+        grid->addWidget(editor, row + 1, column);
+        grid->setRowMinimumHeight(row + 2, dialog_scaled(4));
+        ++index;
         editors_.emplace_back(action.key, editor);
         action_labels_.emplace_back(label, action.label);
     }
+    layout->addLayout(grid);
     layout->addSpacing(dialog_scaled(4));
 
     conflict_lbl_ = new QLabel;
@@ -282,10 +290,6 @@ QSet<QString> MouseShortcutPage::conflicted_actions() const {
     QHash<QString, QStringList> by_binding;
     for (const auto &[key, editor] : editors_)
         if (const QString binding = editor->currentData(); !binding.isEmpty()) by_binding[binding].append(key);
-    // Actions left to the settings window keep their gestures, which the shown ones must not take.
-    for (const auto &action : QUICK_CAPTURE_ACTIONS())
-        if (!WIZARD_ACTIONS.contains(QString::fromLatin1(action.key)))
-            if (const QString binding = get_quick_capture_binding(config_, action.key); !binding.isEmpty()) by_binding[binding].append(action.key);
     QSet<QString> conflicted;
     for (const auto &keys : std::as_const(by_binding))
         if (keys.size() > 1) conflicted.unite(QSet<QString>(keys.begin(), keys.end()));

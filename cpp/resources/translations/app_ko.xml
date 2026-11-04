@@ -5115,10 +5115,6 @@ This action cannot be undone.</source>
         <translation>입력란을 클릭한 뒤 키 조합이나 마우스 사이드 버튼을 누르세요. 보조 단축키는 설정의 ‘단축키’에서 추가할 수 있습니다.</translation>
     </message>
     <message>
-        <source>更多动作，以及截图、钉图和剪贴板窗口里的鼠标操作，可以在设置的「鼠标快捷键」页调整。</source>
-        <translation>다른 동작과 스크린샷, 고정 이미지, 클립보드 창 안의 마우스 동작은 설정의 ‘마우스 단축키’에서 바꿀 수 있습니다.</translation>
-    </message>
-    <message>
         <source>截图、剪贴板记录和设置各自存在哪里，之后也可以在设置里改。</source>
         <translation>스크린샷, 클립보드 기록, 설정이 저장되는 위치입니다. 나중에 설정에서 바꿀 수 있습니다.</translation>
     </message>

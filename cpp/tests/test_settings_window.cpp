@@ -1521,8 +1521,7 @@ private slots:
         QVERIFY(!data_location().beside_program);
     }
 
-    // The common mouse shortcuts are written back; two actions sharing a gesture keep their
-    // stored bindings, the ones left to the settings window included.
+    // All global mouse shortcuts save; conflicting actions keep their stored bindings.
     void wizardMousePageSavesBindingsAndSkipsConflicts() {
         const auto restore = qScopeGuard([this] {
             for (const auto &action : QUICK_CAPTURE_ACTIONS()) config_->set_app_setting(QString("quick_capture_") + action.key, action.binding);
@@ -1530,15 +1529,14 @@ private slots:
         config_->set_app_setting("quick_capture_scan_code", "ctrl+alt+dragright");
         MouseShortcutPage page(config_);
         const auto editors = page.findChildren<MouseBindingEditor *>();
-        // Screenshot, pin to screen, text recognition and translation.
-        QCOMPARE(editors.size(), 4);
-        const auto copy = editors[0], pin = editors[1], ocr = editors[2];
+        QCOMPARE(editors.size(), 7);
+        const auto copy = editors[0], pin = editors[1], ocr = editors[3];
         QCOMPARE(pin->currentData(), QString("win+dragleft"));
         QLabel *conflict = nullptr;
         for (auto *label : page.findChildren<QLabel *>())
             if (label->styleSheet().contains("#D9534F")) conflict = label;
         QVERIFY(conflict && conflict->isHidden());
-        // Taking a hidden action's gesture is a conflict too.
+        // Taking the scan action's gesture is a conflict too.
         ocr->setBinding("ctrl+alt+dragright");
         QVERIFY(!conflict->isHidden());
         QVERIFY(conflict->text().contains(settings_tr("Scan QR code / barcode")));
@@ -1557,6 +1555,66 @@ private slots:
         page.save();
         QCOMPARE(get_quick_capture_binding(config_, "copy"), QString("win+dragleft"));
         QCOMPARE(get_quick_capture_binding(config_, "pin"), QString(""));
+        editors[2]->setBinding("shift+win+dragmiddle");
+        editors[5]->setBinding("alt+win+dragx1");
+        editors[6]->setBinding("ctrl+win+dragx2");
+        page.save();
+        QCOMPARE(get_quick_capture_binding(config_, "copy_pin"), QString("shift+win+dragmiddle"));
+        QCOMPARE(get_quick_capture_binding(config_, "scan_code"), QString("alt+win+dragx1"));
+        QCOMPARE(get_quick_capture_binding(config_, "edit"), QString("ctrl+win+dragx2"));
+    }
+
+    void wizardMouseGridFitsEveryLanguage() {
+        if (QGuiApplication::platformName() != "windows") QSKIP("Needs desktop fonts.");
+        const QString language = I18nManager::get_current_language();
+        const int scale = get_dialog_scale().percent();
+        const QString saved_language = config_->get_language();
+        const auto restore = qScopeGuard([&] {
+            get_dialog_scale().set_percent(scale);
+            config_->set_language(saved_language);
+            I18nManager::load_language(language);
+        });
+        for (int percent : {100, 150, 200}) {
+            get_dialog_scale().set_percent(percent);
+            for (const QString &lang : {QString("zh"), QString("zh_TW"), QString("en"), QString("ja"), QString("ko")}) {
+                config_->set_language(lang);
+                WelcomeWizard wizard(config_);
+                wizard.setAttribute(Qt::WA_DontShowOnScreen);
+                wizard.show();
+                wizard.go_to_page(2);
+                QTest::qWait(80);
+                auto *page = wizard.findChild<MouseShortcutPage *>();
+                page->set_animation_time(1400);
+                const QString out = qEnvironmentVariable("JIETUBA_SETTINGS_SHOTS");
+                if (!out.isEmpty() && percent == 100)
+                    QVERIFY(wizard.grab().save(QDir(out).filePath(QString("mouse_grid_%1.png").arg(lang))));
+                const auto editors = page->findChildren<MouseBindingEditor *>();
+                QCOMPARE(editors.size(), 7);
+                const QPoint left = editors[0]->mapTo(page, QPoint()), right = editors[1]->mapTo(page, QPoint());
+                QCOMPARE(left.y(), right.y());
+                QVERIFY(right.x() > left.x() + editors[0]->width());
+                QCOMPARE(editors[6]->width(), editors[0]->width());
+                for (auto *editor : editors) {
+                    QVERIFY(page->rect().contains(QRect(editor->mapTo(page, QPoint()), editor->size())));
+                    for (auto *combo : {editor->modifiers, editor->gesture}) {
+                        for (int item = 0; item < combo->count(); ++item) {
+                            const QString text = combo->itemText(item);
+                            QVERIFY2(combo->width() >= combo->fontMetrics().horizontalAdvance(text) + dialog_scaled(8),
+                                     qPrintable(QString("%1 %2%%: %3 needs %4, has %5").arg(lang).arg(percent).arg(text)
+                                                    .arg(combo->fontMetrics().horizontalAdvance(text) + dialog_scaled(8)).arg(combo->width())));
+                        }
+                    }
+                }
+                for (auto *label : page->findChildren<QLabel *>()) {
+                    if (!label->isVisible()) continue;
+                    QVERIFY(page->rect().contains(QRect(label->mapTo(page, QPoint()), label->size())));
+                    QVERIFY2(label->height() >= label->heightForWidth(label->width()),
+                             qPrintable(QString("%1 %2%%: %3 needs height %4, has %5 at width %6").arg(lang).arg(percent).arg(label->text())
+                                            .arg(label->heightForWidth(label->width())).arg(label->height()).arg(label->width())));
+                }
+                wizard.hide();
+            }
+        }
     }
 
     // The two new demos paint through every phase of their loop.

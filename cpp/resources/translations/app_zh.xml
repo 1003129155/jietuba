@@ -5104,10 +5104,6 @@ This action cannot be undone.</source>
         <translation>点击输入框后，按下快捷键或鼠标侧键即可录入。备用快捷键可以在设置的「快捷键」页添加。</translation>
     </message>
     <message>
-        <source>更多动作，以及截图、钉图和剪贴板窗口里的鼠标操作，可以在设置的「鼠标快捷键」页调整。</source>
-        <translation>更多动作，以及截图、钉图和剪贴板窗口里的鼠标操作，可以在设置的「鼠标快捷键」页调整。</translation>
-    </message>
-    <message>
         <source>截图、剪贴板记录和设置各自存在哪里，之后也可以在设置里改。</source>
         <translation>截图、剪贴板记录和设置各自存在哪里，之后也可以在设置里改。</translation>
     </message>

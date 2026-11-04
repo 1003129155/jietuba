@@ -5037,10 +5037,6 @@ You can tweak more options in Settings anytime.</translation>
         <translation>Click a field, then press a key combination or a mouse side button. Backup hotkeys can be added on the Shortcuts page in Settings.</translation>
     </message>
     <message>
-        <source>更多动作，以及截图、钉图和剪贴板窗口里的鼠标操作，可以在设置的「鼠标快捷键」页调整。</source>
-        <translation>More actions, and the mouse actions inside the screenshot, pin and clipboard windows, are on the Mouse Shortcuts page in Settings.</translation>
-    </message>
-    <message>
         <source>截图、剪贴板记录和设置各自存在哪里，之后也可以在设置里改。</source>
         <translation>Where screenshots, clipboard history and settings are kept. All of it can be changed later in Settings.</translation>
     </message>
