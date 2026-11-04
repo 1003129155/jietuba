@@ -266,10 +266,6 @@
         <translation>Global Hotkeys</translation>
     </message>
     <message>
-        <source>Screenshot Hotkey</source>
-        <translation>Screenshot</translation>
-    </message>
-    <message>
         <source>e.g.: ctrl+shift+a</source>
         <translation>e.g.: ctrl+shift+a</translation>
     </message>
@@ -1396,10 +1392,6 @@ Replace it?</translation>
     <message>
         <source>Manage</source>
         <translation>Manage</translation>
-    </message>
-    <message>
-        <source>Screen Annotation Hotkey</source>
-        <translation>Screen Annotation</translation>
     </message>
     <message>
         <source>Keep Screen Annotations</source>
@@ -2599,7 +2591,6 @@ Replace it?</translation>
 <!-- ========== Translation Settings ========== -->
 <context>
     <name>SettingsDialog</name>
-    <message><source>Translation Hotkey</source><translation>Translation Hotkey</translation></message>
     <message><source>Pin Clipboard Image</source><translation>Create Pin Image</translation></message>
     <message>
         <source>Get your API key from DeepL website (free tier available)</source>
@@ -5261,7 +5252,6 @@ SOFTWARE.</translation></message>
     <message><source>Storage</source><translation>Storage</translation></message>
     <!-- Translation page -->
     <!-- Missing from EN only -->
-    <message><source>Clipboard Hotkey</source><translation>Clipboard</translation></message>
     <!-- Changed strings (new code versions) -->
     <message><source>Save Format</source><translation>Save Format</translation></message>
     <message><source>OCR</source><translation>OCR</translation></message>

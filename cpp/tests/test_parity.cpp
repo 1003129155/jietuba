@@ -28,6 +28,9 @@ QRectF rectangle(const QJsonValue &v) {
     const auto a = v.toArray();
     return {a[0].toDouble(), a[1].toDouble(), a[2].toDouble(), a[3].toDouble()};
 }
+// Defaults C++ changed in 2.2.2: Ctrl+1 to Ctrl+5 in the hotkey page's order.
+const QHash<QString, const char *> HOTKEY_DEFAULTS_SINCE_222 = {
+    {"clipboard_hotkey", "ctrl+3"}, {"pin_clipboard_hotkey", "ctrl+2"}, {"translation_hotkey", "ctrl+4"}};
 }
 class ParityTests : public QObject {
     Q_OBJECT
@@ -149,6 +152,8 @@ private slots:
         for (auto it = app.begin(); it != app.end(); ++it) {
             if (it.key() == "screenshot_save_path") {
                 QCOMPARE(config.get_app_setting(it.key()).toString(), QDir::toNativeSeparators(QDir::homePath() + "/Pictures/jietuba_photos"));
+            } else if (const auto changed = HOTKEY_DEFAULTS_SINCE_222.find(it.key()); changed != HOTKEY_DEFAULTS_SINCE_222.end()) {
+                QCOMPARE(config.get_app_setting(it.key()).toString(), QString(changed.value()));
             } else if (it.key() == "log_dir") {
                 // The fixture holds a placeholder: the folder depends on the machine.
                 QCOMPARE(config.get_app_setting(it.key()).toString(), QDir::toNativeSeparators(get_log_dir()));
@@ -212,6 +217,7 @@ private slots:
             QVERIFY2(actual, qPrintable(it.key()));
             // The fixture holds a placeholder for the log folder; the real one depends on the machine.
             if (it.key() == "get_log_dir") QCOMPARE(actual->toString(), QDir::toNativeSeparators(get_log_dir()));
+            else if (HOTKEY_DEFAULTS_SINCE_222.contains(it.key().mid(4))) QCOMPARE(actual->toString(), QString(HOTKEY_DEFAULTS_SINCE_222.value(it.key().mid(4))));
             else QVERIFY2(QJsonValue::fromVariant(*actual) == it.value(), qPrintable(it.key()));
         }
         for (const auto &v : fixtures_["accessor_setters"].toArray()) {

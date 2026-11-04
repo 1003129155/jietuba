@@ -125,6 +125,9 @@ public:
     void import_settings(const QVariantMap &values);
     bool is_first_run() const { return !get_has_run_before(); }
     void mark_as_run();
+    // Settings from before the Ctrl+1 to Ctrl+5 defaults store the older defaults of the
+    // hotkeys they never set, so an update moves nobody's hotkeys. Once per settings file.
+    void keep_older_hotkey_defaults();
     static bool is_absolute_save_path(const QString &value);
     QSettings &settings() { return qsettings.settings(); }
 

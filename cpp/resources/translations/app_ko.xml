@@ -265,10 +265,6 @@
         <translation>전역 단축키</translation>
     </message>
     <message>
-        <source>Screenshot Hotkey</source>
-        <translation>스크린샷</translation>
-    </message>
-    <message>
         <source>e.g.: ctrl+shift+a</source>
         <translation>예: ctrl+shift+a</translation>
     </message>
@@ -1513,10 +1509,6 @@ Replace it?</source>
         <translation>관리</translation>
     </message>
     <message>
-        <source>Screen Annotation Hotkey</source>
-        <translation>화면 주석</translation>
-    </message>
-    <message>
         <source>Keep Screen Annotations</source>
         <translation>화면 주석 유지</translation>
     </message>
@@ -2686,7 +2678,6 @@ Replace it?</source>
 <!-- ========== Translation Settings ========== -->
 <context>
     <name>SettingsDialog</name>
-    <message><source>Translation Hotkey</source><translation>번역 단축키</translation></message>
     <message>
         <source>Get your API key from DeepL website (free tier available)</source>
         <translation>DeepL 웹사이트에서 API 키를 발급받으세요(무료 요금제 제공)</translation>
@@ -5338,7 +5329,6 @@ SOFTWARE.</translation></message>
     <message><source>Storage</source><translation>저장소</translation></message>
     <!-- Translation page -->
     <!-- Missing from EN only -->
-    <message><source>Clipboard Hotkey</source><translation>클립보드 단축키</translation></message>
     <!-- Changed strings (new code versions) -->
     <message><source>Save Format</source><translation>저장 형식</translation></message>
     <message><source>OCR</source><translation>OCR</translation></message>

@@ -97,6 +97,8 @@ MainApp::MainApp(int &argc, char **argv) : app(std::make_unique<QApplication>(ar
     // The reference also installs a main-thread Python garbage collector here; C++ has none.
 
     config_manager = get_tool_settings_manager();
+    // Before anything else writes to the settings, which would make a new install look old.
+    config_manager->keep_older_hotkey_defaults();
     data_folder::align_startup(*config_manager, QCoreApplication::applicationFilePath());
 
     // The UI theme must exist before any window; the capture accent colour is managed

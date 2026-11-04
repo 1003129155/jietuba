@@ -9,13 +9,15 @@
 //           Internal: no settings page shows it, so imports leave it out
 //   getter  Gen: generated; Own: written by hand in ToolSettingsManager
 //   setter  Gen: generated; Trim: generated, stores the text trimmed; Own: by hand; None: read-only
+// Ctrl+1 to Ctrl+5 in the order the hotkey page lists them. Settings from before 2.2.2 keep
+// the older defaults (see keep_older_hotkey_defaults).
 SETTING(hotkey, "app/hotkey", QString, "ctrl+1", Import, Gen, Gen)
 SETTING(hotkey_2, "app/hotkey_2", QString, "", Import, Gen, Gen)
-SETTING(clipboard_hotkey, "clipboard/hotkey", QString, "ctrl+2", Import, Gen, Gen)
+SETTING(clipboard_hotkey, "clipboard/hotkey", QString, "ctrl+3", Import, Gen, Gen)
 SETTING(clipboard_hotkey_2, "clipboard/hotkey_2", QString, "", Import, Gen, Gen)
-SETTING(pin_clipboard_hotkey, "clipboard/pin_hotkey", QString, "", Import, Gen, Gen)
+SETTING(pin_clipboard_hotkey, "clipboard/pin_hotkey", QString, "ctrl+2", Import, Gen, Gen)
 SETTING(pin_clipboard_hotkey_2, "clipboard/pin_hotkey_2", QString, "", Import, Gen, Gen)
-SETTING(translation_hotkey, "app/translation_hotkey", QString, "", Import, Gen, Gen)
+SETTING(translation_hotkey, "app/translation_hotkey", QString, "ctrl+4", Import, Gen, Gen)
 SETTING(translation_hotkey_2, "app/translation_hotkey_2", QString, "", Import, Gen, Gen)
 SETTING(hotkey_3, "app/hotkey_3", QString, "", Import, Gen, Gen)
 SETTING(hotkey_4, "app/hotkey_4", QString, "", Import, Gen, Gen)
@@ -25,11 +27,13 @@ SETTING(pin_clipboard_hotkey_3, "clipboard/pin_hotkey_3", QString, "", Import, G
 SETTING(pin_clipboard_hotkey_4, "clipboard/pin_hotkey_4", QString, "", Import, Gen, Gen)
 SETTING(translation_hotkey_3, "app/translation_hotkey_3", QString, "", Import, Gen, Gen)
 SETTING(translation_hotkey_4, "app/translation_hotkey_4", QString, "", Import, Gen, Gen)
-SETTING(screen_annotation_hotkey, "app/screen_annotation_hotkey", QString, "", Import, Gen, Gen)
+SETTING(screen_annotation_hotkey, "app/screen_annotation_hotkey", QString, "ctrl+5", Import, Gen, Gen)
 SETTING(screen_annotation_hotkey_2, "app/screen_annotation_hotkey_2", QString, "", Import, Gen, Gen)
 SETTING(screen_annotation_hotkey_3, "app/screen_annotation_hotkey_3", QString, "", Import, Gen, Gen)
 SETTING(screen_annotation_hotkey_4, "app/screen_annotation_hotkey_4", QString, "", Import, Gen, Gen)
 SETTING(global_hotkeys_disabled, "app/global_hotkeys_disabled", bool, false, Internal, Gen, Gen)
+// 2 once the settings are known to hold the hotkey defaults they started with.
+SETTING(hotkey_defaults_version, "app/hotkey_defaults_version", int, 0, Internal, Gen, Gen)
 SETTING(pause_hotkeys_in_games, "app/pause_hotkeys_in_games", bool, false, Internal, Gen, Gen)
 SETTING(quick_capture_copy, "app/quick_capture_copy", QString, "", Import, Gen, Gen)
 SETTING(quick_capture_pin, "app/quick_capture_pin", QString, "win+dragleft", Import, Gen, Gen)

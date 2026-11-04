@@ -249,14 +249,6 @@
         <translation>全域快速鍵</translation>
     </message>
     <message>
-        <source>Screenshot Hotkey</source>
-        <translation>截圖</translation>
-    </message>
-    <message>
-        <source>Clipboard Hotkey</source>
-        <translation>剪貼簿</translation>
-    </message>
-    <message>
         <source>e.g.: ctrl+shift+a</source>
         <translation>例如: ctrl+shift+a</translation>
     </message>
@@ -1527,10 +1519,6 @@ Replace it?</source>
         <translation>管理</translation>
     </message>
     <message>
-        <source>Screen Annotation Hotkey</source>
-        <translation>螢幕標註</translation>
-    </message>
-    <message>
         <source>Keep Screen Annotations</source>
         <translation>保留螢幕標註</translation>
     </message>
@@ -2700,10 +2688,6 @@ Replace it?</source>
 </context>
 <context>
     <name>SettingsDialog</name>
-    <message>
-        <source>Translation Hotkey</source>
-        <translation>翻譯快速鍵</translation>
-    </message>
     <message>
         <source>Pin Clipboard Image</source>
         <translation>生成釘圖</translation>

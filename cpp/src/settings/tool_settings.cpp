@@ -317,6 +317,23 @@ void ToolSettingsManager::import_settings(const QVariantMap &values) {
         _save_tool_settings(*tool);
     }
 }
+void ToolSettingsManager::keep_older_hotkey_defaults() {
+    constexpr int CURRENT = 2;
+    if (get_hotkey_defaults_version() >= CURRENT) return;
+    // A settings file with anything in it, or a computer this ran on, means an earlier version.
+    if (!is_first_run() || !qsettings.settings().allKeys().isEmpty()) {
+        static const std::pair<const char *, const char *> OLDER[] = {
+            {"clipboard/hotkey", "ctrl+2"},
+            {"clipboard/pin_hotkey", ""},
+            {"app/translation_hotkey", ""},
+            {"app/screen_annotation_hotkey", ""},
+        };
+        for (const auto &[path, value] : OLDER)
+            if (!qsettings.contains(path)) qsettings.setValue(path, QString::fromLatin1(value));
+    }
+    set_hotkey_defaults_version(CURRENT);
+}
+
 void ToolSettingsManager::mark_as_run() {
     set_has_run_before(true);
     qsettings.sync();

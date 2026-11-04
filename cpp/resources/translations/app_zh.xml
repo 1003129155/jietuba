@@ -266,14 +266,6 @@
         <translation>全局快捷键</translation>
     </message>
     <message>
-        <source>Screenshot Hotkey</source>
-        <translation>截图</translation>
-    </message>
-    <message>
-        <source>Clipboard Hotkey</source>
-        <translation>剪贴板</translation>
-    </message>
-    <message>
         <source>e.g.: ctrl+shift+a</source>
         <translation>例如: ctrl+shift+a</translation>
     </message>
@@ -1518,10 +1510,6 @@ Replace it?</source>
         <translation>管理</translation>
     </message>
     <message>
-        <source>Screen Annotation Hotkey</source>
-        <translation>屏幕标注</translation>
-    </message>
-    <message>
         <source>Keep Screen Annotations</source>
         <translation>保留屏幕标注</translation>
     </message>
@@ -2670,7 +2658,6 @@ Replace it?</source>
 <!-- ========== Translation Settings ========== -->
 <context>
     <name>SettingsDialog</name>
-    <message><source>Translation Hotkey</source><translation>翻译快捷键</translation></message>
     <message><source>Pin Clipboard Image</source><translation>生成钉图</translation></message>
     <message>
         <source>Get your API key from DeepL website (free tier available)</source>

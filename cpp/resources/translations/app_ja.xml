@@ -268,14 +268,6 @@
         <translation>グローバルホットキー</translation>
     </message>
     <message>
-        <source>Screenshot Hotkey</source>
-        <translation>スクリーンショット</translation>
-    </message>
-    <message>
-        <source>Clipboard Hotkey</source>
-        <translation>クリップボード</translation>
-    </message>
-    <message>
         <source>e.g.: ctrl+shift+a</source>
         <translation>例: ctrl+shift+a</translation>
     </message>
@@ -1520,10 +1512,6 @@ Replace it?</source>
         <translation>管理</translation>
     </message>
     <message>
-        <source>Screen Annotation Hotkey</source>
-        <translation>画面注釈</translation>
-    </message>
-    <message>
         <source>Keep Screen Annotations</source>
         <translation>画面注釈を保持</translation>
     </message>
@@ -2711,7 +2699,6 @@ Replace it?</source>
 <!-- ========== Translation Settings ========== -->
 <context>
     <name>SettingsDialog</name>
-    <message><source>Translation Hotkey</source><translation>翻訳ショートカット</translation></message>
     <message>
         <source>Get your API key from DeepL website (free tier available)</source>
         <translation>DeepLウェブサイトからAPIキーを取得（無料版あり）</translation>

@@ -936,13 +936,47 @@ private slots:
         }
     }
 
+    // New settings take Ctrl+1 to Ctrl+5; settings from earlier versions keep the hotkeys they had.
+    void olderSettingsKeepTheirHotkeyDefaults() {
+        const auto open = [&](const QString &name, const std::function<void(QSettings &)> &before) {
+            QFile::remove(dir_.filePath(name));
+            auto settings = std::make_unique<QSettings>(dir_.filePath(name), QSettings::IniFormat);
+            before(*settings);
+            return settings;
+        };
+        const auto hotkeys = [](ToolSettingsManager &config) {
+            return QStringList{config.get_hotkey(), config.get_pin_clipboard_hotkey(), config.get_clipboard_hotkey(),
+                               config.get_translation_hotkey(), config.get_screen_annotation_hotkey()};
+        };
+        {
+            auto fresh = open("fresh.ini", [](QSettings &) {});
+            ToolSettingsManager config(*fresh);
+            config.keep_older_hotkey_defaults();
+            QCOMPARE(hotkeys(config), QStringList({"ctrl+1", "ctrl+2", "ctrl+3", "ctrl+4", "ctrl+5"}));
+            QVERIFY(!fresh->contains("clipboard/hotkey"));
+        }
+        // Run before, or any setting stored: an earlier version. What the user set stays.
+        for (const auto &before : std::vector<std::function<void(QSettings &)>>{
+                 [](QSettings &s) { s.setValue("app/has_run_before", true); }, [](QSettings &s) { s.setValue("app/translation_hotkey", "f3"); }}) {
+            auto older = open("older.ini", before);
+            ToolSettingsManager config(*older);
+            const QString translation = config.get_translation_hotkey() == "f3" ? "f3" : "";
+            config.keep_older_hotkey_defaults();
+            QCOMPARE(hotkeys(config), QStringList({"ctrl+1", "", "ctrl+2", translation, ""}));
+            // Once only: a hotkey removed later takes the new default.
+            older->remove("clipboard/hotkey");
+            config.keep_older_hotkey_defaults();
+            QCOMPARE(config.get_clipboard_hotkey(), QString("ctrl+3"));
+        }
+    }
+
     // Until the third clipboard slot is saved it follows the old switch, without writing.
     void winVMigrationFollowsTheOldSwitch() {
         // A repeated run (check.ps1 -Mode Leak) would find the slots the first run saved.
         QFile::remove(dir_.filePath("migration.ini"));
         QSettings settings(dir_.filePath("migration.ini"), QSettings::IniFormat);
         ToolSettingsManager config(settings);
-        QCOMPARE(config.get_global_hotkeys("clipboard"), QStringList({"ctrl+2", "", "win+v", ""}));
+        QCOMPARE(config.get_global_hotkeys("clipboard"), QStringList({"ctrl+3", "", "win+v", ""}));
         QVERIFY(!settings.contains("clipboard/hotkey_3"));
         config.set_app_setting("clipboard_take_over_win_v", false);
         QCOMPARE(config.get_global_hotkeys("clipboard")[2], QString());
@@ -1452,12 +1486,12 @@ private slots:
         QVERIFY(hotkeys && annotation);
         auto *screenshot_edit = hotkeys->findChildren<HotkeyEdit *>().first();
         auto *annotation_edit = annotation->hotkey_edits().front();
-        QVERIFY(annotation_edit->text().isEmpty());
+        const QString stored = config_->get_global_hotkeys("screen_annotation").first();
         annotation_edit->setText(screenshot_edit->text());
         QVERIFY(!annotation_edit->validation_error().isEmpty());
         QVERIFY(!screenshot_edit->validation_error().isEmpty());
         annotation->save();
-        QCOMPARE(config_->get_global_hotkeys("screen_annotation").first(), QString());
+        QCOMPARE(config_->get_global_hotkeys("screen_annotation").first(), stored);
         annotation_edit->setText("ctrl+alt+shift+f9");
         QVERIFY(annotation_edit->validation_error().isEmpty());
         QVERIFY(screenshot_edit->validation_error().isEmpty());
