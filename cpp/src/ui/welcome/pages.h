@@ -119,6 +119,8 @@ protected:
 private:
     QString green_description() const;
     ToolSettingsManager *config_;
+    // The screenshot, clipboard and settings cards, in the stage's order.
+    QWidget *cards_[3] = {};
     WelcomeToggleSwitch *autosave_toggle_ = nullptr;
     WelcomeToggleSwitch *green_toggle_ = nullptr;
     bool green_writable_ = false;

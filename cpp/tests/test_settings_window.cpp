@@ -23,6 +23,7 @@
 #include "ui/settings_ui/pages.h"
 #include "ui/settings_ui/search.h"
 #include "ui/toolbar_layout.h"
+#include "ui/welcome/demo_paint.h"
 #include "ui/welcome/pages.h"
 #include "ui/welcome/wizard.h"
 #include "caption_check.h"
@@ -1633,6 +1634,67 @@ private slots:
         mouse.hide();
     }
 
+    // The stage demos of the welcome, hotkey, storage and finish pages paint through their loops,
+    // and the row or card beside the stage is lit for what plays.
+    void wizardStageDemosPaintAndLightTheirRow() {
+        config_->set_hotkey("ctrl+alt+shift+f10");
+        config_->set_pin_clipboard_hotkey("ctrl+alt+shift+f9");
+        const auto restore = qScopeGuard([this] { config_->set_pin_clipboard_hotkey(""); });
+        WelcomeWizard wizard(config_);
+        wizard.setAttribute(Qt::WA_DontShowOnScreen);
+        wizard.show();
+        const auto stage_demo = [&wizard](int page) -> welcome_demo::LoopingDemo * {
+            wizard.go_to_page(page);
+            for (auto *widget : wizard.findChildren<QWidget *>())
+                if (auto *demo = dynamic_cast<welcome_demo::LoopingDemo *>(widget); demo && demo->isVisible()) return demo;
+            return nullptr;
+        };
+        for (int page : {0, 1, 3, 4}) {
+            auto *demo = stage_demo(page);
+            QVERIFY2(demo, qPrintable(QString::number(page)));
+            QImage previous;
+            int distinct = 0;
+            for (int ms = 0; ms < 9000; ms += 300) {
+                demo->set_time(ms);
+                const QImage frame = demo->grab().toImage();
+                QVERIFY(!frame.isNull());
+                distinct += frame != previous;
+                previous = frame;
+            }
+            QVERIFY2(distinct >= 15, qPrintable(QString("page %1: %2").arg(page).arg(distinct)));
+        }
+        // Hotkeys: the screenshot plays first, then the pin; the rows follow.
+        auto *hotkeys = stage_demo(1);
+        const auto lit_rows = [&wizard] {
+            QList<int> lit;
+            const auto rows = wizard.findChild<HotkeyPage *>()->findChildren<QWidget *>("ListRow");
+            for (int i = 0; i < rows.size(); ++i)
+                if (rows[i]->property("listRowCurrent").toBool()) lit << i;
+            return lit;
+        };
+        hotkeys->set_time(100);
+        QCOMPARE(lit_rows(), QList<int>{0});
+        hotkeys->set_time(2600 + 100);
+        QCOMPARE(lit_rows(), QList<int>{1});
+        // Storage: screenshots, the clipboard, then the settings file.
+        auto *storage = stage_demo(3);
+        const auto lit_cards = [&wizard] {
+            QList<int> lit;
+            int index = 0;
+            for (auto *card : wizard.findChild<StoragePage *>()->findChildren<QWidget *>("SettingRow")) {
+                if (card->property("welcomeRowCurrent").toBool()) lit << index;
+                ++index;
+            }
+            return lit;
+        };
+        for (int slot : {0, 1, 2}) {
+            storage->set_time(slot * 3000 + 100);
+            QCOMPARE(lit_cards(), QList<int>{slot});
+        }
+        wizard.retranslate_ui();
+        wizard.hide();
+    }
+
     // The shared switch follows the window scale only, and its knob stays centred at any size.
     void switchFollowsTheWindowScale() {
         const auto restore = qScopeGuard([] {
@@ -1728,7 +1790,7 @@ private slots:
         wizard.hide();
     }
 
-    // Focusing a hotkey slot lights its keys on the keyboard map.
+    // Focusing a hotkey slot plays its function alone on the stage and lights its row.
     void wizardHotkeyMapFollowsTheFocusedSlot() {
         config_->set_hotkey("ctrl+shift+a");
         WelcomeWizard wizard(config_);
@@ -1741,18 +1803,30 @@ private slots:
         QVERIFY(page);
         auto edits = page->findChildren<HotkeyEdit *>();
         QCOMPARE(edits.size(), 5);
-        const QImage idle = page->grab().toImage();
-        edits[0]->edit->setFocus();
+        welcome_demo::LoopingDemo *demo = nullptr;
+        for (auto *widget : page->illus_area->findChildren<QWidget *>())
+            if (auto *found = dynamic_cast<welcome_demo::LoopingDemo *>(widget)) demo = found;
+        QVERIFY(demo);
+        const auto lit_row = [page] {
+            const auto rows = page->findChildren<QWidget *>("ListRow");
+            for (int i = 0; i < rows.size(); ++i)
+                if (rows[i]->property("listRowCurrent").toBool()) return i;
+            return -1;
+        };
+        // The screenshot plays first; the clipboard slot, even unset, takes over once focused.
+        demo->set_time(1500);
+        QCOMPARE(lit_row(), 0);
+        const QImage idle = page->illus_area->grab().toImage();
+        edits[2]->setText("");
+        edits[2]->edit->setFocus();
         QApplication::processEvents();
-        QVERIFY(edits[0]->edit->hasFocus());
-        const QImage focused = page->grab().toImage();
-        QVERIFY(focused != idle);
-        // Typing into the slot changes the lit keys with it.
-        edits[0]->setText("alt+x1");
-        QApplication::processEvents();
-        QVERIFY(page->grab().toImage() != focused);
+        QVERIFY(edits[2]->edit->hasFocus());
+        demo->set_time(1500);
+        QCOMPARE(lit_row(), 2);
+        QVERIFY(page->illus_area->grab().toImage() != idle);
         edits[1]->edit->setFocus();
         QApplication::processEvents();
+        QCOMPARE(lit_row(), 1);
         page->retranslate();
         wizard.hide();
     }

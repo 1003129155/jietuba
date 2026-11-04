@@ -5119,6 +5119,10 @@ This action cannot be undone.</source>
         <source>剪贴板历史的数据库和图片都放在这个文件夹。</source>
         <translation>剪贴板历史的数据库和图片都放在这个文件夹。</translation>
     </message>
+    <message>
+        <source>把托盘图标从「^」里拖到任务栏上，就能一直看到它。</source>
+        <translation>把托盘图标从「^」里拖到任务栏上，就能一直看到它。</translation>
+    </message>
 </context>
 
 <!-- ========== GIF Record Toolbar ========== -->
