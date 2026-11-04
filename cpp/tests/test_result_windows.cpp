@@ -840,11 +840,13 @@ private slots:
         auto *window = new TextRecognitionWindow(blank_image());
         window->setAttribute(Qt::WA_DeleteOnClose);
         QTRY_VERIFY_WITH_TIMEOUT(!window->status_label->text().startsWith("Recognizing"), 30000);
+        // Narrower than the default, which already takes most of the offscreen screen.
+        window->resize(dialog_scaled(500), window->height());
         const int before = window->width();
-        text_table::Table wide{1, 8, {}};
-        for (int c = 0; c < 8; ++c) wide.cells.append({0, c, 1, 1, "A rather long cell text"});
+        text_table::Table wide{1, 12, {}};
+        for (int c = 0; c < 12; ++c) wide.cells.append({0, c, 1, 1, "A rather long cell text"});
         wide.rows = 2;
-        for (int c = 0; c < 8; ++c) wide.cells.append({1, c, 1, 1, "x"});
+        for (int c = 0; c < 12; ++c) wide.cells.append({1, c, 1, 1, "x"});
         window->on_recognized(SMALL_LINES, {}, wide);
         QVERIFY(window->showing_table());
         QVERIFY(window->width() > before);

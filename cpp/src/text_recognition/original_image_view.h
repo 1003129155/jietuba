@@ -18,7 +18,7 @@ class OriginalImageView : public QWidget {
     Q_OBJECT
 public:
     // Width the pane opens at, before window scaling.
-    static constexpr int WIDTH = 440;
+    static constexpr int WIDTH = 506;
     // Displayed scale, image pixels to screen pixels.
     static constexpr double MIN_SCALE = 0.1, MAX_SCALE = 20.0;
     enum class Fit { Window, Actual, Custom };
