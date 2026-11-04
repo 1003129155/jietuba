@@ -1523,6 +1523,19 @@ private slots:
         QVERIFY(!problem_after([](FluentTitleBar &bar) { bar.setIcon(QIcon()); bar.iconLabel->clear(); }).isEmpty());
     }
 
+    // A width pinned with setFixedWidth survives the theme and scale refresh; a free combo
+    // keeps the scaled floor.
+    void comboKeepsAPinnedWidth() {
+        ComboBox pinned;
+        pinned.setFixedWidth(168);
+        configure_dialog_control(pinned);
+        QCOMPARE(pinned.minimumWidth(), 168);
+        QCOMPARE(pinned.maximumWidth(), 168);
+        ComboBox free;
+        configure_dialog_control(free);
+        QCOMPARE(free.minimumWidth(), widget_scaled(&free, ComboBox::BASE_MIN_WIDTH));
+    }
+
     void colorDialogFollowsTheWindowScale() {
         const auto restore = qScopeGuard([] {
             get_dialog_scale().set_percent(100);
