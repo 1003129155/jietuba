@@ -9,12 +9,14 @@
 #include <QString>
 #include <QVariantMap>
 #include <QWidget>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <set>
 #include <tuple>
 #include <vector>
 
+class QThread;
 class QVBoxLayout;
 
 // Settings page builders, by content stack index (see SettingsDialog).
@@ -39,6 +41,11 @@ void add_quick_actions_group(SettingsDialog *dialog, QWidget *view, QVBoxLayout 
 QWidget *create_mouse_page(SettingsDialog *dialog);
 QWidget *create_pin_page(SettingsDialog *dialog);
 QWidget *create_screen_annotation_page(SettingsDialog *dialog);
+
+// page_clipboard: asks for a folder and moves the clipboard data there, or opens the data already
+// in it; on_changed gets the new database path once it is open. Also used by the welcome wizard.
+// Returns the thread moving the files, if one started.
+QThread *change_clipboard_data_location(QWidget *parent, std::function<void(const QString &)> on_changed);
 
 // page_capture: refills the PP-OCR model combo from models/ and selects `selected`; a selected
 // model that is not installed stays listed and marked instead of being swapped for another.

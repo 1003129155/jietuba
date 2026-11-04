@@ -1,9 +1,11 @@
+#include "core/i18n.h"
 #include "core/logger.h"
 #include "core/ui_scale.h"
 #include "settings/tool_settings.h"
 #include "ui/hotkey_edit.h"
 #include "ui/welcome/pages.h"
 #include <QApplication>
+#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QHash>
 #include <QPainter>
@@ -292,27 +294,25 @@ protected:
     }
 };
 
-constexpr int SLOT_LABEL_W = 62;
+QString settings_text(const char *text) { return i18n_tr(text, "SettingsDialog"); }
+QString page_subtitle() { return welcome_tr("截图、钉图、剪贴板、翻译和屏幕标注各设一个快捷键。"); }
+QString input_hint() { return welcome_tr("点击输入框后，按下快捷键或鼠标侧键即可录入。备用快捷键可以在设置的「快捷键」页添加。"); }
 }
 
 const std::vector<HotkeyPage::Row> &HotkeyPage::rows() {
-    static const std::vector<Row> rows = [] {
-        return std::vector<Row>{
-            {[](ToolSettingsManager *c) { return c->get_hotkey(); }, [](ToolSettingsManager *c, const QString &v) { c->set_hotkey(v); },
-             [](ToolSettingsManager *c) { return c->get_hotkey_2(); }, [](ToolSettingsManager *c, const QString &v) { c->set_hotkey_2(v); }, "截图"},
-            {[](ToolSettingsManager *c) { return c->get_clipboard_hotkey(); }, [](ToolSettingsManager *c, const QString &v) { c->set_clipboard_hotkey(v); },
-             [](ToolSettingsManager *c) { return c->get_clipboard_hotkey_2(); }, [](ToolSettingsManager *c, const QString &v) { c->set_clipboard_hotkey_2(v); },
-             "剪贴板"},
-            {[](ToolSettingsManager *c) { return c->get_translation_hotkey(); }, [](ToolSettingsManager *c, const QString &v) { c->set_translation_hotkey(v); },
-             [](ToolSettingsManager *c) { return c->get_translation_hotkey_2(); }, [](ToolSettingsManager *c, const QString &v) { c->set_translation_hotkey_2(v); },
-             "智能翻译"},
-        };
-    }();
+    // The settings window's order and names; only the screenshot hotkey keeps its value when
+    // left blank, since the others are also reached from the tray menu.
+    static const std::vector<Row> rows = {
+        {"screenshot", "Screenshot", true},
+        {"pin_clipboard", "Pin", false},
+        {"clipboard", "Clipboard", false},
+        {"translation", "Translation", false},
+        {"screen_annotation", "Screen Annotation", false},
+    };
     return rows;
 }
 
-HotkeyPage::HotkeyPage(ToolSettingsManager *config, QWidget *parent)
-    : BasePage(welcome_tr("快捷键"), welcome_tr("截图、剪贴板和翻译各可设置一个主快捷键和一个备用快捷键。"), parent), config_(config) {
+HotkeyPage::HotkeyPage(ToolSettingsManager *config, QWidget *parent) : BasePage(welcome_tr("快捷键"), page_subtitle(), parent), config_(config) {
     init();
 }
 
@@ -321,47 +321,24 @@ HotkeyPage::~HotkeyPage() { disconnect(focus_connection_); }
 IllustrationArea *HotkeyPage::create_illustration() { return new HotkeyIllus(this); }
 
 void HotkeyPage::build_controls(QVBoxLayout *layout) {
-    // Each feature has its own block with the title on its own line; a three-column grid
-    // squeezed both editors beside the title and the status icon overlapped the input.
+    // The name over its editor: beside it, a long name in Japanese or English leaves the
+    // editor too narrow for its key chips.
     for (size_t index = 0; index < rows().size(); ++index) {
-        const auto &row_spec = rows()[index];
-        if (index) layout->addSpacing(dialog_scaled(14));
-        auto *section_lbl = new QLabel(welcome_tr(row_spec.title));
-        set_welcome_label_style(section_lbl, "primary", 14, 600);
-        layout->addWidget(section_lbl);
-        section_labels_.emplace_back(section_lbl, row_spec.title);
-        layout->addSpacing(dialog_scaled(6));
-
-        std::vector<HotkeyEdit *> pair;
-        for (const auto &[slot_title, getter] : {std::make_pair("主快捷键", row_spec.get), std::make_pair("备用", row_spec.get_2)}) {
-            auto *edit = new HotkeyEdit;
-            QString value;
-            try {
-                value = getter(config_);
-            } catch (const std::exception &e) {
-                log_exception(e, T("读取全局快捷键 {accessor}", {{"accessor", QString::fromUtf8(slot_title)}}));
-            }
-            edit->setText(value);
-            edit->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-            auto *slot_lbl = new QLabel(welcome_tr(slot_title));
-            slot_lbl->setFixedWidth(dialog_scaled(SLOT_LABEL_W));
-            set_welcome_label_style(slot_lbl, "muted", 12, 400);
-            slot_labels_.emplace_back(slot_lbl, slot_title);
-            auto *row = new QHBoxLayout;
-            row->setContentsMargins(0, 0, 0, 0);
-            row->setSpacing(dialog_scaled(8));
-            row->addWidget(slot_lbl);
-            row->addWidget(edit, 1);
-            layout->addLayout(row);
-            if (QString::fromUtf8(slot_title) == QString::fromUtf8("主快捷键")) layout->addSpacing(dialog_scaled(6));
-            edits_.push_back(edit);
-            pair.push_back(edit);
-        }
-        row_edits_.emplace_back(pair[0], pair[1]);
+        const auto &row = rows()[index];
+        if (index) layout->addSpacing(dialog_scaled(6));
+        auto *label = new QLabel(settings_text(row.title));
+        set_welcome_label_style(label, "primary", 13, 600);
+        auto *edit = new HotkeyEdit;
+        edit->setText(config_->get_global_hotkeys(row.function).value(0));
+        edit->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        layout->addWidget(label);
+        layout->addWidget(edit);
+        labels_.emplace_back(label, row.title);
+        edits_.push_back(edit);
     }
 
     layout->addSpacing(dialog_scaled(14));
-    hint_ = new QLabel(welcome_tr("点击输入框后，按下快捷键或鼠标侧键即可录入。"));
+    hint_ = new QLabel(input_hint());
     hint_->setWordWrap(true);
     set_welcome_label_style(hint_, "muted", 12, 400);
     layout->addWidget(hint_);
@@ -393,26 +370,13 @@ void HotkeyPage::sync_key_highlight() {
     illus->keyboard_map->set_highlight(active_edit_ ? active_edit_->text() : QString());
 }
 
-bool HotkeyPage::revalidate() {
-    std::vector<HotkeyEdit *> group = edits_;
-    group.insert(group.end(), peer_edits_.begin(), peer_edits_.end());
-    return validate_hotkey_group(group);
-}
-
-void HotkeyPage::join_conflict_group(const std::vector<HotkeyEdit *> &edits) {
-    for (auto *edit : edits) {
-        peer_edits_.push_back(edit);
-        connect(edit, &HotkeyEdit::textChanged, this, [this] { revalidate(); });
-    }
-    revalidate();
-}
+bool HotkeyPage::revalidate() { return validate_hotkey_group(edits_); }
 
 void HotkeyPage::retranslate() {
     title_label->setText(welcome_tr("快捷键"));
-    subtitle_label->setText(welcome_tr("截图、剪贴板和翻译各可设置一个主快捷键和一个备用快捷键。"));
-    for (const auto &[label, text] : section_labels_) label->setText(welcome_tr(text));
-    for (const auto &[label, text] : slot_labels_) label->setText(welcome_tr(text));
-    if (hint_) hint_->setText(welcome_tr("点击输入框后，按下快捷键或鼠标侧键即可录入。"));
+    subtitle_label->setText(page_subtitle());
+    for (const auto &[label, text] : labels_) label->setText(settings_text(text));
+    if (hint_) hint_->setText(input_hint());
     // The conflict message follows the language too.
     revalidate();
     illus_area->retranslate();
@@ -421,21 +385,17 @@ void HotkeyPage::retranslate() {
 void HotkeyPage::save() {
     const bool conflicted = !revalidate();
     for (size_t i = 0; i < rows().size(); ++i) {
-        write(rows()[i].set, row_edits_[i].first, conflicted, true);
-        write(rows()[i].set_2, row_edits_[i].second, conflicted, false);
-    }
-}
-
-void HotkeyPage::write(const Setter &setter, HotkeyEdit *edit, bool conflicted, bool keep_when_blank) {
-    if (conflicted && !edit->validation_error().isEmpty()) return;
-    const QString value = edit->text().trimmed();
-    // An empty main hotkey would leave no entry at all, so the old value stays; an empty
-    // alternate is a normal choice.
-    if (keep_when_blank && value.isEmpty()) return;
-    try {
-        setter(config_, value);
-    } catch (const std::exception &e) {
-        log_exception(e, T("保存全局快捷键 {accessor}", {{"accessor", QString::fromUtf8(edit->objectName().toUtf8())}}));
+        auto *edit = edits_[i];
+        if (conflicted && !edit->validation_error().isEmpty()) continue;
+        const QString value = edit->text().trimmed();
+        if (rows()[i].keep_when_blank && value.isEmpty()) continue;
+        QStringList values = config_->get_global_hotkeys(rows()[i].function);
+        values[0] = value;
+        try {
+            config_->set_global_hotkeys(rows()[i].function, values);
+        } catch (const std::exception &e) {
+            log_exception(e, T("保存全局快捷键 {accessor}", {{"accessor", rows()[i].function}}));
+        }
     }
 }
 }

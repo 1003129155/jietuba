@@ -1617,6 +1617,22 @@ Replace it?</translation>
         <source>Custom LLM-2</source>
         <translation>Custom LLM-2</translation>
     </message>
+    <message>
+        <source>Green Mode</source>
+        <translation>Portable mode</translation>
+    </message>
+    <message>
+        <source>Keep the settings in the program's folder; copy the whole folder to take them along.</source>
+        <translation>Keep the settings in the program's folder; copy the whole folder to take them along.</translation>
+    </message>
+    <message>
+        <source>The program's folder cannot be written to.</source>
+        <translation>The program's folder cannot be written to.</translation>
+    </message>
+    <message>
+        <source>Could not move the settings file: %1</source>
+        <translation>Could not move the settings file: %1</translation>
+    </message>
 </context>
 
 <context>
@@ -5011,6 +5027,34 @@ You can tweak more options in Settings anytime.</translation>
     <message>
         <source>Custom LLM-2</source>
         <translation>Custom LLM-2</translation>
+    </message>
+    <message>
+        <source>截图、钉图、剪贴板、翻译和屏幕标注各设一个快捷键。</source>
+        <translation>One hotkey each for screenshot, pin, clipboard, translation and screen annotation.</translation>
+    </message>
+    <message>
+        <source>点击输入框后，按下快捷键或鼠标侧键即可录入。备用快捷键可以在设置的「快捷键」页添加。</source>
+        <translation>Click a field, then press a key combination or a mouse side button. Backup hotkeys can be added on the Shortcuts page in Settings.</translation>
+    </message>
+    <message>
+        <source>更多动作，以及截图、钉图和剪贴板窗口里的鼠标操作，可以在设置的「鼠标快捷键」页调整。</source>
+        <translation>More actions, and the mouse actions inside the screenshot, pin and clipboard windows, are on the Mouse Shortcuts page in Settings.</translation>
+    </message>
+    <message>
+        <source>截图、剪贴板记录和设置各自存在哪里，之后也可以在设置里改。</source>
+        <translation>Where screenshots, clipboard history and settings are kept. All of it can be changed later in Settings.</translation>
+    </message>
+    <message>
+        <source>存储位置</source>
+        <translation>Storage</translation>
+    </message>
+    <message>
+        <source>剪贴板数据</source>
+        <translation>Clipboard data</translation>
+    </message>
+    <message>
+        <source>剪贴板历史的数据库和图片都放在这个文件夹。</source>
+        <translation>The clipboard history’s database and images are kept in this folder.</translation>
     </message>
 </context>
 

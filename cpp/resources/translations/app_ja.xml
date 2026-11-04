@@ -1679,6 +1679,22 @@ Replace it?</source>
         <source>Storage</source>
         <translation>保存先</translation>
     </message>
+    <message>
+        <source>Green Mode</source>
+        <translation>ポータブルモード</translation>
+    </message>
+    <message>
+        <source>Keep the settings in the program's folder; copy the whole folder to take them along.</source>
+        <translation>設定をプログラムのフォルダーに保存します。フォルダーごとコピーすれば設定も持ち運べます。</translation>
+    </message>
+    <message>
+        <source>The program's folder cannot be written to.</source>
+        <translation>プログラムのフォルダーに書き込めません。</translation>
+    </message>
+    <message>
+        <source>Could not move the settings file: %1</source>
+        <translation>設定ファイルを移動できませんでした: %1</translation>
+    </message>
 </context>
 
 <context>
@@ -5098,6 +5114,34 @@ This action cannot be undone.</source>
     <message>
         <source>活动海报.png</source>
         <translation>イベントポスター.png</translation>
+    </message>
+    <message>
+        <source>截图、钉图、剪贴板、翻译和屏幕标注各设一个快捷键。</source>
+        <translation>スクリーンショット・ピン留め・クリップボード・翻訳・画面注釈のショートカットをそれぞれ設定します。</translation>
+    </message>
+    <message>
+        <source>点击输入框后，按下快捷键或鼠标侧键即可录入。备用快捷键可以在设置的「快捷键」页添加。</source>
+        <translation>入力欄をクリックし、キーの組み合わせかマウスのサイドボタンを押してください。予備のショートカットは設定の「ショートカット」で追加できます。</translation>
+    </message>
+    <message>
+        <source>更多动作，以及截图、钉图和剪贴板窗口里的鼠标操作，可以在设置的「鼠标快捷键」页调整。</source>
+        <translation>ほかの操作や、スクリーンショット・ピン留め・クリップボードの各ウィンドウ内のマウス操作は、設定の「マウスショートカット」で変更できます。</translation>
+    </message>
+    <message>
+        <source>截图、剪贴板记录和设置各自存在哪里，之后也可以在设置里改。</source>
+        <translation>スクリーンショット、クリップボード履歴、設定の保存先です。あとから設定で変更できます。</translation>
+    </message>
+    <message>
+        <source>存储位置</source>
+        <translation>保存先</translation>
+    </message>
+    <message>
+        <source>剪贴板数据</source>
+        <translation>クリップボードのデータ</translation>
+    </message>
+    <message>
+        <source>剪贴板历史的数据库和图片都放在这个文件夹。</source>
+        <translation>クリップボード履歴のデータベースと画像はこのフォルダーに保存されます。</translation>
     </message>
 </context>
 

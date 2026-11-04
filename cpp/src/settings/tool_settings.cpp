@@ -100,6 +100,11 @@ const QSet<QString> &LOCAL_SETTING_PATHS() {
 
 QSettings &SettingsStore::store(const QString &key) const { return LOCAL_SETTING_PATHS().contains(key) ? *local_ : *settings_; }
 
+void SettingsStore::rebind(QSettings &settings) {
+    if (local_ == settings_) local_ = &settings;
+    settings_ = &settings;
+}
+
 void SettingsStore::sync() const {
     settings_->sync();
     if (local_ != settings_) local_->sync();
@@ -332,6 +337,14 @@ void ToolSettingsManager::keep_older_hotkey_defaults() {
             if (!qsettings.contains(path)) qsettings.setValue(path, QString::fromLatin1(value));
     }
     set_hotkey_defaults_version(CURRENT);
+}
+
+void ToolSettingsManager::use_settings_file(const QString &path) {
+    qsettings.sync();
+    auto next = std::make_unique<QSettings>(path, QSettings::IniFormat);
+    qsettings.rebind(*next);
+    // The one handed in at construction belongs to its creator; earlier switches' files are ours.
+    owned_settings_ = std::move(next);
 }
 
 void ToolSettingsManager::mark_as_run() {

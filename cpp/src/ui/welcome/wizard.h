@@ -47,7 +47,7 @@ class WelcomeWizard : public FrostedFramelessDialog {
 public:
     static constexpr int WINDOW_W = 1040;
     static constexpr int WINDOW_H = 740;
-    static constexpr int PAGE_COUNT = 8;
+    static constexpr int PAGE_COUNT = 5;
     explicit WelcomeWizard(ToolSettingsManager *config, QWidget *parent = nullptr);
     // Refreshes every text after a language switch (navigation and pages).
     void retranslate_ui();

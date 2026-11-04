@@ -4,10 +4,12 @@
 #include "core/platform_utils.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
+#include "settings/data_folder.h"
 #include "settings/settings_transfer.h"
 #include "settings/tool_settings.h"
 #include "ui/dialogs.h"
 #include "ui/fluent_lite/buttons.h"
+#include "ui/fluent_lite/cards.h"
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/labels.h"
 #include "ui/settings_ui/components.h"
@@ -15,9 +17,11 @@
 #include "ui/settings_ui/pages.h"
 #include <QDesktopServices>
 #include <QDir>
+#include <QSignalBlocker>
 #include <QStandardPaths>
 #include <QTimer>
 #include <QUrl>
+#include <functional>
 
 namespace jietuba {
 namespace {
@@ -44,6 +48,29 @@ void open_settings_folder(SettingsDialog *dialog) {
     // Opened from the event loop rather than inside the button's mouse release.
     const QString folder = QDir::toNativeSeparators(data_location().dir);
     QTimer::singleShot(0, dialog, [folder] { QDesktopServices::openUrl(QUrl::fromLocalFile(folder)); });
+}
+
+// Green mode moves the settings file at once; a failed move leaves the switch where it was.
+SwitchSettingCard *add_green_mode_card(SettingsDialog *dialog, SettingsCardGroup *group, std::function<void()> moved) {
+    const bool on = data_location().beside_program;
+    const bool writable = on || data_folder::folder_writable(data_folder::green_mode_dir());
+    QString description = dialog->tr_text("Keep the settings in the program's folder; copy the whole folder to take them along.");
+    if (!writable) description += "\n" + dialog->tr_text("The program's folder cannot be written to.");
+    auto *card = new SwitchSettingCard(FluentIcon::Application, dialog->tr_text("Green Mode"), description, group);
+    card->setChecked(on);
+    card->setEnabled(writable);
+    QObject::connect(card, &SwitchSettingCard::checkedChanged, dialog, [dialog, card, moved](bool checked) {
+        const QString error = data_folder::set_green_mode(*dialog->config_manager, checked);
+        if (!error.isEmpty()) {
+            const QSignalBlocker block(card);
+            card->setChecked(!checked);
+            show_warning_dialog(dialog, dialog->tr_text("Error"), dialog->tr_text("Could not move the settings file: %1").replace("%1", error));
+            return;
+        }
+        moved();
+    });
+    group->addSettingCard(card);
+    return card;
 }
 
 void import_settings_from_file(SettingsDialog *dialog) {
@@ -106,10 +133,13 @@ QWidget *create_misc_page(SettingsDialog *dialog) {
     // ════ Settings backup ════
     auto *grp_backup = new SettingsCardGroup(dialog->tr_text("Settings Backup"), view);
     // The settings file itself is the backup, so there is no export.
-    auto *file_card = new SettingCard(FluentIcon::Folder, dialog->tr_text("Settings File"),
-                                      QDir::toNativeSeparators(data_location().settings_file()) + "\n" +
-                                          dialog->tr_text("Copy this file to back up your settings or use them on another computer."),
-                                      grp_backup);
+    const auto file_text = [dialog] {
+        return QDir::toNativeSeparators(data_location().settings_file()) + "\n" +
+               dialog->tr_text("Copy this file to back up your settings or use them on another computer.");
+    };
+    auto *file_card = new SettingCard(FluentIcon::Folder, dialog->tr_text("Settings File"), file_text(), grp_backup);
+    auto *green_card = add_green_mode_card(dialog, grp_backup, [file_card, file_text] { file_card->setContent(file_text()); });
+    dialog->set_attr("green_mode_toggle", green_card);
     auto *open_button = new PushButton(dialog->tr_text("Open"), file_card);
     QObject::connect(open_button, &QPushButton::clicked, dialog, [dialog] { open_settings_folder(dialog); });
     dialog->set_attr("open_settings_folder_button", open_button);

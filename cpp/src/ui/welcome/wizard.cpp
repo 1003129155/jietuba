@@ -312,18 +312,12 @@ void WelcomeWizard::apply_welcome_theme() {
 }
 
 void WelcomeWizard::build_pages() {
-    auto *hotkeys = new HotkeyPage(config_);
-    auto *annotation = new ScreenAnnotationPage(config_);
-    // One real key bound twice fails silently, so every global hotkey editor is checked together.
-    hotkeys->join_conflict_group(annotation->hotkey_edits());
+    // Only what a new user decides now; everything else waits in the settings window.
     pages_ = {
         new WelcomePage(config_, this),
-        hotkeys,
+        new HotkeyPage(config_),
         new MouseShortcutPage(config_),
-        new ScreenshotHotkeyPage(config_),
-        annotation,
-        new ClipboardHotkeyPage(config_),
-        new TranslationPage(config_),
+        new StoragePage(config_),
         new FinishPage(config_),
     };
     for (auto *page : pages_) stack_->addWidget(page);

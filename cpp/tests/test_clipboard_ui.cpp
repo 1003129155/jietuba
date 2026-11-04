@@ -265,29 +265,6 @@ private slots:
         dialog.hide();
     }
 
-    void theWelcomePageAppliesAppearanceAtOnce() {
-        ClipboardHotkeyPage page(config_);
-        page.resize(900, 600);
-        page.show();
-        for (int ms : {0, 3000, 6500, 7300, 9500, 10300, 13500, 14300, 18000}) {
-            page.set_animation_time(ms);
-            QVERIFY(!page.grab().isNull());
-        }
-        auto *spin = page.findChild<QSpinBox *>();
-        QVERIFY(spin);
-        spin->setValue(77);
-        QCOMPARE(config_->get_clipboard_history_limit(), qint64(77));
-        QSignalSpy opacity_changed(get_theme_manager(), &ThemeManager::opacity_changed);
-        QComboBox *opacity = nullptr;
-        for (auto *combo : page.findChildren<QComboBox *>())
-            if (combo->itemText(0) == settings_tr("Opaque")) opacity = combo;
-        QVERIFY(opacity && opacity->count() > 1);
-        opacity->setCurrentIndex((opacity->currentIndex() + 1) % opacity->count());
-        QCOMPARE(opacity_changed.size(), 1);
-        QCOMPARE(config_->get_clipboard_window_opacity(), opacity->currentData().toLongLong());
-        page.save();
-        QCOMPARE(config_->get_clipboard_history_limit(), qint64(77));
-    }
 };
 
 QTEST_MAIN(ClipboardUiTests)

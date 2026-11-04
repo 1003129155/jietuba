@@ -16,8 +16,12 @@ struct DataLocation {
 inline const QString CLIPBOARD_WINDOW_SETTINGS_GROUP = "clipboard_window";
 
 DataLocation resolve_data_location(const QString &program_dir, const QString &roaming_dir);
-// This process's, fixed by the first call. Inside the test sandbox it is never the test program's folder.
+// This process's, fixed by the first call until the settings file moves (set_data_location).
+// Inside the test sandbox it is never the test program's folder.
 const DataLocation &data_location();
+void set_data_location(const DataLocation &location);
+// The folder of this program's executable.
+QString program_dir();
 // %APPDATA%.
 QString roaming_app_data_dir();
 }

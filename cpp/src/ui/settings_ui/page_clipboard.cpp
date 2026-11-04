@@ -280,8 +280,9 @@ private:
     MoveTexts texts_;
 };
 
-// The storage is reopened even when the settings window is gone, so the clipboard is never left released.
-void on_clipboard_move_completed(SettingsDialog *dialog, QProgressDialog *progress, const QString &new_db_path, const QString &cleanup_error) {
+// The storage is reopened even when the window that asked is gone, so the clipboard is never left released.
+void on_clipboard_move_completed(QWidget *parent, QProgressDialog *progress, const QString &new_db_path, const QString &cleanup_error,
+                                 const std::function<void(const QString &)> &on_changed) {
     if (progress) {
         progress->setValue(100);
         progress->close();
@@ -290,102 +291,95 @@ void on_clipboard_move_completed(SettingsDialog *dialog, QProgressDialog *progre
     get_tool_settings_manager()->set_clipboard_db_path(new_db_path);
     const bool reopened = ClipboardManager::instance().reset_storage(new_db_path);
     if (reopened) refresh_open_clipboard_windows();
-    if (!dialog) return;
-    dialog->clipboard_move_thread = nullptr;
+    if (!parent) return;
     if (reopened) {
-        set_storage_path_label(dialog, new_db_path);
-        sync_single_file_toggle(dialog);
-        dialog->refresh_clipboard_size();
+        on_changed(new_db_path);
         if (!cleanup_error.isEmpty())
-            show_warning_dialog(dialog, dialog->tr_text("Success"),
-                                dialog
-                                    ->tr_text("Clipboard data location changed successfully, but the old files are still in use and could not be deleted. You "
-                                              "can remove them after restarting the app.\n{error}")
+            show_warning_dialog(parent, settings_tr("Success"),
+                                settings_tr("Clipboard data location changed successfully, but the old files are still in use and could not be deleted. You "
+                                            "can remove them after restarting the app.\n{error}")
                                     .replace("{error}", cleanup_error));
     } else {
-        show_warning_dialog(dialog, dialog->tr_text("Error"), dialog->tr_text("Clipboard data moved, but reopening the database failed. Please restart the app."));
+        show_warning_dialog(parent, settings_tr("Error"), settings_tr("Clipboard data moved, but reopening the database failed. Please restart the app."));
     }
 }
 
-void on_clipboard_move_failed(SettingsDialog *dialog, QProgressDialog *progress, const QString &old_db_path, const QString &message) {
+void on_clipboard_move_failed(QWidget *parent, QProgressDialog *progress, const QString &old_db_path, const QString &message) {
     if (progress) {
         progress->close();
         progress->deleteLater();
     }
     ClipboardManager::instance().reset_storage(old_db_path);
-    if (!dialog) return;
-    dialog->clipboard_move_thread = nullptr;
-    show_warning_dialog(dialog, dialog->tr_text("Error"), message);
+    if (parent) show_warning_dialog(parent, settings_tr("Error"), message);
 }
 
 // Opens the database already in the target folder; nothing is copied or deleted on either side.
-void switch_clipboard_data_location(SettingsDialog *dialog, const QString &current_db_path, const QString &target_dir) {
+void switch_clipboard_data_location(QWidget *parent, const QString &current_db_path, const QString &target_dir,
+                                    const std::function<void(const QString &)> &on_changed) {
     auto &cm = ClipboardManager::instance();
     const QString new_db_path = path_join(absolute_path(target_dir), "clipboard.db");
     if (!cm.reset_storage(new_db_path)) {
         cm.reset_storage(current_db_path);
-        show_warning_dialog(dialog, dialog->tr_text("Error"),
-                            dialog->tr_text("Cannot open the clipboard data in the selected folder. The current data is still in use."));
+        show_warning_dialog(parent, settings_tr("Error"), settings_tr("Cannot open the clipboard data in the selected folder. The current data is still in use."));
         return;
     }
     get_tool_settings_manager()->set_clipboard_db_path(new_db_path);
     refresh_open_clipboard_windows();
-    set_storage_path_label(dialog, new_db_path);
-    sync_single_file_toggle(dialog);
-    dialog->refresh_clipboard_size();
+    on_changed(new_db_path);
+}
 }
 
-void change_clipboard_data_location(SettingsDialog *dialog) {
+QThread *change_clipboard_data_location(QWidget *parent, std::function<void(const QString &)> on_changed) {
     auto &cm = ClipboardManager::instance();
     if (!cm.is_available()) {
-        show_warning_dialog(dialog, dialog->tr_text("Error"), dialog->tr_text("Clipboard module not available"));
-        return;
+        show_warning_dialog(parent, settings_tr("Error"), settings_tr("Clipboard module not available"));
+        return nullptr;
     }
     const QString current_db_path = cm.get_db_path().value_or(QString());
     if (current_db_path.isEmpty()) {
-        show_warning_dialog(dialog, dialog->tr_text("Error"), dialog->tr_text("Current clipboard database path is unavailable."));
-        return;
+        show_warning_dialog(parent, settings_tr("Error"), settings_tr("Current clipboard database path is unavailable."));
+        return nullptr;
     }
     const QString current_dir = parent_dir(current_db_path);
-    const QString target_dir = get_existing_directory(dialog, dialog->tr_text("Choose Clipboard Data Folder"), current_dir);
-    if (target_dir.isEmpty()) return;
+    const QString target_dir = get_existing_directory(parent, settings_tr("Choose Clipboard Data Folder"), current_dir);
+    if (target_dir.isEmpty()) return nullptr;
 
     const QString current_dir_norm = absolute_path(current_dir);
     const QString target_dir_norm = absolute_path(target_dir);
     if (current_dir_norm.compare(target_dir_norm, Qt::CaseInsensitive) == 0) {
-        show_info_dialog(dialog, dialog->tr_text("Info"), dialog->tr_text("The selected folder is already the current location."));
-        return;
+        show_info_dialog(parent, settings_tr("Info"), settings_tr("The selected folder is already the current location."));
+        return nullptr;
     }
     const QString images_dir = path_join(current_dir, "images");
     if (QFileInfo(images_dir).isDir()) {
         const QString images_dir_norm = absolute_path(images_dir);
         // The target is the images folder or inside it.
         if (target_dir_norm.compare(images_dir_norm, Qt::CaseInsensitive) == 0 || target_dir_norm.startsWith(images_dir_norm + "\\", Qt::CaseInsensitive)) {
-            show_warning_dialog(dialog, dialog->tr_text("Error"), dialog->tr_text("Please choose a folder outside the current clipboard images folder."));
-            return;
+            show_warning_dialog(parent, settings_tr("Error"), settings_tr("Please choose a folder outside the current clipboard images folder."));
+            return nullptr;
         }
     }
     if (target_has_clipboard_data(target_dir)) {
         const QVariant choice = show_custom_confirm_dialog(
-            dialog, dialog->tr_text("Existing Clipboard Data"),
-            dialog->tr_text("The selected folder already contains clipboard data.\n"
-                            "Use That Data: switch to it and leave the current data where it is.\n"
-                            "Replace: move the current data there; the data already in that folder will be deleted."),
-            {{"use", dialog->tr_text("Use That Data"), QDialogButtonBox::AcceptRole},
-             {"replace", dialog->tr_text("Replace"), QDialogButtonBox::DestructiveRole},
-             {"cancel", dialog->tr_text("Cancel"), QDialogButtonBox::RejectRole, true}});
-        if (choice.toString() == "use") switch_clipboard_data_location(dialog, current_db_path, target_dir);
-        if (choice.toString() != "replace") return;
+            parent, settings_tr("Existing Clipboard Data"),
+            settings_tr("The selected folder already contains clipboard data.\n"
+                        "Use That Data: switch to it and leave the current data where it is.\n"
+                        "Replace: move the current data there; the data already in that folder will be deleted."),
+            {{"use", settings_tr("Use That Data"), QDialogButtonBox::AcceptRole},
+             {"replace", settings_tr("Replace"), QDialogButtonBox::DestructiveRole},
+             {"cancel", settings_tr("Cancel"), QDialogButtonBox::RejectRole, true}});
+        if (choice.toString() == "use") switch_clipboard_data_location(parent, current_db_path, target_dir, on_changed);
+        if (choice.toString() != "replace") return nullptr;
     }
 
     close_open_clipboard_windows();
     if (!cm.release_storage()) {
-        show_warning_dialog(dialog, dialog->tr_text("Error"), dialog->tr_text("Failed to close the current clipboard database."));
-        return;
+        show_warning_dialog(parent, settings_tr("Error"), settings_tr("Failed to close the current clipboard database."));
+        return nullptr;
     }
 
-    auto *progress = new QProgressDialog(dialog->tr_text("Preparing migration..."), "", 0, 100, dialog);
-    progress->setWindowTitle(dialog->tr_text("Moving Clipboard Data"));
+    auto *progress = new QProgressDialog(settings_tr("Preparing migration..."), "", 0, 100, parent);
+    progress->setWindowTitle(settings_tr("Moving Clipboard Data"));
     progress->setCancelButton(nullptr);
     progress->setAutoClose(false);
     progress->setAutoReset(false);
@@ -395,10 +389,10 @@ void change_clipboard_data_location(SettingsDialog *dialog) {
 
     auto mover = std::make_shared<ClipboardStorageMover>(
         current_db_path, target_dir,
-        MoveTexts{dialog->tr_text("Finalizing migration..."), dialog->tr_text("Migration complete."), dialog->tr_text("No clipboard data files were found to move."),
-                  dialog->tr_text("Moving clipboard data... {done} / {total}")});
+        MoveTexts{settings_tr("Finalizing migration..."), settings_tr("Migration complete."), settings_tr("No clipboard data files were found to move."),
+                  settings_tr("Moving clipboard data... {done} / {total}")});
     QPointer<QProgressDialog> progress_guard(progress);
-    QPointer<SettingsDialog> dialog_guard(dialog);
+    QPointer<QWidget> parent_guard(parent);
     // The worker's calls are queued to the application object and run on the GUI thread.
     mover->progress = [progress_guard](int value, const QString &text) {
         QMetaObject::invokeMethod(qApp, [progress_guard, value, text] {
@@ -407,23 +401,24 @@ void change_clipboard_data_location(SettingsDialog *dialog) {
             progress_guard->setLabelText(text);
         }, Qt::QueuedConnection);
     };
-    mover->completed = [dialog_guard, progress_guard](const QString &new_path, const QString &cleanup_error) {
-        QMetaObject::invokeMethod(qApp, [dialog_guard, progress_guard, new_path, cleanup_error] {
-            on_clipboard_move_completed(dialog_guard, progress_guard, new_path, cleanup_error);
+    mover->completed = [parent_guard, progress_guard, on_changed](const QString &new_path, const QString &cleanup_error) {
+        QMetaObject::invokeMethod(qApp, [parent_guard, progress_guard, new_path, cleanup_error, on_changed] {
+            on_clipboard_move_completed(parent_guard, progress_guard, new_path, cleanup_error, on_changed);
         }, Qt::QueuedConnection);
     };
-    mover->failed = [dialog_guard, progress_guard, current_db_path](const QString &message) {
-        QMetaObject::invokeMethod(qApp, [dialog_guard, progress_guard, current_db_path, message] {
-            on_clipboard_move_failed(dialog_guard, progress_guard, current_db_path, message);
+    mover->failed = [parent_guard, progress_guard, current_db_path](const QString &message) {
+        QMetaObject::invokeMethod(qApp, [parent_guard, progress_guard, current_db_path, message] {
+            on_clipboard_move_failed(parent_guard, progress_guard, current_db_path, message);
         }, Qt::QueuedConnection);
     };
     // Not parented to the window: destroying a running thread with it would abort the process.
     QThread *worker = QThread::create([mover] { mover->run(); });
     QObject::connect(worker, &QThread::finished, worker, &QObject::deleteLater);
-    dialog->clipboard_move_thread = worker;
     worker->start();
+    return worker;
 }
 
+namespace {
 void open_clipboard_data_folder(SettingsDialog *dialog, const QString &path) {
     const QString folder = QFileInfo(path).isFile() ? parent_dir(path) : path;
     if (QFileInfo::exists(folder)) {
@@ -537,7 +532,15 @@ QWidget *create_clipboard_page(SettingsDialog *dialog) {
     auto *storage_card = new SettingCard(FluentIcon::Folder, dialog->tr_text("Data Storage Location"), get_clipboard_db_path(dialog), grp_data);
     dialog->set_attr("_clipboard_storage_card", storage_card);
     auto *change_folder_btn = new PushButton(dialog->tr_text("Change"), storage_card);
-    QObject::connect(change_folder_btn, &QPushButton::clicked, dialog, [dialog] { change_clipboard_data_location(dialog); });
+    QObject::connect(change_folder_btn, &QPushButton::clicked, dialog, [dialog] {
+        QPointer<SettingsDialog> guard(dialog);
+        dialog->clipboard_move_thread = change_clipboard_data_location(dialog, [guard](const QString &new_db_path) {
+            if (!guard) return;
+            set_storage_path_label(guard, new_db_path);
+            sync_single_file_toggle(guard);
+            guard->refresh_clipboard_size();
+        });
+    });
     auto *open_folder_btn = new PushButton(dialog->tr_text("Open"), storage_card);
     QObject::connect(open_folder_btn, &QPushButton::clicked, dialog, [dialog] { open_clipboard_data_folder(dialog, get_clipboard_db_path(dialog)); });
     storage_card->addControl(change_folder_btn);

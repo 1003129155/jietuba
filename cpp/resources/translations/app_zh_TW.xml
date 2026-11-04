@@ -1646,6 +1646,22 @@ Replace it?</source>
         <source>A ring spreads from every click: yellow for the left button, blue for the right.</source>
         <translation>每次點擊擴散出一圈漣漪：左鍵黃色，右鍵藍色。</translation>
     </message>
+    <message>
+        <source>Green Mode</source>
+        <translation>綠色模式</translation>
+    </message>
+    <message>
+        <source>Keep the settings in the program's folder; copy the whole folder to take them along.</source>
+        <translation>設定儲存在程式所在資料夾，複製整個資料夾即可帶走。</translation>
+    </message>
+    <message>
+        <source>The program's folder cannot be written to.</source>
+        <translation>程式所在資料夾無法寫入。</translation>
+    </message>
+    <message>
+        <source>Could not move the settings file: %1</source>
+        <translation>無法移動設定檔：%1</translation>
+    </message>
 </context>
 <context>
     <name>ActionTools</name>
@@ -5136,6 +5152,34 @@ This action cannot be undone.</source>
     <message>
         <source>活动海报.png</source>
         <translation>活動海報.png</translation>
+    </message>
+    <message>
+        <source>截图、钉图、剪贴板、翻译和屏幕标注各设一个快捷键。</source>
+        <translation>截圖、釘圖、剪貼簿、翻譯和螢幕標註各設一個快速鍵。</translation>
+    </message>
+    <message>
+        <source>点击输入框后，按下快捷键或鼠标侧键即可录入。备用快捷键可以在设置的「快捷键」页添加。</source>
+        <translation>點擊輸入框後，按下快速鍵或滑鼠側鍵即可錄入。備用快速鍵可以在設定的「快速鍵」頁新增。</translation>
+    </message>
+    <message>
+        <source>更多动作，以及截图、钉图和剪贴板窗口里的鼠标操作，可以在设置的「鼠标快捷键」页调整。</source>
+        <translation>更多動作，以及截圖、釘圖和剪貼簿視窗裡的滑鼠操作，可以在設定的「滑鼠快速鍵」頁調整。</translation>
+    </message>
+    <message>
+        <source>截图、剪贴板记录和设置各自存在哪里，之后也可以在设置里改。</source>
+        <translation>截圖、剪貼簿記錄和設定各自存在哪裡，之後也可以在設定裡更改。</translation>
+    </message>
+    <message>
+        <source>存储位置</source>
+        <translation>儲存位置</translation>
+    </message>
+    <message>
+        <source>剪贴板数据</source>
+        <translation>剪貼簿資料</translation>
+    </message>
+    <message>
+        <source>剪贴板历史的数据库和图片都放在这个文件夹。</source>
+        <translation>剪貼簿歷史的資料庫和圖片都放在這個資料夾。</translation>
     </message>
 </context>
 <context>

@@ -16,6 +16,9 @@
 namespace jietuba {
 namespace {
 QString settings_text(const char *text) { return i18n_tr(text, "SettingsDialog"); }
+// QUICK_CAPTURE_ACTIONS keys shown here.
+const QStringList WIZARD_ACTIONS = {"copy", "pin", "ocr", "translate"};
+QString page_hint() { return welcome_tr("更多动作，以及截图、钉图和剪贴板窗口里的鼠标操作，可以在设置的「鼠标快捷键」页调整。"); }
 
 QColor with_alpha(const QString &color, int alpha) {
     QColor result(color);
@@ -229,23 +232,17 @@ QString page_subtitle() { return welcome_tr("按住修饰键拖动鼠标框选�
 
 MouseShortcutPage::MouseShortcutPage(ToolSettingsManager *config, QWidget *parent) : BasePage(welcome_tr("鼠标快捷键"), page_subtitle(), parent), config_(config) {
     init();
-    // 每行有两个下拉框，给快捷键设置多留一些宽度。
-    illus_area->setFixedWidth(dialog_scaled(270));
 }
 
 IllustrationArea *MouseShortcutPage::create_illustration() { return new GestureIllus(this); }
 
 void MouseShortcutPage::build_controls(QVBoxLayout *layout) {
-    auto *grid = new QGridLayout;
-    grid->setContentsMargins(0, 0, 0, 0);
-    grid->setHorizontalSpacing(dialog_scaled(10));
-    grid->setVerticalSpacing(dialog_scaled(8));
-    grid->setColumnStretch(1, 1);
-    int row = 0;
+    // The name over its two combos, as on the hotkey page, so long names leave them their width.
+    bool first = true;
     for (const auto &action : QUICK_CAPTURE_ACTIONS()) {
+        // The ones a new user reaches for; the rest are in the settings window.
+        if (!WIZARD_ACTIONS.contains(QString::fromLatin1(action.key))) continue;
         auto *label = new QLabel(settings_text(action.label));
-        label->setWordWrap(true);
-        label->setFixedWidth(dialog_scaled(104));
         set_welcome_label_style(label, "primary", 13, 600);
         auto *editor = new MouseBindingEditor(action.kind);
         // The combos share the row instead of asking for their widest item; gestures read longer.
@@ -260,20 +257,21 @@ void MouseShortcutPage::build_controls(QVBoxLayout *layout) {
         editor->setBinding(get_quick_capture_binding(config_, action.key));
         connect(editor->modifiers, &QComboBox::currentIndexChanged, this, &MouseShortcutPage::refresh_conflict_hint);
         connect(editor->gesture, &QComboBox::currentIndexChanged, this, &MouseShortcutPage::refresh_conflict_hint);
-        grid->addWidget(label, row, 0);
-        grid->addWidget(editor, row, 1);
+        if (!first) layout->addSpacing(dialog_scaled(6));
+        first = false;
+        layout->addWidget(label);
+        layout->addWidget(editor);
         editors_.emplace_back(action.key, editor);
         action_labels_.emplace_back(label, action.label);
-        ++row;
     }
-    layout->addLayout(grid);
+    layout->addSpacing(dialog_scaled(4));
 
     conflict_lbl_ = new QLabel;
     conflict_lbl_->setWordWrap(true);
     set_welcome_label_style(conflict_lbl_, "primary", 12, 400, "color: #D9534F;");
     layout->addWidget(conflict_lbl_);
     layout->addSpacing(dialog_scaled(4));
-    hint_ = new QLabel(welcome_tr("截图、钉图和剪贴板窗口里的鼠标操作，可以在设置的「鼠标快捷键」页调整。"));
+    hint_ = new QLabel(page_hint());
     hint_->setWordWrap(true);
     set_welcome_label_style(hint_, "muted", 12, 400);
     layout->addWidget(hint_);
@@ -284,6 +282,10 @@ QSet<QString> MouseShortcutPage::conflicted_actions() const {
     QHash<QString, QStringList> by_binding;
     for (const auto &[key, editor] : editors_)
         if (const QString binding = editor->currentData(); !binding.isEmpty()) by_binding[binding].append(key);
+    // Actions left to the settings window keep their gestures, which the shown ones must not take.
+    for (const auto &action : QUICK_CAPTURE_ACTIONS())
+        if (!WIZARD_ACTIONS.contains(QString::fromLatin1(action.key)))
+            if (const QString binding = get_quick_capture_binding(config_, action.key); !binding.isEmpty()) by_binding[binding].append(action.key);
     QSet<QString> conflicted;
     for (const auto &keys : std::as_const(by_binding))
         if (keys.size() > 1) conflicted.unite(QSet<QString>(keys.begin(), keys.end()));
@@ -293,8 +295,8 @@ QSet<QString> MouseShortcutPage::conflicted_actions() const {
 void MouseShortcutPage::refresh_conflict_hint() {
     const auto conflicted = conflicted_actions();
     QStringList names;
-    for (size_t i = 0; i < editors_.size(); ++i)
-        if (conflicted.contains(editors_[i].first)) names.append(settings_text(action_labels_[i].second));
+    for (const auto &action : QUICK_CAPTURE_ACTIONS())
+        if (conflicted.contains(QString::fromLatin1(action.key))) names.append(settings_text(action.label));
     conflict_lbl_->setText(names.isEmpty() ? QString() : welcome_tr("%1 用了同一个手势，重复的不会保存。").arg(names.join(" / ")));
     conflict_lbl_->setVisible(!names.isEmpty());
 }
@@ -303,7 +305,7 @@ void MouseShortcutPage::retranslate() {
     title_label->setText(welcome_tr("鼠标快捷键"));
     subtitle_label->setText(page_subtitle());
     for (const auto &[label, text] : action_labels_) label->setText(settings_text(text));
-    hint_->setText(welcome_tr("截图、钉图和剪贴板窗口里的鼠标操作，可以在设置的「鼠标快捷键」页调整。"));
+    hint_->setText(page_hint());
     refresh_conflict_hint();
     illus_area->retranslate();
 }

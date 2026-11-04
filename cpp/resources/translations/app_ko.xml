@@ -1656,6 +1656,22 @@ Replace it?</source>
         <source>Window Scale</source>
         <translation>창 배율</translation>
     </message>
+    <message>
+        <source>Green Mode</source>
+        <translation>포터블 모드</translation>
+    </message>
+    <message>
+        <source>Keep the settings in the program's folder; copy the whole folder to take them along.</source>
+        <translation>설정을 프로그램 폴더에 저장합니다. 폴더째 복사하면 설정도 함께 옮겨집니다.</translation>
+    </message>
+    <message>
+        <source>The program's folder cannot be written to.</source>
+        <translation>프로그램 폴더에 쓸 수 없습니다.</translation>
+    </message>
+    <message>
+        <source>Could not move the settings file: %1</source>
+        <translation>설정 파일을 옮길 수 없습니다: %1</translation>
+    </message>
 </context>
 
 <context>
@@ -5089,6 +5105,34 @@ This action cannot be undone.</source>
     <message>
         <source>活动海报.png</source>
         <translation>행사 포스터.png</translation>
+    </message>
+    <message>
+        <source>截图、钉图、剪贴板、翻译和屏幕标注各设一个快捷键。</source>
+        <translation>스크린샷, 고정, 클립보드, 번역, 화면 주석의 단축키를 하나씩 설정합니다.</translation>
+    </message>
+    <message>
+        <source>点击输入框后，按下快捷键或鼠标侧键即可录入。备用快捷键可以在设置的「快捷键」页添加。</source>
+        <translation>입력란을 클릭한 뒤 키 조합이나 마우스 사이드 버튼을 누르세요. 보조 단축키는 설정의 ‘단축키’에서 추가할 수 있습니다.</translation>
+    </message>
+    <message>
+        <source>更多动作，以及截图、钉图和剪贴板窗口里的鼠标操作，可以在设置的「鼠标快捷键」页调整。</source>
+        <translation>다른 동작과 스크린샷, 고정 이미지, 클립보드 창 안의 마우스 동작은 설정의 ‘마우스 단축키’에서 바꿀 수 있습니다.</translation>
+    </message>
+    <message>
+        <source>截图、剪贴板记录和设置各自存在哪里，之后也可以在设置里改。</source>
+        <translation>스크린샷, 클립보드 기록, 설정이 저장되는 위치입니다. 나중에 설정에서 바꿀 수 있습니다.</translation>
+    </message>
+    <message>
+        <source>存储位置</source>
+        <translation>저장 위치</translation>
+    </message>
+    <message>
+        <source>剪贴板数据</source>
+        <translation>클립보드 데이터</translation>
+    </message>
+    <message>
+        <source>剪贴板历史的数据库和图片都放在这个文件夹。</source>
+        <translation>클립보드 기록의 데이터베이스와 이미지가 이 폴더에 저장됩니다.</translation>
     </message>
 </context>
 
