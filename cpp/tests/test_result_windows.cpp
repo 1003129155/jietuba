@@ -582,6 +582,35 @@ private slots:
         QCOMPARE(chosen.front().front().toBool(), false);
     }
 
+    void tableHeadersStayDistinctFromTheCells() {
+        const auto theme = get_ui_theme()->mode();
+        const auto restore = qScopeGuard([theme] { get_ui_theme()->set_mode(ui_theme_mode_value(theme), false); });
+        for (const char *mode : {"light", "dark"}) {
+            get_ui_theme()->set_mode(mode, false);
+            RecognizedTableView view;
+            view.set_table(small_table(), false);
+            view.resize(400, 200);
+            const auto &t = ui_tokens(&view);
+            view.setStyleSheet(view.styleSheet() + QString("QTableWidget { background: %1; }").arg(t.input_background));
+            view.show();
+            QApplication::processEvents();
+            const auto sample = [](QWidget *widget) { return widget->grab().toImage().pixelColor(4, 4); };
+            const QColor background = css_color(t.input_background);
+            const QColor header = sample(view.horizontalHeader()->viewport());
+            QCOMPARE(sample(view.verticalHeader()->viewport()), header);
+            QVERIFY(std::abs(header.lightness() - background.lightness()) >= 18);
+            QCOMPARE(header.alpha(), 255);
+            view.setRangeSelected(QTableWidgetSelectionRange(0, 0, 0, 0), true);
+            QCOMPARE(sample(view.horizontalHeader()->viewport()), css_color(t.accent_strong));
+            QCOMPARE(sample(view.verticalHeader()->viewport()), css_color(t.accent_strong));
+            const auto shots = qEnvironmentVariable("JIETUBA_OCR_HEADER_SHOTS");
+            if (!shots.isEmpty()) {
+                QVERIFY(QDir().mkpath(shots));
+                QVERIFY(view.grab().save(QDir(shots).filePath(QString("table-headers-%1.png").arg(mode))));
+            }
+        }
+    }
+
     void ctrlWheelZoomsTheTable() {
         RecognizedTableView view;
         view.set_table(small_table(), false);

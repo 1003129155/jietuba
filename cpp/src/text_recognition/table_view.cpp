@@ -96,6 +96,7 @@ RecognizedTableView::RecognizedTableView(QWidget *parent) : QTableWidget(parent)
 
 void RecognizedTableView::apply_theme() {
     const auto &t = ui_tokens(this);
+    const QString header_background = t.is_dark() ? "#3B424A" : "#E1E5EA";
     grid_color_ = css_color(t.border);
     setStyleSheet(QString("QTableWidget { background: transparent; color: %1; font: %3px %4; border: none; outline: 0; "
                           "selection-background-color: %5; selection-color: %1; }"
@@ -117,10 +118,10 @@ void RecognizedTableView::apply_theme() {
                           "border-bottom: 1px solid %3; padding: 0 %4px; font: %5px %6; }"
                           "QHeaderView::section:checked { background: %7; color: %8; }"
                           "QTableCornerButton::section { background: %1; border: none; border-right: 1px solid %3; border-bottom: 1px solid %3; }")
-                      .arg(t.surface_subtle, t.text_muted, t.border)
+                      .arg(header_background, t.text_muted, t.border_hover)
                       .arg(zoomed(6))
                       .arg(zoomed(12))
-                      .arg(FONT_FAMILY, t.accent_soft, t.text) +
+                      .arg(FONT_FAMILY, t.accent_strong, t.selected_text) +
                   scrollbar_qss(this));
     horizontalHeader()->setMinimumHeight(zoomed(26));
     verticalHeader()->setMinimumWidth(zoomed(36));
