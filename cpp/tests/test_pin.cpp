@@ -2296,6 +2296,18 @@ private slots:
                                         {box(300, 0, 20, 20), "90", 1}, {box(100, 40, 20, 20), "45", 1}}));
         cells.select_between(QPointF(1, 10), QPointF(319, 10));
         QCOMPARE(cells.selected_text(), QString("abc 60 72 90"));
+        // A cell box tilted by a pixel, as the engine gives them, still lies on a long drag along its row.
+        OcrTextLayout tilted(ocr_result({{{QPointF(71, 248), QPointF(137, 247), QPointF(137, 271), QPointF(71, 270)}, "abc", 1},
+                                         {{QPointF(241, 248), QPointF(268, 248), QPointF(267, 268), QPointF(241, 268)}, "60", 1},
+                                         {{QPointF(389, 246), QPointF(420, 247), QPointF(419, 270), QPointF(388, 269)}, "72", 1},
+                                         {{QPointF(540, 247), QPointF(568, 247), QPointF(568, 269), QPointF(539, 268)}, "90", 1},
+                                         {{QPointF(390, 294), QPointF(419, 295), QPointF(418, 317), QPointF(389, 317)}, "50", 1}}));
+        tilted.select_between(QPointF(80, 260), QPointF(568, 260));
+        QCOMPARE(tilted.selected_text(), QString("abc 60 72 90"));
+        // A drag down from a cell does not reach the cell before it in the row.
+        tilted.select_between(QPointF(390, 258), QPointF(400, 306));
+        QVERIFY(tilted.selected_text().startsWith("72"));
+        QVERIFY(!tilted.selected_text().contains("60"));
     }
 
     void closeLinesGiveEachPointOneLine() {

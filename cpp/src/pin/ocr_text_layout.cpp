@@ -149,11 +149,6 @@ void OcrTextLayout::select_between(const QPointF &from, const QPointF &to, doubl
         } else if (on(b)) {
             low = -infinity;
             high = b.at.x();
-        } else if (a.at.y() >= 0 && b.at.y() <= thickness) {
-            // Both ends level with the line, as in a table row dragged across: the run between them.
-            // Without slack, so a close line of the same paragraph is not caught.
-            low = std::min(a.at.x(), b.at.x());
-            high = std::max(a.at.x(), b.at.x());
         } else if (a.at.y() < 0 && b.at.y() > thickness) {
             double first = infinity, last = -infinity;
             for (const auto &point : reach) {
@@ -165,7 +160,22 @@ void OcrTextLayout::select_between(const QPointF &from, const QPointF &to, doubl
             low = -infinity;
             high = infinity;
         } else {
-            continue;
+            // A drag along a table row passes through the cells between its ends: the part of the
+            // drag inside the line. Clipped in the line's frame, since a slightly tilted box puts a
+            // far end outside the line even when the drag runs through it. Without slack, so a close
+            // line of the same paragraph is not caught.
+            const double rise = b.at.y() - a.at.y();
+            double enter = 0, leave = 1;
+            if (rise > 0) {
+                enter = std::max(0.0, -a.at.y() / rise);
+                leave = std::min(1.0, (thickness - a.at.y()) / rise);
+            } else if (a.at.y() < 0 || a.at.y() > thickness) {
+                continue;
+            }
+            if (enter > leave) continue;
+            const double first = a.at.x() + (b.at.x() - a.at.x()) * enter, last = a.at.x() + (b.at.x() - a.at.x()) * leave;
+            low = std::min(first, last);
+            high = std::max(first, last);
         }
         // Centres run in reading order, so the run is one slice.
         const auto begin = std::upper_bound(line.centers.begin(), line.centers.end(), low);

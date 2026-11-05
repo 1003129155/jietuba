@@ -52,7 +52,8 @@ public:
     // both ends gives the run between them; a line holding one end, the run from it towards the
     // other; a line lying wholly between the ends counts in full when it overlaps the end lines
     // or the drag along its direction, so short lines inside a paragraph are kept and another
-    // column is not. A character counts when its centre falls inside the run.
+    // column is not; any other line the drag passes through, as a table cell between the ends of a
+    // row, gives the part inside it. A character counts when its centre falls inside the run.
     void select_between(const QPointF &from, const QPointF &to, double slack = 0);
     void select_line(int index);
     // The character of a line at point along it, or the nearest one; -1 for a line without any.
