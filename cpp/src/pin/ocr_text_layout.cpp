@@ -149,6 +149,11 @@ void OcrTextLayout::select_between(const QPointF &from, const QPointF &to, doubl
         } else if (on(b)) {
             low = -infinity;
             high = b.at.x();
+        } else if (a.at.y() >= 0 && b.at.y() <= thickness) {
+            // Both ends level with the line, as in a table row dragged across: the run between them.
+            // Without slack, so a close line of the same paragraph is not caught.
+            low = std::min(a.at.x(), b.at.x());
+            high = std::max(a.at.x(), b.at.x());
         } else if (a.at.y() < 0 && b.at.y() > thickness) {
             double first = infinity, last = -infinity;
             for (const auto &point : reach) {
