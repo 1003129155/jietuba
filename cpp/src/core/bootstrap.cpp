@@ -345,8 +345,7 @@ void PreloadManager::preload_clipboard_window() {
     }
     try {
         if (app_->clipboard_window) return;
-        app_->clipboard_window = new clipboard::ClipboardWindow;
-        app_->clipboard_window->hide();
+        app_->ensure_clipboard_window()->hide();
         log_debug(T("剪贴板窗口预创建完成（未显示）"), "Clipboard");
     } catch (const std::exception &e) {
         log_warning(T("剪贴板窗口预创建失败: {e}", {{"e", QString::fromUtf8(e.what())}}), "Clipboard");

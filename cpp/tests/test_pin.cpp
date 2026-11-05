@@ -2291,6 +2291,11 @@ private slots:
         OcrTextLayout row(ocr_result({{box(0, 0, 50, 20), "hello", 1}, {box(60, 0, 50, 20), "world", 1}}));
         row.select_between(QPointF(1, 10), QPointF(109, 10));
         QCOMPARE(row.selected_text(), QString("hello world"));
+        // Cells of a table row between the two ends are taken whole.
+        OcrTextLayout cells(ocr_result({{box(0, 0, 30, 20), "abc", 1}, {box(100, 0, 20, 20), "60", 1}, {box(200, 0, 20, 20), "72", 1},
+                                        {box(300, 0, 20, 20), "90", 1}, {box(100, 40, 20, 20), "45", 1}}));
+        cells.select_between(QPointF(1, 10), QPointF(319, 10));
+        QCOMPARE(cells.selected_text(), QString("abc 60 72 90"));
     }
 
     void closeLinesGiveEachPointOneLine() {

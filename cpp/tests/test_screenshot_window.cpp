@@ -1041,6 +1041,7 @@ private slots:
     // The quick-save action writes to the save folder, with the unannotated original beside it.
     void quickSaveKeepsTheOriginalBesideAnnotatedCaptures() {
         config_->set_screenshot_save_original_enabled(true);
+        config_->set_screenshot_format("JPG");
         auto *window = open_with_selection();
         auto *actions = window->action_handler.get();
         QVERIFY(!actions->handle_capture_action("unknown"));
@@ -1050,8 +1051,16 @@ private slots:
         QVERIFY(!window->session_active());
         QTRY_COMPARE(saved_files().size(), 2);
         bool original = false;
-        for (const auto &name : saved_files()) original |= name.contains("_original");
+        for (const auto &name : saved_files()) {
+            original |= name.contains("_original");
+            // Named and encoded as the setting says, like any other saved capture.
+            if (!name.contains("_original")) {
+                QVERIFY2(name.endsWith(".jpg", Qt::CaseInsensitive) && name.front().isDigit(), qPrintable(name));
+                QCOMPARE(QImageReader(QDir(dir_.filePath("captures")).filePath(name)).format(), QByteArray("jpeg"));
+            }
+        }
         QVERIFY(original);
+        config_->set_screenshot_format("PNG");
         // Without a selection only "close" acts.
         window = open();
         QVERIFY(!window->action_handler->handle_capture_action("copy"));

@@ -124,6 +124,14 @@ private slots:
         QApplication::processEvents();
     }
 
+    // Runs before any test opens the clipboard window, so the window is the one start-up preloaded.
+    void thePreloadedClipboardWindowOpensItsSettingsPage() {
+        QVERIFY(main_app_->clipboard_window);
+        emit main_app_->clipboard_window->settings_requested();
+        QTRY_VERIFY(main_app_->settings_window && main_app_->settings_window->isVisible());
+        QCOMPARE(main_app_->settings_window->view_state().route_key, QString("clipboard"));
+    }
+
     // Windows that set no icon of their own carry the application icon, which the title bar and
     // the taskbar show.
     void windowsWithoutTheirOwnIconUseTheAppIcon() {
