@@ -90,8 +90,7 @@ void apply_ocr_install_state(SettingsDialog *dialog) {
     }
     if (auto *combo = dialog->attr<QComboBox>("ocr_engine_combo")) {
         for (auto it = state.begin(); it != state.end(); ++it) combo->setProperty(it.key().toUtf8().constData(), it.value());
-        const QString selection = combo->currentData().toString();
-        const auto [engine, model_id] = ocr_choice(selection == MANAGE_MODELS ? combo->property("selected").toString() : selection);
+        const auto [engine, model_id] = ocr_choice(ocr_selection(combo));
         fill_ocr_engines(dialog, engine, model_id.value_or(dialog->config_manager->get_ppocr_model()));
         combo->setProperty("queried", true);
     }
@@ -326,6 +325,11 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     layout->addStretch();
     scroll->setWidget(view);
     return scroll;
+}
+
+QString ocr_selection(const QComboBox *combo) {
+    const QString data = combo->currentData().toString();
+    return data == MANAGE_MODELS ? combo->property("selected").toString() : data;
 }
 
 std::pair<QString, std::optional<QString>> ocr_choice(const QString &data) {

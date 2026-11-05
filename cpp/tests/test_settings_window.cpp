@@ -552,9 +552,16 @@ private slots:
         QCOMPARE(combo->currentData().toString(), QString("ppocr_rust:ppocr-v5-korean"));
 
         combo->setCurrentIndex(combo->findData("ppocr_rust:local"));
+        emit combo->activated(combo->currentIndex());
         QVERIFY(dialog.apply_settings());
         QCOMPARE(config_->get_ocr_engine(), QString("ppocr_rust"));
         QCOMPARE(config_->get_ppocr_model(), QString("local"));
+        // "Download more models..." is current while the model manager is open; a save then keeps the chosen model.
+        combo->setCurrentIndex(combo->findData("manage_models"));
+        dialog.apply_settings();
+        QCOMPARE(config_->get_ocr_engine(), QString("ppocr_rust"));
+        QCOMPARE(config_->get_ppocr_model(), QString("local"));
+        combo->setCurrentIndex(combo->findData("ppocr_rust:local"));
 
         QVERIFY(QDir(root.filePath("local")).removeRecursively());
         emit model_downloads()->models_changed();

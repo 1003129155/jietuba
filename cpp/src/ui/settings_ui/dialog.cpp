@@ -933,7 +933,7 @@ void SettingsDialog::save_changes(QSet<QString> changed) {
     // 4. OCR.
     if (auto *toggle = attr_widget("ocr_enable_toggle"); toggle && has("ocr_enable_toggle")) config_manager->set_ocr_enabled(checked_of(toggle));
     if (auto *combo = attr<QComboBox>("ocr_engine_combo"); combo && has("ocr_engine_combo")) {
-        const auto [engine, model] = ocr_choice(combo->currentData().toString());
+        const auto [engine, model] = ocr_choice(ocr_selection(combo));
         if (model && *model != config_manager->get_ppocr_model()) {
             config_manager->set_ppocr_model(*model);
             set_ppocr_model(*model);
@@ -1246,7 +1246,7 @@ QVariantMap SettingsDialog::snapshot_settings() const {
                              "_color_picker_style_combo", "smart_mode_combo", "capture_engine_combo"})
         if (auto *combo = attr<QComboBox>(name)) snap[name] = combo->currentIndex();
     // The OCR list reorders as models are downloaded or deleted, so it compares by the item's value.
-    if (auto *combo = attr<QComboBox>("ocr_engine_combo")) snap["ocr_engine_combo"] = combo->currentData();
+    if (auto *combo = attr<QComboBox>("ocr_engine_combo")) snap["ocr_engine_combo"] = ocr_selection(combo);
     // Numbers.
     for (const char *name : {"clipboard_history_limit_spin", "ignore_top_pixels_spinbox", "ocr_scale_spinbox"}) {
         if (auto *spin = attr<QSpinBox>(name)) snap[name] = spin->value();
