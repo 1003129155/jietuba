@@ -2304,6 +2304,20 @@ private slots:
                                          {{QPointF(390, 294), QPointF(419, 295), QPointF(418, 317), QPointF(389, 317)}, "50", 1}}));
         tilted.select_between(QPointF(80, 260), QPointF(568, 260));
         QCOMPARE(tilted.selected_text(), QString("abc 60 72 90"));
+        // The cells holding the ends are taken towards the other end, whichever way the drag runs
+        // and whichever way their boxes lean.
+        OcrTextLayout rows(ocr_result({{{QPointF(82, 151), QPointF(127, 152), QPointF(126, 175), QPointF(81, 175)}, "ab", 1},
+                                       {{QPointF(236, 152), QPointF(274, 152), QPointF(273, 172), QPointF(237, 172)}, "120", 1},
+                                       {{QPointF(387, 151), QPointF(424, 152), QPointF(424, 173), QPointF(387, 173)}, "135", 1},
+                                       {{QPointF(537, 152), QPointF(574, 152), QPointF(573, 172), QPointF(537, 172)}, "150", 1},
+                                       {{QPointF(82, 297), QPointF(125, 296), QPointF(124, 319), QPointF(81, 318)}, "cd", 1},
+                                       {{QPointF(241, 296), QPointF(267, 296), QPointF(266, 316), QPointF(241, 316)}, "45", 1},
+                                       {{QPointF(390, 294), QPointF(419, 295), QPointF(418, 317), QPointF(389, 317)}, "50", 1},
+                                       {{QPointF(539, 295), QPointF(569, 296), QPointF(568, 317), QPointF(539, 317)}, "66", 1}}));
+        rows.select_between(QPointF(574, 163), QPointF(82, 163));
+        QCOMPARE(rows.selected_text(), QString("ab 120 135 150"));
+        rows.select_between(QPointF(83, 307), QPointF(568, 307));
+        QCOMPARE(rows.selected_text(), QString("cd 45 50 66"));
         // A drag down from a cell does not reach the cell before it in the row.
         tilted.select_between(QPointF(390, 258), QPointF(400, 306));
         QVERIFY(tilted.selected_text().startsWith("72"));
