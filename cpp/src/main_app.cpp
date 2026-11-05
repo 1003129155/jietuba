@@ -634,6 +634,14 @@ void MainApp::release_clipboard_from_capture() {
     set_window_owner(static_cast<quintptr>(clipboard_window->winId()), 0);
 }
 
+clipboard::ClipboardWindow *MainApp::ensure_clipboard_window() {
+    if (!clipboard_window) {
+        clipboard_window = new clipboard::ClipboardWindow;
+        connect(clipboard_window, &clipboard::ClipboardWindow::settings_requested, this, [this] { open_settings_page(2, "clipboard"); });
+    }
+    return clipboard_window;
+}
+
 void MainApp::open_clipboard_window() {
     if (update_preparing) return;
     try {
@@ -642,10 +650,7 @@ void MainApp::open_clipboard_window() {
             clipboard_window->close();
             return;
         }
-        if (!clipboard_window) {
-            clipboard_window = new clipboard::ClipboardWindow;
-            connect(clipboard_window, &clipboard::ClipboardWindow::settings_requested, this, [this] { open_settings_page(2, "clipboard"); });
-        }
+        ensure_clipboard_window();
         if (screenshot_window && screenshot_window->session_active()) {
             attach_clipboard_to_capture();
             // The text being typed stays in view while picking what goes into it.
