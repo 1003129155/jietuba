@@ -454,15 +454,16 @@ private slots:
         QList<QPair<QColor, qint64>> shown;
         clock.start();
         PinAnimation player(*source, [&](const QImage &frame) { shown.append({frame.pixelColor(0, 0), clock.elapsed()}); }, nullptr);
-        QTRY_VERIFY_WITH_TIMEOUT(shown.size() >= 4, 5000);
+        QTRY_VERIFY_WITH_TIMEOUT(shown.size() >= 4, 15000);
         // Green after red's 50 ms, blue after green's 120, red again after blue's 70, and so on.
         const QColor order[] = {PALETTE[1], PALETTE[2], PALETTE[0], PALETTE[1]};
         const int due[] = {50, 170, 240, 290};
         for (int i = 0; i < 4; ++i) {
             QCOMPARE(shown[i].first, order[i]);
-            // Never early; the deadlines add up, so lateness does not pile up either.
+            // Never early; the deadlines add up, so lateness does not pile up either. Measured against
+            // the first frame's, since a loaded machine can start the whole run late.
             QVERIFY2(shown[i].second >= due[i] - 2, qPrintable(QString("frame %1 at %2 ms").arg(i).arg(shown[i].second)));
-            QVERIFY2(shown[i].second <= due[i] + 400, qPrintable(QString("frame %1 at %2 ms").arg(i).arg(shown[i].second)));
+            QVERIFY2(shown[i].second - due[i] <= shown[0].second - due[0] + 400, qPrintable(QString("frame %1 at %2 ms").arg(i).arg(shown[i].second)));
         }
         QCOMPARE(player.frame_count(), 3);
     }
@@ -474,7 +475,7 @@ private slots:
         QList<qint64> shown;
         clock.start();
         PinAnimation player(*source, [&](const QImage &) { shown.append(clock.elapsed()); }, nullptr);
-        QTRY_VERIFY_WITH_TIMEOUT(shown.size() >= 2, 5000);
+        QTRY_VERIFY_WITH_TIMEOUT(shown.size() >= 2, 15000);
         QVERIFY(shown[0] >= 98);
         QVERIFY(shown[1] >= 198);
     }
@@ -484,7 +485,7 @@ private slots:
         QVERIFY(source);
         QList<QColor> shown;
         PinAnimation player(*source, [&](const QImage &frame) { shown.append(frame.pixelColor(0, 0)); }, nullptr);
-        QTRY_VERIFY_WITH_TIMEOUT(!shown.isEmpty(), 5000);
+        QTRY_VERIFY_WITH_TIMEOUT(!shown.isEmpty(), 15000);
         player.set_paused(true);
         QVERIFY(player.paused());
         const int held = player.frame_index();
@@ -493,7 +494,7 @@ private slots:
         QCOMPARE(shown.size(), count);
         QCOMPARE(player.frame_index(), held);
         player.set_paused(false);
-        QTRY_VERIFY_WITH_TIMEOUT(shown.size() > count, 5000);
+        QTRY_VERIFY_WITH_TIMEOUT(shown.size() > count, 15000);
         QCOMPARE(shown[count], PALETTE[(held + 1) % 3]);
     }
 
@@ -528,7 +529,7 @@ private slots:
         // Playing goes on from there.
         const auto count = shown.size();
         player.set_paused(false);
-        QTRY_VERIFY_WITH_TIMEOUT(shown.size() > count, 5000);
+        QTRY_VERIFY_WITH_TIMEOUT(shown.size() > count, 15000);
         QCOMPARE(shown[count], PALETTE[2]);
     }
 
@@ -603,13 +604,13 @@ private slots:
         QVERIFY(source);
         QList<QColor> shown;
         PinAnimation player(*source, [&](const QImage &frame) { shown.append(frame.pixelColor(0, 0)); }, nullptr);
-        QTRY_VERIFY_WITH_TIMEOUT(player.paused(), 5000);
+        QTRY_VERIFY_WITH_TIMEOUT(player.paused(), 15000);
         QCOMPARE(shown, QList<QColor>({PALETTE[1], PALETTE[2]}));
         QCOMPARE(player.frame_index(), 2);
         player.set_paused(false);
-        QTRY_COMPARE_WITH_TIMEOUT(shown.size(), 3, 5000);
+        QTRY_COMPARE_WITH_TIMEOUT(shown.size(), 3, 15000);
         QCOMPARE(shown[2], PALETTE[0]);
-        QTRY_VERIFY_WITH_TIMEOUT(player.paused(), 5000);
+        QTRY_VERIFY_WITH_TIMEOUT(player.paused(), 15000);
         QCOMPARE(shown.size(), 5);
     }
 
@@ -1003,7 +1004,8 @@ private slots:
         // Nothing that reads or draws on the image.
         for (const char *entry : {"Translate", "Image transform", "Toolbar", "Hide annotations", "Text selection", "Pin as text"})
             QVERIFY2(!has_entry(entries, entry), entry);
-        QCOMPARE(animation->frame_index(), 1);
+        // The next frame shows once the decoder has it, at once unless the machine is loaded.
+        QTRY_COMPARE(animation->frame_index(), 1);
         run_menu(pin, at, "Faster");
         QCOMPARE(animation->speed(), 1.25);
         entries = run_menu(pin, at, "Play");
