@@ -1,3 +1,4 @@
+#include "core/package_identity.h"
 #include "core/update_cache.h"
 #include "core/update_checker.h"
 #include "core/update_controller.h"
@@ -10,6 +11,7 @@
 #include <QJsonDocument>
 #include <QLockFile>
 #include <QProcess>
+#include <QScopeGuard>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
@@ -492,6 +494,15 @@ private slots:
         QCOMPARE(reply.value("event").toString(), QString("version"));
         QCOMPARE(reply.value("data").toObject().value("test_build").toBool(true), false);
         update_cache::remove_helper(copied);
+    }
+
+    // The Store updates a packaged app; even a helper that would run must not turn one-click updates on.
+    void aPackagedAppOffersNoOneClickUpdate() {
+        set_helper_source_for_test(FAKE_HELPER);
+        QVERIFY(updater_bundled());
+        set_packaged_for_test(true);
+        const auto restore = qScopeGuard([] { set_packaged_for_test(std::nullopt); });
+        QVERIFY(!updater_bundled());
     }
 
     void everyBuildUpdatesAsTheLitePackage() {

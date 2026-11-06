@@ -1,5 +1,6 @@
 #include "core/updater_process.h"
 #include "core/logger.h"
+#include "core/package_identity.h"
 #include "core/update_cache.h"
 #include <QCoreApplication>
 #include <QDir>
@@ -23,7 +24,8 @@ QString &helper_source_override() {
 QString tr_process(const char *text) { return QCoreApplication::translate("UpdaterProcess", text); }
 }
 
-bool updater_bundled() { return !helper_source_override().isEmpty() || QFileInfo::exists(BUNDLED_HELPER); }
+// The Store updates a packaged app and the install folder is read-only, so the helper cannot replace the exe.
+bool updater_bundled() { return !is_packaged() && (!helper_source_override().isEmpty() || QFileInfo::exists(BUNDLED_HELPER)); }
 
 void set_helper_source_for_test(const QString &path) { helper_source_override() = path; }
 
