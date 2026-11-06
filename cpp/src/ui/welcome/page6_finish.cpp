@@ -2,6 +2,7 @@
 #include "core/crash_handler.h"
 #include "core/elevation.h"
 #include "core/logger.h"
+#include "core/package_identity.h"
 #include "core/platform_utils.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
@@ -221,6 +222,7 @@ void FinishPage::build_controls(QVBoxLayout *layout) {
     QWidget *row = nullptr;
     std::tie(row, autostart_lbl_, autostart_desc_) = make_setting_row_with_refs(welcome_tr("开机自启"), autostart_switch_, welcome_tr("开机后在检测更新后启动。"));
     layout->addWidget(row);
+    row->setVisible(!is_packaged());
     // Show the main window at start.
     show_main_switch_ = new WelcomeToggleSwitch;
     show_main_switch_->setChecked(config_->get_show_main_window());
@@ -231,6 +233,8 @@ void FinishPage::build_controls(QVBoxLayout *layout) {
     desktop_switch_->setChecked(true);
     std::tie(row, desktop_lbl_, desktop_desc_) = make_setting_row_with_refs(welcome_tr("快捷方式"), desktop_switch_, brand_text(welcome_tr("完成向导时在桌面创建截图吧快捷方式。")));
     layout->addWidget(row);
+    // A shortcut to the exe inside the package folder cannot be launched.
+    row->setVisible(!is_packaged());
     // Off unless chosen before; the tray menu has the same switch.
     game_pause_switch_ = new WelcomeToggleSwitch;
     game_pause_switch_->setChecked(config_->get_pause_hotkeys_in_games());
@@ -284,7 +288,7 @@ void FinishPage::save_preferences() {
 
 void FinishPage::save() {
     save_preferences();
-    const bool desktop_on = desktop_switch_->isChecked();
+    const bool desktop_on = desktop_switch_->isChecked() && !is_packaged();
     const bool run_as_admin = config_->get_run_as_admin();
     // Without elevation the wizard cannot remove the administrator task, which keeps starting the
     // program at sign-in, so autostart stays on instead of being stored as off.

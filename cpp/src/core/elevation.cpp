@@ -1,6 +1,7 @@
 #include "core/elevation.h"
 #include "core/constants.h"
 #include "core/logger.h"
+#include "core/package_identity.h"
 #include "core/platform_utils.h"
 #include <QCoreApplication>
 #include <QDir>
@@ -214,6 +215,8 @@ void set_self_launcher_for_test(std::function<bool()> launcher) { test_self_laun
 
 QString elevation_state() {
     if (test_environment().state) return *test_environment().state;
+    // A packaged app cannot register the highest-privilege logon task, so the option stays hidden.
+    if (is_packaged()) return STANDARD;
     HANDLE token = nullptr;
     if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) return STANDARD;
     QString state = STANDARD;

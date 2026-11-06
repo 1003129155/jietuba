@@ -1,6 +1,7 @@
 #include "core/data_location.h"
 #include "core/elevation.h"
 #include "core/i18n.h"
+#include "core/package_identity.h"
 #include "core/platform_utils.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
@@ -113,6 +114,8 @@ QWidget *create_misc_page(SettingsDialog *dialog) {
                                        : dialog->tr_text("Register in Windows startup via registry."));
     });
     add_run_as_admin_card(dialog, grp_startup, autostart_card);
+    // The Store build starts at sign-in only through Windows' Startup apps page.
+    if (is_packaged()) grp_startup->setCardVisible(autostart_card, false);
     auto *show_card = new SwitchSettingCard(FluentIcon::Application, dialog->tr_text("Show Main Window on Startup"), dialog->tr_text("If off, starts in background."), grp_startup);
     show_card->setChecked(config->get_show_main_window());
     dialog->set_attr("show_main_window_toggle", show_card);
