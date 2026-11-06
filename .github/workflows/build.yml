@@ -136,8 +136,9 @@ jobs:
       matrix:
         variant: [lite, full]
     env:
-      IDENTITY_NAME: ${{ matrix.variant == 'full' && vars.MSSTORE_IDENTITY_FULL || vars.MSSTORE_IDENTITY_LITE }}
-      DISPLAY_NAME: ${{ matrix.variant == 'full' && vars.MSSTORE_NAME_FULL || vars.MSSTORE_NAME_LITE }}
+      # 变量为空时 `a && b || c` 会落到 c，所以两版各自判断，空值只留空
+      IDENTITY_NAME: ${{ (matrix.variant == 'full' && vars.MSSTORE_IDENTITY_FULL) || (matrix.variant == 'lite' && vars.MSSTORE_IDENTITY_LITE) || '' }}
+      DISPLAY_NAME: ${{ (matrix.variant == 'full' && vars.MSSTORE_NAME_FULL) || (matrix.variant == 'lite' && vars.MSSTORE_NAME_LITE) || '' }}
       PUBLISHER: ${{ vars.MSSTORE_PUBLISHER }}
       PUBLISHER_DISPLAY_NAME: ${{ vars.MSSTORE_PUBLISHER_DISPLAY_NAME }}
     steps:
