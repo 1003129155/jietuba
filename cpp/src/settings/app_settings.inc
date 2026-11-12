@@ -132,6 +132,8 @@ SETTING(save_dialog_format, "app/save_dialog_format", QString, "", Internal, Gen
 SETTING(save_dialog_last_dir, "app/save_dialog_last_dir", QString, "", Local, Gen, Gen)
 SETTING(save_dialog_path_tags, "app/save_dialog_path_tags", QStringList, {}, Internal, Gen, Gen)
 SETTING(save_dialog_aspect_locked, "app/save_dialog_aspect_locked", bool, false, Internal, Gen, Gen)
+SETTING(save_dialog_size_limited, "app/save_dialog_size_limited", bool, false, Internal, Gen, Gen)
+SETTING(save_dialog_size_limit_kb, "app/save_dialog_size_limit_kb", int, 200, Internal, Gen, Gen)
 SETTING(clipboard_file_reference_enabled, "app/clipboard_file_reference_enabled", bool, true, Import, Gen, Gen)
 SETTING(screenshot_rounded_enabled, "app/screenshot_rounded_enabled", bool, false, Internal, Gen, Gen)
 SETTING(screenshot_rounded_radius, "app/screenshot_rounded_radius", int, 16, Internal, Gen, Gen)

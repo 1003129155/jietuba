@@ -7250,6 +7250,14 @@ gifrecorder가 올바르게 설치되었는지 확인하세요.</translation>
         <translation>예상 크기</translation>
     </message>
     <message>
+        <source>Limit file size</source>
+        <translation>크기 제한</translation>
+    </message>
+    <message>
+        <source>Even the lowest quality is larger than this. Make the image smaller to fit.</source>
+        <translation>최저 품질로도 이 크기를 넘습니다. 위에서 크기를 줄이세요.</translation>
+    </message>
+    <message>
         <source>Save</source>
         <translation>저장</translation>
     </message>

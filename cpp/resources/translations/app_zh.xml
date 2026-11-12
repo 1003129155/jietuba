@@ -7249,6 +7249,14 @@ Make sure gifrecorder is installed correctly.</source>
         <translation>预估大小</translation>
     </message>
     <message>
+        <source>Limit file size</source>
+        <translation>限制大小</translation>
+    </message>
+    <message>
+        <source>Even the lowest quality is larger than this. Make the image smaller to fit.</source>
+        <translation>最低质量也超过这个大小，请在上方缩小尺寸。</translation>
+    </message>
+    <message>
         <source>Save</source>
         <translation>保存</translation>
     </message>

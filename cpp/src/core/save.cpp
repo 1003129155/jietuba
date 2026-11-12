@@ -149,6 +149,25 @@ bool SaveService::format_has_quality(QString format) {
     format = normalize_format(format);
     return format == "JPG" || format == "WEBP";
 }
+std::pair<int, QByteArray> SaveService::encode_within(const QImage &image, QString format, qint64 max_bytes) {
+    int low = 1, high = 100, best = -1;
+    QByteArray best_bytes, lowest_bytes;
+    while (low <= high) {
+        const int quality = (low + high) / 2;
+        auto bytes = encode_image(image, format, quality);
+        if (bytes.isEmpty()) return {quality, {}};
+        if (bytes.size() <= max_bytes) {
+            best = quality;
+            best_bytes = std::move(bytes);
+            low = quality + 1;
+        } else {
+            if (quality == 1) lowest_bytes = std::move(bytes);
+            high = quality - 1;
+        }
+    }
+    if (best > 0) return {best, best_bytes};
+    return {1, lowest_bytes.isEmpty() ? encode_image(image, format, 1) : lowest_bytes};
+}
 QImage SaveService::scale_for_save(const QImage &image, const QSize &size) {
     if (image.isNull() || size.isEmpty() || size == image.size()) return image;
     return image.scaled(size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);

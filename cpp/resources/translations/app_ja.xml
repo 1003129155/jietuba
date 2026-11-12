@@ -7259,6 +7259,14 @@ gifrecorder が正しくインストールされているか確認してくだ�
         <translation>推定サイズ</translation>
     </message>
     <message>
+        <source>Limit file size</source>
+        <translation>サイズを制限</translation>
+    </message>
+    <message>
+        <source>Even the lowest quality is larger than this. Make the image smaller to fit.</source>
+        <translation>最低画質でもこのサイズを超えます。上でサイズを小さくしてください。</translation>
+    </message>
+    <message>
         <source>Save</source>
         <translation>保存</translation>
     </message>

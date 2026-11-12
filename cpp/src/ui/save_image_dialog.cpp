@@ -7,6 +7,7 @@
 #include "settings/tool_settings.h"
 #include "ui/dialogs.h"
 #include "ui/fluent_lite/buttons.h"
+#include "ui/fluent_lite/fluent_lite.h"
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/segmented.h"
 #include "ui/fluent_lite/theme.h"
@@ -37,6 +38,7 @@
 #include <QWheelEvent>
 #include <algorithm>
 #include <functional>
+#include <tuple>
 #include <cmath>
 
 namespace jietuba {
@@ -808,9 +810,42 @@ SaveImageDialog::SaveImageDialog(const QImage &image, const QString &base_name, 
     quality->addLayout(quality_ends);
     connect(quality_slider, &QSlider::valueChanged, this, [this](int value) {
         quality_value->setText(QString::number(value));
-        schedule_encode();
+        if (!updating_quality_) schedule_encode();
     });
     quality_value->setText(QString::number(quality_slider->value()));
+    auto *limit_row = new QHBoxLayout;
+    limit_row->setSpacing(dialog_scaled(8));
+    size_limit_check = new CheckBox(tr_text("Limit file size"), panel_);
+    size_limit_check->setChecked(config_->get_save_dialog_size_limited());
+    auto *limit_frame = new QFrame(panel_);
+    limit_frame->setObjectName("sizeInput");
+    limit_frame->setFixedSize(dialog_scaled(116), dialog_scaled(36));
+    auto *limit_layout = new QHBoxLayout(limit_frame);
+    limit_layout->setContentsMargins(0, 0, dialog_scaled(12), 0);
+    limit_layout->setSpacing(0);
+    size_limit_spin = new QSpinBox(limit_frame);
+    size_limit_spin->setButtonSymbols(QAbstractSpinBox::NoButtons);
+    size_limit_spin->setFrame(false);
+    size_limit_spin->setRange(SIZE_LIMIT_KB_MIN, SIZE_LIMIT_KB_MAX);
+    size_limit_spin->setValue(std::clamp(static_cast<int>(config_->get_save_dialog_size_limit_kb()), SIZE_LIMIT_KB_MIN, SIZE_LIMIT_KB_MAX));
+    // Typing 2, 20, 200 would encode three times.
+    size_limit_spin->setKeyboardTracking(false);
+    auto *limit_suffix = new QLabel("KB", limit_frame);
+    limit_suffix->setObjectName("sizeSuffix");
+    limit_layout->addWidget(size_limit_spin, 1);
+    limit_layout->addWidget(limit_suffix);
+    limit_row->addWidget(size_limit_check);
+    limit_row->addStretch(1);
+    limit_row->addWidget(limit_frame);
+    quality->addSpacing(dialog_scaled(6));
+    quality->addLayout(limit_row);
+    size_limit_hint = new QLabel(tr_text("Even the lowest quality is larger than this. Make the image smaller to fit."), panel_);
+    size_limit_hint->setObjectName("warningHint");
+    size_limit_hint->setWordWrap(true);
+    size_limit_hint->hide();
+    quality->addWidget(size_limit_hint);
+    connect(size_limit_check, &QCheckBox::toggled, this, &SaveImageDialog::on_size_limit_changed);
+    connect(size_limit_spin, &QSpinBox::valueChanged, this, &SaveImageDialog::on_size_limit_changed);
 
     auto *size_estimate = block(nullptr);
     size_estimate->setSpacing(dialog_scaled(4));
@@ -902,6 +937,11 @@ QString SaveImageDialog::current_format() const { return format_combo->currentDa
 
 int SaveImageDialog::current_quality() const { return quality_slider->value(); }
 
+qint64 SaveImageDialog::size_limit_bytes() const {
+    if (!size_limit_check->isChecked() || !SaveService::format_has_quality(current_format())) return 0;
+    return qint64(size_limit_spin->value()) * 1000;
+}
+
 QSize SaveImageDialog::target_size() const { return size_; }
 
 bool SaveImageDialog::percent_mode() const { return size_mode->currentItem() == "percent"; }
@@ -924,10 +964,20 @@ void SaveImageDialog::update_quality_controls() {
     const bool has_quality = SaveService::format_has_quality(format);
     quality_block->setVisible(has_quality);
     lossless_hint->setVisible(!has_quality);
+    quality_slider->setEnabled(!size_limit_check->isChecked());
+    if (!has_quality) size_limit_hint->hide();
     if (!has_quality)
         lossless_hint->setText(format == "PDF" ? tr_text("PDF has no quality setting.")
                                                : tr_text("%1 format is lossless and does not support quality adjustment.").arg(format));
     update_view_mode();
+}
+
+void SaveImageDialog::on_size_limit_changed() {
+    config_->set_save_dialog_size_limited(size_limit_check->isChecked());
+    config_->set_save_dialog_size_limit_kb(size_limit_spin->value());
+    quality_slider->setEnabled(!size_limit_check->isChecked());
+    if (!size_limit_check->isChecked()) size_limit_hint->hide();
+    schedule_encode();
 }
 
 // A lossless save at the original size is the original; nothing to switch between.
@@ -997,10 +1047,16 @@ void SaveImageDialog::schedule_encode() {
     update_save_enabled();
 }
 
-SaveImageDialog::Encoded SaveImageDialog::encode(const QImage &image, const QSize &size, const QString &format, int quality) {
+SaveImageDialog::Encoded SaveImageDialog::encode(const QImage &image, const QSize &size, const QString &format, int quality, qint64 limit_bytes) {
     Encoded result;
     result.scaled = SaveService::scale_for_save(image, size);
-    const auto bytes = SaveService::encode_image(result.scaled, format, quality);
+    QByteArray bytes;
+    if (limit_bytes > 0) {
+        std::tie(result.quality, bytes) = SaveService::encode_within(result.scaled, format, limit_bytes);
+        result.over_limit = !bytes.isEmpty() && bytes.size() > limit_bytes;
+    } else {
+        bytes = SaveService::encode_image(result.scaled, format, quality);
+    }
     if (bytes.isEmpty()) return result;
     result.bytes = bytes.size();
     if (SaveService::format_has_quality(format)) result.decoded = QImage::fromData(bytes, format.toLatin1().constData());
@@ -1017,10 +1073,10 @@ void SaveImageDialog::start_encode() {
     encoding_ = true;
     const int generation = generation_;
     QPointer<SaveImageDialog> guard(this);
-    QThreadPool::globalInstance()->start([guard, generation, image = image_, size = target_size(), format = current_format(), quality = current_quality()] {
+    QThreadPool::globalInstance()->start([guard, generation, image = image_, size = target_size(), format = current_format(), quality = current_quality(), limit = size_limit_bytes()] {
         Encoded result;
         try {
-            result = encode(image, size, format, quality);
+            result = encode(image, size, format, quality, limit);
         } catch (const std::exception &error) {
             log_warning(T("保存预览编码失败: {e}", {{"e", QString::fromLocal8Bit(error.what())}}), "SaveImageDialog");
         }
@@ -1037,6 +1093,12 @@ void SaveImageDialog::on_encoded(int generation, const Encoded &result) {
         preview->set_encoded(result.decoded);
         preview->set_loading(false);
         encoded_bytes_ = result.bytes;
+        if (result.quality > 0) {
+            updating_quality_ = true;
+            quality_slider->setValue(result.quality);
+            updating_quality_ = false;
+        }
+        size_limit_hint->setVisible(result.over_limit);
         update_status();
         update_save_enabled();
         emit encode_finished(result.bytes);
@@ -1096,13 +1158,18 @@ void SaveImageDialog::accept_save() {
         !show_confirm_dialog(this, tr_text("Replace File"), tr_text("%1 already exists.\nReplace it?").arg(QFileInfo(path).fileName())))
         return;
     const auto image = SaveService::scale_for_save(image_, target_size());
-    if (!SaveService::save_qimage_to_path(image, path, current_format(), SaveService::DEFAULT_PDF_DPI, current_quality())) {
+    const qint64 limit = size_limit_bytes();
+    // The slider holds the fitted quality once the latest encode is in; before that it is found here.
+    int quality = current_quality();
+    if (limit > 0 && encoded_bytes_ < 0) quality = SaveService::encode_within(image, current_format(), limit).first;
+    if (!SaveService::save_qimage_to_path(image, path, current_format(), SaveService::DEFAULT_PDF_DPI, quality)) {
         show_warning_dialog(this, tr_text("Save Failed"), QDir::toNativeSeparators(path));
         return;
     }
     config_->set_save_dialog_last_dir(QDir::toNativeSeparators(directory));
     config_->set_save_dialog_format(current_format());
-    config_->set_screenshot_quality(current_quality());
+    // A fitted quality is not the user's choice for the next save.
+    if (limit <= 0) config_->set_screenshot_quality(current_quality());
     saved_path_ = QDir::toNativeSeparators(path);
     accept();
 }
@@ -1188,8 +1255,13 @@ void SaveImageDialog::place(QWidget *parent) {
     const auto margins = layout()->contentsMargins();
     const int chrome_w = margins.left() + margins.right() + dialog_scaled(16) + panel_->width();
     const int chrome_h = margins.top() + margins.bottom() + dialog_scaled(40) + dialog_scaled(70);
+    // The size limit warning shows without growing the window, so its room is part of the minimum.
+    size_limit_hint->ensurePolished();
+    const int warning_h = dialog_scaled(12) + size_limit_hint->heightForWidth(panel_->width());
+    const int min_h = std::min(minimumSizeHint().height() + warning_h, available.height());
+    setMinimumHeight(min_h);
     const int width = std::clamp(image_.width() + dialog_scaled(24) + chrome_w, dialog_scaled(860), static_cast<int>(available.width() * 0.8));
-    const int height = std::clamp(image_.height() + dialog_scaled(24) + chrome_h, dialog_scaled(600), static_cast<int>(available.height() * 0.8));
+    const int height = std::clamp(image_.height() + dialog_scaled(24) + chrome_h, std::max(dialog_scaled(600), min_h), std::max(min_h, static_cast<int>(available.height() * 0.8)));
     resize(std::min(width, available.width()), std::min(height, available.height()));
     move(available.center() - rect().center());
 }

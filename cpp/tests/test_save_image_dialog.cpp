@@ -2,18 +2,21 @@
 #include "settings/tool_settings.h"
 #include "ui/dialogs.h"
 #include "ui/fluent_lite/buttons.h"
+#include "core/ui_scale.h"
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/labels.h"
 #include "ui/fluent_lite/segmented.h"
 #include "ui/save_image_dialog.h"
 #include "caption_check.h"
 #include <QApplication>
+#include <QCheckBox>
 #include <QDialogButtonBox>
 #include <QFile>
 #include <QFileInfo>
 #include <QLabel>
 #include <QPushButton>
 #include <QRandomGenerator>
+#include <QScopeGuard>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QSlider>
@@ -138,6 +141,33 @@ private slots:
         QVERIFY(SaveService::encode_image(QImage(70000, 1, QImage::Format_RGB32), "JPG").isEmpty());
     }
 
+    // Expected values come from encode_image at each quality, searched here one by one.
+    void encodeWithinFindsTheHighestQualityThatFits() {
+        const auto image = noisy_image();
+        for (const QString format : {"JPG", "WEBP"}) {
+            std::vector<qint64> sizes(101);
+            for (int quality = 1; quality <= 100; ++quality) sizes[quality] = SaveService::encode_image(image, format, quality).size();
+            for (const int target : {20, 55, 90}) {
+                const qint64 limit = sizes[target];
+                // WebP sizes do not always grow with quality: the search may stop short of the best
+                // fitting quality, but not before the run of fitting qualities from 1.
+                int best = 1, run = 0;
+                for (int quality = 1; quality <= 100; ++quality)
+                    if (sizes[quality] <= limit) best = quality;
+                while (run < 100 && sizes[run + 1] <= limit) ++run;
+                const auto [quality, bytes] = SaveService::encode_within(image, format, limit);
+                QVERIFY2(bytes.size() <= limit, qPrintable(format));
+                QCOMPARE(bytes, SaveService::encode_image(image, format, quality));
+                QVERIFY2(quality >= run && quality <= best, qPrintable(QString("%1: %2 not in [%3, %4]").arg(format).arg(quality).arg(run).arg(best)));
+                if (format == "JPG") QCOMPARE(quality, best);
+            }
+            const auto [lowest, too_big] = SaveService::encode_within(image, format, 100);
+            QCOMPARE(lowest, 1);
+            QCOMPARE(too_big, SaveService::encode_image(image, format, 1));
+            QCOMPARE(SaveService::encode_within(image, format, sizes[100]).first, 100);
+        }
+    }
+
     void scalingForSave() {
         const auto image = noisy_image(320, 200);
         QCOMPARE(SaveService::scale_for_save(image, QSize(160, 100)).size(), QSize(160, 100));
@@ -217,6 +247,104 @@ private slots:
         select_format(dialog, "PNG");
         QCOMPARE(dialog.preview->mode(), SavePreviewView::ENCODED);
         QVERIFY(dialog.quality_block->isHidden());
+    }
+
+    // The limit lives in the quality block, so lossless formats never show it.
+    void sizeLimitPicksTheQualityAndIsRemembered() {
+        const auto image = noisy_image();
+        const auto chosen_by_hand = config_->get_screenshot_quality();
+        SaveImageDialog dialog(image, "shot", config_);
+        QVERIFY(!dialog.size_limit_check->isChecked());
+        select_format(dialog, "PNG");
+        QVERIFY(dialog.quality_block->isHidden());
+        QCOMPARE(dialog.size_limit_bytes(), qint64(0));
+        select_format(dialog, "JPG");
+        dialog.quality_slider->setValue(90);
+        wait_encoded(dialog);
+        const int kb = static_cast<int>(SaveService::encode_image(image, "JPG", 40).size() / 1000);
+        dialog.size_limit_spin->setValue(kb);
+        dialog.size_limit_check->setChecked(true);
+        QVERIFY(!dialog.quality_slider->isEnabled());
+        QCOMPARE(dialog.size_limit_bytes(), qint64(kb) * 1000);
+        const auto bytes = wait_encoded(dialog);
+        QVERIFY(bytes > 0 && bytes <= qint64(kb) * 1000);
+        const int fitted = dialog.current_quality();
+        QVERIFY(fitted < 40);
+        QCOMPARE(bytes, static_cast<qint64>(SaveService::encode_image(image, "JPG", fitted).size()));
+        QVERIFY(dialog.size_limit_hint->isHidden());
+        QVERIFY(config_->get_save_dialog_size_limited());
+        QCOMPARE(config_->get_save_dialog_size_limit_kb(), qint64(kb));
+
+        // Saving writes the fitted bytes and keeps the quality chosen by hand for later.
+        dialog.directory_edit->setText(QDir::toNativeSeparators(dir_.filePath("limited")));
+        dialog.save_button->click();
+        QCOMPARE(QFileInfo(dir_.filePath("limited/shot.jpg")).size(), bytes);
+        QCOMPARE(config_->get_screenshot_quality(), chosen_by_hand);
+
+        // The next dialog starts limited; a limit no quality meets says so.
+        SaveImageDialog next(noisy_image(800, 600), "shot", config_);
+        QVERIFY(next.size_limit_check->isChecked());
+        next.size_limit_spin->setValue(SaveImageDialog::SIZE_LIMIT_KB_MIN);
+        QVERIFY(wait_encoded(next) > SaveImageDialog::SIZE_LIMIT_KB_MIN * 1000);
+        QCOMPARE(next.current_quality(), 1);
+        QVERIFY(!next.size_limit_hint->isHidden());
+        next.size_limit_check->setChecked(false);
+        QVERIFY(next.size_limit_hint->isHidden());
+        QVERIFY(next.quality_slider->isEnabled());
+        QCOMPARE(next.size_limit_bytes(), qint64(0));
+    }
+
+    // Saving before the fitted encode is in still fits the limit.
+    void saveRightAfterSettingALimitFits() {
+        const auto image = noisy_image();
+        config_->set_save_dialog_size_limited(true);
+        config_->set_save_dialog_size_limit_kb(static_cast<int>(SaveService::encode_image(image, "JPG", 30).size() / 1000));
+        config_->set_save_dialog_format("JPG");
+        SaveImageDialog dialog(image, "early", config_);
+        dialog.directory_edit->setText(QDir::toNativeSeparators(dir_.filePath("early")));
+        QVERIFY(dialog.encoded_bytes() < 0);
+        dialog.save_button->click();
+        const auto size = QFileInfo(dir_.filePath("early/early.jpg")).size();
+        QVERIFY(size > 0 && size <= dialog.size_limit_bytes());
+    }
+
+    // Widths need real fonts, which the offscreen platform does not have.
+    void theSizeLimitRowFitsEveryLanguage() {
+        if (QGuiApplication::platformName() != "windows") QSKIP("needs -platform windows");
+        const auto restore = qScopeGuard([] { get_dialog_scale().set_percent(100); });
+        config_->set_save_dialog_format("JPG");
+        for (const int percent : {100, 150, 200}) {
+            get_dialog_scale().set_percent(percent);
+            for (const char *language : {"zh", "zh_TW", "en", "ja", "ko"}) {
+                QTranslator translator;
+                QVERIFY(translator.load(QString(":/translations/app_%1.qm").arg(language)));
+                QCoreApplication::installTranslator(&translator);
+                SaveImageDialog dialog(noisy_image(), "shot", config_);
+                QCoreApplication::removeTranslator(&translator);
+                dialog.show();
+                QApplication::processEvents();
+                const QString where = QString("%1 at %2%").arg(language).arg(percent);
+                // The warning appears on a dialog already shown, at its smallest height.
+                dialog.resize(dialog.width(), dialog.minimumHeight());
+                QApplication::processEvents();
+                const int height = dialog.height();
+                dialog.size_limit_hint->show();
+                QApplication::processEvents();
+                QVERIFY2(dialog.height() == height, qPrintable(QString("%1: grew from %2 to %3").arg(where).arg(height).arg(dialog.height())));
+                auto *check = dialog.size_limit_check;
+                auto *panel = check->parentWidget();
+                QVERIFY2(check->width() >= check->sizeHint().width(),
+                         qPrintable(QString("%1: %2 is %3 wide, needs %4").arg(where, check->text()).arg(check->width()).arg(check->sizeHint().width())));
+                auto *field = dialog.size_limit_spin->parentWidget();
+                const QRect field_rect(field->mapTo(panel, QPoint(0, 0)), field->size());
+                QVERIFY2(panel->rect().contains(field_rect), qPrintable(where));
+                QVERIFY2(QRect(check->mapTo(panel, QPoint(0, 0)), check->size()).right() < field_rect.left(), qPrintable(where));
+                QVERIFY2(dialog.size_limit_spin->width() >= dialog.size_limit_spin->fontMetrics().horizontalAdvance("100000"), qPrintable(where));
+                auto *hint = dialog.size_limit_hint;
+                QVERIFY2(hint->height() >= hint->heightForWidth(hint->width()), qPrintable(QString("%1: the hint is cut").arg(where)));
+                QCOMPARE(panel->width(), dialog_scaled(SaveImageDialog::PANEL_WIDTH));
+            }
+        }
     }
 
     void sizeFollowsTheLockAndTheMode() {

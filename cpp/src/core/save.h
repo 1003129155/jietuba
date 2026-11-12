@@ -4,6 +4,7 @@
 #include <QString>
 #include <functional>
 #include <optional>
+#include <utility>
 
 class QIODevice;
 
@@ -30,6 +31,9 @@ public:
     static QByteArray encode_image(const QImage &image, QString image_format, int quality = -1, int pdf_dpi = DEFAULT_PDF_DPI);
     // JPG and WebP take a quality; PNG and BMP are lossless and PDF has no quality setting.
     static bool format_has_quality(QString image_format);
+    // The highest quality whose bytes fit in max_bytes, with those bytes; quality 1 when even
+    // that does not fit. Size mostly grows with quality, so a binary search needs about 7 encodes.
+    static std::pair<int, QByteArray> encode_within(const QImage &image, QString image_format, qint64 max_bytes);
     // Resized to size with smooth filtering; the image itself when size is empty or unchanged.
     static QImage scale_for_save(const QImage &image, const QSize &size);
     static QImage flatten_for_pdf(const QImage &image);
