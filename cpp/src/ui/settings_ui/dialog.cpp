@@ -754,7 +754,8 @@ void SettingsDialog::reset_screenshot_settings_page() {
                                          std::make_pair("screenshot_save_original_toggle", "screenshot_save_original_enabled"),
                                          std::make_pair("clipboard_file_reference_toggle", "clipboard_file_reference_enabled"),
                                          std::make_pair("watermark_auto_toggle", "screenshot_watermark_auto"), std::make_pair("magnifier_enabled_toggle", "magnifier_enabled"),
-                                         std::make_pair("magnifier_grid_toggle", "magnifier_grid"), std::make_pair("magnifier_hint_toggle", "magnifier_hint")})
+                                         std::make_pair("magnifier_grid_toggle", "magnifier_grid"), std::make_pair("magnifier_selection_toggle", "magnifier_selection"),
+                                         std::make_pair("magnifier_hint_toggle", "magnifier_hint")})
         if (auto *toggle = attr_widget(attr_name)) set_checked(toggle, defaults.value(key).toBool());
     if (auto *label = attr_widget("save_path_lbl")) set_text(label, defaults.value("screenshot_save_path").toString());
     if (auto *combo = attr<QComboBox>("screenshot_format_combo"))
@@ -926,7 +927,7 @@ void SettingsDialog::save_changes(QSet<QString> changed) {
 
     // 3.5 Magnifier.
     for (const auto &[attr_name, key] : {std::make_pair("magnifier_enabled_toggle", "magnifier_enabled"), std::make_pair("magnifier_grid_toggle", "magnifier_grid"),
-                                         std::make_pair("magnifier_hint_toggle", "magnifier_hint")})
+                                         std::make_pair("magnifier_selection_toggle", "magnifier_selection"), std::make_pair("magnifier_hint_toggle", "magnifier_hint")})
         if (auto *toggle = attr_widget(attr_name); toggle && has(attr_name)) config_manager->set_app_setting(key, checked_of(toggle));
     if (has("magnifier_color_formats")) save_magnifier_color_formats();
 
@@ -1234,7 +1235,7 @@ QVariantMap SettingsDialog::snapshot_settings() const {
     // Switches.
     for (const char *name : {"ocr_copy_directly_toggle", "barcode_copy_single_toggle", "cross_tool_selection_toggle", "text_always_on_top_toggle", "smart_animation_toggle",
                              "save_toggle", "screenshot_pin_save_toggle", "clipboard_file_reference_toggle", "screenshot_save_original_toggle", "watermark_auto_toggle",
-                             "magnifier_enabled_toggle", "magnifier_grid_toggle", "magnifier_hint_toggle", "ocr_enable_toggle", "ocr_grayscale_toggle",
+                             "magnifier_enabled_toggle", "magnifier_grid_toggle", "magnifier_selection_toggle", "magnifier_hint_toggle", "ocr_enable_toggle", "ocr_grayscale_toggle",
                              "ocr_upscale_toggle", "split_sentences_toggle", "preserve_formatting_toggle", "translation_auto_close_toggle", "log_toggle", "clipboard_enabled_toggle",
                              "autostart_toggle", "run_as_admin_toggle", "show_main_window_toggle", "pin_auto_toolbar_toggle", "info_hide_on_drag_toggle",
                              "preload_screenshot_toggle", "preload_toolbar_toggle", "preload_ocr_toggle", "preload_settings_toggle", "preload_clipboard_toggle"})
@@ -1395,7 +1396,7 @@ void SettingsDialog::refresh_settings() {
         combo->setCurrentIndex(std::max<int>(0, QStringList{"PNG", "JPG", "BMP", "WEBP", "PDF"}.indexOf(config_manager->get_screenshot_format().toUpper())));
     select_data(attr<QComboBox>("save_dialog_style_combo"), config_manager->get_save_dialog_style());
     for (const auto &[attr_name, key] : {std::make_pair("magnifier_enabled_toggle", "magnifier_enabled"), std::make_pair("magnifier_grid_toggle", "magnifier_grid"),
-                                         std::make_pair("magnifier_hint_toggle", "magnifier_hint")})
+                                         std::make_pair("magnifier_selection_toggle", "magnifier_selection"), std::make_pair("magnifier_hint_toggle", "magnifier_hint")})
         if (auto *toggle = attr_widget(attr_name)) set_checked(toggle, config_manager->get_app_setting(key).toBool());
     if (magnifier_color_formats) magnifier_color_formats = color_formats::load(config_manager);
     if (auto *toggle = attr_widget("ocr_enable_toggle")) set_checked(toggle, config_manager->get_ocr_enabled());

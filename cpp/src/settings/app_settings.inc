@@ -289,6 +289,7 @@ SETTING(welcome_wizard_done, "app/welcome_wizard_done", QString, "", Local, Gen,
 SETTING(language, "app/language", QString, "en", Import, Gen, Gen)
 SETTING(magnifier_enabled, "app/magnifier_enabled", bool, true, Import, Gen, Gen)
 SETTING(magnifier_grid, "app/magnifier_grid", bool, false, Import, Gen, Gen)
+SETTING(magnifier_selection, "app/magnifier_selection", bool, false, Import, Gen, Gen)
 SETTING(magnifier_hint, "app/magnifier_hint", bool, true, Import, Gen, Gen)
 SETTING(magnifier_color_formats, "app/magnifier_color_formats", QString, "", Import, Gen, Gen)
 SETTING(magnifier_color_copy_format, "app/magnifier_color_copy_format", QString, "", Import, Gen, Gen)

@@ -5309,6 +5309,8 @@ This action cannot be undone.</source>
     <message><source>Follows the cursor while selecting, and picks the color under it.</source><translation>选区时跟随光标显示，并可取光标下的颜色。</translation></message>
     <message><source>Pixel Grid</source><translation>像素网格线</translation></message>
     <message><source>Outline each pixel in the magnified view. Hidden at low zoom, where the lines would cover the pixels.</source><translation>在放大图上勾出每个像素的边界。倍率低时自动不画，否则网格线会盖住像素本身。</translation></message>
+    <message><source>Show Selection</source><translation>显示选区</translation></message>
+    <message><source>Dim what lies outside the selection and draw its edge in the magnified view, to line the edge up pixel by pixel.</source><translation>在放大图上压暗选区以外的部分并画出选区边框，方便把边缘逐像素对准。</translation></message>
     <message><source>Shortcut Hint</source><translation>快捷键提示</translation></message>
     <message><source>Show the switch-format and copy-color shortcuts under the readings. Off makes the magnifier shorter.</source><translation>在数值下方显示切换格式和复制颜色的快捷键。关掉后放大镜会变矮一些。</translation></message>
     <message><source>Magnifier</source><translation>放大镜</translation></message>

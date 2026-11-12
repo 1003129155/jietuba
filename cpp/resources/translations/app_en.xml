@@ -5241,6 +5241,8 @@ You can tweak more options in Settings anytime.</translation>
     <message><source>Follows the cursor while selecting, and picks the color under it.</source><translation>Follows the cursor while selecting, and picks the color under it.</translation></message>
     <message><source>Pixel Grid</source><translation>Pixel Grid</translation></message>
     <message><source>Outline each pixel in the magnified view. Hidden at low zoom, where the lines would cover the pixels.</source><translation>Outline each pixel in the magnified view. Hidden at low zoom, where the lines would cover the pixels.</translation></message>
+    <message><source>Show Selection</source><translation>Show Selection</translation></message>
+    <message><source>Dim what lies outside the selection and draw its edge in the magnified view, to line the edge up pixel by pixel.</source><translation>Dim what lies outside the selection and draw its edge in the magnified view, to line the edge up pixel by pixel.</translation></message>
     <message><source>Shortcut Hint</source><translation>Shortcut Hint</translation></message>
     <message><source>Show the switch-format and copy-color shortcuts under the readings. Off makes the magnifier shorter.</source><translation>Show the switch-format and copy-color shortcuts under the readings. Off makes the magnifier shorter.</translation></message>
     <message><source>Magnifier</source><translation>Magnifier</translation></message>

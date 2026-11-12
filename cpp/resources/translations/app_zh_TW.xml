@@ -5520,6 +5520,14 @@ This action cannot be undone.</source>
         <translation>在放大圖上勾出每個畫素的邊界。倍率低時自動不畫，否則網格線會蓋住畫素本身。</translation>
     </message>
     <message>
+        <source>Show Selection</source>
+        <translation>顯示選區</translation>
+    </message>
+    <message>
+        <source>Dim what lies outside the selection and draw its edge in the magnified view, to line the edge up pixel by pixel.</source>
+        <translation>在放大圖上壓暗選區以外的部分並畫出選區邊框，方便把邊緣逐畫素對準。</translation>
+    </message>
+    <message>
         <source>Shortcut Hint</source>
         <translation>快速鍵提示</translation>
     </message>

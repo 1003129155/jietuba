@@ -245,6 +245,9 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     switch_card(dialog, grp_magnifier, FluentIcon::Layout, "Pixel Grid",
                 "Outline each pixel in the magnified view. Hidden at low zoom, where the lines would cover the pixels.",
                 config->get_magnifier_grid(), "magnifier_grid_toggle");
+    switch_card(dialog, grp_magnifier, FluentIcon::Camera, "Show Selection",
+                "Dim what lies outside the selection and draw its edge in the magnified view, to line the edge up pixel by pixel.",
+                config->get_magnifier_selection(), "magnifier_selection_toggle");
     switch_card(dialog, grp_magnifier, FluentIcon::Info, "Shortcut Hint",
                 "Show the switch-format and copy-color shortcuts under the readings. Off makes the magnifier shorter.",
                 config->get_magnifier_hint(), "magnifier_hint_toggle");

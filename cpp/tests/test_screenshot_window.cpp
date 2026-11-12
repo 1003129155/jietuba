@@ -13,6 +13,8 @@
 #include "core/clipboard_utils.h"
 #include "core/last_capture_region.h"
 #include "core/native.h"
+#include "core/theme.h"
+#include "core/ui_scale.h"
 #include "pin/pin_canvas.h"
 #include "pin/pin_window.h"
 #include "pin/pin_manager.h"
@@ -1369,6 +1371,45 @@ private slots:
         const QMimeData *copied = QApplication::clipboard()->mimeData();
         QVERIFY(copied && !copied->text().isEmpty());
         QVERIFY(copied->hasFormat(QString("application/x-qt-windows-mime;value=\"%1\"").arg(QLatin1String(jb_clipboard_color_marker_format()))));
+    }
+
+    // With the pointer on the selection's left edge, the cells left of the centre pixel are dimmed
+    // and the border lies on the boundary between them; off, the magnified pixels stay as captured.
+    void magnifierShowsTheSelectionEdge() {
+        const QColor captured(Qt::blue);
+        const auto mask = get_theme().mask_color();
+        const auto blend = [&](int channel, int over) { return static_cast<int>(python_round(channel + (over - channel) * mask.alphaF())); };
+        const QColor dimmed(blend(captured.red(), mask.red()), blend(captured.green(), mask.green()), blend(captured.blue(), mask.blue()));
+        const auto close_to = [](const QColor &a, const QColor &b) {
+            return std::abs(a.red() - b.red()) <= 2 && std::abs(a.green() - b.green()) <= 2 && std::abs(a.blue() - b.blue()) <= 2;
+        };
+        for (const bool shown : {true, false}) {
+            config_->set_app_setting("magnifier_grid", false);
+            config_->set_app_setting("magnifier_selection", shown);
+            auto *window = open();
+            auto *magnifier = window->magnifier_overlay;
+            // No selection yet: the whole capture is masked, the magnifier is not.
+            send_mouse(window, QEvent::MouseMove, Qt::NoButton, QPoint(120, 100), Qt::NoButton);
+            QVERIFY(magnifier->should_render());
+            const int cells = magnifier->sample_size();
+            const double cell = static_cast<double>(magnifier->width()) / cells;
+            const int row_y = static_cast<int>(MagnifierOverlay::BASE_MAG_HEIGHT * scale_factor() / 2 + 2.5 * cell);
+            const auto at_cell = [&](const QImage &image, double column) { return image.pixelColor(static_cast<int>(column * cell), row_y); };
+            QVERIFY(close_to(at_cell(magnifier->grab().toImage(), cells / 2 - 2.5), captured));
+
+            drag(window, QPoint(50, 40), QPoint(250, 190));
+            const int left = static_cast<int>(window->scene->selection_model->rect().left());
+            send_mouse(window, QEvent::MouseMove, Qt::NoButton, QPoint(left, 100), Qt::NoButton);
+            QVERIFY(magnifier->should_render());
+            const auto image = magnifier->grab().toImage();
+            // The centre cell is column `left`, the first one inside.
+            QVERIFY(close_to(at_cell(image, cells / 2 + 1.5), captured));
+            QVERIFY(close_to(at_cell(image, cells / 2 - 1.5), shown ? dimmed : captured));
+            const int boundary = static_cast<int>(python_round(cells / 2 * cell));
+            QCOMPARE(image.pixelColor(boundary, row_y) == get_theme().theme_color(), shown);
+            QVERIFY(close_to(image.pixelColor(boundary - 1, row_y), shown ? dimmed : captured));
+            window->cleanup_and_close();
+        }
     }
 
     // Confirm, translate and recognize keys act only on a confirmed selection.

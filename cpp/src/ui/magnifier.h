@@ -75,9 +75,13 @@ private:
     void ensure_fixed_fonts(QPainter &painter, int text_width, int value_width);
     // Grid cells follow the source rect actually drawn, not the nominal zoom.
     void draw_pixel_grid(QPainter &painter, const QRect &mag_rect, const QRect &src) const;
+    // Mask outside the selection and its border on the pixel boundaries, mapped like the grid.
+    void draw_selection(QPainter &painter, const QRect &mag_rect, const QRect &src) const;
     void draw_combined_magnifier(QPainter &painter, const QRect &rect, const QColor &color);
     void draw_info_lines(QPainter &painter, const QRect &info_rect, const QColor &color);
     QImage background_image() const;
+    // Scene position of the background image's top-left pixel.
+    std::optional<QPointF> image_origin() const;
     std::optional<QPoint> scene_to_image_point(const QPointF &scene_pos) const;
     std::optional<QPointF> scene_to_pixel_center(const QPointF &scene_pos) const;
     QColor sample_color(const QImage &image) const;
@@ -95,6 +99,8 @@ private:
     double zoom_factor_ = 2.0, zoom_min_ = 1.0, zoom_max_ = 8.0;
     std::optional<QPoint> last_sample_pt_;
     std::optional<QRect> cached_source_rect_;
+    // Background image pixel the cached sample starts at.
+    QPoint cached_sample_origin_;
     QImage cached_sample_image_;
     std::optional<QFont> fixed_info_font_, fixed_hint_font_;
     std::optional<QFontMetrics> fixed_info_metrics_, fixed_hint_metrics_;
@@ -108,7 +114,9 @@ private:
     QColor color_hint_ = QColor(180, 180, 180);
     // Swatch outline, so dark samples stay visible on the dark background.
     QPen pen_swatch_ = QPen(QColor(255, 255, 255, 200), 1);
-    bool enabled_ = true, show_grid_ = false, show_hint_ = true;
+    QColor mask_color_ = QColor(0, 0, 0, 120);
+    QColor selection_color_;
+    bool enabled_ = true, show_grid_ = false, show_hint_ = true, show_selection_ = false;
     QVector<color_formats::ColorFormat> formats_;
     int format_index_ = 0;
 };

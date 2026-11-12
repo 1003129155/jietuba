@@ -5327,6 +5327,8 @@ This action cannot be undone.</source>
     <message><source>Follows the cursor while selecting, and picks the color under it.</source><translation>選択中にカーソルに追従し、カーソル下の色を取得できます。</translation></message>
     <message><source>Pixel Grid</source><translation>ピクセルグリッド</translation></message>
     <message><source>Outline each pixel in the magnified view. Hidden at low zoom, where the lines would cover the pixels.</source><translation>拡大表示で各ピクセルの境界を描きます。倍率が低いときは線がピクセルを覆うため自動的に非表示になります。</translation></message>
+    <message><source>Show Selection</source><translation>選択範囲を表示</translation></message>
+    <message><source>Dim what lies outside the selection and draw its edge in the magnified view, to line the edge up pixel by pixel.</source><translation>拡大表示で選択範囲の外側を暗くし、枠線を描きます。端をピクセル単位で合わせやすくなります。</translation></message>
     <message><source>Shortcut Hint</source><translation>ショートカットのヒント</translation></message>
     <message><source>Show the switch-format and copy-color shortcuts under the readings. Off makes the magnifier shorter.</source><translation>数値の下に形式の切り替えと色のコピーのショートカットを表示します。オフにすると拡大鏡が少し低くなります。</translation></message>
     <message><source>Magnifier</source><translation>拡大鏡</translation></message>

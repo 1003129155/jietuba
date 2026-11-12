@@ -5319,6 +5319,8 @@ This action cannot be undone.</source>
     <message><source>Follows the cursor while selecting, and picks the color under it.</source><translation>선택 중 커서를 따라다니며 커서 아래의 색을 추출합니다.</translation></message>
     <message><source>Pixel Grid</source><translation>픽셀 격자</translation></message>
     <message><source>Outline each pixel in the magnified view. Hidden at low zoom, where the lines would cover the pixels.</source><translation>확대 화면에서 각 픽셀의 경계를 그립니다. 배율이 낮을 때는 선이 픽셀을 덮으므로 자동으로 숨깁니다.</translation></message>
+    <message><source>Show Selection</source><translation>선택 영역 표시</translation></message>
+    <message><source>Dim what lies outside the selection and draw its edge in the magnified view, to line the edge up pixel by pixel.</source><translation>확대 화면에서 선택 영역 바깥을 어둡게 하고 테두리를 그립니다. 가장자리를 픽셀 단위로 맞추기 쉬워집니다.</translation></message>
     <message><source>Shortcut Hint</source><translation>단축키 안내</translation></message>
     <message><source>Show the switch-format and copy-color shortcuts under the readings. Off makes the magnifier shorter.</source><translation>수치 아래에 형식 전환과 색 복사 단축키를 표시합니다. 끄면 돋보기가 조금 짧아집니다.</translation></message>
     <message><source>Magnifier</source><translation>돋보기</translation></message>
