@@ -6195,6 +6195,7 @@ Replace: move the current data there; the data already in that folder will be de
         <source>Long screenshot - window position corrected</source>
         <translation>긴 스크린샷 - 창 위치를 보정했습니다</translation>
     </message>
+    <message><source>Couldn't extend. Keep the page still.</source><translation>영역을 확장할 수 없습니다. 화면을 고정한 후 다시 시도하세요.</translation></message>
 </context>
 <context>
     <name>ScreenshotWindow</name>

@@ -6204,6 +6204,7 @@ Replace: move the current data there; the data already in that folder will be de
         <source>Long screenshot - window position corrected</source>
         <translation>スクロールキャプチャ - ウィンドウ位置を補正しました</translation>
     </message>
+    <message><source>Couldn't extend. Keep the page still.</source><translation>継ぎ足しできませんでした。ページを動かさずに再試行してください。</translation></message>
 </context>
 <context>
     <name>ScreenshotWindow</name>

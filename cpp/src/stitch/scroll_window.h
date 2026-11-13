@@ -126,6 +126,10 @@ protected:
     void moveEvent(QMoveEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
     void closeEvent(QCloseEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
 
 private:
     // capture_rect is already in real screen coordinates; the window only grows by the
@@ -187,8 +191,15 @@ private:
     // HDR first; after it fails the rest of this long screenshot uses grabWindow, never
     // switching back: stitching needs identical pixels in overlaps, and the two paths
     // do not give exactly the same values.
-    QImage grab_capture_rect();
+    QImage grab_capture_rect(const QRect &rect);
     std::optional<GrabbedFrame> grab_frame();
+    std::optional<GrabbedFrame> grab_frame(const QRect &rect, bool exclude_frame);
+    StitchFrame stitch_frame(const GrabbedFrame &frame, const QRect &rect) const;
+    std::optional<Qt::Edge> edge_at(const QPoint &position) const;
+    void preview_edge(const QPoint &position);
+    void set_frame_rect(const QRect &rect);
+    void cancel_edge(bool resume = true);
+    void on_extension_ready(quint64 request, bool ok);
     // Hands a frame to the stitcher; returns its index (results go to on_frame_stitched).
     std::optional<int> submit_frame(const std::optional<GrabbedFrame> &frame);
     std::optional<int> do_capture();
@@ -241,6 +252,16 @@ private:
     QTimer position_fix_timer_;
     QPointer<InputHub> input_hub_;
     QMetaObject::Connection key_connection_;
+    // The matcher always sees this fixed-size physical rectangle. capture_rect may
+    // grow around it; only the visible leading/trailing strips live outside the matcher.
+    QRect core_rect_;
+    QRect edge_start_rect_, edge_preview_rect_;
+    QPoint edge_start_;
+    std::optional<Qt::Edge> drag_edge_;
+    bool extension_pending_ = false;
+    bool can_extend_start_ = false, can_extend_end_ = false;
+    quint64 extension_request_ = 0;
+    quint64 capture_generation_ = 0;
 };
 
 // Both entry points use physical screen coordinates and keep an existing long image alive.

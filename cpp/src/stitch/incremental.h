@@ -14,7 +14,7 @@ struct JbPushResult;
 //
 // The UI thread only captures and submits frames; stitching runs on one background
 // thread in submission order and conclusions come back through signals. The stitched
-// image stays in the native session; each frame reports only the stitch parameters
+// core stays in the native session; supplemented end strips are kept here. Each frame reports the stitch parameters
 // and its position, and the preview thumbnail is maintained here from them. A frame
 // inside the stitched content leaves the result unchanged; one extending past either
 // end grows that end, so a capture started mid-page grows both ways.
@@ -33,6 +33,10 @@ struct StitchFrame {
     int index = 0;
     QString scroll_direction;
     std::optional<QString> heading;
+    // Extra visible rows (columns before rotation) around the fixed-size stitch frame.
+    int leading = 0;
+    int trailing = 0;
+    quint64 generation = 0;
 };
 
 // A frame's stitch conclusion. width/height/top are in stitch coordinates (orientation
@@ -55,6 +59,9 @@ struct FrameResult {
     // The direction the preview was made for: the stitch's, or the first frame's until
     // the second frame fixes it.
     QString scroll_direction;
+    bool can_extend_start = false;
+    bool can_extend_end = false;
+    quint64 generation = 0;
 };
 
 // Stitches long-screenshot frames in order in the background. frame_done and crop_done
@@ -72,6 +79,11 @@ public:
     // Drops and frees the long image so far, after the frames already submitted; the
     // next frame starts a new one in its own direction.
     void restart();
+    // Prepare without changing the result. Only the GUI's current request may commit;
+    // cancelling or discarding a queued reply therefore cannot add pixels later.
+    void prepare_extension(const StitchFrame &frame, quint64 request);
+    FrameResult commit_extension(quint64 request, quint64 generation);
+    void discard_extension(quint64 request);
     // Waits for submitted frames, then returns the whole long image with orientation
     // restored; null before any frame.
     QImage export_image();
@@ -81,6 +93,7 @@ signals:
     void frame_done(const jietuba::FrameResult &result);
     // The cropped result, index 0.
     void crop_done(const jietuba::FrameResult &result);
+    void extension_ready(quint64 request, bool ok);
 
 private:
     // Everything below runs on the worker thread (close touches state only after it stops).
@@ -88,8 +101,8 @@ private:
     void crop_task(const QString &side);
     FrameResult apply_crop(const QString &side);
     FrameResult push(const StitchFrame &frame);
-    FrameResult start(const StitchFrame &frame);
-    FrameResult append(const StitchFrame &frame);
+    FrameResult start(const StitchFrame &frame, const QByteArray &data, int width, int height);
+    FrameResult append(const StitchFrame &frame, const QByteArray &data, int width, int height);
     QImage export_task() const;
     QByteArray thumbnail(const QByteArray &bgra, int width, int height) const;
     // The thumbnail follows the result: extending the start drops its top and adds the
@@ -97,10 +110,13 @@ private:
     // part. Rows come from the total height after the push, not per frame: rounding
     // each frame separately would accumulate errors.
     void apply_step(const ::JbPushResult &step, const QByteArray &frame_thumb);
-    // The first frame's orientation is not settled yet, so the original is scaled
-    // directly; the horizontal panel aligns by height and scales by height.
-    QImage first_preview(const StitchFrame &frame) const;
     QImage render(const QByteArray &thumb) const;
+    int core_height() const;
+    FrameResult decorate(FrameResult result) const;
+    // Keep only strips not yet covered by the native result, then adopt this view's
+    // exposed ends. Matching and normal frame dimensions stay unchanged.
+    void update_edges(const StitchFrame &frame, const QByteArray &view, int old_height, int shift);
+    bool prepare_extension_task(const StitchFrame &frame, quint64 request);
     // The frame's range along the preview's long side; the horizontal preview turns
     // back counter-clockwise from stitch coordinates, so rows become x.
     std::pair<int, int> box(int top) const;
@@ -120,6 +136,23 @@ private:
     int frame_rows_ = 0;
     int top_ = 0;
     QByteArray thumb_;
+    int core_width_ = 0;
+    int leading_ = 0;
+    int trailing_ = 0;
+    QByteArray last_view_;
+    QImage prefix_, suffix_;
+    int last_index_ = 0;
+    quint64 generation_ = 0;
+    quint64 revision_ = 0;
+    struct Extension {
+        quint64 request;
+        quint64 revision;
+        QByteArray view;
+        int leading;
+        int trailing;
+        QImage prefix, suffix;
+    };
+    std::optional<Extension> extension_;
 };
 }
 

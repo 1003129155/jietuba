@@ -21,6 +21,9 @@
 #include <QDateTime>
 #include <QGuiApplication>
 #include <QLinearGradient>
+#include <QKeyEvent>
+#include <QMouseEvent>
+#include <QScopeGuard>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPolygonF>
@@ -30,6 +33,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <dwmapi.h>
 
 namespace jietuba {
 namespace {
@@ -316,6 +320,7 @@ void PreviewPanel::clear_warning() { warning_label->hide(); }
 
 ScrollCaptureWindow::ScrollCaptureWindow(const QRect &capture_rect, QWidget *parent, ToolSettingsManager *config_manager)
     : QWidget(parent), capture_rect(capture_rect), config_manager(config_manager), warning_timer_(this), still_timer_(this) {
+    core_rect_ = capture_rect;
     load_long_stitch_config();
     warning_timer_.setSingleShot(true);
     connect(&warning_timer_, &QTimer::timeout, this, &ScrollCaptureWindow::show_pending_warning);
@@ -325,6 +330,7 @@ ScrollCaptureWindow::ScrollCaptureWindow(const QRect &capture_rect, QWidget *par
                                         stitch_config.ignore_top_pixels, this);
     connect(stitcher_, &IncrementalStitcher::frame_done, this, &ScrollCaptureWindow::on_frame_stitched, Qt::QueuedConnection);
     connect(stitcher_, &IncrementalStitcher::crop_done, this, &ScrollCaptureWindow::on_cropped, Qt::QueuedConnection);
+    connect(stitcher_, &IncrementalStitcher::extension_ready, this, &ScrollCaptureWindow::on_extension_ready, Qt::QueuedConnection);
     auto_scroller_ = new AutoScroller([this](AutoScroller::Done done) { capture_when_still(std::move(done)); }, inject_wheel, {}, this);
     connect(auto_scroller_, &AutoScroller::stopped, this, &ScrollCaptureWindow::on_auto_scroll_stopped);
     change_watch_ = new ChangeWatch(capture_rect, {}, this);
@@ -379,6 +385,8 @@ void ScrollCaptureWindow::setup_window() {
     setWindowFlags(Qt::WindowStaysOnTopHint | Qt::FramelessWindowHint | Qt::Tool);
     setAttribute(Qt::WA_TranslucentBackground);
     setAttribute(Qt::WA_DeleteOnClose);
+    setMouseTracking(true);
+    setFocusPolicy(Qt::StrongFocus);
     // Room for the border; the capture region itself excludes it. The toolbar is separate.
     const int border_width = 3;
     const auto position = correct_window_position(border_width);
@@ -630,11 +638,12 @@ void ScrollCaptureWindow::setup_input() {
 }
 
 void ScrollCaptureWindow::on_screen_changed() {
-    if (auto_scroller_->running()) return;
+    if (auto_scroller_->running() || drag_edge_ || extension_pending_) return;
     do_capture();
 }
 
 void ScrollCaptureWindow::toggle_auto_scroll() {
+    if (drag_edge_ || extension_pending_) { toolbar->set_auto_scrolling(false); return; }
     if (auto_scroller_->running()) {
         auto_scroller_->stop();
         return;
@@ -650,6 +659,7 @@ void ScrollCaptureWindow::toggle_auto_scroll() {
 }
 
 void ScrollCaptureWindow::capture_pending_now() {
+    cancel_edge();
     auto_scroller_->stop();
     auto_scroller_->flush();
     if (still_timer_.isActive()) flush_still();
@@ -665,7 +675,10 @@ void ScrollCaptureWindow::on_auto_scroll_stopped(const QString &reason) {
 }
 
 void ScrollCaptureWindow::toggle_direction() {
+    cancel_edge();
     auto_scroller_->stop();
+    ++capture_generation_;
+    core_rect_ = capture_rect;
     if (scroll_direction == "vertical") {
         scroll_direction = "horizontal";
         toolbar->update_direction("horizontal");
@@ -680,6 +693,10 @@ void ScrollCaptureWindow::toggle_direction() {
     stitcher_->restart();
     auto_scroller_->reset();
     screenshots = 0;
+    latest_preview_ = QImage();
+    latest_box_.reset();
+    preview_direction_ = scroll_direction;
+    can_extend_start_ = can_extend_end_ = false;
     do_capture();
     refresh_preview_panel();
     if (scroll_direction == "horizontal") start_keyboard_listener();
@@ -708,6 +725,7 @@ void ScrollCaptureWindow::stop_keyboard_listener() {
 }
 
 void ScrollCaptureWindow::on_key(const QString &watcher, int vk, bool pressed) {
+    if (drag_edge_ || extension_pending_) return;
     if (watcher != INPUT_WATCHER || std::find(SHIFT_KEYS.begin(), SHIFT_KEYS.end(), static_cast<quint32>(vk)) == SHIFT_KEYS.end() ||
         scroll_direction != "horizontal")
         return;
@@ -854,17 +872,17 @@ void ScrollCaptureWindow::exclude_overlapping_ui(bool exclude) {
         if (widget && widget->isVisible() && rect.intersects(capture_rect)) set_window_exclude_from_capture(static_cast<quintptr>(widget->winId()), exclude);
 }
 
-QImage ScrollCaptureWindow::grab_capture_rect() {
+QImage ScrollCaptureWindow::grab_capture_rect(const QRect &rect) {
     if (use_hdr_) {
         try {
-            return grab_region_hdr(capture_rect);
+            return grab_region_hdr(rect);
         } catch (const std::exception &e) {
             use_hdr_ = false;
             log_stitch(T("HDR 截图失败，本次长截图改用 GDI: {error}", {{"error", QString::fromUtf8(e.what())}}), true);
         }
     }
     // The screen holding the capture region.
-    const QPoint center_point(capture_rect.x() + python_floordiv(capture_rect.width(), 2), capture_rect.y() + python_floordiv(capture_rect.height(), 2));
+    const QPoint center_point = rect.center();
     QScreen *screen_obj = QGuiApplication::screenAt(center_point);
     if (!screen_obj) {
         log_stitch(T("[WARN] 截图区域不在任何显示器范围内，使用主显示器"), true);
@@ -872,19 +890,35 @@ QImage ScrollCaptureWindow::grab_capture_rect() {
     }
     const auto screen_geometry = screen_obj->geometry();
     // Virtual-desktop coordinates to coordinates relative to the target screen.
-    const int relative_x = capture_rect.x() - screen_geometry.x();
-    const int relative_y = capture_rect.y() - screen_geometry.y();
-    const auto pixmap = screen_obj->grabWindow(0, relative_x, relative_y, capture_rect.width(), capture_rect.height());
+    const int relative_x = rect.x() - screen_geometry.x();
+    const int relative_y = rect.y() - screen_geometry.y();
+    const auto pixmap = screen_obj->grabWindow(0, relative_x, relative_y, rect.width(), rect.height());
     if (pixmap.isNull()) return {};
     return pixmap.toImage();
 }
 
-std::optional<GrabbedFrame> ScrollCaptureWindow::grab_frame() {
+std::optional<GrabbedFrame> ScrollCaptureWindow::grab_frame() { return grab_frame(capture_rect, false); }
+
+std::optional<GrabbedFrame> ScrollCaptureWindow::grab_frame(const QRect &rect, bool exclude_frame) {
+    // The drag preview may cover previously unseen pixels. Exclude all our windows
+    // and wait for composition before the one-shot grab, including shadows.
+    std::vector<QWidget *> excluded;
+    const auto restore = qScopeGuard([&] {
+        for (auto *widget : excluded) set_window_exclude_from_capture(quintptr(widget->winId()), false);
+    });
+    if (exclude_frame) {
+        for (QWidget *widget : {static_cast<QWidget *>(this), static_cast<QWidget *>(toolbar), static_cast<QWidget *>(preview_panel.data())}) {
+            if (!widget || !widget->isVisible()) continue;
+            if (!set_window_exclude_from_capture(quintptr(widget->winId()), true)) return std::nullopt;
+            excluded.push_back(widget);
+        }
+        DwmFlush();
+    }
     // Before grabbing: exclude UI windows overlapping the region.
     exclude_overlapping_ui(true);
     std::optional<GrabbedFrame> result;
     try {
-        const auto qimage = grab_capture_rect();
+        const auto qimage = grab_capture_rect(rect);
         if (qimage.isNull()) {
             log_stitch(T("[ERROR] 截图失败"), true);
         } else {
@@ -906,18 +940,26 @@ std::optional<int> ScrollCaptureWindow::submit_frame(const std::optional<Grabbed
     if (!stitcher_ || !frame) return std::nullopt;
     screenshots += 1;
     // The scroll direction before this frame is unknown; stitching follows the latest movement.
-    StitchFrame stitch_frame;
-    stitch_frame.bgra = frame->bgra;
-    stitch_frame.width = frame->width;
-    stitch_frame.height = frame->height;
-    stitch_frame.index = screenshots;
-    stitch_frame.scroll_direction = scroll_direction;
-    stitcher_->submit(stitch_frame);
+    stitcher_->submit(stitch_frame(*frame, capture_rect));
     return screenshots;
 }
 
+StitchFrame ScrollCaptureWindow::stitch_frame(const GrabbedFrame &frame, const QRect &rect) const {
+    StitchFrame result;
+    result.bgra = frame.bgra;
+    result.width = frame.width;
+    result.height = frame.height;
+    result.index = screenshots;
+    result.scroll_direction = scroll_direction;
+    const bool horizontal = scroll_direction == "horizontal";
+    result.leading = horizontal ? core_rect_.left() - rect.left() : core_rect_.top() - rect.top();
+    result.trailing = horizontal ? rect.right() - core_rect_.right() : rect.bottom() - core_rect_.bottom();
+    result.generation = capture_generation_;
+    return result;
+}
+
 std::optional<int> ScrollCaptureWindow::do_capture() {
-    if (!stitcher_) return std::nullopt;
+    if (!stitcher_ || drag_edge_ || extension_pending_) return std::nullopt;
     return submit_frame(grab_frame());
 }
 
@@ -967,7 +1009,9 @@ void ScrollCaptureWindow::flush_still() {
 
 void ScrollCaptureWindow::on_frame_stitched(const FrameResult &result) {
     // A stitched frame, already on the GUI thread.
-    if (!stitcher_) return;
+    if (!stitcher_ || result.generation != capture_generation_) return;
+    can_extend_start_ = result.ok && result.can_extend_start;
+    can_extend_end_ = result.ok && result.can_extend_end;
     if (result.ok) {
         toolbar->set_result_size(result.size->first, result.size->second);
         log_stitch(T("📸 第 {screenshot_count} 张 → 拼接结果: {w}x{h}", {{"screenshot_count", result.index}, {"w", result.width}, {"h", result.height}}));
@@ -997,11 +1041,13 @@ void ScrollCaptureWindow::crop(const QString &side) {
 
 void ScrollCaptureWindow::on_cropped(const FrameResult &result) {
     // Cropped in the background, already on the GUI thread.
-    if (!stitcher_) return;
+    if (!stitcher_ || result.generation != capture_generation_) return;
     if (!result.ok) {
         log_stitch(T("[WARN] 裁剪出错: {e}", {{"e", result.error.value_or(QString("None"))}}), true);
         return;
     }
+    can_extend_start_ = result.can_extend_start;
+    can_extend_end_ = result.can_extend_end;
     log_stitch(T("✂️ 裁剪后: {w}x{h}", {{"w", result.width}, {"h", result.height}}));
     toolbar->set_result_size(result.size->first, result.size->second);
     latest_preview_ = result.preview;
@@ -1016,6 +1062,121 @@ QImage ScrollCaptureWindow::export_result() {
     if (!stitcher_) return stitched_result;
     stitched_result = stitcher_->export_image();
     return stitched_result;
+}
+
+std::optional<Qt::Edge> ScrollCaptureWindow::edge_at(const QPoint &position) const {
+    if (!stitcher_ || extension_pending_) return std::nullopt;
+    if (scroll_direction == "vertical") {
+        if (can_extend_start_ && position.y() < 3) return Qt::TopEdge;
+        if (can_extend_end_ && position.y() >= height() - 3) return Qt::BottomEdge;
+    } else {
+        if (can_extend_start_ && position.x() < 3) return Qt::LeftEdge;
+        if (can_extend_end_ && position.x() >= width() - 3) return Qt::RightEdge;
+    }
+    return std::nullopt;
+}
+
+void ScrollCaptureWindow::set_frame_rect(const QRect &rect) {
+    transparent_area->setFixedSize(rect.size());
+    // Recompute the old layout minimum before shrinking a cancelled preview.
+    layout()->activate();
+    setGeometry(rect.adjusted(-3, -3, 3, 3));
+}
+
+void ScrollCaptureWindow::mousePressEvent(QMouseEvent *event) {
+    const auto edge = edge_at(event->position().toPoint());
+    if (event->button() != Qt::LeftButton || !edge) { QWidget::mousePressEvent(event); return; }
+    drag_edge_ = edge;
+    edge_start_ = event->globalPosition().toPoint();
+    edge_start_rect_ = edge_preview_rect_ = capture_rect;
+    auto_scroller_->cancel();
+    change_watch_->stop();
+    still_timer_.stop();
+    still_frame_.reset();
+    finish_still(std::nullopt);
+    position_fix_timer_.stop();
+    setFocus(Qt::MouseFocusReason);
+    grabMouse();
+    event->accept();
+}
+
+void ScrollCaptureWindow::preview_edge(const QPoint &position) {
+    if (!drag_edge_) return;
+    QRect desktop;
+    for (auto *screen : QApplication::screens()) desktop = desktop.united(screen->geometry());
+    const auto delta = position - edge_start_;
+    auto rect = edge_start_rect_;
+    switch (*drag_edge_) {
+    case Qt::TopEdge: rect.setTop(std::clamp(rect.top() + delta.y(), desktop.top(), rect.top())); break;
+    case Qt::BottomEdge: rect.setBottom(std::clamp(rect.bottom() + delta.y(), rect.bottom(), desktop.bottom())); break;
+    case Qt::LeftEdge: rect.setLeft(std::clamp(rect.left() + delta.x(), desktop.left(), rect.left())); break;
+    case Qt::RightEdge: rect.setRight(std::clamp(rect.right() + delta.x(), rect.right(), desktop.right())); break;
+    }
+    edge_preview_rect_ = rect;
+    set_frame_rect(rect);
+}
+
+void ScrollCaptureWindow::mouseMoveEvent(QMouseEvent *event) {
+    if (drag_edge_) preview_edge(event->globalPosition().toPoint());
+    else setCursor(edge_at(event->position().toPoint()) ? (scroll_direction == "horizontal" ? Qt::SizeHorCursor : Qt::SizeVerCursor) : Qt::ArrowCursor);
+    QWidget::mouseMoveEvent(event);
+}
+
+void ScrollCaptureWindow::mouseReleaseEvent(QMouseEvent *event) {
+    if (event->button() != Qt::LeftButton || !drag_edge_) { QWidget::mouseReleaseEvent(event); return; }
+    preview_edge(event->globalPosition().toPoint());
+    drag_edge_.reset();
+    releaseMouse();
+    extension_pending_ = true;
+    const auto request = ++extension_request_;
+    if (edge_preview_rect_ == capture_rect) { cancel_edge(); return; }
+    const auto frame = grab_frame(edge_preview_rect_, true);
+    if (!frame) {
+        cancel_edge();
+        show_preview_warning(tr_text("Couldn't extend. Keep the page still."));
+        return;
+    }
+    stitcher_->prepare_extension(stitch_frame(*frame, edge_preview_rect_), request);
+    event->accept();
+}
+
+void ScrollCaptureWindow::cancel_edge(bool resume) {
+    if (!drag_edge_ && !extension_pending_) return;
+    if (QWidget::mouseGrabber() == this) releaseMouse();
+    if (stitcher_) stitcher_->discard_extension(extension_request_);
+    ++extension_request_;
+    drag_edge_.reset();
+    extension_pending_ = false;
+    set_frame_rect(capture_rect);
+    if (resume && stitcher_) change_watch_->start();
+}
+
+void ScrollCaptureWindow::keyPressEvent(QKeyEvent *event) {
+    if (event->key() == Qt::Key_Escape && (drag_edge_ || extension_pending_)) {
+        cancel_edge();
+        event->accept();
+    } else QWidget::keyPressEvent(event);
+}
+
+void ScrollCaptureWindow::on_extension_ready(quint64 request, bool ok) {
+    if (!stitcher_ || !extension_pending_ || request != extension_request_) return;
+    // The candidate has not changed the stitcher yet. This short commit runs only
+    // for the live GUI request; older queued replies cannot overwrite a newer view.
+    auto result = ok ? stitcher_->commit_extension(request, capture_generation_ + 1) : FrameResult{};
+    if (!result.ok) {
+        cancel_edge();
+        show_preview_warning(tr_text("Couldn't extend. Keep the page still."));
+        return;
+    }
+    ++capture_generation_;
+    extension_pending_ = false;
+    capture_rect = edge_preview_rect_;
+    set_frame_rect(capture_rect);
+    delete change_watch_;
+    change_watch_ = new ChangeWatch(capture_rect, {}, this);
+    connect(change_watch_, &ChangeWatch::changed, this, &ScrollCaptureWindow::on_screen_changed, Qt::QueuedConnection);
+    on_frame_stitched(result);
+    change_watch_->start();
 }
 
 void ScrollCaptureWindow::paintEvent(QPaintEvent *) {
@@ -1147,6 +1308,8 @@ void ScrollCaptureWindow::on_cancel() {
 }
 
 void ScrollCaptureWindow::cleanup() {
+    cancel_edge(false);
+    ++capture_generation_;
     if (change_watch_) change_watch_->stop();
     if (auto_scroller_) auto_scroller_->cancel();
     screenshots = 0;

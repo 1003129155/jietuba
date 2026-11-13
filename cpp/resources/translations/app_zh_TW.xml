@@ -6577,6 +6577,7 @@ Replace: move the current data there; the data already in that folder will be de
         <source>Long screenshot - window position corrected</source>
         <translation>長截圖 - 視窗位置已校正</translation>
     </message>
+    <message><source>Couldn't extend. Keep the page still.</source><translation>無法補截，請保持頁面不動後重試。</translation></message>
 </context>
 <context>
     <name>ScreenshotWindow</name>
