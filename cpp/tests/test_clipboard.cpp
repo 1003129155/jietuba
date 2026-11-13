@@ -391,6 +391,12 @@ private slots:
         QCOMPARE(item.display_text(), QString("one.txt, two.png"));
     }
 
+    void pathsFromTextUsesClipboardRecognition() {
+        QCOMPARE(paths_from_text(QStringLiteral("\"C:\\a b\\one.txt\"\r\nD:/two")), QStringList{"C:\\a b\\one.txt", "D:/two"});
+        QVERIFY(paths_from_text(QStringLiteral("C:\\one.txt\nnot a path")).isEmpty());
+        QVERIFY(paths_from_text("https://example.com").isEmpty());
+    }
+
     // The same records as the generator, in the same order, so ids match a fresh database.
     void contextMenusMatchTheReference() {
         const auto menus = fixture_["menus"].toObject();

@@ -64,6 +64,8 @@ struct ClipboardItem {
 
 // The paths a file item holds or a path item's text names; empty for other items.
 QStringList item_paths(const ClipboardItem &item);
+// Paths recognized in a plain-text clipboard value; empty when it is not a path list.
+QStringList paths_from_text(const QString &text);
 // Whether a group of this type stores items of `content_type` and text `sub_kind`; the rule lives in the Rust core.
 bool group_accepts(int group_type, const QString &content_type, const QString &sub_kind = {});
 

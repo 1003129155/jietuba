@@ -68,6 +68,7 @@ public:
     void open_settings_page(int stack_index, const QString &route_key);
     void open_translator();
     void open_clipboard_window();
+    void open_recognized_paths();
     // Creates the clipboard window once, wired to the app; start-up preloading and the hotkey both
     // go through here.
     clipboard::ClipboardWindow *ensure_clipboard_window();

@@ -82,12 +82,13 @@ struct GlobalRow {
 
 const std::vector<GlobalRow> &GLOBAL_HOTKEY_ROWS() {
     static const std::vector<GlobalRow> rows = {
-        // Plain feature names, as the settings pages are named; the order is the default Ctrl+1 to Ctrl+5.
+        // Plain feature names, as the settings pages are named; the order is the default Ctrl+1 to Ctrl+6.
         {"screenshot", "hotkey_input", "Screenshot", "capture", FluentIcon::Camera},
         {"pin_clipboard", "pin_clipboard_hotkey_edit", "Pin", "pin", FluentIcon::Pin},
         {"clipboard", "clipboard_hotkey_edit", "Clipboard", "clipboard", FluentIcon::Paste},
         {"translation", "translation_hotkey_edit", "Translation", "translate", FluentIcon::Language},
         {"screen_annotation", "screen_annotation_hotkey_edit", "Screen Annotation", "capture", FluentIcon::Brush},
+        {"open_recognized_paths", "open_recognized_paths_hotkey_edit", "Open Recognized Files and Folders", "clipboard", FluentIcon::Folder},
     };
     return rows;
 }

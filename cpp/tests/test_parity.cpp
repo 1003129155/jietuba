@@ -28,7 +28,7 @@ QRectF rectangle(const QJsonValue &v) {
     const auto a = v.toArray();
     return {a[0].toDouble(), a[1].toDouble(), a[2].toDouble(), a[3].toDouble()};
 }
-// Defaults C++ changed in 2.2.2: Ctrl+1 to Ctrl+5 in the hotkey page's order.
+// Defaults C++ changed in 2.2.2: Ctrl+1 to Ctrl+5 in the hotkey page's order; the path opener is newer.
 const QHash<QString, const char *> HOTKEY_DEFAULTS_SINCE_222 = {
     {"clipboard_hotkey", "ctrl+3"}, {"pin_clipboard_hotkey", "ctrl+2"}, {"translation_hotkey", "ctrl+4"}};
 }

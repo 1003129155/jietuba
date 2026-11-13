@@ -103,16 +103,23 @@ QByteArray FilterRule::to_json() const {
     return QJsonDocument(object).toJson(QJsonDocument::Compact);
 }
 
+QStringList paths_from_text(const QString &text) {
+    QStringList paths;
+    char *json = jb_clipboard_text_paths(text.toUtf8().constData());
+    if (!json) return paths;
+    for (const auto &value : QJsonDocument::fromJson(json).array())
+        if (!value.toString().isEmpty()) paths.append(value.toString());
+    jb_clipboard_text_free(json);
+    return paths;
+}
+
 QStringList item_paths(const ClipboardItem &item) {
     QStringList paths;
     if (item.content_type == "file") {
         for (const auto &value : QJsonDocument::fromJson(item.content.toUtf8()).object().value("files").toArray())
             if (!value.toString().isEmpty()) paths.append(value.toString());
     } else if (item.sub_kind == SUB_KIND_PATH) {
-        char *json = jb_clipboard_text_paths(item.content.toUtf8().constData());
-        if (!json) return paths;
-        for (const auto &value : QJsonDocument::fromJson(json).array()) paths.append(value.toString());
-        jb_clipboard_text_free(json);
+        paths = paths_from_text(item.content);
     }
     return paths;
 }

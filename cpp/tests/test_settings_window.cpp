@@ -938,7 +938,7 @@ private slots:
         }
     }
 
-    // New settings take Ctrl+1 to Ctrl+5; settings from earlier versions keep the hotkeys they had.
+    // New settings take Ctrl+1 to Ctrl+6; settings from earlier versions keep the hotkeys they had.
     void olderSettingsKeepTheirHotkeyDefaults() {
         const auto open = [&](const QString &name, const std::function<void(QSettings &)> &before) {
             QFile::remove(dir_.filePath(name));
@@ -948,13 +948,13 @@ private slots:
         };
         const auto hotkeys = [](ToolSettingsManager &config) {
             return QStringList{config.get_hotkey(), config.get_pin_clipboard_hotkey(), config.get_clipboard_hotkey(),
-                               config.get_translation_hotkey(), config.get_screen_annotation_hotkey()};
+                               config.get_translation_hotkey(), config.get_screen_annotation_hotkey(), config.get_open_recognized_paths_hotkey()};
         };
         {
             auto fresh = open("fresh.ini", [](QSettings &) {});
             ToolSettingsManager config(*fresh);
             config.keep_older_hotkey_defaults();
-            QCOMPARE(hotkeys(config), QStringList({"ctrl+1", "ctrl+2", "ctrl+3", "ctrl+4", "ctrl+5"}));
+            QCOMPARE(hotkeys(config), QStringList({"ctrl+1", "ctrl+2", "ctrl+3", "ctrl+4", "ctrl+5", "ctrl+6"}));
             QVERIFY(!fresh->contains("clipboard/hotkey"));
         }
         // Run before, or any setting stored: an earlier version. What the user set stays.
@@ -964,7 +964,7 @@ private slots:
             ToolSettingsManager config(*older);
             const QString translation = config.get_translation_hotkey() == "f3" ? "f3" : "";
             config.keep_older_hotkey_defaults();
-            QCOMPARE(hotkeys(config), QStringList({"ctrl+1", "", "ctrl+2", translation, ""}));
+            QCOMPARE(hotkeys(config), QStringList({"ctrl+1", "", "ctrl+2", translation, "", "ctrl+6"}));
             // Once only: a hotkey removed later takes the new default.
             older->remove("clipboard/hotkey");
             config.keep_older_hotkey_defaults();

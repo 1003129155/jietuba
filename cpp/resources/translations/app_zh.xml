@@ -297,6 +297,10 @@
         <translation>剪贴板快捷键</translation>
     </message>
     <message>
+        <source>Open Recognized Files and Folders</source>
+        <translation>打开识别到的文件和文件夹</translation>
+    </message>
+    <message>
         <source>Quick Edit</source>
         <translation>快速编辑</translation>
     </message>
@@ -2402,6 +2406,10 @@ Replace it?</source>
     <message>
         <source>Pin Clipboard Image</source>
         <translation>生成钉图</translation>
+    </message>
+    <message>
+        <source>Open Recognized Files and Folders</source>
+        <translation>打开识别到的文件和文件夹</translation>
     </message>
     <message>
         <source>Hotkey Registration Failed</source>

@@ -40,9 +40,16 @@
 #include "ui/screenshot_window.h"
 #include "ui/toast.h"
 #include "ui/tray_menu.h"
+#include <QClipboard>
 #include <QCursor>
+#include <QDesktopServices>
+#include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QGuiApplication>
+#include <QMimeData>
+#include <QProcess>
+#include <QUrl>
 #include <QMenu>
 #include <QPainter>
 #include <QScreen>
@@ -273,6 +280,7 @@ void MainApp::update_hotkey(bool show_error) {
         // A selection opens the compact popup, otherwise the input window.
         {"translation", tr_text("Translation"), smart_translation_controller->hotkey()},
     };
+    functions.emplace_back("open_recognized_paths", tr_text("Open Recognized Files and Folders"), [this] { open_recognized_paths(); });
     // Also with monitoring off: the window still shows the history already recorded.
     functions.emplace_back("clipboard", tr_text("Clipboard"), [this] { open_clipboard_window(); });
     // Pinning prefers the system clipboard's image, so it is useful with history turned off.
@@ -640,6 +648,44 @@ clipboard::ClipboardWindow *MainApp::ensure_clipboard_window() {
         connect(clipboard_window, &clipboard::ClipboardWindow::settings_requested, this, [this] { open_settings_page(2, "clipboard"); });
     }
     return clipboard_window;
+}
+
+void MainApp::open_recognized_paths() {
+    if (update_preparing) return;
+    auto open_paths = [](const QStringList &paths) {
+        for (const auto &path : paths) {
+            const QString native_path = QDir::toNativeSeparators(QDir::cleanPath(path));
+            const QFileInfo info(native_path);
+            if (info.isDir()) {
+                QProcess::startDetached("explorer", {native_path});
+                return true;
+            }
+            if (info.isFile()) {
+                QDesktopServices::openUrl(QUrl::fromLocalFile(native_path));
+                return true;
+            }
+        }
+        return false;
+    };
+    const QMimeData *mime = QGuiApplication::clipboard()->mimeData();
+    if (mime) {
+        QStringList current_paths;
+        for (const auto &url : mime->urls())
+            if (url.isLocalFile()) current_paths.append(url.toLocalFile());
+        if (open_paths(current_paths)) return;
+        if (mime->hasText() && open_paths(clipboard::paths_from_text(mime->text()))) return;
+    }
+    if (!clipboard_manager) {
+        clipboard_manager = &clipboard::ClipboardManager::instance();
+        if (!clipboard_manager->is_available()) return;
+    }
+    for (qint64 offset = 0;; offset += 50) {
+        const auto items = clipboard_manager->get_history(offset, 50);
+        if (items.isEmpty()) break;
+        for (const auto &item : items)
+            if (open_paths(clipboard::item_paths(item))) return;
+        if (items.size() < 50) break;
+    }
 }
 
 void MainApp::open_clipboard_window() {

@@ -9,7 +9,7 @@
 //           Internal: no settings page shows it, so imports leave it out
 //   getter  Gen: generated; Own: written by hand in ToolSettingsManager
 //   setter  Gen: generated; Trim: generated, stores the text trimmed; Own: by hand; None: read-only
-// Ctrl+1 to Ctrl+5 in the order the hotkey page lists them. Settings from before 2.2.2 keep
+// Ctrl+1 to Ctrl+6 in the order the hotkey page lists them. Settings from before 2.2.2 keep
 // the older defaults (see keep_older_hotkey_defaults).
 SETTING(hotkey, "app/hotkey", QString, "ctrl+1", Import, Gen, Gen)
 SETTING(hotkey_2, "app/hotkey_2", QString, "", Import, Gen, Gen)
@@ -31,6 +31,10 @@ SETTING(screen_annotation_hotkey, "app/screen_annotation_hotkey", QString, "ctrl
 SETTING(screen_annotation_hotkey_2, "app/screen_annotation_hotkey_2", QString, "", Import, Gen, Gen)
 SETTING(screen_annotation_hotkey_3, "app/screen_annotation_hotkey_3", QString, "", Import, Gen, Gen)
 SETTING(screen_annotation_hotkey_4, "app/screen_annotation_hotkey_4", QString, "", Import, Gen, Gen)
+SETTING(open_recognized_paths_hotkey, "app/open_recognized_paths_hotkey", QString, "ctrl+6", Import, Gen, Gen)
+SETTING(open_recognized_paths_hotkey_2, "app/open_recognized_paths_hotkey_2", QString, "", Import, Gen, Gen)
+SETTING(open_recognized_paths_hotkey_3, "app/open_recognized_paths_hotkey_3", QString, "", Import, Gen, Gen)
+SETTING(open_recognized_paths_hotkey_4, "app/open_recognized_paths_hotkey_4", QString, "", Import, Gen, Gen)
 SETTING(global_hotkeys_disabled, "app/global_hotkeys_disabled", bool, false, Internal, Gen, Gen)
 // 2 once the settings are known to hold the hotkey defaults they started with.
 SETTING(hotkey_defaults_version, "app/hotkey_defaults_version", int, 0, Internal, Gen, Gen)

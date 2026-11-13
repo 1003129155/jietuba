@@ -297,6 +297,10 @@
         <translation>Clipboard Shortcuts</translation>
     </message>
     <message>
+        <source>Open Recognized Files and Folders</source>
+        <translation>Open Recognized Files and Folders</translation>
+    </message>
+    <message>
         <source>Quick Edit</source>
         <translation>Quick Edit</translation>
     </message>
@@ -2361,6 +2365,7 @@ Replace it?</translation>
     <message><source>Settings</source><translation>Settings</translation></message>
     <message><source>Exit</source><translation>Exit</translation></message>
     <message><source>Pin Clipboard Image</source><translation>Create Pin Image</translation></message>
+    <message><source>Open Recognized Files and Folders</source><translation>Open Recognized Files and Folders</translation></message>
     <message><source>Hotkey Registration Failed</source><translation>Hotkey Registration Failed</translation></message>
     <message><source>The following hotkeys failed to register:</source><translation>The following hotkeys failed to register:</translation></message>
     <message><source>The hotkey may be occupied by other programs. Please try a different combination.</source><translation>The hotkey may be occupied by other programs. Please try a different combination.</translation></message>
