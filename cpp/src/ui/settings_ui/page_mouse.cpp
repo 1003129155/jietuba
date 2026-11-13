@@ -24,6 +24,7 @@ IconSource quick_capture_icon(const QString &action) {
         {"pin", inapp_icon("inapp_pin")}, {"copy", inapp_icon("inapp_confirm")}, {"copy_pin", inapp_icon("inapp_copy_pin")},
         {"ocr", inapp_icon("inapp_text_recognize")}, {"translate", inapp_icon("inapp_translate")}, {"edit", FluentIcon::Edit},
         {"scan_code", QString::fromUtf8("扫码.svg")},
+        {"long_screenshot", QString::fromUtf8("长截图.svg")},
     };
     return icons.value(action);
 }

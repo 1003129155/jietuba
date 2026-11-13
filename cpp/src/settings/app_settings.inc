@@ -42,6 +42,7 @@ SETTING(quick_capture_ocr, "app/quick_capture_ocr", QString, "", Import, Gen, Ge
 SETTING(quick_capture_translate, "app/quick_capture_translate", QString, "", Import, Gen, Gen)
 SETTING(quick_capture_scan_code, "app/quick_capture_scan_code", QString, "", Import, Gen, Gen)
 SETTING(quick_capture_edit, "app/quick_capture_edit", QString, "", Import, Gen, Gen)
+SETTING(quick_capture_long_screenshot, "app/quick_capture_long_screenshot", QString, "", Import, Gen, Gen)
 SETTING(inapp_confirm, "inapp/inapp_confirm", QString, "ctrl+c", Import, Gen, Gen)
 SETTING(inapp_pin, "inapp/inapp_pin", QString, "mousemiddle", Import, Gen, Gen)
 SETTING(inapp_undo, "inapp/inapp_undo", QString, "ctrl+z", Import, Gen, Gen)

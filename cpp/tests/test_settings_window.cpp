@@ -1034,6 +1034,61 @@ private slots:
         for (const auto &binding : get_quick_capture_bindings(config_)) QVERIFY(binding.second != "scan_code");
     }
 
+    void globalLongScreenshotDefaultsPreserveOlderMouseBindings() {
+        QSettings settings(dir_.filePath("long-shortcut-defaults.ini"), QSettings::IniFormat);
+        settings.clear();
+        ToolSettingsManager config(settings);
+        QVERIFY(config.get_quick_capture_long_screenshot().isEmpty());
+        config.set_quick_capture_copy("WIN+dragmiddle");
+        QVERIFY(config.get_quick_capture_long_screenshot().isEmpty());
+        QCOMPARE(config.get_quick_capture_copy(), QString("WIN+dragmiddle"));
+        const auto bindings = get_quick_capture_bindings(&config);
+        QVERIFY(std::any_of(bindings.begin(), bindings.end(), [](const auto &b) { return b.second == "copy"; }));
+        QVERIFY(std::none_of(bindings.begin(), bindings.end(), [](const auto &b) { return b.second == "long_screenshot"; }));
+        SettingsDialog dialog(&config, config.get_hotkey());
+        dialog.on_nav_changed(10, "mouse");
+        QVERIFY(mouse_binding_conflicts(&dialog).empty());
+        QVERIFY(qobject_cast<MouseBindingEditor *>(dialog.behavior_control("quick_capture_long_screenshot"))->currentData().isEmpty());
+        dialog.refresh_settings();
+        QVERIFY(qobject_cast<MouseBindingEditor *>(dialog.behavior_control("quick_capture_long_screenshot"))->currentData().isEmpty());
+        QCOMPARE(qobject_cast<MouseBindingEditor *>(dialog.behavior_control("quick_capture_copy"))->currentData(), QString("win+dragmiddle"));
+    }
+
+    void globalLongScreenshotCanRebindClearAndTransfer() {
+        QSettings settings(dir_.filePath("long-shortcut-save.ini"), QSettings::IniFormat);
+        settings.clear();
+        ToolSettingsManager config(settings);
+        SettingsDialog dialog(&config, config.get_hotkey());
+        dialog.on_nav_changed(10, "mouse");
+        auto *edit = qobject_cast<MouseBindingEditor *>(dialog.behavior_control("quick_capture_long_screenshot"));
+        QVERIFY(edit);
+        QVERIFY(edit->currentData().isEmpty());
+        QVERIFY(!ResourceManager::get_icon_by_name(QString::fromUtf8("长截图.svg")).isNull());
+        edit->setBinding("ctrl+alt+dragmiddle");
+        QVERIFY(dialog.apply_settings());
+        settings.sync();
+        QSettings reloaded(settings.fileName(), QSettings::IniFormat);
+        ToolSettingsManager fresh(reloaded);
+        QCOMPARE(fresh.get_quick_capture_long_screenshot(), QString("ctrl+alt+dragmiddle"));
+        const auto imported = settings_transfer::read_settings_file(settings.fileName());
+        QCOMPARE(imported.value("app/quick_capture_long_screenshot").toString(), QString("ctrl+alt+dragmiddle"));
+        QVERIFY(settings_transfer::IMPORTED_KEYS().contains("app/quick_capture_long_screenshot"));
+        auto *pin = qobject_cast<MouseBindingEditor *>(dialog.behavior_control("quick_capture_pin"));
+        QVERIFY(pin);
+        answer_next(true);
+        edit->setBinding(pin->currentData());
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config.get_quick_capture_long_screenshot(), QString("ctrl+alt+dragmiddle"));
+        edit->setBinding("");
+        QVERIFY(dialog.apply_settings());
+        settings.sync();
+        QSettings cleared(settings.fileName(), QSettings::IniFormat);
+        ToolSettingsManager empty(cleared);
+        QVERIFY(empty.get_quick_capture_long_screenshot().isEmpty());
+        const auto bindings = get_quick_capture_bindings(&empty);
+        QVERIFY(std::none_of(bindings.begin(), bindings.end(), [](const auto &b) { return b.second == "long_screenshot"; }));
+    }
+
     void duplicateMouseBindingsAreListed() {
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.on_nav_changed(10, "mouse");
@@ -1530,7 +1585,7 @@ private slots:
         config_->set_app_setting("quick_capture_scan_code", "ctrl+alt+dragright");
         MouseShortcutPage page(config_);
         const auto editors = page.findChildren<MouseBindingEditor *>();
-        QCOMPARE(editors.size(), 7);
+        QCOMPARE(editors.size(), 8);
         const auto copy = editors[0], pin = editors[1], ocr = editors[3];
         QCOMPARE(pin->currentData(), QString("win+dragleft"));
         QLabel *conflict = nullptr;
@@ -1559,10 +1614,12 @@ private slots:
         editors[2]->setBinding("shift+win+dragmiddle");
         editors[5]->setBinding("alt+win+dragx1");
         editors[6]->setBinding("ctrl+win+dragx2");
+        editors[7]->setBinding("ctrl+alt+dragmiddle");
         page.save();
         QCOMPARE(get_quick_capture_binding(config_, "copy_pin"), QString("shift+win+dragmiddle"));
         QCOMPARE(get_quick_capture_binding(config_, "scan_code"), QString("alt+win+dragx1"));
         QCOMPARE(get_quick_capture_binding(config_, "edit"), QString("ctrl+win+dragx2"));
+        QCOMPARE(get_quick_capture_binding(config_, "long_screenshot"), QString("ctrl+alt+dragmiddle"));
     }
 
     void wizardMouseGridFitsEveryLanguage() {
@@ -1590,11 +1647,11 @@ private slots:
                 if (!out.isEmpty() && percent == 100)
                     QVERIFY(wizard.grab().save(QDir(out).filePath(QString("mouse_grid_%1.png").arg(lang))));
                 const auto editors = page->findChildren<MouseBindingEditor *>();
-                QCOMPARE(editors.size(), 7);
+                QCOMPARE(editors.size(), 8);
                 const QPoint left = editors[0]->mapTo(page, QPoint()), right = editors[1]->mapTo(page, QPoint());
                 QCOMPARE(left.y(), right.y());
                 QVERIFY(right.x() > left.x() + editors[0]->width());
-                QCOMPARE(editors[6]->width(), editors[0]->width());
+                QCOMPARE(editors[7]->width(), editors[0]->width());
                 for (auto *editor : editors) {
                     QVERIFY(page->rect().contains(QRect(editor->mapTo(page, QPoint()), editor->size())));
                     for (auto *combo : {editor->modifiers, editor->gesture}) {

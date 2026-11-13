@@ -242,4 +242,8 @@ private:
     QPointer<InputHub> input_hub_;
     QMetaObject::Connection key_connection_;
 };
+
+// Both entry points use physical screen coordinates and keep an existing long image alive.
+ScrollCaptureWindow *active_scroll_capture();
+ScrollCaptureWindow *start_scroll_capture(const QRect &rect, ToolSettingsManager *config);
 }

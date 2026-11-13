@@ -347,6 +347,32 @@ ScrollCaptureWindow::ScrollCaptureWindow(const QRect &capture_rect, QWidget *par
     position_fix_timer_.start(200);
 }
 
+ScrollCaptureWindow *active_scroll_capture() {
+    return qobject_cast<ScrollCaptureWindow *>(qApp->property("_scroll_window").value<QObject *>());
+}
+
+ScrollCaptureWindow *start_scroll_capture(const QRect &rect, ToolSettingsManager *config) {
+    QRect desktop;
+    for (auto *screen : QApplication::screens()) desktop = desktop.united(screen->geometry());
+    const auto region = rect.intersected(desktop);
+    if (region.width() < 2 || region.height() < 2) return nullptr;
+    if (auto *existing = active_scroll_capture()) {
+        existing->raise();
+        existing->activateWindow();
+        return existing;
+    }
+    auto *window = new ScrollCaptureWindow(region, nullptr, config);
+    qApp->setProperty("_scroll_window", QVariant::fromValue<QObject *>(window));
+    QObject::connect(window, &QObject::destroyed, qApp, [window] {
+        if (qApp->property("_scroll_window").value<QObject *>() == window) qApp->setProperty("_scroll_window", QVariant());
+        request_trim_working_set(1000);
+    });
+    window->show();
+    window->raise();
+    window->activateWindow();
+    return window;
+}
+
 QPoint ScrollCaptureWindow::correct_window_position(int border_width) const { return QPoint(capture_rect.x() - border_width, capture_rect.y() - border_width); }
 
 void ScrollCaptureWindow::setup_window() {

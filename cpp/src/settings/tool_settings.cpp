@@ -456,6 +456,7 @@ const std::vector<MouseAction> &QUICK_CAPTURE_ACTIONS() {
         {"translate", "Region Translation", "", "global"},
         {"scan_code", "Scan QR code / barcode", "", "global"},
         {"edit", "Capture and Edit", "", "global"},
+        {"long_screenshot", "Long Screenshot", "", "global"},
     };
     return actions;
 }
