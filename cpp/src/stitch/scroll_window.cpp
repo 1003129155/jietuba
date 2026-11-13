@@ -5,6 +5,8 @@
 #include "core/input_hub.h"
 #include "core/logger.h"
 #include "core/platform_utils.h"
+#include "core/qt_utils.h"
+#include "core/shortcut_manager.h"
 #include "core/save.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
@@ -16,10 +18,12 @@
 #include "stitch/scroll_toolbar.h"
 #include "text_recognition/result_window.h"
 #include "tools/action.h"
+#include "ui/toast.h"
 #include <QApplication>
 #include <QCursor>
 #include <QDateTime>
 #include <QGuiApplication>
+#include <QFileInfo>
 #include <QLinearGradient>
 #include <QKeyEvent>
 #include <QMouseEvent>
@@ -28,6 +32,7 @@
 #include <QPainterPath>
 #include <QPolygonF>
 #include <QScreen>
+#include <QStyleHints>
 #include <QVBoxLayout>
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -320,6 +325,9 @@ void PreviewPanel::clear_warning() { warning_label->hide(); }
 
 ScrollCaptureWindow::ScrollCaptureWindow(const QRect &capture_rect, QWidget *parent, ToolSettingsManager *config_manager)
     : QWidget(parent), capture_rect(capture_rect), config_manager(config_manager), warning_timer_(this), still_timer_(this) {
+    static quint64 next_mouse_window = 0; // GUI thread only; old queued clicks must not target a new window.
+    mouse_watcher_ = QString("stitch-mouse-%1").arg(++next_mouse_window);
+    if (auto *target = QApplication::widgetAt(capture_rect.center())) mouse_target_ = target->window();
     core_rect_ = capture_rect;
     load_long_stitch_config();
     warning_timer_.setSingleShot(true);
@@ -606,6 +614,7 @@ void ScrollCaptureWindow::show_pending_warning() {
 }
 
 void ScrollCaptureWindow::clear_preview_warning() {
+    save_failure_through_ = -1;
     warning_timer_.stop();
     pending_warning_.reset();
     if (!preview_warning_active) return;
@@ -631,14 +640,98 @@ void ScrollCaptureWindow::setup_input() {
     try {
         auto *hub = input_hub();
         key_connection_ = connect(hub, &InputHub::key, this, &ScrollCaptureWindow::on_key, Qt::QueuedConnection);
+        mouse_connection_ = connect(hub, &InputHub::mouse_captured, this, &ScrollCaptureWindow::on_mouse_captured, Qt::QueuedConnection);
         input_hub_ = hub;
+        qApp->installEventFilter(this);
     } catch (const std::exception &e) {
         log_stitch(T("[ERROR] 接入全局按键失败: {e}", {{"e", QString::fromUtf8(e.what())}}), true);
     }
 }
 
+bool ScrollCaptureWindow::eventFilter(QObject *object, QEvent *event) {
+    // Refresh only on top-level layout/lifetime changes; no polling or pointer-move notifications.
+    const auto type = event->type();
+    if (input_hub_ && !mouse_sync_queued_ && (type == QEvent::Show || type == QEvent::Hide || type == QEvent::Move ||
+        type == QEvent::Resize || type == QEvent::WindowActivate || type == QEvent::WindowDeactivate)) {
+        if (auto *widget = qobject_cast<QWidget *>(object); widget && widget->isWindow()) {
+            mouse_sync_queued_ = true;
+            QTimer::singleShot(0, this, [this] { mouse_sync_queued_ = false; sync_mouse_capture(); });
+        }
+    }
+    return QWidget::eventFilter(object, event);
+}
+
+void ScrollCaptureWindow::sync_mouse_capture() {
+    if (!input_hub_) return;
+    std::optional<InputHubMouseCapture> capture;
+    if (stitcher_ && isVisible() && !drag_edge_ && !extension_pending_ && !quick_saving_ && !blocking_modal(this)) {
+        const auto rect = [](const QRect &r) { return InputHubRect{r.left(), r.top(), r.x() + r.width(), r.y() + r.height()}; };
+        capture = InputHubMouseCapture{rect(capture_rect), {}, {}};
+        for (const auto &action : LONG_SCREENSHOT_MOUSE_ACTIONS()) {
+            auto parts = get_long_screenshot_mouse_binding(config_manager, action.key).toLower().split('+');
+            const auto gesture = parts.takeLast();
+            if (gesture != "middle" && gesture != "right" && gesture != "doubleleft") continue;
+            if (std::any_of(parts.begin(), parts.end(), [](const QString &key) { return key != "ctrl" && key != "alt" && key != "shift"; })) continue;
+            capture->bindings.emplace_back(parts, gesture == "doubleleft" ? QString("left") : gesture);
+        }
+        // Our floating controls remain clickable. A Qt window being captured (also used
+        // by desktop tests) is content, so do not mistake it for a control overlay.
+        for (auto *widget : QApplication::topLevelWidgets()) {
+            if (widget == this || widget == mouse_target_ || !widget->isVisible()) continue;
+            // A normal settings window behind the browser must not punch a hole in
+            // the capture region. Only floating controls or an active app window cover it.
+            if (widget != toolbar && widget != preview_panel && !widget->isActiveWindow() && !(widget->windowFlags() & Qt::WindowStaysOnTopHint)) continue;
+            capture->excluded.push_back(rect(widget == preview_panel ? preview_panel->panel_geometry() : widget->geometry()));
+        }
+        if (capture->bindings.empty()) capture.reset();
+    }
+    if (!capture) { mouse_presses_.clear(); last_double_click_.reset(); }
+    input_hub_->native->capture_mouse(mouse_watcher_, capture);
+}
+
+void ScrollCaptureWindow::on_mouse_captured(const QString &watcher, const QStringList &modifiers, const QString &button,
+                                           bool pressed, int x, int y, quint64 timestamp) {
+    if (watcher != mouse_watcher_ || !stitcher_ || !isVisible() || drag_edge_ || extension_pending_ || quick_saving_ || blocking_modal(this)) return;
+    const QPoint point(x, y);
+    if (pressed) { mouse_presses_[button] = {point, binding_modifiers(modifiers.join('+')), timestamp}; return; }
+    const auto found = mouse_presses_.find(button);
+    if (found == mouse_presses_.end()) return;
+    const auto press = found.value();
+    mouse_presses_.erase(found);
+    if (!capture_rect.contains(point) || (point - press.point).manhattanLength() > QApplication::startDragDistance()) {
+        last_double_click_.reset();
+        return;
+    }
+    QString gesture = button;
+    if (button == "left") {
+        const auto *hints = QGuiApplication::styleHints();
+        const bool twice = last_double_click_ && last_double_click_->modifiers == press.modifiers &&
+            quint32(press.time - last_double_click_->time) <= quint32(hints->mouseDoubleClickInterval()) &&
+            (press.point - last_double_click_->point).manhattanLength() <= hints->mouseDoubleClickDistance();
+        last_double_click_ = twice ? std::nullopt : std::optional<MouseClick>(press);
+        if (!twice) return;
+        gesture = "doubleleft";
+    } else last_double_click_.reset();
+    const auto qt_button = button == "left" ? Qt::LeftButton : button == "middle" ? Qt::MiddleButton : Qt::RightButton;
+    QMouseEvent event(QEvent::MouseButtonRelease, QPointF(), QPointF(point), qt_button, Qt::NoButton, press.modifiers);
+    for (const auto &action : LONG_SCREENSHOT_MOUSE_ACTIONS()) {
+        if (mouse_gesture_binding_matches(get_long_screenshot_mouse_binding(config_manager, action.key), &event, gesture)) {
+            trigger_mouse_action(action.key);
+            break;
+        }
+    }
+}
+
+void ScrollCaptureWindow::trigger_mouse_action(const QString &action) {
+    if (action == "copy") on_finish();
+    else if (action == "pin") on_pin();
+    else if (action == "save") on_save();
+    else if (action == "quick_save") on_quick_save();
+    else if (action == "close") on_cancel();
+}
+
 void ScrollCaptureWindow::on_screen_changed() {
-    if (auto_scroller_->running() || drag_edge_ || extension_pending_) return;
+    if (auto_scroller_->running() || drag_edge_ || extension_pending_ || quick_saving_) return;
     do_capture();
 }
 
@@ -678,6 +771,7 @@ void ScrollCaptureWindow::toggle_direction() {
     cancel_edge();
     auto_scroller_->stop();
     ++capture_generation_;
+    save_failure_through_ = -1;
     core_rect_ = capture_rect;
     if (scroll_direction == "vertical") {
         scroll_direction = "horizontal";
@@ -959,7 +1053,7 @@ StitchFrame ScrollCaptureWindow::stitch_frame(const GrabbedFrame &frame, const Q
 }
 
 std::optional<int> ScrollCaptureWindow::do_capture() {
-    if (!stitcher_ || drag_edge_ || extension_pending_) return std::nullopt;
+    if (!stitcher_ || drag_edge_ || extension_pending_ || quick_saving_) return std::nullopt;
     return submit_frame(grab_frame());
 }
 
@@ -1016,7 +1110,8 @@ void ScrollCaptureWindow::on_frame_stitched(const FrameResult &result) {
         toolbar->set_result_size(result.size->first, result.size->second);
         log_stitch(T("📸 第 {screenshot_count} 张 → 拼接结果: {w}x{h}", {{"screenshot_count", result.index}, {"w", result.width}, {"h", result.height}}));
         stitch_failing_ = false;
-        clear_preview_warning();
+        // A reply queued before quick-save failure may update the preview, but not hide that failure.
+        if (result.index > save_failure_through_) clear_preview_warning();
     } else if (result.error) {
         log_stitch(T("[WARN] 第 {screenshot_count} 张拼接出错: {e}", {{"screenshot_count", result.index}, {"e", *result.error}}), true);
         handle_stitch_failure(tr_text("Stitching failed"), true);
@@ -1065,7 +1160,7 @@ QImage ScrollCaptureWindow::export_result() {
 }
 
 std::optional<Qt::Edge> ScrollCaptureWindow::edge_at(const QPoint &position) const {
-    if (!stitcher_ || extension_pending_) return std::nullopt;
+    if (!stitcher_ || extension_pending_ || quick_saving_) return std::nullopt;
     if (scroll_direction == "vertical") {
         if (can_extend_start_ && position.y() < 3) return Qt::TopEdge;
         if (can_extend_end_ && position.y() >= height() - 3) return Qt::BottomEdge;
@@ -1087,6 +1182,7 @@ void ScrollCaptureWindow::mousePressEvent(QMouseEvent *event) {
     const auto edge = edge_at(event->position().toPoint());
     if (event->button() != Qt::LeftButton || !edge) { QWidget::mousePressEvent(event); return; }
     drag_edge_ = edge;
+    sync_mouse_capture();
     edge_start_ = event->globalPosition().toPoint();
     edge_start_rect_ = edge_preview_rect_ = capture_rect;
     auto_scroller_->cancel();
@@ -1149,6 +1245,7 @@ void ScrollCaptureWindow::cancel_edge(bool resume) {
     extension_pending_ = false;
     set_frame_rect(capture_rect);
     if (resume && stitcher_) change_watch_->start();
+    sync_mouse_capture();
 }
 
 void ScrollCaptureWindow::keyPressEvent(QKeyEvent *event) {
@@ -1177,6 +1274,7 @@ void ScrollCaptureWindow::on_extension_ready(quint64 request, bool ok) {
     connect(change_watch_, &ChangeWatch::changed, this, &ScrollCaptureWindow::on_screen_changed, Qt::QueuedConnection);
     on_frame_stitched(result);
     change_watch_->start();
+    sync_mouse_capture();
 }
 
 void ScrollCaptureWindow::paintEvent(QPaintEvent *) {
@@ -1307,7 +1405,51 @@ void ScrollCaptureWindow::on_cancel() {
     close();
 }
 
+void ScrollCaptureWindow::on_quick_save() {
+    if (quick_saving_ || !stitcher_) return;
+    capture_pending_now();
+    const auto image = result_qimage();
+    if (image.isNull()) return;
+    auto *config = config_manager ? config_manager : get_tool_settings_manager();
+    quick_saving_ = true;
+    change_watch_->stop();
+    toolbar->setEnabled(false);
+    sync_mouse_capture();
+    const QPointer<ScrollCaptureWindow> guard(this);
+    std::optional<QString> path;
+    try {
+        path = SaveService(*config).save_qimage_async(image, config->get_screenshot_save_path(), "", "", config->get_screenshot_format(),
+        SaveService::DEFAULT_PDF_DPI, [guard](bool ok, QString path) {
+            QMetaObject::invokeMethod(qApp, [guard, ok, path] {
+                if (!guard || !guard->stitcher_) return;
+                guard->quick_saving_ = false;
+                if (ok) {
+                    guard->cleanup();
+                    emit guard->finished();
+                    guard->close();
+                    show_toast(i18n_tr("Saved: %1", "Action").replace("%1", QFileInfo(path).fileName()));
+                } else {
+                    guard->toolbar->setEnabled(true);
+                    guard->save_failure_through_ = guard->screenshots;
+                    guard->show_preview_warning(i18n_tr("Save Failed", "Action"));
+                    guard->change_watch_->start();
+                    guard->sync_mouse_capture();
+                }
+            }, Qt::QueuedConnection);
+        });
+    } catch (const std::exception &e) { log_exception(e, "LongScreenshot"); }
+    if (!path) {
+        quick_saving_ = false;
+        toolbar->setEnabled(true);
+        change_watch_->start();
+        sync_mouse_capture();
+        save_failure_through_ = screenshots;
+        show_preview_warning(i18n_tr("Save Failed", "Action"));
+    }
+}
+
 void ScrollCaptureWindow::cleanup() {
+    qApp->removeEventFilter(this);
     cancel_edge(false);
     ++capture_generation_;
     if (change_watch_) change_watch_->stop();
@@ -1338,6 +1480,8 @@ void ScrollCaptureWindow::cleanup() {
     auto hub = input_hub_;
     input_hub_ = nullptr;
     if (hub) {
+        hub->native->capture_mouse(mouse_watcher_, std::nullopt);
+        disconnect(mouse_connection_);
         disconnect(key_connection_);
         hub->native->unwatch_keys(INPUT_WATCHER);
     }

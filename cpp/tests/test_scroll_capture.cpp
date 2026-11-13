@@ -19,6 +19,7 @@
 #include "ui/fluent_lite/buttons.h"
 #include "ui/fluent_lite/inputs.h"
 #include "ui/save_image_dialog.h"
+#include "ui/toast.h"
 #include "save_dialog_answerer.h"
 #include <QApplication>
 #include <QComboBox>
@@ -57,6 +58,58 @@ namespace {
 constexpr int PAGE_W = 400;
 constexpr int VIEW_H = 300;
 constexpr int PAGE_H = 1600;
+constexpr ULONG_PTR MOUSE_TEST_MARKER = 0x4A425432;
+
+bool native_mouse(const QPoint &point, DWORD flags, DWORD wheel = 0) {
+    DWORD owner = 0;
+    GetWindowThreadProcessId(WindowFromPoint(POINT{point.x(), point.y()}), &owner);
+    // Never send a test click to an unrelated window covering the test surface.
+    if (!(flags & (MOUSEEVENTF_LEFTUP | MOUSEEVENTF_MIDDLEUP | MOUSEEVENTF_RIGHTUP)) && owner != GetCurrentProcessId()) {
+        qWarning() << "Test point covered" << point << "owner" << owner << "test" << GetCurrentProcessId();
+        return false;
+    }
+    if (!SetCursorPos(point.x(), point.y())) return false;
+    POINT cursor{};
+    if (!GetCursorPos(&cursor) || cursor.x != point.x() || cursor.y != point.y()) return false;
+    INPUT input{};
+    input.type = INPUT_MOUSE;
+    input.mi.dwFlags = flags;
+    input.mi.mouseData = wheel;
+    input.mi.dwExtraInfo = MOUSE_TEST_MARKER;
+    return SendInput(1, &input, sizeof input) == 1;
+}
+
+void native_ctrl(bool down) {
+    INPUT input{};
+    input.type = INPUT_KEYBOARD;
+    input.ki.wVk = VK_LCONTROL;
+    input.ki.dwFlags = down ? 0 : KEYEVENTF_KEYUP;
+    input.ki.dwExtraInfo = MOUSE_TEST_MARKER;
+    SendInput(1, &input, sizeof input);
+}
+
+bool native_click(const QPoint &point, Qt::MouseButton button, bool ctrl = false) {
+    if (ctrl) native_ctrl(true);
+    const bool sent = native_mouse(point, button == Qt::LeftButton ? MOUSEEVENTF_LEFTDOWN : button == Qt::MiddleButton ? MOUSEEVENTF_MIDDLEDOWN : MOUSEEVENTF_RIGHTDOWN);
+    if (!sent) { if (ctrl) native_ctrl(false); return false; }
+    QTest::qWait(20);
+    native_mouse(point, button == Qt::LeftButton ? MOUSEEVENTF_LEFTUP : button == Qt::MiddleButton ? MOUSEEVENTF_MIDDLEUP : MOUSEEVENTF_RIGHTUP);
+    if (ctrl) native_ctrl(false);
+    QTest::qWait(40);
+    return sent;
+}
+
+class MouseActionWindow : public ScrollCaptureWindow {
+public:
+    MouseActionWindow(const QRect &rect, ToolSettingsManager *config) : ScrollCaptureWindow(rect, nullptr, config) {}
+    std::shared_ptr<QStringList> actions = std::make_shared<QStringList>();
+protected:
+    void trigger_mouse_action(const QString &action) override {
+        actions->append(action);
+        // Exercise double-click dispatch without writing the developer's real clipboard.
+        if (action != "copy") ScrollCaptureWindow::trigger_mouse_action(action);
+    }
+};
 
 // White with lines of dashes of varying length and colour, roughly a page of text.
 // Every pixel row is drawn on its own, so no two rows repeat and matching is unambiguous.
@@ -86,6 +139,7 @@ QImage synthetic_page() {
 // A topmost window showing the page from top downwards: what the capture sees scroll.
 class PageWindow : public QWidget {
 public:
+    QMap<Qt::MouseButton, int> presses;
     explicit PageWindow(const QImage &page) : QWidget(nullptr, Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool), page_(page) {
         setAttribute(Qt::WA_ShowWithoutActivating);
         square_corners();
@@ -114,6 +168,7 @@ public:
     int top() const { return top_; }
     int left() const { return left_; }
 protected:
+    void mousePressEvent(QMouseEvent *event) override { ++presses[event->button()]; QWidget::mousePressEvent(event); }
     void showEvent(QShowEvent *event) override {
         QWidget::showEvent(event);
         // Qt reapplies its Windows 11 corner preference while showing the HWND.
@@ -180,13 +235,14 @@ private:
     QRect area_;
 
     // Opens the capture over the page and waits for its first frame.
-    ScrollCaptureWindow *open() {
+    ScrollCaptureWindow *open(bool mouse_actions = false) {
         page_window_ = std::make_unique<PageWindow>(page_);
         page_window_->setGeometry(area_);
         page_window_->show();
         QTest::qWait(150);
-        window_ = new ScrollCaptureWindow(area_, nullptr, config_);
+        window_ = mouse_actions ? new MouseActionWindow(area_, config_) : new ScrollCaptureWindow(area_, nullptr, config_);
         window_->show();
+        window_->activateWindow();
         if (!QTest::qWaitFor([&] { return window_ && window_->screenshots >= 1; }, 3000)) return nullptr;
         // The change watch starts after the first frame and takes its own first look as the
         // baseline; a person starts scrolling only once the window is up.
@@ -241,9 +297,191 @@ private slots:
     void cleanup() {
         if (window_) window_->close();
         PinManager::instance()->close_all();
+        for (auto *widget : QApplication::topLevelWidgets()) if (dynamic_cast<Toast *>(widget)) widget->close();
+        for (const auto &action : LONG_SCREENSHOT_MOUSE_ACTIONS()) config_->set_app_setting(QString("mouse_long_") + action.key, "");
+        config_->set_screenshot_format("PNG");
+        config_->set_screenshot_save_path(dir_.filePath("captures"));
+        input_hub()->native->set_test_marker(0);
         page_window_.reset();
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
         QTest::qWait(50);
+    }
+
+    void unassignedLongScreenshotButtonsAndWheelPassThrough() {
+        auto *window = open();
+        QVERIFY(window);
+        const auto original_pointer = QCursor::pos();
+        const auto restore = qScopeGuard([&] { QCursor::setPos(original_pointer); });
+        input_hub()->native->set_test_marker(MOUSE_TEST_MARKER);
+        for (auto button : {Qt::LeftButton, Qt::MiddleButton, Qt::RightButton}) {
+            QVERIFY2(native_click(area_.center(), button), "test point is covered by another application");
+            QTRY_COMPARE(page_window_->presses.value(button), 1);
+            QVERIFY(window->isVisible());
+        }
+        QVERIFY(native_mouse(area_.center(), MOUSEEVENTF_WHEEL, DWORD(-WHEEL_DELTA)));
+        QTRY_VERIFY(page_window_->top() > 0);
+        QTRY_VERIFY(window->screenshots > 1);
+    }
+
+    void longScreenshotMouseActions_data() {
+        QTest::addColumn<QString>("action");
+        for (const auto &action : {"copy", "pin", "save", "quick_save", "close"}) QTest::newRow(action) << QString(action);
+    }
+
+    void longScreenshotMouseActions() {
+        QFETCH(QString, action);
+        const auto original_pointer = QCursor::pos();
+        const auto restore = qScopeGuard([&] { native_ctrl(false); QCursor::setPos(original_pointer); });
+        const QString folder = dir_.filePath("mouse-" + action);
+        config_->set_screenshot_save_path(folder);
+        config_->set_app_setting("mouse_long_" + action, "ctrl+middle");
+        auto *window = static_cast<MouseActionWindow *>(open(true));
+        QVERIFY(window);
+        const auto actions = window->actions;
+        QVERIFY(scroll_in_steps({100, 200}));
+        auto *stitcher = window->findChild<IncrementalStitcher *>();
+        const auto expected = stitcher->export_image().convertToFormat(QImage::Format_RGB32);
+        input_hub()->native->set_test_marker(MOUSE_TEST_MARKER);
+        // A middle click without Ctrl remains a normal page click.
+        QVERIFY2(native_click(area_.center(), Qt::MiddleButton), "test point is covered by another application");
+        QTRY_COMPARE(page_window_->presses.value(Qt::MiddleButton), 1);
+        QVERIFY(actions->isEmpty());
+        const QString path = QDir(folder).filePath("manual.png");
+        SaveDialogAnswerer answer(path);
+        QSignalSpy finished(window, &ScrollCaptureWindow::finished);
+        QSignalSpy cancelled(window, &ScrollCaptureWindow::cancelled);
+        QVERIFY2(native_click(area_.center(), Qt::MiddleButton, true), "test point is covered by another application");
+        QTRY_COMPARE(actions->size(), 1);
+        QCOMPARE(actions->first(), action);
+        QCOMPARE(page_window_->presses.value(Qt::MiddleButton), 1);
+        if (action == "copy") {
+            QCOMPARE(stitcher->export_image().convertToFormat(QImage::Format_RGB32), expected);
+        } else if (action == "pin") {
+            QTRY_COMPARE(finished.count(), 1);
+            QCOMPARE(PinManager::instance()->count(), 1);
+            QCOMPARE(PinManager::instance()->get_all_pins().first()->base_pixmap().toImage().convertToFormat(QImage::Format_RGB32), expected);
+        } else if (action == "save") {
+            QTRY_VERIFY(answer.answered);
+            QTRY_VERIFY(QFileInfo::exists(path));
+            QCOMPARE(QImage(path).convertToFormat(QImage::Format_RGB32), expected);
+        } else if (action == "quick_save") {
+            QTRY_COMPARE(finished.count(), 1);
+            const auto files = QDir(folder).entryList({"*.png"}, QDir::Files);
+            QCOMPARE(files.size(), 1);
+            QCOMPARE(QImage(QDir(folder).filePath(files.first())).convertToFormat(QImage::Format_RGB32), expected);
+            QVERIFY(!answer.answered);
+        } else QTRY_COMPARE(cancelled.count(), 1);
+    }
+
+    void doubleClickBindingCapturesThatButtonWithoutBlockingTheWheel() {
+        config_->set_mouse_long_copy("doubleleft");
+        auto *window = static_cast<MouseActionWindow *>(open(true));
+        QVERIFY(window);
+        const auto actions = window->actions;
+        const auto pointer = QCursor::pos();
+        const auto restore = qScopeGuard([&] { QCursor::setPos(pointer); });
+        input_hub()->native->set_test_marker(MOUSE_TEST_MARKER);
+        QVERIFY2(native_click(area_.center(), Qt::LeftButton), "test point is covered by another application");
+        QVERIFY(actions->isEmpty());
+        QCOMPARE(page_window_->presses.value(Qt::LeftButton), 0);
+        QVERIFY2(native_click(area_.center(), Qt::LeftButton), "test point is covered by another application");
+        QTRY_COMPARE(actions->size(), 1);
+        QCOMPARE(actions->first(), QString("copy"));
+        QVERIFY(native_mouse(area_.center(), MOUSEEVENTF_WHEEL, DWORD(-WHEEL_DELTA)));
+        QTRY_VERIFY(page_window_->top() > 0);
+        QTRY_VERIFY(window->screenshots > 1);
+        // Left-button shortcuts do not take the border's left-button resize.
+        drag_edge(Qt::BottomEdge, 10);
+        QTRY_COMPARE(window->capture_rect, area_.adjusted(0, 0, 0, 10));
+        QCOMPARE(actions->size(), 1);
+    }
+
+    void failedQuickSaveKeepsTheLongImageAndCanRetry_data() {
+        QTest::addColumn<bool>("bad_directory");
+        QTest::newRow("directory") << true;
+        QTest::newRow("encoder") << false;
+    }
+
+    void failedQuickSaveKeepsTheLongImageAndCanRetry() {
+        QFETCH(bool, bad_directory);
+        const auto pointer = QCursor::pos();
+        const auto restore = qScopeGuard([&] { native_ctrl(false); QCursor::setPos(pointer); });
+        config_->set_mouse_long_quick_save("ctrl+middle");
+        auto *window = open();
+        QVERIFY(window);
+        auto *stitcher = window->findChild<IncrementalStitcher *>();
+        const auto before = stitcher->export_image();
+        if (bad_directory) {
+            const QString blocked = dir_.filePath("blocked-save");
+            QFile file(blocked);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            file.close();
+            config_->set_screenshot_save_path(blocked);
+        } else config_->set_screenshot_format("unsupported-test-format");
+        input_hub()->native->set_test_marker(MOUSE_TEST_MARKER);
+        QVERIFY2(native_click(area_.center(), Qt::MiddleButton, true), "test point is covered by another application");
+        QTRY_VERIFY(window->preview_warning_active);
+        QVERIFY(window->toolbar->isEnabled());
+        QCOMPARE(stitcher->export_image(), before);
+        QSignalSpy finished(window, &ScrollCaptureWindow::finished);
+        config_->set_screenshot_format("PNG");
+        config_->set_screenshot_save_path(dir_.filePath("retry-quick-save"));
+        QVERIFY2(native_click(area_.center(), Qt::MiddleButton, true), "test point is covered by another application");
+        QTRY_COMPARE(finished.count(), 1);
+    }
+
+    void otherControlsAreExcludedAndClearingABindingRestoresPassThrough() {
+        const auto pointer = QCursor::pos();
+        const auto restore = qScopeGuard([&] { QCursor::setPos(pointer); });
+        config_->set_mouse_long_copy("right");
+        auto *window = static_cast<MouseActionWindow *>(open(true));
+        QVERIFY(window);
+        const auto actions = window->actions;
+        input_hub()->native->set_test_marker(MOUSE_TEST_MARKER);
+        QDialog dialog;
+        dialog.setWindowFlag(Qt::WindowStaysOnTopHint);
+        dialog.setGeometry(QRect(area_.center() - QPoint(80, 60), QSize(160, 120)));
+        dialog.show();
+        QTest::qWait(100);
+        QVERIFY2(native_click(area_.center(), Qt::RightButton), "test point is covered by another application");
+        QVERIFY(actions->isEmpty());
+        dialog.setWindowFlag(Qt::WindowStaysOnTopHint, false);
+        dialog.show();
+        page_window_->raise();
+        page_window_->activateWindow();
+        QTest::qWait(100);
+        QVERIFY2(native_click(area_.center(), Qt::RightButton), "test point is covered by another application");
+        QTRY_COMPARE(actions->size(), 1);
+        config_->set_mouse_long_copy("");
+        dialog.close(); // Like applying settings and closing them, refresh the native region.
+        QTest::qWait(100);
+        QVERIFY2(native_click(area_.center(), Qt::RightButton), "test point is covered by another application");
+        QTRY_COMPARE(page_window_->presses.value(Qt::RightButton), 1);
+        QCOMPARE(actions->size(), 1);
+        QVERIFY(window->isVisible());
+    }
+
+    void lateMouseEventsCannotAffectAnotherLongScreenshot() {
+        config_->set_mouse_long_copy("middle");
+        auto *first = static_cast<MouseActionWindow *>(open(true));
+        QVERIFY(first);
+        QSignalSpy clicks(input_hub(), &InputHub::mouse_captured);
+        const auto pointer = QCursor::pos();
+        const auto restore = qScopeGuard([&] { QCursor::setPos(pointer); });
+        input_hub()->native->set_test_marker(MOUSE_TEST_MARKER);
+        QVERIFY(native_click(area_.center(), Qt::MiddleButton));
+        QTRY_COMPARE(first->actions->size(), 1);
+        QVERIFY(!clicks.isEmpty());
+        const auto old_watcher = clicks.first()[0].toString();
+        first->close();
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        auto *next = static_cast<MouseActionWindow *>(open(true));
+        QVERIFY(next);
+        input_hub()->mouse_captured(old_watcher, {}, "middle", true, area_.center().x(), area_.center().y(), 100);
+        input_hub()->mouse_captured(old_watcher, {}, "middle", false, area_.center().x(), area_.center().y(), 120);
+        QTest::qWait(100);
+        QVERIFY(next->actions->isEmpty());
+        QVERIFY(next->isVisible());
     }
 
     void draggingVisibleEndTwiceExportsExactPixels_data() {

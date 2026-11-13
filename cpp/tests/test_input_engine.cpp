@@ -142,6 +142,64 @@ bool kinds(const Events &events, std::initializer_list<Event::Kind> expected) {
 class InputEngineTests : public QObject {
     Q_OBJECT
 private slots:
+    void scopedMouseCaptureLeavesOtherInputAloneAndDrainsReleases() {
+        Rig rig;
+        MouseCapture capture{"long", {10, 20, 110, 120}, {{30, 40, 50, 60}}, {{ctrl(), Button::Middle}}};
+        rig.engine.capture_mouse("long", capture);
+        QVERIFY(rig.engine.hooks_needed());
+        QVERIFY(!rig.mouse(MouseInput::down(Button::Middle, 70, 80)).first);
+        rig.hold(LCTRL);
+        QVERIFY(!rig.mouse(MouseInput::down(Button::Middle, 9, 80)).first);
+        QVERIFY(!rig.mouse(MouseInput::down(Button::Middle, 35, 45)).first);
+        QVERIFY(!rig.mouse(MouseInput::down(Button::Left, 70, 80)).first);
+        QVERIFY(!rig.mouse(MouseInput::wheel(-120, false, 70, 80)).first);
+        QVERIFY(!rig.mouse(MouseInput::move(70, 80)).first);
+        auto press = MouseInput::down(Button::Middle, 70, 80);
+        press.timestamp = 123;
+        const auto [taken, events] = rig.mouse(press);
+        QVERIFY(taken);
+        QCOMPARE(events.size(), size_t(1));
+        QCOMPARE(events[0].kind, Event::Kind::MouseCaptured);
+        QCOMPARE(events[0].text, std::string("long"));
+        QCOMPARE(events[0].modifiers, ctrl());
+        QCOMPARE(events[0].id, uint64_t(123));
+        rig.engine.capture_mouse("long", std::nullopt);
+        QVERIFY(rig.engine.hooks_needed());
+        rig.release(LCTRL);
+        const auto released = rig.mouse(MouseInput::up(Button::Middle, 800, 900));
+        QVERIFY(released.first);
+        QCOMPARE(released.second[0].modifiers, ctrl());
+        QVERIFY(!rig.engine.hooks_needed());
+        QVERIFY(!rig.mouse(MouseInput::down(Button::Middle, 70, 80)).first);
+    }
+
+    void capturedMouseMetadataReachesTheHub() {
+        auto event = Event::mouse_button("long", Button::Right, true, 20, 30);
+        event.kind = Event::Kind::MouseCaptured;
+        event.modifiers = ctrl_alt();
+        event.id = 321;
+        const auto converted = jietuba::to_hub_event(event);
+        QCOMPARE(converted.kind, jietuba::InputHubEvent::MouseCaptured);
+        QCOMPARE(converted.modifiers, QStringList({"ctrl", "alt"}));
+        QCOMPARE(converted.id, quint64(321));
+        QCOMPARE(converted.text, QString("long"));
+        QCOMPARE(converted.value, int(Button::Right));
+    }
+
+    void capturedAltClickMasksTheMenuAndFailureReleasesTheCapture() {
+        Rig rig;
+        MouseCapture capture{"long", {0, 0, 100, 100}, {}, {{Modifiers::ALT, Button::Right}}};
+        rig.engine.capture_mouse("long", capture);
+        rig.hold(LALT);
+        QVERIFY(rig.mouse(MouseInput::down(Button::Right, 10, 10)).first);
+        QVERIFY(rig.mouse(MouseInput::up(Button::Right, 10, 10)).first);
+        QVERIFY(!rig.key(LALT, false).first);
+        QCOMPARE(rig.platform.masks, 1);
+        rig.with([](Engine &engine, Events &events) { engine.fail("test", events); });
+        QVERIFY(!rig.engine.hooks_needed());
+        rig.hold(LALT);
+        QVERIFY(!rig.mouse(MouseInput::down(Button::Right, 10, 10)).first);
+    }
     // ------------------------------------------------------------ gesture start and finish
 
     void a_gesture_starts_only_when_held_modifiers_match_exactly() {

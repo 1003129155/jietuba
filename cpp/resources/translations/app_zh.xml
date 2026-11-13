@@ -1653,6 +1653,14 @@ Replace it?</source>
         <source>Could not move the settings file: %1</source>
         <translation>无法移动设置文件：%1</translation>
     </message>
+    <message>
+        <source>Unassigned buttons and the wheel pass through. A double-click binding also captures single clicks of that button.</source>
+        <translation>未绑定的鼠标键和滚轮正常穿透。绑定双击后，该鼠标键的单击也会被接管。</translation>
+    </message>
+    <message>
+        <source>Long Screenshot Shortcuts</source>
+        <translation>长截图快捷键</translation>
+    </message>
 </context>
 
 <context>
@@ -5969,6 +5977,10 @@ Replace: move the current data there; the data already in that folder will be de
     <message>
         <source>Only in screenshot, pin and clipboard windows</source>
         <translation>只在截图、钉图和剪贴板窗口里生效</translation>
+    </message>
+    <message>
+        <source>Only in the corresponding window</source>
+        <translation>只在对应窗口内生效</translation>
     </message>
 </context>
 <context>

@@ -20,7 +20,7 @@ public:
     // Roomier buttons for a selector that is the main control of its view.
     void setLarge(bool large);
     // Shorter buttons and track for a selector in a title bar.
-    void setCompact(bool compact);
+    void setCompact(bool compact, int horizontal_padding = 12);
     // Laid over other content, such as an image: an opaque backing keeps the labels readable.
     void setFloating(bool floating);
     void setIndicatorColor(const QString &light, const QString &dark = {}) { indicator_ = light; Q_UNUSED(dark); }
@@ -36,6 +36,7 @@ private:
     QString indicator_;
     bool large_ = false;
     bool compact_ = false;
+    int compact_padding_ = 12;
     bool floating_ = false;
     QButtonGroup *group_;
     QHBoxLayout *layout_;

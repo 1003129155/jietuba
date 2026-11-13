@@ -1662,6 +1662,14 @@ Replace it?</source>
         <source>Could not move the settings file: %1</source>
         <translation>無法移動設定檔：%1</translation>
     </message>
+    <message>
+        <source>Unassigned buttons and the wheel pass through. A double-click binding also captures single clicks of that button.</source>
+        <translation>未綁定的滑鼠按鍵與滾輪正常穿透。綁定雙擊後，也會接管該按鍵的單擊。</translation>
+    </message>
+    <message>
+        <source>Long Screenshot Shortcuts</source>
+        <translation>長截圖快捷鍵</translation>
+    </message>
 </context>
 <context>
     <name>ActionTools</name>
@@ -6353,6 +6361,10 @@ Replace: move the current data there; the data already in that folder will be de
     <message>
         <source>Only in screenshot, pin and clipboard windows</source>
         <translation>只在截圖、釘圖和剪貼簿視窗裡生效</translation>
+    </message>
+    <message>
+        <source>Only in the corresponding window</source>
+        <translation>僅在對應視窗內生效</translation>
     </message>
 </context>
 <context>

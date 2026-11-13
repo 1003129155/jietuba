@@ -129,6 +129,22 @@ public:
     void unwatch_mouse(const QString &watcher) override {
         hooks_.with_engine([&](Engine &engine, Events &) { engine.unwatch_mouse(watcher.toStdString()); });
     }
+    bool capture_mouse(const QString &watcher, const std::optional<InputHubMouseCapture> &capture) override {
+        std::optional<input::MouseCapture> parsed;
+        if (capture) {
+            const auto &r = capture->rect;
+            parsed = input::MouseCapture{watcher.toStdString(), {r.left, r.top, r.right, r.bottom}, {}, {}};
+            for (const auto &excluded : capture->excluded) parsed->excluded.push_back({excluded.left, excluded.top, excluded.right, excluded.bottom});
+            for (const auto &[names, button] : capture->bindings) {
+                const auto mods = Modifiers::parse(modifier_names(names));
+                const auto key = input::parse_button(button.toStdString());
+                if (!mods || !key) return false;
+                parsed->bindings.emplace_back(*mods, *key);
+            }
+        }
+        hooks_.with_engine([&](Engine &engine, Events &) { engine.capture_mouse(watcher.toStdString(), std::move(parsed)); });
+        return true;
+    }
     std::optional<QPoint> take_pointer(const QString &watcher) override {
         std::optional<QPoint> position;
         hooks_.with_engine([&](Engine &engine, Events &) {
@@ -195,7 +211,10 @@ InputHubEvent to_hub_event(const input::Event &event) {
         out.flag = event.pressed;
         break;
     case Event::Kind::MouseButton:
-        out.kind = InputHubEvent::MouseButton;
+    case Event::Kind::MouseCaptured:
+        out.kind = event.kind == Event::Kind::MouseCaptured ? InputHubEvent::MouseCaptured : InputHubEvent::MouseButton;
+        out.modifiers = to_qt(event.modifiers.names());
+        out.id = event.id;
         out.text = QString::fromStdString(event.text);
         out.value = static_cast<int>(event.button);
         out.flag = event.pressed;
@@ -246,6 +265,9 @@ void InputHub::dispatch(const InputHubEvent &event) {
     case InputHubEvent::Foreground: emit foreground(event.hwnd); break;
     case InputHubEvent::MouseButton:
         emit mouse_button(event.text, QString(input::button_name(static_cast<input::Button>(event.value))), event.flag, event.x, event.y);
+        break;
+    case InputHubEvent::MouseCaptured:
+        emit mouse_captured(event.text, event.modifiers, QString(input::button_name(static_cast<input::Button>(event.value))), event.flag, event.x, event.y, event.id);
         break;
     case InputHubEvent::Pointer: emit pointer_moved(event.text); break;
     case InputHubEvent::Failure: emit failure(event.text); break;

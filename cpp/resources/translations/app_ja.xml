@@ -1695,6 +1695,14 @@ Replace it?</source>
         <source>Could not move the settings file: %1</source>
         <translation>設定ファイルを移動できませんでした: %1</translation>
     </message>
+    <message>
+        <source>Unassigned buttons and the wheel pass through. A double-click binding also captures single clicks of that button.</source>
+        <translation>未割り当てのボタンとホイールは背後に届きます。ダブルクリックを割り当てると、そのボタンのシングルクリックも取り込みます。</translation>
+    </message>
+    <message>
+        <source>Long Screenshot Shortcuts</source>
+        <translation>スクロール撮影操作</translation>
+    </message>
 </context>
 
 <context>
@@ -5979,6 +5987,10 @@ Replace: move the current data there; the data already in that folder will be de
     <message>
         <source>Only in screenshot, pin and clipboard windows</source>
         <translation>スクリーンショット、ピン留め画像、クリップボードのウィンドウでのみ有効</translation>
+    </message>
+    <message>
+        <source>Only in the corresponding window</source>
+        <translation>対応するウィンドウ内でのみ有効</translation>
     </message>
 </context>
 <context>

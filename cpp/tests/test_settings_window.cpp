@@ -1054,6 +1054,82 @@ private slots:
         QCOMPARE(qobject_cast<MouseBindingEditor *>(dialog.behavior_control("quick_capture_copy"))->currentData(), QString("win+dragmiddle"));
     }
 
+    void longScreenshotMouseBindingsAreIndependentAndPersist() {
+        QSettings settings(dir_.filePath("long-mouse.ini"), QSettings::IniFormat);
+        settings.clear();
+        ToolSettingsManager config(settings);
+        SettingsDialog dialog(&config, config.get_hotkey());
+        dialog.on_nav_changed(10, "mouse");
+        dialog.mouse_inapp_tabs->setCurrentItem("long_screenshot");
+        QCOMPARE(LONG_SCREENSHOT_MOUSE_ACTIONS().size(), size_t(5));
+        for (const auto &action : LONG_SCREENSHOT_MOUSE_ACTIONS()) {
+            QVERIFY(get_long_screenshot_mouse_binding(&config, action.key).isEmpty());
+            auto *edit = qobject_cast<MouseBindingEditor *>(dialog.behavior_control(QString("mouse_long_") + action.key));
+            QVERIFY(edit && edit->currentData().isEmpty());
+            QVERIFY(settings_transfer::IMPORTED_KEYS().contains(QString("app/mouse_long_") + action.key));
+        }
+        auto *pin = qobject_cast<MouseBindingEditor *>(dialog.behavior_control("mouse_long_pin"));
+        pin->setBinding("ctrl+middle");
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config.get_mouse_long_pin(), QString("ctrl+middle"));
+        QCOMPARE(config.get_mouse_capture_copy(), QString("doubleleft"));
+        QCOMPARE(config.get_mouse_capture_close(), QString("right"));
+        settings.sync();
+        QSettings reopened(settings.fileName(), QSettings::IniFormat);
+        ToolSettingsManager fresh(reopened);
+        QCOMPARE(get_long_screenshot_mouse_binding(&fresh, "pin"), QString("ctrl+middle"));
+        const auto imported = settings_transfer::read_settings_file(settings.fileName());
+        QCOMPARE(imported.value("app/mouse_long_pin").toString(), QString("ctrl+middle"));
+        auto *save = qobject_cast<MouseBindingEditor *>(dialog.behavior_control("mouse_long_save"));
+        save->setBinding("ctrl+middle");
+        QVERIFY(!mouse_binding_conflicts(&dialog).empty());
+        answer_next(true);
+        QVERIFY(dialog.apply_settings());
+        QVERIFY(save->currentData().isEmpty());
+        QVERIFY(config.get_mouse_long_save().isEmpty());
+        QCOMPARE(config.get_mouse_long_pin(), QString("ctrl+middle"));
+        pin->setBinding("");
+        QVERIFY(dialog.apply_settings());
+        settings.sync();
+        QSettings cleared(settings.fileName(), QSettings::IniFormat);
+        ToolSettingsManager empty(cleared);
+        QVERIFY(empty.get_mouse_long_pin().isEmpty());
+    }
+
+    void longScreenshotMousePageFitsEveryLanguage() {
+        if (QGuiApplication::platformName() != "windows") QSKIP("needs desktop fonts");
+        const auto language = I18nManager::get_current_language();
+        const int scale = get_dialog_scale().percent();
+        const auto restore = qScopeGuard([&] { get_dialog_scale().set_percent(scale); I18nManager::load_language(language); });
+        for (int percent : {100, 150, 200}) {
+            get_dialog_scale().set_percent(percent);
+            for (const auto *code : {"zh", "zh_TW", "en", "ja", "ko"}) {
+                QVERIFY(I18nManager::load_language(code));
+                SettingsDialog dialog(config_, config_->get_hotkey());
+                dialog.fit_to_available({4000, dialog.height()});
+                dialog.on_nav_changed(10, "mouse");
+                dialog.mouse_inapp_tabs->setCurrentItem("long_screenshot");
+                dialog.resize(0, dialog.height());
+                dialog.show();
+                QApplication::processEvents();
+                const auto shots = qEnvironmentVariable("JIETUBA_SETTINGS_SHOTS");
+                if (!shots.isEmpty() && percent == 100)
+                    QVERIFY(dialog.grab().save(QDir(shots).filePath(QString("long_mouse_%1.png").arg(code))));
+                auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+                QVERIFY(scroll);
+                const auto where = QString("%1 at %2%%: page %3, tabs %4/%5, overflow %6").arg(code).arg(percent).arg(scroll->widget()->width())
+                    .arg(dialog.mouse_inapp_tabs->width()).arg(dialog.mouse_inapp_tabs->minimumSizeHint().width()).arg(scroll->horizontalScrollBar()->maximum());
+                QVERIFY2(scroll->horizontalScrollBar()->maximum() == 0, qPrintable(where));
+                QVERIFY2(dialog.mouse_inapp_tabs->width() >= dialog.mouse_inapp_tabs->minimumSizeHint().width(), qPrintable(where));
+                for (const auto &action : LONG_SCREENSHOT_MOUSE_ACTIONS()) {
+                    auto *edit = dialog.behavior_control(QString("mouse_long_") + action.key);
+                    QVERIFY(edit && edit->isVisible());
+                    QVERIFY2(edit->width() >= edit->minimumSizeHint().width(), qPrintable(where));
+                }
+            }
+        }
+    }
+
     void globalLongScreenshotCanRebindClearAndTransfer() {
         QSettings settings(dir_.filePath("long-shortcut-save.ini"), QSettings::IniFormat);
         settings.clear();

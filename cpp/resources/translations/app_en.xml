@@ -1633,6 +1633,14 @@ Replace it?</translation>
         <source>Could not move the settings file: %1</source>
         <translation>Could not move the settings file: %1</translation>
     </message>
+    <message>
+        <source>Unassigned buttons and the wheel pass through. A double-click binding also captures single clicks of that button.</source>
+        <translation>Unassigned buttons and the wheel pass through. A double-click binding also captures single clicks of that button.</translation>
+    </message>
+    <message>
+        <source>Long Screenshot Shortcuts</source>
+        <translation>Long Screenshot Shortcuts</translation>
+    </message>
 </context>
 
 <context>
@@ -5890,6 +5898,10 @@ Replace: move the current data there; the data already in that folder will be de
     <message>
         <source>Only in screenshot, pin and clipboard windows</source>
         <translation>Only in screenshot, pin and clipboard windows</translation>
+    </message>
+    <message>
+        <source>Only in the corresponding window</source>
+        <translation>Only in the corresponding window</translation>
     </message>
 </context>
 <context>

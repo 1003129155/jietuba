@@ -8,6 +8,7 @@
 #include <QRect>
 #include <QTimer>
 #include <QWidget>
+#include <QMap>
 #include <functional>
 #include <optional>
 #include <vector>
@@ -130,6 +131,9 @@ protected:
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
+    bool eventFilter(QObject *object, QEvent *event) override;
+    // Shared action dispatch; copy/save/pin all use the current full stitched result.
+    virtual void trigger_mouse_action(const QString &action);
 
 private:
     // capture_rect is already in real screen coordinates; the window only grows by the
@@ -153,6 +157,8 @@ private:
     void handle_stitch_failure(const QString &hint, bool immediate = false);
     // Click-through window plus the global keys (Shift in horizontal mode).
     void setup_input();
+    void sync_mouse_capture();
+    void on_mouse_captured(const QString &watcher, const QStringList &modifiers, const QString &button, bool pressed, int x, int y, quint64 timestamp);
     // The region changed: capture at once, even mid-scroll; auto scrolling decides by itself.
     // Waiting for the picture to settle let a fast scroll carry the page past a whole frame
     // between captures. Rows a frame caught mid-repaint newly exposes are replaced by the
@@ -228,6 +234,7 @@ private:
     void on_text_recognize();
     // Ends the long screenshot and asks where to save the result, like the capture toolbar's Save.
     void on_save();
+    void on_quick_save();
     void on_cancel();
     void cleanup();
 
@@ -252,6 +259,15 @@ private:
     QTimer position_fix_timer_;
     QPointer<InputHub> input_hub_;
     QMetaObject::Connection key_connection_;
+    QMetaObject::Connection mouse_connection_;
+    QString mouse_watcher_;
+    QPointer<QWidget> mouse_target_;
+    bool mouse_sync_queued_ = false;
+    bool quick_saving_ = false;
+    int save_failure_through_ = -1;
+    struct MouseClick { QPoint point; Qt::KeyboardModifiers modifiers; quint64 time; };
+    QMap<QString, MouseClick> mouse_presses_;
+    std::optional<MouseClick> last_double_click_;
     // The matcher always sees this fixed-size physical rectangle. capture_rect may
     // grow around it; only the visible leading/trailing strips live outside the matcher.
     QRect core_rect_;
