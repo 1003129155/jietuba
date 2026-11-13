@@ -19,12 +19,13 @@ struct Event;
 // message; value: the wheel delta, the virtual key, or a mouse button (input::Button); flag: horizontal or
 // pressed.
 struct InputHubEvent {
-    enum Kind { Gesture, Moved, Side, Hotkey, Wheel, Key, Foreground, Failure, Captured, MouseButton, Pointer } kind = Failure;
+    enum Kind { Gesture, Moved, Side, Hotkey, Wheel, Key, Foreground, Failure, Captured, MouseButton, Pointer, MouseCaptured } kind = Failure;
     QString text;
     quint64 id = 0;
     int x = 0, y = 0, value = 0;
     bool flag = false;
     quintptr hwnd = 0;
+    QStringList modifiers;  // MouseCaptured, held when its press was consumed.
 };
 
 // What the engine's event is to the UI side.
@@ -33,6 +34,12 @@ InputHubEvent to_hub_event(const input::Event &event);
 // (left, top, right, bottom) in physical pixels.
 struct InputHubRect {
     int left, top, right, bottom;
+};
+
+struct InputHubMouseCapture {
+    InputHubRect rect;
+    std::vector<InputHubRect> excluded;
+    std::vector<std::pair<QStringList, QString>> bindings;
 };
 
 // The hook thread's operations with Qt types (core/input_hooks in production).
@@ -66,6 +73,8 @@ public:
     // happened; moves are announced once until take_pointer collects the latest position.
     virtual void watch_mouse(const QString &watcher) = 0;
     virtual void unwatch_mouse(const QString &watcher) = 0;
+    // Optional on test backends; the native backend supports scoped mouse capture.
+    virtual bool capture_mouse(const QString &, const std::optional<InputHubMouseCapture> &) { return false; }
     virtual std::optional<QPoint> take_pointer(const QString &watcher) = 0;
     virtual void watch_foreground(const QString &watcher) = 0;
     virtual void unwatch_foreground(const QString &watcher) = 0;
@@ -97,6 +106,7 @@ signals:
     void wheel(const QString &watcher, int x, int y, int delta, bool horizontal);  // delta in WHEEL_DELTA multiples
     void key(const QString &watcher, int vk, bool pressed);
     void mouse_button(const QString &watcher, const QString &button, bool pressed, int x, int y);  // left / middle / right / x1 / x2, physical pixels
+    void mouse_captured(const QString &watcher, const QStringList &modifiers, const QString &button, bool pressed, int x, int y, quint64 timestamp);
     void pointer_moved(const QString &watcher);  // once until take_pointer collects it
     void foreground(quintptr hwnd);
     void failure(const QString &message);

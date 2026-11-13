@@ -13,6 +13,7 @@
 #include "main_app.h"
 #include "pin/pin_manager.h"
 #include "settings/tool_settings.h"
+#include "stitch/scroll_window.h"
 #include "text_recognition/result_window.h"
 #include "tools/watermark.h"
 #include "translation/translation_manager.h"
@@ -111,7 +112,7 @@ void QuickCaptureController::suspend() {
 
 bool QuickCaptureController::blocked() const {
     auto *screenshot = main_app->screenshot_window.data();
-    return main_app->update_preparing || blocking_modal() != nullptr || (screenshot && screenshot->session_active());
+    return main_app->update_preparing || blocking_modal() != nullptr || active_scroll_capture() || (screenshot && screenshot->session_active());
 }
 
 void QuickCaptureController::set_capture_pending(bool pending) {
@@ -121,6 +122,8 @@ void QuickCaptureController::set_capture_pending(bool pending) {
 
 void QuickCaptureController::sync_input_availability() {
     if (closed_) return;
+    if (auto *window = active_scroll_capture())
+        connect(window, &QObject::destroyed, this, &QuickCaptureController::sync_input_availability, Qt::UniqueConnection);
     input->set_blocked(capture_pending_ || blocked());
 }
 
@@ -191,6 +194,12 @@ void QuickCaptureController::cancel() {
 }
 
 void QuickCaptureController::capture(const QRect &region) {
+    if (active_action_ == "long_screenshot") {
+        // 选区直接交给长截图窗口，由它采首帧，不启动静态截图线程。
+        if (start_scroll_capture(region, main_app->config_manager)) set_last_region(region);
+        sync_input_availability();
+        return;
+    }
     result_valid_ = true;
     const auto action = active_action_;
     auto *worker = new QuickCaptureWorker(region, action, this);

@@ -24,6 +24,7 @@ IconSource quick_capture_icon(const QString &action) {
         {"pin", inapp_icon("inapp_pin")}, {"copy", inapp_icon("inapp_confirm")}, {"copy_pin", inapp_icon("inapp_copy_pin")},
         {"ocr", inapp_icon("inapp_text_recognize")}, {"translate", inapp_icon("inapp_translate")}, {"edit", FluentIcon::Edit},
         {"scan_code", QString::fromUtf8("扫码.svg")},
+        {"long_screenshot", QString::fromUtf8("长截图.svg")},
     };
     return icons.value(action);
 }
@@ -139,9 +140,11 @@ QWidget *create_global_section(SettingsDialog *dialog, QWidget *parent) {
 }
 
 QWidget *create_inapp_section(SettingsDialog *dialog, QWidget *parent) {
-    auto *group = new SectionCard(FluentIcon::Layout, dialog->tr_text("In-App Mouse Shortcuts"), dialog->tr_text("Only in screenshot, pin and clipboard windows"), parent);
+    auto *group = new SectionCard(FluentIcon::Layout, dialog->tr_text("In-App Mouse Shortcuts"), dialog->tr_text("Only in the corresponding window"), parent);
 
     auto *tab_switch = new SegmentedWidget(group);
+    // 四个完整页签共用一行，只收紧按钮内边距。
+    tab_switch->setCompact(true, 5);
     tab_switch->setFixedHeight(dialog_scaled(34));
     tab_switch->setIndicatorColor(ACCENT, ACCENT);
 
@@ -158,13 +161,20 @@ QWidget *create_inapp_section(SettingsDialog *dialog, QWidget *parent) {
     };
     std::vector<Tab> tabs{
         {"screenshot", "Screenshot Shortcuts", CAPTURE_MOUSE_ACTIONS(), "mouse_capture_", capture_mouse_icon, get_capture_mouse_binding},
+        {"long_screenshot", "Long Screenshot Shortcuts", LONG_SCREENSHOT_MOUSE_ACTIONS(), "mouse_long_", capture_mouse_icon, get_long_screenshot_mouse_binding},
         {"pin", "Pin Shortcuts", PIN_MOUSE_ACTIONS(), "mouse_pin_", pin_mouse_icon, get_pin_mouse_binding},
     };
     tabs.push_back({"clipboard", "Clipboard Shortcuts", CLIPBOARD_MOUSE_ACTIONS(), "mouse_clipboard_", clipboard_mouse_icon, get_clipboard_mouse_binding});
     QStringList routes;
     for (const auto &tab : tabs) {
         routes.append(tab.route);
-        stack->addWidget(build_mouse_rows(dialog, tab.actions, tab.prefix, tab.icons, tab.getter));
+        auto *rows = build_mouse_rows(dialog, tab.actions, tab.prefix, tab.icons, tab.getter);
+        if (tab.route == "long_screenshot") {
+            auto *hint = new QLabel(dialog->tr_text("Unassigned buttons and the wheel pass through. A double-click binding also captures single clicks of that button."), rows);
+            hint->setWordWrap(true);
+            rows->layout()->addWidget(hint);
+        }
+        stack->addWidget(rows);
         tab_switch->addItem(tab.route, dialog->tr_text(tab.title));
     }
     link_tabs(tab_switch, stack, routes);
@@ -282,6 +292,7 @@ std::vector<std::tuple<QString, QString, QStringList>> mouse_binding_conflicts(S
     const std::vector<Domain> domains{
         {"quick_capture_", "", "Global Mouse Shortcuts", QUICK_CAPTURE_ACTIONS()},
         {"mouse_capture_", "screenshot", "Screenshot Shortcuts", CAPTURE_MOUSE_ACTIONS()},
+        {"mouse_long_", "long_screenshot", "Long Screenshot Shortcuts", LONG_SCREENSHOT_MOUSE_ACTIONS()},
         {"mouse_pin_", "pin", "Pin Shortcuts", PIN_MOUSE_ACTIONS()},
         {"mouse_clipboard_", "clipboard", "Clipboard Shortcuts", CLIPBOARD_MOUSE_ACTIONS()},
     };

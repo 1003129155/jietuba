@@ -1672,6 +1672,14 @@ Replace it?</source>
         <source>Could not move the settings file: %1</source>
         <translation>설정 파일을 옮길 수 없습니다: %1</translation>
     </message>
+    <message>
+        <source>Unassigned buttons and the wheel pass through. A double-click binding also captures single clicks of that button.</source>
+        <translation>지정하지 않은 버튼과 휠 입력은 아래 창으로 전달됩니다. 더블 클릭을 지정하면 해당 버튼의 한 번 클릭도 가로챕니다.</translation>
+    </message>
+    <message>
+        <source>Long Screenshot Shortcuts</source>
+        <translation>스크롤 캡처 단축키</translation>
+    </message>
 </context>
 
 <context>
@@ -5971,6 +5979,10 @@ Replace: move the current data there; the data already in that folder will be de
         <source>Only in screenshot, pin and clipboard windows</source>
         <translation>스크린샷, 고정 창, 클립보드 창에서만 작동</translation>
     </message>
+    <message>
+        <source>Only in the corresponding window</source>
+        <translation>해당 창 안에서만 작동</translation>
+    </message>
 </context>
 <context>
     <name>SettingsDialog</name>
@@ -6195,6 +6207,7 @@ Replace: move the current data there; the data already in that folder will be de
         <source>Long screenshot - window position corrected</source>
         <translation>긴 스크린샷 - 창 위치를 보정했습니다</translation>
     </message>
+    <message><source>Couldn't extend. Keep the page still.</source><translation>영역을 확장할 수 없습니다. 화면을 고정한 후 다시 시도하세요.</translation></message>
 </context>
 <context>
     <name>ScreenshotWindow</name>

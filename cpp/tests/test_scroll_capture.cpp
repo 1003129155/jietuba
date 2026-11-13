@@ -19,6 +19,8 @@
 #include "ui/fluent_lite/buttons.h"
 #include "ui/fluent_lite/inputs.h"
 #include "ui/save_image_dialog.h"
+#include "ui/toast.h"
+#include "save_dialog_answerer.h"
 #include <QApplication>
 #include <QComboBox>
 #include <QCursor>
@@ -37,9 +39,13 @@
 #include <QScreen>
 #include <QSettings>
 #include <QSignalSpy>
+#include <QKeyEvent>
+#include <QMouseEvent>
+#include <QTransform>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+#include <future>
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -52,6 +58,58 @@ namespace {
 constexpr int PAGE_W = 400;
 constexpr int VIEW_H = 300;
 constexpr int PAGE_H = 1600;
+constexpr ULONG_PTR MOUSE_TEST_MARKER = 0x4A425432;
+
+bool native_mouse(const QPoint &point, DWORD flags, DWORD wheel = 0) {
+    DWORD owner = 0;
+    GetWindowThreadProcessId(WindowFromPoint(POINT{point.x(), point.y()}), &owner);
+    // Never send a test click to an unrelated window covering the test surface.
+    if (!(flags & (MOUSEEVENTF_LEFTUP | MOUSEEVENTF_MIDDLEUP | MOUSEEVENTF_RIGHTUP)) && owner != GetCurrentProcessId()) {
+        qWarning() << "Test point covered" << point << "owner" << owner << "test" << GetCurrentProcessId();
+        return false;
+    }
+    if (!SetCursorPos(point.x(), point.y())) return false;
+    POINT cursor{};
+    if (!GetCursorPos(&cursor) || cursor.x != point.x() || cursor.y != point.y()) return false;
+    INPUT input{};
+    input.type = INPUT_MOUSE;
+    input.mi.dwFlags = flags;
+    input.mi.mouseData = wheel;
+    input.mi.dwExtraInfo = MOUSE_TEST_MARKER;
+    return SendInput(1, &input, sizeof input) == 1;
+}
+
+void native_ctrl(bool down) {
+    INPUT input{};
+    input.type = INPUT_KEYBOARD;
+    input.ki.wVk = VK_LCONTROL;
+    input.ki.dwFlags = down ? 0 : KEYEVENTF_KEYUP;
+    input.ki.dwExtraInfo = MOUSE_TEST_MARKER;
+    SendInput(1, &input, sizeof input);
+}
+
+bool native_click(const QPoint &point, Qt::MouseButton button, bool ctrl = false) {
+    if (ctrl) native_ctrl(true);
+    const bool sent = native_mouse(point, button == Qt::LeftButton ? MOUSEEVENTF_LEFTDOWN : button == Qt::MiddleButton ? MOUSEEVENTF_MIDDLEDOWN : MOUSEEVENTF_RIGHTDOWN);
+    if (!sent) { if (ctrl) native_ctrl(false); return false; }
+    QTest::qWait(20);
+    native_mouse(point, button == Qt::LeftButton ? MOUSEEVENTF_LEFTUP : button == Qt::MiddleButton ? MOUSEEVENTF_MIDDLEUP : MOUSEEVENTF_RIGHTUP);
+    if (ctrl) native_ctrl(false);
+    QTest::qWait(40);
+    return sent;
+}
+
+class MouseActionWindow : public ScrollCaptureWindow {
+public:
+    MouseActionWindow(const QRect &rect, ToolSettingsManager *config) : ScrollCaptureWindow(rect, nullptr, config) {}
+    std::shared_ptr<QStringList> actions = std::make_shared<QStringList>();
+protected:
+    void trigger_mouse_action(const QString &action) override {
+        actions->append(action);
+        // Exercise double-click dispatch without writing the developer's real clipboard.
+        if (action != "copy") ScrollCaptureWindow::trigger_mouse_action(action);
+    }
+};
 
 // White with lines of dashes of varying length and colour, roughly a page of text.
 // Every pixel row is drawn on its own, so no two rows repeat and matching is unambiguous.
@@ -81,8 +139,12 @@ QImage synthetic_page() {
 // A topmost window showing the page from top downwards: what the capture sees scroll.
 class PageWindow : public QWidget {
 public:
+    QMap<Qt::MouseButton, int> presses;
     explicit PageWindow(const QImage &page) : QWidget(nullptr, Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool), page_(page) {
         setAttribute(Qt::WA_ShowWithoutActivating);
+        square_corners();
+    }
+    void square_corners() {
         // Windows 11 rounds and borders frameless windows from Qt 6.11 on; that static rim
         // inside the captured area would keep frames from joining.
         const auto hwnd = reinterpret_cast<HWND>(winId());
@@ -106,6 +168,12 @@ public:
     int top() const { return top_; }
     int left() const { return left_; }
 protected:
+    void mousePressEvent(QMouseEvent *event) override { ++presses[event->button()]; QWidget::mousePressEvent(event); }
+    void showEvent(QShowEvent *event) override {
+        QWidget::showEvent(event);
+        // Qt reapplies its Windows 11 corner preference while showing the HWND.
+        QTimer::singleShot(0, this, [this] { square_corners(); });
+    }
     // A notch scrolls 60 pixels, as a page would.
     void wheelEvent(QWheelEvent *event) override {
         const int notches = event->angleDelta().y() / 120;
@@ -167,13 +235,14 @@ private:
     QRect area_;
 
     // Opens the capture over the page and waits for its first frame.
-    ScrollCaptureWindow *open() {
+    ScrollCaptureWindow *open(bool mouse_actions = false) {
         page_window_ = std::make_unique<PageWindow>(page_);
         page_window_->setGeometry(area_);
         page_window_->show();
         QTest::qWait(150);
-        window_ = new ScrollCaptureWindow(area_, nullptr, config_);
+        window_ = mouse_actions ? new MouseActionWindow(area_, config_) : new ScrollCaptureWindow(area_, nullptr, config_);
         window_->show();
+        window_->activateWindow();
         if (!QTest::qWaitFor([&] { return window_ && window_->screenshots >= 1; }, 3000)) return nullptr;
         // The change watch starts after the first frame and takes its own first look as the
         // baseline; a person starts scrolling only once the window is up.
@@ -189,6 +258,26 @@ private:
             if (!QTest::qWaitFor([&] { return window_->screenshots > before; }, 5000)) return false;
         }
         return true;
+    }
+
+    // Mouse coordinates are physical; the window may move while dragging its top/left.
+    void drag_edge(Qt::Edge edge, int pixels, bool cancel = false) {
+        auto *window = window_.data();
+        const auto rect = window->geometry();
+        QPoint press, delta;
+        switch (edge) {
+        case Qt::TopEdge: press = QPoint(rect.center().x(), rect.top() + 1); delta = QPoint(0, -pixels); break;
+        case Qt::BottomEdge: press = QPoint(rect.center().x(), rect.bottom() - 1); delta = QPoint(0, pixels); break;
+        case Qt::LeftEdge: press = QPoint(rect.left() + 1, rect.center().y()); delta = QPoint(-pixels, 0); break;
+        case Qt::RightEdge: press = QPoint(rect.right() - 1, rect.center().y()); delta = QPoint(pixels, 0); break;
+        }
+        QTest::mousePress(window, Qt::LeftButton, {}, window->mapFromGlobal(press));
+        QTest::mouseMove(window, window->mapFromGlobal(press + delta));
+        if (cancel) {
+            QKeyEvent escape(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+            QApplication::sendEvent(window, &escape);
+        }
+        QTest::mouseRelease(window, Qt::LeftButton, {}, window->mapFromGlobal(press + delta));
     }
 
 private slots:
@@ -208,9 +297,369 @@ private slots:
     void cleanup() {
         if (window_) window_->close();
         PinManager::instance()->close_all();
+        for (auto *widget : QApplication::topLevelWidgets()) if (dynamic_cast<Toast *>(widget)) widget->close();
+        for (const auto &action : LONG_SCREENSHOT_MOUSE_ACTIONS()) config_->set_app_setting(QString("mouse_long_") + action.key, "");
+        config_->set_screenshot_format("PNG");
+        config_->set_screenshot_save_path(dir_.filePath("captures"));
+        input_hub()->native->set_test_marker(0);
         page_window_.reset();
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
         QTest::qWait(50);
+    }
+
+    void unassignedLongScreenshotButtonsAndWheelPassThrough() {
+        auto *window = open();
+        QVERIFY(window);
+        const auto original_pointer = QCursor::pos();
+        const auto restore = qScopeGuard([&] { QCursor::setPos(original_pointer); });
+        input_hub()->native->set_test_marker(MOUSE_TEST_MARKER);
+        for (auto button : {Qt::LeftButton, Qt::MiddleButton, Qt::RightButton}) {
+            QVERIFY2(native_click(area_.center(), button), "test point is covered by another application");
+            QTRY_COMPARE(page_window_->presses.value(button), 1);
+            QVERIFY(window->isVisible());
+        }
+        QVERIFY(native_mouse(area_.center(), MOUSEEVENTF_WHEEL, DWORD(-WHEEL_DELTA)));
+        QTRY_VERIFY(page_window_->top() > 0);
+        QTRY_VERIFY(window->screenshots > 1);
+    }
+
+    void longScreenshotMouseActions_data() {
+        QTest::addColumn<QString>("action");
+        for (const auto &action : {"copy", "pin", "save", "quick_save", "close"}) QTest::newRow(action) << QString(action);
+    }
+
+    void longScreenshotMouseActions() {
+        QFETCH(QString, action);
+        const auto original_pointer = QCursor::pos();
+        const auto restore = qScopeGuard([&] { native_ctrl(false); QCursor::setPos(original_pointer); });
+        const QString folder = dir_.filePath("mouse-" + action);
+        config_->set_screenshot_save_path(folder);
+        config_->set_app_setting("mouse_long_" + action, "ctrl+middle");
+        auto *window = static_cast<MouseActionWindow *>(open(true));
+        QVERIFY(window);
+        const auto actions = window->actions;
+        QVERIFY(scroll_in_steps({100, 200}));
+        auto *stitcher = window->findChild<IncrementalStitcher *>();
+        const auto expected = stitcher->export_image().convertToFormat(QImage::Format_RGB32);
+        input_hub()->native->set_test_marker(MOUSE_TEST_MARKER);
+        // A middle click without Ctrl remains a normal page click.
+        QVERIFY2(native_click(area_.center(), Qt::MiddleButton), "test point is covered by another application");
+        QTRY_COMPARE(page_window_->presses.value(Qt::MiddleButton), 1);
+        QVERIFY(actions->isEmpty());
+        const QString path = QDir(folder).filePath("manual.png");
+        SaveDialogAnswerer answer(path);
+        QSignalSpy finished(window, &ScrollCaptureWindow::finished);
+        QSignalSpy cancelled(window, &ScrollCaptureWindow::cancelled);
+        QVERIFY2(native_click(area_.center(), Qt::MiddleButton, true), "test point is covered by another application");
+        QTRY_COMPARE(actions->size(), 1);
+        QCOMPARE(actions->first(), action);
+        QCOMPARE(page_window_->presses.value(Qt::MiddleButton), 1);
+        if (action == "copy") {
+            QCOMPARE(stitcher->export_image().convertToFormat(QImage::Format_RGB32), expected);
+        } else if (action == "pin") {
+            QTRY_COMPARE(finished.count(), 1);
+            QCOMPARE(PinManager::instance()->count(), 1);
+            QCOMPARE(PinManager::instance()->get_all_pins().first()->base_pixmap().toImage().convertToFormat(QImage::Format_RGB32), expected);
+        } else if (action == "save") {
+            QTRY_VERIFY(answer.answered);
+            QTRY_VERIFY(QFileInfo::exists(path));
+            QCOMPARE(QImage(path).convertToFormat(QImage::Format_RGB32), expected);
+        } else if (action == "quick_save") {
+            QTRY_COMPARE(finished.count(), 1);
+            const auto files = QDir(folder).entryList({"*.png"}, QDir::Files);
+            QCOMPARE(files.size(), 1);
+            QCOMPARE(QImage(QDir(folder).filePath(files.first())).convertToFormat(QImage::Format_RGB32), expected);
+            QVERIFY(!answer.answered);
+        } else QTRY_COMPARE(cancelled.count(), 1);
+    }
+
+    void doubleClickBindingCapturesThatButtonWithoutBlockingTheWheel() {
+        config_->set_mouse_long_copy("doubleleft");
+        auto *window = static_cast<MouseActionWindow *>(open(true));
+        QVERIFY(window);
+        const auto actions = window->actions;
+        const auto pointer = QCursor::pos();
+        const auto restore = qScopeGuard([&] { QCursor::setPos(pointer); });
+        input_hub()->native->set_test_marker(MOUSE_TEST_MARKER);
+        QVERIFY2(native_click(area_.center(), Qt::LeftButton), "test point is covered by another application");
+        QVERIFY(actions->isEmpty());
+        QCOMPARE(page_window_->presses.value(Qt::LeftButton), 0);
+        QVERIFY2(native_click(area_.center(), Qt::LeftButton), "test point is covered by another application");
+        QTRY_COMPARE(actions->size(), 1);
+        QCOMPARE(actions->first(), QString("copy"));
+        QVERIFY(native_mouse(area_.center(), MOUSEEVENTF_WHEEL, DWORD(-WHEEL_DELTA)));
+        QTRY_VERIFY(page_window_->top() > 0);
+        QTRY_VERIFY(window->screenshots > 1);
+        // Left-button shortcuts do not take the border's left-button resize.
+        drag_edge(Qt::BottomEdge, 10);
+        QTRY_COMPARE(window->capture_rect, area_.adjusted(0, 0, 0, 10));
+        QCOMPARE(actions->size(), 1);
+    }
+
+    void failedQuickSaveKeepsTheLongImageAndCanRetry_data() {
+        QTest::addColumn<bool>("bad_directory");
+        QTest::newRow("directory") << true;
+        QTest::newRow("encoder") << false;
+    }
+
+    void failedQuickSaveKeepsTheLongImageAndCanRetry() {
+        QFETCH(bool, bad_directory);
+        const auto pointer = QCursor::pos();
+        const auto restore = qScopeGuard([&] { native_ctrl(false); QCursor::setPos(pointer); });
+        config_->set_mouse_long_quick_save("ctrl+middle");
+        auto *window = open();
+        QVERIFY(window);
+        auto *stitcher = window->findChild<IncrementalStitcher *>();
+        const auto before = stitcher->export_image();
+        if (bad_directory) {
+            const QString blocked = dir_.filePath("blocked-save");
+            QFile file(blocked);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            file.close();
+            config_->set_screenshot_save_path(blocked);
+        } else config_->set_screenshot_format("unsupported-test-format");
+        input_hub()->native->set_test_marker(MOUSE_TEST_MARKER);
+        QVERIFY2(native_click(area_.center(), Qt::MiddleButton, true), "test point is covered by another application");
+        QTRY_VERIFY(window->preview_warning_active);
+        QVERIFY(window->toolbar->isEnabled());
+        QCOMPARE(stitcher->export_image(), before);
+        QSignalSpy finished(window, &ScrollCaptureWindow::finished);
+        config_->set_screenshot_format("PNG");
+        config_->set_screenshot_save_path(dir_.filePath("retry-quick-save"));
+        QVERIFY2(native_click(area_.center(), Qt::MiddleButton, true), "test point is covered by another application");
+        QTRY_COMPARE(finished.count(), 1);
+    }
+
+    void otherControlsAreExcludedAndClearingABindingRestoresPassThrough() {
+        const auto pointer = QCursor::pos();
+        const auto restore = qScopeGuard([&] { QCursor::setPos(pointer); });
+        config_->set_mouse_long_copy("right");
+        auto *window = static_cast<MouseActionWindow *>(open(true));
+        QVERIFY(window);
+        const auto actions = window->actions;
+        input_hub()->native->set_test_marker(MOUSE_TEST_MARKER);
+        QDialog dialog;
+        dialog.setWindowFlag(Qt::WindowStaysOnTopHint);
+        dialog.setGeometry(QRect(area_.center() - QPoint(80, 60), QSize(160, 120)));
+        dialog.show();
+        QTest::qWait(100);
+        QVERIFY2(native_click(area_.center(), Qt::RightButton), "test point is covered by another application");
+        QVERIFY(actions->isEmpty());
+        dialog.setWindowFlag(Qt::WindowStaysOnTopHint, false);
+        dialog.show();
+        page_window_->raise();
+        page_window_->activateWindow();
+        QTest::qWait(100);
+        QVERIFY2(native_click(area_.center(), Qt::RightButton), "test point is covered by another application");
+        QTRY_COMPARE(actions->size(), 1);
+        config_->set_mouse_long_copy("");
+        dialog.close(); // Like applying settings and closing them, refresh the native region.
+        QTest::qWait(100);
+        QVERIFY2(native_click(area_.center(), Qt::RightButton), "test point is covered by another application");
+        QTRY_COMPARE(page_window_->presses.value(Qt::RightButton), 1);
+        QCOMPARE(actions->size(), 1);
+        QVERIFY(window->isVisible());
+    }
+
+    void lateMouseEventsCannotAffectAnotherLongScreenshot() {
+        config_->set_mouse_long_copy("middle");
+        auto *first = static_cast<MouseActionWindow *>(open(true));
+        QVERIFY(first);
+        QSignalSpy clicks(input_hub(), &InputHub::mouse_captured);
+        const auto pointer = QCursor::pos();
+        const auto restore = qScopeGuard([&] { QCursor::setPos(pointer); });
+        input_hub()->native->set_test_marker(MOUSE_TEST_MARKER);
+        QVERIFY(native_click(area_.center(), Qt::MiddleButton));
+        QTRY_COMPARE(first->actions->size(), 1);
+        QVERIFY(!clicks.isEmpty());
+        const auto old_watcher = clicks.first()[0].toString();
+        first->close();
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        auto *next = static_cast<MouseActionWindow *>(open(true));
+        QVERIFY(next);
+        input_hub()->mouse_captured(old_watcher, {}, "middle", true, area_.center().x(), area_.center().y(), 100);
+        input_hub()->mouse_captured(old_watcher, {}, "middle", false, area_.center().x(), area_.center().y(), 120);
+        QTest::qWait(100);
+        QVERIFY(next->actions->isEmpty());
+        QVERIFY(next->isVisible());
+    }
+
+    void draggingVisibleEndTwiceExportsExactPixels_data() {
+        QTest::addColumn<bool>("horizontal");
+        QTest::addColumn<bool>("at_start");
+        QTest::addColumn<int>("screen_index");
+        QTest::addColumn<QString>("output");
+        for (int i = 0; i < QGuiApplication::screens().size(); ++i) {
+            QTest::newRow(qPrintable(QString("top-screen-%1").arg(i))) << false << true << i << QString("save");
+            QTest::newRow(qPrintable(QString("bottom-screen-%1").arg(i))) << false << false << i << QString("save");
+            QTest::newRow(qPrintable(QString("left-screen-%1").arg(i))) << true << true << i << QString("save");
+            QTest::newRow(qPrintable(QString("right-screen-%1").arg(i))) << true << false << i << QString("save");
+        }
+        QTest::newRow("bottom-pin") << false << false << 0 << QString("pin");
+        QTest::newRow("bottom-ocr") << false << false << 0 << QString("ocr");
+    }
+
+    void draggingVisibleEndTwiceExportsExactPixels() {
+        QFETCH(bool, horizontal);
+        QFETCH(bool, at_start);
+        QFETCH(int, screen_index);
+        QFETCH(QString, output);
+        const auto capture_engine = config_->get_capture_engine();
+        const auto restore = qScopeGuard([&] { config_->set_capture_engine(capture_engine); });
+        config_->set_capture_engine("mss");
+        const auto page = horizontal ? page_.transformed(QTransform().rotate(-90)) : page_;
+        auto *screen = QGuiApplication::screens().at(screen_index);
+        qInfo() << screen->name() << screen->geometry() << "device pixel ratio" << screen->devicePixelRatio();
+        const auto center = screen->availableGeometry().center();
+        const QSize size = horizontal ? QSize(VIEW_H, PAGE_W) : QSize(PAGE_W, VIEW_H);
+        const QRect core(center - QPoint(size.width() / 2, size.height() / 2), size);
+        const int lead = at_start ? 40 : 80, tail = at_start ? 80 : 40;
+        page_window_ = std::make_unique<PageWindow>(page);
+        page_window_->setGeometry(horizontal ? core.adjusted(-lead, 0, tail, 0) : core.adjusted(0, -lead, 0, tail));
+        const int offset = at_start ? 0 : PAGE_H - VIEW_H - lead - tail;
+        if (horizontal) page_window_->scroll_to_x(offset);
+        else page_window_->scroll_to(offset);
+        page_window_->show();
+        QTest::qWait(150);
+        window_ = new ScrollCaptureWindow(core, nullptr, config_);
+        window_->show();
+        QTRY_VERIFY(window_->screenshots >= 1);
+        auto *stitcher = window_->findChild<IncrementalStitcher *>();
+        QVERIFY(stitcher);
+        stitcher->export_image();
+        QCoreApplication::processEvents();
+        if (horizontal) {
+            window_->toolbar->direction_btn->click();
+            stitcher->export_image();
+        }
+        QTest::qWait(200);
+        const int initial = offset + lead;
+        const auto expected_image = [&](int extra) {
+            const int first = initial - (at_start ? extra : 0);
+            return horizontal ? page.copy(first, 0, VIEW_H + extra, PAGE_W) : page.copy(0, first, PAGE_W, VIEW_H + extra);
+        };
+        QCOMPARE(stitcher->export_image().convertToFormat(QImage::Format_RGB32), expected_image(0));
+        const Qt::Edge edge = horizontal ? (at_start ? Qt::LeftEdge : Qt::RightEdge) : (at_start ? Qt::TopEdge : Qt::BottomEdge);
+        for (int extra : {20, 40}) {
+            drag_edge(edge, 20);
+            const auto expected_rect = horizontal ? (at_start ? core.adjusted(-extra, 0, 0, 0) : core.adjusted(0, 0, extra, 0))
+                                                  : (at_start ? core.adjusted(0, -extra, 0, 0) : core.adjusted(0, 0, 0, extra));
+            QTRY_COMPARE(window_->capture_rect, expected_rect);
+            const auto actual = stitcher->export_image().convertToFormat(QImage::Format_RGB32);
+            const auto expected = expected_image(extra);
+            QCOMPARE(actual, expected);
+        }
+        const auto expected = expected_image(40);
+        const auto label = window_->toolbar->size_label->text();
+        QVERIFY(label.contains(QString::number(expected.width())) && label.contains(QString::number(expected.height())));
+        if (output == "pin") {
+            window_->toolbar->pin_btn->click();
+            QCOMPARE(PinManager::instance()->count(), 1);
+            QCOMPARE(PinManager::instance()->get_all_pins().first()->base_pixmap().toImage().convertToFormat(QImage::Format_RGB32), expected);
+            return;
+        }
+        if (output == "ocr") {
+            auto captured = std::make_shared<std::promise<QImage>>();
+            auto result = captured->get_future();
+            set_recognizer_for_test([captured](const QImage &image) {
+                captured->set_value(image);
+                return OcrResult{100, "ok", {OcrLine{{QPointF(0, 0), QPointF(80, 0), QPointF(80, 16), QPointF(0, 16)}, "long text"}}, 0.0};
+            });
+            const auto restore_recognizer = qScopeGuard([] { set_recognizer_for_test({}); });
+            config_->set_ocr_copy_directly_enabled(false);
+            window_->toolbar->ocr_btn->click();
+            QTRY_VERIFY(result.wait_for(std::chrono::seconds(0)) == std::future_status::ready);
+            QCOMPARE(result.get().convertToFormat(QImage::Format_RGB32), expected);
+            TextRecognitionWindow *text_window = nullptr;
+            QTRY_VERIFY(text_window = visible_top_level<TextRecognitionWindow>());
+            text_window->close();
+            return;
+        }
+        const QString path = dir_.filePath(QString("edge-%1-%2.png").arg(horizontal ? "horizontal" : "vertical", at_start ? "start" : "end"));
+        SaveDialogAnswerer answer(path);
+        window_->toolbar->save_btn->click();
+        QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(path), 5000);
+        QVERIFY(answer.answered);
+        QCOMPARE(QImage(path).convertToFormat(QImage::Format_RGB32), expected);
+    }
+
+    void cancellingOrMisaligningAnEdgePreservesTheLastImage() {
+        const auto capture_engine = config_->get_capture_engine();
+        const auto restore = qScopeGuard([&] { config_->set_capture_engine(capture_engine); });
+        config_->set_capture_engine("mss");
+        page_window_ = std::make_unique<PageWindow>(page_);
+        page_window_->setGeometry(area_.adjusted(0, -40, 0, 80));
+        page_window_->show();
+        QTest::qWait(150);
+        window_ = new ScrollCaptureWindow(area_, nullptr, config_);
+        window_->show();
+        QTRY_VERIFY(window_->screenshots >= 1);
+        auto *stitcher = window_->findChild<IncrementalStitcher *>();
+        const auto before = stitcher->export_image();
+        QTest::qWait(150);
+        drag_edge(Qt::BottomEdge, 20, true);
+        QCOMPARE(window_->capture_rect, area_);
+        QCOMPARE(window_->geometry(), area_.adjusted(-3, -3, 3, 3));
+        QCOMPARE(stitcher->export_image(), before);
+
+        const QPoint press(window_->geometry().center().x(), window_->geometry().bottom() - 1);
+        QTest::mousePress(window_, Qt::LeftButton, {}, window_->mapFromGlobal(press));
+        QTest::mouseMove(window_, window_->mapFromGlobal(press + QPoint(0, 20)));
+        page_window_->scroll_to(17);
+        page_window_->repaint();
+        DwmFlush();
+        QTest::mouseRelease(window_, Qt::LeftButton, {}, window_->mapFromGlobal(press + QPoint(0, 20)));
+        QTRY_VERIFY(window_->preview_warning_active);
+        QCOMPARE(window_->capture_rect, area_);
+        QCOMPARE(stitcher->export_image(), before);
+    }
+
+    void cancellingAQueuedExtensionReplyCannotCommitItsPixels() {
+        auto *window = open();
+        QVERIFY(window);
+        auto *stitcher = window->findChild<IncrementalStitcher *>();
+        const auto before = stitcher->export_image();
+        QSignalSpy ready(stitcher, &IncrementalStitcher::extension_ready);
+        const QPoint press(window->geometry().center().x(), window->geometry().bottom() - 1);
+        const QPoint end = press + QPoint(0, 10);
+        QTest::mousePress(window, Qt::LeftButton, {}, window->mapFromGlobal(press));
+        QTest::mouseMove(window, window->mapFromGlobal(end));
+        QMouseEvent up(QEvent::MouseButtonRelease, window->mapFromGlobal(end), end, Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+        QApplication::sendEvent(window, &up);
+        QCOMPARE(stitcher->export_image(), before);
+        QCOMPARE(ready.count(), 1);
+        QVERIFY(ready.first()[1].toBool());
+        // Send directly, without dispatching the queued candidate callback first.
+        QKeyEvent escape(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+        QApplication::sendEvent(window, &escape);
+        QCoreApplication::processEvents();
+        QCOMPARE(window->capture_rect, area_);
+        QCOMPARE(stitcher->export_image(), before);
+    }
+
+    void switchingDirectionAfterSupplementStartsFromTheExpandedView() {
+        page_window_ = std::make_unique<PageWindow>(page_);
+        page_window_->setGeometry(area_.adjusted(0, -40, 0, 80));
+        page_window_->show();
+        QTest::qWait(150);
+        window_ = new ScrollCaptureWindow(area_, nullptr, config_);
+        window_->show();
+        auto *stitcher = window_->findChild<IncrementalStitcher *>();
+        QTRY_VERIFY(window_->screenshots >= 1);
+        stitcher->export_image();
+        QTest::qWait(150);
+        drag_edge(Qt::BottomEdge, 20);
+        QTRY_COMPARE(window_->capture_rect, area_.adjusted(0, 0, 0, 20));
+        for (const auto &direction : {QString("horizontal"), QString("vertical")}) {
+            window_->toolbar->direction_btn->click();
+            QCOMPARE(window_->scroll_direction, direction);
+            QCOMPARE(stitcher->export_image().convertToFormat(QImage::Format_RGB32), page_.copy(0, 40, PAGE_W, VIEW_H + 20));
+            QCoreApplication::processEvents();
+        }
+        // After switching back the whole expanded view is one frame, so both ends grow.
+        drag_edge(Qt::TopEdge, 20);
+        QTRY_COMPARE(window_->capture_rect, area_.adjusted(0, -20, 0, 20));
+        QCOMPARE(stitcher->export_image().convertToFormat(QImage::Format_RGB32), page_.copy(0, 20, PAGE_W, VIEW_H + 40));
     }
 
     void scrollingStitchesALongImageAndPinsIt() {
@@ -413,7 +862,8 @@ private slots:
         window->toolbar->direction_btn->click();
         QCOMPARE(window->scroll_direction, QString("vertical"));
         QTRY_COMPARE(panel->geometry().height(), screen.height());
-        QCOMPARE(panel->panel_size().width(), side);
+        // The strip changes orientation before the worker returns its first thumbnail.
+        QTRY_COMPARE(panel->panel_size().width(), side);
         QCOMPARE(window->toolbar->size_label->text(), QString::fromUtf8("%1 × %2").arg(PAGE_W).arg(VIEW_H));
         window->toolbar->cancel_btn->click();
     }

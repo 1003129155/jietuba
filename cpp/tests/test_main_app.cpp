@@ -18,6 +18,7 @@
 #include "pin/pin_manager.h"
 #include "pin/pin_window.h"
 #include "settings/tool_settings.h"
+#include "stitch/scroll_window.h"
 #include "translation/translation_manager.h"
 #include "ui/screenshot_countdown.h"
 #include "ui/screenshot_window.h"
@@ -32,6 +33,7 @@
 #include <QElapsedTimer>
 #include <QLabel>
 #include <QMenu>
+#include <QMouseEvent>
 #include <QPushButton>
 #include <QPixmap>
 #include <QSettings>
@@ -89,6 +91,17 @@ QImage solid(const QSize &size) {
     image.fill(Qt::darkCyan);
     return image;
 }
+
+class MiddleClickTarget : public QWidget {
+public:
+    MiddleClickTarget() : QWidget(nullptr, Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool) {}
+    int middle_presses = 0;
+protected:
+    bool event(QEvent *event) override {
+        if (event->type() == QEvent::MouseButtonPress && static_cast<QMouseEvent *>(event)->button() == Qt::MiddleButton) ++middle_presses;
+        return QWidget::event(event);
+    }
+};
 
 // Whether another program could register the combination now.
 bool system_can_register(UINT mods, UINT vk) {
@@ -487,6 +500,72 @@ private slots:
         QTRY_VERIFY(!main_app_->quick_capture->busy());
     }
 
+
+    void aGlobalMouseDragStartsLongScreenshot_data() {
+        QTest::addColumn<int>("selection");
+        QTest::addColumn<int>("screen_index");
+        for (int i = 0; i < QGuiApplication::screens().size(); ++i)
+            QTest::newRow(qPrintable(QString("valid-screen-%1").arg(i))) << 0 << i;
+        QTest::newRow("invalid") << 1 << 0;
+        QTest::newRow("cancelled") << 2 << 0;
+    }
+
+    void aGlobalMouseDragStartsLongScreenshot() {
+        QFETCH(int, selection);
+        QFETCH(int, screen_index);
+        auto *config = main_app_->config_manager;
+        const auto binding = config->get_quick_capture_long_screenshot();
+        const auto pointer = QCursor::pos();
+        const auto restore = qScopeGuard([&] {
+            send_key(VK_ESCAPE, false);
+            send_mouse(pointer, MOUSEEVENTF_MIDDLEUP);
+            send_key(VK_LWIN, false);
+            main_app_->quick_capture->cancel();
+            if (auto *window = active_scroll_capture()) window->close();
+            QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+            config->set_quick_capture_long_screenshot(binding);
+            input_hub()->native->set_test_marker(0);
+            main_app_->update_hotkey();
+        });
+        config->set_quick_capture_long_screenshot("win+dragmiddle");
+        main_app_->update_hotkey();
+        input_hub()->native->set_test_marker(TEST_MARKER);
+        const auto center = QGuiApplication::screens().at(screen_index)->availableGeometry().center();
+        MiddleClickTarget page;
+        page.setGeometry(QRect(center - QPoint(220, 170), QSize(440, 340)));
+        page.show();
+        QTest::qWait(150);
+        const QPoint start = center - QPoint(80, 50);
+        const QPoint end = selection == 1 ? start : start + QPoint(160, 100);
+        send_mouse(start, 0);
+        send_key(VK_LWIN, true);
+        send_mouse(start, MOUSEEVENTF_MIDDLEDOWN);
+        QTRY_VERIFY(main_app_->quick_capture->busy());
+        send_mouse(end, 0);
+        if (selection == 2) send_key(VK_ESCAPE, true);
+        send_mouse(end, MOUSEEVENTF_MIDDLEUP);
+        send_key(VK_LWIN, false);
+        QTRY_VERIFY(!main_app_->quick_capture->busy());
+        if (selection == 0) {
+            QTRY_VERIFY(active_scroll_capture());
+            auto *window = active_scroll_capture();
+            QVERIFY(!main_app_->screenshot_window || !main_app_->screenshot_window->session_active());
+            QVERIFY(main_app_->quick_capture->findChildren<QuickCaptureWorker *>().isEmpty());
+            QVERIFY(std::abs(window->capture_rect.width() - 160) <= 1);
+            QVERIFY(std::abs(window->capture_rect.height() - 100) <= 1);
+            QTRY_VERIFY(window->screenshots > 0);
+            QTRY_VERIFY(window->isActiveWindow()); // Releasing Win must not open Start over the capture.
+            QCOMPARE(window->capture_rect.topLeft(), start);
+            QCOMPARE(start_scroll_capture(QRect(center, QSize(30, 30)), config), window);
+            QVERIFY(window->screenshots > 0);
+        } else {
+            QTest::qWait(150);
+            QVERIFY(!active_scroll_capture());
+        }
+        QCOMPARE(page.middle_presses, 0);
+        QVERIFY(!start_scroll_capture(QRect(start, QSize(1, 1)), config));
+        QVERIFY(!start_scroll_capture(QRect(-100000, -100000, 20, 20), config));
+    }
 
     void aGlobalMouseDragScansCodes_data() {
         QTest::addColumn<int>("selection");

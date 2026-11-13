@@ -218,6 +218,7 @@ bool Engine::on_mouse(const MouseInput &input, Platform &platform, Events &out) 
     // configured modifiers and button, not on where the input came from.
     if (gesture_mouse(input, platform, out)) return true;
     if (side_mouse(input, out)) return true;
+    if (capture_mouse_input(input, platform, out)) return true;
     observe_mouse(input, out);
     return false;
 }
@@ -443,6 +444,29 @@ void Engine::observe_mouse(const MouseInput &input, Events &out) {
     }
 }
 
+bool Engine::capture_mouse_input(const MouseInput &input, Platform &platform, Events &out) {
+    if (input.action != MouseInput::Action::Down && input.action != MouseInput::Action::Up) return false;
+    auto &claim = mouse_capture_claimed_[static_cast<size_t>(input.button)];
+    if (input.action == MouseInput::Action::Down && !claim) {
+        if (!mouse_capture_ || !mouse_capture_->rect.contains(input.x, input.y)) return false;
+        for (const auto &rect : mouse_capture_->excluded) if (rect.contains(input.x, input.y)) return false;
+        const auto held = held_modifiers(platform, std::nullopt);
+        const auto &bindings = mouse_capture_->bindings;
+        if (std::find(bindings.begin(), bindings.end(), std::make_pair(held, input.button)) == bindings.end()) return false;
+        claim = std::make_pair(mouse_capture_->watcher, held);
+        mask_menu_on_release(held, platform);
+    }
+    if (!claim) return false;
+    auto event = Event::mouse_button(claim->first, input.button, input.action == MouseInput::Action::Down, input.x, input.y);
+    event.kind = Event::Kind::MouseCaptured;
+    event.modifiers = claim->second;
+    event.id = input.timestamp;
+    out.push_back(std::move(event));
+    // Drain the matching release even after closing, changing bindings or leaving the region.
+    if (input.action == MouseInput::Action::Up) { claim.reset(); sync_requested_ = true; }
+    return true;
+}
+
 // ---------------------------------------------------------------------- gestures
 
 bool Engine::configure_gestures(std::vector<std::pair<Modifiers, Button>> bindings, bool enabled, Events &out) {
@@ -554,6 +578,11 @@ void Engine::unwatch_mouse(const std::string &watcher) {
         mouse_watchers_.end());
     sync_requested_ = true;
 }
+void Engine::capture_mouse(const std::string &watcher, std::optional<MouseCapture> capture) {
+    if (capture) { capture->watcher = watcher; mouse_capture_ = std::move(capture); }
+    else if (mouse_capture_ && mouse_capture_->watcher == watcher) mouse_capture_.reset();
+    sync_requested_ = true;
+}
 std::optional<std::pair<int32_t, int32_t>> Engine::take_pointer(const std::string &watcher) {
     for (auto &w : mouse_watchers_) {
         if (w.first != watcher || !w.second) continue;
@@ -585,7 +614,8 @@ bool Engine::hooks_needed() const {
     return !closed_
         && (enabled_ || claimed_ != 0 || claimed_escape_ || !pending_menu_keys_.empty() || side_enabled_
             || side_claimed_ != 0 || !hotkeys_.empty() || !hotkey_claimed_.empty() || key_capture_
-            || !capture_claimed_.empty() || !wheel_watchers_.empty() || !key_watchers_.empty() || !mouse_watchers_.empty());
+            || !capture_claimed_.empty() || !wheel_watchers_.empty() || !key_watchers_.empty() || !mouse_watchers_.empty()
+            || mouse_capture_ || std::any_of(mouse_capture_claimed_.begin(), mouse_capture_claimed_.end(), [](const auto &claim) { return claim.has_value(); }));
 }
 
 bool Engine::foreground_needed() const { return !closed_ && !foreground_watchers_.empty(); }
@@ -598,6 +628,7 @@ void Engine::fail(const std::string &message, Events &out) {
     hotkeys_.clear();
     key_capture_ = false;
     cancel(out);
+    mouse_capture_.reset();
     clear_claims();
     sync_requested_ = true;
     out.push_back(Event::failure(message));
@@ -614,6 +645,7 @@ void Engine::close(Events &out) {
     wheel_watchers_.clear();
     key_watchers_.clear();
     mouse_watchers_.clear();
+    mouse_capture_.reset();
     foreground_watchers_.clear();
     sync_requested_ = true;
 }
@@ -625,5 +657,6 @@ void Engine::clear_claims() {
     side_claimed_ = 0;
     hotkey_claimed_.clear();
     capture_claimed_.clear();
+    for (auto &claim : mouse_capture_claimed_) claim.reset();
 }
 }
