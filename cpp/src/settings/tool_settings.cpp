@@ -438,11 +438,14 @@ const std::vector<MouseAction> &PIN_MOUSE_ACTIONS() {
 
 const std::vector<MouseAction> &LONG_SCREENSHOT_MOUSE_ACTIONS() {
     // Independent from normal capture: an unchanged long screenshot stays click-through.
-    static const auto actions = [] {
-        auto result = CAPTURE_MOUSE_ACTIONS();
-        for (auto &action : result) action.binding = "";
-        return result;
-    }();
+    // Listed apart so a new capture action is not offered here without a handler.
+    static const std::vector<MouseAction> actions = {
+        {"copy", "Copy to Clipboard", "", "capture"},
+        {"pin", "Pin to Screen", "", "capture"},
+        {"save", "Save to File", "", "capture"},
+        {"quick_save", "Quick Save", "", "capture"},
+        {"close", "Close Screenshot", "", "capture"},
+    };
     return actions;
 }
 

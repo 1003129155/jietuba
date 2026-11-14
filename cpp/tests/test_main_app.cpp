@@ -581,7 +581,8 @@ private slots:
         QTest::newRow("cancelled") << 3;
     }
 
-    // 只框选测试窗口里的合成码，真实钩子到识别结果全链路；不写系统剪贴板。
+    // Selects only the synthetic codes in the test window, through the real hook to the
+    // result; the system clipboard is left alone.
     void aGlobalMouseDragScansCodes() {
         QFETCH(int, selection);
         auto *config = main_app_->config_manager;

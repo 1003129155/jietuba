@@ -143,7 +143,7 @@ QWidget *create_inapp_section(SettingsDialog *dialog, QWidget *parent) {
     auto *group = new SectionCard(FluentIcon::Layout, dialog->tr_text("In-App Mouse Shortcuts"), dialog->tr_text("Only in the corresponding window"), parent);
 
     auto *tab_switch = new SegmentedWidget(group);
-    // 四个完整页签共用一行，只收紧按钮内边距。
+    // Four full tab names share one row; only the button padding is tightened.
     tab_switch->setCompact(true, 5);
     tab_switch->setFixedHeight(dialog_scaled(34));
     tab_switch->setIndicatorColor(ACCENT, ACCENT);

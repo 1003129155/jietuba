@@ -73,7 +73,7 @@ void QuickCaptureWorker::run() {
         }
         if (image.isNull()) throw std::runtime_error("The captured image is empty");
         if (isInterruptionRequested()) return;
-        // 复用当前截图线程，只识别选区；取消后丢弃结果，不阻塞 GUI。
+        // Decoded on this thread from the region alone; an interrupted capture drops it.
         if (action == "scan_code") codes = read_codes(image);
         if (!isInterruptionRequested()) emit captured(image, bounds);
     } catch (const std::exception &e) {
@@ -195,7 +195,7 @@ void QuickCaptureController::cancel() {
 
 void QuickCaptureController::capture(const QRect &region) {
     if (active_action_ == "long_screenshot") {
-        // 选区直接交给长截图窗口，由它采首帧，不启动静态截图线程。
+        // The long screenshot window takes its own first frame; no still capture runs.
         if (start_scroll_capture(region, main_app->config_manager)) set_last_region(region);
         sync_input_availability();
         return;
@@ -203,8 +203,7 @@ void QuickCaptureController::capture(const QRect &region) {
     result_valid_ = true;
     const auto action = active_action_;
     auto *worker = new QuickCaptureWorker(region, action, this);
-    // Recognition and translation want the text; a drawn pointer would only cover it.
-    // 扫码同样使用原始选区，避免指针遮挡码的内容。
+    // Recognition, translation and code scanning read the content; a drawn pointer would only cover it.
     worker->include_cursor = !is_text_action(action) && action != "scan_code" && main_app->config_manager->get_capture_include_cursor();
     worker_ = worker;
     connect(worker, &QuickCaptureWorker::captured, this, &QuickCaptureController::deliver, Qt::QueuedConnection);

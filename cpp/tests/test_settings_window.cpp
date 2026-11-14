@@ -1004,7 +1004,7 @@ private slots:
         QVERIFY_THROWS_EXCEPTION(std::invalid_argument, config.set_global_hotkeys("clipboard", {"ctrl+2"}));
     }
 
-    // 新动作默认关闭，沿用设置保存、重载、导入和手势冲突检查。
+    // Off by default; saved, reloaded, imported and conflict-checked like the other actions.
     void globalMouseScanBindingPersistsAndRejectsConflicts() {
         const auto saved = config_->get_quick_capture_scan_code();
         const auto restore = qScopeGuard([&] { config_->set_quick_capture_scan_code(saved); });

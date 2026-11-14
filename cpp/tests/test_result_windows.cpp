@@ -1479,7 +1479,7 @@ private slots:
         QVERIFY(empty->cards.empty());
     }
 
-    // 预解码入口只消费已有结果，空图上的合成结果也不应被重新识别覆盖。
+    // The pre-decoded entry only shows the given codes; a blank image must not be decoded over them.
     void predecodedCodesShareTheWindowAndCopyPolicy() {
         const std::vector<DecodedCode> codes{{QString::fromUtf8("中文扫码结果"), "QR Code", {}}};
         QApplication::clipboard()->setText("before");

@@ -672,8 +672,8 @@ void ScrollCaptureWindow::sync_mouse_capture() {
             if (std::any_of(parts.begin(), parts.end(), [](const QString &key) { return key != "ctrl" && key != "alt" && key != "shift"; })) continue;
             capture->bindings.emplace_back(parts, gesture == "doubleleft" ? QString("left") : gesture);
         }
-        // Our floating controls remain clickable. A Qt window being captured (also used
-        // by desktop tests) is content, so do not mistake it for a control overlay.
+        // Our floating controls remain clickable. One of our own windows under the region
+        // is the content being captured, not a control overlay.
         for (auto *widget : QApplication::topLevelWidgets()) {
             if (widget == this || widget == mouse_target_ || !widget->isVisible()) continue;
             // A normal settings window behind the browser must not punch a hole in
