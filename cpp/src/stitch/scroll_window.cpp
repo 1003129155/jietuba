@@ -370,11 +370,9 @@ ScrollCaptureWindow *start_scroll_capture(const QRect &rect, ToolSettingsManager
     for (auto *screen : QApplication::screens()) desktop = desktop.united(screen->geometry());
     const auto region = rect.intersected(desktop);
     if (region.width() < 2 || region.height() < 2) return nullptr;
-    if (auto *existing = active_scroll_capture()) {
-        existing->raise();
-        existing->activateWindow();
-        return existing;
-    }
+    // A new selection replaces the running capture. Close it before the new window
+    // registers its input watchers, which share names with the old one's.
+    if (auto *existing = active_scroll_capture()) existing->close();
     auto *window = new ScrollCaptureWindow(region, nullptr, config);
     qApp->setProperty("_scroll_window", QVariant::fromValue<QObject *>(window));
     QObject::connect(window, &QObject::destroyed, qApp, [window] {

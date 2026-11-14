@@ -1218,6 +1218,20 @@ private slots:
         QCOMPARE(scroll->capture_rect, area_);
         window_ = scroll;
         QTRY_VERIFY_WITH_TIMEOUT(scroll->screenshots >= 1, 3000);
+        // A long screenshot started from a new capture replaces the running one.
+        const QPointer<ScrollCaptureWindow> first_scroll = scroll;
+        const QRect other = area_.translated(20, 20);
+        QPointer<ScreenshotWindow> again = new ScreenshotWindow(config_, image, QRectF(screen));
+        again->scene->preset_selection(QRectF(other));
+        again->toolbar->long_screenshot_btn->click();
+        scroll = active_scroll_capture();
+        QVERIFY(scroll && scroll != first_scroll);
+        QCOMPARE(scroll->capture_rect, other);
+        window_ = scroll;
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QTRY_VERIFY(!first_scroll);
+        QTRY_VERIFY(!again);
+        QTRY_VERIFY_WITH_TIMEOUT(scroll->screenshots >= 1, 3000);
         scroll->toolbar->cancel_btn->click();
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
         QTRY_VERIFY(!qApp->property("_scroll_window").value<QObject *>());

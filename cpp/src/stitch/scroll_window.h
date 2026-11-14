@@ -280,7 +280,7 @@ private:
     quint64 capture_generation_ = 0;
 };
 
-// Both entry points use physical screen coordinates and keep an existing long image alive.
+// Both entry points use physical screen coordinates; starting one closes the running capture.
 ScrollCaptureWindow *active_scroll_capture();
 ScrollCaptureWindow *start_scroll_capture(const QRect &rect, ToolSettingsManager *config);
 }

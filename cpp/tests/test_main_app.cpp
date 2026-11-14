@@ -556,8 +556,14 @@ private slots:
             QTRY_VERIFY(window->screenshots > 0);
             QTRY_VERIFY(window->isActiveWindow()); // Releasing Win must not open Start over the capture.
             QCOMPARE(window->capture_rect.topLeft(), start);
-            QCOMPARE(start_scroll_capture(QRect(center, QSize(30, 30)), config), window);
-            QVERIFY(window->screenshots > 0);
+            // A new selection replaces the running capture.
+            const QPointer<ScrollCaptureWindow> first = window;
+            auto *second = start_scroll_capture(QRect(center, QSize(30, 30)), config);
+            QVERIFY(second && second != window);
+            QCOMPARE(active_scroll_capture(), second);
+            QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+            QTRY_VERIFY(!first);
+            QCOMPARE(active_scroll_capture(), second);
         } else {
             QTest::qWait(150);
             QVERIFY(!active_scroll_capture());
