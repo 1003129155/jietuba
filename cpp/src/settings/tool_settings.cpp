@@ -436,6 +436,16 @@ const std::vector<MouseAction> &PIN_MOUSE_ACTIONS() {
     return actions;
 }
 
+const std::vector<MouseAction> &LONG_SCREENSHOT_MOUSE_ACTIONS() {
+    // Independent from normal capture: an unchanged long screenshot stays click-through.
+    static const auto actions = [] {
+        auto result = CAPTURE_MOUSE_ACTIONS();
+        for (auto &action : result) action.binding = "";
+        return result;
+    }();
+    return actions;
+}
+
 const std::vector<MouseAction> &CLIPBOARD_MOUSE_ACTIONS() {
     static const std::vector<MouseAction> actions = {
         {"paste", "Paste", "left", "click"},
@@ -456,6 +466,7 @@ const std::vector<MouseAction> &QUICK_CAPTURE_ACTIONS() {
         {"translate", "Region Translation", "", "global"},
         {"scan_code", "Scan QR code / barcode", "", "global"},
         {"edit", "Capture and Edit", "", "global"},
+        {"long_screenshot", "Long Screenshot", "", "global"},
     };
     return actions;
 }
@@ -513,6 +524,10 @@ QString get_capture_mouse_binding(const ToolSettingsManager *config, const QStri
     if (!config) return fallback;
     if (action == "copy" && !config->get_double_click_copy_close_enabled()) fallback = "";
     return config->get_app_setting("mouse_capture_" + action, fallback).toString();
+}
+
+QString get_long_screenshot_mouse_binding(const ToolSettingsManager *config, const QString &action) {
+    return config ? config->get_app_setting("mouse_long_" + action, "").toString() : QString();
 }
 
 const std::vector<ToolShortcut> &ANNOTATION_TOOL_SHORTCUTS() {

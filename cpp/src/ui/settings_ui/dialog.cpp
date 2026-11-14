@@ -1053,7 +1053,8 @@ void SettingsDialog::save_changes(QSet<QString> changed) {
 
 namespace {
 bool is_mouse_binding_key(const QString &key) {
-    return key.startsWith("quick_capture_") || key.startsWith("mouse_capture_") || key.startsWith("mouse_pin_") || key.startsWith("mouse_clipboard_");
+    return key.startsWith("quick_capture_") || key.startsWith("mouse_capture_") || key.startsWith("mouse_long_")
+        || key.startsWith("mouse_pin_") || key.startsWith("mouse_clipboard_");
 }
 }
 

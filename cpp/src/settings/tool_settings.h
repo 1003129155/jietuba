@@ -280,6 +280,7 @@ struct MouseAction {
     const char *kind;
 };
 const std::vector<MouseAction> &CAPTURE_MOUSE_ACTIONS();
+const std::vector<MouseAction> &LONG_SCREENSHOT_MOUSE_ACTIONS();
 const std::vector<MouseAction> &PIN_MOUSE_ACTIONS();
 const std::vector<MouseAction> &CLIPBOARD_MOUSE_ACTIONS();
 // Global mouse shortcuts: drag with modifiers held, written like in-app mouse shortcuts ("win+dragleft").
@@ -295,6 +296,7 @@ QString get_pin_mouse_binding(const ToolSettingsManager *config, const QString &
 // One mouse gesture for a capture action. The old double-click switch remains a
 // migration fallback only; mouse bindings never alter keyboard shortcuts.
 QString get_capture_mouse_binding(const ToolSettingsManager *config, const QString &action);
+QString get_long_screenshot_mouse_binding(const ToolSettingsManager *config, const QString &action);
 
 // Capture engines in settings-page order: auto uses HDR while a display has HDR on and
 // falls back to mss; mss / hdr use only that one, never falling back.

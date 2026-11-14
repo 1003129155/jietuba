@@ -845,19 +845,7 @@ void ScreenshotWindow::start_long_screenshot_mode() {
     const int real_width = static_cast<int>(selection_rect.width()), real_height = static_cast<int>(selection_rect.height());
     const QRect capture_rect(real_x, real_y, real_width, real_height);
     log_debug(T("选中区域（屏幕坐标）: x={x}, y={y}, w={w}, h={h}", {{"x", real_x}, {"y", real_y}, {"w", real_width}, {"h", real_height}}), "LongScreenshot");
-    // A separate top-level, independent of this window.
-    auto *scroll_window = new ScrollCaptureWindow(capture_rect, nullptr, config_manager);
-    auto *app = QApplication::instance();
-    if (auto *old_scroll = qobject_cast<QWidget *>(app->property("_scroll_window").value<QObject *>())) old_scroll->close();
-    app->setProperty("_scroll_window", QVariant::fromValue<QObject *>(scroll_window));
-    connect(scroll_window, &QObject::destroyed, app, [app] {
-        app->setProperty("_scroll_window", QVariant());
-        request_trim_working_set(1000);
-    });
-    log_debug(T("长截图窗口创建完成，准备显示"), "LongScreenshot");
-    scroll_window->show();
-    scroll_window->raise();
-    scroll_window->activateWindow();
+    if (!start_scroll_capture(capture_rect, config_manager)) return;
     log_info(T("滚动截图窗口已显示并激活"), "LongScreenshot");
     log_debug(T("释放截图窗口内存"), "LongScreenshot");
     cleanup_and_close();
