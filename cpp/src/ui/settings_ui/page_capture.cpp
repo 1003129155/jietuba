@@ -1,4 +1,6 @@
 #include "core/ui_scale.h"
+#include "core/file_names.h"
+#include "ui/settings_ui/file_name_dialog.h"
 #include "core/ui_theme.h"
 #include "ocr/ocr_manager.h"
 #include "ocr/ppocr_models.h"
@@ -191,9 +193,23 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     dialog->set_attr("screenshot_format_combo", format_combo);
     fmt_card->addControl(format_combo);
     grp_save->addSettingCard(fmt_card);
+    dialog->save_filename_patterns = file_names::load(*config);
+    auto *names_card = new SettingCard(FluentIcon::Document, dialog->tr_text("File Name Settings"),
+                                      dialog->tr_text("Set file names for screenshots, long screenshots, GIFs and videos."), grp_save);
+    auto *names_button = new PushButton(dialog->tr_text("Configure"), names_card);
+    dialog->set_attr("filename_settings_button", names_button);
+    QObject::connect(names_button, &QPushButton::clicked, dialog, [dialog] {
+        FileNameDialog editor(*dialog->save_filename_patterns, dialog, dialog->attr<QComboBox>("screenshot_format_combo")->currentData().toString());
+        if (exec_dialog(&editor)) {
+            dialog->save_filename_patterns = editor.patterns();
+            dialog->schedule_save();
+        }
+    });
+    names_card->addControl(names_button);
+    grp_save->addSettingCard(names_card);
     switch_card(dialog, grp_save, FluentIcon::History, "Also Save the Original",
                 "When a screenshot with annotations (including mosaic) or a watermark is saved to the save folder, "
-                "a copy without them is saved too, with _original at the end of its file name.",
+                "a copy without them is saved too.",
                 config->get_screenshot_save_original_enabled(), "screenshot_save_original_toggle");
     // Writes the file path to the clipboard (CF_HDROP). Only an auto-saved capture has a path,
     // decided in deliver_screenshot; the switches are stored independently, with no UI coupling.

@@ -374,7 +374,8 @@ if(BUILD_TESTING)
         # Whether texts fit needs real fonts.
         add_test(NAME settings_window_desktop COMMAND jietuba_settings_window_tests -o ${JIETUBA_TEST_REPORTS}/settings_window_desktop.txt,txt -platform windows
                  readAloudGroupFitsEveryLanguageInTheNarrowestWindow everyPageFitsEveryLanguageAtTheMinimumWidth wizardMouseGridFitsEveryLanguage
-                 longScreenshotMousePageFitsEveryLanguage)
+                 longScreenshotMousePageFitsEveryLanguage fileNameDialogFitsEveryLanguageAndFollowsWindowScale fileNameDialogDoesNotMoveWhileTyping
+                 fileNameDialogErrorsStayVisibleAndKeepPastedText)
         set_tests_properties(settings_window_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
     endif()
     qt_add_executable(jietuba_data_folder_tests tests/test_data_folder.cpp)

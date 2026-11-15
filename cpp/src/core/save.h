@@ -42,7 +42,6 @@ public:
     static void cleanup_failed_placeholder(const QString &path);
 private:
     QString compose_path(QString directory, const QString &prefix, const QString &suffix, const QString &format) const;
-    static QString build_filename(const QString &prefix, const QString &suffix, const QString &format);
     static bool save_pdf(const QImage &image, QIODevice *device, int dpi);
 };
 }

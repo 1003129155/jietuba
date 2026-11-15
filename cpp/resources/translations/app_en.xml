@@ -579,8 +579,8 @@ Replace it?</translation>
         <translation>Also Save the Original</translation>
     </message>
     <message>
-        <source>When a screenshot with annotations (including mosaic) or a watermark is saved to the save folder, a copy without them is saved too, with _original at the end of its file name.</source>
-        <translation>When a screenshot with annotations (including mosaic) or a watermark is saved to the save folder, a copy without them is saved too, with _original at the end of its file name.</translation>
+        <source>When a screenshot with annotations (including mosaic) or a watermark is saved to the save folder, a copy without them is saved too.</source>
+        <translation>When a screenshot with annotations (including mosaic) or a watermark is saved to the save folder, a copy without them is saved too.</translation>
     </message>
     <message>
         <source>Save Folder</source>
@@ -1640,6 +1640,18 @@ Replace it?</translation>
     <message>
         <source>Scan QR code / barcode</source>
         <translation>Scan QR code / barcode</translation>
+    </message>
+    <message>
+        <source>File Name Settings</source>
+        <translation>File Name Settings</translation>
+    </message>
+    <message>
+        <source>Set file names for screenshots, long screenshots, GIFs and videos.</source>
+        <translation>Set file names for screenshots, long screenshots, GIFs and videos.</translation>
+    </message>
+    <message>
+        <source>Configure</source>
+        <translation>Configure</translation>
     </message>
 </context>
 
@@ -7444,4 +7456,83 @@ Replace it?</translation>
     <message><source>Clipboard</source><translation>Clipboard</translation></message>
     <message><source>Annotation Tools</source><translation>Annotation Tools</translation></message>
   </context>
+<context>
+    <name>FileNameDialog</name>
+    <message>
+        <source>File Name Settings</source>
+        <translation>File Name Settings</translation>
+    </message>
+    <message>
+        <source>Edit ordinary text directly, such as the name of a long screenshot. Use {time} for date and time, {ms} for milliseconds, and {direction} for long screenshot direction. Extensions are added automatically.</source>
+        <translation>Edit ordinary text directly, such as the name of a long screenshot. Use {time} for date and time, {ms} for milliseconds, and {direction} for long screenshot direction. Extensions are added automatically.</translation>
+    </message>
+    <message>
+        <source>Screenshot</source>
+        <translation>Screenshot</translation>
+    </message>
+    <message>
+        <source>Pinned Image</source>
+        <translation>Pinned Image</translation>
+    </message>
+    <message>
+        <source>Long Screenshot</source>
+        <translation>Long Screenshot</translation>
+    </message>
+    <message>
+        <source>GIF</source>
+        <translation>GIF</translation>
+    </message>
+    <message>
+        <source>MP4</source>
+        <translation>MP4</translation>
+    </message>
+    <message>
+        <source>Original Suffix</source>
+        <translation>Original Suffix</translation>
+    </message>
+    <message>
+        <source>Restore defaults</source>
+        <translation>Restore defaults</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Preview: %1</source>
+        <translation>Preview: %1</translation>
+    </message>
+    <message>
+        <source>Enter a file name rule.</source>
+        <translation>Enter a file name rule.</translation>
+    </message>
+    <message>
+        <source>The file name rule is too long (maximum 120 characters).</source>
+        <translation>The file name rule is too long (maximum 120 characters).</translation>
+    </message>
+    <message>
+        <source>File names cannot contain forbidden characters or end with a dot or space.</source>
+        <translation>File names cannot contain forbidden characters or end with a dot or space.</translation>
+    </message>
+    <message>
+        <source>Unknown placeholder in the file name rule.</source>
+        <translation>Unknown placeholder in the file name rule.</translation>
+    </message>
+    <message>
+        <source>This file name is reserved by Windows.</source>
+        <translation>This file name is reserved by Windows.</translation>
+    </message>
+    <message>
+        <source>The generated file name is too long (maximum 120 characters).</source>
+        <translation>The generated file name is too long (maximum 120 characters).</translation>
+    </message>
+    <message>
+        <source>Leave out the file extension; it is added automatically.</source>
+        <translation>Leave out the file extension; it is added automatically.</translation>
+    </message>
+</context>
 </TS>

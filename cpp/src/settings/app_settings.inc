@@ -133,6 +133,7 @@ SETTING(screenshot_save_original_enabled, "app/screenshot_save_original_enabled"
 SETTING(screenshot_save_path, "app/screenshot_save_path", QString, QDir::toNativeSeparators(QDir::homePath() + "/Pictures/jietuba_photos"), Local, Own, Own)
 SETTING(screenshot_format, "app/screenshot_format", QString, "PNG", Import, Gen, Own)
 SETTING(screenshot_quality, "app/screenshot_quality", int, 85, Internal, Gen, Own)
+SETTING(save_filename_patterns, "app/save_filename_patterns", QStringList, {}, Import, Gen, Gen)
 SETTING(save_dialog_style, "app/save_dialog_style", QString, "modern", Import, Gen, Gen)
 SETTING(save_dialog_format, "app/save_dialog_format", QString, "", Internal, Gen, Gen)
 SETTING(save_dialog_last_dir, "app/save_dialog_last_dir", QString, "", Local, Gen, Gen)

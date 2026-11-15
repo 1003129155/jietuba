@@ -8,6 +8,7 @@
 #include "core/qt_utils.h"
 #include "core/shortcut_manager.h"
 #include "core/save.h"
+#include "core/file_names.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
 #include "pin/pin_manager.h"
@@ -1383,7 +1384,7 @@ void ScrollCaptureWindow::on_save() {
         log_stitch(T("[WARN] 没有拼接结果，跳过保存"));
         return;
     }
-    const auto base_name = file_prefix() + "_" + QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
+    const auto base_name = file_names::stem(*(config_manager ? config_manager : get_tool_settings_manager()), file_names::LongScreenshot, file_prefix());
     ToolSettingsManager *config = config_manager ? config_manager : get_tool_settings_manager();
     cleanup();
     hide();
@@ -1416,7 +1417,7 @@ void ScrollCaptureWindow::on_quick_save() {
     const QPointer<ScrollCaptureWindow> guard(this);
     std::optional<QString> path;
     try {
-        path = SaveService(*config).save_qimage_async(image, config->get_screenshot_save_path(), "", "", config->get_screenshot_format(),
+        path = SaveService(*config).save_qimage_async(image, config->get_screenshot_save_path(), file_prefix(), "", config->get_screenshot_format(),
         SaveService::DEFAULT_PDF_DPI, [guard](bool ok, QString path) {
             QMetaObject::invokeMethod(qApp, [guard, ok, path] {
                 if (!guard || !guard->stitcher_) return;

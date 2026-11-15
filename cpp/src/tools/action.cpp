@@ -9,6 +9,7 @@
 #include "core/last_capture_region.h"
 #include "core/logger.h"
 #include "core/save.h"
+#include "core/file_names.h"
 #include "core/ui_scale.h"
 #include "pin/pin_manager.h"
 #include "pin/pin_window.h"
@@ -87,7 +88,7 @@ void ActionTools::handle_save(bool close_after) {
     auto selection_rect = scene->selection_model->rect();
     remember_last_region(selection_rect);
     if (selection_rect.isEmpty()) selection_rect = scene->sceneRect();
-    const auto base_name = QString("screenshot_%1").arg(QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss"));
+    const auto base_name = file_names::stem(save_service->config_manager, file_names::Screenshot);
     if (!parent_window || !close_after) {
         save_image_interactively(parent_window, export_service.export_image(selection_rect), base_name, config_manager, save_service);
         return;
@@ -205,7 +206,8 @@ void ActionTools::save_original_beside(const QRectF &selection_rect, const QStri
     if (!config_manager->get_screenshot_save_original_enabled()) return;
     if (!has_annotations(scene->get_drawing_items_in_rect(selection_rect))) return;
     const auto original = export_service.export_base_image_only(selection_rect);
-    background_tasks::start_thread([original, saved_path] { SaveService::save_beside(original, saved_path, "original"); }, "SaveOriginal");
+    const auto suffix = file_names::load(*config_manager).at(file_names::OriginalSuffix);
+    background_tasks::start_thread([original, saved_path, suffix] { SaveService::save_beside(original, saved_path, suffix); }, "SaveOriginal");
 }
 
 void ActionTools::handle_screenshot_translate() {

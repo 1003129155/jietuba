@@ -1,4 +1,5 @@
 #include "ui/settings_ui/dialog.h"
+#include "core/file_names.h"
 #include "clipboard/ui/theme/themes.h"
 #include "core/i18n.h"
 #include "core/logger.h"
@@ -761,6 +762,7 @@ void SettingsDialog::reset_screenshot_settings_page() {
     if (auto *combo = attr<QComboBox>("screenshot_format_combo"))
         combo->setCurrentIndex(std::max<int>(0, QStringList{"PNG", "JPG", "BMP", "WEBP", "PDF"}.indexOf(defaults.value("screenshot_format").toString().toUpper())));
     select_data(attr<QComboBox>("save_dialog_style_combo"), defaults.value("save_dialog_style"));
+    if (save_filename_patterns) save_filename_patterns = file_names::defaults();
     if (magnifier_color_formats) magnifier_color_formats = color_formats::default_formats();
     fill_ocr_engines(this, defaults.value("ocr_engine").toString(), defaults.value("ppocr_model").toString());
     select_data(attr<QComboBox>("ocr_result_position_combo"), defaults.value("ocr_result_position"));
@@ -929,6 +931,7 @@ void SettingsDialog::save_changes(QSet<QString> changed) {
     for (const auto &[attr_name, key] : {std::make_pair("magnifier_enabled_toggle", "magnifier_enabled"), std::make_pair("magnifier_grid_toggle", "magnifier_grid"),
                                          std::make_pair("magnifier_selection_toggle", "magnifier_selection"), std::make_pair("magnifier_hint_toggle", "magnifier_hint")})
         if (auto *toggle = attr_widget(attr_name); toggle && has(attr_name)) config_manager->set_app_setting(key, checked_of(toggle));
+    if (has("save_filename_patterns")) config_manager->set_save_filename_patterns(*save_filename_patterns);
     if (has("magnifier_color_formats")) save_magnifier_color_formats();
 
     // 4. OCR.
@@ -1259,6 +1262,7 @@ QVariantMap SettingsDialog::snapshot_settings() const {
     // Colours.
     if (appearance_theme_color) snap["theme_color"] = appearance_theme_color->name();
     if (appearance_mask_color) snap["mask_color"] = appearance_mask_color->name();
+    if (save_filename_patterns) snap["save_filename_patterns"] = *save_filename_patterns;
     // Colour formats are edited in their own window, with no control to read.
     if (magnifier_color_formats) {
         QVariantList formats;
@@ -1399,6 +1403,7 @@ void SettingsDialog::refresh_settings() {
     for (const auto &[attr_name, key] : {std::make_pair("magnifier_enabled_toggle", "magnifier_enabled"), std::make_pair("magnifier_grid_toggle", "magnifier_grid"),
                                          std::make_pair("magnifier_selection_toggle", "magnifier_selection"), std::make_pair("magnifier_hint_toggle", "magnifier_hint")})
         if (auto *toggle = attr_widget(attr_name)) set_checked(toggle, config_manager->get_app_setting(key).toBool());
+    if (save_filename_patterns) save_filename_patterns = file_names::load(*config_manager);
     if (magnifier_color_formats) magnifier_color_formats = color_formats::load(config_manager);
     if (auto *toggle = attr_widget("ocr_enable_toggle")) set_checked(toggle, config_manager->get_ocr_enabled());
     fill_ocr_engines(this, config_manager->get_ocr_engine(), config_manager->get_ppocr_model());

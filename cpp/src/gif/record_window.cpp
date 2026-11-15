@@ -16,6 +16,7 @@
 #include "gif/record_toolbar.h"
 #include "gif/video_recorder.h"
 #include "settings/tool_settings.h"
+#include "core/file_names.h"
 #include "tools/controller.h"
 #include "tools/cursor_manager.h"
 #include "ui/dialogs.h"
@@ -434,10 +435,7 @@ void GifRecordWindow::cancel_countdown() {
 void GifRecordWindow::start_video() {
     if (video_busy()) return;
     const QString folder = get_tool_settings_manager()->get_screenshot_save_path();
-    const auto now = std::chrono::system_clock::now();
-    const auto micros = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count();
-    const QDateTime local = QDateTime::fromMSecsSinceEpoch(micros / 1000);
-    const QString filename = "recording_" + local.toString("yyyyMMdd_HHmmss") + QString("_%1").arg(micros % 1000000, 6, 10, QChar('0')) + ".mp4";
+    const QString filename = file_names::stem(*get_tool_settings_manager(), file_names::Video) + ".mp4";
     // The asynchronous file dialog enters no nested event loop; this stage belongs to the recording session too.
     auto *dialog = new QFileDialog(record_toolbar_, tr_text("保存 MP4 视频"));
     dialog->setAcceptMode(QFileDialog::AcceptSave);

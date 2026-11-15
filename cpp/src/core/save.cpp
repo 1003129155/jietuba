@@ -1,4 +1,5 @@
 #include "core/save.h"
+#include "core/file_names.h"
 #include "core/logger.h"
 #include "settings/tool_settings.h"
 #include <QBuffer>
@@ -51,11 +52,6 @@ QString SaveService::format_for_size(QString format, int width, int height, int 
     const qint64 limit = format == "JPG" ? 65500 : format == "WEBP" ? 16383 : format == "PDF" ? qint64(200) * dpi : -1;
     return limit != -1 && std::max(width, height) > limit ? "PNG" : format;
 }
-QString SaveService::build_filename(const QString &prefix, const QString &suffix, const QString &format) {
-    QStringList parts;
-    for (const auto &part : {prefix, suffix, QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss")}) if (!part.isEmpty()) parts.append(part);
-    return parts.join('_') + '.' + normalize_format(format).toLower();
-}
 QString SaveService::claim_first_free(const QString &stem, const QString &ext) {
     for (int index = 0; index < 10000; ++index) {
         const auto path = stem + (index ? "_" + QString::number(index) : "") + ext;
@@ -82,7 +78,8 @@ QString SaveService::claim_first_free(const QString &stem, const QString &ext) {
 QString SaveService::compose_path(QString directory, const QString &prefix, const QString &suffix, const QString &format) const {
     if (directory.isEmpty() || !ToolSettingsManager::is_absolute_save_path(directory)) directory = get_default_directory();
     if (!QDir().mkpath(directory)) throw std::runtime_error("Unable to create screenshot directory");
-    const auto filename = build_filename(prefix, suffix, format);
+    const auto kind = prefix == "pinned" ? file_names::Pin : prefix.isEmpty() ? file_names::Screenshot : file_names::LongScreenshot;
+    const auto filename = file_names::stem(config_manager, kind, prefix) + (suffix.isEmpty() ? QString() : "_" + suffix) + "." + normalize_format(format).toLower();
     const int dot = filename.lastIndexOf('.');
     return claim_first_free(QDir(directory).filePath(filename.left(dot)), filename.mid(dot));
 }

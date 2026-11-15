@@ -581,8 +581,8 @@ Replace it?</source>
         <translation>元画像も保存</translation>
     </message>
     <message>
-        <source>When a screenshot with annotations (including mosaic) or a watermark is saved to the save folder, a copy without them is saved too, with _original at the end of its file name.</source>
-        <translation>注釈（モザイクを含む）や透かしを入れたスクショを保存フォルダに保存するとき、それらのない元画像も保存します。ファイル名の末尾に _original が付きます。</translation>
+        <source>When a screenshot with annotations (including mosaic) or a watermark is saved to the save folder, a copy without them is saved too.</source>
+        <translation>注釈（モザイクを含む）や透かしを加えたスクリーンショットを保存フォルダーに保存すると、それらのない元画像も保存します。</translation>
     </message>
     <message>
         <source>Save Folder</source>
@@ -1702,6 +1702,18 @@ Replace it?</source>
     <message>
         <source>Scan QR code / barcode</source>
         <translation>コードをスキャン（QR コード / バーコード）</translation>
+    </message>
+    <message>
+        <source>File Name Settings</source>
+        <translation>ファイル名の設定</translation>
+    </message>
+    <message>
+        <source>Set file names for screenshots, long screenshots, GIFs and videos.</source>
+        <translation>スクリーンショット、長いスクリーンショット、GIF、動画の保存名を設定します。</translation>
+    </message>
+    <message>
+        <source>Configure</source>
+        <translation>設定</translation>
     </message>
 </context>
 
@@ -7506,4 +7518,83 @@ Replace it?</source>
     <message><source>Clipboard</source><translation>クリップボード</translation></message>
     <message><source>Annotation Tools</source><translation>注釈ツール</translation></message>
   </context>
+<context>
+    <name>FileNameDialog</name>
+    <message>
+        <source>File Name Settings</source>
+        <translation>ファイル名の設定</translation>
+    </message>
+    <message>
+        <source>Edit ordinary text directly, such as the name of a long screenshot. Use {time} for date and time, {ms} for milliseconds, and {direction} for long screenshot direction. Extensions are added automatically.</source>
+        <translation>長いスクリーンショットの名前など、通常の文字は直接変更できます。{time} は日時、{ms} はミリ秒、{direction} はスクロール方向です。拡張子は自動で付きます。</translation>
+    </message>
+    <message>
+        <source>Screenshot</source>
+        <translation>スクリーンショット</translation>
+    </message>
+    <message>
+        <source>Pinned Image</source>
+        <translation>ピン留め画像</translation>
+    </message>
+    <message>
+        <source>Long Screenshot</source>
+        <translation>長いスクリーンショット</translation>
+    </message>
+    <message>
+        <source>GIF</source>
+        <translation>GIF</translation>
+    </message>
+    <message>
+        <source>MP4</source>
+        <translation>MP4</translation>
+    </message>
+    <message>
+        <source>Original Suffix</source>
+        <translation>元画像の接尾辞</translation>
+    </message>
+    <message>
+        <source>Restore defaults</source>
+        <translation>既定値に戻す</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
+        <source>Preview: %1</source>
+        <translation>プレビュー：%1</translation>
+    </message>
+    <message>
+        <source>Enter a file name rule.</source>
+        <translation>ファイル名のルールを入力してください。</translation>
+    </message>
+    <message>
+        <source>The file name rule is too long (maximum 120 characters).</source>
+        <translation>ファイル名のルールは120文字以内で入力してください。</translation>
+    </message>
+    <message>
+        <source>File names cannot contain forbidden characters or end with a dot or space.</source>
+        <translation>ファイル名に使用できない文字があるか、末尾がピリオドまたは空白です。</translation>
+    </message>
+    <message>
+        <source>Unknown placeholder in the file name rule.</source>
+        <translation>ファイル名のルールに未対応の変数があります。</translation>
+    </message>
+    <message>
+        <source>This file name is reserved by Windows.</source>
+        <translation>このファイル名は Windows の予約名です。</translation>
+    </message>
+    <message>
+        <source>The generated file name is too long (maximum 120 characters).</source>
+        <translation>生成されるファイル名が長すぎます（展開後120文字以内）。</translation>
+    </message>
+    <message>
+        <source>Leave out the file extension; it is added automatically.</source>
+        <translation>拡張子は自動で付くため、入力しないでください。</translation>
+    </message>
+</context>
 </TS>

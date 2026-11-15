@@ -578,8 +578,8 @@ Replace it?</source>
         <translation>원본도 저장</translation>
     </message>
     <message>
-        <source>When a screenshot with annotations (including mosaic) or a watermark is saved to the save folder, a copy without them is saved too, with _original at the end of its file name.</source>
-        <translation>주석(모자이크 포함)이나 워터마크를 넣은 스크린샷을 저장 폴더에 저장할 때 그것들이 없는 원본도 함께 저장합니다. 파일 이름 끝에 _original이 붙습니다.</translation>
+        <source>When a screenshot with annotations (including mosaic) or a watermark is saved to the save folder, a copy without them is saved too.</source>
+        <translation>주석(모자이크 포함)이나 워터마크가 있는 스크린샷을 저장 폴더에 저장할 때, 이를 제외한 원본도 함께 저장합니다.</translation>
     </message>
     <message>
         <source>Save Folder</source>
@@ -1679,6 +1679,18 @@ Replace it?</source>
     <message>
         <source>Scan QR code / barcode</source>
         <translation>코드 스캔 (QR 코드 / 바코드)</translation>
+    </message>
+    <message>
+        <source>File Name Settings</source>
+        <translation>파일 이름 설정</translation>
+    </message>
+    <message>
+        <source>Set file names for screenshots, long screenshots, GIFs and videos.</source>
+        <translation>스크린샷, 긴 스크린샷, GIF 및 동영상의 저장 파일 이름을 설정합니다.</translation>
+    </message>
+    <message>
+        <source>Configure</source>
+        <translation>설정</translation>
     </message>
 </context>
 
@@ -7497,4 +7509,83 @@ Replace it?</source>
     <message><source>Clipboard</source><translation>클립보드</translation></message>
     <message><source>Annotation Tools</source><translation>주석 도구</translation></message>
   </context>
+<context>
+    <name>FileNameDialog</name>
+    <message>
+        <source>File Name Settings</source>
+        <translation>파일 이름 설정</translation>
+    </message>
+    <message>
+        <source>Edit ordinary text directly, such as the name of a long screenshot. Use {time} for date and time, {ms} for milliseconds, and {direction} for long screenshot direction. Extensions are added automatically.</source>
+        <translation>긴 스크린샷의 이름 등 일반 텍스트는 직접 바꿀 수 있습니다. {time}은 날짜와 시간, {ms}는 밀리초, {direction}은 긴 스크린샷의 방향입니다. 확장자는 자동으로 추가됩니다.</translation>
+    </message>
+    <message>
+        <source>Screenshot</source>
+        <translation>스크린샷</translation>
+    </message>
+    <message>
+        <source>Pinned Image</source>
+        <translation>고정 이미지</translation>
+    </message>
+    <message>
+        <source>Long Screenshot</source>
+        <translation>긴 스크린샷</translation>
+    </message>
+    <message>
+        <source>GIF</source>
+        <translation>GIF</translation>
+    </message>
+    <message>
+        <source>MP4</source>
+        <translation>MP4</translation>
+    </message>
+    <message>
+        <source>Original Suffix</source>
+        <translation>원본 접미사</translation>
+    </message>
+    <message>
+        <source>Restore defaults</source>
+        <translation>기본값 복원</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>확인</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>취소</translation>
+    </message>
+    <message>
+        <source>Preview: %1</source>
+        <translation>미리 보기: %1</translation>
+    </message>
+    <message>
+        <source>Enter a file name rule.</source>
+        <translation>파일 이름 규칙을 입력하세요.</translation>
+    </message>
+    <message>
+        <source>The file name rule is too long (maximum 120 characters).</source>
+        <translation>파일 이름 규칙은 최대 120자까지 입력할 수 있습니다.</translation>
+    </message>
+    <message>
+        <source>File names cannot contain forbidden characters or end with a dot or space.</source>
+        <translation>파일 이름에 금지된 문자를 쓰거나 마침표 또는 공백으로 끝낼 수 없습니다.</translation>
+    </message>
+    <message>
+        <source>Unknown placeholder in the file name rule.</source>
+        <translation>파일 이름 규칙에 지원하지 않는 자리 표시자가 있습니다.</translation>
+    </message>
+    <message>
+        <source>This file name is reserved by Windows.</source>
+        <translation>Windows에서 예약한 파일 이름입니다.</translation>
+    </message>
+    <message>
+        <source>The generated file name is too long (maximum 120 characters).</source>
+        <translation>생성되는 파일 이름이 너무 깁니다(변환 후 최대 120자).</translation>
+    </message>
+    <message>
+        <source>Leave out the file extension; it is added automatically.</source>
+        <translation>확장자는 저장할 때 자동으로 추가되므로 입력하지 마세요.</translation>
+    </message>
+</context>
 </TS>

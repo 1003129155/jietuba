@@ -587,8 +587,8 @@ Replace it?</source>
         <translation>同時儲存原圖</translation>
     </message>
     <message>
-        <source>When a screenshot with annotations (including mosaic) or a watermark is saved to the save folder, a copy without them is saved too, with _original at the end of its file name.</source>
-        <translation>截圖存進儲存資料夾時，如果加了標註（含馬賽克）或浮水印，再另存一張沒有它們的原圖，檔名末尾帶 _original。</translation>
+        <source>When a screenshot with annotations (including mosaic) or a watermark is saved to the save folder, a copy without them is saved too.</source>
+        <translation>截圖存進儲存資料夾時，如果加了標註（含馬賽克）或浮水印，再另存一張沒有它們的原圖。</translation>
     </message>
     <message>
         <source>Save Folder</source>
@@ -1669,6 +1669,18 @@ Replace it?</source>
     <message>
         <source>Scan QR code / barcode</source>
         <translation>掃碼（二維碼 / 條碼）</translation>
+    </message>
+    <message>
+        <source>File Name Settings</source>
+        <translation>檔案名稱設定</translation>
+    </message>
+    <message>
+        <source>Set file names for screenshots, long screenshots, GIFs and videos.</source>
+        <translation>設定截圖、長截圖、GIF 和影片的儲存檔名。</translation>
+    </message>
+    <message>
+        <source>Configure</source>
+        <translation>設定</translation>
     </message>
 </context>
 <context>
@@ -7883,4 +7895,83 @@ Replace it?</source>
     <message><source>Clipboard</source><translation>剪貼簿</translation></message>
     <message><source>Annotation Tools</source><translation>標註工具</translation></message>
   </context>
+<context>
+    <name>FileNameDialog</name>
+    <message>
+        <source>File Name Settings</source>
+        <translation>檔案名稱設定</translation>
+    </message>
+    <message>
+        <source>Edit ordinary text directly, such as the name of a long screenshot. Use {time} for date and time, {ms} for milliseconds, and {direction} for long screenshot direction. Extensions are added automatically.</source>
+        <translation>一般文字可直接修改，例如「長截圖」可以改成任意名稱。{time} 表示日期時間，{ms} 表示毫秒，{direction} 表示長截圖方向。副檔名自動加入。</translation>
+    </message>
+    <message>
+        <source>Screenshot</source>
+        <translation>一般截圖</translation>
+    </message>
+    <message>
+        <source>Pinned Image</source>
+        <translation>釘圖</translation>
+    </message>
+    <message>
+        <source>Long Screenshot</source>
+        <translation>長截圖</translation>
+    </message>
+    <message>
+        <source>GIF</source>
+        <translation>GIF</translation>
+    </message>
+    <message>
+        <source>MP4</source>
+        <translation>MP4</translation>
+    </message>
+    <message>
+        <source>Original Suffix</source>
+        <translation>原圖後綴</translation>
+    </message>
+    <message>
+        <source>Restore defaults</source>
+        <translation>還原預設</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>確定</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <source>Preview: %1</source>
+        <translation>範例：%1</translation>
+    </message>
+    <message>
+        <source>Enter a file name rule.</source>
+        <translation>請輸入檔名規則。</translation>
+    </message>
+    <message>
+        <source>The file name rule is too long (maximum 120 characters).</source>
+        <translation>檔名規則過長（最多 120 個字元）。</translation>
+    </message>
+    <message>
+        <source>File names cannot contain forbidden characters or end with a dot or space.</source>
+        <translation>檔名不能含有無效字元，也不能以點或空格結尾。</translation>
+    </message>
+    <message>
+        <source>Unknown placeholder in the file name rule.</source>
+        <translation>檔名規則含有不支援的預留位置。</translation>
+    </message>
+    <message>
+        <source>This file name is reserved by Windows.</source>
+        <translation>此檔名是 Windows 保留名稱。</translation>
+    </message>
+    <message>
+        <source>The generated file name is too long (maximum 120 characters).</source>
+        <translation>產生的檔名過長（展開後最多 120 個字元）。</translation>
+    </message>
+    <message>
+        <source>Leave out the file extension; it is added automatically.</source>
+        <translation>請移除副檔名，儲存時會自動加入。</translation>
+    </message>
+</context>
 </TS>
