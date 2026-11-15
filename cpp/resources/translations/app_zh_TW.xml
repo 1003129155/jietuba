@@ -5508,10 +5508,6 @@ This action cannot be undone.</source>
         <translation>基本設定</translation>
     </message>
     <message>
-        <source>History</source>
-        <translation>歷史記錄</translation>
-    </message>
-    <message>
         <source>Data</source>
         <translation>資料管理</translation>
     </message>

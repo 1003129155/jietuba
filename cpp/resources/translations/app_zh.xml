@@ -5329,7 +5329,6 @@ This action cannot be undone.</source>
     <name>SettingsDialog</name>
     <!-- 剪贴板页分组标题 -->
     <message><source>Basic Settings</source><translation>基本设置</translation></message>
-    <message><source>History</source><translation>历史记录</translation></message>
     <message><source>Data</source><translation>数据管理</translation></message>
     <message><source>Warning</source><translation>警告</translation></message>
     <message><source>Folder does not exist</source><translation>文件夹不存在</translation></message>

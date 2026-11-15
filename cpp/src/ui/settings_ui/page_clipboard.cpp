@@ -561,6 +561,14 @@ QWidget *create_clipboard_page(SettingsDialog *dialog) {
     QObject::connect(single_file_card, &SwitchSettingCard::checkedChanged, dialog, [dialog](bool on) { set_clipboard_single_file(dialog, on); });
     grp_data->addSettingCard(single_file_card);
 
+    auto *limit_card = new SettingCard(FluentIcon::History, dialog->tr_text("History Limit"), dialog->tr_text("Maximum number of items to keep (0 = unlimited)"), grp_data);
+    auto *limit_spin = new SpinBox(limit_card);
+    limit_spin->setRange(0, 10000);
+    limit_spin->setValue(static_cast<int>(dialog->config_manager->get_clipboard_history_limit()));
+    dialog->set_attr("clipboard_history_limit_spin", limit_spin);
+    limit_card->addControl(limit_spin);
+    grp_data->addSettingCard(limit_card);
+
     auto *cleanup_card = new SettingCard(FluentIcon::Delete, dialog->tr_text("Clear Clipboard History"), dialog->tr_text("Delete all clipboard history records"), grp_data);
     // The result sits left of the control column so the buttons line up with other cards.
     auto *size_label = new CaptionLabel(QString::fromUtf8("…"), cleanup_card);
@@ -613,17 +621,6 @@ QWidget *create_clipboard_page(SettingsDialog *dialog) {
     add_switch_card(dialog, grp_multi, FluentIcon::Save, "Record Merged Content", "Add the combined content to the history as a new item",
                     "clipboard_multi_paste_keep_merged");
     layout->addWidget(grp_multi);
-
-    // ════ History ════
-    auto *grp_history = new SettingsCardGroup(dialog->tr_text("History"), view, "clipboard");
-    auto *limit_card = new SettingCard(FluentIcon::History, dialog->tr_text("History Limit"), dialog->tr_text("Maximum number of items to keep (0 = unlimited)"), grp_history);
-    auto *limit_spin = new SpinBox(limit_card);
-    limit_spin->setRange(0, 10000);
-    limit_spin->setValue(static_cast<int>(dialog->config_manager->get_clipboard_history_limit()));
-    dialog->set_attr("clipboard_history_limit_spin", limit_spin);
-    limit_card->addControl(limit_spin);
-    grp_history->addSettingCard(limit_card);
-    layout->addWidget(grp_history);
 
     auto *grp_special_paste = new SettingsCardGroup(dialog->tr_text("Special Paste"), view, "clipboard");
     auto *special_paste_card = new SettingCard(FluentIcon::Paste, dialog->tr_text("Special Paste Menu"),

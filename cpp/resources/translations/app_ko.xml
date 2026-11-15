@@ -5339,7 +5339,6 @@ This action cannot be undone.</source>
     <name>SettingsDialog</name>
     <!-- Clipboard page group headers -->
     <message><source>Basic Settings</source><translation>기본 설정</translation></message>
-    <message><source>History</source><translation>기록</translation></message>
     <message><source>Data</source><translation>데이터</translation></message>
     <message><source>Warning</source><translation>경고</translation></message>
     <message><source>Folder does not exist</source><translation>폴더가 존재하지 않습니다</translation></message>

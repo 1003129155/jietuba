@@ -1437,6 +1437,9 @@ private slots:
         QCOMPARE(lines->count(), 5);
         // In the first group beside the monitoring switch, where it is seen without scrolling.
         QCOMPARE(record_private->parentWidget(), dialog.attr_widget("clipboard_enabled_toggle")->parentWidget());
+        // The history limit sits with the other data settings.
+        auto *limit_spin = dialog.attr<QSpinBox>("clipboard_history_limit_spin");
+        QVERIFY(limit_spin && dialog.attr_widget("_clipboard_single_file_toggle")->parentWidget()->isAncestorOf(limit_spin));
         QVERIFY(!record_private->isChecked());
         lines->setCurrentIndex(lines->findData(3));
         bar->setCurrentIndex(bar->findData(QString("left")));

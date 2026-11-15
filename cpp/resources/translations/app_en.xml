@@ -5261,7 +5261,6 @@ You can tweak more options in Settings anytime.</translation>
     <name>SettingsDialog</name>
     <!-- Clipboard page group headers -->
     <message><source>Basic Settings</source><translation>Basic Settings</translation></message>
-    <message><source>History</source><translation>History</translation></message>
     <message><source>Data</source><translation>Data</translation></message>
     <message><source>Warning</source><translation>Warning</translation></message>
     <message><source>Folder does not exist</source><translation>Folder does not exist</translation></message>
