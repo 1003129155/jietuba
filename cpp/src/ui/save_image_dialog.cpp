@@ -815,7 +815,7 @@ SaveImageDialog::SaveImageDialog(const QImage &image, const QString &base_name, 
     quality_value->setText(QString::number(quality_slider->value()));
     auto *limit_row = new QHBoxLayout;
     limit_row->setSpacing(dialog_scaled(8));
-    size_limit_check = new CheckBox(tr_text("Limit file size"), panel_);
+    size_limit_check = new CheckBox(tr_text("Default size limit"), panel_);
     size_limit_check->setChecked(config_->get_save_dialog_size_limited());
     auto *limit_frame = new QFrame(panel_);
     limit_frame->setObjectName("sizeInput");

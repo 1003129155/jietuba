@@ -7222,8 +7222,8 @@ Make sure gifrecorder is installed correctly.</translation>
         <translation>Estimated Size</translation>
     </message>
     <message>
-        <source>Limit file size</source>
-        <translation>Limit file size</translation>
+        <source>Default size limit</source>
+        <translation>Default size limit</translation>
     </message>
     <message>
         <source>Even the lowest quality is larger than this. Make the image smaller to fit.</source>
