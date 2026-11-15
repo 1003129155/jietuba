@@ -4170,6 +4170,14 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>유지할 최대 항목 수 (0 = 무제한)</translation>
     </message>
     <message>
+        <source>Record Content Marked Private</source>
+        <translation>비공개로 표시된 내용도 기록</translation>
+    </message>
+    <message>
+        <source>Copies from private browser windows and password managers are skipped by default. When on, they are recorded too, passwords included, in plain text.</source>
+        <translation>브라우저 시크릿 창이나 비밀번호 관리자에서 복사한 내용은 기본적으로 기록하지 않습니다. 켜면 함께 기록하며, 비밀번호도 평문 그대로 기록에 저장됩니다.</translation>
+    </message>
+    <message>
         <source>Auto Cleanup Old Items</source>
         <translation>오래된 항목 자동 정리</translation>
     </message>

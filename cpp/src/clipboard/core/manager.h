@@ -28,8 +28,8 @@ public:
     bool release_storage();
     std::optional<QString> get_db_path() const;
     std::optional<QString> get_images_dir() const;
-    // Passes the history limit setting to the backend, which trims on insert.
-    void apply_history_limit();
+    // Passes the history limit (the backend trims on insert) and whether copies marked private are recorded.
+    void apply_settings();
 
     // callback runs on the watcher thread for each recorded item.
     void start_monitoring(Callback callback = {});

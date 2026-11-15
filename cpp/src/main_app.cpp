@@ -503,8 +503,9 @@ void MainApp::on_settings_accepted(SettingsDialog *accepted_window) {
         clipboard_window->load_settings();
         clipboard_window->controller->load_settings();
         clipboard_window->apply_saved_settings(saved);
-        if (clipboard_manager) clipboard_manager->apply_history_limit();
     }
+    // The watcher runs without the window, so its settings apply even before the window was first opened.
+    if (clipboard_manager) clipboard_manager->apply_settings();
     PinManager::instance()->refresh_all_appearance();
     const bool dialog_scale_changed = accepted_window->dialog_scale_changed();
     if (dialog_scale_changed) recreate_clipboard_manage_dialog();

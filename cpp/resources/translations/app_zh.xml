@@ -4159,6 +4159,14 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>保留的最大项目数（0 = 无限制）</translation>
     </message>
     <message>
+        <source>Record Content Marked Private</source>
+        <translation>记录标为隐私的内容</translation>
+    </message>
+    <message>
+        <source>Copies from private browser windows and password managers are skipped by default. When on, they are recorded too, passwords included, in plain text.</source>
+        <translation>浏览器无痕窗口和密码管理器复制的内容默认不记录。打开后也会记下，密码也会以明文存进历史。</translation>
+    </message>
+    <message>
         <source>Auto Cleanup Old Items</source>
         <translation>自动清理旧项目</translation>
     </message>

@@ -235,6 +235,7 @@ char *jb_clipboard_db_path(const JbClipboard *clipboard);
 char *jb_clipboard_images_dir(const JbClipboard *clipboard);
 void jb_clipboard_set_history_limit(const JbClipboard *clipboard, int64_t limit);
 int64_t jb_clipboard_history_limit(const JbClipboard *clipboard);
+void jb_clipboard_set_record_private(const JbClipboard *clipboard, bool on);
 bool jb_clipboard_start_monitor(const JbClipboard *clipboard, JbClipboardItemCallback callback, void *user, char *error, size_t error_len);
 void jb_clipboard_stop_monitor(const JbClipboard *clipboard);
 bool jb_clipboard_is_monitoring(const JbClipboard *clipboard);

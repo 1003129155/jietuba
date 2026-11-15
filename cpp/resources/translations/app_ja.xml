@@ -4187,6 +4187,14 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>保持する最大履歴数（0 = 無制限）</translation>
     </message>
     <message>
+        <source>Record Content Marked Private</source>
+        <translation>プライベート指定の内容も記録</translation>
+    </message>
+    <message>
+        <source>Copies from private browser windows and password managers are skipped by default. When on, they are recorded too, passwords included, in plain text.</source>
+        <translation>ブラウザーのプライベートウィンドウやパスワード管理ソフトでコピーした内容は、既定では記録しません。オンにすると記録し、パスワードも平文のまま履歴に保存されます。</translation>
+    </message>
+    <message>
         <source>Auto Cleanup Old Items</source>
         <translation>古いアイテムを自動削除</translation>
     </message>

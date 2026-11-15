@@ -471,7 +471,7 @@ const std::set<QString> CLIPBOARD_BEHAVIOR_KEYS = {
     "clipboard_open_position", "clipboard_group_bar_position", "clipboard_preserve_search", "clipboard_show_metadata",
     "clipboard_display_lines", "clipboard_image_size", "clipboard_hide_grouped_in_history", "clipboard_auto_paste",
     "clipboard_close_after_paste", "clipboard_move_to_top_on_paste", "clipboard_paste_with_html", "clipboard_multi_paste_order",
-    "clipboard_multi_paste_keep_merged",
+    "clipboard_multi_paste_keep_merged", "clipboard_record_private",
 };
 
 QString clipboard_separator_value(const SettingsDialog *dialog) {
@@ -508,6 +508,10 @@ QWidget *create_clipboard_page(SettingsDialog *dialog) {
     enabled_card->setChecked(dialog->config_manager->get_clipboard_enabled());
     dialog->set_attr("clipboard_enabled_toggle", enabled_card);
     grp_basic->addSettingCard(enabled_card);
+    add_switch_card(dialog, grp_basic, FluentIcon::Hide, "Record Content Marked Private",
+                    "Copies from private browser windows and password managers are skipped by default. When on, they are recorded too, "
+                    "passwords included, in plain text.",
+                    "clipboard_record_private");
 
     auto *position_card = new SettingCard(FluentIcon::Layout, dialog->tr_text("Window Position"), dialog->tr_text("Where the clipboard window appears when it opens"), grp_basic);
     auto *position_combo = new ComboBox(position_card);

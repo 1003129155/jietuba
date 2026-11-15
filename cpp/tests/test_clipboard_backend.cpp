@@ -71,7 +71,8 @@ QSize system_clipboard_image_size() {
 }
 
 // Writes text with the color picker's marker format, as the picker does through Qt.
-bool write_marked_color(const QString &text) {
+// Text plus one more format holding size bytes of data.
+bool write_text_with_format(const QString &text, const char *format, const void *data, size_t size) {
     if (!OpenClipboard(nullptr)) return false;
     EmptyClipboard();
     const std::wstring wide = text.toStdWString();
@@ -82,9 +83,17 @@ bool write_marked_color(const QString &text) {
         SetClipboardData(format, handle);
     };
     put(CF_UNICODETEXT, wide.c_str(), (wide.size() + 1) * sizeof(wchar_t));
-    put(RegisterClipboardFormatA(jb_clipboard_color_marker_format()), "1", 1);
+    put(RegisterClipboardFormatA(format), data, size);
     CloseClipboard();
     return true;
+}
+
+bool write_marked_color(const QString &text) { return write_text_with_format(text, jb_clipboard_color_marker_format(), "1", 1); }
+
+// The formats Windows defines for keeping a copy out of clipboard history, as private browser windows
+// (CanIncludeInClipboardHistory = 0) and password managers write them.
+bool write_history_marked_text(const QString &text, const char *format, quint32 value = 0) {
+    return write_text_with_format(text, format, &value, sizeof value);
 }
 
 QStringList system_clipboard_files() {
@@ -369,11 +378,46 @@ private slots:
     void theHistoryLimitTrimsOldItems() {
         add_texts({"1", "2", "3", "4", "5"});
         env_.config->set_clipboard_history_limit(2);
-        manager().apply_history_limit();
+        manager().apply_settings();
         QVERIFY(manager().get_total_count() <= 2);
         QCOMPARE(manager().get_history().first().content, QString("5"));
         env_.config->set_clipboard_history_limit(1000);
-        manager().apply_history_limit();
+        manager().apply_settings();
+    }
+
+    void theWatcherSkipsCopiesMarkedPrivateUnlessTheSettingAllowsThem() {
+        const auto restore = qScopeGuard([this] {
+            env_.config->set_clipboard_record_private(false);
+            manager().apply_settings();
+        });
+        const auto recorded = [](const QString &text) {
+            return find_item("text", [&text](const ClipboardItem &item) { return item.content == text; }).has_value();
+        };
+        // A plain copy after the marked one, past the watcher's settle time so the marked one is read
+        // first; once the plain one is recorded, the marked one has been handled.
+        const auto then_copy_plain = [&](bool copied, const QString &plain) {
+            QTest::qWait(600);
+            return copied && ClipboardManager::set_clipboard_text(plain) && QTest::qWaitFor([&] { return recorded(plain); }, 10000);
+        };
+        const char *private_formats[] = {"CanIncludeInClipboardHistory", "ExcludeClipboardContentFromMonitorProcessing", "Clipboard Viewer Ignore"};
+        QVERIFY(!env_.config->get_clipboard_record_private());
+        start_watching();
+        for (const char *format : private_formats) {
+            const QString text = QString("private: %1").arg(format);
+            QVERIFY2(then_copy_plain(write_history_marked_text(text, format), QString("after %1").arg(format)), format);
+            QVERIFY2(!recorded(text), format);
+        }
+        // CanIncludeInClipboardHistory = 1 allows history.
+        QVERIFY(then_copy_plain(write_history_marked_text("history allowed", "CanIncludeInClipboardHistory", 1), "after allowed"));
+        QVERIFY(recorded("history allowed"));
+
+        env_.config->set_clipboard_record_private(true);
+        manager().apply_settings();
+        for (const char *format : private_formats) {
+            const QString text = QString("private: %1").arg(format);
+            QVERIFY(write_history_marked_text(text, format));
+            QTRY_VERIFY2_WITH_TIMEOUT(recorded(text), format, 10000);
+        }
     }
 
     void theWatcherRecordsCopiedTextImagesAndFiles() {

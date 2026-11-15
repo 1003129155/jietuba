@@ -77,8 +77,7 @@ ClipboardManager::ClipboardManager() {
     }
     set_backend(std::move(backend));
     log_info(T("管理器初始化成功"), "Clipboard");
-    // The history limit (the backend trims).
-    apply_history_limit();
+    apply_settings();
 }
 
 std::shared_ptr<JbClipboard> ClipboardManager::backend() const {
@@ -126,7 +125,7 @@ bool ClipboardManager::reset_storage(const QString &db_path) {
         return false;
     }
     set_backend(std::move(backend));
-    apply_history_limit();
+    apply_settings();
     if (was_monitoring) {
         Callback callback;
         {
@@ -158,12 +157,13 @@ std::optional<QString> ClipboardManager::get_images_dir() const {
 
 qint64 ClipboardManager::history_limit() const { return get_tool_settings_manager()->get_clipboard_history_limit(); }
 
-void ClipboardManager::apply_history_limit() {
+void ClipboardManager::apply_settings() {
     const auto backend = this->backend();
     if (!backend) return;
     const qint64 limit = history_limit();
     jb_clipboard_set_history_limit(backend.get(), limit);
     log_info(T("历史限制设置为: {limit}", {{"limit", limit}}), "Clipboard");
+    jb_clipboard_set_record_private(backend.get(), get_tool_settings_manager()->get_clipboard_record_private());
 }
 
 void ClipboardManager::on_native_item(const char *item_json, void *user) {

@@ -1430,19 +1430,25 @@ private slots:
         auto *bar = qobject_cast<QComboBox *>(dialog.behavior_control("clipboard_group_bar_position"));
         auto *hide = qobject_cast<SwitchSettingCard *>(dialog.behavior_control("clipboard_hide_grouped_in_history"));
         auto *auto_paste = qobject_cast<SwitchSettingCard *>(dialog.behavior_control("clipboard_auto_paste"));
+        auto *record_private = qobject_cast<SwitchSettingCard *>(dialog.behavior_control("clipboard_record_private"));
         auto *separator = dialog.attr<QComboBox>("clipboard_separator_combo");
         auto *custom = dialog.attr<QLineEdit>("clipboard_separator_edit");
-        QVERIFY(lines && bar && hide && auto_paste && separator && custom);
+        QVERIFY(lines && bar && hide && auto_paste && record_private && separator && custom);
         QCOMPARE(lines->count(), 5);
+        // In the first group beside the monitoring switch, where it is seen without scrolling.
+        QCOMPARE(record_private->parentWidget(), dialog.attr_widget("clipboard_enabled_toggle")->parentWidget());
+        QVERIFY(!record_private->isChecked());
         lines->setCurrentIndex(lines->findData(3));
         bar->setCurrentIndex(bar->findData(QString("left")));
         hide->setChecked(true);
         auto_paste->setChecked(false);
+        record_private->setChecked(true);
         QVERIFY(dialog.apply_settings());
         QCOMPARE(config_->get_clipboard_display_lines(), 3);
         QCOMPARE(config_->get_clipboard_group_bar_position(), QString("left"));
         QVERIFY(config_->get_clipboard_hide_grouped_in_history());
         QVERIFY(!config_->get_clipboard_auto_paste());
+        QVERIFY(config_->get_clipboard_record_private());
         QVERIFY(dialog.saved_keys().contains("clipboard_display_lines"));
 
         // A separator outside the presets is typed beside Custom, \n for a line break.
@@ -1472,12 +1478,14 @@ private slots:
         QCOMPARE(bar->currentData().toString(), QString("top"));
         QVERIFY(!hide->isChecked());
         QVERIFY(auto_paste->isChecked());
+        QVERIFY(!record_private->isChecked());
         QCOMPARE(separator->currentData().toString(), QString("\n"));
         QVERIFY(dialog.apply_settings());
         QCOMPARE(config_->get_clipboard_display_lines(), 1);
         QCOMPARE(config_->get_clipboard_image_size(), QString("small"));
         QCOMPARE(config_->get_clipboard_multi_paste_separator(), QString("\n"));
         QVERIFY(!config_->get_clipboard_hide_grouped_in_history());
+        QVERIFY(!config_->get_clipboard_record_private());
         dialog.hide();
     }
 
