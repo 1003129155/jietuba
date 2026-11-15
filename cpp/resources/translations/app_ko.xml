@@ -1676,6 +1676,10 @@ Replace it?</source>
         <source>Long Screenshot Shortcuts</source>
         <translation>스크롤 캡처 단축키</translation>
     </message>
+    <message>
+        <source>Scan QR code / barcode</source>
+        <translation>코드 스캔 (QR 코드 / 바코드)</translation>
+    </message>
 </context>
 
 <context>
@@ -7485,4 +7489,12 @@ Replace it?</source>
         <translation>복사한 파일과 폴더. 아이콘, 이름, 크기를 표시합니다.</translation>
     </message>
 </context>
+  <context>
+    <name>ShortcutTabs</name>
+    <message><source>Screenshot</source><translation>캡처</translation></message>
+    <message><source>Long Screenshot</source><translation>스크롤 캡처</translation></message>
+    <message><source>Pin</source><translation>고정</translation></message>
+    <message><source>Clipboard</source><translation>클립보드</translation></message>
+    <message><source>Annotation Tools</source><translation>주석 도구</translation></message>
+  </context>
 </TS>

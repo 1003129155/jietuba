@@ -1103,6 +1103,35 @@ private slots:
         QVERIFY(empty.get_mouse_long_pin().isEmpty());
     }
 
+    void scanActionIsTranslatedInSettings() {
+        const auto language = I18nManager::get_current_language();
+        const auto restore = qScopeGuard([&] { I18nManager::load_language(language); });
+        for (const auto *code : {"zh", "zh_TW", "ja", "ko"}) {
+            QVERIFY(I18nManager::load_language(code));
+            const auto label = settings_tr("Scan QR code / barcode");
+            QVERIFY(label != QString("Scan QR code / barcode"));
+            QVERIFY(!label.isEmpty());
+        }
+    }
+
+    void shortcutTabTranslationsHaveExpectedText() {
+        const auto language = I18nManager::get_current_language();
+        const auto restore = qScopeGuard([&] { I18nManager::load_language(language); });
+        const QMap<QString, QStringList> expected{
+            {"zh", {QString::fromUtf8("截图"), QString::fromUtf8("长截图"), QString::fromUtf8("钉图"), QString::fromUtf8("剪贴板"), QString::fromUtf8("标注工具")}},
+            {"zh_TW", {QString::fromUtf8("截圖"), QString::fromUtf8("長截圖"), QString::fromUtf8("釘圖"), QString::fromUtf8("剪貼簿"), QString::fromUtf8("標註工具")}},
+            {"en", {"Screenshot", "Long Screenshot", "Pin", "Clipboard", "Annotation Tools"}},
+            {"ja", {QString::fromUtf8("スクショ"), QString::fromUtf8("長いスクショ"), QString::fromUtf8("ピン留め"), QString::fromUtf8("クリップボード"), QString::fromUtf8("注釈ツール")}},
+            {"ko", {QString::fromUtf8("캡처"), QString::fromUtf8("스크롤 캡처"), QString::fromUtf8("고정"), QString::fromUtf8("클립보드"), QString::fromUtf8("주석 도구")}},
+        };
+        const QStringList sources{"Screenshot", "Long Screenshot", "Pin", "Clipboard", "Annotation Tools"};
+        for (auto it = expected.cbegin(); it != expected.cend(); ++it) {
+            QVERIFY(I18nManager::load_language(it.key()));
+            for (int i = 0; i < sources.size(); ++i)
+                QCOMPARE(i18n_tr(sources[i], "ShortcutTabs"), it.value()[i]);
+        }
+    }
+
     void longScreenshotMousePageFitsEveryLanguage() {
         if (QGuiApplication::platformName() != "windows") QSKIP("needs desktop fonts");
         const auto language = I18nManager::get_current_language();
@@ -1128,6 +1157,28 @@ private slots:
                     .arg(dialog.mouse_inapp_tabs->width()).arg(dialog.mouse_inapp_tabs->minimumSizeHint().width()).arg(scroll->horizontalScrollBar()->maximum());
                 QVERIFY2(scroll->horizontalScrollBar()->maximum() == 0, qPrintable(where));
                 QVERIFY2(dialog.mouse_inapp_tabs->width() >= dialog.mouse_inapp_tabs->minimumSizeHint().width(), qPrintable(where));
+                dialog.on_nav_changed(0, "hotkey");
+                QApplication::processEvents();
+                if (!shots.isEmpty() && percent == 100)
+                    QVERIFY(dialog.grab().save(QDir(shots).filePath(QString("keyboard_%1.png").arg(code))));
+                auto *keyboard_scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+                QVERIFY(keyboard_scroll);
+                const auto *keyboard_tabs = dialog.inapp_shortcut_tabs.data();
+                const int tabs_right = keyboard_tabs->mapTo(keyboard_scroll->viewport(), QPoint(keyboard_tabs->width(), 0)).x();
+                QVERIFY2(tabs_right <= keyboard_scroll->viewport()->width(), qPrintable(where));
+                for (auto *tabs : {dialog.mouse_inapp_tabs.data(), dialog.inapp_shortcut_tabs.data()}) {
+                    QCOMPARE(tabs->itemText("screenshot"), i18n_tr("Screenshot", "ShortcutTabs"));
+                    QCOMPARE(tabs->itemText("pin"), i18n_tr("Pin", "ShortcutTabs"));
+                    QCOMPARE(tabs->itemText("clipboard"), i18n_tr("Clipboard", "ShortcutTabs"));
+                    for (auto *button : tabs->findChildren<QPushButton *>()) {
+                        QVERIFY2(button->width() >= button->sizeHint().width(), qPrintable(where));
+                        QVERIFY2(button->height() >= dialog_scaled(30), qPrintable(where));
+                        QVERIFY2(button->font().pixelSize() >= dialog_scaled(14), qPrintable(where));
+                    }
+                }
+                QCOMPARE(dialog.mouse_inapp_tabs->itemText("long_screenshot"), i18n_tr("Long Screenshot", "ShortcutTabs"));
+                dialog.on_nav_changed(10, "mouse");
+                QApplication::processEvents();
                 for (const auto &action : LONG_SCREENSHOT_MOUSE_ACTIONS()) {
                     auto *edit = dialog.behavior_control(QString("mouse_long_") + action.key);
                     QVERIFY(edit && edit->isVisible());
@@ -1540,11 +1591,11 @@ private slots:
         dialog.on_nav_changed(4, "translation");
         auto *label = dialog.attr<QLabel>("translation_notice_label");
         // Shown as soon as the page is built, before the background read returns.
-        QVERIFY2(label->text().contains(": 500 / "), qPrintable(label->text()));
+        QVERIFY2(label->text().contains("500 / "), qPrintable(label->text()));
         dialog.hide();
         config_->add_translation_usage_chars("tencent", 1000);
         dialog.show();
-        QTRY_VERIFY(label->text().contains(": 1,500 / "));
+        QTRY_VERIFY(label->text().contains("1,500 / "));
     }
 
     void wizardNavigatesAcrossEveryPage() {
@@ -2880,7 +2931,7 @@ private slots:
         QTRY_VERIFY(box->results_visible() && !box->results().empty());
         const auto result = box->results().front();
         QCOMPARE(result.title, lock);
-        QCOMPARE(result.path, (QStringList{settings_tr("Shortcuts"), settings_tr("In-App Shortcuts"), settings_tr("Pin Shortcuts")}.join(" / ")));
+        QCOMPARE(result.path, (QStringList{settings_tr("Shortcuts"), settings_tr("In-App Shortcuts"), i18n_tr("Pin", "ShortcutTabs")}.join(" / ")));
         QPointer<QWidget> target = result.target;
         QVERIFY(target && !target->isVisible());
         QTest::keyClick(box->edit(), Qt::Key_Return);

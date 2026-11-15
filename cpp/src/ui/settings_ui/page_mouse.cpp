@@ -1,3 +1,4 @@
+#include "core/i18n.h"
 #include "core/resource_manager.h"
 #include "core/shortcut_manager.h"
 #include "core/ui_scale.h"
@@ -143,9 +144,8 @@ QWidget *create_inapp_section(SettingsDialog *dialog, QWidget *parent) {
     auto *group = new SectionCard(FluentIcon::Layout, dialog->tr_text("In-App Mouse Shortcuts"), dialog->tr_text("Only in the corresponding window"), parent);
 
     auto *tab_switch = new SegmentedWidget(group);
-    // Four full tab names share one row; only the button padding is tightened.
-    tab_switch->setCompact(true, 5);
-    tab_switch->setFixedHeight(dialog_scaled(34));
+    tab_switch->setLarge(true);
+    tab_switch->setFixedHeight(dialog_scaled(44));
     tab_switch->setIndicatorColor(ACCENT, ACCENT);
 
     auto *stack = new QStackedWidget(group);
@@ -160,11 +160,11 @@ QWidget *create_inapp_section(SettingsDialog *dialog, QWidget *parent) {
         QString (*getter)(const ToolSettingsManager *, const QString &);
     };
     std::vector<Tab> tabs{
-        {"screenshot", "Screenshot Shortcuts", CAPTURE_MOUSE_ACTIONS(), "mouse_capture_", capture_mouse_icon, get_capture_mouse_binding},
-        {"long_screenshot", "Long Screenshot Shortcuts", LONG_SCREENSHOT_MOUSE_ACTIONS(), "mouse_long_", capture_mouse_icon, get_long_screenshot_mouse_binding},
-        {"pin", "Pin Shortcuts", PIN_MOUSE_ACTIONS(), "mouse_pin_", pin_mouse_icon, get_pin_mouse_binding},
+        {"screenshot", "Screenshot", CAPTURE_MOUSE_ACTIONS(), "mouse_capture_", capture_mouse_icon, get_capture_mouse_binding},
+        {"long_screenshot", "Long Screenshot", LONG_SCREENSHOT_MOUSE_ACTIONS(), "mouse_long_", capture_mouse_icon, get_long_screenshot_mouse_binding},
+        {"pin", "Pin", PIN_MOUSE_ACTIONS(), "mouse_pin_", pin_mouse_icon, get_pin_mouse_binding},
     };
-    tabs.push_back({"clipboard", "Clipboard Shortcuts", CLIPBOARD_MOUSE_ACTIONS(), "mouse_clipboard_", clipboard_mouse_icon, get_clipboard_mouse_binding});
+    tabs.push_back({"clipboard", "Clipboard", CLIPBOARD_MOUSE_ACTIONS(), "mouse_clipboard_", clipboard_mouse_icon, get_clipboard_mouse_binding});
     QStringList routes;
     for (const auto &tab : tabs) {
         routes.append(tab.route);
@@ -175,7 +175,7 @@ QWidget *create_inapp_section(SettingsDialog *dialog, QWidget *parent) {
             rows->layout()->addWidget(hint);
         }
         stack->addWidget(rows);
-        tab_switch->addItem(tab.route, dialog->tr_text(tab.title));
+        tab_switch->addItem(tab.route, i18n_tr(tab.title, "ShortcutTabs"));
     }
     link_tabs(tab_switch, stack, routes);
     tab_switch->setCurrentItem("screenshot");

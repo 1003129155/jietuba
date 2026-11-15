@@ -1699,6 +1699,10 @@ Replace it?</source>
         <source>Long Screenshot Shortcuts</source>
         <translation>スクロール撮影操作</translation>
     </message>
+    <message>
+        <source>Scan QR code / barcode</source>
+        <translation>コードをスキャン（QR コード / バーコード）</translation>
+    </message>
 </context>
 
 <context>
@@ -7494,4 +7498,12 @@ Replace it?</source>
         <translation>コピーしたファイルとフォルダー。アイコン、名前、サイズを表示します。</translation>
     </message>
 </context>
+  <context>
+    <name>ShortcutTabs</name>
+    <message><source>Screenshot</source><translation>スクショ</translation></message>
+    <message><source>Long Screenshot</source><translation>長いスクショ</translation></message>
+    <message><source>Pin</source><translation>ピン留め</translation></message>
+    <message><source>Clipboard</source><translation>クリップボード</translation></message>
+    <message><source>Annotation Tools</source><translation>注釈ツール</translation></message>
+  </context>
 </TS>

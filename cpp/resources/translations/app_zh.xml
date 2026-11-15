@@ -1657,6 +1657,10 @@ Replace it?</source>
         <source>Long Screenshot Shortcuts</source>
         <translation>长截图快捷键</translation>
     </message>
+    <message>
+        <source>Scan QR code / barcode</source>
+        <translation>扫码（二维码 / 条形码）</translation>
+    </message>
 </context>
 
 <context>
@@ -7484,4 +7488,12 @@ Replace it?</source>
         <translation>复制的文件和文件夹，显示图标、名称和大小。</translation>
     </message>
 </context>
+  <context>
+    <name>ShortcutTabs</name>
+    <message><source>Screenshot</source><translation>截图</translation></message>
+    <message><source>Long Screenshot</source><translation>长截图</translation></message>
+    <message><source>Pin</source><translation>钉图</translation></message>
+    <message><source>Clipboard</source><translation>剪贴板</translation></message>
+    <message><source>Annotation Tools</source><translation>标注工具</translation></message>
+  </context>
 </TS>

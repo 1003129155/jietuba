@@ -1637,6 +1637,10 @@ Replace it?</translation>
         <source>Long Screenshot Shortcuts</source>
         <translation>Long Screenshot Shortcuts</translation>
     </message>
+    <message>
+        <source>Scan QR code / barcode</source>
+        <translation>Scan QR code / barcode</translation>
+    </message>
 </context>
 
 <context>
@@ -7432,4 +7436,12 @@ Replace it?</translation>
         <translation>Copied files and folders, shown with their icons, names and sizes.</translation>
     </message>
 </context>
+  <context>
+    <name>ShortcutTabs</name>
+    <message><source>Screenshot</source><translation>Screenshot</translation></message>
+    <message><source>Long Screenshot</source><translation>Long Screenshot</translation></message>
+    <message><source>Pin</source><translation>Pin</translation></message>
+    <message><source>Clipboard</source><translation>Clipboard</translation></message>
+    <message><source>Annotation Tools</source><translation>Annotation Tools</translation></message>
+  </context>
 </TS>
