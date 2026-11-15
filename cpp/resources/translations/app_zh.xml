@@ -2348,6 +2348,10 @@ Replace it?</source>
         <translation>延时截图</translation>
     </message>
     <message>
+        <source>Screen Recording</source>
+        <translation>录屏</translation>
+    </message>
+    <message>
         <source>Clipboard</source>
         <translation>剪贴板</translation>
     </message>

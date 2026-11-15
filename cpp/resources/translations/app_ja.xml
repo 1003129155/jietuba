@@ -2391,6 +2391,10 @@ Replace it?</source>
         <translation>遅延スクリーンショット</translation>
     </message>
     <message>
+        <source>Screen Recording</source>
+        <translation>画面録画</translation>
+    </message>
+    <message>
         <source>Clipboard</source>
         <translation>クリップボード</translation>
     </message>

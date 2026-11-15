@@ -2344,6 +2344,10 @@ Replace it?</source>
         <translation>延時截圖</translation>
     </message>
     <message>
+        <source>Screen Recording</source>
+        <translation>螢幕錄影</translation>
+    </message>
+    <message>
         <source>Clipboard</source>
         <translation>剪貼簿</translation>
     </message>

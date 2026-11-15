@@ -138,6 +138,10 @@ QMenu *create_tray_menu(MainApp *app) {
     QObject::connect(action_delayed_screenshot, &QAction::triggered, app, &MainApp::start_delayed_screenshot);
     menu->addAction(action_delayed_screenshot);
 
+    auto *action_recording = new QAction(tr_text("Screen Recording"), menu);
+    QObject::connect(action_recording, &QAction::triggered, app, &MainApp::start_screen_recording);
+    menu->addAction(action_recording);
+
     auto *action_clipboard = new QAction(with_hotkey(app, tr_text("Clipboard"), "clipboard"), menu);
     QObject::connect(action_clipboard, &QAction::triggered, app, &MainApp::open_clipboard_window);
     menu->addAction(action_clipboard);

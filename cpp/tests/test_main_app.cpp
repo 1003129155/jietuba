@@ -14,6 +14,7 @@
 #include "core/logger.h"
 #include "core/shortcut_manager.h"
 #include "core/ui_scale.h"
+#include "gif/record_window.h"
 #include "main_app.h"
 #include "pin/pin_manager.h"
 #include "pin/pin_window.h"
@@ -23,6 +24,7 @@
 #include "ui/screenshot_countdown.h"
 #include "ui/screenshot_window.h"
 #include "ui/settings_ui/dialog.h"
+#include "ui/toolbar.h"
 #include "ui/welcome/wizard.h"
 #include <QClipboard>
 #include <QCursor>
@@ -817,6 +819,40 @@ private slots:
         modal.setModal(true);
         modal.exec();
         QVERIFY(!captured_while_modal);
+    }
+
+    // The tray's recording entry captures, and the selection opens the recording window; the next
+    // ordinary capture keeps its toolbar.
+    void theTrayRecordingEntrySelectsTheRegionToRecord() {
+        main_app_->setup_tray();
+        const auto saved_format = main_app_->config_manager->get_recording_format();
+        main_app_->config_manager->set_recording_format("mp4");
+        QPointer<GifRecordWindow> recording;
+        const auto restore = qScopeGuard([&] {
+            main_app_->config_manager->set_recording_format(saved_format);
+            if (recording) recording->close_all();
+        });
+        QAction *recording_action = nullptr;
+        for (auto *action : main_app_->tray_icon->contextMenu()->actions())
+            if (action->text() == i18n_tr("Screen Recording", "SystemTray")) recording_action = action;
+        QVERIFY(recording_action);
+        recording_action->trigger();
+        QTRY_VERIFY(main_app_->screenshot_window && main_app_->screenshot_window->session_active());
+        QPointer<ScreenshotWindow> window = main_app_->screenshot_window.data();
+        window->scene->preset_selection(QRectF(100, 100, 240, 160));
+        QTRY_VERIFY(!window || !window->session_active());
+        recording = active_gif_window();
+        QVERIFY(recording);
+        recording->close_all();
+        QTRY_VERIFY(!recording);
+
+        main_app_->start_screenshot();
+        QTRY_VERIFY(main_app_->screenshot_window && main_app_->screenshot_window->session_active());
+        main_app_->screenshot_window->scene->preset_selection(QRectF(100, 100, 240, 160));
+        QApplication::processEvents();
+        QVERIFY(main_app_->screenshot_window->session_active());
+        QVERIFY(main_app_->screenshot_window->toolbar->isVisible());
+        QVERIFY(active_gif_window().isNull());
     }
 
     // The welcome wizard runs with every hotkey released, and they come back afterwards.

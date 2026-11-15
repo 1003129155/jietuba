@@ -591,6 +591,14 @@ void ScreenshotWindow::on_selection_dragging_changed(bool is_dragging) {
 
 void ScreenshotWindow::on_selection_confirmed() {
     if (is_closing) return;
+    if (record_after_selection_) {
+        // Queued: leaving the capture releases the scene that is still emitting this signal.
+        if (scene->selection_model->is_confirmed())
+            QTimer::singleShot(0, this, [this] {
+                if (!is_closing) start_gif_record_mode();
+            });
+        return;
+    }
     toolbar->show();
     // Raised only, not activated.
     toolbar->raise();

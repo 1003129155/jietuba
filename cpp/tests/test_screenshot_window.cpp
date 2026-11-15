@@ -26,6 +26,9 @@
 #include "annotation/screen_annotation.h"
 #include "annotation/annotation_view.h"
 #include "gif/drawing_view.h"
+#include "gif/overlay.h"
+#include "gif/record_toolbar.h"
+#include "gif/record_window.h"
 #include "ui/screenshot_window.h"
 #include "ui/selection_info/panel.h"
 #include "ui/selection_info/border_shadow.h"
@@ -66,6 +69,7 @@
 #include <QMouseEvent>
 #include <QPushButton>
 #include <QScreen>
+#include <QScopeGuard>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QTemporaryDir>
@@ -263,6 +267,34 @@ private slots:
         // The toolbar sits below the selection, or above it when there is no room.
         const auto bar = window->toolbar->geometry();
         QVERIFY2(bar.top() >= 190 || bar.bottom() <= 40, qPrintable(QString("%1,%2 %3x%4").arg(bar.x()).arg(bar.y()).arg(bar.width()).arg(bar.height())));
+    }
+
+    // The tray's recording entry: the selection opens the recording window over that region, with
+    // no capture toolbar in between. A click that selects nothing keeps the capture open.
+    void aRecordingCaptureOpensTheRecordingWindowOnceSelected() {
+        config_->set_recording_format("mp4");
+        auto *window = open();
+        window->set_record_after_selection(true);
+        click(window, Qt::LeftButton, QPoint(80, 80));
+        QApplication::processEvents();
+        QVERIFY(!window->scene->selection_model->is_confirmed());
+        QVERIFY(window->session_active());
+        QVERIFY(active_gif_window().isNull());
+
+        drag(window, QPoint(50, 40), QPoint(250, 190));
+        QVERIFY(!window->toolbar->isVisible());
+        QTRY_VERIFY(!window->session_active());
+        QPointer<GifRecordWindow> recording = active_gif_window();
+        QVERIFY(recording);
+        const auto cleanup_recording = qScopeGuard([&] {
+            if (recording) recording->close_all();
+        });
+        auto *overlay = visible_window<CaptureOverlay>();
+        QVERIFY(overlay);
+        QCOMPARE(overlay->capture_rect(), QRect(50, 40, 200, 150));
+        QVERIFY(visible_window<RecordToolbar>());
+        recording->close_all();
+        QTRY_VERIFY(!recording);
     }
 
     void escEndsTheSessionAndDeletesTheWindow() {

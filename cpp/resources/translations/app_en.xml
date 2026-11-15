@@ -2327,6 +2327,10 @@ Replace it?</translation>
         <translation>Delayed Screenshot</translation>
     </message>
     <message>
+        <source>Screen Recording</source>
+        <translation>Screen Recording</translation>
+    </message>
+    <message>
         <source>Clipboard</source>
         <translation>Clipboard</translation>
     </message>

@@ -380,7 +380,11 @@ void MainApp::start_delayed_screenshot() {
     request_screenshot(true);
 }
 
-void MainApp::request_screenshot(bool delayed) {
+void MainApp::start_screen_recording() {
+    request_screenshot(false, true);
+}
+
+void MainApp::request_screenshot(bool delayed, bool record) {
     if (update_preparing || quick_capture->busy()) return;
 
     // An active session: ignore the repeat and give focus back to the capture window.
@@ -417,6 +421,7 @@ void MainApp::request_screenshot(bool delayed) {
     // unless kept open after pasting; kept open, it stays below the capture.
     // One event loop later, so windows just closed have left the screen.
     capture_pending_ = true;
+    record_pending_ = record;
     quick_capture->set_capture_pending(true);
     if (delayed) {
         auto *screen = QGuiApplication::screenAt(QCursor::pos());
@@ -454,6 +459,7 @@ void MainApp::capture_and_prepare_window() {
     capture_pending_ = false;
     quick_capture->set_capture_pending(false);
     on_capture_ready(image, rect, cursor);
+    if (record_pending_ && screenshot_window && screenshot_window->session_active()) screenshot_window->set_record_after_selection(true);
 }
 
 void MainApp::on_capture_ready(const QImage &image, const QRectF &rect, std::shared_ptr<SystemCursor> cursor) {

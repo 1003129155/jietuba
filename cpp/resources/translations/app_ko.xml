@@ -2366,6 +2366,10 @@ Replace it?</source>
         <translation>지연 스크린샷</translation>
     </message>
     <message>
+        <source>Screen Recording</source>
+        <translation>화면 녹화</translation>
+    </message>
+    <message>
         <source>Clipboard</source>
         <translation>클립보드</translation>
     </message>
