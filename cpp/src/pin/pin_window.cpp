@@ -10,6 +10,7 @@
 #include "core/platform_utils.h"
 #include "core/qt_utils.h"
 #include "core/save.h"
+#include "core/file_names.h"
 #include "core/shortcut_manager.h"
 #include "core/theme.h"
 #include "core/ui_scale.h"
@@ -1440,7 +1441,7 @@ void PinWindow::save_image() {
         if (use_modern_save_dialog(config_manager)) {
             QImage image;
             with_edit_paused([this, &image] { image = get_current_image(); });
-            const auto base_name = QString("pinned_%1").arg(QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss"));
+            const auto base_name = file_names::stem(*(config_manager ? config_manager : get_tool_settings_manager()), file_names::Pin);
             const auto [outcome, path] = SaveImageDialog::run(this, image, base_name, config_manager);
             if (outcome == SaveImageDialog::Outcome::SAVED) log_info(T("保存成功: {file_path}", {{"file_path", path}}), "PinWindow");
             if (outcome != SaveImageDialog::Outcome::CLASSIC) return;
@@ -1451,7 +1452,7 @@ void PinWindow::save_image() {
 
 void PinWindow::save_image_with_system_dialog() {
     const auto fmt = (config_manager ? config_manager->get_screenshot_format() : QString("PNG")).toLower();
-    const auto default_name = QString("pinned_%1.%2").arg(QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss"), fmt);
+    const auto default_name = file_names::stem(*(config_manager ? config_manager : get_tool_settings_manager()), file_names::Pin) + "." + fmt;
     const SaveService save_service(config_manager ? *config_manager : *get_tool_settings_manager());
     auto [file_path, selected_filter] = get_save_file_name(this, pin_tr("Save Pin Image"), save_service.suggest_path(default_name), "PNG (*.png);;JPG (*.jpg);;BMP (*.bmp);;WebP (*.webp);;PDF (*.pdf)");
     if (file_path.isEmpty()) return;
@@ -1478,7 +1479,7 @@ void PinWindow::save_animation() {
     const auto &source = animation_->source();
     const auto suffix = QString::fromLatin1(source.format).toLower();
     auto name = QFileInfo(source.file_path).fileName();
-    if (name.isEmpty()) name = QString("pinned_%1.%2").arg(QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss"), suffix);
+    if (name.isEmpty()) name = file_names::stem(*(config_manager ? config_manager : get_tool_settings_manager()), file_names::Pin) + "." + suffix;
     const SaveService save_service(config_manager ? *config_manager : *get_tool_settings_manager());
     auto [file_path, selected_filter] =
         get_save_file_name(this, pin_tr("Save Animation"), save_service.suggest_path(name), QString("%1 (*.%2)").arg(suffix.toUpper(), suffix));
@@ -1556,7 +1557,7 @@ void PinWindow::copy_all_text() {
 PinWindow::DragOut PinWindow::prepare_drag_out(const QPoint &global_pos) {
     DragOut drag;
     auto &content = drag.content;
-    const QString base_name = QString("pinned_%1").arg(QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss"));
+    const QString base_name = file_names::stem(*(config_manager ? config_manager : get_tool_settings_manager()), file_names::Pin);
     QRectF shown;
     auto *selection = text_selection();
     if (file_card_) {

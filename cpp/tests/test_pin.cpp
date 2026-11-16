@@ -3134,6 +3134,24 @@ private slots:
         }
     }
 
+    // An engine that cannot load answers on the recognition thread; the waiting callbacks hear it could not start.
+    void anEngineThatCannotLoadAnswersThatRecognitionCouldNotStart() {
+        StandInEngine engine([](const QImage &) { return OcrResult{-1, "engine missing", {}, 0.0, "failed"}; });
+        auto *pin = make_pin();
+        bool answered = false, succeeded = true;
+        QString text;
+        QVERIFY(pin->ocr_manager()->recognize_then([&](bool success, const QString &result) {
+            answered = true;
+            succeeded = success;
+            text = result;
+        }));
+        QTRY_VERIFY_WITH_TIMEOUT(answered, 10000);
+        QVERIFY(!succeeded);
+        QCOMPARE(text, QString("OCR recognition could not be started"));
+        QTRY_VERIFY(!pin->ocr_manager()->is_running());
+        QVERIFY(!pin->ocr_has_result());
+    }
+
     // Copying all text recognizes first and then copies; with a result it copies at once. Translating
     // with a result sends that text to the translation window without recognizing again.
     void copyingAndTranslatingUseTheStandInResult() {

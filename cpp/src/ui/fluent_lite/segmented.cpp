@@ -18,9 +18,9 @@ struct Metrics {
     int font, pad_v, pad_h, inset;
     int radius() const { return pad_v + 5; }
 };
-Metrics metrics(bool large, bool compact) {
+Metrics metrics(bool large, bool compact, int compact_padding) {
     if (large) return {14, 7, 20, 3};
-    return compact ? Metrics{12, 2, 12, 2} : Metrics{12, 4, 14, 3};
+    return compact ? Metrics{12, 2, compact_padding, 2} : Metrics{12, 4, 14, 3};
 }
 }
 
@@ -32,7 +32,7 @@ SegmentedWidget::SegmentedWidget(QWidget *parent) : QWidget(parent), indicator_(
 
 QString SegmentedWidget::style() const {
     const auto &t = ui_tokens(this);
-    const auto m = metrics(large_, compact_);
+    const auto m = metrics(large_, compact_, compact_padding_);
     return QString(R"(
             QPushButton { padding: %1px %2px; color: %3; background: transparent;
                 border: none; border-radius: %4px; font: %5px %6; }
@@ -44,7 +44,7 @@ QString SegmentedWidget::style() const {
 
 void SegmentedWidget::_apply_theme() {
     const auto &t = ui_tokens(this);
-    const auto m = metrics(large_, compact_);
+    const auto m = metrics(large_, compact_, compact_padding_);
     const int inset = dialog_scaled(m.inset);
     layout_->setContentsMargins(inset, inset, inset, inset);
     layout_->setSpacing(inset);
@@ -69,15 +69,16 @@ void SegmentedWidget::setLarge(bool large) {
     refresh_items();
 }
 
-void SegmentedWidget::setCompact(bool compact) {
-    if (compact_ == compact) return;
+void SegmentedWidget::setCompact(bool compact, int horizontal_padding) {
+    if (compact_ == compact && compact_padding_ == horizontal_padding) return;
     compact_ = compact;
+    compact_padding_ = horizontal_padding;
     _apply_theme();
     refresh_items();
 }
 
 void SegmentedWidget::refresh_items() {
-    const auto m = metrics(large_, compact_);
+    const auto m = metrics(large_, compact_, compact_padding_);
     for (auto *button : items_) button->setMinimumWidth(bold_text_width(button->text(), m.font) + 2 * dialog_scaled(m.pad_h) + 2);
 }
 
@@ -90,7 +91,7 @@ void SegmentedWidget::insertItem(int index, const QString &route_key, const QStr
     button->setCheckable(true);
     apply_style_sheet(button, style());
     // The checked item is bold; measure it bold so the text is not clipped.
-    const auto m = metrics(large_, compact_);
+    const auto m = metrics(large_, compact_, compact_padding_);
     button->setMinimumWidth(bold_text_width(text, m.font) + 2 * dialog_scaled(m.pad_h) + 2);
     connect(button, &QPushButton::clicked, this, [this, route_key] { setCurrentItem(route_key); });
     if (on_click) connect(button, &QPushButton::clicked, this, [on_click] { on_click(); });

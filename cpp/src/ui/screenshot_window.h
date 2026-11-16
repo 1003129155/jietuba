@@ -79,6 +79,8 @@ public:
     std::optional<QString> matching_capture_mouse_action(QInputEvent *event, const QString &gesture) const;
     void start_gif_record_mode();
     void start_long_screenshot_mode();
+    // A confirmed selection goes straight to the recording window instead of the toolbar.
+    void set_record_after_selection(bool record) { record_after_selection_ = record; }
 
     // CanvasHost
     Toolbar *canvas_toolbar() const override { return toolbar; }
@@ -167,6 +169,7 @@ private:
     // Set by hand_over; deleted with the scene.
     QObject *handover_ = nullptr;
     bool fullscreen_crosshair_ = false;
+    bool record_after_selection_ = false;
     InitialSelectionGate *initial_selection_gate_ = nullptr;
     std::shared_ptr<SystemCursor> capture_cursor_;
     std::unique_ptr<ScreenshotShortcutHandler> shortcut_handler_;

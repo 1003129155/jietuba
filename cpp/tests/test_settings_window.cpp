@@ -1,4 +1,7 @@
 #include "core/data_location.h"
+#include "core/file_names.h"
+#include "core/save.h"
+#include "ui/settings_ui/file_name_dialog.h"
 #include "settings/data_folder.h"
 #include "core/elevation.h"
 #include "core/i18n.h"
@@ -45,6 +48,7 @@
 #include <QFile>
 #include <QGridLayout>
 #include <QKeyEvent>
+#include <QInputMethodEvent>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
@@ -552,9 +556,16 @@ private slots:
         QCOMPARE(combo->currentData().toString(), QString("ppocr_rust:ppocr-v5-korean"));
 
         combo->setCurrentIndex(combo->findData("ppocr_rust:local"));
+        emit combo->activated(combo->currentIndex());
         QVERIFY(dialog.apply_settings());
         QCOMPARE(config_->get_ocr_engine(), QString("ppocr_rust"));
         QCOMPARE(config_->get_ppocr_model(), QString("local"));
+        // "Download more models..." is current while the model manager is open; a save then keeps the chosen model.
+        combo->setCurrentIndex(combo->findData("manage_models"));
+        dialog.apply_settings();
+        QCOMPARE(config_->get_ocr_engine(), QString("ppocr_rust"));
+        QCOMPARE(config_->get_ppocr_model(), QString("local"));
+        combo->setCurrentIndex(combo->findData("ppocr_rust:local"));
 
         QVERIFY(QDir(root.filePath("local")).removeRecursively());
         emit model_downloads()->models_changed();
@@ -997,7 +1008,7 @@ private slots:
         QVERIFY_THROWS_EXCEPTION(std::invalid_argument, config.set_global_hotkeys("clipboard", {"ctrl+2"}));
     }
 
-    // 新动作默认关闭，沿用设置保存、重载、导入和手势冲突检查。
+    // Off by default; saved, reloaded, imported and conflict-checked like the other actions.
     void globalMouseScanBindingPersistsAndRejectsConflicts() {
         const auto saved = config_->get_quick_capture_scan_code();
         const auto restore = qScopeGuard([&] { config_->set_quick_capture_scan_code(saved); });
@@ -1032,6 +1043,188 @@ private slots:
         scan->setBinding("");
         QVERIFY(dialog.apply_settings());
         for (const auto &binding : get_quick_capture_bindings(config_)) QVERIFY(binding.second != "scan_code");
+    }
+
+    void globalLongScreenshotDefaultsPreserveOlderMouseBindings() {
+        QSettings settings(dir_.filePath("long-shortcut-defaults.ini"), QSettings::IniFormat);
+        settings.clear();
+        ToolSettingsManager config(settings);
+        QVERIFY(config.get_quick_capture_long_screenshot().isEmpty());
+        config.set_quick_capture_copy("WIN+dragmiddle");
+        QVERIFY(config.get_quick_capture_long_screenshot().isEmpty());
+        QCOMPARE(config.get_quick_capture_copy(), QString("WIN+dragmiddle"));
+        const auto bindings = get_quick_capture_bindings(&config);
+        QVERIFY(std::any_of(bindings.begin(), bindings.end(), [](const auto &b) { return b.second == "copy"; }));
+        QVERIFY(std::none_of(bindings.begin(), bindings.end(), [](const auto &b) { return b.second == "long_screenshot"; }));
+        SettingsDialog dialog(&config, config.get_hotkey());
+        dialog.on_nav_changed(10, "mouse");
+        QVERIFY(mouse_binding_conflicts(&dialog).empty());
+        QVERIFY(qobject_cast<MouseBindingEditor *>(dialog.behavior_control("quick_capture_long_screenshot"))->currentData().isEmpty());
+        dialog.refresh_settings();
+        QVERIFY(qobject_cast<MouseBindingEditor *>(dialog.behavior_control("quick_capture_long_screenshot"))->currentData().isEmpty());
+        QCOMPARE(qobject_cast<MouseBindingEditor *>(dialog.behavior_control("quick_capture_copy"))->currentData(), QString("win+dragmiddle"));
+    }
+
+    void longScreenshotMouseBindingsAreIndependentAndPersist() {
+        QSettings settings(dir_.filePath("long-mouse.ini"), QSettings::IniFormat);
+        settings.clear();
+        ToolSettingsManager config(settings);
+        SettingsDialog dialog(&config, config.get_hotkey());
+        dialog.on_nav_changed(10, "mouse");
+        dialog.mouse_inapp_tabs->setCurrentItem("long_screenshot");
+        QCOMPARE(LONG_SCREENSHOT_MOUSE_ACTIONS().size(), size_t(5));
+        for (const auto &action : LONG_SCREENSHOT_MOUSE_ACTIONS()) {
+            QVERIFY(get_long_screenshot_mouse_binding(&config, action.key).isEmpty());
+            auto *edit = qobject_cast<MouseBindingEditor *>(dialog.behavior_control(QString("mouse_long_") + action.key));
+            QVERIFY(edit && edit->currentData().isEmpty());
+            QVERIFY(settings_transfer::IMPORTED_KEYS().contains(QString("app/mouse_long_") + action.key));
+        }
+        auto *pin = qobject_cast<MouseBindingEditor *>(dialog.behavior_control("mouse_long_pin"));
+        pin->setBinding("ctrl+middle");
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config.get_mouse_long_pin(), QString("ctrl+middle"));
+        QCOMPARE(config.get_mouse_capture_copy(), QString("doubleleft"));
+        QCOMPARE(config.get_mouse_capture_close(), QString("right"));
+        settings.sync();
+        QSettings reopened(settings.fileName(), QSettings::IniFormat);
+        ToolSettingsManager fresh(reopened);
+        QCOMPARE(get_long_screenshot_mouse_binding(&fresh, "pin"), QString("ctrl+middle"));
+        const auto imported = settings_transfer::read_settings_file(settings.fileName());
+        QCOMPARE(imported.value("app/mouse_long_pin").toString(), QString("ctrl+middle"));
+        auto *save = qobject_cast<MouseBindingEditor *>(dialog.behavior_control("mouse_long_save"));
+        save->setBinding("ctrl+middle");
+        QVERIFY(!mouse_binding_conflicts(&dialog).empty());
+        answer_next(true);
+        QVERIFY(dialog.apply_settings());
+        QVERIFY(save->currentData().isEmpty());
+        QVERIFY(config.get_mouse_long_save().isEmpty());
+        QCOMPARE(config.get_mouse_long_pin(), QString("ctrl+middle"));
+        pin->setBinding("");
+        QVERIFY(dialog.apply_settings());
+        settings.sync();
+        QSettings cleared(settings.fileName(), QSettings::IniFormat);
+        ToolSettingsManager empty(cleared);
+        QVERIFY(empty.get_mouse_long_pin().isEmpty());
+    }
+
+    void scanActionIsTranslatedInSettings() {
+        const auto language = I18nManager::get_current_language();
+        const auto restore = qScopeGuard([&] { I18nManager::load_language(language); });
+        for (const auto *code : {"zh", "zh_TW", "ja", "ko"}) {
+            QVERIFY(I18nManager::load_language(code));
+            const auto label = settings_tr("Scan QR code / barcode");
+            QVERIFY(label != QString("Scan QR code / barcode"));
+            QVERIFY(!label.isEmpty());
+        }
+    }
+
+    void shortcutTabTranslationsHaveExpectedText() {
+        const auto language = I18nManager::get_current_language();
+        const auto restore = qScopeGuard([&] { I18nManager::load_language(language); });
+        const QMap<QString, QStringList> expected{
+            {"zh", {QString::fromUtf8("截图"), QString::fromUtf8("长截图"), QString::fromUtf8("钉图"), QString::fromUtf8("剪贴板"), QString::fromUtf8("标注工具")}},
+            {"zh_TW", {QString::fromUtf8("截圖"), QString::fromUtf8("長截圖"), QString::fromUtf8("釘圖"), QString::fromUtf8("剪貼簿"), QString::fromUtf8("標註工具")}},
+            {"en", {"Screenshot", "Long Screenshot", "Pin", "Clipboard", "Annotation Tools"}},
+            {"ja", {QString::fromUtf8("スクショ"), QString::fromUtf8("長いスクショ"), QString::fromUtf8("ピン留め"), QString::fromUtf8("クリップボード"), QString::fromUtf8("注釈ツール")}},
+            {"ko", {QString::fromUtf8("캡처"), QString::fromUtf8("스크롤 캡처"), QString::fromUtf8("고정"), QString::fromUtf8("클립보드"), QString::fromUtf8("주석 도구")}},
+        };
+        const QStringList sources{"Screenshot", "Long Screenshot", "Pin", "Clipboard", "Annotation Tools"};
+        for (auto it = expected.cbegin(); it != expected.cend(); ++it) {
+            QVERIFY(I18nManager::load_language(it.key()));
+            for (int i = 0; i < sources.size(); ++i)
+                QCOMPARE(i18n_tr(sources[i], "ShortcutTabs"), it.value()[i]);
+        }
+    }
+
+    void longScreenshotMousePageFitsEveryLanguage() {
+        if (QGuiApplication::platformName() != "windows") QSKIP("needs desktop fonts");
+        const auto language = I18nManager::get_current_language();
+        const int scale = get_dialog_scale().percent();
+        const auto restore = qScopeGuard([&] { get_dialog_scale().set_percent(scale); I18nManager::load_language(language); });
+        for (int percent : {100, 150, 200}) {
+            get_dialog_scale().set_percent(percent);
+            for (const auto *code : {"zh", "zh_TW", "en", "ja", "ko"}) {
+                QVERIFY(I18nManager::load_language(code));
+                SettingsDialog dialog(config_, config_->get_hotkey());
+                dialog.fit_to_available({4000, dialog.height()});
+                dialog.on_nav_changed(10, "mouse");
+                dialog.mouse_inapp_tabs->setCurrentItem("long_screenshot");
+                dialog.resize(0, dialog.height());
+                dialog.show();
+                QApplication::processEvents();
+                const auto shots = qEnvironmentVariable("JIETUBA_SETTINGS_SHOTS");
+                if (!shots.isEmpty() && percent == 100)
+                    QVERIFY(dialog.grab().save(QDir(shots).filePath(QString("long_mouse_%1.png").arg(code))));
+                auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+                QVERIFY(scroll);
+                const auto where = QString("%1 at %2%%: page %3, tabs %4/%5, overflow %6").arg(code).arg(percent).arg(scroll->widget()->width())
+                    .arg(dialog.mouse_inapp_tabs->width()).arg(dialog.mouse_inapp_tabs->minimumSizeHint().width()).arg(scroll->horizontalScrollBar()->maximum());
+                QVERIFY2(scroll->horizontalScrollBar()->maximum() == 0, qPrintable(where));
+                QVERIFY2(dialog.mouse_inapp_tabs->width() >= dialog.mouse_inapp_tabs->minimumSizeHint().width(), qPrintable(where));
+                dialog.on_nav_changed(0, "hotkey");
+                QApplication::processEvents();
+                if (!shots.isEmpty() && percent == 100)
+                    QVERIFY(dialog.grab().save(QDir(shots).filePath(QString("keyboard_%1.png").arg(code))));
+                auto *keyboard_scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+                QVERIFY(keyboard_scroll);
+                const auto *keyboard_tabs = dialog.inapp_shortcut_tabs.data();
+                const int tabs_right = keyboard_tabs->mapTo(keyboard_scroll->viewport(), QPoint(keyboard_tabs->width(), 0)).x();
+                QVERIFY2(tabs_right <= keyboard_scroll->viewport()->width(), qPrintable(where));
+                for (auto *tabs : {dialog.mouse_inapp_tabs.data(), dialog.inapp_shortcut_tabs.data()}) {
+                    QCOMPARE(tabs->itemText("screenshot"), i18n_tr("Screenshot", "ShortcutTabs"));
+                    QCOMPARE(tabs->itemText("pin"), i18n_tr("Pin", "ShortcutTabs"));
+                    QCOMPARE(tabs->itemText("clipboard"), i18n_tr("Clipboard", "ShortcutTabs"));
+                    for (auto *button : tabs->findChildren<QPushButton *>()) {
+                        QVERIFY2(button->width() >= button->sizeHint().width(), qPrintable(where));
+                        QVERIFY2(button->height() >= dialog_scaled(30), qPrintable(where));
+                        QVERIFY2(button->font().pixelSize() >= dialog_scaled(14), qPrintable(where));
+                    }
+                }
+                QCOMPARE(dialog.mouse_inapp_tabs->itemText("long_screenshot"), i18n_tr("Long Screenshot", "ShortcutTabs"));
+                dialog.on_nav_changed(10, "mouse");
+                QApplication::processEvents();
+                for (const auto &action : LONG_SCREENSHOT_MOUSE_ACTIONS()) {
+                    auto *edit = dialog.behavior_control(QString("mouse_long_") + action.key);
+                    QVERIFY(edit && edit->isVisible());
+                    QVERIFY2(edit->width() >= edit->minimumSizeHint().width(), qPrintable(where));
+                }
+            }
+        }
+    }
+
+    void globalLongScreenshotCanRebindClearAndTransfer() {
+        QSettings settings(dir_.filePath("long-shortcut-save.ini"), QSettings::IniFormat);
+        settings.clear();
+        ToolSettingsManager config(settings);
+        SettingsDialog dialog(&config, config.get_hotkey());
+        dialog.on_nav_changed(10, "mouse");
+        auto *edit = qobject_cast<MouseBindingEditor *>(dialog.behavior_control("quick_capture_long_screenshot"));
+        QVERIFY(edit);
+        QVERIFY(edit->currentData().isEmpty());
+        QVERIFY(!ResourceManager::get_icon_by_name(QString::fromUtf8("长截图.svg")).isNull());
+        edit->setBinding("ctrl+alt+dragmiddle");
+        QVERIFY(dialog.apply_settings());
+        settings.sync();
+        QSettings reloaded(settings.fileName(), QSettings::IniFormat);
+        ToolSettingsManager fresh(reloaded);
+        QCOMPARE(fresh.get_quick_capture_long_screenshot(), QString("ctrl+alt+dragmiddle"));
+        const auto imported = settings_transfer::read_settings_file(settings.fileName());
+        QCOMPARE(imported.value("app/quick_capture_long_screenshot").toString(), QString("ctrl+alt+dragmiddle"));
+        QVERIFY(settings_transfer::IMPORTED_KEYS().contains("app/quick_capture_long_screenshot"));
+        auto *pin = qobject_cast<MouseBindingEditor *>(dialog.behavior_control("quick_capture_pin"));
+        QVERIFY(pin);
+        answer_next(true);
+        edit->setBinding(pin->currentData());
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config.get_quick_capture_long_screenshot(), QString("ctrl+alt+dragmiddle"));
+        edit->setBinding("");
+        QVERIFY(dialog.apply_settings());
+        settings.sync();
+        QSettings cleared(settings.fileName(), QSettings::IniFormat);
+        ToolSettingsManager empty(cleared);
+        QVERIFY(empty.get_quick_capture_long_screenshot().isEmpty());
+        const auto bindings = get_quick_capture_bindings(&empty);
+        QVERIFY(std::none_of(bindings.begin(), bindings.end(), [](const auto &b) { return b.second == "long_screenshot"; }));
     }
 
     void duplicateMouseBindingsAreListed() {
@@ -1237,19 +1430,28 @@ private slots:
         auto *bar = qobject_cast<QComboBox *>(dialog.behavior_control("clipboard_group_bar_position"));
         auto *hide = qobject_cast<SwitchSettingCard *>(dialog.behavior_control("clipboard_hide_grouped_in_history"));
         auto *auto_paste = qobject_cast<SwitchSettingCard *>(dialog.behavior_control("clipboard_auto_paste"));
+        auto *record_private = qobject_cast<SwitchSettingCard *>(dialog.behavior_control("clipboard_record_private"));
         auto *separator = dialog.attr<QComboBox>("clipboard_separator_combo");
         auto *custom = dialog.attr<QLineEdit>("clipboard_separator_edit");
-        QVERIFY(lines && bar && hide && auto_paste && separator && custom);
+        QVERIFY(lines && bar && hide && auto_paste && record_private && separator && custom);
         QCOMPARE(lines->count(), 5);
+        // In the first group beside the monitoring switch, where it is seen without scrolling.
+        QCOMPARE(record_private->parentWidget(), dialog.attr_widget("clipboard_enabled_toggle")->parentWidget());
+        // The history limit sits with the other data settings.
+        auto *limit_spin = dialog.attr<QSpinBox>("clipboard_history_limit_spin");
+        QVERIFY(limit_spin && dialog.attr_widget("_clipboard_single_file_toggle")->parentWidget()->isAncestorOf(limit_spin));
+        QVERIFY(!record_private->isChecked());
         lines->setCurrentIndex(lines->findData(3));
         bar->setCurrentIndex(bar->findData(QString("left")));
         hide->setChecked(true);
         auto_paste->setChecked(false);
+        record_private->setChecked(true);
         QVERIFY(dialog.apply_settings());
         QCOMPARE(config_->get_clipboard_display_lines(), 3);
         QCOMPARE(config_->get_clipboard_group_bar_position(), QString("left"));
         QVERIFY(config_->get_clipboard_hide_grouped_in_history());
         QVERIFY(!config_->get_clipboard_auto_paste());
+        QVERIFY(config_->get_clipboard_record_private());
         QVERIFY(dialog.saved_keys().contains("clipboard_display_lines"));
 
         // A separator outside the presets is typed beside Custom, \n for a line break.
@@ -1279,12 +1481,14 @@ private slots:
         QCOMPARE(bar->currentData().toString(), QString("top"));
         QVERIFY(!hide->isChecked());
         QVERIFY(auto_paste->isChecked());
+        QVERIFY(!record_private->isChecked());
         QCOMPARE(separator->currentData().toString(), QString("\n"));
         QVERIFY(dialog.apply_settings());
         QCOMPARE(config_->get_clipboard_display_lines(), 1);
         QCOMPARE(config_->get_clipboard_image_size(), QString("small"));
         QCOMPARE(config_->get_clipboard_multi_paste_separator(), QString("\n"));
         QVERIFY(!config_->get_clipboard_hide_grouped_in_history());
+        QVERIFY(!config_->get_clipboard_record_private());
         dialog.hide();
     }
 
@@ -1402,11 +1606,11 @@ private slots:
         dialog.on_nav_changed(4, "translation");
         auto *label = dialog.attr<QLabel>("translation_notice_label");
         // Shown as soon as the page is built, before the background read returns.
-        QVERIFY2(label->text().contains(": 500 / "), qPrintable(label->text()));
+        QVERIFY2(label->text().contains("500 / "), qPrintable(label->text()));
         dialog.hide();
         config_->add_translation_usage_chars("tencent", 1000);
         dialog.show();
-        QTRY_VERIFY(label->text().contains(": 1,500 / "));
+        QTRY_VERIFY(label->text().contains("1,500 / "));
     }
 
     void wizardNavigatesAcrossEveryPage() {
@@ -1530,7 +1734,7 @@ private slots:
         config_->set_app_setting("quick_capture_scan_code", "ctrl+alt+dragright");
         MouseShortcutPage page(config_);
         const auto editors = page.findChildren<MouseBindingEditor *>();
-        QCOMPARE(editors.size(), 7);
+        QCOMPARE(editors.size(), 8);
         const auto copy = editors[0], pin = editors[1], ocr = editors[3];
         QCOMPARE(pin->currentData(), QString("win+dragleft"));
         QLabel *conflict = nullptr;
@@ -1559,10 +1763,12 @@ private slots:
         editors[2]->setBinding("shift+win+dragmiddle");
         editors[5]->setBinding("alt+win+dragx1");
         editors[6]->setBinding("ctrl+win+dragx2");
+        editors[7]->setBinding("ctrl+alt+dragmiddle");
         page.save();
         QCOMPARE(get_quick_capture_binding(config_, "copy_pin"), QString("shift+win+dragmiddle"));
         QCOMPARE(get_quick_capture_binding(config_, "scan_code"), QString("alt+win+dragx1"));
         QCOMPARE(get_quick_capture_binding(config_, "edit"), QString("ctrl+win+dragx2"));
+        QCOMPARE(get_quick_capture_binding(config_, "long_screenshot"), QString("ctrl+alt+dragmiddle"));
     }
 
     void wizardMouseGridFitsEveryLanguage() {
@@ -1590,11 +1796,11 @@ private slots:
                 if (!out.isEmpty() && percent == 100)
                     QVERIFY(wizard.grab().save(QDir(out).filePath(QString("mouse_grid_%1.png").arg(lang))));
                 const auto editors = page->findChildren<MouseBindingEditor *>();
-                QCOMPARE(editors.size(), 7);
+                QCOMPARE(editors.size(), 8);
                 const QPoint left = editors[0]->mapTo(page, QPoint()), right = editors[1]->mapTo(page, QPoint());
                 QCOMPARE(left.y(), right.y());
                 QVERIFY(right.x() > left.x() + editors[0]->width());
-                QCOMPARE(editors[6]->width(), editors[0]->width());
+                QCOMPARE(editors[7]->width(), editors[0]->width());
                 for (auto *editor : editors) {
                     QVERIFY(page->rect().contains(QRect(editor->mapTo(page, QPoint()), editor->size())));
                     for (auto *combo : {editor->modifiers, editor->gesture}) {
@@ -2740,7 +2946,7 @@ private slots:
         QTRY_VERIFY(box->results_visible() && !box->results().empty());
         const auto result = box->results().front();
         QCOMPARE(result.title, lock);
-        QCOMPARE(result.path, (QStringList{settings_tr("Shortcuts"), settings_tr("In-App Shortcuts"), settings_tr("Pin Shortcuts")}.join(" / ")));
+        QCOMPARE(result.path, (QStringList{settings_tr("Shortcuts"), settings_tr("In-App Shortcuts"), i18n_tr("Pin", "ShortcutTabs")}.join(" / ")));
         QPointer<QWidget> target = result.target;
         QVERIFY(target && !target->isVisible());
         QTest::keyClick(box->edit(), Qt::Key_Return);
@@ -3033,6 +3239,314 @@ private slots:
         // Closing saves every page; the finish page would write the Run key and the desktop.
         wizard.hide();
     }
+    void fileNameRulesValidateAndSaveWithoutOverwriting() {
+        QTemporaryDir temp;
+        QSettings settings(temp.filePath("names.ini"), QSettings::IniFormat);
+        ToolSettingsManager config(settings);
+        QCOMPARE(file_names::load(config), file_names::defaults());
+        const auto date = QDateTime(QDate(2026, 11, 15), QTime(12, 34, 56, 789));
+        QCOMPARE(file_names::render("shot_{time}_{ms}", {}, date), QString("shot_20261115_123456_789"));
+        QCOMPARE(file_names::render("{prefix}_{time}", "long_horizontal", date), QString("long_horizontal_20261115_123456"));
+        QCOMPARE(file_names::render("article_{direction}_{time}", "long_horizontal", date), QString("article_horizontal_20261115_123456"));
+        for (const QString bad : {"", "../escape", "a\\b", "bad:name", "tail.", "tail ", "CON", "lpt1.png", "{unknown}"})
+            QVERIFY2(!file_names::problem(bad, file_names::Screenshot).isEmpty(), qPrintable(bad));
+        QVERIFY(!file_names::problem(QString(121, 'a'), file_names::Screenshot).isEmpty());
+        QVERIFY(!file_names::problem(QString("{time}").repeated(20), file_names::Screenshot).isEmpty());
+        QCOMPARE(file_names::problem(QString(106, 'a') + "{time}", file_names::Screenshot), QString("The generated file name is too long (maximum 120 characters)."));
+        QCOMPARE(file_names::problem("capture.PNG", file_names::Screenshot), QString("Leave out the file extension; it is added automatically."));
+        QVERIFY(!file_names::problem("{prefix}", file_names::Screenshot).isEmpty());
+        QVERIFY(!file_names::problem("{direction}", file_names::Screenshot).isEmpty());
+        QVERIFY(!file_names::problem("{time}", file_names::OriginalSuffix).isEmpty());
+        for (const auto &reserved : {QString::fromUtf8("COM¹"), QString::fromUtf8("lpt².txt"), QString::fromUtf8("CoM³")})
+            QVERIFY(!file_names::problem(reserved, file_names::Screenshot).isEmpty());
+        QVERIFY(file_names::problem("CON", file_names::OriginalSuffix).isEmpty());
+        QVERIFY(file_names::problem("{prefix}_{time}", file_names::LongScreenshot).isEmpty());
+        auto rules = QStringList{"shot", "pin", "article_{direction}", "animation", "video", "source"};
+        config.set_save_filename_patterns(rules);
+        QCOMPARE(file_names::load(config), rules);
+        config.set_screenshot_save_path(temp.path());
+        SaveService service(config);
+        QImage image(2, 2, QImage::Format_RGB32);
+        image.fill(Qt::red);
+        const auto first = service.save_qimage(image);
+        QVERIFY(first.first);
+        QCOMPARE(QFileInfo(*first.second).fileName(), QString("shot.png"));
+        const auto second = service.save_qimage(image);
+        QVERIFY(second.first);
+        QCOMPARE(QFileInfo(*second.second).fileName(), QString("shot_1.png"));
+        QCOMPARE(QImage(*first.second).pixelColor(0, 0), QColor(Qt::red));
+        const auto pin = service.save_qimage(image, {}, "pinned");
+        QVERIFY(pin.first);
+        QCOMPARE(QFileInfo(*pin.second).fileName(), QString("pin.png"));
+        const auto long_shot = service.save_qimage(image, {}, "horizontal");
+        QVERIFY(long_shot.first);
+        QCOMPARE(QFileInfo(*long_shot.second).fileName(), QString("article_horizontal.png"));
+        QCOMPARE(file_names::stem(config, file_names::Gif), QString("animation"));
+        QCOMPARE(file_names::stem(config, file_names::Video), QString("video"));
+        const auto original = SaveService::save_beside(image, *first.second, file_names::load(config).at(file_names::OriginalSuffix));
+        QVERIFY(original);
+        QCOMPARE(QFileInfo(*original).fileName(), QString("shot_source.png"));
+        rules[0] = "../bad";
+        config.set_save_filename_patterns(rules);
+        QCOMPARE(file_names::load(config)[0], file_names::defaults()[0]);
+        rules[file_names::LongScreenshot] = "{prefix}_{time}";
+        config.set_save_filename_patterns(rules);
+        QCOMPARE(file_names::load(config)[file_names::LongScreenshot], file_names::defaults()[file_names::LongScreenshot]);
+        QVERIFY(!file_names::load(config)[file_names::LongScreenshot].contains("{prefix}"));
+        rules[file_names::Screenshot] = "report_{time}.PNG";
+        config.set_save_filename_patterns(rules);
+        QCOMPARE(file_names::load(config)[file_names::Screenshot], QString("report_{time}"));
+    }
+
+    void fileNameDialogValidatesAndReturnsEdits() {
+        FileNameDialog editor(file_names::defaults());
+        auto *edit = editor.findChild<QLineEdit *>("filename_rule_0");
+        auto *ok = editor.findChild<QPushButton *>("filename_ok");
+        QVERIFY(edit && ok);
+        edit->setText("bad/name");
+        QVERIFY(!ok->isEnabled());
+        edit->setText("my_capture_{time}");
+        QVERIFY(ok->isEnabled());
+        QCOMPARE(editor.patterns()[0], QString("my_capture_{time}"));
+        auto *long_edit = editor.findChild<QLineEdit *>("filename_rule_2");
+        QVERIFY(long_edit);
+        QVERIFY(!long_edit->text().contains("{prefix}"));
+        long_edit->setText("article_{direction}_{time}");
+        QVERIFY(ok->isEnabled());
+        bool custom_preview = false;
+        for (auto *label : editor.findChildren<QLabel *>()) custom_preview |= label->toolTip().contains("article_") && !label->toolTip().contains("{direction}");
+        QVERIFY(custom_preview);
+        auto *pin_edit = editor.findChild<QLineEdit *>("filename_rule_1");
+        auto *suffix_edit = editor.findChild<QLineEdit *>("filename_rule_5");
+        auto *error = editor.findChild<QLabel *>("filename_error");
+        QVERIFY(pin_edit && suffix_edit && error);
+        pin_edit->setText("bad?");
+        suffix_edit->setText("bad?");
+        // The suffix row is shown above the pin row, so its problem is reported first.
+        QVERIFY2(error->text().startsWith(suffix_edit->accessibleName()), qPrintable(error->text()));
+        for (auto *button : editor.findChildren<QPushButton *>())
+            if (button->text() == i18n_tr("Restore defaults", "FileNameDialog")) button->click();
+        QCOMPARE(editor.patterns(), file_names::defaults());
+        edit->setText("accepted_{time}");
+        ok->click();
+        QCOMPARE(editor.result(), int(QDialog::Accepted));
+    }
+
+    void fileNameSettingsButtonSavesAndCancelKeepsRules() {
+        QSettings settings(dir_.filePath("name-button.ini"), QSettings::IniFormat);
+        ToolSettingsManager config(settings);
+        SettingsDialog dialog(&config, config.get_hotkey());
+        dialog.build_all_pages();
+        auto *button = dialog.attr<QPushButton>("filename_settings_button");
+        QVERIFY(button);
+        QTimer::singleShot(0, [] {
+            auto *modal = QApplication::activeModalWidget();
+            QVERIFY(modal);
+            auto *edit = modal->findChild<QLineEdit *>("filename_rule_0");
+            QVERIFY(edit);
+            edit->setText("custom_{time}");
+            modal->findChild<QPushButton *>("filename_ok")->click();
+        });
+        button->click();
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(file_names::load(config)[0], QString("custom_{time}"));
+        QTimer::singleShot(0, [] {
+            auto *modal = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            QVERIFY(modal);
+            modal->findChild<QLineEdit *>("filename_rule_0")->setText("discarded");
+            modal->reject();
+        });
+        button->click();
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(file_names::load(config)[0], QString("custom_{time}"));
+    }
+
+    void fileNameDialogPreviewsStayStableAndUseTheSaveFormat() {
+        FileNameDialog editor(file_names::defaults(), nullptr, "WEBP");
+        editor.show();
+        QApplication::processEvents();
+        auto *field = editor.findChild<QLineEdit *>("filename_rule_0");
+        auto *preview = editor.findChild<QLabel *>("filename_preview_0");
+        auto *video = editor.findChild<QLabel *>("filename_preview_4");
+        auto *original = editor.findChild<QLabel *>("filename_preview_5");
+        auto *error = editor.findChild<QLabel *>("filename_error");
+        QVERIFY(field && preview && video && original && error);
+        int previous_top = -1;
+        for (const int kind : {file_names::Screenshot, file_names::OriginalSuffix, file_names::Pin, file_names::LongScreenshot, file_names::Gif, file_names::Video}) {
+            const int top = editor.findChild<QLineEdit *>(QString("filename_rule_%1").arg(kind))->mapTo(&editor, QPoint()).y();
+            QVERIFY2(top > previous_top, qPrintable(QString::number(kind)));
+            previous_top = top;
+        }
+        QVERIFY(preview->toolTip().endsWith(".webp"));
+        QVERIFY(original->toolTip().endsWith(".webp"));
+        QVERIFY(editor.findChild<QLabel *>("filename_preview_3")->toolTip().endsWith(".gif"));
+        const auto video_before = video->toolTip();
+        QTest::qWait(25);
+        field->setText("changed_{time}");
+        QCOMPARE(video->toolTip(), video_before);
+        field->setText("<b>plain text</b>");
+        QCOMPARE(preview->textFormat(), Qt::PlainText);
+        QVERIFY(preview->toolTip().contains("<b>plain text</b>"));
+        QVERIFY(!error->text().isEmpty());
+        editor.accept();
+        QVERIFY(editor.isVisible());
+        QTest::keyClick(field, Qt::Key_Return);
+        QVERIFY(editor.isVisible());
+        field->setText(QString(110, 'W'));
+        QVERIFY(preview->toolTip().contains(QString(110, 'W')));
+        QVERIFY(preview->text() != preview->toolTip());
+        QVERIFY(preview->fontMetrics().horizontalAdvance(preview->text()) <= preview->contentsRect().width());
+        field->setText("keep_this_{time}");
+        QTest::keyClick(field, Qt::Key_Return);
+        QCOMPARE(editor.result(), int(QDialog::Accepted));
+        QCOMPARE(editor.patterns()[0], QString("keep_this_{time}"));
+    }
+
+    void fileNameDialogErrorsStayVisibleAndKeepPastedText() {
+        const auto language = I18nManager::get_current_language();
+        const auto scale = get_dialog_scale().percent();
+        const auto restore = qScopeGuard([&] { get_dialog_scale().set_percent(scale); I18nManager::load_language(language); });
+        for (const QString lang : {"zh", "zh_TW", "en", "ja", "ko"}) {
+            QVERIFY(I18nManager::load_language(lang));
+            for (const int percent : {100, 150, 200}) {
+                get_dialog_scale().set_percent(percent);
+                FileNameDialog editor(file_names::defaults());
+                editor.resize(editor.minimumWidth(), dialog_scaled(300));
+                editor.show();
+                QApplication::processEvents();
+                auto *scroll = editor.findChild<QScrollArea *>("filename_scroll");
+                auto *error = editor.findChild<QLabel *>("filename_error");
+                auto *ok = editor.findChild<QPushButton *>("filename_ok");
+                auto *first = editor.findChild<QLineEdit *>("filename_rule_0");
+                auto *last = editor.findChild<QLineEdit *>("filename_rule_4");
+                QVERIFY(scroll && error && ok && first && last);
+                QVERIFY(scroll->verticalScrollBar()->maximum() > 0);
+                first->setText("bad?");
+                QApplication::processEvents();
+                QVERIFY(!ok->isEnabled());
+                QVERIFY(error->text().startsWith(first->accessibleName()));
+                QVERIFY(!first->accessibleDescription().isEmpty());
+                QCOMPARE(first->toolTip(), first->accessibleDescription());
+                QVERIFY(!scroll->isAncestorOf(error));
+                QVERIFY(editor.rect().contains(QRect(error->mapTo(&editor, QPoint()), error->size())));
+                first->setText("capture_{time}");
+                QVERIFY(first->accessibleDescription().isEmpty());
+                QVERIFY(first->toolTip().isEmpty());
+                QVERIFY(ok->isEnabled());
+                scroll->ensureWidgetVisible(last);
+                last->selectAll();
+                last->insert(QString(121, 'x'));
+                QCOMPARE(last->text(), QString(121, 'x'));
+                QVERIFY(!ok->isEnabled());
+                QVERIFY(error->text().startsWith(last->accessibleName()));
+                QVERIFY(editor.rect().contains(QRect(error->mapTo(&editor, QPoint()), error->size())));
+                for (auto *field : editor.findChildren<QLineEdit *>()) {
+                    bool has_label = false;
+                    for (auto *label : editor.findChildren<QLabel *>()) has_label |= label->buddy() == field;
+                    QVERIFY(has_label);
+                    QVERIFY(!field->accessibleName().isEmpty());
+                }
+            }
+        }
+    }
+
+    void fileNameDialogDoesNotMoveWhileTyping() {
+        const auto language = I18nManager::get_current_language();
+        const auto scale = get_dialog_scale().percent();
+        const auto restore = qScopeGuard([&] { get_dialog_scale().set_percent(scale); I18nManager::load_language(language); });
+        for (const QString lang : {"zh", "zh_TW", "en", "ja", "ko"}) {
+            QVERIFY(I18nManager::load_language(lang));
+            for (const int percent : {100, 150, 200}) {
+                get_dialog_scale().set_percent(percent);
+                FileNameDialog editor(file_names::defaults());
+                editor.show();
+                QApplication::processEvents();
+                const auto geometry = editor.geometry();
+                const auto fields = editor.findChildren<QLineEdit *>();
+                const auto buttons = editor.findChildren<QPushButton *>();
+                QMap<QWidget *, QRect> positions;
+                for (auto *field : fields) positions[field] = QRect(field->mapTo(&editor, QPoint()), field->size());
+                for (auto *button : buttons) positions[button] = QRect(button->mapTo(&editor, QPoint()), button->size());
+                auto *field = editor.findChild<QLineEdit *>("filename_rule_0");
+                auto *ok = editor.findChild<QPushButton *>("filename_ok");
+                QVERIFY(field && ok);
+                const auto unchanged = [&] {
+                    QApplication::processEvents();
+                    if (editor.geometry() != geometry) return false;
+                    for (auto it = positions.cbegin(); it != positions.cend(); ++it)
+                        if (QRect(it.key()->mapTo(&editor, QPoint()), it.key()->size()) != it.value()) return false;
+                    return true;
+                };
+                field->setFocus();
+                field->selectAll();
+                for (const char ch : QString("page_{time}").toLatin1()) {
+                    QTest::keyClicks(field, QString(QChar(ch)));
+                    QVERIFY2(unchanged(), qPrintable(QString("%1 %2%% typing %3").arg(lang).arg(percent).arg(field->text())));
+                }
+                QVERIFY(ok->isEnabled());
+                QTest::keyClicks(field, "?");
+                QVERIFY(!ok->isEnabled());
+                QVERIFY(unchanged());
+                QTest::keyClick(field, Qt::Key_Backspace);
+                QVERIFY(ok->isEnabled());
+                QVERIFY(unchanged());
+                field->setText(QString(110, 'W'));
+                QVERIFY(ok->isEnabled());
+                QVERIFY(unchanged());
+                QInputMethodEvent preedit(QString::fromUtf8("中文输入"), {});
+                QApplication::sendEvent(field, &preedit);
+                QVERIFY(unchanged());
+                field->selectAll();
+                QInputMethodEvent commit;
+                commit.setCommitString(QString::fromUtf8("网页收藏_{time}"));
+                QApplication::sendEvent(field, &commit);
+                QVERIFY(ok->isEnabled());
+                QVERIFY(unchanged());
+                QTest::keyClick(field, Qt::Key_Escape);
+                QCOMPARE(editor.result(), int(QDialog::Rejected));
+            }
+        }
+    }
+
+    void fileNameDialogFitsEveryLanguageAndFollowsWindowScale() {
+        if (QGuiApplication::platformName() != "windows") QSKIP("needs desktop fonts");
+        const auto language = I18nManager::get_current_language();
+        const auto scale = get_dialog_scale().percent();
+        const auto panel_scale = get_ui_scale().percent();
+        const auto restore = qScopeGuard([&] {
+            get_dialog_scale().set_percent(scale);
+            get_ui_scale().set_percent(panel_scale);
+            I18nManager::load_language(language);
+        });
+        for (const QString lang : {"zh", "zh_TW", "en", "ja", "ko"}) {
+            QVERIFY(I18nManager::load_language(lang));
+            get_dialog_scale().set_percent(100);
+            FileNameDialog base(file_names::defaults());
+            const auto width = base.width();
+            get_ui_scale().set_percent(150);
+            FileNameDialog panel(file_names::defaults());
+            QCOMPARE(panel.width(), width);
+            get_dialog_scale().set_percent(150);
+            FileNameDialog large(file_names::defaults());
+            large.show();
+            QTest::qWait(10);
+            const auto shots = qEnvironmentVariable("JIETUBA_SETTINGS_SHOTS");
+            if (!shots.isEmpty()) QVERIFY(large.grab().save(QDir(shots).filePath(QString("filename_%1.png").arg(lang))));
+            QVERIFY(large.width() >= width * 1.49);
+            for (auto *button : large.findChildren<QPushButton *>()) QVERIFY(button->width() >= button->sizeHint().width());
+            for (auto *label : large.findChildren<QLabel *>()) {
+                if (!label->isVisible()) continue;
+                if (!label->wordWrap()) QVERIFY2(label->width() >= label->sizeHint().width(), qPrintable(label->text()));
+                auto *body = large.findChild<QScrollArea *>("filename_scroll")->widget();
+                auto *container = body->isAncestorOf(label) ? body : static_cast<QWidget *>(&large);
+                QVERIFY(container->rect().contains(QRect(label->mapTo(container, QPoint()), label->size())));
+            }
+            auto *scroll = large.findChild<QScrollArea *>("filename_scroll");
+            QCOMPARE(scroll->horizontalScrollBar()->maximum(), 0);
+            QVERIFY(large.height() <= large.screen()->availableGeometry().height());
+        }
+    }
+
 };
 
 QTEST_MAIN(SettingsWindowTests)

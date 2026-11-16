@@ -4,6 +4,7 @@
 #include "core/constants.h"
 #include "core/crash_handler.h"
 #include "core/logger.h"
+#include "core/package_identity.h"
 #include <QFileInfo>
 #include <QGuiApplication>
 #include <QOperatingSystemVersion>
@@ -383,8 +384,9 @@ bool startup_approved_disabled(const wchar_t *approved_key, const QString &name)
 bool autostart_disabled_by_system() { return get_autostart_program() && startup_approved_disabled(STARTUP_APPROVED_REG_KEY, AUTOSTART_APP_NAME); }
 
 void set_autostart(bool enabled) {
-    // The Run entry is shared with the Python version; tests never write it.
-    if (!test_sandbox_dir().isEmpty()) return;
+    // The Run entry is shared with the Python version; tests never write it. A packaged app's
+    // registry writes go to a private hive Windows never reads at sign-in.
+    if (!test_sandbox_dir().isEmpty() || is_packaged()) return;
     HKEY key = nullptr;
     LSTATUS status = RegOpenKeyExW(HKEY_CURRENT_USER, AUTOSTART_REG_KEY, 0, KEY_SET_VALUE, &key);
     if (status != ERROR_SUCCESS) {

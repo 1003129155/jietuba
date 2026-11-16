@@ -16,6 +16,7 @@
 #include <tuple>
 #include <vector>
 
+class QComboBox;
 class QThread;
 class QVBoxLayout;
 
@@ -51,6 +52,8 @@ QThread *change_clipboard_data_location(QWidget *parent, std::function<void(cons
 // model that is not installed stays listed and marked instead of being swapped for another.
 // An OCR combo item as (engine, PP-OCR model id); the model is nullopt unless the item is a PP-OCR model.
 std::pair<QString, std::optional<QString>> ocr_choice(const QString &data);
+// The OCR combo's chosen item; while "Download more models..." is current, the item chosen before it.
+QString ocr_selection(const QComboBox *combo);
 // Fills the OCR combo with what can be chosen: Auto, the Snipping Tool OCR when present, the installed
 // PP-OCR models (catalog order, models added by hand last), then "Download more models..." opening the
 // model manager. A chosen engine or model that is gone stays listed, marked as not installed and

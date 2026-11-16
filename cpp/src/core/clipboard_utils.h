@@ -38,7 +38,7 @@ struct SaveKwargs {
 // Clipboard writes share one queue, so consecutive captures leave the last one.
 // With both copy and save, the save path is reserved first (an empty file) so
 // CF_HDROP can go out with the bitmap without waiting for the file to be written.
-// original, when given, is saved beside the file with an "_original" suffix.
+// original, when given, is saved beside the file with the configured original-image suffix.
 std::shared_ptr<Delivery> deliver_image_async(const QImage &image, bool copy_to_clipboard = true, std::shared_ptr<SaveService> save_service = nullptr,
                                               const SaveKwargs &save_kwargs = {}, bool write_file_reference = true, const QImage &original = QImage());
 // Waits for queued clipboard writes; called before exit so the last capture lands.

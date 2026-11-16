@@ -79,11 +79,8 @@ bool PinOCRManager::init_now(bool force) {
             log_debug(T("OCR 模块不可用（无OCR版本），静默跳过"), "OCR");
             return false;
         }
-        if (!initialize_ocr()) {
-            log_warning(T("OCR 引擎初始化失败"), "OCR");
-            return false;
-        }
-        log_debug(T("OCR 引擎已就绪（支持中日韩英混合识别）"), "OCR");
+        // The engine loads on the recognition thread: loading takes the engine lock, which a
+        // load already under way (the startup preload) holds until it returns.
         // Recognition starts now: either the switch was on already, or the user asked
         // for text and paid for recognition, so selection comes with it.
         text_selection_enabled_ = true;
@@ -142,6 +139,9 @@ void PinOCRManager::on_finished() {
                     flush_pending(true, selection_->layout().all_text("\n"));
                 }
                 log_info(T("钉图文字层已就绪，识别到 {text_count} 个文字块", {{"text_count", text_count}}), "OCR");
+            } else if (ocr_thread->result && ocr_thread->result->code == -1) {
+                log_warning(T("无法启动钉图 OCR 识别"), "OCR");
+                flush_pending(false, i18n_tr("OCR recognition could not be started", "PinWindow"));
             } else if (!pending_callbacks_.empty()) {
                 log_warning(T("OCR 未识别到文字"), "OCR");
                 flush_pending(false, i18n_tr("No text was recognized", "PinWindow"));

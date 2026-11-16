@@ -21,10 +21,6 @@
         <translation>區域辨識文字</translation>
     </message>
     <message>
-        <source>Scan QR code / barcode</source>
-        <translation>掃碼（二維碼 / 條碼）</translation>
-    </message>
-    <message>
         <source>Region Translation</source>
         <translation>區域翻譯</translation>
     </message>
@@ -591,8 +587,8 @@ Replace it?</source>
         <translation>同時儲存原圖</translation>
     </message>
     <message>
-        <source>When a screenshot with annotations (including mosaic) or a watermark is saved to the save folder, a copy without them is saved too, with _original at the end of its file name.</source>
-        <translation>截圖存進儲存資料夾時，如果加了標註（含馬賽克）或浮水印，再另存一張沒有它們的原圖，檔名末尾帶 _original。</translation>
+        <source>When a screenshot with annotations (including mosaic) or a watermark is saved to the save folder, a copy without them is saved too.</source>
+        <translation>截圖存進儲存資料夾時，如果加了標註（含馬賽克）或浮水印，再另存一張沒有它們的原圖。</translation>
     </message>
     <message>
         <source>Save Folder</source>
@@ -1662,6 +1658,30 @@ Replace it?</source>
         <source>Could not move the settings file: %1</source>
         <translation>無法移動設定檔：%1</translation>
     </message>
+    <message>
+        <source>Unassigned buttons and the wheel pass through. A double-click binding also captures single clicks of that button.</source>
+        <translation>未綁定的滑鼠按鍵與滾輪正常穿透。綁定雙擊後，也會接管該按鍵的單擊。</translation>
+    </message>
+    <message>
+        <source>Long Screenshot Shortcuts</source>
+        <translation>長截圖快捷鍵</translation>
+    </message>
+    <message>
+        <source>Scan QR code / barcode</source>
+        <translation>掃碼（二維碼 / 條碼）</translation>
+    </message>
+    <message>
+        <source>File Name Settings</source>
+        <translation>檔案名稱設定</translation>
+    </message>
+    <message>
+        <source>Set file names for screenshots, long screenshots, GIFs and videos.</source>
+        <translation>設定截圖、長截圖、GIF 和影片的儲存檔名。</translation>
+    </message>
+    <message>
+        <source>Configure</source>
+        <translation>設定</translation>
+    </message>
 </context>
 <context>
     <name>ActionTools</name>
@@ -2322,6 +2342,10 @@ Replace it?</source>
     <message>
         <source>Delayed Screenshot</source>
         <translation>延時截圖</translation>
+    </message>
+    <message>
+        <source>Screen Recording</source>
+        <translation>螢幕錄影</translation>
     </message>
     <message>
         <source>Clipboard</source>
@@ -4163,6 +4187,14 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>保留的最大專案數（0 = 無限制）</translation>
     </message>
     <message>
+        <source>Record Content Marked Private</source>
+        <translation>記錄標為隱私的內容</translation>
+    </message>
+    <message>
+        <source>Copies from private browser windows and password managers are skipped by default. When on, they are recorded too, passwords included, in plain text.</source>
+        <translation>瀏覽器無痕視窗和密碼管理器複製的內容預設不記錄。開啟後也會記下，密碼也會以明文存進歷史記錄。</translation>
+    </message>
+    <message>
         <source>Auto Cleanup Old Items</source>
         <translation>自動清理舊專案</translation>
     </message>
@@ -5476,10 +5508,6 @@ This action cannot be undone.</source>
         <translation>基本設定</translation>
     </message>
     <message>
-        <source>History</source>
-        <translation>歷史記錄</translation>
-    </message>
-    <message>
         <source>Data</source>
         <translation>資料管理</translation>
     </message>
@@ -5518,6 +5546,14 @@ This action cannot be undone.</source>
     <message>
         <source>Outline each pixel in the magnified view. Hidden at low zoom, where the lines would cover the pixels.</source>
         <translation>在放大圖上勾出每個畫素的邊界。倍率低時自動不畫，否則網格線會蓋住畫素本身。</translation>
+    </message>
+    <message>
+        <source>Show Selection</source>
+        <translation>顯示選區</translation>
+    </message>
+    <message>
+        <source>Dim what lies outside the selection and draw its edge in the magnified view, to line the edge up pixel by pixel.</source>
+        <translation>在放大圖上壓暗選區以外的部分並畫出選區邊框，方便把邊緣逐畫素對準。</translation>
     </message>
     <message>
         <source>Shortcut Hint</source>
@@ -6354,6 +6390,10 @@ Replace: move the current data there; the data already in that folder will be de
         <source>Only in screenshot, pin and clipboard windows</source>
         <translation>只在截圖、釘圖和剪貼簿視窗裡生效</translation>
     </message>
+    <message>
+        <source>Only in the corresponding window</source>
+        <translation>僅在對應視窗內生效</translation>
+    </message>
 </context>
 <context>
     <name>SettingsDialog</name>
@@ -6577,6 +6617,7 @@ Replace: move the current data there; the data already in that folder will be de
         <source>Long screenshot - window position corrected</source>
         <translation>長截圖 - 視窗位置已校正</translation>
     </message>
+    <message><source>Couldn't extend. Keep the page still.</source><translation>無法補截，請保持頁面不動後重試。</translation></message>
 </context>
 <context>
     <name>ScreenshotWindow</name>
@@ -7628,6 +7669,14 @@ Make sure gifrecorder is installed correctly.</source>
         <translation>預估大小</translation>
     </message>
     <message>
+        <source>Default size limit</source>
+        <translation>預設最大上限</translation>
+    </message>
+    <message>
+        <source>Even the lowest quality is larger than this. Make the image smaller to fit.</source>
+        <translation>最低品質也超過這個大小，請在上方縮小尺寸。</translation>
+    </message>
+    <message>
         <source>Save</source>
         <translation>儲存</translation>
     </message>
@@ -7844,6 +7893,93 @@ Replace it?</source>
     <message>
         <source>Copied files and folders, shown with their icons, names and sizes.</source>
         <translation>複製的檔案和資料夾，顯示圖示、名稱和大小。</translation>
+    </message>
+</context>
+  <context>
+    <name>ShortcutTabs</name>
+    <message><source>Screenshot</source><translation>截圖</translation></message>
+    <message><source>Long Screenshot</source><translation>長截圖</translation></message>
+    <message><source>Pin</source><translation>釘圖</translation></message>
+    <message><source>Clipboard</source><translation>剪貼簿</translation></message>
+    <message><source>Annotation Tools</source><translation>標註工具</translation></message>
+  </context>
+<context>
+    <name>FileNameDialog</name>
+    <message>
+        <source>File Name Settings</source>
+        <translation>檔案名稱設定</translation>
+    </message>
+    <message>
+        <source>Edit ordinary text directly, such as the name of a long screenshot. Use {time} for date and time, {ms} for milliseconds, and {direction} for long screenshot direction. Extensions are added automatically.</source>
+        <translation>一般文字可直接修改，例如「長截圖」可以改成任意名稱。{time} 表示日期時間，{ms} 表示毫秒，{direction} 表示長截圖方向。副檔名自動加入。</translation>
+    </message>
+    <message>
+        <source>Screenshot</source>
+        <translation>一般截圖</translation>
+    </message>
+    <message>
+        <source>Pinned Image</source>
+        <translation>釘圖</translation>
+    </message>
+    <message>
+        <source>Long Screenshot</source>
+        <translation>長截圖</translation>
+    </message>
+    <message>
+        <source>GIF</source>
+        <translation>GIF</translation>
+    </message>
+    <message>
+        <source>MP4</source>
+        <translation>MP4</translation>
+    </message>
+    <message>
+        <source>Original Suffix</source>
+        <translation>原圖後綴</translation>
+    </message>
+    <message>
+        <source>Restore defaults</source>
+        <translation>還原預設</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>確定</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <source>Preview: %1</source>
+        <translation>範例：%1</translation>
+    </message>
+    <message>
+        <source>Enter a file name rule.</source>
+        <translation>請輸入檔名規則。</translation>
+    </message>
+    <message>
+        <source>The file name rule is too long (maximum 120 characters).</source>
+        <translation>檔名規則過長（最多 120 個字元）。</translation>
+    </message>
+    <message>
+        <source>File names cannot contain forbidden characters or end with a dot or space.</source>
+        <translation>檔名不能含有無效字元，也不能以點或空格結尾。</translation>
+    </message>
+    <message>
+        <source>Unknown placeholder in the file name rule.</source>
+        <translation>檔名規則含有不支援的預留位置。</translation>
+    </message>
+    <message>
+        <source>This file name is reserved by Windows.</source>
+        <translation>此檔名是 Windows 保留名稱。</translation>
+    </message>
+    <message>
+        <source>The generated file name is too long (maximum 120 characters).</source>
+        <translation>產生的檔名過長（展開後最多 120 個字元）。</translation>
+    </message>
+    <message>
+        <source>Leave out the file extension; it is added automatically.</source>
+        <translation>請移除副檔名，儲存時會自動加入。</translation>
     </message>
 </context>
 </TS>

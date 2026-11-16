@@ -34,6 +34,8 @@ static CALLBACK: Lazy<Mutex<Option<ItemCallback>>> = Lazy::new(|| Mutex::new(Non
 static OWN_WRITE_SEQ: AtomicU32 = AtomicU32::new(0);
 // 监听已处理到的剪贴板序号：同一份内容的多条通知只处理一次
 static HANDLED_SEQ: AtomicU32 = AtomicU32::new(0);
+// 写入方标了不进历史的内容（见 is_marked_private）是否照样记录
+static RECORD_PRIVATE: AtomicBool = AtomicBool::new(false);
 static LAST_CALLBACK_EVENT: Lazy<Mutex<Option<(i64, Instant)>>> = Lazy::new(|| Mutex::new(None));
 const DUPLICATE_CALLBACK_WINDOW: Duration = Duration::from_millis(350);
 /// 剪贴板停止变化这么久才去读
@@ -116,7 +118,7 @@ fn capture_clipboard(window: &win_clipboard::ClipboardWindow) -> Option<Captured
     }
     // 监听在后台线程，别的程序占着剪贴板时多等一会儿，等不到才放弃这次记录
     let clipboard = window.open(Duration::from_secs(1))?;
-    if is_marked_private(&clipboard) {
+    if !RECORD_PRIVATE.load(Ordering::Relaxed) && is_marked_private(&clipboard) {
         return None;
     }
     let names = clipboard.formats();
@@ -468,6 +470,11 @@ impl ClipboardManager {
     /// 获取当前历史记录数量限制
     pub fn get_history_limit(&self) -> i64 {
         self.history_limit.load(Ordering::Relaxed)
+    }
+
+    /// 是否也记录写入方要求不进历史的内容（浏览器无痕窗口、密码管理器），默认不记
+    pub fn set_record_private(&self, on: bool) {
+        RECORD_PRIVATE.store(on, Ordering::Relaxed);
     }
 
     /// 启动剪贴板监听

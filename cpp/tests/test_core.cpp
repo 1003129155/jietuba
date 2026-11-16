@@ -2,6 +2,7 @@
 #include "core/bootstrap.h"
 #include "core/constants.h"
 #include "core/elevation.h"
+#include "core/package_identity.h"
 #include "core/global_hotkey.h"
 #include "core/i18n.h"
 #include "core/logger.h"
@@ -303,6 +304,15 @@ private slots:
         QVERIFY(fixture.fake->calls.isEmpty());
         QVERIFY(fixture.fake->elevated_calls.isEmpty());
     }
+    // A packaged app cannot register the highest-privilege logon task, so the administrator option stays hidden.
+    void aPackagedAppIsNeverOfferedElevation() {
+        elevation::set_environment_for_test(std::nullopt, std::nullopt, std::nullopt);
+        jietuba::set_packaged_for_test(true);
+        const QString packaged = elevation::elevation_state();
+        jietuba::set_packaged_for_test(std::nullopt);
+        QCOMPARE(packaged, elevation::STANDARD);
+    }
+
     void elevationHandOff() {
         QTemporaryDir dir;
         const QString record = dir.filePath("jietuba_lite.exe.pid");

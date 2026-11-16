@@ -34,7 +34,7 @@ public:
     QString action;
     bool include_cursor = false;
     std::shared_ptr<SystemCursor> cursor;
-    // 仅由工作线程在 captured 发出前写入；随后由 GUI 线程读取。
+    // Written by the worker before captured is emitted; read on the GUI thread after.
     std::vector<DecodedCode> codes;
 signals:
     void captured(const QImage &image, const QRectF &bounds);

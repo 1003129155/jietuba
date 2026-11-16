@@ -471,7 +471,7 @@ const std::set<QString> CLIPBOARD_BEHAVIOR_KEYS = {
     "clipboard_open_position", "clipboard_group_bar_position", "clipboard_preserve_search", "clipboard_show_metadata",
     "clipboard_display_lines", "clipboard_image_size", "clipboard_hide_grouped_in_history", "clipboard_auto_paste",
     "clipboard_close_after_paste", "clipboard_move_to_top_on_paste", "clipboard_paste_with_html", "clipboard_multi_paste_order",
-    "clipboard_multi_paste_keep_merged",
+    "clipboard_multi_paste_keep_merged", "clipboard_record_private",
 };
 
 QString clipboard_separator_value(const SettingsDialog *dialog) {
@@ -508,6 +508,10 @@ QWidget *create_clipboard_page(SettingsDialog *dialog) {
     enabled_card->setChecked(dialog->config_manager->get_clipboard_enabled());
     dialog->set_attr("clipboard_enabled_toggle", enabled_card);
     grp_basic->addSettingCard(enabled_card);
+    add_switch_card(dialog, grp_basic, FluentIcon::Hide, "Record Content Marked Private",
+                    "Copies from private browser windows and password managers are skipped by default. When on, they are recorded too, "
+                    "passwords included, in plain text.",
+                    "clipboard_record_private");
 
     auto *position_card = new SettingCard(FluentIcon::Layout, dialog->tr_text("Window Position"), dialog->tr_text("Where the clipboard window appears when it opens"), grp_basic);
     auto *position_combo = new ComboBox(position_card);
@@ -556,6 +560,14 @@ QWidget *create_clipboard_page(SettingsDialog *dialog) {
     sync_single_file_toggle(dialog);
     QObject::connect(single_file_card, &SwitchSettingCard::checkedChanged, dialog, [dialog](bool on) { set_clipboard_single_file(dialog, on); });
     grp_data->addSettingCard(single_file_card);
+
+    auto *limit_card = new SettingCard(FluentIcon::History, dialog->tr_text("History Limit"), dialog->tr_text("Maximum number of items to keep (0 = unlimited)"), grp_data);
+    auto *limit_spin = new SpinBox(limit_card);
+    limit_spin->setRange(0, 10000);
+    limit_spin->setValue(static_cast<int>(dialog->config_manager->get_clipboard_history_limit()));
+    dialog->set_attr("clipboard_history_limit_spin", limit_spin);
+    limit_card->addControl(limit_spin);
+    grp_data->addSettingCard(limit_card);
 
     auto *cleanup_card = new SettingCard(FluentIcon::Delete, dialog->tr_text("Clear Clipboard History"), dialog->tr_text("Delete all clipboard history records"), grp_data);
     // The result sits left of the control column so the buttons line up with other cards.
@@ -609,17 +621,6 @@ QWidget *create_clipboard_page(SettingsDialog *dialog) {
     add_switch_card(dialog, grp_multi, FluentIcon::Save, "Record Merged Content", "Add the combined content to the history as a new item",
                     "clipboard_multi_paste_keep_merged");
     layout->addWidget(grp_multi);
-
-    // ════ History ════
-    auto *grp_history = new SettingsCardGroup(dialog->tr_text("History"), view, "clipboard");
-    auto *limit_card = new SettingCard(FluentIcon::History, dialog->tr_text("History Limit"), dialog->tr_text("Maximum number of items to keep (0 = unlimited)"), grp_history);
-    auto *limit_spin = new SpinBox(limit_card);
-    limit_spin->setRange(0, 10000);
-    limit_spin->setValue(static_cast<int>(dialog->config_manager->get_clipboard_history_limit()));
-    dialog->set_attr("clipboard_history_limit_spin", limit_spin);
-    limit_card->addControl(limit_spin);
-    grp_history->addSettingCard(limit_card);
-    layout->addWidget(grp_history);
 
     auto *grp_special_paste = new SettingsCardGroup(dialog->tr_text("Special Paste"), view, "clipboard");
     auto *special_paste_card = new SettingCard(FluentIcon::Paste, dialog->tr_text("Special Paste Menu"),

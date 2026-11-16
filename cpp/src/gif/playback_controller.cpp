@@ -9,6 +9,7 @@
 #include "gif/playback_toolbar.h"
 #include "gif/record_toolbar.h"
 #include "settings/tool_settings.h"
+#include "core/file_names.h"
 #include "ui/dialogs.h"
 #include <QApplication>
 #include <QClipboard>
@@ -385,7 +386,9 @@ QString PlaybackController::make_save_path() {
         save_dir = QDir(QDir::homePath()).filePath("Desktop");
     }
     QDir().mkpath(save_dir);
-    const QString ts = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
-    return QDir::toNativeSeparators(QDir(save_dir).filePath(QString("jietuba_gif_%1.gif").arg(ts)));
+    const auto stem = file_names::stem(*get_tool_settings_manager(), file_names::Gif);
+    auto path = QDir(save_dir).filePath(stem + ".gif");
+    for (int i = 1; QFileInfo::exists(path); ++i) path = QDir(save_dir).filePath(stem + "_" + QString::number(i) + ".gif");
+    return QDir::toNativeSeparators(path);
 }
 }

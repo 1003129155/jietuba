@@ -66,6 +66,8 @@ struct MouseInput {
     // Simulated input; the caller passes simulated input carrying the test marker as real.
     bool injected = false;
 
+    uint64_t timestamp = 0;  // Native mouse-message time; preserves double-click timing across a busy GUI.
+
     static MouseInput move(int32_t x, int32_t y) { return {Action::Move, Button::Left, 0, false, x, y, false}; }
     static MouseInput down(Button b, int32_t x, int32_t y) { return {Action::Down, b, 0, false, x, y, false}; }
     static MouseInput up(Button b, int32_t x, int32_t y) { return {Action::Up, b, 0, false, x, y, false}; }
@@ -93,6 +95,7 @@ struct Event {
         Key,
         Foreground,  // the foreground window changed; every change while anyone watches
         MouseButton,  // a button pressed or released that no gesture or side-button hotkey took
+        MouseCaptured,  // a configured button consumed inside one capture region; modifiers and time (id) included
         PointerMoved,  // the pointer moved; sent once per watcher until take_pointer collects the position
         Failure,
     };
@@ -124,6 +127,13 @@ struct Event {
 };
 
 using Events = std::vector<Event>;
+
+struct MouseCapture {
+    std::string watcher;
+    Rect rect;
+    std::vector<Rect> excluded;
+    std::vector<std::pair<Modifiers, Button>> bindings;
+};
 
 // The two system services the state machine needs: Win32 in production, a fake in tests.
 class Platform {
@@ -180,6 +190,8 @@ public:
     // notice for moves until take_pointer collects the latest position. Nothing is swallowed.
     void watch_mouse(const std::string &watcher);
     void unwatch_mouse(const std::string &watcher);
+    // Captures only matching button/modifier pairs in rect, never moves or wheel input.
+    void capture_mouse(const std::string &watcher, std::optional<MouseCapture> capture);
     std::optional<std::pair<int32_t, int32_t>> take_pointer(const std::string &watcher);
     void watch_foreground(const std::string &watcher);
     void unwatch_foreground(const std::string &watcher);
@@ -217,6 +229,7 @@ private:
     bool capture_key(const KeyInput &input, Platform &platform, Events &out);
     bool gesture_key(const KeyInput &input, Platform &platform, Events &out);
     bool side_mouse(const MouseInput &input, Events &out);
+    bool capture_mouse_input(const MouseInput &input, Platform &platform, Events &out);
     void observe_mouse(const MouseInput &input, Events &out);
     void clear_claims();
 
@@ -255,6 +268,8 @@ private:
     std::vector<std::pair<std::string, std::vector<uint32_t>>> key_watchers_;
     // Mouse watchers with whether a move notice waits to be collected.
     std::vector<std::pair<std::string, bool>> mouse_watchers_;
+    std::optional<MouseCapture> mouse_capture_;
+    std::array<std::optional<std::pair<std::string, Modifiers>>, 5> mouse_capture_claimed_;
     std::vector<std::string> foreground_watchers_;
     bool sync_requested_ = false;
 };

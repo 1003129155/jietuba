@@ -63,6 +63,8 @@ public:
     void setup_tray();
     void start_screenshot();
     void start_delayed_screenshot();
+    // A capture whose selection opens the recording window.
+    void start_screen_recording();
     void open_settings();
     // Opens the settings window on one page (SettingsDialog::on_nav_changed's index and route).
     void open_settings_page(int stack_index, const QString &route_key);
@@ -144,7 +146,7 @@ private:
     // capture takes the focus back (a click, a paste). Released when the capture ends.
     void attach_clipboard_to_capture();
     void release_clipboard_from_capture();
-    void request_screenshot(bool delayed);
+    void request_screenshot(bool delayed, bool record = false);
     void capture_and_prepare_window();
     // The settings window asks for the wizard: hide it and unregister hotkeys while the wizard runs.
     void on_wizard_requested();
@@ -157,6 +159,8 @@ private:
     void on_clipboard_item_received(const clipboard::ClipboardItem &item);
 
     bool capture_pending_ = false;
+    // The pending capture is for recording.
+    bool record_pending_ = false;
     QPointer<ScreenshotCountdown> screenshot_countdown_;
     DisplayChangeWatcher *display_watcher_ = nullptr;
     std::unique_ptr<PreloadManager> preloader_;

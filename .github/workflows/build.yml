@@ -123,6 +123,93 @@ jobs:
             jietuba_pp-${{ github.ref_name }}-${{ matrix.arch }}.zip
             jietuba_lite-${{ github.ref_name }}-${{ matrix.arch }}.zip
 
+  # 微软商店包：用 lite 作业编出的 exe 打成 .msixbundle（x64+arm64），作为构建产物供 msstore 作业或人工
+  # 上传到 Partner Center，不进 GitHub Release（未签名，装不上）。商店收包后自己签名，exe 不必经 SignPath，
+  # 所以不依赖 signing 环境，任何分支手动触发都能出包。标识值来自 Partner Center 的 Product identity，
+  # 存在仓库变量里；MSSTORE_PUBLISHER 为空时整个作业跳过，某一版的 MSSTORE_IDENTITY_* 为空时跳过该版。
+  msix:
+    needs: lite
+    if: vars.MSSTORE_PUBLISHER != ''
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [lite, full]
+    env:
+      # 变量为空时 `a && b || c` 会落到 c，所以两版各自判断，空值只留空
+      IDENTITY_NAME: ${{ (matrix.variant == 'full' && vars.MSSTORE_IDENTITY_FULL) || (matrix.variant == 'lite' && vars.MSSTORE_IDENTITY_LITE) || '' }}
+      DISPLAY_NAME: ${{ (matrix.variant == 'full' && vars.MSSTORE_NAME_FULL) || (matrix.variant == 'lite' && vars.MSSTORE_NAME_LITE) || '' }}
+      PUBLISHER: ${{ vars.MSSTORE_PUBLISHER }}
+      PUBLISHER_DISPLAY_NAME: ${{ vars.MSSTORE_PUBLISHER_DISPLAY_NAME }}
+    steps:
+      - name: Checkout
+        if: env.IDENTITY_NAME != ''
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Download x64 build
+        if: env.IDENTITY_NAME != ''
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ matrix.variant == 'full' && 'jietuba_pp' || 'jietuba_lite' }}-cpp-x64
+          path: build/x64
+
+      - name: Download arm64 build
+        if: env.IDENTITY_NAME != ''
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ matrix.variant == 'full' && 'jietuba_pp' || 'jietuba_lite' }}-cpp-arm64
+          path: build/arm64
+
+      - name: Build .msixbundle
+        if: env.IDENTITY_NAME != ''
+        shell: powershell
+        run: |
+          foreach ($arch in 'x64', 'arm64') {
+            .\cpp\scripts\package_msix.ps1 -ExeDir "build\$arch" -Variant '${{ matrix.variant }}' -Arch $arch `
+              -IdentityName $env:IDENTITY_NAME -Publisher $env:PUBLISHER -PublisherDisplayName $env:PUBLISHER_DISPLAY_NAME `
+              -DisplayName $env:DISPLAY_NAME -OutDir msix
+          }
+          .\cpp\scripts\bundle_msix.ps1 -PackageDir msix -Output "$env:IDENTITY_NAME.msixbundle"
+
+      - name: Upload .msixbundle
+        if: env.IDENTITY_NAME != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: msixbundle-${{ matrix.variant }}
+          path: ${{ env.IDENTITY_NAME }}.msixbundle
+          if-no-files-found: error
+
+  # 把轻量版的 .msixbundle 传进 Partner Center 的更新草稿，不提交认证：发行说明由人填好后在产品页点提交，
+  # 和 GitHub Release 先建草稿是同一个做法。只在打标签时跑；仓库变量 MSSTORE_PRODUCT_ID_LITE（Store ID）
+  # 为空时跳过。凭据是关联到 Partner Center 账号的 Entra 应用，存在仓库 Secrets 里。
+  msstore:
+    needs: msix
+    if: startsWith(github.ref, 'refs/tags/') && vars.MSSTORE_PRODUCT_ID_LITE != ''
+    runs-on: windows-latest
+    steps:
+      - name: Download .msixbundle
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: msixbundle-lite
+          path: msix
+
+      - name: Setup Microsoft Store Developer CLI
+        uses: microsoft/microsoft-store-apppublisher@cc9910a8d59f2eb55cbb83df0a3800cf3b5300e0 # v1.4
+
+      - name: Upload package to a draft submission
+        env:
+          TENANT_ID: ${{ secrets.MSSTORE_TENANT_ID }}
+          SELLER_ID: ${{ secrets.MSSTORE_SELLER_ID }}
+          CLIENT_ID: ${{ secrets.MSSTORE_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.MSSTORE_CLIENT_SECRET }}
+          PRODUCT_ID: ${{ vars.MSSTORE_PRODUCT_ID_LITE }}
+        run: |
+          msstore reconfigure --tenantId $env:TENANT_ID --sellerId $env:SELLER_ID --clientId $env:CLIENT_ID --clientSecret $env:CLIENT_SECRET
+          if ($LASTEXITCODE -ne 0) { throw "msstore reconfigure failed" }
+          $bundle = (Get-ChildItem msix\*.msixbundle | Select-Object -First 1).FullName
+          msstore publish $bundle --appId $env:PRODUCT_ID --noCommit
+          if ($LASTEXITCODE -ne 0) { throw "msstore publish failed" }
+
   release:
     needs: package
     if: startsWith(github.ref, 'refs/tags/')

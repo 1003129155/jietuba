@@ -1,4 +1,5 @@
 #include "ui/settings_ui/dialog.h"
+#include "core/file_names.h"
 #include "clipboard/ui/theme/themes.h"
 #include "core/i18n.h"
 #include "core/logger.h"
@@ -754,12 +755,14 @@ void SettingsDialog::reset_screenshot_settings_page() {
                                          std::make_pair("screenshot_save_original_toggle", "screenshot_save_original_enabled"),
                                          std::make_pair("clipboard_file_reference_toggle", "clipboard_file_reference_enabled"),
                                          std::make_pair("watermark_auto_toggle", "screenshot_watermark_auto"), std::make_pair("magnifier_enabled_toggle", "magnifier_enabled"),
-                                         std::make_pair("magnifier_grid_toggle", "magnifier_grid"), std::make_pair("magnifier_hint_toggle", "magnifier_hint")})
+                                         std::make_pair("magnifier_grid_toggle", "magnifier_grid"), std::make_pair("magnifier_selection_toggle", "magnifier_selection"),
+                                         std::make_pair("magnifier_hint_toggle", "magnifier_hint")})
         if (auto *toggle = attr_widget(attr_name)) set_checked(toggle, defaults.value(key).toBool());
     if (auto *label = attr_widget("save_path_lbl")) set_text(label, defaults.value("screenshot_save_path").toString());
     if (auto *combo = attr<QComboBox>("screenshot_format_combo"))
         combo->setCurrentIndex(std::max<int>(0, QStringList{"PNG", "JPG", "BMP", "WEBP", "PDF"}.indexOf(defaults.value("screenshot_format").toString().toUpper())));
     select_data(attr<QComboBox>("save_dialog_style_combo"), defaults.value("save_dialog_style"));
+    if (save_filename_patterns) save_filename_patterns = file_names::defaults();
     if (magnifier_color_formats) magnifier_color_formats = color_formats::default_formats();
     fill_ocr_engines(this, defaults.value("ocr_engine").toString(), defaults.value("ppocr_model").toString());
     select_data(attr<QComboBox>("ocr_result_position_combo"), defaults.value("ocr_result_position"));
@@ -926,14 +929,15 @@ void SettingsDialog::save_changes(QSet<QString> changed) {
 
     // 3.5 Magnifier.
     for (const auto &[attr_name, key] : {std::make_pair("magnifier_enabled_toggle", "magnifier_enabled"), std::make_pair("magnifier_grid_toggle", "magnifier_grid"),
-                                         std::make_pair("magnifier_hint_toggle", "magnifier_hint")})
+                                         std::make_pair("magnifier_selection_toggle", "magnifier_selection"), std::make_pair("magnifier_hint_toggle", "magnifier_hint")})
         if (auto *toggle = attr_widget(attr_name); toggle && has(attr_name)) config_manager->set_app_setting(key, checked_of(toggle));
+    if (has("save_filename_patterns")) config_manager->set_save_filename_patterns(*save_filename_patterns);
     if (has("magnifier_color_formats")) save_magnifier_color_formats();
 
     // 4. OCR.
     if (auto *toggle = attr_widget("ocr_enable_toggle"); toggle && has("ocr_enable_toggle")) config_manager->set_ocr_enabled(checked_of(toggle));
     if (auto *combo = attr<QComboBox>("ocr_engine_combo"); combo && has("ocr_engine_combo")) {
-        const auto [engine, model] = ocr_choice(combo->currentData().toString());
+        const auto [engine, model] = ocr_choice(ocr_selection(combo));
         if (model && *model != config_manager->get_ppocr_model()) {
             config_manager->set_ppocr_model(*model);
             set_ppocr_model(*model);
@@ -1052,7 +1056,8 @@ void SettingsDialog::save_changes(QSet<QString> changed) {
 
 namespace {
 bool is_mouse_binding_key(const QString &key) {
-    return key.startsWith("quick_capture_") || key.startsWith("mouse_capture_") || key.startsWith("mouse_pin_") || key.startsWith("mouse_clipboard_");
+    return key.startsWith("quick_capture_") || key.startsWith("mouse_capture_") || key.startsWith("mouse_long_")
+        || key.startsWith("mouse_pin_") || key.startsWith("mouse_clipboard_");
 }
 }
 
@@ -1234,7 +1239,7 @@ QVariantMap SettingsDialog::snapshot_settings() const {
     // Switches.
     for (const char *name : {"ocr_copy_directly_toggle", "barcode_copy_single_toggle", "cross_tool_selection_toggle", "text_always_on_top_toggle", "smart_animation_toggle",
                              "save_toggle", "screenshot_pin_save_toggle", "clipboard_file_reference_toggle", "screenshot_save_original_toggle", "watermark_auto_toggle",
-                             "magnifier_enabled_toggle", "magnifier_grid_toggle", "magnifier_hint_toggle", "ocr_enable_toggle", "ocr_grayscale_toggle",
+                             "magnifier_enabled_toggle", "magnifier_grid_toggle", "magnifier_selection_toggle", "magnifier_hint_toggle", "ocr_enable_toggle", "ocr_grayscale_toggle",
                              "ocr_upscale_toggle", "split_sentences_toggle", "preserve_formatting_toggle", "translation_auto_close_toggle", "log_toggle", "clipboard_enabled_toggle",
                              "autostart_toggle", "run_as_admin_toggle", "show_main_window_toggle", "pin_auto_toolbar_toggle", "info_hide_on_drag_toggle",
                              "preload_screenshot_toggle", "preload_toolbar_toggle", "preload_ocr_toggle", "preload_settings_toggle", "preload_clipboard_toggle"})
@@ -1246,7 +1251,7 @@ QVariantMap SettingsDialog::snapshot_settings() const {
                              "_color_picker_style_combo", "smart_mode_combo", "capture_engine_combo"})
         if (auto *combo = attr<QComboBox>(name)) snap[name] = combo->currentIndex();
     // The OCR list reorders as models are downloaded or deleted, so it compares by the item's value.
-    if (auto *combo = attr<QComboBox>("ocr_engine_combo")) snap["ocr_engine_combo"] = combo->currentData();
+    if (auto *combo = attr<QComboBox>("ocr_engine_combo")) snap["ocr_engine_combo"] = ocr_selection(combo);
     // Numbers.
     for (const char *name : {"clipboard_history_limit_spin", "ignore_top_pixels_spinbox", "ocr_scale_spinbox"}) {
         if (auto *spin = attr<QSpinBox>(name)) snap[name] = spin->value();
@@ -1257,6 +1262,7 @@ QVariantMap SettingsDialog::snapshot_settings() const {
     // Colours.
     if (appearance_theme_color) snap["theme_color"] = appearance_theme_color->name();
     if (appearance_mask_color) snap["mask_color"] = appearance_mask_color->name();
+    if (save_filename_patterns) snap["save_filename_patterns"] = *save_filename_patterns;
     // Colour formats are edited in their own window, with no control to read.
     if (magnifier_color_formats) {
         QVariantList formats;
@@ -1395,8 +1401,9 @@ void SettingsDialog::refresh_settings() {
         combo->setCurrentIndex(std::max<int>(0, QStringList{"PNG", "JPG", "BMP", "WEBP", "PDF"}.indexOf(config_manager->get_screenshot_format().toUpper())));
     select_data(attr<QComboBox>("save_dialog_style_combo"), config_manager->get_save_dialog_style());
     for (const auto &[attr_name, key] : {std::make_pair("magnifier_enabled_toggle", "magnifier_enabled"), std::make_pair("magnifier_grid_toggle", "magnifier_grid"),
-                                         std::make_pair("magnifier_hint_toggle", "magnifier_hint")})
+                                         std::make_pair("magnifier_selection_toggle", "magnifier_selection"), std::make_pair("magnifier_hint_toggle", "magnifier_hint")})
         if (auto *toggle = attr_widget(attr_name)) set_checked(toggle, config_manager->get_app_setting(key).toBool());
+    if (save_filename_patterns) save_filename_patterns = file_names::load(*config_manager);
     if (magnifier_color_formats) magnifier_color_formats = color_formats::load(config_manager);
     if (auto *toggle = attr_widget("ocr_enable_toggle")) set_checked(toggle, config_manager->get_ocr_enabled());
     fill_ocr_engines(this, config_manager->get_ocr_engine(), config_manager->get_ppocr_model());

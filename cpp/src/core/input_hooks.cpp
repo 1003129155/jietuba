@@ -171,6 +171,7 @@ bool InputHooks::State::handle_mouse(UINT message, const MSLLHOOKSTRUCT &data) {
     }
     input.x = data.pt.x;
     input.y = data.pt.y;
+    input.timestamp = data.time;
     const bool injected = (data.flags & (LLMHF_INJECTED | LLMHF_LOWER_IL_INJECTED)) != 0;
     input.injected = !counts_as_real(injected, data.dwExtraInfo);
     return handle([&](Engine &engine, Platform &platform, Events &out) { return engine.on_mouse(input, platform, out); });

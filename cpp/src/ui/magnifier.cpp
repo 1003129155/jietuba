@@ -17,6 +17,7 @@
 #include <QMimeData>
 #include <QPainter>
 #include <QPainterPath>
+#include <QRegion>
 
 namespace jietuba {
 namespace {
@@ -45,6 +46,8 @@ MagnifierOverlay::MagnifierOverlay(QWidget *parent, CanvasScene *scene, CanvasVi
     refresh_display_options();
     // Connection ends with this widget.
     connect(&get_ui_scale(), &UIScaleManager::scale_changed, this, &MagnifierOverlay::apply_scale);
+    // Keyboard nudges move the selection under a still pointer.
+    if (scene && scene->selection_model) connect(scene->selection_model, &SelectionModel::rectChanged, this, [this] { if (show_selection_) refresh(); });
     apply_scale();
     setAttribute(Qt::WA_TransparentForMouseEvents, true);
     setAttribute(Qt::WA_NoSystemBackground, true);
@@ -67,6 +70,8 @@ void MagnifierOverlay::refresh_theme_colors() {
     // Shows pixel edges without covering the pixel colours.
     tc_grid.setAlpha(160);
     pen_grid_ = QPen(tc_grid, 1);
+    selection_color_ = tc;
+    mask_color_ = get_theme().mask_color();
 }
 
 void MagnifierOverlay::refresh_display_options() {
@@ -74,6 +79,7 @@ void MagnifierOverlay::refresh_display_options() {
         enabled_ = true;
         show_grid_ = false;
         show_hint_ = true;
+        show_selection_ = false;
         formats_ = color_formats::enabled_formats(color_formats::default_formats());
         format_index_ = 0;
         return;
@@ -81,6 +87,7 @@ void MagnifierOverlay::refresh_display_options() {
     enabled_ = config_manager->get_magnifier_enabled();
     show_grid_ = config_manager->get_magnifier_grid();
     show_hint_ = config_manager->get_magnifier_hint();
+    show_selection_ = config_manager->get_magnifier_selection();
     formats_ = color_formats::enabled_formats(color_formats::load(config_manager));
     // The enabled list may have changed, so cycling restarts at the first format.
     format_index_ = 0;
@@ -302,6 +309,38 @@ void MagnifierOverlay::draw_pixel_grid(QPainter &painter, const QRect &mag_rect,
     }
 }
 
+void MagnifierOverlay::draw_selection(QPainter &painter, const QRect &mag_rect, const QRect &src) const {
+    if (!scene || !scene->selection_model || scene->selection_model->is_empty()) return;
+    if (src.width() <= 0 || src.height() <= 0) return;
+    const auto origin = image_origin();
+    if (!origin) return;
+    // Truncated like the capture window's mask, so the same pixels count as inside.
+    const auto sel = scene->selection_model->rect();
+    const int left = static_cast<int>(sel.x() - origin->x()) - cached_sample_origin_.x() - src.x();
+    const int top = static_cast<int>(sel.y() - origin->y()) - cached_sample_origin_.y() - src.y();
+    const int right = left + static_cast<int>(sel.width());
+    const int bottom = top + static_cast<int>(sel.height());
+    const double cell_w = static_cast<double>(mag_rect.width()) / src.width();
+    const double cell_h = static_cast<double>(mag_rect.height()) / src.height();
+    const auto map_x = [&](int column) { return static_cast<int>(python_round(mag_rect.left() + column * cell_w)); };
+    const auto map_y = [&](int row) { return static_cast<int>(python_round(mag_rect.top() + row * cell_h)); };
+    const QRect inside(QPoint(map_x(left), map_y(top)), QPoint(map_x(right) - 1, map_y(bottom) - 1));
+
+    painter.save();
+    painter.setClipRect(mag_rect, Qt::IntersectClip);
+    painter.setRenderHint(QPainter::Antialiasing, false);
+    for (const auto &band : QRegion(mag_rect).subtracted(QRegion(inside))) painter.fillRect(band, mask_color_);
+    // Thinner than the crosshair, which sits only half a cell away when the pointer is on the edge.
+    const int width = std::max(1, scaled(1));
+    const int half = width / 2;
+    const int x0 = inside.left(), x1 = inside.right() + 1, y0 = inside.top(), y1 = inside.bottom() + 1;
+    painter.fillRect(QRect(x0 - half, y0 - half, x1 - x0 + width, width), selection_color_);
+    painter.fillRect(QRect(x0 - half, y1 - half, x1 - x0 + width, width), selection_color_);
+    painter.fillRect(QRect(x0 - half, y0 - half, width, y1 - y0 + width), selection_color_);
+    painter.fillRect(QRect(x1 - half, y0 - half, width, y1 - y0 + width), selection_color_);
+    painter.restore();
+}
+
 void MagnifierOverlay::draw_combined_magnifier(QPainter &painter, const QRect &rect, const QColor &color) {
     const QRect mag_rect(rect.x(), rect.y(), mag_width_, mag_height_);
     const QRect info_rect(rect.x(), rect.y() + mag_height_, info_width_, rect.height() - mag_height_);
@@ -330,6 +369,7 @@ void MagnifierOverlay::draw_combined_magnifier(QPainter &painter, const QRect &r
         const auto drawn_src = src_crop.toRect();
         painter.drawImage(mag_rect, cached_sample_image_, drawn_src);
         if (show_grid_) draw_pixel_grid(painter, mag_rect, drawn_src);
+        if (show_selection_) draw_selection(painter, mag_rect, drawn_src);
         painter.restore();
     }
 
@@ -419,6 +459,12 @@ QImage MagnifierOverlay::background_image() const {
     return {};
 }
 
+std::optional<QPointF> MagnifierOverlay::image_origin() const {
+    if (sample_rect_) return sample_rect_->topLeft();
+    if (scene) return scene->scene_rect.topLeft();
+    return std::nullopt;
+}
+
 std::optional<QPoint> MagnifierOverlay::scene_to_image_point(const QPointF &scene_pos) const {
     std::optional<QRectF> rect = sample_rect_;
     if (!rect && scene) rect = scene->scene_rect;
@@ -459,6 +505,7 @@ void MagnifierOverlay::update_sample_cache(const QImage &image) {
     // A small local copy, so frames do not address the large image.
     last_sample_pt_ = *pt;
     cached_source_rect_ = QRect(0, 0, src.width(), src.height());
+    cached_sample_origin_ = src.topLeft();
     cached_sample_image_ = image.copy(src);
 }
 

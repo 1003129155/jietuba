@@ -1,4 +1,6 @@
 #include "core/ui_scale.h"
+#include "core/file_names.h"
+#include "ui/settings_ui/file_name_dialog.h"
 #include "core/ui_theme.h"
 #include "ocr/ocr_manager.h"
 #include "ocr/ppocr_models.h"
@@ -90,8 +92,7 @@ void apply_ocr_install_state(SettingsDialog *dialog) {
     }
     if (auto *combo = dialog->attr<QComboBox>("ocr_engine_combo")) {
         for (auto it = state.begin(); it != state.end(); ++it) combo->setProperty(it.key().toUtf8().constData(), it.value());
-        const QString selection = combo->currentData().toString();
-        const auto [engine, model_id] = ocr_choice(selection == MANAGE_MODELS ? combo->property("selected").toString() : selection);
+        const auto [engine, model_id] = ocr_choice(ocr_selection(combo));
         fill_ocr_engines(dialog, engine, model_id.value_or(dialog->config_manager->get_ppocr_model()));
         combo->setProperty("queried", true);
     }
@@ -192,9 +193,23 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     dialog->set_attr("screenshot_format_combo", format_combo);
     fmt_card->addControl(format_combo);
     grp_save->addSettingCard(fmt_card);
+    dialog->save_filename_patterns = file_names::load(*config);
+    auto *names_card = new SettingCard(FluentIcon::Document, dialog->tr_text("File Name Settings"),
+                                      dialog->tr_text("Set file names for screenshots, long screenshots, GIFs and videos."), grp_save);
+    auto *names_button = new PushButton(dialog->tr_text("Configure"), names_card);
+    dialog->set_attr("filename_settings_button", names_button);
+    QObject::connect(names_button, &QPushButton::clicked, dialog, [dialog] {
+        FileNameDialog editor(*dialog->save_filename_patterns, dialog, dialog->attr<QComboBox>("screenshot_format_combo")->currentData().toString());
+        if (exec_dialog(&editor)) {
+            dialog->save_filename_patterns = editor.patterns();
+            dialog->schedule_save();
+        }
+    });
+    names_card->addControl(names_button);
+    grp_save->addSettingCard(names_card);
     switch_card(dialog, grp_save, FluentIcon::History, "Also Save the Original",
                 "When a screenshot with annotations (including mosaic) or a watermark is saved to the save folder, "
-                "a copy without them is saved too, with _original at the end of its file name.",
+                "a copy without them is saved too.",
                 config->get_screenshot_save_original_enabled(), "screenshot_save_original_toggle");
     // Writes the file path to the clipboard (CF_HDROP). Only an auto-saved capture has a path,
     // decided in deliver_screenshot; the switches are stored independently, with no UI coupling.
@@ -246,6 +261,9 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     switch_card(dialog, grp_magnifier, FluentIcon::Layout, "Pixel Grid",
                 "Outline each pixel in the magnified view. Hidden at low zoom, where the lines would cover the pixels.",
                 config->get_magnifier_grid(), "magnifier_grid_toggle");
+    switch_card(dialog, grp_magnifier, FluentIcon::Camera, "Show Selection",
+                "Dim what lies outside the selection and draw its edge in the magnified view, to line the edge up pixel by pixel.",
+                config->get_magnifier_selection(), "magnifier_selection_toggle");
     switch_card(dialog, grp_magnifier, FluentIcon::Info, "Shortcut Hint",
                 "Show the switch-format and copy-color shortcuts under the readings. Off makes the magnifier shorter.",
                 config->get_magnifier_hint(), "magnifier_hint_toggle");
@@ -326,6 +344,11 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     layout->addStretch();
     scroll->setWidget(view);
     return scroll;
+}
+
+QString ocr_selection(const QComboBox *combo) {
+    const QString data = combo->currentData().toString();
+    return data == MANAGE_MODELS ? combo->property("selected").toString() : data;
 }
 
 std::pair<QString, std::optional<QString>> ocr_choice(const QString &data) {

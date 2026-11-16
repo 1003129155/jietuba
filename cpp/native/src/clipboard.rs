@@ -265,6 +265,15 @@ pub unsafe extern "C" fn jb_clipboard_history_limit(ptr: *const JbClipboard) -> 
     })
 }
 
+#[no_mangle]
+pub unsafe extern "C" fn jb_clipboard_set_record_private(ptr: *const JbClipboard, on: bool) {
+    guard((), || {
+        if let Some(clipboard) = ptr.as_ref() {
+            clipboard.inner.set_record_private(on);
+        }
+    })
+}
+
 /// No lock to take before the item callback, unlike the Python binding's GIL.
 fn run_callback(call: &mut dyn FnMut()) {
     call();

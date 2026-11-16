@@ -1,3 +1,4 @@
+#include "core/i18n.h"
 #include "core/resource_manager.h"
 #include "core/shortcut_manager.h"
 #include "core/ui_scale.h"
@@ -435,7 +436,8 @@ QWidget *create_hotkey_page(SettingsDialog *dialog) {
     dialog->inapp_groups.clear();
 
     auto *tab_switch = new SegmentedWidget(grp_inapp);
-    tab_switch->setFixedHeight(dialog_scaled(34));
+    tab_switch->setLarge(true);
+    tab_switch->setFixedHeight(dialog_scaled(44));
     tab_switch->setIndicatorColor(ACCENT, ACCENT);
 
     auto *stack = new QStackedWidget(grp_inapp);
@@ -479,9 +481,9 @@ QWidget *create_hotkey_page(SettingsDialog *dialog) {
     stack->addWidget(tools_tab);
     stack->addWidget(pin_tab);
     QStringList routes{"screenshot", "tools", "pin"};
-    tab_switch->addItem("screenshot", dialog->tr_text("Screenshot Shortcuts"));
-    tab_switch->addItem("tools", dialog->tr_text("Annotation Tools"));
-    tab_switch->addItem("pin", dialog->tr_text("Pin Shortcuts"));
+    tab_switch->addItem("screenshot", i18n_tr("Screenshot", "ShortcutTabs"));
+    tab_switch->addItem("tools", i18n_tr("Annotation Tools", "ShortcutTabs"));
+    tab_switch->addItem("pin", i18n_tr("Pin", "ShortcutTabs"));
 
     // Direct pick keys are not configured one by one, only which set; conflicts count them in the clipboard group.
     auto *clipboard_pick_combo = new ComboBox;
@@ -500,7 +502,7 @@ QWidget *create_hotkey_page(SettingsDialog *dialog) {
                                {[dialog, clipboard_pick_combo](QWidget *page) { return inapp_row(page, FluentIcon::Paste, dialog->tr_text("Direct Pick Keys"), clipboard_pick_combo); }},
                                false, editor_keys));
     routes.append("clipboard");
-    tab_switch->addItem("clipboard", dialog->tr_text("Clipboard Shortcuts"));
+    tab_switch->addItem("clipboard", i18n_tr("Clipboard", "ShortcutTabs"));
 
     link_tabs(tab_switch, stack, routes);
     tab_switch->setCurrentItem("screenshot");

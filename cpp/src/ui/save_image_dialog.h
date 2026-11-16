@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+class QCheckBox;
 class QComboBox;
 class QVBoxLayout;
 class QLabel;
@@ -173,6 +174,9 @@ public:
     static constexpr int PANEL_WIDTH = 330;
     static constexpr int ENCODE_DELAY_MS = 200;
     static constexpr int MAX_SCALE_PERCENT = 400;
+    // Upload limits are usually decimal kilobytes, so a limit counts 1000 bytes per KB.
+    static constexpr int SIZE_LIMIT_KB_MIN = 10;
+    static constexpr int SIZE_LIMIT_KB_MAX = 100000;
     // base_name is the file name without extension.
     SaveImageDialog(const QImage &image, const QString &base_name, ToolSettingsManager *config, QWidget *parent = nullptr);
     // Shows the dialog and writes the file on Save. CLASSIC: the user switched to the system
@@ -183,6 +187,8 @@ public:
     QString target_path() const;
     QString current_format() const;
     int current_quality() const;
+    // The byte limit the quality is chosen under; 0 when off or the format has no quality.
+    qint64 size_limit_bytes() const;
     QSize target_size() const;
     bool percent_mode() const;
     QString saved_path() const { return saved_path_; }
@@ -209,6 +215,10 @@ public:
     QWidget *quality_block;
     QSlider *quality_slider;
     QLabel *quality_value;
+    // While on, the quality follows the highest one that fits; the slider only shows it.
+    QCheckBox *size_limit_check;
+    QSpinBox *size_limit_spin;
+    QLabel *size_limit_hint;
     QLabel *file_size_label;
     QLabel *zoom_label;
     QLabel *original_label;
@@ -223,8 +233,11 @@ private:
     struct Encoded {
         QImage scaled, decoded;
         qint64 bytes = -1;
+        // Chosen under a size limit; -1 without one.
+        int quality = -1;
+        bool over_limit = false;
     };
-    static Encoded encode(const QImage &image, const QSize &size, const QString &format, int quality);
+    static Encoded encode(const QImage &image, const QSize &size, const QString &format, int quality, qint64 limit_bytes);
     void schedule_encode();
     void start_encode();
     void on_encoded(int generation, const Encoded &result);
@@ -234,6 +247,7 @@ private:
     void set_target_size(const QSize &size);
     void show_size();
     void update_quality_controls();
+    void on_size_limit_changed();
     void update_view_mode();
     void update_status();
     void update_save_enabled();
@@ -250,6 +264,7 @@ private:
     bool encoding_ = false;
     bool encode_pending_ = false;
     bool updating_size_ = false;
+    bool updating_quality_ = false;
     qint64 encoded_bytes_ = -1;
     QString saved_path_;
     bool classic_ = false;

@@ -24,10 +24,6 @@
         <translation>영역 텍스트 인식</translation>
     </message>
     <message>
-        <source>Scan QR code / barcode</source>
-        <translation>코드 스캔 (QR 코드 / 바코드)</translation>
-    </message>
-    <message>
         <source>Region Translation</source>
         <translation>영역 번역</translation>
     </message>
@@ -582,8 +578,8 @@ Replace it?</source>
         <translation>원본도 저장</translation>
     </message>
     <message>
-        <source>When a screenshot with annotations (including mosaic) or a watermark is saved to the save folder, a copy without them is saved too, with _original at the end of its file name.</source>
-        <translation>주석(모자이크 포함)이나 워터마크를 넣은 스크린샷을 저장 폴더에 저장할 때 그것들이 없는 원본도 함께 저장합니다. 파일 이름 끝에 _original이 붙습니다.</translation>
+        <source>When a screenshot with annotations (including mosaic) or a watermark is saved to the save folder, a copy without them is saved too.</source>
+        <translation>주석(모자이크 포함)이나 워터마크가 있는 스크린샷을 저장 폴더에 저장할 때, 이를 제외한 원본도 함께 저장합니다.</translation>
     </message>
     <message>
         <source>Save Folder</source>
@@ -1672,6 +1668,30 @@ Replace it?</source>
         <source>Could not move the settings file: %1</source>
         <translation>설정 파일을 옮길 수 없습니다: %1</translation>
     </message>
+    <message>
+        <source>Unassigned buttons and the wheel pass through. A double-click binding also captures single clicks of that button.</source>
+        <translation>지정하지 않은 버튼과 휠 입력은 아래 창으로 전달됩니다. 더블 클릭을 지정하면 해당 버튼의 한 번 클릭도 가로챕니다.</translation>
+    </message>
+    <message>
+        <source>Long Screenshot Shortcuts</source>
+        <translation>스크롤 캡처 단축키</translation>
+    </message>
+    <message>
+        <source>Scan QR code / barcode</source>
+        <translation>코드 스캔 (QR 코드 / 바코드)</translation>
+    </message>
+    <message>
+        <source>File Name Settings</source>
+        <translation>파일 이름 설정</translation>
+    </message>
+    <message>
+        <source>Set file names for screenshots, long screenshots, GIFs and videos.</source>
+        <translation>스크린샷, 긴 스크린샷, GIF 및 동영상의 저장 파일 이름을 설정합니다.</translation>
+    </message>
+    <message>
+        <source>Configure</source>
+        <translation>설정</translation>
+    </message>
 </context>
 
 <context>
@@ -2344,6 +2364,10 @@ Replace it?</source>
     <message>
         <source>Delayed Screenshot</source>
         <translation>지연 스크린샷</translation>
+    </message>
+    <message>
+        <source>Screen Recording</source>
+        <translation>화면 녹화</translation>
     </message>
     <message>
         <source>Clipboard</source>
@@ -4146,6 +4170,14 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>유지할 최대 항목 수 (0 = 무제한)</translation>
     </message>
     <message>
+        <source>Record Content Marked Private</source>
+        <translation>비공개로 표시된 내용도 기록</translation>
+    </message>
+    <message>
+        <source>Copies from private browser windows and password managers are skipped by default. When on, they are recorded too, passwords included, in plain text.</source>
+        <translation>브라우저 시크릿 창이나 비밀번호 관리자에서 복사한 내용은 기본적으로 기록하지 않습니다. 켜면 함께 기록하며, 비밀번호도 평문 그대로 기록에 저장됩니다.</translation>
+    </message>
+    <message>
         <source>Auto Cleanup Old Items</source>
         <translation>오래된 항목 자동 정리</translation>
     </message>
@@ -5307,7 +5339,6 @@ This action cannot be undone.</source>
     <name>SettingsDialog</name>
     <!-- Clipboard page group headers -->
     <message><source>Basic Settings</source><translation>기본 설정</translation></message>
-    <message><source>History</source><translation>기록</translation></message>
     <message><source>Data</source><translation>데이터</translation></message>
     <message><source>Warning</source><translation>경고</translation></message>
     <message><source>Folder does not exist</source><translation>폴더가 존재하지 않습니다</translation></message>
@@ -5319,6 +5350,8 @@ This action cannot be undone.</source>
     <message><source>Follows the cursor while selecting, and picks the color under it.</source><translation>선택 중 커서를 따라다니며 커서 아래의 색을 추출합니다.</translation></message>
     <message><source>Pixel Grid</source><translation>픽셀 격자</translation></message>
     <message><source>Outline each pixel in the magnified view. Hidden at low zoom, where the lines would cover the pixels.</source><translation>확대 화면에서 각 픽셀의 경계를 그립니다. 배율이 낮을 때는 선이 픽셀을 덮으므로 자동으로 숨깁니다.</translation></message>
+    <message><source>Show Selection</source><translation>선택 영역 표시</translation></message>
+    <message><source>Dim what lies outside the selection and draw its edge in the magnified view, to line the edge up pixel by pixel.</source><translation>확대 화면에서 선택 영역 바깥을 어둡게 하고 테두리를 그립니다. 가장자리를 픽셀 단위로 맞추기 쉬워집니다.</translation></message>
     <message><source>Shortcut Hint</source><translation>단축키 안내</translation></message>
     <message><source>Show the switch-format and copy-color shortcuts under the readings. Off makes the magnifier shorter.</source><translation>수치 아래에 형식 전환과 색 복사 단축키를 표시합니다. 끄면 돋보기가 조금 짧아집니다.</translation></message>
     <message><source>Magnifier</source><translation>돋보기</translation></message>
@@ -5971,6 +6004,10 @@ Replace: move the current data there; the data already in that folder will be de
         <source>Only in screenshot, pin and clipboard windows</source>
         <translation>스크린샷, 고정 창, 클립보드 창에서만 작동</translation>
     </message>
+    <message>
+        <source>Only in the corresponding window</source>
+        <translation>해당 창 안에서만 작동</translation>
+    </message>
 </context>
 <context>
     <name>SettingsDialog</name>
@@ -6195,6 +6232,7 @@ Replace: move the current data there; the data already in that folder will be de
         <source>Long screenshot - window position corrected</source>
         <translation>긴 스크린샷 - 창 위치를 보정했습니다</translation>
     </message>
+    <message><source>Couldn't extend. Keep the page still.</source><translation>영역을 확장할 수 없습니다. 화면을 고정한 후 다시 시도하세요.</translation></message>
 </context>
 <context>
     <name>ScreenshotWindow</name>
@@ -7248,6 +7286,14 @@ gifrecorder가 올바르게 설치되었는지 확인하세요.</translation>
         <translation>예상 크기</translation>
     </message>
     <message>
+        <source>Default size limit</source>
+        <translation>기본 최대 크기</translation>
+    </message>
+    <message>
+        <source>Even the lowest quality is larger than this. Make the image smaller to fit.</source>
+        <translation>최저 품질로도 이 크기를 넘습니다. 위에서 크기를 줄이세요.</translation>
+    </message>
+    <message>
         <source>Save</source>
         <translation>저장</translation>
     </message>
@@ -7464,6 +7510,93 @@ Replace it?</source>
     <message>
         <source>Copied files and folders, shown with their icons, names and sizes.</source>
         <translation>복사한 파일과 폴더. 아이콘, 이름, 크기를 표시합니다.</translation>
+    </message>
+</context>
+  <context>
+    <name>ShortcutTabs</name>
+    <message><source>Screenshot</source><translation>캡처</translation></message>
+    <message><source>Long Screenshot</source><translation>스크롤 캡처</translation></message>
+    <message><source>Pin</source><translation>고정</translation></message>
+    <message><source>Clipboard</source><translation>클립보드</translation></message>
+    <message><source>Annotation Tools</source><translation>주석 도구</translation></message>
+  </context>
+<context>
+    <name>FileNameDialog</name>
+    <message>
+        <source>File Name Settings</source>
+        <translation>파일 이름 설정</translation>
+    </message>
+    <message>
+        <source>Edit ordinary text directly, such as the name of a long screenshot. Use {time} for date and time, {ms} for milliseconds, and {direction} for long screenshot direction. Extensions are added automatically.</source>
+        <translation>긴 스크린샷의 이름 등 일반 텍스트는 직접 바꿀 수 있습니다. {time}은 날짜와 시간, {ms}는 밀리초, {direction}은 긴 스크린샷의 방향입니다. 확장자는 자동으로 추가됩니다.</translation>
+    </message>
+    <message>
+        <source>Screenshot</source>
+        <translation>스크린샷</translation>
+    </message>
+    <message>
+        <source>Pinned Image</source>
+        <translation>고정 이미지</translation>
+    </message>
+    <message>
+        <source>Long Screenshot</source>
+        <translation>긴 스크린샷</translation>
+    </message>
+    <message>
+        <source>GIF</source>
+        <translation>GIF</translation>
+    </message>
+    <message>
+        <source>MP4</source>
+        <translation>MP4</translation>
+    </message>
+    <message>
+        <source>Original Suffix</source>
+        <translation>원본 접미사</translation>
+    </message>
+    <message>
+        <source>Restore defaults</source>
+        <translation>기본값 복원</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>확인</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>취소</translation>
+    </message>
+    <message>
+        <source>Preview: %1</source>
+        <translation>미리 보기: %1</translation>
+    </message>
+    <message>
+        <source>Enter a file name rule.</source>
+        <translation>파일 이름 규칙을 입력하세요.</translation>
+    </message>
+    <message>
+        <source>The file name rule is too long (maximum 120 characters).</source>
+        <translation>파일 이름 규칙은 최대 120자까지 입력할 수 있습니다.</translation>
+    </message>
+    <message>
+        <source>File names cannot contain forbidden characters or end with a dot or space.</source>
+        <translation>파일 이름에 금지된 문자를 쓰거나 마침표 또는 공백으로 끝낼 수 없습니다.</translation>
+    </message>
+    <message>
+        <source>Unknown placeholder in the file name rule.</source>
+        <translation>파일 이름 규칙에 지원하지 않는 자리 표시자가 있습니다.</translation>
+    </message>
+    <message>
+        <source>This file name is reserved by Windows.</source>
+        <translation>Windows에서 예약한 파일 이름입니다.</translation>
+    </message>
+    <message>
+        <source>The generated file name is too long (maximum 120 characters).</source>
+        <translation>생성되는 파일 이름이 너무 깁니다(변환 후 최대 120자).</translation>
+    </message>
+    <message>
+        <source>Leave out the file extension; it is added automatically.</source>
+        <translation>확장자는 저장할 때 자동으로 추가되므로 입력하지 마세요.</translation>
     </message>
 </context>
 </TS>

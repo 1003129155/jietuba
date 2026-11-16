@@ -2,6 +2,7 @@
 #include "core/background_tasks.h"
 #include "core/logger.h"
 #include "core/save.h"
+#include "core/file_names.h"
 #include "settings/tool_settings.h"
 #include <QApplication>
 #include <QBuffer>
@@ -177,12 +178,13 @@ void enqueue_clipboard_job(std::function<void()> job) {
 
 void start_save(const std::shared_ptr<Delivery> &delivery, const QImage &image, const std::shared_ptr<SaveService> &save_service,
                 const SaveKwargs &save_kwargs, const QString &target_path, const QImage &original) {
-    auto worker = [delivery, image, save_service, save_kwargs, target_path, original] {
+    const auto original_suffix = file_names::load(save_service->config_manager).at(file_names::OriginalSuffix);
+    auto worker = [delivery, image, save_service, save_kwargs, target_path, original, original_suffix] {
         const auto started = std::chrono::steady_clock::now();
         try {
             const auto [save_ok, saved_path] = save_service->save_qimage(image, save_kwargs.directory, save_kwargs.prefix, {},
                                                                          save_kwargs.image_format, SaveService::DEFAULT_PDF_DPI, target_path);
-            if (save_ok && !original.isNull() && saved_path) SaveService::save_beside(original, *saved_path, "original");
+            if (save_ok && !original.isNull() && saved_path) SaveService::save_beside(original, *saved_path, original_suffix);
             log_debug(T("图像投递: 后台保存完成 save={save_ok} {ms:.1f}ms",
                         {{"save_ok", save_ok}, {"ms", std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count()}}), "Clipboard");
         } catch (const std::exception &e) {
@@ -317,7 +319,7 @@ std::shared_ptr<Delivery> deliver_screenshot(const QImage &image, ToolSettingsMa
     if (auto_save_enabled(config_manager, trigger)) {
         if (!save_service) save_service = std::make_shared<SaveService>(*config_manager);
         save_kwargs.directory = config_manager->get_screenshot_save_path();
-        save_kwargs.prefix = file_prefix;
+        save_kwargs.prefix = file_prefix.isEmpty() && trigger == "pin" ? QString("pinned") : file_prefix;
         save_kwargs.image_format = SaveService::format_for_size(config_manager->get_screenshot_format(), image.width(), image.height());
         // A file path exists only once auto-save writes the file, so this switch is read only then.
         write_file_reference = config_manager->get_clipboard_file_reference_enabled();

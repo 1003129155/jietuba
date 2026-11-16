@@ -139,6 +139,7 @@ public:
     QPointer<SegmentedWidget> inapp_shortcut_tabs;
     QPointer<SegmentedWidget> mouse_inapp_tabs;
     // Edited in their own window; a change is saved like any edit.
+    std::optional<QStringList> save_filename_patterns;
     std::optional<QVector<color_formats::ColorFormat>> magnifier_color_formats;
     std::optional<QColor> appearance_theme_color;
     std::optional<QColor> appearance_mask_color;
