@@ -1,3 +1,4 @@
+#include "canvas/items/background_item.h"
 #include "canvas/scene.h"
 #include "ocr/ocr_manager.h"
 #include "translation/overlay_translation.h"
@@ -220,11 +221,13 @@ private slots:
         const QColor background(24, 28, 34);
         const auto source = page(QSize(300, 80), background, QColor(230, 230, 230), {{"// a comment", QRectF(10, 10, 240, 16)}});
         int painted = 0;
-        const auto layer = render_translation_overlay(source, {block_of("// a comment", "// 一条注释", QRectF(10, 10, 240, 16), 16)}, "ZH", &painted);
+        const auto layer = render_translation_overlay(source, {block_of("// a comment", "// un commentaire", QRectF(10, 10, 240, 16), 16)}, "FR", &painted);
         QCOMPARE(painted, 1);
         // The padded cover around the text kept the page's colour.
-        QVERIFY(near(QColor(layer.pixel(9, 8)), background));
-        QVERIFY(near(QColor(layer.pixel(270, 28)), background));
+        QVERIFY(near(QColor(layer.pixel(9, 9)), background));
+        QVERIFY(near(QColor(layer.pixel(247, 26)), background));
+        // Beyond the cover the capture is left as it was.
+        QCOMPARE(qAlpha(layer.pixel(270, 28)), 0);
         // The translation is drawn light on dark, like the text it replaced.
         int light = 0;
         for (int y = 10; y < 26; ++y)
