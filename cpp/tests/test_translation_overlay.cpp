@@ -1,0 +1,326 @@
+#include "canvas/scene.h"
+#include "ocr/ocr_manager.h"
+#include "translation/overlay_translation.h"
+#include <QColor>
+#include <QDir>
+#include <QFont>
+#include <QFontDatabase>
+#include <QImage>
+#include <QPainter>
+#include <QTest>
+#include <cmath>
+
+using namespace jietuba;
+
+namespace {
+// The overlay picks its own face; the fake page below draws in Arial so the two are not the
+// same font and an unchanged pixel really means unchanged.
+QString page_family() {
+    static const QString family = [] {
+        const int id = QFontDatabase::addApplicationFont(QDir(qEnvironmentVariable("WINDIR")).filePath("Fonts/arial.ttf"));
+        return QFontDatabase::applicationFontFamilies(id).value(0);
+    }();
+    return family;
+}
+
+OcrLine line(const QString &text, const QRectF &box) {
+    OcrLine item;
+    item.text = text;
+    item.box = {box.topLeft(), box.topRight(), box.bottomRight(), box.bottomLeft()};
+    return item;
+}
+
+OcrResult result_of(const QVector<OcrLine> &lines) {
+    OcrResult result;
+    result.code = 100;
+    result.data = lines;
+    return result;
+}
+
+OverlayTextBlock block_of(const QString &source, const QString &translated, const QRectF &rect, double line_height, int lines = 1) {
+    OverlayTextBlock block;
+    block.source = source;
+    block.translated = translated;
+    block.rect = rect;
+    block.line_height = line_height;
+    block.lines = lines;
+    return block;
+}
+
+// A page of one colour with the given lines already written on it, so the overlay has real
+// background and ink to sample.
+QImage page(const QSize &size, const QColor &background, const QColor &ink, const QVector<QPair<QString, QRectF>> &texts) {
+    QImage image(size, QImage::Format_ARGB32_Premultiplied);
+    image.fill(background);
+    QPainter painter(&image);
+    painter.setPen(ink);
+    for (const auto &text : texts) {
+        QFont font(page_family());
+        font.setPixelSize(std::max(4, static_cast<int>(std::lround(text.second.height() * 0.72))));
+        painter.setFont(font);
+        painter.drawText(text.second, Qt::AlignLeft | Qt::AlignVCenter | Qt::TextWordWrap, text.first);
+    }
+    return image;
+}
+
+// The layer laid over the source the way applying it does, for comparing against the source.
+QImage composited(const QImage &source, const QImage &layer) {
+    QImage result = source;
+    QPainter painter(&result);
+    painter.drawImage(QPoint(0, 0), layer);
+    return result;
+}
+
+int differing_pixels(const QImage &left, const QImage &right, const QRect &area) {
+    int count = 0;
+    for (int y = area.top(); y < area.bottom(); ++y)
+        for (int x = area.left(); x < area.right(); ++x)
+            if (left.pixel(x, y) != right.pixel(x, y)) ++count;
+    return count;
+}
+
+bool near(const QColor &color, const QColor &expected, int tolerance = 8) {
+    return std::abs(color.red() - expected.red()) <= tolerance && std::abs(color.green() - expected.green()) <= tolerance &&
+           std::abs(color.blue() - expected.blue()) <= tolerance;
+}
+}
+
+class TranslationOverlayTests : public QObject {
+    Q_OBJECT
+private slots:
+    void wrapsALineIntoItsParagraph() {
+        const auto blocks = group_overlay_blocks(result_of({
+            line("The quick brown fox", QRectF(10, 10, 300, 14)),
+            line("jumps over the lazy dog", QRectF(10, 26, 280, 14)),
+            line("and keeps running.", QRectF(12, 42, 260, 14)),
+        }));
+        QCOMPARE(blocks.size(), 1);
+        QCOMPARE(blocks[0].lines, 3);
+        // One text for the translation request, lines kept apart.
+        QCOMPARE(blocks[0].source, QString("The quick brown fox\njumps over the lazy dog\nand keeps running."));
+        // The paragraph covers all three lines.
+        QCOMPARE(blocks[0].rect, QRectF(10, 10, 300, 46));
+        QCOMPARE(blocks[0].line_height, 14.0);
+    }
+
+    void keepsAHeadingApartFromTheTextBelow() {
+        // A heading is set larger, so its height does not match the body's: same margin and
+        // a normal gap, and still a block of its own.
+        const auto blocks = group_overlay_blocks(result_of({
+            line("Installation", QRectF(10, 10, 180, 28)),
+            line("Run the installer and pick a folder.", QRectF(10, 44, 300, 14)),
+        }));
+        QCOMPARE(blocks.size(), 2);
+        QCOMPARE(blocks[0].source, QString("Installation"));
+        QCOMPARE(blocks[0].line_height, 28.0);
+        QCOMPARE(blocks[1].source, QString("Run the installer and pick a folder."));
+    }
+
+    void splitsOnAGap() {
+        // Two lines far apart are a label and a body, not one paragraph.
+        const auto blocks = group_overlay_blocks(result_of({
+            line("Username", QRectF(10, 10, 300, 14)),
+            line("Enter the name you signed up with.", QRectF(10, 60, 300, 14)),
+        }));
+        QCOMPARE(blocks.size(), 2);
+    }
+
+    void splitsOnADifferentMargin() {
+        // An indented line starts something else even when it sits right below.
+        const auto blocks = group_overlay_blocks(result_of({
+            line("Username", QRectF(10, 10, 300, 14)),
+            line("Enter the name you signed up with.", QRectF(60, 26, 250, 14)),
+        }));
+        QCOMPARE(blocks.size(), 2);
+    }
+
+    void keepsSideBySideColumnsApart() {
+        // Same row, two columns: the second is read after the first, and is not its
+        // continuation (its top is above the first line's bottom).
+        const auto blocks = group_overlay_blocks(result_of({
+            line("Name", QRectF(10, 10, 100, 14)),
+            line("Value", QRectF(400, 10, 100, 14)),
+        }));
+        QCOMPARE(blocks.size(), 2);
+        QCOMPARE(blocks[0].source, QString("Name"));
+        QCOMPARE(blocks[1].source, QString("Value"));
+    }
+
+    void readsTopDownThenLeftToRight() {
+        // Recognition order is not reading order, so the blocks are sorted before grouping.
+        const auto blocks = group_overlay_blocks(result_of({
+            line("bottom", QRectF(10, 80, 100, 14)),
+            line("right", QRectF(200, 10, 100, 14)),
+            line("top", QRectF(10, 10, 100, 14)),
+        }));
+        QCOMPARE(blocks.size(), 3);
+        QCOMPARE(blocks[0].source, QString("top"));
+        QCOMPARE(blocks[1].source, QString("right"));
+        QCOMPARE(blocks[2].source, QString("bottom"));
+    }
+
+    void dropsLinesThatCannotBePlaced() {
+        OcrLine blank;
+        blank.text = "   ";
+        blank.box = {QPointF(10, 10), QPointF(110, 10), QPointF(110, 24), QPointF(10, 24)};
+        OcrLine no_box;
+        no_box.text = "nowhere";
+        // The engine reports a line it has no position for as a single point.
+        OcrLine point;
+        point.text = "point";
+        point.box = {QPointF(5, 5)};
+        const auto blocks = group_overlay_blocks(result_of({blank, no_box, point, line("real", QRectF(10, 40, 100, 14))}));
+        QCOMPARE(blocks.size(), 1);
+        QCOMPARE(blocks[0].source, QString("real"));
+        QVERIFY(group_overlay_blocks(OcrResult{}).isEmpty());
+    }
+
+    void capsTheParagraphLength() {
+        // A column of unrelated lines that happens to line up stays several paragraphs.
+        QVector<OcrLine> lines;
+        for (int index = 0; index < 16; ++index) lines.append(line(QString("line %1").arg(index), QRectF(10, 10 + index * 16, 200, 14)));
+        const auto blocks = group_overlay_blocks(result_of(lines));
+        QCOMPARE(blocks.size(), 2);
+        QCOMPARE(blocks[0].lines, 12);
+        QCOMPARE(blocks[1].lines, 4);
+    }
+
+    void paintsTheTranslationOverTheOriginal() {
+        const QColor background(255, 255, 255);
+        const auto source = page(QSize(320, 120), background, QColor(20, 20, 20), {{"Hello world", QRectF(10, 10, 260, 18)}});
+        int painted = 0;
+        const auto layer = render_translation_overlay(source, {block_of("Hello world", "Bonjour le monde", QRectF(10, 10, 260, 18), 18)}, "FR", &painted);
+        QCOMPARE(painted, 1);
+        QCOMPARE(layer.size(), source.size());
+        // Nothing outside the block is touched, so the rest of the capture stays as captured.
+        QCOMPARE(qAlpha(layer.pixel(2, 118)), 0);
+        QCOMPARE(qAlpha(layer.pixel(318, 2)), 0);
+        // The block itself is covered in the page's colour, ready for the new text.
+        QCOMPARE(qAlpha(layer.pixel(150, 19)), 255);
+        QVERIFY(near(QColor(layer.pixel(9, 8)), background));
+        // And the text on it is no longer the original.
+        QVERIFY(differing_pixels(composited(source, layer), source, QRect(8, 6, 264, 26)) > 20);
+    }
+
+    void leavesUnchangedTextAlone() {
+        const auto source = page(QSize(200, 60), Qt::white, QColor(20, 20, 20), {{"Name", QRectF(10, 10, 120, 16)}});
+        int painted = -1;
+        // A translation that came back the same (a name, a number) keeps the original pixels.
+        QVERIFY(render_translation_overlay(source, {block_of("Name", "Name", QRectF(10, 10, 120, 16), 16)}, "FR", &painted).isNull());
+        QCOMPARE(painted, 0);
+        // So does one with nothing in it.
+        QVERIFY(render_translation_overlay(source, {block_of("Name", "   ", QRectF(10, 10, 120, 16), 16)}, "FR", &painted).isNull());
+        QCOMPARE(painted, 0);
+        QVERIFY(render_translation_overlay(source, {}, "FR", &painted).isNull());
+        QVERIFY(render_translation_overlay(QImage(), {block_of("Name", "Nom", QRectF(10, 10, 120, 16), 16)}, "FR", &painted).isNull());
+    }
+
+    void keepsDarkPagesDark() {
+        // The page colour is sampled from around the block, not assumed to be white.
+        const QColor background(24, 28, 34);
+        const auto source = page(QSize(300, 80), background, QColor(230, 230, 230), {{"// a comment", QRectF(10, 10, 240, 16)}});
+        int painted = 0;
+        const auto layer = render_translation_overlay(source, {block_of("// a comment", "// 一条注释", QRectF(10, 10, 240, 16), 16)}, "ZH", &painted);
+        QCOMPARE(painted, 1);
+        // The padded cover around the text kept the page's colour.
+        QVERIFY(near(QColor(layer.pixel(9, 8)), background));
+        QVERIFY(near(QColor(layer.pixel(270, 28)), background));
+        // The translation is drawn light on dark, like the text it replaced.
+        int light = 0;
+        for (int y = 10; y < 26; ++y)
+            for (int x = 10; x < 250; ++x)
+                if (QColor(layer.pixel(x, y)).lightness() > background.lightness() + 60) ++light;
+        QVERIFY2(light > 10, "no light text was drawn on the dark page");
+    }
+
+    void growsIntoTheBlankRoomBelow() {
+        // A translation far longer than the line it replaces cannot stay in the line's own
+        // height, so it takes the empty part of the page under it.
+        const auto source = page(QSize(320, 200), Qt::white, QColor(20, 20, 20), {{"Note", QRectF(10, 10, 260, 18)}});
+        const QString translation = QString("This note is much longer than the single word it replaces, so it needs several lines of its own.");
+        int painted = 0;
+        const auto layer = render_translation_overlay(source, {block_of("Note", translation, QRectF(10, 10, 260, 18), 18)}, "FR", &painted);
+        QCOMPARE(painted, 1);
+        // Below the block's own bottom edge (28) the page was blank, and is now covered.
+        QCOMPARE(qAlpha(layer.pixel(150, 40)), 255);
+    }
+
+    void doesNotGrowOverSomethingElse() {
+        // The same long translation, but the page under it is not blank: growth is refused
+        // and the text stays shrunk inside its own line rather than painting over the icon.
+        auto source = page(QSize(320, 200), Qt::white, QColor(20, 20, 20),
+                           {{"Note", QRectF(10, 10, 260, 18)}, {"Following text", QRectF(10, 50, 260, 18)}});
+        const QColor icon(220, 40, 40);
+        {
+            QPainter painter(&source);
+            painter.fillRect(QRect(10, 34, 260, 10), icon);
+        }
+        const QString translation = QString("This note is much longer than the single word it replaces, so it needs several lines of its own.");
+        int painted = 0;
+        const auto layer = render_translation_overlay(
+            source, {block_of("Note", translation, QRectF(10, 10, 260, 18), 18), block_of("Following text", "Texte suivant", QRectF(10, 50, 260, 18), 18)}, "FR",
+            &painted);
+        QCOMPARE(painted, 2);
+        // Nothing was painted over the icon, which is not the page's background.
+        QCOMPARE(qAlpha(layer.pixel(150, 40)), 0);
+        // The block's own line, and no more, carries the translation.
+        QCOMPARE(qAlpha(layer.pixel(150, 18)), 255);
+    }
+
+    void appliesAsOneUndoableStep() {
+        const auto source = page(QSize(320, 120), Qt::white, QColor(20, 20, 20), {{"Hello world", QRectF(10, 10, 260, 18)}});
+        CanvasScene scene(source, QRectF(0, 0, 320, 120));
+        QVERIFY(scene.background);
+        QVERIFY(scene.undo_stack);
+        QCOMPARE(scene.background->image(), source);
+
+        int painted = 0;
+        const auto layer = render_translation_overlay(source, {block_of("Hello world", "Bonjour le monde", QRectF(10, 10, 260, 18), 18)}, "FR", &painted);
+        QCOMPARE(painted, 1);
+        apply_translation_overlay(&scene, layer, QPoint(0, 0), QStringLiteral("Translate Overlay"));
+
+        auto translated = scene.background->image();
+        QVERIFY(differing_pixels(translated, source, QRect(8, 6, 264, 26)) > 20);
+        // The pixels outside the layer are the same ones.
+        QCOMPARE(translated.copy(QRect(0, 100, 320, 20)), source.copy(QRect(0, 100, 320, 20)));
+
+        // One step, and the capture is exactly what was taken.
+        QCOMPARE(scene.undo_stack->count(), 1);
+        scene.undo_stack->undo();
+        QCOMPARE(scene.background->image(), source);
+        scene.undo_stack->redo();
+        QVERIFY(differing_pixels(scene.background->image(), source, QRect(8, 6, 264, 26)) > 20);
+    }
+
+    void appliesAtTheSelectionsOffset() {
+        // The capture is the whole virtual desktop, so the layer goes in at the selection's
+        // own place rather than the top-left corner.
+        const auto source = page(QSize(320, 120), Qt::white, QColor(20, 20, 20), {{"Hello world", QRectF(150, 40, 160, 18)}});
+        CanvasScene scene(source, QRectF(0, 0, 320, 120));
+        int painted = 0;
+        const auto layer = render_translation_overlay(source.copy(QRect(140, 30, 180, 40)),
+                                                      {block_of("Hello world", "Bonjour", QRectF(10, 10, 160, 18), 18)}, "FR", &painted);
+        QCOMPARE(painted, 1);
+        apply_translation_overlay(&scene, layer, QPoint(140, 30), QStringLiteral("Translate Overlay"));
+        const auto translated = scene.background->image();
+        // Changed inside the selection only.
+        QVERIFY(differing_pixels(translated, source, QRect(140, 30, 180, 40)) > 20);
+        QCOMPARE(translated.copy(QRect(0, 0, 140, 120)), source.copy(QRect(0, 0, 140, 120)));
+    }
+
+    void ignoresAnApplyWithNothingToDo() {
+        const auto source = page(QSize(64, 64), Qt::white, Qt::black, {});
+        CanvasScene scene(source, QRectF(0, 0, 64, 64));
+        // No layer, no scene: nothing is pushed, so Ctrl+Z keeps meaning the step before.
+        apply_translation_overlay(&scene, QImage(), QPoint(0, 0), QStringLiteral("Translate Overlay"));
+        apply_translation_overlay(nullptr, QImage(4, 4, QImage::Format_ARGB32), QPoint(0, 0), QStringLiteral("Translate Overlay"));
+        // A layer that lands entirely outside the capture is dropped too.
+        auto offscreen = QImage(8, 8, QImage::Format_ARGB32_Premultiplied);
+        offscreen.fill(Qt::red);
+        apply_translation_overlay(&scene, offscreen, QPoint(500, 500), QStringLiteral("Translate Overlay"));
+        QCOMPARE(scene.undo_stack->count(), 0);
+    }
+};
+
+QTEST_MAIN(TranslationOverlayTests)
+#include "test_translation_overlay.moc"
