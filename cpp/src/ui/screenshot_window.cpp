@@ -524,6 +524,9 @@ void ScreenshotWindow::connect_toolbar_signals() {
     connect(toolbar, &Toolbar::screenshot_translate_clicked, this, [this] {
         if (action_handler) action_handler->handle_screenshot_translate();
     });
+    connect(toolbar, &Toolbar::translate_overlay_clicked, this, [this] {
+        if (action_handler) action_handler->handle_screenshot_translate_overlay();
+    });
     connect(toolbar, &Toolbar::text_recognize_clicked, this, [this] {
         if (action_handler) action_handler->handle_text_recognize();
     });

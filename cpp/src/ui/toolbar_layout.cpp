@@ -46,7 +46,7 @@ QString object_key(QByteArray member) {
 }
 const QStringList &default_order() {
     static const QStringList order{
-        "long_screenshot", "save", "quick_save", "screenshot_translate", "text_recognize", "scan_code", "gif",
+        "long_screenshot", "save", "quick_save", "screenshot_translate", "translate_overlay", "text_recognize", "scan_code", "gif",
         "pen", "highlighter", "mosaic", "spotlight", "watermark", "arrow", "number", "rect", "ellipse", "text", "eraser",
         "undo", "redo", "cancel", "pin", "confirm"};
     return order;

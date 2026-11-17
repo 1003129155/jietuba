@@ -99,10 +99,13 @@ private slots:
         for (const auto &v : fixtures_["layout"].toArray()) {
             const auto row = v.toObject();
             // Quick save came after the reference froze, so its answers lack it: it follows save, folded.
+            // The same goes for the overlay translation button, which follows screenshot translate.
             QJsonArray expected;
             for (const auto &entry : row["expected"].toArray()) {
                 expected.append(entry);
-                if (entry.toArray()[0].toString() == "save") expected.append(QJsonArray{"quick_save", "more"});
+                const auto key = entry.toArray()[0].toString();
+                if (key == "save") expected.append(QJsonArray{"quick_save", "more"});
+                if (key == "screenshot_translate") expected.append(QJsonArray{"translate_overlay", "show"});
             }
             QCOMPARE(toolbar_layout::normalize_layout_json(row["input_json"].toString().toUtf8()), expected);
         }

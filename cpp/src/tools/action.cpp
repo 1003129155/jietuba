@@ -1,5 +1,6 @@
 #include "tools/action.h"
 #include "barcode/barcode.h"
+#include "canvas/items/background_item.h"
 #include "canvas/scene.h"
 #include "canvas/selection_model.h"
 #include "canvas/smart_erase_wait.h"
@@ -17,6 +18,9 @@
 #include "text_recognition/text_recognition.h"
 #include "tools/controller.h"
 #include "tools/number.h"
+#include "translation/overlay_translation.h"
+#include "translation/overlay_translation_worker.h"
+#include "translation/service.h"
 #include "translation/translation_manager.h"
 #include "ui/dialogs.h"
 #include "ui/save_image_dialog.h"
@@ -28,6 +32,7 @@
 #include <QGraphicsItem>
 #include <QPixmap>
 #include <QRegularExpression>
+#include <QThread>
 #include <QTimer>
 
 namespace jietuba {
@@ -222,6 +227,76 @@ void ActionTools::handle_screenshot_translate() {
     log_debug(T("关闭截图窗口，释放内存"), "ScreenshotTranslate");
     cleanup_and_close();
     TranslationManager::instance()->translate_from_image(pixmap_copy, params);
+}
+
+void ActionTools::handle_screenshot_translate_overlay() {
+    if (!scene || !scene->selection_model->is_confirmed() || scene->selection_model->rect().isEmpty()) {
+        show_modeless_warning_dialog(parent_window, action_tr("Warning"), action_tr("Please select a valid capture area first."));
+        return;
+    }
+    if (overlay_translation_) {
+        log_debug(T("覆盖翻译已在进行中，忽略重复请求"), "ScreenshotTranslate");
+        return;
+    }
+    // Selection frames and handles must not end up in the recognized pixels.
+    temporarily_exit_editing();
+    const auto selection = scene->selection_model->rect();
+    remember_last_region(selection);
+    const auto background = scene->background ? scene->background->image() : QImage();
+    if (background.isNull()) return;
+    // The background image starts at the scene's top-left, which is not the origin on a
+    // multi-monitor desktop; the same offset puts the finished layer back.
+    const auto scene_origin = scene->sceneRect().topLeft();
+    const QRect region(static_cast<int>(python_round(selection.x() - scene_origin.x())), static_cast<int>(python_round(selection.y() - scene_origin.y())),
+                       static_cast<int>(python_round(selection.width())), static_cast<int>(python_round(selection.height())));
+    const auto source_rect = region.intersected(QRect(QPoint(0, 0), background.size()));
+    if (source_rect.isEmpty()) return;
+    const auto image = background.copy(source_rect);
+    const auto params = config_manager ? config_manager->get_translation_request_params() : QVariantMap{{"target_lang", "ZH"}};
+    const auto target_lang = params.value("target_lang", "ZH").toString();
+    const auto service = create_default_translation_service();
+    log_info(T("启动覆盖翻译: {width}x{height}", {{"width", image.width()}, {"height", image.height()}}), "ScreenshotTranslate");
+    auto *worker = new OverlayTranslationWorker(image, params, service);
+    overlay_translation_ = worker;
+    auto *bar = new WaitBar(nullptr, QSize(scaled(260), scaled(14)));
+    bar->set_progress(0, 0);
+    bar->center_on(selection.center().toPoint());
+    bar->show_after(WAIT_BAR_DELAY_MS);
+    // A window of its own: it goes with the capture, whichever way that ends.
+    if (parent_window) QObject::connect(parent_window, &QObject::destroyed, bar, &QObject::deleteLater);
+    QObject::connect(worker, &OverlayTranslationWorker::progress_changed, bar, [bar](int done, int total) { bar->set_progress(done, total); });
+    QObject::connect(worker, &QThread::finished, worker, &QObject::deleteLater);
+    // Nothing here holds the capture's action handler: the scene is the connection's context,
+    // so a result that arrives after the capture closed is dropped instead of used.
+    const QPointer<WaitBar> watch(bar);
+    const QPointer<QWidget> parent = parent_window;
+    auto *target_scene = scene;
+    QObject::connect(worker, &OverlayTranslationWorker::finished_signal, target_scene,
+                     [worker, watch, service, parent, image, source_rect, target_lang, target_scene](bool success) {
+                         if (watch) {
+                             watch->dismiss();
+                             watch->deleteLater();
+                         }
+                         if (!success) {
+                             if (parent) show_warning_dialog(parent, action_tr("Translation"), worker->error_text());
+                             return;
+                         }
+                         // The monthly quota is counted here: the settings it reads belong to the GUI thread.
+                         try {
+                             if (service) service->record_usage(*service->provider(), worker->translated_chars());
+                         } catch (const std::exception &) {
+                         }
+                         int painted = 0;
+                         const auto layer = render_translation_overlay(image, worker->blocks(), target_lang, &painted);
+                         if (layer.isNull() || painted == 0) {
+                             show_toast(action_tr("Nothing to translate: the text is already in the target language."));
+                             return;
+                         }
+                         apply_translation_overlay(target_scene, layer, source_rect.topLeft(), action_tr("Translate Overlay"));
+                         log_info(T("覆盖翻译完成: {count} 个段落已替换", {{"count", painted}}), "ScreenshotTranslate");
+                         show_toast(action_tr("Translation applied. Ctrl+Z brings the original text back."));
+                     });
+    worker->start();
 }
 
 void ActionTools::handle_text_recognize() {

@@ -112,7 +112,8 @@ QJsonArray layout_with(const QString &first = {}, const QMap<QString, QString> &
 QStringList toolbar_row(Toolbar &toolbar) {
     const QList<std::pair<QString, QWidget *>> buttons = {
         {"long_screenshot", toolbar.long_screenshot_btn}, {"save", toolbar.save_btn}, {"copy", toolbar.copy_btn},
-        {"screenshot_translate", toolbar.screenshot_translate_btn}, {"text_recognize", toolbar.text_recognize_btn},
+        {"screenshot_translate", toolbar.screenshot_translate_btn}, {"translate_overlay", toolbar.translate_overlay_btn},
+        {"text_recognize", toolbar.text_recognize_btn},
         {"scan_code", toolbar.scan_code_btn}, {"gif", toolbar.gif_btn}, {"pen", toolbar.pen_btn},
         {"highlighter", toolbar.highlighter_btn}, {"mosaic", toolbar.mosaic_btn}, {"spotlight", toolbar.spotlight_btn},
         {"watermark", toolbar.watermark_btn}, {"arrow", toolbar.arrow_btn}, {"number", toolbar.number_btn},

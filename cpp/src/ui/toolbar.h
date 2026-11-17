@@ -132,6 +132,7 @@ public:
     QColor current_color = QColor(255, 0, 0);
     ToolbarDragHandle *drag_handle = nullptr;
     QPushButton *long_screenshot_btn = nullptr, *save_btn = nullptr, *quick_save_btn = nullptr, *screenshot_translate_btn = nullptr;
+    QPushButton *translate_overlay_btn = nullptr;
     QPushButton *text_recognize_btn = nullptr, *scan_code_btn = nullptr, *gif_btn = nullptr, *copy_btn = nullptr;
     QPushButton *pen_btn = nullptr, *highlighter_btn = nullptr, *mosaic_btn = nullptr, *spotlight_btn = nullptr;
     QPushButton *watermark_btn = nullptr, *arrow_btn = nullptr, *number_btn = nullptr, *rect_btn = nullptr;
@@ -161,6 +162,7 @@ signals:
     void redo_clicked();
     void long_screenshot_clicked();
     void screenshot_translate_clicked();
+    void translate_overlay_clicked();
     void text_recognize_clicked();
     void scan_code_clicked();
     void gif_record_clicked();

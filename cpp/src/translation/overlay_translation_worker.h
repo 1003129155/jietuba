@@ -1,0 +1,51 @@
+#pragma once
+#include "translation/overlay_translation.h"
+#include "translation/service.h"
+#include <QImage>
+#include <QThread>
+#include <QVariantMap>
+#include <atomic>
+#include <memory>
+#include <optional>
+
+namespace jietuba {
+// Recognizes the capture and translates every paragraph on one worker thread: both the OCR
+// engine and the providers block, and the capture window has to stay responsive while the
+// progress bar runs. The image is a value, so nothing here touches a widget.
+class OverlayTranslationWorker : public QThread {
+    Q_OBJECT
+public:
+    // The provider is resolved and the quota checked here, on the GUI thread, since both
+    // read QSettings; run() only makes the network calls.
+    OverlayTranslationWorker(const QImage &image, const QVariantMap &params, std::shared_ptr<TranslationService> service, QObject *parent = nullptr);
+    // Stops the OCR at its next band or tile and the provider at its next check; no result
+    // is emitted afterwards.
+    void abort();
+    // Read on the GUI thread once finished_signal arrived.
+    bool succeeded() const { return succeeded_; }
+    QString error_text() const { return error_; }
+    const QVector<OverlayTextBlock> &blocks() const { return blocks_; }
+    // Source characters sent to the provider, for the monthly quota bookkeeping.
+    qint64 translated_chars() const { return translated_chars_; }
+signals:
+    // total is 0 while the count is not known yet (recognition).
+    void progress_changed(int done, int total);
+    void finished_signal(bool success);
+protected:
+    void run() override;
+private:
+    QImage image_;
+    QString target_lang_;
+    QString split_sentences_;
+    bool preserve_formatting_ = true;
+    std::shared_ptr<TranslationService> service_;
+    std::unique_ptr<TranslationProvider> provider_;
+    QString configuration_error_;
+    std::optional<TranslationResult> quota_error_;
+    QVector<OverlayTextBlock> blocks_;
+    QString error_;
+    bool succeeded_ = false;
+    qint64 translated_chars_ = 0;
+    std::atomic_bool cancelled_ = false;
+};
+}

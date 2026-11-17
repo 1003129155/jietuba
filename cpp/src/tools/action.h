@@ -10,6 +10,7 @@ class QGraphicsItem;
 
 namespace jietuba {
 class CanvasScene;
+class OverlayTranslationWorker;
 class SaveService;
 class ToolSettingsManager;
 
@@ -42,6 +43,10 @@ public:
     bool handle_capture_action(const QString &action);
     // Recognizes the selection, closes the capture, then opens the translation window.
     void handle_screenshot_translate();
+    // Recognizes the selection, translates it and paints the translations over the original
+    // text in the capture itself, as one undoable step; the capture stays open, so the
+    // translated image can be copied, saved or pinned like any other.
+    void handle_screenshot_translate_overlay();
     // Recognition is slow (hundreds of ms locally), so the result window opens first and waits.
     void handle_text_recognize();
     // Lists QR codes and barcodes in the selection after closing the capture.
@@ -54,8 +59,7 @@ public:
     QPointer<QWidget> parent_window;
     ExportService export_service;
     std::shared_ptr<SaveService> save_service;
-private:
-    // Export -> clipboard -> auto save -> close.
+private:    // Export -> clipboard -> auto save -> close.
     void copy_save_and_close(bool close_after = true);
     // Runs finish now, or, while a smart erase in the selection still rebuilds its pixels, hands the
     // window over and runs it once they are in.
@@ -72,5 +76,8 @@ private:
     void temporarily_exit_editing();
     void cleanup_and_close();
     static QString format_from_save_path(const QString &file_path, const QString &selected_filter);
+    // The overlay translation still running for this capture; one at a time, since a second
+    // run would recognize the first run's own output.
+    QPointer<OverlayTranslationWorker> overlay_translation_;
 };
 }
