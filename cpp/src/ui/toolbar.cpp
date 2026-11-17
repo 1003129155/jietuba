@@ -187,10 +187,13 @@ void Toolbar::init_ui() {
     long_screenshot_btn = add_button("long_screenshot", QString::fromUtf8("svg/长截图.svg"), "Long screenshot (scroll)", wide, [this] { emit long_screenshot_clicked(); });
     save_btn = add_button("save", QString::fromUtf8("svg/下载.svg"), "Save to file", wide, [this] { emit save_clicked(); });
     quick_save_btn = add_button("quick_save", QString::fromUtf8("svg/快速保存.svg"), "Quick save: straight to the save folder, no dialog", wide, [this] { emit quick_save_clicked(); });
-    screenshot_translate_btn = add_button("screenshot_translate", QString::fromUtf8("svg/翻译.svg"), "Screenshot translate (OCR + Translate)", wide,
+    // Translating replaces the text in the screenshot itself; the side-by-side view that used to
+    // sit behind this button is folded into the "..." menu (translate_compare).
+    screenshot_translate_btn = add_button("screenshot_translate", QString::fromUtf8("svg/翻译.svg"),
+                                          "Screenshot translate: replace the text in the screenshot", wide,
                                           [this] { emit screenshot_translate_clicked(); });
-    translate_overlay_btn = add_button("translate_overlay", QString::fromUtf8("svg/翻译覆盖.svg"), "Translate and replace the text in the screenshot", wide,
-                                       [this] { emit translate_overlay_clicked(); });
+    translate_compare_btn = add_button("translate_compare", QString::fromUtf8("svg/翻译对照.svg"), "Screenshot translate (side-by-side view)", wide,
+                                       [this] { emit translate_compare_clicked(); });
     text_recognize_btn = add_button("text_recognize", QString::fromUtf8("svg/文字识别.svg"), "Recognize text (OCR)", wide, [this] { emit text_recognize_clicked(); });
     scan_code_btn = add_button("scan_code", QString::fromUtf8("svg/扫码.svg"), "Scan QR code / barcode", wide, [this] { emit scan_code_clicked(); });
     gif_btn = add_button("gif", "svg/gif.svg", "GIF / Video recording", wide, [this] { emit gif_record_clicked(); });

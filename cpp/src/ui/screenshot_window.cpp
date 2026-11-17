@@ -521,11 +521,13 @@ void ScreenshotWindow::connect_toolbar_signals() {
         if (action_handler) action_handler->handle_pin();
     });
     connect(toolbar, &Toolbar::long_screenshot_clicked, this, &ScreenshotWindow::start_long_screenshot_mode);
+    // Translating writes the result into the capture itself; the compare view is a separate,
+    // folded entry so the common action needs no extra window.
     connect(toolbar, &Toolbar::screenshot_translate_clicked, this, [this] {
-        if (action_handler) action_handler->handle_screenshot_translate();
-    });
-    connect(toolbar, &Toolbar::translate_overlay_clicked, this, [this] {
         if (action_handler) action_handler->handle_screenshot_translate_overlay();
+    });
+    connect(toolbar, &Toolbar::translate_compare_clicked, this, [this] {
+        if (action_handler) action_handler->handle_screenshot_translate_compare();
     });
     connect(toolbar, &Toolbar::text_recognize_clicked, this, [this] {
         if (action_handler) action_handler->handle_text_recognize();

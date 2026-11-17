@@ -1678,6 +1678,18 @@ Replace it?</source>
 <context>
     <name>ActionTools</name>
     <message>
+        <source>Translate Overlay</source>
+        <translation>翻译覆盖</translation>
+    </message>
+    <message>
+        <source>Translation applied. Ctrl+Z brings the original text back.</source>
+        <translation>译文已覆盖到原文位置，按 Ctrl+Z 可恢复原文。</translation>
+    </message>
+    <message>
+        <source>Nothing to translate: the text is already in the target language.</source>
+        <translation>没有需要翻译的内容：文字已是目标语言。</translation>
+    </message>
+    <message>
         <source>Save Screenshot</source>
         <translation>保存截图</translation>
     </message>
@@ -1730,6 +1742,14 @@ Replace it?</source>
 <!-- ========== Toolbar ========== -->
 <context>
     <name>Toolbar</name>
+    <message>
+        <source>Screenshot translate: replace the text in the screenshot</source>
+        <translation>截图翻译：把译文覆盖到原文位置</translation>
+    </message>
+    <message>
+        <source>Screenshot translate (side-by-side view)</source>
+        <translation>截图翻译（左右对照）</translation>
+    </message>
     <message>
         <source>More</source>
         <translation>更多</translation>
@@ -5649,6 +5669,14 @@ Replace: move the current data there; the data already in that folder will be de
 </context>
 <context>
     <name>ToolbarLayoutDialog</name>
+    <message>
+        <source>Translate in place</source>
+        <translation>翻译（覆盖原文）</translation>
+    </message>
+    <message>
+        <source>Translate (side-by-side)</source>
+        <translation>翻译（左右对照）</translation>
+    </message>
     <message>
         <source>Customize Toolbar</source>
         <translation>自定义工具栏</translation>

@@ -41,8 +41,9 @@ public:
     void handle_pin(bool close_after = true);
     // One capture action chosen by a mouse binding; false when it does not apply.
     bool handle_capture_action(const QString &action);
-    // Recognizes the selection, closes the capture, then opens the translation window.
-    void handle_screenshot_translate();
+    // Recognizes the selection, closes the capture, then opens the side-by-side translation
+    // window. The capture's translate button does not use this: it replaces the text in place.
+    void handle_screenshot_translate_compare();
     // Recognizes the selection, translates it and paints the translations over the original
     // text in the capture itself, as one undoable step; the capture stays open, so the
     // translated image can be copied, saved or pinned like any other.

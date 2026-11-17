@@ -1157,10 +1157,11 @@ private slots:
         window->toolbar->text_recognize_btn->click();
         QVERIFY(!window->session_active());
         shutdown_recognition();
-        // Screenshot translation: an engine without a key answers locally.
+        // The side-by-side translation view closes the capture and opens its window; the plain
+        // translate button instead replaces the text inside the capture and keeps it open.
         config_->set_translation_provider("deepl");
         window = open_with_selection();
-        window->toolbar->screenshot_translate_btn->click();
+        window->toolbar->translate_compare_btn->click();
         QVERIFY(!window->session_active());
         QVERIFY(TranslationManager::instance()->is_dialog_open());
         TranslationManager::cleanup();

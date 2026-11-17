@@ -215,7 +215,7 @@ void ActionTools::save_original_beside(const QRectF &selection_rect, const QStri
     background_tasks::start_thread([original, saved_path, suffix] { SaveService::save_beside(original, saved_path, suffix); }, "SaveOriginal");
 }
 
-void ActionTools::handle_screenshot_translate() {
+void ActionTools::handle_screenshot_translate_compare() {
     log_info(T("启动截图翻译模式"), "ScreenshotTranslate");
     const auto base_image = selection_base_image();
     if (base_image.isNull()) return;
