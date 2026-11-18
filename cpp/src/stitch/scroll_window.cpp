@@ -19,7 +19,12 @@
 #include "stitch/scroll_toolbar.h"
 #include "text_recognition/result_window.h"
 #include "tools/action.h"
+#include "translation/overlay_translation.h"
+#include "translation/overlay_translation_worker.h"
+#include "translation/service.h"
+#include "ui/dialogs.h"
 #include "ui/toast.h"
+#include "ui/wait_bar.h"
 #include <QApplication>
 #include <QCursor>
 #include <QDateTime>
@@ -44,6 +49,8 @@
 namespace jietuba {
 namespace {
 const QString MODULE_TAG = "LongStitch";
+// The wait bar only appears when recognition and the network actually take a while.
+constexpr int WAIT_BAR_DELAY_MS = 200;
 QString tr_text(const char *text) { return i18n_tr(text, "ScrollCaptureWindow"); }
 
 // INFO when forced (always kept), DEBUG otherwise (filtered by the global level).
@@ -418,6 +425,7 @@ void ScrollCaptureWindow::setup_floating_toolbar() {
     connect(toolbar, &FloatingToolbar::crop_requested, this, &ScrollCaptureWindow::crop);
     connect(toolbar, &FloatingToolbar::save_clicked, this, &ScrollCaptureWindow::on_save);
     connect(toolbar, &FloatingToolbar::ocr_clicked, this, &ScrollCaptureWindow::on_text_recognize);
+    connect(toolbar, &FloatingToolbar::translate_clicked, this, &ScrollCaptureWindow::on_translate_overlay);
     connect(toolbar, &FloatingToolbar::pin_clicked, this, &ScrollCaptureWindow::on_pin);
     connect(toolbar, &FloatingToolbar::finish_clicked, this, &ScrollCaptureWindow::on_finish);
     connect(toolbar, &FloatingToolbar::cancel_clicked, this, &ScrollCaptureWindow::on_cancel);
@@ -596,7 +604,10 @@ void ScrollCaptureWindow::position_preview_panel() {
 
 void ScrollCaptureWindow::refresh_preview_panel() {
     if (!preview_panel) return;
-    preview_panel->update_preview(latest_preview_, preview_direction_, latest_box_);
+    // An applied translation is what the exports carry, so it is what the panel shows; the
+    // newest frame's box belongs to the live capture and is dropped with it.
+    if (translated_result_.isNull()) preview_panel->update_preview(latest_preview_, preview_direction_, latest_box_);
+    else preview_panel->update_preview(translated_preview(), preview_direction_, std::nullopt);
     // The panel may have resized; place it clear of the region again.
     position_preview_panel();
 }
@@ -722,6 +733,8 @@ void ScrollCaptureWindow::on_mouse_captured(const QString &watcher, const QStrin
 }
 
 void ScrollCaptureWindow::trigger_mouse_action(const QString &action) {
+    // A translation in progress owns the result until it lands, either way.
+    if (translate_worker_) return;
     if (action == "copy") on_finish();
     else if (action == "pin") on_pin();
     else if (action == "save") on_save();
@@ -730,11 +743,13 @@ void ScrollCaptureWindow::trigger_mouse_action(const QString &action) {
 }
 
 void ScrollCaptureWindow::on_screen_changed() {
-    if (auto_scroller_->running() || drag_edge_ || extension_pending_ || quick_saving_) return;
+    if (auto_scroller_->running() || drag_edge_ || extension_pending_ || quick_saving_ || capture_frozen_) return;
     do_capture();
 }
 
 void ScrollCaptureWindow::toggle_auto_scroll() {
+    // The applied translation is a still image; scrolling on would only move the page behind it.
+    if (capture_frozen_) { toolbar->set_auto_scrolling(false); return; }
     if (drag_edge_ || extension_pending_) { toolbar->set_auto_scrolling(false); return; }
     if (auto_scroller_->running()) {
         auto_scroller_->stop();
@@ -751,6 +766,8 @@ void ScrollCaptureWindow::toggle_auto_scroll() {
 }
 
 void ScrollCaptureWindow::capture_pending_now() {
+    // Frozen for a translation: nothing that is on screen now belongs to the export.
+    if (capture_frozen_) return;
     cancel_edge();
     auto_scroller_->stop();
     auto_scroller_->flush();
@@ -1128,7 +1145,9 @@ void ScrollCaptureWindow::on_frame_stitched(const FrameResult &result) {
 }
 
 void ScrollCaptureWindow::crop(const QString &side) {
-    if (!stitcher_) return;
+    // Cropping the stitcher after a translation would leave the preview and the export
+    // showing different images.
+    if (!stitcher_ || capture_frozen_) return;
     capture_pending_now();
     stitcher_->crop(side);
 }
@@ -1159,7 +1178,9 @@ QImage ScrollCaptureWindow::export_result() {
 }
 
 std::optional<Qt::Edge> ScrollCaptureWindow::edge_at(const QPoint &position) const {
-    if (!stitcher_ || extension_pending_ || quick_saving_) return std::nullopt;
+    // An applied translation is a fixed image: extending the region would capture frames
+    // that never reach it.
+    if (!stitcher_ || extension_pending_ || quick_saving_ || capture_frozen_) return std::nullopt;
     if (scroll_direction == "vertical") {
         if (can_extend_start_ && position.y() < 3) return Qt::TopEdge;
         if (can_extend_end_ && position.y() >= height() - 3) return Qt::BottomEdge;
@@ -1320,6 +1341,9 @@ QString ScrollCaptureWindow::file_prefix() const {
 }
 
 QImage ScrollCaptureWindow::result_qimage() {
+    // An applied translation is exported instead of the stitcher's own image: save, pin and
+    // finish all go through here.
+    if (!translated_result_.isNull()) return translated_result_;
     const auto result = export_result();
     if (result.isNull()) return {};
     // A very long image may run out of memory; the window still has to finish.
@@ -1375,6 +1399,152 @@ void ScrollCaptureWindow::on_text_recognize() {
     else show_text_recognition(image, anchor);
     emit finished();
     close();
+}
+
+void ScrollCaptureWindow::on_translate_overlay() {
+    if (!stitcher_) return;
+    // Applied already: the same button takes the original text back, so a translation the
+    // user does not want never costs the capture.
+    if (!translated_result_.isNull()) {
+        set_translated_result(QImage());
+        show_toast(tr_text("Original text restored"));
+        return;
+    }
+    if (translate_worker_) return;
+    capture_pending_now();
+    const auto image = result_qimage();
+    if (image.isNull()) {
+        log_stitch(T("[WARN] 没有拼接结果，无法翻译"));
+        show_preview_warning(tr_text("Nothing to translate yet"));
+        return;
+    }
+    const auto params = config_manager ? config_manager->get_translation_request_params() : QVariantMap{{"target_lang", "ZH"}};
+    const auto target_lang = params.value("target_lang", "ZH").toString();
+    const auto service = create_default_translation_service();
+    log_stitch(T("🌐 开始长截图覆盖翻译: {width}x{height}", {{"width", image.width()}, {"height", image.height()}}));
+    // The pixels stop changing while recognition and the network run: the image that was
+    // sent is the one the translation lands on.
+    size_label_before_translation_ = toolbar->size_label->text();
+    set_capture_frozen(true);
+    // Nothing else may act on the result while the worker owns it; the wait bar reports.
+    if (toolbar) toolbar->setEnabled(false);
+    auto *worker = new OverlayTranslationWorker(image, params, service);
+    translate_worker_ = worker;
+    auto *bar = new WaitBar(nullptr, QSize(scaled(260), scaled(14)));
+    bar->set_progress(0, 0);
+    bar->center_on(capture_rect.center());
+    bar->show_after(WAIT_BAR_DELAY_MS);
+    // A window of its own: it goes with the window, whichever way that ends.
+    connect(this, &QObject::destroyed, bar, &QObject::deleteLater);
+    connect(worker, &OverlayTranslationWorker::progress_changed, bar, [bar](int done, int total) { bar->set_progress(done, total); });
+    connect(worker, &QThread::finished, worker, &QObject::deleteLater);
+    // Context this: a reply that arrives after the window closed is dropped instead of used.
+    const QPointer<ScrollCaptureWindow> guard(this);
+    connect(worker, &OverlayTranslationWorker::finished_signal, this, [this, guard, worker, bar, service, image, target_lang](bool success) {
+        bar->dismiss();
+        bar->deleteLater();
+        if (!guard || translate_worker_ != worker) return;
+        translate_worker_ = nullptr;
+        if (!success) {
+            log_stitch(T("[WARN] 长截图翻译失败: {e}", {{"e", worker->error_text()}}), true);
+            set_capture_frozen(false);
+            const auto error = worker->error_text();
+            if (error.isEmpty()) show_preview_warning(tr_text("Translation failed"));
+            else show_modeless_warning_dialog(this, tr_text("Translation"), error);
+            return;
+        }
+        // The monthly quota is counted here: the settings it reads belong to the GUI thread.
+        try {
+            if (service) service->record_usage(*service->provider(), worker->translated_chars());
+        } catch (const std::exception &) {
+        }
+        int painted = 0;
+        const auto layer = render_translation_overlay(image, worker->blocks(), target_lang, &painted);
+        if (layer.isNull() || painted == 0) {
+            log_stitch(T("[WARN] 长截图没有可替换的文字"));
+            set_capture_frozen(false);
+            show_toast(tr_text("Nothing to translate: the text is already in the target language."));
+            return;
+        }
+        auto translated = image;
+        {
+            QPainter painter(&translated);
+            painter.setRenderHint(QPainter::SmoothPixmapTransform);
+            painter.drawImage(QPoint(0, 0), layer);
+        }
+        log_stitch(T("[OK] 长截图覆盖翻译完成: {count} 个段落已替换", {{"count", painted}}), true);
+        set_translated_result(translated);
+        show_toast(tr_text("Translation applied. Save or finish to export it; press translate again for the original."));
+    });
+    worker->start();
+}
+
+void ScrollCaptureWindow::set_capture_frozen(bool frozen) {
+    if (capture_frozen_ == frozen) return;
+    capture_frozen_ = frozen;
+    if (frozen) {
+        cancel_edge();
+        auto_scroller_->stop();
+        if (change_watch_) change_watch_->stop();
+        if (still_timer_.isActive()) {
+            still_timer_.stop();
+            still_frame_.reset();
+            finish_still(std::nullopt);
+        }
+        if (toolbar) {
+            toolbar->set_auto_scrolling(false);
+            // Direction and crop both act on the stitcher, which no longer feeds the export.
+            toolbar->direction_btn->setEnabled(false);
+            toolbar->crop_btn->setEnabled(false);
+            toolbar->auto_scroll_btn->setEnabled(false);
+        }
+        sync_mouse_capture();
+        update();
+        return;
+    }
+    if (toolbar) {
+        toolbar->direction_btn->setEnabled(true);
+        toolbar->crop_btn->setEnabled(true);
+        toolbar->auto_scroll_btn->setEnabled(true);
+        toolbar->setEnabled(true);
+    }
+    if (change_watch_ && stitcher_) change_watch_->start();
+    sync_mouse_capture();
+    update();
+}
+
+void ScrollCaptureWindow::set_translated_result(const QImage &translated) {
+    translated_result_ = translated;
+    if (translated.isNull()) {
+        log_stitch(T("↩️ 已恢复长截图原文"));
+        set_capture_frozen(false);
+        if (toolbar) {
+            if (!size_label_before_translation_.isEmpty()) toolbar->size_label->setText(size_label_before_translation_);
+            toolbar->setEnabled(true);
+        }
+        // The stitcher's own preview comes back with the original text.
+        refresh_preview_panel();
+        return;
+    }
+    set_capture_frozen(true);
+    if (toolbar) {
+        toolbar->size_label->setText(QString::fromUtf8("%1 × %2").arg(translated.width()).arg(translated.height()));
+        toolbar->setEnabled(true);
+    }
+    clear_preview_warning();
+    refresh_preview_panel();
+}
+
+QImage ScrollCaptureWindow::translated_preview() const {
+    if (translated_result_.isNull()) return {};
+    // The panel draws the thumbnail at its own scale, so it gets one whose short side
+    // matches the stitcher's previews.
+    const bool vertical = preview_direction_ != "horizontal";
+    const int short_side = vertical ? (latest_preview_.isNull() ? scaled(PREVIEW_SIDE) : latest_preview_.width())
+                                    : (latest_preview_.isNull() ? scaled(PREVIEW_SIDE) : latest_preview_.height());
+    if (short_side <= 0) return {};
+    return vertical ? translated_result_.scaledToWidth(short_side, Qt::SmoothTransformation)
+                    : translated_result_.scaledToHeight(short_side, Qt::SmoothTransformation);
 }
 
 void ScrollCaptureWindow::on_save() {
@@ -1449,6 +1619,12 @@ void ScrollCaptureWindow::on_quick_save() {
 
 void ScrollCaptureWindow::cleanup() {
     qApp->removeEventFilter(this);
+    // A translation still running must not paint onto a closed window; its result is dropped.
+    if (translate_worker_) {
+        translate_worker_->abort();
+        translate_worker_ = nullptr;
+    }
+    translated_result_ = QImage();
     cancel_edge(false);
     ++capture_generation_;
     if (change_watch_) change_watch_->stop();

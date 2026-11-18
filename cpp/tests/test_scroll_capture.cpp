@@ -373,6 +373,58 @@ private slots:
         } else QTRY_COMPARE(cancelled.count(), 1);
     }
 
+    // An applied translation replaces the stitcher's image in every export, and pressing the
+    // toolbar's translate button again brings the original text back. The recognition and the
+    // provider are not part of this: it covers the state the worker leaves behind.
+    void translatingReplacesTheExportedLongImage() {
+        const auto capture_engine = config_->get_capture_engine();
+        const auto restore_engine = qScopeGuard([&] { config_->set_capture_engine(capture_engine); });
+        config_->set_capture_engine("mss");
+        auto *window = open();
+        QVERIFY(window);
+        QVERIFY(scroll_in_steps({100, 300}));
+        auto *stitcher = window->findChild<IncrementalStitcher *>();
+        const auto original = stitcher->export_image().convertToFormat(QImage::Format_RGB32);
+        const QString original_label = window->toolbar->size_label->text();
+        auto *translate_btn = window->toolbar->translate_btn;
+        QVERIFY(translate_btn);
+        QVERIFY(translate_btn->isEnabled());
+        QVERIFY(!window->has_translated_result());
+
+        // Same size, a colour nothing on the page has, so the export is recognisable.
+        QImage translated(original.size(), QImage::Format_RGB32);
+        translated.fill(QColor(9, 190, 120));
+        window->set_translated_result(translated);
+        QVERIFY(window->has_translated_result());
+        QCOMPARE(window->toolbar->size_label->text(), QString::fromUtf8("%1 × %2").arg(translated.width()).arg(translated.height()));
+        // The tools that act on the stitcher stop: it no longer feeds the export.
+        QVERIFY(!window->toolbar->crop_btn->isEnabled());
+        QVERIFY(!window->toolbar->direction_btn->isEnabled());
+        QVERIFY(!window->toolbar->auto_scroll_btn->isEnabled());
+        // Scrolling on captures nothing: the translation belongs to the frames already taken.
+        const int frames = window->screenshots;
+        page_window_->scroll_to(500);
+        QTest::qWait(CHANGE_WATCH_INTERVAL_MS + 200);
+        QCOMPARE(window->screenshots, frames);
+
+        // Pressed again, the same button restores the original text and resumes capturing.
+        translate_btn->click();
+        QVERIFY(!window->has_translated_result());
+        QCOMPARE(window->toolbar->size_label->text(), original_label);
+        QVERIFY(window->toolbar->crop_btn->isEnabled());
+        QVERIFY(window->toolbar->direction_btn->isEnabled());
+        QVERIFY(window->toolbar->auto_scroll_btn->isEnabled());
+
+        // Save exports the translation, not the stitcher's image.
+        window->set_translated_result(translated);
+        const QString path = dir_.filePath("translated.png");
+        SaveDialogAnswerer answer(path);
+        window->toolbar->save_btn->click();
+        QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(path), 5000);
+        QVERIFY(answer.answered);
+        QCOMPARE(QImage(path).convertToFormat(QImage::Format_RGB32), translated);
+    }
+
     void doubleClickBindingCapturesThatButtonWithoutBlockingTheWheel() {
         config_->set_mouse_long_copy("doubleleft");
         auto *window = static_cast<MouseActionWindow *>(open(true));

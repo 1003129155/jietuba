@@ -2259,6 +2259,10 @@ Replace it?</source>
         <translation>拖动以移动</translation>
     </message>
     <message>
+        <source>Translate: replace the long screenshot's text</source>
+        <translation>翻译：把译文覆盖到长截图的原文上</translation>
+    </message>
+    <message>
         <source>Vertical</source>
         <translation>竖向</translation>
     </message>
@@ -6260,6 +6264,12 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>长截图 - 窗口位置已校正</translation>
     </message>
     <message><source>Couldn't extend. Keep the page still.</source><translation>无法补截，请保持页面不动后重试。</translation></message>
+    <message><source>Nothing to translate yet</source><translation>还没有可翻译的内容</translation></message>
+    <message><source>Translation</source><translation>翻译</translation></message>
+    <message><source>Translation failed</source><translation>翻译失败</translation></message>
+    <message><source>Original text restored</source><translation>已恢复原文</translation></message>
+    <message><source>Nothing to translate: the text is already in the target language.</source><translation>没有需要翻译的内容：文字已经是目标语言。</translation></message>
+    <message><source>Translation applied. Save or finish to export it; press translate again for the original.</source><translation>译文已覆盖原文，保存或完成即可导出；再点一次翻译可恢复原文。</translation></message>
 </context>
 <context>
     <name>ScreenshotWindow</name>

@@ -25,6 +25,7 @@ class AutoScroller;
 class ChangeWatch;
 class FloatingToolbar;
 class InputHub;
+class OverlayTranslationWorker;
 class ToolSettingsManager;
 
 // One grabbed frame: width x height BGRA pixels.
@@ -116,6 +117,11 @@ public:
     QWidget *transparent_area = nullptr;
     FloatingToolbar *toolbar = nullptr;
     QPointer<PreviewPanel> preview_panel;
+    // Puts a long image with the translations painted over its own text in place of the
+    // stitched one: save, pin and finish export it, and capturing stops until it is
+    // cleared again (a null image), since new frames would not carry the translation.
+    void set_translated_result(const QImage &translated);
+    bool has_translated_result() const { return !translated_result_.isNull(); }
 
 signals:
     void finished();
@@ -232,6 +238,14 @@ private:
     void on_pin();
     // Recognizes the text of the current result like the capture toolbar does, then ends the long screenshot.
     void on_text_recognize();
+    // Translates the current result and paints the translations over its own text, keeping
+    // the window open so the result can still be saved, pinned or finished; pressed again
+    // once applied, it goes back to the original text.
+    void on_translate_overlay();
+    // Freezes the live capture while the translations are applied, then resumes it.
+    void set_capture_frozen(bool frozen);
+    // The thumbnail the preview panel shows of the translated result.
+    QImage translated_preview() const;
     // Ends the long screenshot and asks where to save the result, like the capture toolbar's Save.
     void on_save();
     void on_quick_save();
@@ -240,6 +254,16 @@ private:
 
     QImage latest_preview_;
     std::optional<std::pair<int, int>> latest_box_;
+    // The stitched long image with the translations painted over it, empty while the
+    // original text is shown. Replaces the stitcher's result on every export.
+    QImage translated_result_;
+    // Deletes itself when its thread finishes; cleared before any export is taken.
+    OverlayTranslationWorker *translate_worker_ = nullptr;
+    // The capture was stopped by the translation and has to be started again on failure
+    // or when the original text comes back.
+    bool capture_frozen_ = false;
+    // The toolbar's size label before the translation replaced it, restored with the original.
+    QString size_label_before_translation_;
     // The panel follows the preview's own direction, not scroll_direction: results already
     // in flight when the direction switches were stitched the old way.
     QString preview_direction_ = "vertical";

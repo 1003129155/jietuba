@@ -61,6 +61,7 @@ public:
     QPushButton *cancel_btn;
     QPushButton *save_btn;
     QPushButton *ocr_btn;
+    QPushButton *translate_btn;
     QPushButton *pin_btn;
     QPushButton *finish_btn;
 
@@ -71,6 +72,9 @@ signals:
     void crop_requested(const QString &side);
     void save_clicked();
     void ocr_clicked();
+    // Translates the long image and paints the translations over its own text; pressed
+    // again once applied, it goes back to the original text.
+    void translate_clicked();
     void pin_clicked();
     void finish_clicked();
     void cancel_clicked();
