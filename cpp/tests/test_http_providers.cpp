@@ -312,6 +312,54 @@ private slots:
         QCOMPARE(unconfigured.translate(TranslationRequest("Hello", "de")).error_code, std::optional(TranslationErrorCode::NOT_CONFIGURED));
     }
 
+    // A page of paragraphs goes out as one request and comes back in the same order: this is
+    // what keeps a long capture from costing one round trip per paragraph.
+    void aBatchTranslationKeepsTheInputOrder() {
+        CustomLLMProvider llm({{"api_key", "k"}, {"base_url", server_->url("/v1")}, {"model", "m"}});
+        QVERIFY(llm.supports_batch());
+        const QStringList texts{"Hello", "World", "Good morning"};
+        server_->queue({200, "OK", chat_reply("{\"translations\":[\"Bonjour\",\"Monde\",\"Bonjour\"]}")});
+        const auto batch = llm.translate_batch(texts, TranslationRequest(QString(), "fr"));
+        QVERIFY2(batch.success, qPrintable(batch.error_message));
+        QCOMPARE(batch.translations, QStringList({"Bonjour", "Monde", "Bonjour"}));
+        const auto sent = server_->exchanges();
+        QCOMPARE(sent.size(), 1);
+        const auto messages = QJsonDocument::fromJson(sent.last().body).object().value("messages").toArray();
+        QVERIFY(messages.first().toObject().value("content").toString().contains("exactly 3 strings"));
+        // The texts travel as a JSON array, so a paragraph holding quotes stays data.
+        const auto payload = QJsonDocument::fromJson(messages.last().toObject().value("content").toString().toUtf8()).array();
+        QCOMPARE(payload.size(), 3);
+        QCOMPARE(payload.at(1).toString(), QString("World"));
+
+        // A fenced reply and a leading think block are both still read.
+        server_->clear();
+        server_->queue({200, "OK", chat_reply("```json\n{\"translations\":[\"Eins\",\"Zwei\"]}\n```")});
+        const auto fenced = llm.translate_batch({"One", "Two"}, TranslationRequest(QString(), "de"));
+        QVERIFY2(fenced.success, qPrintable(fenced.error_message));
+        QCOMPARE(fenced.translations, QStringList({"Eins", "Zwei"}));
+        server_->clear();
+        server_->queue({200, "OK", chat_reply("<think>hmm</think>\n{\"translations\":[\"Un\",\"Deux\"]}")});
+        QCOMPARE(llm.translate_batch({"One", "Two"}, TranslationRequest(QString(), "de")).translations, QStringList({"Un", "Deux"}));
+
+        // A short or reordered array is refused, not paired with the wrong paragraph: the
+        // caller then asks text by text.
+        server_->clear();
+        server_->queue({200, "OK", chat_reply("{\"translations\":[\"Seul\"]}")});
+        const auto short_reply = llm.translate_batch({"One", "Two"}, TranslationRequest(QString(), "de"));
+        QVERIFY(!short_reply.success);
+        QCOMPARE(short_reply.error_message, QString("Custom LLM-1 returned 1 translations for 2 texts"));
+        server_->queue({200, "OK", chat_reply("{\"translation\":\"Seul\"}")});
+        QVERIFY(!llm.translate_batch({"One", "Two"}, TranslationRequest(QString(), "de")).success);
+        // A rejected JSON mode is retried without it, as for single texts.
+        server_->clear();
+        server_->queue({400, "Bad Request", json(QJsonObject{{"error", "response_format is not supported"}})});
+        server_->queue({200, "OK", chat_reply("{\"translations\":[\"Uno\",\"Dos\"]}")});
+        QVERIFY(llm.translate_batch({"One", "Two"}, TranslationRequest(QString(), "es")).success);
+        const auto attempts = server_->exchanges();
+        QCOMPARE(attempts.size(), 2);
+        QVERIFY(!QJsonDocument::fromJson(attempts[1].body).object().contains("response_format"));
+    }
+
     // DeepL posts a form with the key in a header and reads the first translation.
     void deeplTranslatesAndNamesHttpErrors() {
         DeepLService deepl("secret:fx");

@@ -10,8 +10,9 @@ OpenAICompatibleProvider::Defaults custom_defaults() {
     defaults.requires_api_key = false;
     defaults.min_timeout = CustomLLMProvider::DEFAULT_TIMEOUT;
     // Reasoning models (e.g. on Ollama) think by default and may exhaust the output
-    // budget; Ollama's /v1 endpoint accepts reasoning_effort, not think.
-    defaults.thinking_hint = "Turn thinking off by adding {\"reasoning_effort\": \"none\"} to Extra Body";
+    // budget; the switch is named differently per service, and an unknown field is a 400.
+    defaults.thinking_hint = "Turn thinking off in Extra Body: {\"reasoning_effort\": \"none\"} for OpenAI-style services, "
+                             "{\"thinking\": {\"type\": \"disabled\"}} for DeepSeek";
     return defaults;
 }
 }

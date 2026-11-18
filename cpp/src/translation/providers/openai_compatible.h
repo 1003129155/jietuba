@@ -43,6 +43,8 @@ public:
     OpenAICompatibleProvider(const ProviderConfig &config, const Defaults &defaults);
     bool is_configured() const override;
     TranslationResult translate(const TranslationRequest &request) override;
+    bool supports_batch() const override { return true; }
+    BatchTranslationResult translate_batch(const QStringList &texts, const TranslationRequest &request) override;
     QStringList list_models() override;
     QString api_url() const { return base_url_ + "/chat/completions"; }
     // Users often paste the full request URL, which would repeat the path.
@@ -73,6 +75,10 @@ protected:
 private:
     HttpHeaders headers() const;
     QJsonArray build_messages(const TranslationRequest &request) const;
+    QJsonArray batch_messages(const QStringList &texts, const TranslationRequest &request) const;
+    // The texts translated together: exactly one entry per input, or a failure that makes
+    // the caller go text by text.
+    BatchTranslationResult parse_batch_response(const QJsonValue &raw, int expected) const;
     TranslationResult http_error(const HttpResponse &response) const;
     static TranslationErrorCode map_error_type(const QString &error_type, int status_code);
 };

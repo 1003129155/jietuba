@@ -9,4 +9,8 @@ std::vector<ProviderField> ProviderMetadata::all_fields() const {
 }
 
 QStringList TranslationProvider::list_models() { throw std::logic_error("list_models not implemented"); }
+
+BatchTranslationResult TranslationProvider::translate_batch(const QStringList &, const TranslationRequest &) {
+    return BatchTranslationResult::failure(TranslationErrorCode::UNKNOWN, "Batch translation is not supported by this engine");
+}
 }

@@ -1426,23 +1426,30 @@ void ScrollCaptureWindow::on_translate_overlay() {
     // sent is the one the translation lands on.
     size_label_before_translation_ = toolbar->size_label->text();
     set_capture_frozen(true);
-    // Nothing else may act on the result while the worker owns it; the wait bar reports.
-    if (toolbar) toolbar->setEnabled(false);
+    // Nothing else may act on the result while the worker owns it, but cancelling the
+    // capture has to stay possible however slow the engine is.
+    set_translation_locked(true);
     auto *worker = new OverlayTranslationWorker(image, params, service);
     translate_worker_ = worker;
     auto *bar = new WaitBar(nullptr, QSize(scaled(260), scaled(14)));
     bar->set_progress(0, 0);
     bar->center_on(capture_rect.center());
     bar->show_after(WAIT_BAR_DELAY_MS);
+    translate_bar_ = bar;
     // A window of its own: it goes with the window, whichever way that ends.
     connect(this, &QObject::destroyed, bar, &QObject::deleteLater);
     connect(worker, &OverlayTranslationWorker::progress_changed, bar, [bar](int done, int total) { bar->set_progress(done, total); });
     connect(worker, &QThread::finished, worker, &QObject::deleteLater);
     // Context this: a reply that arrives after the window closed is dropped instead of used.
     const QPointer<ScrollCaptureWindow> guard(this);
-    connect(worker, &OverlayTranslationWorker::finished_signal, this, [this, guard, worker, bar, service, image, target_lang](bool success) {
-        bar->dismiss();
-        bar->deleteLater();
+    const QPointer<WaitBar> watch(bar);
+    connect(worker, &OverlayTranslationWorker::finished_signal, this, [this, guard, worker, watch, service, image, target_lang](bool success) {
+        // The bar may already be gone: cancelling takes it down without waiting for a result.
+        if (watch) {
+            watch->dismiss();
+            watch->deleteLater();
+        }
+        translate_bar_ = nullptr;
         if (!guard || translate_worker_ != worker) return;
         translate_worker_ = nullptr;
         if (!success) {
@@ -1508,9 +1515,20 @@ void ScrollCaptureWindow::set_capture_frozen(bool frozen) {
         toolbar->auto_scroll_btn->setEnabled(true);
         toolbar->setEnabled(true);
     }
+    // A translation that ended without a result (failure, or cancelled by the user) gives
+    // the buttons back; a result puts them back through set_translated_result().
+    set_translation_locked(false);
     if (change_watch_ && stitcher_) change_watch_->start();
     sync_mouse_capture();
     update();
+}
+
+void ScrollCaptureWindow::set_translation_locked(bool locked) {
+    if (!toolbar) return;
+    // Saving, pinning, finishing or recognizing again would all export or read the result
+    // the worker is still rewriting; the direction, crop and auto scroll buttons follow the
+    // frozen capture state instead.
+    for (auto *button : {toolbar->save_btn, toolbar->ocr_btn, toolbar->translate_btn, toolbar->pin_btn, toolbar->finish_btn}) button->setEnabled(!locked);
 }
 
 void ScrollCaptureWindow::set_translated_result(const QImage &translated) {
@@ -1531,6 +1549,9 @@ void ScrollCaptureWindow::set_translated_result(const QImage &translated) {
         toolbar->size_label->setText(QString::fromUtf8("%1 × %2").arg(translated.width()).arg(translated.height()));
         toolbar->setEnabled(true);
     }
+    // The worker is done: the export buttons come back with the translated result behind
+    // them.
+    set_translation_locked(false);
     clear_preview_warning();
     refresh_preview_panel();
 }
@@ -1624,6 +1645,13 @@ void ScrollCaptureWindow::cleanup() {
         translate_worker_->abort();
         translate_worker_ = nullptr;
     }
+    // The bar is its own window: an aborted worker never reports back, so it is taken down
+    // here or it would stay on the screen over a closed capture.
+    if (auto *bar = qobject_cast<WaitBar *>(translate_bar_.data())) {
+        bar->dismiss();
+        bar->deleteLater();
+    }
+    translate_bar_ = nullptr;
     translated_result_ = QImage();
     cancel_edge(false);
     ++capture_generation_;

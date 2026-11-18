@@ -122,6 +122,9 @@ public:
     // cleared again (a null image), since new frames would not carry the translation.
     void set_translated_result(const QImage &translated);
     bool has_translated_result() const { return !translated_result_.isNull(); }
+    // Locks the buttons that would export or act on a result the worker still owns. Cancel
+    // is left live: a slow engine must not trap the user in the wait.
+    void set_translation_locked(bool locked);
 
 signals:
     void finished();
@@ -259,6 +262,9 @@ private:
     QImage translated_result_;
     // Deletes itself when its thread finishes; cleared before any export is taken.
     OverlayTranslationWorker *translate_worker_ = nullptr;
+    // The wait bar belongs to the window while the worker runs, so cancelling takes it down
+    // even though an aborted worker never reports back.
+    QPointer<QWidget> translate_bar_;
     // The capture was stopped by the translation and has to be started again on failure
     // or when the original text comes back.
     bool capture_frozen_ = false;

@@ -425,6 +425,26 @@ private slots:
         QCOMPARE(QImage(path).convertToFormat(QImage::Format_RGB32), translated);
     }
 
+    // A thinking model can take a minute: the wait must always be escapable.
+    void cancellingStaysPossibleWhileTheTranslationRuns() {
+        auto *window = open();
+        QVERIFY(window);
+        QVERIFY(window->toolbar->cancel_btn->isEnabled());
+        window->set_translation_locked(true);
+        // Everything that would export or read the half-rewritten result is locked.
+        QVERIFY(!window->toolbar->finish_btn->isEnabled());
+        QVERIFY(!window->toolbar->save_btn->isEnabled());
+        QVERIFY(!window->toolbar->pin_btn->isEnabled());
+        QVERIFY(!window->toolbar->ocr_btn->isEnabled());
+        QVERIFY(!window->toolbar->translate_btn->isEnabled());
+        // Cancel is not: it is the way out of a slow engine.
+        QVERIFY(window->toolbar->cancel_btn->isEnabled());
+        window->set_translation_locked(false);
+        QVERIFY(window->toolbar->finish_btn->isEnabled());
+        QVERIFY(window->toolbar->save_btn->isEnabled());
+        QVERIFY(window->toolbar->translate_btn->isEnabled());
+    }
+
     void doubleClickBindingCapturesThatButtonWithoutBlockingTheWheel() {
         config_->set_mouse_long_copy("doubleleft");
         auto *window = static_cast<MouseActionWindow *>(open(true));

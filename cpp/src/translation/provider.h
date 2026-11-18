@@ -55,6 +55,15 @@ public:
     virtual bool is_configured() const = 0;
     // One synchronous request.
     virtual TranslationResult translate(const TranslationRequest &request) = 0;
+    // Whether translate_batch() is implemented. Dedicated translation APIs already answer
+    // a whole text in one call, so they leave this false; LLM endpoints, where the cost is
+    // the round trip plus the model thinking, override it.
+    virtual bool supports_batch() const { return false; }
+    // Several texts in one request, in the same order. request carries the target
+    // language and the options; its text is ignored. A failure makes the caller fall
+    // back to translate() one text at a time, so nothing is lost if the model breaks
+    // the array contract.
+    virtual BatchTranslationResult translate_batch(const QStringList &texts, const TranslationRequest &request);
     int effective_timeout(const TranslationRequest &request) const { return std::max(request.timeout, min_timeout); }
     virtual std::optional<QSet<QString>> supported_target_languages() const { return std::nullopt; }
     // The name shown in the translation window; translated_name is display_name
