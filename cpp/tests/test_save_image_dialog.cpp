@@ -17,6 +17,9 @@
 #include <QPushButton>
 #include <QRandomGenerator>
 #include <QScopeGuard>
+#include <QScreen>
+#include <QScrollArea>
+#include <QScrollBar>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QSlider>
@@ -308,6 +311,27 @@ private slots:
         QVERIFY(size > 0 && size <= dialog.size_limit_bytes());
     }
 
+    // The offscreen screen (800 high) is shorter than the panel at 200%. Row heights need real
+    // fonts; theSizeLimitRowFitsEveryLanguage checks them on the desktop.
+    void aShortScreenScrollsThePanelWithSaveStillInView() {
+        const auto restore = qScopeGuard([] { get_dialog_scale().set_percent(100); });
+        get_dialog_scale().set_percent(200);
+        SaveImageDialog dialog(noisy_image(), "shot", config_);
+        dialog.show();
+        QApplication::processEvents();
+        QVERIFY(dialog.height() <= dialog.screen()->availableGeometry().height());
+        auto *bar = dialog.panel_scroll->verticalScrollBar();
+        QVERIFY(bar->maximum() > 0);
+        QVERIFY(!dialog.panel_scroll->isAncestorOf(dialog.save_button));
+        QVERIFY(dialog.rect().contains(QRect(dialog.save_button->mapTo(&dialog, QPoint(0, 0)), dialog.save_button->size())));
+        // Scrolling reaches the last row.
+        auto *viewport = dialog.panel_scroll->viewport();
+        auto *last = dialog.file_size_label;
+        QVERIFY(!viewport->rect().contains(QRect(last->mapTo(viewport, QPoint(0, 0)), last->size())));
+        bar->setValue(bar->maximum());
+        QVERIFY(viewport->rect().contains(QRect(last->mapTo(viewport, QPoint(0, 0)), last->size())));
+    }
+
     // Widths need real fonts, which the offscreen platform does not have.
     void theSizeLimitRowFitsEveryLanguage() {
         if (QGuiApplication::platformName() != "windows") QSKIP("needs -platform windows");
@@ -327,10 +351,15 @@ private slots:
                 // The warning appears on a dialog already shown, at its smallest height.
                 dialog.resize(dialog.width(), dialog.minimumHeight());
                 QApplication::processEvents();
+                // Desktop screens (768 high and up) fit the whole panel at 100%.
+                if (percent == 100) QVERIFY2(dialog.panel_scroll->verticalScrollBar()->maximum() == 0, qPrintable(where));
                 const int height = dialog.height();
                 dialog.size_limit_hint->show();
                 QApplication::processEvents();
                 QVERIFY2(dialog.height() == height, qPrintable(QString("%1: grew from %2 to %3").arg(where).arg(height).arg(dialog.height())));
+                // Its room is reserved, so it scrolls only when the screen capped the window.
+                if (height < dialog.screen()->availableGeometry().height())
+                    QVERIFY2(dialog.panel_scroll->verticalScrollBar()->maximum() == 0, qPrintable(QString("%1: the warning scrolls").arg(where)));
                 auto *check = dialog.size_limit_check;
                 auto *panel = check->parentWidget();
                 QVERIFY2(check->width() >= check->sizeHint().width(),
