@@ -24,14 +24,17 @@ QuickEditPopup::QuickEditPopup(QWidget *parent) : QWidget(parent, Qt::Tool | Qt:
     editor->setAcceptRichText(false);
     editor->installEventFilter(this);
     layout_->addWidget(editor);
+    // A row of its own: beside three buttons it does not fit in the longer languages.
+    format_hint = new QLabel;
+    layout_->addWidget(format_hint);
 
     footer_ = new QHBoxLayout;
-    format_hint = new QLabel;
-    footer_->addWidget(format_hint, 1);
+    footer_->addStretch(1);
     save_button = new QPushButton;
+    paste_button = new QPushButton;
     save_and_paste_button = new QPushButton;
     save_and_paste_button->setObjectName("primary");
-    for (auto *button : {save_button, save_and_paste_button}) {
+    for (auto *button : {save_button, paste_button, save_and_paste_button}) {
         button->setFocusPolicy(Qt::NoFocus);
         button->setCursor(Qt::PointingHandCursor);
         footer_->addWidget(button);
@@ -39,6 +42,7 @@ QuickEditPopup::QuickEditPopup(QWidget *parent) : QWidget(parent, Qt::Tool | Qt:
     layout_->addLayout(footer_);
 
     connect(save_button, &QPushButton::clicked, this, [this] { commit(false); });
+    connect(paste_button, &QPushButton::clicked, this, [this] { paste_without_saving(); });
     connect(save_and_paste_button, &QPushButton::clicked, this, [this] { commit(true); });
 }
 
@@ -48,14 +52,17 @@ void QuickEditPopup::open_for(const ClipboardItem &item, const QPoint &anchor, c
     editor->moveCursor(QTextCursor::End);
 
     // Read on each open, so keys changed in settings apply next time.
-    bindings_ = load_inapp_bindings({SAVE_SHORTCUT, SAVE_AND_PASTE_SHORTCUT});
+    bindings_ = load_inapp_bindings({SAVE_SHORTCUT, SAVE_AND_PASTE_SHORTCUT, PASTE_SHORTCUT});
     auto *config = get_tool_settings_manager();
     save_button->setText(tr_quick_edit("Save"));
     save_button->setToolTip(format_shortcut_text(config->get_inapp_shortcut(SAVE_SHORTCUT)));
+    paste_button->setText(tr_quick_edit("Paste"));
+    paste_button->setToolTip(format_shortcut_text(config->get_inapp_shortcut(PASTE_SHORTCUT)));
     save_and_paste_button->setText(tr_quick_edit("Save and Paste"));
     save_and_paste_button->setToolTip(format_shortcut_text(config->get_inapp_shortcut(SAVE_AND_PASTE_SHORTCUT)));
     // Changing the content drops the original formatting; the paste is plain text.
     format_hint->setText(item.html_content && !item.html_content->isEmpty() ? tr_quick_edit("Formatting will be removed") : QString());
+    format_hint->setVisible(!format_hint->text().isEmpty());
     // The type selector names the C++ class (namespaces become "--").
     setStyleSheet(ThemeStyleGenerator(theme).generate_quick_edit_style().replace("QuickEditPopup {", "jietuba--clipboard--QuickEditPopup {"));
     // Sizes follow the toolbar and panel scale, laid out at the current scale on each open.
@@ -74,13 +81,15 @@ void QuickEditPopup::open_for(const ClipboardItem &item, const QPoint &anchor, c
 
 void QuickEditPopup::commit(bool paste) { finish(editor->toPlainText(), paste); }
 
+void QuickEditPopup::paste_without_saving() { finish(editor->toPlainText(), true, false); }
+
 void QuickEditPopup::cancel() { finish(std::nullopt); }
 
-void QuickEditPopup::close_for_focus_loss() { finish(editor->toPlainText(), false, true); }
+void QuickEditPopup::close_for_focus_loss() { finish(editor->toPlainText(), false, true, true); }
 
-void QuickEditPopup::finish(const std::optional<QString> &text, bool paste, bool focus_left) {
+void QuickEditPopup::finish(const std::optional<QString> &text, bool paste, bool save, bool focus_left) {
     if (!item_id_) return;
-    const QuickEditResult result{*item_id_, text, paste, focus_left};
+    const QuickEditResult result{*item_id_, text, paste, save, focus_left};
     item_id_.reset();
     hide();
     emit finished(result);
@@ -101,6 +110,10 @@ bool QuickEditPopup::eventFilter(QObject *obj, QEvent *event) {
             }
             if (match_inapp_binding(key_event, SAVE_SHORTCUT, bindings_)) {
                 commit();
+                return true;
+            }
+            if (match_inapp_binding(key_event, PASTE_SHORTCUT, bindings_)) {
+                paste_without_saving();
                 return true;
             }
             if (key_event->key() == Qt::Key_Escape) {

@@ -309,6 +309,10 @@
         <translation>Save and Paste</translation>
     </message>
     <message>
+        <source>Paste Without Saving</source>
+        <translation>Paste Without Saving</translation>
+    </message>
+    <message>
         <source>Direct Pick Keys</source>
         <translation>Direct Pick Keys</translation>
     </message>
@@ -6115,6 +6119,10 @@ Replace: move the current data there; the data already in that folder will be de
     <message>
         <source>Save</source>
         <translation>Save</translation>
+    </message>
+    <message>
+        <source>Paste</source>
+        <translation>Paste</translation>
     </message>
     <message>
         <source>Save and Paste</source>

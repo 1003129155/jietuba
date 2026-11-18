@@ -80,6 +80,8 @@ public:
                      const QString &layout = "vertical");
     void move_item_to_top(qint64 item_id);
     bool paste_transformed_text(qint64 item_id, const QString &transform_key, const CloseCallback &on_close_callback = {}, bool explicit_paste = false);
+    // Pastes text that is not an item as plain text; no item changes.
+    bool paste_text(const QString &text, const CloseCallback &on_close_callback = {}, bool explicit_paste = false);
     bool paste_file_text(qint64 item_id, const QString &transform_key, const CloseCallback &on_close_callback = {}, bool explicit_paste = false);
     // Pastes the files a path item names, as if they were copied in Explorer.
     bool paste_as_files(qint64 item_id, const CloseCallback &on_close_callback = {}, bool explicit_paste = false);

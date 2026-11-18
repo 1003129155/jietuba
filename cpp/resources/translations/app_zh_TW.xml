@@ -325,6 +325,10 @@
         <translation>儲存並貼上</translation>
     </message>
     <message>
+        <source>Paste Without Saving</source>
+        <translation>貼上不儲存</translation>
+    </message>
+    <message>
         <source>Direct Pick Keys</source>
         <translation>直選貼上</translation>
     </message>
@@ -6583,12 +6587,16 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>儲存</translation>
     </message>
     <message>
+        <source>Paste</source>
+        <translation>貼上</translation>
+    </message>
+    <message>
         <source>Save and Paste</source>
         <translation>儲存並貼上</translation>
     </message>
     <message>
         <source>Formatting will be removed</source>
-        <translation>儲存後將變為純文字</translation>
+        <translation>修改後將變為純文字</translation>
     </message>
 </context>
 <context>

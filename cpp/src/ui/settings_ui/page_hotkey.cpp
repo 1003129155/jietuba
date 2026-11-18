@@ -64,6 +64,7 @@ const std::vector<InAppKey> CLIPBOARD_KEYS = {
 const std::vector<InAppKey> CLIPBOARD_EDITOR_KEYS = {
     {"inapp_clipboard_edit_save", "Save Edit", "ctrl+enter"},
     {"inapp_clipboard_edit_save_paste", "Save and Paste", "ctrl+shift+enter"},
+    {"inapp_clipboard_edit_paste", "Paste Without Saving", "alt+enter"},
 };
 
 // Pressed again in the search box it leaves it, so it must not take typing keys either.
@@ -375,6 +376,7 @@ IconSource inapp_icon(const QString &cfg_key) {
         {"inapp_clipboard_quick_edit", FluentIcon::Edit},
         {"inapp_clipboard_edit_save", FluentIcon::Save},
         {"inapp_clipboard_edit_save_paste", FluentIcon::Send},
+        {"inapp_clipboard_edit_paste", FluentIcon::Paste},
         {"inapp_clipboard_search", FluentIcon::Search},
     };
     return icons.value(cfg_key);

@@ -781,6 +781,7 @@ private slots:
         QVERIFY(popup.is_open());
         QCOMPARE(popup.editor->toPlainText(), QString("body"));
         QVERIFY(!popup.format_hint->text().isEmpty());
+        QVERIFY(popup.format_hint->isVisibleTo(&popup));
         popup.editor->setPlainText("changed");
         QTest::keyClick(popup.editor, Qt::Key_Return, Qt::ControlModifier);
         QCOMPARE(finished.size(), 1);
@@ -788,13 +789,27 @@ private slots:
         QCOMPARE(result.item_id, qint64(5));
         QCOMPARE(result.text.value_or(QString()), QString("changed"));
         QVERIFY(!result.paste);
+        QVERIFY(result.save);
         QVERIFY(!popup.is_open());
 
         item.html_content.reset();
         popup.open_for(item, QPoint(200, 200), QRect(), theme);
         QVERIFY(popup.format_hint->text().isEmpty());
+        QVERIFY(!popup.format_hint->isVisibleTo(&popup));
         QTest::keyClick(popup.editor, Qt::Key_Return, Qt::ControlModifier | Qt::ShiftModifier);
-        QVERIFY(finished.last().first().value<QuickEditResult>().paste);
+        result = finished.last().first().value<QuickEditResult>();
+        QVERIFY(result.paste && result.save);
+        // Paste alone hands over the text without saving it.
+        popup.open_for(item, QPoint(200, 200), QRect(), theme);
+        popup.editor->setPlainText("for one paste");
+        QTest::keyClick(popup.editor, Qt::Key_Return, Qt::AltModifier);
+        result = finished.last().first().value<QuickEditResult>();
+        QCOMPARE(result.text.value_or(QString()), QString("for one paste"));
+        QVERIFY(result.paste && !result.save);
+        popup.open_for(item, QPoint(200, 200), QRect(), theme);
+        popup.paste_button->click();
+        result = finished.last().first().value<QuickEditResult>();
+        QVERIFY(result.paste && !result.save);
 
         popup.open_for(item, QPoint(200, 200), QRect(), theme);
         QTest::keyClick(popup.editor, Qt::Key_Escape);
@@ -802,14 +817,17 @@ private slots:
 
         popup.open_for(item, QPoint(200, 200), QRect(), theme);
         popup.save_and_paste_button->click();
-        QVERIFY(finished.last().first().value<QuickEditResult>().paste);
+        result = finished.last().first().value<QuickEditResult>();
+        QVERIFY(result.paste && result.save);
         popup.open_for(item, QPoint(200, 200), QRect(), theme);
         popup.save_button->click();
-        QVERIFY(!finished.last().first().value<QuickEditResult>().paste);
+        result = finished.last().first().value<QuickEditResult>();
+        QVERIFY(!result.paste && result.save);
         // Focus leaving keeps the text and says so.
         popup.open_for(item, QPoint(200, 200), QRect(), theme);
         popup.close_for_focus_loss();
-        QVERIFY(finished.last().first().value<QuickEditResult>().focus_left);
+        result = finished.last().first().value<QuickEditResult>();
+        QVERIFY(result.focus_left && result.save && !result.paste);
         // Finishing twice reports once.
         const int count = finished.size();
         popup.cancel();
