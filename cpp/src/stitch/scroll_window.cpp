@@ -1538,6 +1538,7 @@ void ScrollCaptureWindow::set_translated_result(const QImage &translated) {
         set_capture_frozen(false);
         if (toolbar) {
             if (!size_label_before_translation_.isEmpty()) toolbar->size_label->setText(size_label_before_translation_);
+            size_label_before_translation_.clear();
             toolbar->setEnabled(true);
         }
         // The stitcher's own preview comes back with the original text.
@@ -1546,6 +1547,9 @@ void ScrollCaptureWindow::set_translated_result(const QImage &translated) {
     }
     set_capture_frozen(true);
     if (toolbar) {
+        // The button that started the translation records the label first; anything else
+        // that sets a result here still has to be able to put it back.
+        if (size_label_before_translation_.isEmpty()) size_label_before_translation_ = toolbar->size_label->text();
         toolbar->size_label->setText(QString::fromUtf8("%1 × %2").arg(translated.width()).arg(translated.height()));
         toolbar->setEnabled(true);
     }
