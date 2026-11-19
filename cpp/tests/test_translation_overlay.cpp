@@ -147,6 +147,55 @@ private slots:
         QCOMPARE(blocks[1].source, QString("Value"));
     }
 
+    void readsADoubleColumnPageColumnByColumn() {
+        // A newspaper layout: the same row holds the end of one column and the start of the
+        // next. Read row by row, the two half-sentences travel as neighbours.
+        const auto blocks = group_overlay_blocks(result_of({
+            line("Right top", QRectF(500, 10, 300, 14)),
+            line("Left top", QRectF(10, 10, 300, 14)),
+            line("Right bottom", QRectF(500, 60, 300, 14)),
+            line("Left bottom", QRectF(10, 60, 300, 14)),
+        }));
+        QCOMPARE(blocks.size(), 4);
+        QCOMPARE(blocks[0].source, QString("Left top"));
+        QCOMPARE(blocks[1].source, QString("Left bottom"));
+        QCOMPARE(blocks[2].source, QString("Right top"));
+        QCOMPARE(blocks[3].source, QString("Right bottom"));
+    }
+
+    void aFullWidthHeadingStaysAboveTheColumns() {
+        // The heading crosses the gutter, so it is not sorted into either column: it keeps its
+        // place at the top and the columns are read after it.
+        const auto blocks = group_overlay_blocks(result_of({
+            line("Left one", QRectF(10, 60, 300, 14)),
+            line("Left two", QRectF(10, 110, 300, 14)),
+            line("Right one", QRectF(500, 60, 300, 14)),
+            line("Right two", QRectF(500, 110, 300, 14)),
+            line("Installation", QRectF(10, 10, 780, 24)),
+        }));
+        QCOMPARE(blocks.size(), 5);
+        QCOMPARE(blocks[0].source, QString("Installation"));
+        QCOMPARE(blocks[1].source, QString("Left one"));
+        QCOMPARE(blocks[2].source, QString("Left two"));
+        QCOMPARE(blocks[3].source, QString("Right one"));
+        QCOMPARE(blocks[4].source, QString("Right two"));
+    }
+
+    void keepsASingleColumnInPlainOrder() {
+        // Slightly different margins on one column are not columns: the page is read down.
+        const auto blocks = group_overlay_blocks(result_of({
+            line("alpha", QRectF(10, 10, 200, 14)),
+            line("beta", QRectF(12, 40, 260, 14)),
+            line("gamma", QRectF(14, 70, 240, 14)),
+            line("delta", QRectF(16, 100, 280, 14)),
+        }));
+        QCOMPARE(blocks.size(), 4);
+        QCOMPARE(blocks[0].source, QString("alpha"));
+        QCOMPARE(blocks[1].source, QString("beta"));
+        QCOMPARE(blocks[2].source, QString("gamma"));
+        QCOMPARE(blocks[3].source, QString("delta"));
+    }
+
     void readsTopDownThenLeftToRight() {
         // Recognition order is not reading order, so the blocks are sorted before grouping.
         const auto blocks = group_overlay_blocks(result_of({

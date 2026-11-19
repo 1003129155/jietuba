@@ -331,6 +331,23 @@ private slots:
         QCOMPARE(payload.size(), 3);
         QCOMPARE(payload.at(1).toString(), QString("World"));
 
+        // One capture, one page: the entries are described as reading order rather than as
+        // unrelated strings, which is what lets a term or a pronoun resolve across them.
+        const auto system = messages.first().toObject().value("content").toString();
+        QVERIFY2(system.contains("reading order"), qPrintable(system));
+        QVERIFY(!system.contains("independent"));
+
+        // A tail carried over from the previous batch reaches the model, so a term introduced
+        // there keeps its rendering after the boundary.
+        server_->clear();
+        server_->queue({200, "OK", chat_reply("{\"translations\":[\"Reglages\",\"Appliquer\"]}")});
+        const QVariantMap options{{"context", "SOURCE: Settings\nTARGET: Settings translated\n"}};
+        QVERIFY(llm.translate_batch({"Settings", "Apply"}, TranslationRequest(QString(), "fr", std::nullopt, true, 10, options)).success);
+        const auto carried = QJsonDocument::fromJson(server_->exchanges().last().body)
+                                 .object().value("messages").toArray().first().toObject().value("content").toString();
+        QVERIFY2(carried.contains("TARGET: Settings translated"), qPrintable(carried));
+        QVERIFY(carried.contains("reference only"));
+
         // A fenced reply and a leading think block are both still read.
         server_->clear();
         server_->queue({200, "OK", chat_reply("```json\n{\"translations\":[\"Eins\",\"Zwei\"]}\n```")});

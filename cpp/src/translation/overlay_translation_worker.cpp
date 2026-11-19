@@ -1,6 +1,7 @@
 #include "translation/overlay_translation_worker.h"
 #include "core/i18n.h"
 #include "core/logger.h"
+#include <algorithm>
 #include <stdexcept>
 
 namespace jietuba {
@@ -74,6 +75,15 @@ void OverlayTranslationWorker::run() {
         // that will not keep the array contract must not be tried again on every page.
         bool batch_usable = provider_->supports_batch();
         int done = 0;
+        // What the batch before ended with. A term or a subject introduced there is invisible
+        // to the next request, and without it the same word comes back rendered differently
+        // on either side of the boundary.
+        QString carry;
+        const auto remember_tail = [this, &carry](int from, int to) {
+            carry.clear();
+            for (int index = std::max(from, to - 2); index < to; ++index)
+                carry += "SOURCE: " + blocks_[index].source.left(240) + "\nTARGET: " + blocks_[index].translated.left(240) + "\n";
+        };
         while (done < total) {
             if (isInterruptionRequested()) return;
             int end = done;
@@ -86,7 +96,9 @@ void OverlayTranslationWorker::run() {
                 QStringList texts;
                 texts.reserve(end - done);
                 for (int i = done; i < end; ++i) texts.append(blocks_[i].source);
-                const TranslationRequest batch_request(QString(), target_lang_, std::nullopt, preserve_formatting_, 10, {{"split_sentences", split_sentences_}});
+                QVariantMap options{{"split_sentences", split_sentences_}};
+                if (!carry.isEmpty()) options.insert("context", carry);
+                const TranslationRequest batch_request(QString(), target_lang_, std::nullopt, preserve_formatting_, 10, options);
                 const auto batch = provider_->translate_batch(texts, batch_request);
                 if (isInterruptionRequested()) return;
                 if (batch.success && batch.translations.size() == texts.size()) {
@@ -94,6 +106,7 @@ void OverlayTranslationWorker::run() {
                         blocks_[i].translated = batch.translations.at(i - done);
                         translated_chars_ += blocks_[i].source.toUcs4().size();
                     }
+                    remember_tail(done, end);
                     done = end;
                     emit progress_changed(done, total);
                     continue;

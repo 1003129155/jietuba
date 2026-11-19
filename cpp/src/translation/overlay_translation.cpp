@@ -179,6 +179,101 @@ private:
     QImage before_, after_;
 };
 
+struct Line {
+    QString text;
+    QRectF rect;
+};
+
+// A page's columns are read top to bottom before the next one starts. Pairing a left and a
+// right cell row by row hands the translator half-sentences from two different columns, so a
+// gutter is found on the x axis first and only then is each band read down its columns. A line
+// that spans the gutter (a full-width heading) ends the band instead of joining a column.
+void order_in_reading_order(QVector<Line> &lines) {
+    const auto top_down = [](const Line &a, const Line &b) {
+        if (a.rect.top() != b.rect.top()) return a.rect.top() < b.rect.top();
+        return a.rect.left() < b.rect.left();
+    };
+    std::stable_sort(lines.begin(), lines.end(), top_down);
+    // Three rows cannot show a column layout, while a form's label and value columns look like
+    // one to any measurement: short pages keep the plain top-down order.
+    if (lines.size() < 4) return;
+
+    double left = lines.first().rect.left(), right = lines.first().rect.right();
+    std::vector<double> heights;
+    heights.reserve(static_cast<size_t>(lines.size()));
+    for (const auto &line : lines) {
+        left = std::min(left, line.rect.left());
+        right = std::max(right, line.rect.right());
+        heights.push_back(std::max(1.0, line.rect.height()));
+    }
+    const auto span = static_cast<int>(std::lround(right - left));
+    if (span < 40) return;
+    std::nth_element(heights.begin(), heights.begin() + heights.size() / 2, heights.end());
+    const double line_height = heights[heights.size() / 2];
+    const double gutter_width = std::max(12.0, line_height * 1.6);
+
+    // Two-pixel buckets: fine enough to tell a gutter from the gap between letters, cheap
+    // enough for a capture with a thousand lines.
+    const int buckets = std::clamp(span / 2, 16, 4096);
+    std::vector<int> coverage(static_cast<size_t>(buckets), 0);
+    for (const auto &line : lines) {
+        const auto first = std::clamp(static_cast<int>((line.rect.left() - left) / 2), 0, buckets - 1);
+        const auto last = std::clamp(static_cast<int>((line.rect.right() - left) / 2), 0, buckets - 1);
+        for (int index = first; index <= last; ++index) ++coverage[static_cast<size_t>(index)];
+    }
+    // A heading crossing the gutter must not hide it; a block of body text that spans the page
+    // means there is no gutter at all.
+    const auto tolerance = std::max(1, static_cast<int>(std::ceil(lines.size() * 0.25)));
+    std::vector<double> cuts;
+    int run_start = -1;
+    for (int index = 0; index <= buckets; ++index) {
+        const bool clear = index < buckets && coverage[static_cast<size_t>(index)] <= tolerance;
+        if (clear) {
+            if (run_start < 0) run_start = index;
+            continue;
+        }
+        if (run_start >= 0) {
+            const auto centre = left + (run_start + index);
+            // Both sides need room for a column, or the near edge of the page becomes one.
+            if ((index - run_start) * 2 >= gutter_width && centre - left >= gutter_width && right - centre >= gutter_width)
+                cuts.push_back(centre);
+            run_start = -1;
+        }
+    }
+    if (cuts.empty()) return;
+
+    const auto crosses = [&cuts](const Line &line) {
+        for (const double cut : cuts)
+            if (line.rect.left() < cut && line.rect.right() > cut) return true;
+        return false;
+    };
+    const auto column_of = [&cuts](const Line &line) {
+        int column = 0;
+        for (const double cut : cuts)
+            if (line.rect.center().x() > cut) ++column;
+        return column;
+    };
+    QVector<Line> ordered;
+    ordered.reserve(lines.size());
+    int index = 0;
+    while (index < lines.size()) {
+        if (crosses(lines[index])) {
+            ordered.append(lines[index++]);
+            continue;
+        }
+        int band_end = index;
+        while (band_end < lines.size() && !crosses(lines[band_end])) ++band_end;
+        std::stable_sort(lines.begin() + index, lines.begin() + band_end, [&](const Line &a, const Line &b) {
+            const int column_a = column_of(a), column_b = column_of(b);
+            if (column_a != column_b) return column_a < column_b;
+            return top_down(a, b);
+        });
+        for (int line_index = index; line_index < band_end; ++line_index) ordered.append(lines[line_index]);
+        index = band_end;
+    }
+    lines = ordered;
+}
+
 struct PaintedBlock {
     QRectF area;
     QRect cover;
@@ -190,10 +285,6 @@ struct PaintedBlock {
 }
 
 QVector<OverlayTextBlock> group_overlay_blocks(const OcrResult &result) {
-    struct Line {
-        QString text;
-        QRectF rect;
-    };
     QVector<Line> lines;
     lines.reserve(result.data.size());
     for (const auto &item : result.data) {
@@ -206,11 +297,9 @@ QVector<OverlayTextBlock> group_overlay_blocks(const OcrResult &result) {
         lines.append({text, rect});
     }
     if (lines.isEmpty()) return {};
-    // Top to bottom, then left to right, which is the order the paragraphs are sent in.
-    std::stable_sort(lines.begin(), lines.end(), [](const Line &a, const Line &b) {
-        if (a.rect.top() != b.rect.top()) return a.rect.top() < b.rect.top();
-        return a.rect.left() < b.rect.left();
-    });
+    // The order the paragraphs are sent in: down each column, then the next column, which is
+    // also the order their translations have to be placed in.
+    order_in_reading_order(lines);
     QVector<OverlayTextBlock> blocks;
     for (const auto &line : lines) {
         if (!blocks.isEmpty()) {
