@@ -20,6 +20,7 @@
 #include <QDateEdit>
 #include <QDesktopServices>
 #include <QDrag>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QKeyEvent>
 #include <QMimeData>
@@ -223,6 +224,35 @@ private slots:
         window->move(available.left() + available.width() - window->width() - 40, y);
         window->snap_to_edge_for_test();
         QVERIFY(!window->docked_for_test());
+    }
+
+    void theWindowTucksItselfAwayOnceTheMouseLeavesIt() {
+        auto *window = open_window();
+        window->resize(window->minimumSize());
+        const QRect available = QGuiApplication::primaryScreen()->availableGeometry();
+        QVERIFY(available.width() > window->width() + 60 && available.height() > window->height() + 120);
+        const int y = available.top() + (available.height() - window->height()) / 2;
+        window->move(available.left() + available.width() - window->width() - 5, y);
+        window->snap_to_edge_for_test();
+        QVERIFY(window->docked_for_test());
+
+        // 鼠标还在窗口里：轮询跑多久都得让窗口开着。
+        const QPoint inside = window->geometry().center();
+        for (int i = 0; i < 20; ++i) {
+            window->dock_tick_for_test(inside);
+            QTest::qWait(20);
+        }
+        QVERIFY(!window->dock_collapsed_for_test());
+
+        // 鼠标走开：轮询每 50 ms 来一次，也不许把倒计时重置掉。
+        const QPoint away(available.left() + 20, available.top() + 20);
+        QElapsedTimer elapsed;
+        elapsed.start();
+        while (!window->dock_collapsed_for_test() && elapsed.elapsed() < 3000) {
+            window->dock_tick_for_test(away);
+            QTest::qWait(10);
+        }
+        QVERIFY(window->dock_collapsed_for_test());
     }
 
     void tuckingAwayAtTheBottomEdgeLeavesTheHandleAboveTheTaskbar() {

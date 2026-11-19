@@ -74,6 +74,8 @@ public:
     void snap_to_edge_for_test() { snap_to_edge(); }
     bool docked_for_test() const { return docked_edge_.has_value(); }
     bool dock_collapsed_for_test() const { return dock_collapsed_; }
+    // 轮询一次的正式逻辑，光标位置由测试给，免得依赖桌面上真实的鼠标。
+    void dock_tick_for_test(const QPoint &cursor) { dock_tick(cursor); }
     // Tucked against an edge, whether showing or pulled away behind the handle.
     bool is_docked() const { return docked_edge_.has_value(); }
     // Reopens at the cursor after a tuck-away: the hotkey brings it back instead of closing it.
@@ -279,6 +281,10 @@ private:
     // The window at that edge, either resting against it or tucked behind it.
     QRect dock_rect(Qt::Edge edge, bool collapsed) const;
     void on_dock_tick();
+    // One poll with the pointer where it is; split out so a test can place the mouse itself.
+    void dock_tick(const QPoint &cursor);
+    // True while the keyboard is in a field of this window: typing outranks the mouse leaving.
+    bool has_typing_focus() const;
     QRect area_to_keep_clear_;
     // The row as it looks, at most 240 wide, with the number of dragged rows when there are several.
     QPixmap drag_pixmap(qint64 item_id, int count, QPoint *hot_spot) const;

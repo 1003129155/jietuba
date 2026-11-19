@@ -21,6 +21,7 @@
 #include "ui/dialogs.h"
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/theme.h"
+#include <QAbstractSpinBox>
 #include <QApplication>
 #include <QCalendarWidget>
 #include <QCloseEvent>
@@ -35,6 +36,7 @@
 #include <QJsonObject>
 #include <QKeyEvent>
 #include <QPainter>
+#include <QPlainTextEdit>
 #include <QMouseEvent>
 #include <QProcess>
 #include <QSaveFile>
@@ -42,6 +44,7 @@
 #include <QScrollBar>
 #include <QStandardPaths>
 #include <QStyle>
+#include <QTextEdit>
 #include <QUrl>
 #include <QWheelEvent>
 #include <cstdlib>
@@ -1751,7 +1754,9 @@ void ClipboardWindow::expand_from_dock() {
 
 void ClipboardWindow::schedule_collapse() {
     if (!docked_edge_ || dock_collapsed_ || !collapse_timer_) return;
-    collapse_timer_->start(DOCK_COLLAPSE_MS);
+    // 轮询每 50 ms 就会再调一次；start() 会重置计时，直接重启就永远等不到超时，
+    // 表现就是鼠标走开了窗口也不收。已经在倒计时就让它数完。
+    if (!collapse_timer_->isActive()) collapse_timer_->start(DOCK_COLLAPSE_MS);
 }
 
 void ClipboardWindow::clear_dock() {
@@ -1762,13 +1767,14 @@ void ClipboardWindow::clear_dock() {
     if (collapse_timer_) collapse_timer_->stop();
 }
 
-void ClipboardWindow::on_dock_tick() {
+void ClipboardWindow::on_dock_tick() { dock_tick(QCursor::pos()); }
+
+void ClipboardWindow::dock_tick(const QPoint &cursor) {
     if (!docked_edge_ || !isVisible() || frameless_.is_dragging()) return;
     const Qt::Edge edge = *docked_edge_;
     QScreen *screen = screen_holding(docked_rect_);
     if (!screen) { clear_dock(); return; }
     const QRect work = screen->availableGeometry();
-    const QPoint cursor = QCursor::pos();
     // 收起后露出的那一条把手：比露出来的宽一点，碰上去更容易。
     const int thickness = std::max(2, scaled(DOCK_PEEK)) + scaled(DOCK_HIT);
     QRect strip = dock_rect(edge, true);
@@ -1783,11 +1789,19 @@ void ClipboardWindow::on_dock_tick() {
         return;
     }
     // 展开着：鼠标还在窗口或那条边上就不收，走开一会儿才收。
-    if (geometry().contains(cursor) || strip.contains(cursor)) {
+    // 光标停在输入框里也算在用——鼠标甩到一边打字，窗口不该在这时候溜走。
+    if (geometry().contains(cursor) || strip.contains(cursor) || has_typing_focus()) {
         if (collapse_timer_) collapse_timer_->stop();
         return;
     }
     schedule_collapse();
+}
+
+bool ClipboardWindow::has_typing_focus() const {
+    QWidget *focus = QApplication::focusWidget();
+    if (!focus || !isAncestorOf(focus)) return false;
+    return qobject_cast<QLineEdit *>(focus) || qobject_cast<QAbstractSpinBox *>(focus) ||
+           qobject_cast<QTextEdit *>(focus) || qobject_cast<QPlainTextEdit *>(focus);
 }
 
 bool ClipboardWindow::is_draggable_area(QObject *widget) const {
