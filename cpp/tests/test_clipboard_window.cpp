@@ -162,6 +162,7 @@ private slots:
         env_.config->set_clipboard_multi_paste_keep_merged(false);
         env_.config->set_clipboard_group_bar_position("right");
         env_.config->set_clipboard_open_position("cursor");
+        env_.config->set_clipboard_edge_hide(true);
         env_.config->set_inapp_clipboard_pick_mode("both");
         urls_.urls.clear();
     }
@@ -179,6 +180,46 @@ private slots:
 
     void cleanupTestCase() {
         for (const char *scheme : {"file", "http", "https"}) QDesktopServices::unsetUrlHandler(scheme);
+    }
+
+    void droppingAgainstTheEdgeSticksTheWindowThereAndKeepsItOpen() {
+        auto *window = open_window();
+        window->resize(window->minimumSize());
+        const QRect available = QGuiApplication::primaryScreen()->availableGeometry();
+        QVERIFY(available.width() > window->width() + 60 && available.height() > window->height() + 60);
+        // 距右边 5 像素松手：贴住右边，先保持展开。
+        window->move(available.left() + available.width() - window->width() - 5, available.top() + 20);
+        window->snap_to_edge_for_test();
+        QVERIFY(window->docked_for_test());
+        QVERIFY(!window->dock_collapsed_for_test());
+        QCOMPARE(window->x(), available.left() + available.width() - window->width());
+    }
+
+    void pushingPastTheEdgeTucksItAwayLeavingAStrip() {
+        auto *window = open_window();
+        window->resize(window->minimumSize());
+        const QRect available = QGuiApplication::primaryScreen()->availableGeometry();
+        QVERIFY(available.width() > window->width() + 60);
+        // 往屏幕外推 40 像素：收起，屏幕里只留一条细边。
+        window->move(available.left() + available.width() - window->width() + 40, available.top() + 20);
+        window->snap_to_edge_for_test();
+        QVERIFY(window->docked_for_test());
+        QVERIFY(window->dock_collapsed_for_test());
+        QVERIFY(window->x() > available.left() + available.width() - 20);
+        QVERIFY(window->x() < available.left() + available.width());
+    }
+
+    void turningTuckAwayOffLeavesTheWindowAlone() {
+        auto *window = open_window();
+        window->resize(window->minimumSize());
+        const QRect available = QGuiApplication::primaryScreen()->availableGeometry();
+        const QPoint dropped(available.left() + available.width() - window->width() - 5, available.top() + 20);
+        env_.config->set_clipboard_edge_hide(false);
+        window->move(dropped);
+        window->snap_to_edge_for_test();
+        QVERIFY(!window->docked_for_test());
+        QCOMPARE(window->pos(), dropped);
+        env_.config->set_clipboard_edge_hide(true);
     }
 
     void theListShowsTheHistoryAndPaints() {

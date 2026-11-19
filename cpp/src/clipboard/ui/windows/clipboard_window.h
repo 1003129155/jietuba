@@ -70,6 +70,10 @@ public:
     ~ClipboardWindow() override;
     // Window geometry goes to this INI file instead of the registry; empty restores.
     static void set_geometry_file_for_test(const QString &ini_path);
+    // 贴边状态的测试入口：窗口摆在哪里由测试决定，判定和收起仍走正式代码。
+    void snap_to_edge_for_test() { snap_to_edge(); }
+    bool docked_for_test() const { return docked_edge_.has_value(); }
+    bool dock_collapsed_for_test() const { return dock_collapsed_; }
 
     ClipboardManager &manager;
     ClipboardController *controller;
@@ -259,6 +263,17 @@ private:
     // Moves the window above or below area_to_keep_clear_ when it covers it.
     void keep_area_clear();
     void check_and_hide();
+    // The edge the window was dropped against: it sticks there, and once it is pushed past
+    // the edge it tucks itself away leaving a thin strip that brings it back on hover.
+    void snap_to_edge();
+    void dock_to_edge(Qt::Edge edge, bool collapsed);
+    void collapse_to_dock();
+    void expand_from_dock();
+    void schedule_collapse();
+    void clear_dock();
+    // The window at that edge, either resting against it or tucked behind it.
+    QRect dock_rect(Qt::Edge edge, bool collapsed) const;
+    void on_dock_tick();
     QRect area_to_keep_clear_;
     // The row as it looks, at most 240 wide, with the number of dragged rows when there are several.
     QPixmap drag_pixmap(qint64 item_id, int count, QPoint *hot_spot) const;
@@ -279,6 +294,13 @@ private:
     int pointer_row_ = -1;
     inline static bool offscreen_warmup_done_ = false;
     FramelessMixin frameless_;
+    // The edge it is stuck to; docked_rect_ is where it rests while open.
+    std::optional<Qt::Edge> docked_edge_;
+    bool dock_collapsed_ = false;
+    QRect docked_rect_;
+    // Watches the pointer while stuck: the strip brings the window back, leaving it tucks it away.
+    QTimer *dock_timer_ = nullptr;
+    QTimer *collapse_timer_ = nullptr;
     std::unique_ptr<QSettings> qsettings_;
     std::optional<int> saved_x_, saved_y_;
     int saved_width_ = 450, saved_height_ = 600;

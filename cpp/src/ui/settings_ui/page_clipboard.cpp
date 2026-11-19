@@ -471,7 +471,7 @@ const std::set<QString> CLIPBOARD_BEHAVIOR_KEYS = {
     "clipboard_open_position", "clipboard_group_bar_position", "clipboard_preserve_search", "clipboard_show_metadata",
     "clipboard_display_lines", "clipboard_image_size", "clipboard_hide_grouped_in_history", "clipboard_auto_paste",
     "clipboard_close_after_paste", "clipboard_move_to_top_on_paste", "clipboard_paste_with_html", "clipboard_multi_paste_order",
-    "clipboard_multi_paste_keep_merged", "clipboard_record_private",
+    "clipboard_multi_paste_keep_merged", "clipboard_record_private", "clipboard_edge_hide",
 };
 
 QString clipboard_separator_value(const SettingsDialog *dialog) {
@@ -529,6 +529,10 @@ QWidget *create_clipboard_page(SettingsDialog *dialog) {
     grp_basic->addSettingCard(bar_card);
     add_switch_card(dialog, grp_basic, FluentIcon::Search, "Preserve Search on Reopen", "Keep the search text when the clipboard window opens again",
                     "clipboard_preserve_search");
+    add_switch_card(dialog, grp_basic, FluentIcon::Pin, "Tuck Away at Screen Edges",
+                    "Dropping the window against a screen edge sticks it there. Push it past the edge and it hides all but a thin strip; "
+                    "reaching that strip with the mouse brings it back.",
+                    "clipboard_edge_hide");
     layout->addWidget(grp_basic);
 
     // ════ Data ════
