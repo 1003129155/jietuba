@@ -1683,6 +1683,14 @@ void ClipboardWindow::snap_to_edge() {
     else clear_dock();
 }
 
+void ClipboardWindow::summon_from_dock() {
+    // 收起时窗口还是可见的，直接 show() 不会重新摆位：先藏一下，让 showEvent 按光标重来。
+    hide();
+    show();
+    raise();
+    activateWindow();
+}
+
 void ClipboardWindow::dock_to_edge(Qt::Edge edge, bool collapsed) {
     QScreen *screen = screen_holding(geometry());
     if (!screen) { clear_dock(); return; }

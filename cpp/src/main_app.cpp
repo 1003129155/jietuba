@@ -652,9 +652,14 @@ clipboard::ClipboardWindow *MainApp::ensure_clipboard_window() {
 void MainApp::open_clipboard_window() {
     if (update_preparing) return;
     try {
-        // Visible: the hotkey closes it.
+        // Visible: the hotkey closes it. A window tucked behind an edge handle is the
+        // exception: it looks closed already, so the hotkey has to bring it back.
         if (clipboard_window && clipboard_window->isVisible()) {
-            clipboard_window->close();
+            if (!clipboard_window->is_docked()) {
+                clipboard_window->close();
+                return;
+            }
+            clipboard_window->summon_from_dock();
             return;
         }
         ensure_clipboard_window();

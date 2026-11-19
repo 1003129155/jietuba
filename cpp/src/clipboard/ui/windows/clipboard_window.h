@@ -74,6 +74,10 @@ public:
     void snap_to_edge_for_test() { snap_to_edge(); }
     bool docked_for_test() const { return docked_edge_.has_value(); }
     bool dock_collapsed_for_test() const { return dock_collapsed_; }
+    // Tucked against an edge, whether showing or pulled away behind the handle.
+    bool is_docked() const { return docked_edge_.has_value(); }
+    // Reopens at the cursor after a tuck-away: the hotkey brings it back instead of closing it.
+    void summon_from_dock();
 
     ClipboardManager &manager;
     ClipboardController *controller;
