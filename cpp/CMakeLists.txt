@@ -337,8 +337,9 @@ if(BUILD_TESTING)
     add_test(NAME clipboard_window COMMAND jietuba_clipboard_window_tests -o ${JIETUBA_TEST_REPORTS}/clipboard_window.txt,txt)
     set_tests_properties(clipboard_window PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     if(WIN32)
-        # Whether the selection bar's texts fit needs real fonts.
-        add_test(NAME clipboard_window_desktop COMMAND jietuba_clipboard_window_tests -o ${JIETUBA_TEST_REPORTS}/clipboard_window_desktop.txt,txt -platform windows theSelectionBarFitsEveryLanguageInTheNarrowestWindow)
+        # Whether the selection bar's and the quick edit box's texts fit needs real fonts.
+        add_test(NAME clipboard_window_desktop COMMAND jietuba_clipboard_window_tests -o ${JIETUBA_TEST_REPORTS}/clipboard_window_desktop.txt,txt -platform windows
+                 theSelectionBarFitsEveryLanguageInTheNarrowestWindow theQuickEditButtonsFitEveryLanguage)
         set_tests_properties(clipboard_window_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
     endif()
     qt_add_executable(jietuba_clipboard_manage_tests tests/test_clipboard_manage.cpp)

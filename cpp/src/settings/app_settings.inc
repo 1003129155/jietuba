@@ -67,6 +67,7 @@ SETTING(inapp_quick_save, "inapp/inapp_quick_save", QString, "ctrl+shift+s", Imp
 SETTING(inapp_clipboard_quick_edit, "inapp/inapp_clipboard_quick_edit", QString, "tab", Import, Gen, Gen)
 SETTING(inapp_clipboard_edit_save, "inapp/inapp_clipboard_edit_save", QString, "ctrl+enter", Import, Gen, Gen)
 SETTING(inapp_clipboard_edit_save_paste, "inapp/inapp_clipboard_edit_save_paste", QString, "ctrl+shift+enter", Import, Gen, Gen)
+SETTING(inapp_clipboard_edit_paste, "inapp/inapp_clipboard_edit_paste", QString, "alt+enter", Import, Gen, Gen)
 SETTING(inapp_clipboard_search, "inapp/inapp_clipboard_search", QString, "ctrl+f", Import, Gen, Gen)
 SETTING(inapp_cursor_move_mode, "inapp/inapp_cursor_move_mode", QString, "both", Import, Gen, Gen)
 SETTING(inapp_clipboard_pick_mode, "inapp/inapp_clipboard_pick_mode", QString, "both", Import, Gen, Gen)

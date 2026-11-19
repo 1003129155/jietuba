@@ -13,6 +13,7 @@ class QCheckBox;
 class QComboBox;
 class QVBoxLayout;
 class QLabel;
+class QScrollArea;
 class QSlider;
 class QSpinBox;
 
@@ -223,6 +224,8 @@ public:
     QLabel *zoom_label;
     QLabel *original_label;
     QLabel *classic_link;
+    // Holds the settings above Save; scrolls only when the screen is too short for them.
+    QScrollArea *panel_scroll;
     PushButton *save_button;
 signals:
     void encode_finished(qint64 bytes);

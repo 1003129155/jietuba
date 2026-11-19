@@ -30,6 +30,8 @@
 #include <QPointer>
 #include <QRegularExpression>
 #include <QScreen>
+#include <QScrollArea>
+#include <QScrollBar>
 #include <QSlider>
 #include <QSpinBox>
 #include <QStandardPaths>
@@ -59,6 +61,28 @@ QString human_size(qint64 bytes) {
 
 // Notices and the folder mark; the theme has no warning colour of its own.
 QString warning_color(const UIThemeTokens &t) { return t.is_dark() ? "#E2A447" : "#D08A1E"; }
+
+// Asks for the whole panel, so the window still opens tall enough for it. When the screen
+// caps the window, the layout shrinks this, its largest item, and the panel scrolls.
+class PanelScrollArea : public QScrollArea {
+public:
+    using QScrollArea::QScrollArea;
+    QSize sizeHint() const override { return minimumSizeHint(); }
+    // The height QScrollArea resizes the panel to; wrapped hints make it depend on the (fixed) width.
+    QSize minimumSizeHint() const override {
+        auto *content = widget();
+        if (!content) return QScrollArea::minimumSizeHint();
+        int height = content->minimumSizeHint().height();
+        if (content->hasHeightForWidth()) height = std::max(height, content->heightForWidth(content->minimumWidth()));
+        return {QScrollArea::minimumSizeHint().width(), height};
+    }
+protected:
+    // A hint shown or hidden in the panel changes the height asked for.
+    bool eventFilter(QObject *watched, QEvent *event) override {
+        if (watched == widget() && event->type() == QEvent::LayoutRequest) updateGeometry();
+        return QScrollArea::eventFilter(watched, event);
+    }
+};
 
 // Pill with text drawn over the preview; anchored at its top-left or top-right corner.
 void draw_pill(QPainter &painter, const QPointF &anchor, bool align_right, const QString &text) {
@@ -653,7 +677,7 @@ SaveImageDialog::SaveImageDialog(const QImage &image, const QString &base_name, 
     panel_->setObjectName("savePanel");
     panel_->setFixedWidth(panel_width);
     auto *panel = new QVBoxLayout(panel_);
-    panel->setContentsMargins(0, 0, 0, dialog_scaled(24));
+    panel->setContentsMargins(0, 0, 0, 0);
     panel->setSpacing(dialog_scaled(12));
     const auto block = [this, panel](const char *title, QWidget **out = nullptr) {
         auto *widget = new QWidget(panel_);
@@ -856,12 +880,32 @@ SaveImageDialog::SaveImageDialog(const QImage &image, const QString &base_name, 
     size_estimate->addWidget(estimate_title);
     size_estimate->addWidget(file_size_label);
 
-    save_button = new PrimaryPushButton(tr_text("Save"), panel_);
+    panel->addStretch(1);
+
+    // Save sits under the panel rather than in it, so it stays in view while the panel scrolls.
+    // The gutter on the right holds the 7px bar from scrollbar_qss.
+    const int gutter = dialog_scaled(12);
+    panel_scroll = new PanelScrollArea(this);
+    panel_scroll->setFrameShape(QFrame::NoFrame);
+    panel_scroll->setFixedWidth(panel_width + gutter);
+    panel_scroll->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
+    panel_scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    panel_scroll->setWidgetResizable(true);
+    panel_scroll->viewport()->setAutoFillBackground(false);
+    panel_scroll->setWidget(panel_);
+    // setWidget turns the fill on; the panel sits on the window's own background.
+    panel_->setAutoFillBackground(false);
+    save_button = new PrimaryPushButton(tr_text("Save"), this);
+    save_button->setFixedWidth(panel_width);
     save_button->setDefault(true);
     save_button->setAutoDefault(true);
     connect(save_button, &QPushButton::clicked, this, &SaveImageDialog::accept_save);
-    panel->addWidget(save_button);
-    panel->addStretch(1);
+    auto *side = new QVBoxLayout;
+    side->setContentsMargins(0, 0, 0, dialog_scaled(24));
+    side->setSpacing(dialog_scaled(12));
+    side->addWidget(panel_scroll);
+    side->addWidget(save_button);
+    side->addStretch(1);
 
     // ── Status bar and the switch to the classic dialog ──
     auto *status = new QHBoxLayout;
@@ -879,14 +923,19 @@ SaveImageDialog::SaveImageDialog(const QImage &image, const QString &base_name, 
     connect(classic_link, &QLabel::linkActivated, this, &SaveImageDialog::switch_to_classic);
     connect(preview, &SavePreviewView::zoom_changed, this, &SaveImageDialog::update_status);
 
+    // The gutter comes out of the right margin, so the panel stays where it was.
+    auto *link_row = new QHBoxLayout;
+    link_row->setContentsMargins(0, 0, gutter, 0);
+    link_row->addStretch(1);
+    link_row->addWidget(classic_link);
     auto *grid = new QGridLayout(this);
-    grid->setContentsMargins(dialog_scaled(16), title_bar->height() + dialog_scaled(4), dialog_scaled(16), dialog_scaled(10));
+    grid->setContentsMargins(dialog_scaled(16), title_bar->height() + dialog_scaled(4), std::max(0, dialog_scaled(16) - gutter), dialog_scaled(10));
     grid->setHorizontalSpacing(dialog_scaled(16));
     grid->setVerticalSpacing(dialog_scaled(8));
     grid->addWidget(preview, 0, 0);
-    grid->addWidget(panel_, 0, 1);
+    grid->addLayout(side, 0, 1);
     grid->addLayout(status, 1, 0);
-    grid->addWidget(classic_link, 1, 1, Qt::AlignRight);
+    grid->addLayout(link_row, 1, 1);
     grid->setColumnStretch(0, 1);
     grid->setRowStretch(0, 1);
     configure_dialog_controls(*this);
@@ -1236,6 +1285,7 @@ void SaveImageDialog::apply_theme() {
                               .arg(dialog_scaled(16))
                               .arg(-dialog_scaled(6))
                               .arg(dialog_scaled(8)));
+    panel_scroll->verticalScrollBar()->setStyleSheet(scrollbar_qss(this));
     for (auto *label : {zoom_label, original_label})
         label->setStyleSheet(QString("QLabel { color: %1; font-size: %2px; background: transparent; }").arg(t.text_muted).arg(dialog_scaled(12)));
     for (auto *button : {save_button, change_button}) button->setFixedHeight(dialog_scaled(34));
@@ -1249,11 +1299,18 @@ void SaveImageDialog::apply_theme() {
 
 // 80% of the screen at most; a small image still gets room for the panel and a usable preview.
 void SaveImageDialog::place(QWidget *parent) {
+    // The scroll area measured the panel before the style sheet sized its fields, and layouts keep
+    // those row heights until they activate, which otherwise waits for show. Settle them deepest first.
+    auto widgets = findChildren<QWidget *>();
+    for (auto it = widgets.crbegin(); it != widgets.crend(); ++it)
+        if ((*it)->layout()) (*it)->layout()->activate();
+    panel_scroll->updateGeometry();
+    layout()->activate();
     QScreen *screen = parent && parent->window()->screen() ? parent->window()->screen() : QApplication::screenAt(QCursor::pos());
     if (!screen) screen = QApplication::primaryScreen();
     const auto available = screen->availableGeometry();
     const auto margins = layout()->contentsMargins();
-    const int chrome_w = margins.left() + margins.right() + dialog_scaled(16) + panel_->width();
+    const int chrome_w = margins.left() + margins.right() + dialog_scaled(16) + panel_scroll->width();
     const int chrome_h = margins.top() + margins.bottom() + dialog_scaled(40) + dialog_scaled(70);
     // The size limit warning shows without growing the window, so its room is part of the minimum.
     size_limit_hint->ensurePolished();

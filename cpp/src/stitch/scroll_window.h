@@ -56,6 +56,8 @@ public:
     QSize panel_size() const { return panel_rect_.size(); }
     // The panel in screen coordinates.
     QRect panel_geometry() const { return panel_rect_.translated(geometry().topLeft()); }
+    // The longest the panel grows along the scroll direction.
+    int max_length() const;
     // Puts the panel's top-left corner at top_left (screen coordinates). The window
     // only moves when the strip through that point on screen changes.
     void place(const QPoint &top_left, const QRect &screen);
@@ -72,7 +74,6 @@ private:
     void setup_mouse_transparent();
     void build_ui();
     void place_warning();
-    int max_length() const;
     // Viewport start: from the beginning when it fits; otherwise moved only when the
     // newest frame's box nears the edge, just far enough to show it with some margin.
     int follow(int total, int length) const;
