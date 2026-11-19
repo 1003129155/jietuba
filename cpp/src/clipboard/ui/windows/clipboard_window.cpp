@@ -1684,6 +1684,8 @@ void ClipboardWindow::snap_to_edge() {
 }
 
 void ClipboardWindow::summon_from_dock() {
+    // 先回到贴边时那格位置，藏起来时记下的坐标才是看得见的那个。
+    expand_from_dock();
     // 收起时窗口还是可见的，直接 show() 不会重新摆位：先藏一下，让 showEvent 按光标重来。
     hide();
     show();
