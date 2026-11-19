@@ -17,6 +17,9 @@ public:
     // window must outlive this helper; areas where drag_area returns true move the window.
     void init_frameless(QWidget *window, int edge_margin = 8);
     std::function<bool(QObject *widget, const QPoint &local_pos)> is_draggable_area = [](QObject *, const QPoint &) { return false; };
+    // Applied to the window's target top-left on every drag step: keeps it inside a
+    // caller-chosen area. Unset means the window follows the cursor anywhere.
+    std::function<QPoint(const QPoint &)> clamp_pos;
     // The edge under local_pos: "left", "topright", ...; empty when none.
     QString get_edge(const QPoint &local_pos) const;
     void reset();

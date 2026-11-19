@@ -530,8 +530,8 @@ QWidget *create_clipboard_page(SettingsDialog *dialog) {
     add_switch_card(dialog, grp_basic, FluentIcon::Search, "Preserve Search on Reopen", "Keep the search text when the clipboard window opens again",
                     "clipboard_preserve_search");
     add_switch_card(dialog, grp_basic, FluentIcon::Pin, "Tuck Away at Screen Edges",
-                    "Dropping the window against a screen edge sticks it there. Push it past the edge and it hides all but a thin strip; "
-                    "reaching that strip with the mouse brings it back.",
+                    "Drop the window within a finger's width of a screen edge and it sticks there. Once the mouse leaves, it slides "
+                    "off the edge leaving a thin handle; touching that handle brings it back.",
                     "clipboard_edge_hide");
     layout->addWidget(grp_basic);
 

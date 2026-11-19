@@ -91,7 +91,9 @@ bool FramelessMixin::handle_event(QObject *obj, QEvent *event) {
             return true;
         }
         if (is_dragging_ && drag_pos_) {
-            window_->move(*global_pos - *drag_pos_);
+            QPoint target = *global_pos - *drag_pos_;
+            if (clamp_pos) target = clamp_pos(target);
+            window_->move(target);
             return true;
         }
         update_cursor(get_edge(*local_pos));

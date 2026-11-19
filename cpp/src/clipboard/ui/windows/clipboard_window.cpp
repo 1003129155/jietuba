@@ -53,12 +53,12 @@ constexpr Qt::KeyboardModifiers DIRECT_PICK_BLOCKERS = Qt::ControlModifier | Qt:
 
 QString translate_window(const QString &text) { return ClipboardWindow::tr_text(text.toUtf8().constData()); }
 
-// 贴边的容差、被推出屏幕多少算"往里推"、收起后露出来的宽度。
-constexpr int DOCK_SNAP = 12;
-constexpr int DOCK_PUSH = 24;
+// 松手时离屏幕边多近算贴住、收起后露出来的宽度、能唤起的那条把手有多宽。
+constexpr int DOCK_SNAP = 24;
 constexpr int DOCK_PEEK = 6;
-constexpr int DOCK_POLL_MS = 60;
-constexpr int DOCK_COLLAPSE_MS = 500;
+constexpr int DOCK_HIT = 10;
+constexpr int DOCK_POLL_MS = 50;
+constexpr int DOCK_COLLAPSE_MS = 250;
 
 // 窗口被推出屏幕后中心可能已经出界，退而取与它相交的那块屏幕。
 QScreen *screen_holding(const QRect &frame) {
@@ -68,15 +68,21 @@ QScreen *screen_holding(const QRect &frame) {
     return nullptr;
 }
 
-// 可用区被任务栏切掉的那条边：藏到后面会被挡住，鼠标也碰不到，只做对齐。
-bool edge_behind_taskbar(Qt::Edge edge, const QRect &available, const QRect &screen) {
+// 这条边之外没有别的屏幕：只有虚拟桌面的外沿才值得贴。两块屏交界处贴上去，窗口会卡在
+// 缝合线上，把手也踩着两个显示器，鼠标很难再找回来。
+bool is_outer_edge(const QScreen *screen, Qt::Edge edge) {
+    if (!screen) return false;
+    const QRect geo = screen->geometry();
+    const QPoint middle = geo.center();
+    QPoint outside;
     switch (edge) {
-    case Qt::LeftEdge: return available.left() > screen.left();
-    case Qt::TopEdge: return available.top() > screen.top();
-    case Qt::RightEdge: return available.left() + available.width() < screen.left() + screen.width();
-    case Qt::BottomEdge: return available.top() + available.height() < screen.top() + screen.height();
+    case Qt::LeftEdge: outside = QPoint(geo.left() - 4, middle.y()); break;
+    case Qt::RightEdge: outside = QPoint(geo.left() + geo.width() + 3, middle.y()); break;
+    case Qt::TopEdge: outside = QPoint(middle.x(), geo.top() - 4); break;
+    case Qt::BottomEdge: outside = QPoint(middle.x(), geo.top() + geo.height() + 3); break;
+    default: return false;
     }
-    return false;
+    return QGuiApplication::screenAt(outside) == nullptr;
 }
 
 }
@@ -192,6 +198,16 @@ ClipboardWindow::ClipboardWindow(QWidget *parent)
 
     connect(this, &ClipboardWindow::new_item_received, this, [this](const std::optional<ClipboardItem> &item) { controller->on_new_content(isVisible(), item); });
     frameless_.is_draggable_area = [this](QObject *widget, const QPoint &) { return is_draggable_area(widget); };
+    // 拖动时把窗口关在虚拟桌面里：松手只剩"离哪条边最近"一个判断，不会出现推出屏幕这种
+    // 没人猜得到的手势（QuickClipboard 也是在 WM_WINDOWPOSCHANGING 里做同一件事）。
+    frameless_.clamp_pos = [this](const QPoint &pos) {
+        QRect desk;
+        for (const QScreen *screen : QGuiApplication::screens()) desk = desk.united(screen->geometry());
+        if (desk.isNull()) return pos;
+        const int max_x = std::max(desk.left(), desk.left() + desk.width() - width());
+        const int max_y = std::max(desk.top(), desk.top() + desk.height() - height());
+        return QPoint(std::clamp(pos.x(), desk.left(), max_x), std::clamp(pos.y(), desk.top(), max_y));
+    };
     frameless_.init_frameless(this, 8);
 
     auto *theme_manager = get_theme_manager();
@@ -1625,10 +1641,12 @@ void ClipboardWindow::check_and_hide() {
     if (dragging_) return;
     if (isActiveWindow()) return;
     // In resident mode the user closes it; pasting itself hands focus to the target window.
-    if (!config->get_clipboard_close_after_paste()) return;
+    // Docked is the exception: losing focus there means "tuck the handle away", not "close".
+    if (!config->get_clipboard_close_after_paste() && !docked_edge_) return;
     // Confirmations and menus activate their own top-level windows, which still belong to the clipboard window.
     for (const QWidget *surface : {QApplication::activeWindow(), QApplication::activeModalWidget(), QApplication::activePopupWidget()})
         if (owns_window(surface)) return;
+    if (docked_edge_) { collapse_to_dock(); return; }
     hide();
 }
 
@@ -1637,39 +1655,51 @@ void ClipboardWindow::snap_to_edge() {
     const QRect frame = geometry();
     QScreen *screen = screen_holding(frame);
     if (!screen) return;
-    const QRect available = screen->availableGeometry();
+    const QRect geo = screen->geometry();
     const Qt::Edge edges[4] = {Qt::LeftEdge, Qt::TopEdge, Qt::RightEdge, Qt::BottomEdge};
-    // 每条边到可用区的距离：正数是还差多少，负数是已经出去了多少。
+    // 到屏幕物理边缘的距离：正数是还在里面多少，负数已经压出去了多少。
+    // 拿屏幕而不是工作区量：任务栏占住的那条边也要能贴，收起来时把手落在任务栏上方。
     const int gaps[4] = {
-        frame.left() - available.left(),
-        frame.top() - available.top(),
-        available.left() + available.width() - (frame.left() + frame.width()),
-        available.top() + available.height() - (frame.top() + frame.height()),
+        frame.left() - geo.left(),
+        frame.top() - geo.top(),
+        geo.left() + geo.width() - (frame.left() + frame.width()),
+        geo.top() + geo.height() - (frame.top() + frame.height()),
     };
-    // 推出了屏幕的那条边是"往里推"：松手就收起。
-    int pushed = 0, pushed_index = -1;
-    for (int i = 0; i < 4; ++i)
-        if (-gaps[i] > pushed) { pushed = -gaps[i]; pushed_index = i; }
-    if (pushed_index >= 0 && pushed >= scaled(DOCK_PUSH)) { dock_to_edge(edges[pushed_index], true); return; }
-    // 否则贴住最近的一条边，先保持展开。
-    int nearest = std::abs(gaps[0]), nearest_index = 0;
-    for (int i = 1; i < 4; ++i) {
+    // 已经压出屏幕的边按"往里推"处理：松手直接收成把手。
+    int pushed = -1, pushed_by = 0;
+    int nearest = -1, nearest_distance = 0;
+    for (int i = 0; i < 4; ++i) {
+        if (!is_outer_edge(screen, edges[i])) continue;
+        if (gaps[i] < 0 && -gaps[i] > pushed_by) { pushed = i; pushed_by = -gaps[i]; }
         const int distance = std::abs(gaps[i]);
-        if (distance < nearest) { nearest = distance; nearest_index = i; }
+        if (nearest < 0 || distance < nearest_distance) { nearest = i; nearest_distance = distance; }
     }
-    if (nearest <= scaled(DOCK_SNAP)) dock_to_edge(edges[nearest_index], false);
+    if (pushed >= 0) { dock_to_edge(edges[pushed], true); return; }
+    // 离哪条边最近就贴哪条，先保持展开；超出阈值就什么都不做。
+    if (nearest >= 0 && nearest_distance <= scaled(DOCK_SNAP)) dock_to_edge(edges[nearest], false);
     else clear_dock();
 }
 
 void ClipboardWindow::dock_to_edge(Qt::Edge edge, bool collapsed) {
-    docked_rect_ = geometry();
+    QScreen *screen = screen_holding(geometry());
+    if (!screen) { clear_dock(); return; }
+    const QRect work = screen->availableGeometry();
+    QRect rect = geometry();
+    // 贴住的那条边对齐工作区，另一轴也夹回工作区：既不压在任务栏下面，也不跑到隔壁屏。
+    switch (edge) {
+    case Qt::LeftEdge: rect.moveLeft(work.left()); break;
+    case Qt::RightEdge: rect.moveLeft(work.left() + work.width() - rect.width()); break;
+    case Qt::TopEdge: rect.moveTop(work.top()); break;
+    case Qt::BottomEdge: rect.moveTop(work.top() + work.height() - rect.height()); break;
+    }
+    const int max_x = std::max(work.left(), work.left() + work.width() - rect.width());
+    const int max_y = std::max(work.top(), work.top() + work.height() - rect.height());
+    rect.moveLeft(std::clamp(rect.left(), work.left(), max_x));
+    rect.moveTop(std::clamp(rect.top(), work.top(), max_y));
     docked_edge_ = edge;
+    docked_rect_ = rect;
     dock_collapsed_ = false;
-    const QRect aligned = dock_rect(edge, false);
-    docked_rect_ = aligned;
-    move(aligned.topLeft());
-    QScreen *screen = screen_holding(aligned);
-    if (!screen || edge_behind_taskbar(edge, screen->availableGeometry(), screen->geometry())) { clear_dock(); return; }
+    move(rect.topLeft());
     if (collapsed) collapse_to_dock();
     if (dock_timer_ && !dock_timer_->isActive()) dock_timer_->start();
     log_debug(T("剪贴板贴边: {edge}", {{"edge", collapsed ? "收起" : "吸附"}}), "Clipboard");
@@ -1677,25 +1707,16 @@ void ClipboardWindow::dock_to_edge(Qt::Edge edge, bool collapsed) {
 
 QRect ClipboardWindow::dock_rect(Qt::Edge edge, bool collapsed) const {
     QRect rect = docked_rect_.isNull() ? geometry() : docked_rect_;
+    if (!collapsed) return rect;
     QScreen *screen = screen_holding(rect);
     if (!screen) return rect;
-    const QRect available = screen->availableGeometry();
+    const QRect work = screen->availableGeometry();
     const int peek = std::max(2, scaled(DOCK_PEEK));
     switch (edge) {
-    case Qt::LeftEdge:
-        rect.moveLeft(collapsed ? available.left() - rect.width() + peek : available.left());
-        break;
-    case Qt::RightEdge:
-        rect.moveLeft(collapsed ? available.left() + available.width() - peek
-                                : available.left() + available.width() - rect.width());
-        break;
-    case Qt::TopEdge:
-        rect.moveTop(collapsed ? available.top() - rect.height() + peek : available.top());
-        break;
-    case Qt::BottomEdge:
-        rect.moveTop(collapsed ? available.top() + available.height() - peek
-                               : available.top() + available.height() - rect.height());
-        break;
+    case Qt::LeftEdge: rect.moveLeft(work.left() - rect.width() + peek); break;
+    case Qt::RightEdge: rect.moveLeft(work.left() + work.width() - peek); break;
+    case Qt::TopEdge: rect.moveTop(work.top() - rect.height() + peek); break;
+    case Qt::BottomEdge: rect.moveTop(work.top() + work.height() - peek); break;
     }
     return rect;
 }
@@ -1731,18 +1752,18 @@ void ClipboardWindow::clear_dock() {
 void ClipboardWindow::on_dock_tick() {
     if (!docked_edge_ || !isVisible() || frameless_.is_dragging()) return;
     const Qt::Edge edge = *docked_edge_;
-    const QPoint cursor = QCursor::pos();
-    // 收起后露出的那一条：鼠标碰上去就把窗口推回来。
-    QRect strip = dock_rect(edge, true);
     QScreen *screen = screen_holding(docked_rect_);
-    if (!screen) return;
-    const QRect available = screen->availableGeometry();
-    const int thickness = std::max(2, scaled(DOCK_PEEK)) + 4;
+    if (!screen) { clear_dock(); return; }
+    const QRect work = screen->availableGeometry();
+    const QPoint cursor = QCursor::pos();
+    // 收起后露出的那一条把手：比露出来的宽一点，碰上去更容易。
+    const int thickness = std::max(2, scaled(DOCK_PEEK)) + scaled(DOCK_HIT);
+    QRect strip = dock_rect(edge, true);
     switch (edge) {
-    case Qt::LeftEdge: strip = QRect(available.left(), strip.top(), thickness, strip.height()); break;
-    case Qt::RightEdge: strip = QRect(available.left() + available.width() - thickness, strip.top(), thickness, strip.height()); break;
-    case Qt::TopEdge: strip = QRect(strip.left(), available.top(), strip.width(), thickness); break;
-    case Qt::BottomEdge: strip = QRect(strip.left(), available.top() + available.height() - thickness, strip.width(), thickness); break;
+    case Qt::LeftEdge: strip = QRect(work.left(), strip.top(), thickness, strip.height()); break;
+    case Qt::RightEdge: strip = QRect(work.left() + work.width() - thickness, strip.top(), thickness, strip.height()); break;
+    case Qt::TopEdge: strip = QRect(strip.left(), work.top(), strip.width(), thickness); break;
+    case Qt::BottomEdge: strip = QRect(strip.left(), work.top() + work.height() - thickness, strip.width(), thickness); break;
     }
     if (dock_collapsed_) {
         if (strip.contains(cursor)) expand_from_dock();
@@ -1751,12 +1772,23 @@ void ClipboardWindow::on_dock_tick() {
     // 展开着：鼠标还在窗口或那条边上就不收，走开一会儿才收。
     if (geometry().contains(cursor) || strip.contains(cursor)) {
         if (collapse_timer_) collapse_timer_->stop();
-    } else {
-        schedule_collapse();
+        return;
     }
+    schedule_collapse();
 }
 
-bool ClipboardWindow::is_draggable_area(QObject *widget) const { return group_bar && group_bar->bar_widget && widget == group_bar->bar_widget; }
+bool ClipboardWindow::is_draggable_area(QObject *widget) const {
+    if (!widget || !widget->isWidgetType()) return false;
+    // 列表要留着自己的点击和条目拖拽，其它控件也要能点：这些之外的空白处都能拖窗口，
+    // 不再只认分组条那一条窄带。
+    for (QWidget *w = static_cast<QWidget *>(widget); w && w != this; w = w->parentWidget()) {
+        if (w == list_widget) return false;
+        if (qobject_cast<QAbstractButton *>(w) || qobject_cast<QLineEdit *>(w) || qobject_cast<QAbstractSlider *>(w) ||
+            qobject_cast<QComboBox *>(w) || qobject_cast<QAbstractItemView *>(w))
+            return false;
+    }
+    return true;
+}
 
 bool ClipboardWindow::is_date_filter_widget(QObject *obj) const {
     for (QDateEdit *widget : {start_date_edit, end_date_edit}) {
@@ -1795,12 +1827,11 @@ bool ClipboardWindow::eventFilter(QObject *obj, QEvent *event) {
     if ((event_type == QEvent::MouseButtonPress || event_type == QEvent::MouseButtonRelease || event_type == QEvent::MouseMove) && is_date_filter_widget(obj))
         return QWidget::eventFilter(obj, event);
 
-    // 拖动前先解除贴边，否则轮询会在拖动中途把窗口拽回边上；收起状态下按下则先展开。
+    // 贴边状态下按下只是把窗口叫回来，贴边本身保留；真的开始拖动才解除，否则轮询
+    // 会在拖动中途把窗口拽回边上。
     const bool was_dragging = frameless_.is_dragging();
-    if (event_type == QEvent::MouseButtonPress && docked_edge_) {
-        if (dock_collapsed_) expand_from_dock();
-        clear_dock();
-    }
+    if (event_type == QEvent::MouseButtonPress && dock_collapsed_) expand_from_dock();
+    if (event_type == QEvent::MouseMove && docked_edge_ && frameless_.is_dragging()) clear_dock();
 
     if (frameless_.handle_event(obj, event)) {
         // 松手那一刻做一次贴边判定，拖动过程中不做。

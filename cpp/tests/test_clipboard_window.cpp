@@ -209,6 +209,37 @@ private slots:
         QVERIFY(window->x() < available.left() + available.width());
     }
 
+    void droppingCloseEnoughSnapsButDroppingFurtherAwayDoesNot() {
+        auto *window = open_window();
+        window->resize(window->minimumSize());
+        const QRect available = QGuiApplication::primaryScreen()->availableGeometry();
+        QVERIFY(available.width() > window->width() + 120);
+        // 20 像素之内算贴住；同样的位置再往里 40 像素就不该贴。
+        window->move(available.left() + available.width() - window->width() - 20, available.top() + 20);
+        window->snap_to_edge_for_test();
+        QVERIFY(window->docked_for_test());
+        window->move(available.left() + available.width() - window->width() - 40, available.top() + 20);
+        window->snap_to_edge_for_test();
+        QVERIFY(!window->docked_for_test());
+    }
+
+    void tuckingAwayAtTheBottomEdgeLeavesTheHandleAboveTheTaskbar() {
+        auto *window = open_window();
+        window->resize(window->minimumSize());
+        const QScreen *screen = QGuiApplication::primaryScreen();
+        const QRect available = screen->availableGeometry();
+        const QRect geo = screen->geometry();
+        // 拖到屏幕底边（有任务栏时就是压在任务栏上）松手：收起，把手留在工作区底边上方，
+        // 而不是钻到任务栏后面去。
+        window->move(geo.left() + (geo.width() - window->width()) / 2, geo.bottom() + 10 - window->height());
+        window->snap_to_edge_for_test();
+        QVERIFY(window->docked_for_test());
+        QVERIFY(window->dock_collapsed_for_test());
+        QVERIFY(window->y() < available.bottom());
+        QVERIFY(available.bottom() - window->y() < 20);
+        QVERIFY(window->y() + window->height() > available.bottom());
+    }
+
     void turningTuckAwayOffLeavesTheWindowAlone() {
         auto *window = open_window();
         window->resize(window->minimumSize());

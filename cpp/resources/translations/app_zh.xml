@@ -4075,8 +4075,8 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>贴边自动收起</translation>
     </message>
     <message>
-        <source>Dropping the window against a screen edge sticks it there. Push it past the edge and it hides all but a thin strip; reaching that strip with the mouse brings it back.</source>
-        <translation>把窗口拖到屏幕边缘松手就会吸附在那里；再往里推只留一条细边，鼠标碰到细边时自动滑出。</translation>
+        <source>Drop the window within a finger's width of a screen edge and it sticks there. Once the mouse leaves, it slides off the edge leaving a thin handle; touching that handle brings it back.</source>
+        <translation>把窗口拖到离屏幕边缘一指宽以内松手就贴住；鼠标移开后窗口滑出屏幕，只留一条细边，鼠标碰到细边就滑回来。</translation>
     </message>
     <message>
         <source>List Display</source>

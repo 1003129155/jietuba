@@ -263,8 +263,9 @@ private:
     // Moves the window above or below area_to_keep_clear_ when it covers it.
     void keep_area_clear();
     void check_and_hide();
-    // The edge the window was dropped against: it sticks there, and once it is pushed past
-    // the edge it tucks itself away leaving a thin strip that brings it back on hover.
+    // Dropped near a screen edge the window sticks to it and stays open while the mouse is
+    // around; once the mouse leaves it slides off the edge leaving a thin handle, and touching
+    // that handle slides it back.
     void snap_to_edge();
     void dock_to_edge(Qt::Edge edge, bool collapsed);
     void collapse_to_dock();
