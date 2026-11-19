@@ -62,6 +62,8 @@ constexpr int DOCK_PEEK = 6;
 constexpr int DOCK_HIT = 10;
 constexpr int DOCK_POLL_MS = 50;
 constexpr int DOCK_COLLAPSE_MS = 250;
+// 打完最后一个字多久之内不收起：间隔再长就当作人已经走开了。
+constexpr int DOCK_TYPING_HOLD_MS = 1500;
 
 // 窗口被推出屏幕后中心可能已经出界，退而取与它相交的那块屏幕。
 QScreen *screen_holding(const QRect &frame) {
@@ -627,6 +629,8 @@ void ClipboardWindow::setup_ui() {
     search_input->setPlaceholderText(tr_text("Search"));
     connect(search_input, &QLineEdit::textChanged, this, [this] { on_search_changed(); });
     connect(search_input, &QLineEdit::textChanged, this, [this](const QString &text) { update_search_background(text); });
+    // 打字也是"在用"：鼠标甩到窗口外打字时，别让窗口在这时候收起。
+    connect(search_input, &QLineEdit::textEdited, this, [this] { dock_typing_.restart(); });
     search_layout->addWidget(search_input, 1);
     selection_manager->set_search_input(search_input);
     clear_search_btn = new QPushButton;
@@ -1798,8 +1802,10 @@ void ClipboardWindow::dock_tick(const QPoint &cursor) {
 }
 
 bool ClipboardWindow::has_typing_focus() const {
+    // 只看"刚刚还在敲字"：输入框有焦点但人已经走开，照样该收起来。
+    if (!dock_typing_.isValid() || dock_typing_.elapsed() > DOCK_TYPING_HOLD_MS) return false;
     QWidget *focus = QApplication::focusWidget();
-    if (!focus || !isAncestorOf(focus)) return false;
+    if (!focus || focus == this || !isAncestorOf(focus)) return false;
     return qobject_cast<QLineEdit *>(focus) || qobject_cast<QAbstractSpinBox *>(focus) ||
            qobject_cast<QTextEdit *>(focus) || qobject_cast<QPlainTextEdit *>(focus);
 }

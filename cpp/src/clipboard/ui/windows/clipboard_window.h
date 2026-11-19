@@ -312,6 +312,8 @@ private:
     // Watches the pointer while stuck: the strip brings the window back, leaving it tucks it away.
     QTimer *dock_timer_ = nullptr;
     QTimer *collapse_timer_ = nullptr;
+    // 最后一次在搜索框里敲字的时间：贴着边打字时窗口不收。
+    QElapsedTimer dock_typing_;
     std::unique_ptr<QSettings> qsettings_;
     std::optional<int> saved_x_, saved_y_;
     int saved_width_ = 450, saved_height_ = 600;
