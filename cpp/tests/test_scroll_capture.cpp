@@ -113,13 +113,13 @@ protected:
 
 // White with lines of dashes of varying length and colour, roughly a page of text.
 // Every pixel row is drawn on its own, so no two rows repeat and matching is unambiguous.
-QImage synthetic_page() {
-    QImage page(PAGE_W, PAGE_H, QImage::Format_RGB32);
+QImage synthetic_page(int height = PAGE_H) {
+    QImage page(PAGE_W, height, QImage::Format_RGB32);
     page.fill(Qt::white);
     QRandomGenerator random(4);
     QPainter painter(&page);
     int y = 6;
-    while (y < PAGE_H - 20) {
+    while (y < height - 20) {
         const int line = 8 + 2 * random.bounded(3);
         const QColor color(random.bounded(121), random.bounded(121), random.bounded(121));
         for (int row = y; row < y + line; ++row) {
@@ -887,8 +887,6 @@ private slots:
     }
 
     // The preview grows inside a strip a screen long that stays put, its bottom on the region's.
-    // A preview taller than the region reaches the toolbar above it when the toolbar is wider than
-    // the region, and then moves aside to keep the buttons clear; this region is tall enough.
     void thePreviewGrowsWithoutMovingItsWindow() {
         const QRect saved = area_;
         const auto restore = qScopeGuard([this, saved] { area_ = saved; });
@@ -907,6 +905,30 @@ private slots:
         QVERIFY2(panel->panel_geometry().top() > window->geometry().top(), "the preview outgrew the region");
         QCOMPARE(panel->geometry(), strip);
         QCOMPARE(panel->panel_geometry().bottom(), window->geometry().bottom());
+        window->toolbar->cancel_btn->click();
+    }
+
+    // A region as tall as the screen at its left edge has the toolbar on its right, across the
+    // preview's column: the preview starts past the toolbar and stays put while it grows.
+    void thePreviewStaysPutBesideATallRegionsToolbar() {
+        const auto restore = qScopeGuard([this, saved = area_] { area_ = saved; page_ = synthetic_page(); });
+        const QRect screen = QGuiApplication::primaryScreen()->geometry();
+        const QRect available = QGuiApplication::primaryScreen()->availableGeometry();
+        area_ = QRect(available.left() + 20, available.top() + 10, PAGE_W, available.bottom() - available.top() - 10);
+        page_ = synthetic_page(area_.height() + 800);
+        auto *window = open();
+        QVERIFY(window);
+        auto *panel = window->preview_panel.data();
+        const QRect bar = window->toolbar->geometry();
+        QVERIFY(bar.left() > window->geometry().right());
+        if (bar.right() + 2 * 14 + panel->panel_size().width() > screen.right()) QSKIP("the screen is too narrow for the preview beside the toolbar");
+        const QRect before = panel->panel_geometry();
+        QVERIFY2(before.left() > bar.right() && before.left() <= bar.right() + 30, "the preview is not right beside the toolbar");
+        QVERIFY(scroll_in_steps({100, 200, 300, 400, 500, 600, 700, 800}));
+        QTRY_VERIFY_WITH_TIMEOUT(panel->panel_size().height() >= std::min(before.height() + 300, screen.height() - 60), 5000);
+        QCOMPARE(panel->panel_geometry().left(), before.left());
+        QCOMPARE(panel->panel_geometry().bottom(), before.bottom());
+        QVERIFY(!panel->panel_geometry().intersects(bar));
         window->toolbar->cancel_btn->click();
     }
 
