@@ -213,12 +213,14 @@ private slots:
         auto *window = open_window();
         window->resize(window->minimumSize());
         const QRect available = QGuiApplication::primaryScreen()->availableGeometry();
-        QVERIFY(available.width() > window->width() + 120);
-        // 20 像素之内算贴住；同样的位置再往里 40 像素就不该贴。
-        window->move(available.left() + available.width() - window->width() - 20, available.top() + 20);
+        QVERIFY(available.width() > window->width() + 120 && available.height() > window->height() + 120);
+        // 竖直方向放中间，免得贴到顶边或底边去；20 像素之内算贴住，往里 40 像素就不该贴。
+        const int y = available.top() + (available.height() - window->height()) / 2;
+        window->move(available.left() + available.width() - window->width() - 20, y);
         window->snap_to_edge_for_test();
         QVERIFY(window->docked_for_test());
-        window->move(available.left() + available.width() - window->width() - 40, available.top() + 20);
+        QCOMPARE(window->x(), available.left() + available.width() - window->width());
+        window->move(available.left() + available.width() - window->width() - 40, y);
         window->snap_to_edge_for_test();
         QVERIFY(!window->docked_for_test());
     }
