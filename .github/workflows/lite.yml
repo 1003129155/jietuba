@@ -2,10 +2,30 @@ name: Single exe packages
 
 # The lite and full packages are the C++ version (cpp/) as one static exe; the full one also carries
 # ONNX Runtime and the default PP-OCR models. build.yml calls this for releases; run it by hand for
-# test builds of a branch.
+# test builds of a branch, picking the architectures and variants worth waiting for (a full manual
+# run builds four jobs; asking for x64 only builds two).
 on:
   workflow_call:
+    # A release passes nothing and gets the defaults, i.e. every package for both architectures.
+    inputs:
+      arch:
+        type: string
+        default: both
+      variant:
+        type: string
+        default: both
   workflow_dispatch:
+    inputs:
+      arch:
+        description: Architectures to build
+        type: choice
+        options: [x64, arm64, both]
+        default: x64
+      variant:
+        description: Packages to build
+        type: choice
+        options: [lite, full, both]
+        default: both
 
 permissions:
   contents: read
@@ -17,6 +37,35 @@ defaults:
     working-directory: cpp
 
 jobs:
+  plan:
+    # A release builds every combination (the workflow_call defaults); a manual run builds what it
+    # asked for. The build and smoke matrices read this job instead of repeating the choice.
+    runs-on: ubuntu-latest
+    outputs:
+      arches: ${{ steps.pick.outputs.arches }}
+      variants: ${{ steps.pick.outputs.variants }}
+    steps:
+      - id: pick
+        shell: bash
+        # The workflow's default working directory is cpp/, which this job never checks out.
+        working-directory: ${{ github.workspace }}
+        run: |
+          arch='${{ inputs.arch }}'
+          variant='${{ inputs.variant }}'
+          if [ "$arch" = "x64" ] || [ "$arch" = "arm64" ]; then
+            arches="[\"$arch\"]"
+          else
+            arches='["x64","arm64"]'
+          fi
+          if [ "$variant" = "lite" ] || [ "$variant" = "full" ]; then
+            variants="[\"$variant\"]"
+          else
+            variants='["lite","full"]'
+          fi
+          echo "arches=$arches" >> "$GITHUB_OUTPUT"
+          echo "variants=$variants" >> "$GITHUB_OUTPUT"
+          echo "Building $arches x $variants" >> "$GITHUB_STEP_SUMMARY"
+
   qt-x64:
     # The x64 static Qt also supplies the host tools for the ARM64 cross build.
     runs-on: windows-latest
@@ -31,12 +80,12 @@ jobs:
         run: .\scripts\build_static_qt.ps1 -Arch x64
 
   build:
-    needs: qt-x64
+    needs: [qt-x64, plan]
     strategy:
       fail-fast: false
       matrix:
-        arch: [x64, arm64]
-        variant: [lite, full]
+        arch: ${{ fromJSON(needs.plan.outputs.arches) }}
+        variant: ${{ fromJSON(needs.plan.outputs.variants) }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -70,18 +119,13 @@ jobs:
 
   smoke:
     # Each exe starts on its own architecture; ARM64 cannot run on the x64 build machine.
-    needs: build
+    needs: [plan, build]
     strategy:
       fail-fast: false
       matrix:
-        arch: [x64, arm64]
-        variant: [lite, full]
-        include:
-          - arch: x64
-            runner: windows-latest
-          - arch: arm64
-            runner: windows-11-arm
-    runs-on: ${{ matrix.runner }}
+        arch: ${{ fromJSON(needs.plan.outputs.arches) }}
+        variant: ${{ fromJSON(needs.plan.outputs.variants) }}
+    runs-on: ${{ matrix.arch == 'arm64' && 'windows-11-arm' || 'windows-latest' }}
     env:
       PACKAGE: ${{ matrix.variant == 'full' && 'jietuba_pp' || 'jietuba_lite' }}
     steps:
