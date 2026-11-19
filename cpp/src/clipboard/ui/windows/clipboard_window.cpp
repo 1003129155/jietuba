@@ -82,7 +82,10 @@ bool is_outer_edge(const QScreen *screen, Qt::Edge edge) {
     case Qt::BottomEdge: outside = QPoint(middle.x(), geo.top() + geo.height() + 3); break;
     default: return false;
     }
-    return QGuiApplication::screenAt(outside) == nullptr;
+    // 直接问「那块位置有没有别的屏」，不依赖 screenAt 在屏幕外的返回约定。
+    for (const QScreen *neighbour : QGuiApplication::screens())
+        if (neighbour != screen && neighbour->geometry().contains(outside)) return false;
+    return true;
 }
 
 }
