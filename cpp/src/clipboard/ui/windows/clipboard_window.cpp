@@ -1305,6 +1305,10 @@ QPoint ClipboardWindow::row_global_pos(qint64 item_id) const {
 
 void ClipboardWindow::on_quick_edit_finished(const QuickEditResult &result) {
     if (isVisible()) PreviewPopup::instance()->set_display_enabled(true);
+    if (result.text && result.paste && !result.save) {
+        paste_quick_edit(result.item_id, *result.text);
+        return;
+    }
     const bool saved = !result.text || save_quick_edit(result.item_id, *result.text);
     if (result.paste && saved) {
         paste_item_to_clipboard(result.item_id);
@@ -1322,6 +1326,13 @@ bool ClipboardWindow::save_quick_edit(qint64 item_id, const QString &text) {
     if (!item) return false;
     if (text == item->content) return true;
     return controller->update_item_content(item_id, text);
+}
+
+void ClipboardWindow::paste_quick_edit(qint64 item_id, const QString &text) {
+    // Unchanged text pastes the item itself, formatting included, as saving and pasting does.
+    const auto item = get_item_data(item_id);
+    if (item && text == item->content) paste_item_to_clipboard(item_id);
+    else controller->paste_text(text, paste_close_callback(), true);
 }
 
 void ClipboardWindow::create_pin_window(qint64 item_id) { create_pin_from_clipboard_item(item_id, controller, this); }

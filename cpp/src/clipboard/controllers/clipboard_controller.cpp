@@ -476,6 +476,17 @@ bool ClipboardController::paste_transformed_text(qint64 item_id, const QString &
     return true;
 }
 
+bool ClipboardController::paste_text(const QString &text, const CloseCallback &on_close_callback, bool explicit_paste) {
+    QString error;
+    if (!ClipboardManager::set_clipboard_text(text, &error)) {
+        log_exception(error, T("设置剪贴板文本失败"));
+        return false;
+    }
+    if (on_close_callback) on_close_callback();
+    send_paste_keystroke(explicit_paste);
+    return true;
+}
+
 bool ClipboardController::paste_file_text(qint64 item_id, const QString &transform_key, const CloseCallback &on_close_callback, bool explicit_paste) {
     const auto clipboard_item = get_item(item_id);
     if (!clipboard_item || clipboard_item->content_type != "file") {

@@ -16,12 +16,15 @@ class TextEdit;
 namespace jietuba::clipboard {
 inline const QString SAVE_SHORTCUT = "inapp_clipboard_edit_save";
 inline const QString SAVE_AND_PASTE_SHORTCUT = "inapp_clipboard_edit_save_paste";
+inline const QString PASTE_SHORTCUT = "inapp_clipboard_edit_paste";
 
 struct QuickEditResult {
     qint64 item_id = 0;
     // nullopt means cancelled.
     std::optional<QString> text;
     bool paste = false;
+    // False pastes the text and leaves the item as it was.
+    bool save = true;
     // Ended because focus left; the window must not take focus back.
     bool focus_left = false;
 };
@@ -36,12 +39,14 @@ public:
     bool is_open() const { return item_id_.has_value(); }
     void open_for(const ClipboardItem &item, const QPoint &anchor, const QRect &avoid_rect, const Theme &theme);
     void commit(bool paste = false);
+    void paste_without_saving();
     void cancel();
     void close_for_focus_loss();
 
     TextEdit *editor = nullptr;
     QLabel *format_hint = nullptr;
     QPushButton *save_button = nullptr;
+    QPushButton *paste_button = nullptr;
     QPushButton *save_and_paste_button = nullptr;
 
 signals:
@@ -51,7 +56,7 @@ protected:
     bool eventFilter(QObject *obj, QEvent *event) override;
 
 private:
-    void finish(const std::optional<QString> &text, bool paste = false, bool focus_left = false);
+    void finish(const std::optional<QString> &text, bool paste = false, bool save = true, bool focus_left = false);
     void on_editor_focus_out();
     std::optional<qint64> item_id_;
     QHash<QString, KeyBinding> bindings_;

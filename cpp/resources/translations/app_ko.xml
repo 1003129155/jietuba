@@ -308,6 +308,10 @@
         <translation>저장 후 붙여넣기</translation>
     </message>
     <message>
+        <source>Paste Without Saving</source>
+        <translation>저장하지 않고 붙여넣기</translation>
+    </message>
+    <message>
         <source>Direct Pick Keys</source>
         <translation>바로 붙여넣기 키</translation>
     </message>
@@ -6197,12 +6201,16 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>저장</translation>
     </message>
     <message>
+        <source>Paste</source>
+        <translation>붙여넣기</translation>
+    </message>
+    <message>
         <source>Save and Paste</source>
         <translation>저장 후 붙여넣기</translation>
     </message>
     <message>
         <source>Formatting will be removed</source>
-        <translation>저장하면 일반 텍스트로 바뀝니다</translation>
+        <translation>수정하면 일반 텍스트로 바뀝니다</translation>
     </message>
 </context>
 

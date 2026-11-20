@@ -257,6 +257,7 @@ private:
     QPoint row_global_pos(qint64 item_id) const;
     void on_quick_edit_finished(const QuickEditResult &result);
     bool save_quick_edit(qint64 item_id, const QString &text);
+    void paste_quick_edit(qint64 item_id, const QString &text);
     void delete_item(qint64 item_id);
     void open_file_item(qint64 item_id);
     void paste_item_to_clipboard(qint64 item_id);

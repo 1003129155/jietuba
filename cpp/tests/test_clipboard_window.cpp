@@ -38,6 +38,7 @@
 #include <algorithm>
 #include <atomic>
 #include <memory>
+#include <windows.h>
 
 using namespace clipboard_test;
 
@@ -66,6 +67,20 @@ QColor icon_color(const QIcon &icon) {
             if (const QColor color = image.pixelColor(x, y); color.alpha() > best.alpha()) best = color.toRgb();
     best.setAlpha(255);
     return best;
+}
+
+// Read through Win32: under the offscreen platform QClipboard is a private one, not the system's.
+QString system_clipboard_text() {
+    QString text;
+    if (!OpenClipboard(nullptr)) return text;
+    if (HANDLE data = GetClipboardData(CF_UNICODETEXT)) {
+        if (const auto *chars = static_cast<const wchar_t *>(GlobalLock(data))) {
+            text = QString::fromWCharArray(chars);
+            GlobalUnlock(data);
+        }
+    }
+    CloseClipboard();
+    return text;
 }
 
 // How far two colors are apart, the largest difference of any channel.
@@ -791,6 +806,58 @@ private slots:
         window->notify_new_content(manager().get_item(*file));
         window->selection_manager->move_cursor_to(*file);
         QVERIFY(!window->edit_selected());
+    }
+
+    void quickEditPastesWithoutSaving() {
+        const auto ids = add_texts({"original"});
+        auto *window = open_window();
+        window->quick_edit_item(ids[0]);
+        window->quick_edit_popup->editor->setPlainText("changed for one paste");
+        window->quick_edit_popup->paste_button->click();
+        QVERIFY(!window->quick_edit_popup->is_open());
+        QTRY_COMPARE(env_.pastes.size(), 1);
+        // The edited text is what gets pasted; the item keeps its own.
+        QTRY_COMPARE(system_clipboard_text(), QString("changed for one paste"));
+        QCOMPARE(manager().get_item(ids[0])->content, QString("original"));
+        QCOMPARE(window->get_item_data(ids[0])->content, QString("original"));
+        // Left as it was, the item itself is pasted.
+        window->quick_edit_item(ids[0]);
+        window->quick_edit_popup->paste_without_saving();
+        QTRY_COMPARE(env_.pastes.size(), 2);
+        QTRY_COMPARE(system_clipboard_text(), QString("original"));
+    }
+
+    void theQuickEditButtonsFitEveryLanguage() {
+        // Text widths need real fonts, which the offscreen platform does not have.
+        if (QGuiApplication::platformName() != "windows") QSKIP("needs -platform windows");
+        const auto ids = add_texts({"text"});
+        auto *window = open_window();
+        auto item = *window->get_item_data(ids[0]);
+        // With formatting, so the hint shows too.
+        item.html_content = "<b>text</b>";
+        QuickEditPopup popup(window);
+        const QString language = I18nManager::get_current_language();
+        const auto restore = qScopeGuard([language] {
+            get_ui_scale().set_percent(100);
+            I18nManager::load_language(language);
+        });
+        for (const int percent : {100, 150, 200}) {
+            get_ui_scale().set_percent(percent);
+            for (const char *code : {"zh", "zh_TW", "en", "ja", "ko"}) {
+                QVERIFY(I18nManager::load_language(code));
+                popup.open_for(item, QPoint(200, 200), QRect(), window->current_theme);
+                QApplication::processEvents();
+                popup.layout()->activate();
+                QVERIFY2(popup.width() <= scaled(420), qPrintable(QString("%1 at %2%: the box is %3 wide").arg(code).arg(percent).arg(popup.width())));
+                for (QWidget *part : std::initializer_list<QWidget *>{popup.format_hint, popup.save_button, popup.paste_button, popup.save_and_paste_button}) {
+                    const QString name = part->property("text").toString();
+                    QVERIFY2(part->width() >= part->sizeHint().width(),
+                             qPrintable(QString("%1 at %2%: %3 is %4 wide, needs %5").arg(code).arg(percent).arg(name).arg(part->width()).arg(part->sizeHint().width())));
+                    QVERIFY2(popup.rect().contains(part->geometry()), qPrintable(QString("%1 at %2%: %3 sticks out").arg(code).arg(percent).arg(name)));
+                }
+                popup.cancel();
+            }
+        }
     }
 
     void middleClickPinsEveryKindOfItem() {

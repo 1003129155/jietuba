@@ -497,26 +497,27 @@ void ScrollCaptureWindow::position_preview_panel() {
     const auto put = [&](int px, int py) { panel->place(QPoint(px, py), screen_geometry); };
 
     if (preview_direction_ == "vertical") {
-        // Vertical capture: left or right first, bottom edges aligned.
-        // 1: right, bottom aligned.
-        const int x_right = capture_right + margin;
+        // Vertical capture: left or right first, bottom edges aligned. A side is checked
+        // against the longest the panel can grow, and a column the toolbar crosses moves out
+        // past the toolbar, so the panel does not jump away once it grows into the toolbar.
+        const auto bottom_aligned = [&](int length) { return std::max(screen_top + margin, std::min(capture_bottom - length, screen_bottom - length - margin)); };
+        const int longest = std::max(size.height(), panel->max_length());
+        const auto column_hits_toolbar = [&](int px) {
+            return toolbar_rect && toolbar_rect->intersects(QRect(px, bottom_aligned(longest), size.width(), longest));
+        };
+        // 1: right.
+        int x_right = capture_right + margin;
+        if (column_hits_toolbar(x_right)) x_right = toolbar_rect->x() + toolbar_rect->width() + margin;
         if (x_right + size.width() <= screen_right - margin) {
-            int py = capture_bottom - size.height();
-            py = std::max(screen_top + margin, std::min(py, screen_bottom - size.height() - margin));
-            if (!overlaps_toolbar(x_right, py)) {
-                put(x_right, py);
-                return;
-            }
+            put(x_right, bottom_aligned(size.height()));
+            return;
         }
-        // 2: left, bottom aligned.
-        const int x_left = capture_left - size.width() - margin;
+        // 2: left.
+        int x_left = capture_left - size.width() - margin;
+        if (column_hits_toolbar(x_left)) x_left = toolbar_rect->x() - size.width() - margin;
         if (x_left >= screen_left + margin) {
-            int py = capture_bottom - size.height();
-            py = std::max(screen_top + margin, std::min(py, screen_bottom - size.height() - margin));
-            if (!overlaps_toolbar(x_left, py)) {
-                put(x_left, py);
-                return;
-            }
+            put(x_left, bottom_aligned(size.height()));
+            return;
         }
         // 3: above, centred.
         int y_top = capture_top - size.height() - margin;
