@@ -64,7 +64,7 @@ pub struct GifExportOptions {
     pub speed_multiplier: f32,
 }
 
-/// 单张 sprite（RGBA32，尺寸 w×h）
+/// 单张 sprite（预乘 alpha 的 RGBA32，尺寸 w×h）
 pub struct Sprite {
     pub data: Vec<u8>,
     pub w: u32,
@@ -461,7 +461,7 @@ fn rgb_to_rgba(rgb: &[u8], w: u32, h: u32) -> Vec<u8> {
     rgba
 }
 
-/// 将 sprite (RGBA32, sw×sh) 叠加到 dst (RGBA32, dw×dh) 的 (ox, oy) 位置。
+/// 将 sprite（预乘 alpha 的 RGBA32, sw×sh）叠加到不透明的 dst (RGBA32, dw×dh) 的 (ox, oy) 位置。
 ///
 /// - 自动裁剪超出 dst 边界的部分
 /// - 跳过 alpha=0 像素
@@ -502,10 +502,12 @@ fn alpha_blend_sprite(
                 dst[d_off + 2] = src[s_off + 2];
                 dst[d_off + 3] = 255;
             } else {
+                // 预乘 alpha：src 已乘过 sa，只给底色乘剩余的覆盖率
                 let da = 255 - sa;
-                dst[d_off]     = ((src[s_off]     as u32 * sa + dst[d_off]     as u32 * da) / 255) as u8;
-                dst[d_off + 1] = ((src[s_off + 1] as u32 * sa + dst[d_off + 1] as u32 * da) / 255) as u8;
-                dst[d_off + 2] = ((src[s_off + 2] as u32 * sa + dst[d_off + 2] as u32 * da) / 255) as u8;
+                for c in 0..3 {
+                    let value = src[s_off + c] as u32 + (dst[d_off + c] as u32 * da + 127) / 255;
+                    dst[d_off + c] = value.min(255) as u8;
+                }
                 dst[d_off + 3] = 255;
             }
         }
@@ -548,10 +550,24 @@ mod tests {
     #[test]
     fn test_blend_sprite_half_alpha() {
         let mut dst = vec![0,0,0,255]; // 1×1 黑色
-        let src = vec![255,255,255,128]; // 白色半透明
+        let src = vec![128,128,128,128]; // 白色半透明，预乘后
         alpha_blend_sprite(&mut dst, 1, 1, &src, 1, 1, 0, 0);
-        assert_eq!(dst[0], 128); // (255*128)/255 ≈ 128
+        assert_eq!(dst[0], 128);
         assert_eq!(dst[3], 255);
+    }
+
+    #[test]
+    fn faint_white_on_white_stays_white() {
+        // 光标抗锯齿边缘、点击波纹：白色 alpha 60 叠在白底上看不出来，不能变成灰斑
+        let mut dst = vec![255,255,255,255];
+        let src = vec![60,60,60,60];
+        alpha_blend_sprite(&mut dst, 1, 1, &src, 1, 1, 0, 0);
+        assert_eq!(&dst[..], &[255,255,255,255]);
+        // 半透明黑叠白：按覆盖率变暗，不会被二次乘暗
+        let mut dst = vec![255,255,255,255];
+        let src = vec![0,0,0,128];
+        alpha_blend_sprite(&mut dst, 1, 1, &src, 1, 1, 0, 0);
+        assert_eq!(dst[0], 127);
     }
 
     #[test]
