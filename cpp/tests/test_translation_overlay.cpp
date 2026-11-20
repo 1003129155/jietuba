@@ -1,7 +1,9 @@
 #include "canvas/items/background_item.h"
 #include "canvas/scene.h"
 #include "ocr/ocr_manager.h"
+#include "settings/tool_settings.h"
 #include "translation/overlay_translation.h"
+#include "translation/overlay_translation_session.h"
 #include "translation/overlay_translation_worker.h"
 #include "translation/registry.h"
 #include <QColor>
@@ -10,8 +12,13 @@
 #include <QFontDatabase>
 #include <QImage>
 #include <QPainter>
+#include <QSettings>
 #include <QSignalSpy>
+#include <QTemporaryDir>
 #include <QTest>
+#include <QThread>
+#include <atomic>
+#include <mutex>
 #include <cmath>
 
 using namespace jietuba;
@@ -110,6 +117,15 @@ std::shared_ptr<TranslationService> scripted_service(const Script &script) {
 }
 
 TranslationResult translated_as(const QString &text) { return TranslationResult{true, text, {}, std::nullopt, {}}; }
+
+// What the scene shows, layer and all.
+QImage rendered(CanvasScene &scene) {
+    QImage image(scene.sceneRect().size().toSize(), QImage::Format_RGB32);
+    image.fill(Qt::white);
+    QPainter painter(&image);
+    scene.render(&painter, QRectF(image.rect()), scene.sceneRect());
+    return image;
+}
 
 bool near(const QColor &color, const QColor &expected, int tolerance = 8) {
     return std::abs(color.red() - expected.red()) <= tolerance && std::abs(color.green() - expected.green()) <= tolerance &&
@@ -424,58 +440,164 @@ private slots:
         QCOMPARE(run([](const QString &) { return translated_as(QString()); }), QString("The translation service returned no text."));
     }
 
-    void appliesAsOneUndoableStep() {
+    // The translation is a layer on the background, not a change to its pixels.
+    void theBackgroundCarriesALayerItCanTakeOff() {
         const auto source = page(QSize(320, 120), Qt::white, QColor(20, 20, 20), {{"Hello world", QRectF(10, 10, 260, 18)}});
         CanvasScene scene(source, QRectF(0, 0, 320, 120));
-        QVERIFY(scene.background);
-        QVERIFY(scene.undo_stack);
+        QImage layer(100, 40, QImage::Format_ARGB32_Premultiplied);
+        layer.fill(QColor(9, 190, 120));
+        scene.background->set_overlay(layer, QPoint(140, 30));
+        QVERIFY(scene.background->overlay_visible());
+        const auto shown = rendered(scene);
+        QCOMPARE(shown.pixelColor(150, 40), QColor(9, 190, 120));
+        QCOMPARE(shown.pixelColor(239, 69), QColor(9, 190, 120));
+        QCOMPARE(shown.pixelColor(130, 40), source.pixelColor(130, 40));
+        // Whatever samples the picture still reads the picture.
         QCOMPARE(scene.background->image(), source);
-
-        int painted = 0;
-        const auto layer = render_translation_overlay(source, {block_of("Hello world", "Bonjour le monde", QRectF(10, 10, 260, 18), 18)}, "FR", &painted);
-        QCOMPARE(painted, 1);
-        apply_translation_overlay(&scene, layer, QPoint(0, 0), QStringLiteral("Translate Overlay"));
-
-        auto translated = scene.background->image();
-        QVERIFY(differing_pixels(translated, source, QRect(8, 6, 264, 26)) > 20);
-        // The pixels outside the layer are the same ones.
-        QCOMPARE(translated.copy(QRect(0, 100, 320, 20)), source.copy(QRect(0, 100, 320, 20)));
-
-        // One step, and the capture is exactly what was taken.
-        QCOMPARE(scene.undo_stack->count(), 1);
-        scene.undo_stack->undo();
-        QCOMPARE(scene.background->image(), source);
-        scene.undo_stack->redo();
-        QVERIFY(differing_pixels(scene.background->image(), source, QRect(8, 6, 264, 26)) > 20);
+        scene.background->set_overlay_visible(false);
+        QVERIFY(!scene.background->overlay_visible());
+        QCOMPARE(differing_pixels(rendered(scene), source.convertToFormat(QImage::Format_RGB32), QRect(0, 0, 320, 120)), 0);
     }
 
-    void appliesAtTheSelectionsOffset() {
-        // The capture is the whole virtual desktop, so the layer goes in at the selection's
-        // own place rather than the top-left corner.
-        const auto source = page(QSize(320, 120), Qt::white, QColor(20, 20, 20), {{"Hello world", QRectF(150, 40, 160, 18)}});
+    // One capture, start to end: the layer over the selection, the original on demand, only
+    // the failed paragraph asked for again, and another language without another recognition.
+    void aSessionLaysTheTranslationOverTheSelection() {
+        const QRectF selection(40, 30, 300, 200);
+        const QRect settings_box(60, 50, 220, 24), cancel_box(60, 120, 220, 24);
+        const auto source = page(QSize(400, 260), Qt::white, Qt::black, {{"Settings", QRectF(settings_box)}, {"Cancel", QRectF(cancel_box)}});
+        const auto plain = source.convertToFormat(QImage::Format_RGB32);
+        CanvasScene scene(source, QRectF(0, 0, 400, 260));
+        QTemporaryDir dir;
+        QSettings settings(dir.filePath("settings.ini"), QSettings::IniFormat);
+        ToolSettingsManager config(settings);
+
+        std::atomic_int recognitions = 0;
+        // Boxes are in the selection's own pixels.
+        set_recognizer_for_test([&](const QImage &image) {
+            ++recognitions;
+            if (image.size() != QSize(300, 200)) return result_of({line("Whole page", QRectF(60, 50, 220, 24))});
+            return result_of({line("Settings", QRectF(20, 20, 220, 24)), line("Cancel", QRectF(20, 90, 220, 24))});
+        });
+        const auto restore = qScopeGuard([] { set_recognizer_for_test({}); });
+        std::mutex mutex;
+        QStringList asked;
+        std::atomic_bool refuse_cancel = true;
+        OverlayTranslationSession session(&scene, &config);
+        session.make_service = [&] {
+            return scripted_service([&](const QString &text) {
+                const std::lock_guard lock(mutex);
+                asked << text;
+                if (text == "Cancel" && refuse_cancel) return TranslationResult::failure(TranslationErrorCode::INVALID_REQUEST, "text refused");
+                return translated_as(QString::fromUtf8("译") + text);
+            });
+        };
+        QCOMPARE(session.providers(), (QList<QPair<QString, QString>>{{"scripted", "Scripted"}}));
+        QSignalSpy partly(&session, &OverlayTranslationSession::partly_failed);
+        QSignalSpy shown(&session, &OverlayTranslationSession::shown_changed);
+        QSignalSpy failed(&session, &OverlayTranslationSession::failed);
+
+        QVERIFY(session.show(selection));
+        QVERIFY(session.shown());
+        QVERIFY(session.busy());
+        QTRY_VERIFY(!session.busy());
+        QVERIFY2(failed.isEmpty(), failed.isEmpty() ? "" : qPrintable(failed.first().first().toString()));
+        QCOMPARE(shown.count(), 1);
+        QCOMPARE(recognitions.load(), 1);
+        QCOMPARE(session.region(), QRect(40, 30, 300, 200));
+        QCOMPARE(partly.count(), 1);
+        QVERIFY(partly.first().first().toString().endsWith("\ntext refused"));
+        // The translated paragraph is repainted where it stands; the refused one, and the
+        // picture underneath, are as they were.
+        QVERIFY(differing_pixels(rendered(scene), plain, settings_box) > 0);
+        QCOMPARE(differing_pixels(rendered(scene), plain, cancel_box), 0);
+        QCOMPARE(scene.background->image(), source);
+
+        session.set_original_shown(true);
+        QCOMPARE(differing_pixels(rendered(scene), plain, plain.rect()), 0);
+        session.set_original_shown(false);
+        QVERIFY(differing_pixels(rendered(scene), plain, settings_box) > 0);
+
+        // Taken off and put back: only the paragraph that failed is asked for.
+        session.hide();
+        QVERIFY(!session.shown());
+        QCOMPARE(differing_pixels(rendered(scene), plain, plain.rect()), 0);
+        refuse_cancel = false;
+        asked.clear();
+        QVERIFY(session.show(selection));
+        QTRY_VERIFY(!session.busy());
+        QCOMPARE(asked, QStringList({"Cancel"}));
+        QCOMPARE(recognitions.load(), 1);
+        QCOMPARE(partly.count(), 1);
+        QVERIFY(differing_pixels(rendered(scene), plain, cancel_box) > 0);
+        // Complete now: showing it again asks for nothing.
+        asked.clear();
+        session.hide();
+        QVERIFY(session.show(selection));
+        QVERIFY(!session.busy());
+        QVERIFY(differing_pixels(rendered(scene), plain, settings_box) > 0);
+
+        // Another language is saved and translates everything again, without recognizing again.
+        // Whatever the default target is here, this one is another.
+        const QString other_language = config.get_translation_target_lang() == "JA" ? "KO" : "JA";
+        session.set_target_language(other_language);
+        QVERIFY(session.busy());
+        QCOMPARE(differing_pixels(rendered(scene), plain, plain.rect()), 0);
+        QTRY_VERIFY(!session.busy());
+        asked.sort();
+        QCOMPARE(asked, QStringList({"Cancel", "Settings"}));
+        QCOMPARE(config.get_translation_target_lang(), other_language);
+        QCOMPARE(recognitions.load(), 1);
+        session.set_target_language(other_language);
+        QVERIFY(!session.busy());
+        // So does another service.
+        asked.clear();
+        session.set_provider("other");
+        QTRY_VERIFY(!session.busy());
+        QCOMPARE(asked.size(), 2);
+        QCOMPARE(config.get_translation_provider(), QString("other"));
+
+        // Another selection starts over.
+        QVERIFY(session.show(QRectF(0, 0, 400, 260)));
+        QTRY_VERIFY(!session.busy());
+        QCOMPARE(recognitions.load(), 2);
+        QCOMPARE(session.blocks().size(), 1);
+        QVERIFY(!session.show(QRectF(900, 900, 50, 50)));
+    }
+
+    void aSessionReportsWhatItCouldNotDo() {
+        const auto source = page(QSize(320, 120), Qt::white, Qt::black, {{"Settings", QRectF(20, 20, 220, 24)}});
         CanvasScene scene(source, QRectF(0, 0, 320, 120));
-        int painted = 0;
-        const auto layer = render_translation_overlay(source.copy(QRect(140, 30, 180, 40)),
-                                                      {block_of("Hello world", "Bonjour", QRectF(10, 10, 160, 18), 18)}, "FR", &painted);
-        QCOMPARE(painted, 1);
-        apply_translation_overlay(&scene, layer, QPoint(140, 30), QStringLiteral("Translate Overlay"));
-        const auto translated = scene.background->image();
-        // Changed inside the selection only.
-        QVERIFY(differing_pixels(translated, source, QRect(140, 30, 180, 40)) > 20);
-        QCOMPARE(translated.copy(QRect(0, 0, 140, 120)), source.copy(QRect(0, 0, 140, 120)));
-    }
+        const auto restore = qScopeGuard([] { set_recognizer_for_test({}); });
+        OverlayTranslationSession session(&scene, nullptr);
+        QSignalSpy failed(&session, &OverlayTranslationSession::failed);
+        QSignalSpy nothing(&session, &OverlayTranslationSession::nothing_to_translate);
 
-    void ignoresAnApplyWithNothingToDo() {
-        const auto source = page(QSize(64, 64), Qt::white, Qt::black, {});
-        CanvasScene scene(source, QRectF(0, 0, 64, 64));
-        // No layer, no scene: nothing is pushed, so Ctrl+Z keeps meaning the step before.
-        apply_translation_overlay(&scene, QImage(), QPoint(0, 0), QStringLiteral("Translate Overlay"));
-        apply_translation_overlay(nullptr, QImage(4, 4, QImage::Format_ARGB32), QPoint(0, 0), QStringLiteral("Translate Overlay"));
-        // A layer that lands entirely outside the capture is dropped too.
-        auto offscreen = QImage(8, 8, QImage::Format_ARGB32_Premultiplied);
-        offscreen.fill(Qt::red);
-        apply_translation_overlay(&scene, offscreen, QPoint(500, 500), QStringLiteral("Translate Overlay"));
-        QCOMPARE(scene.undo_stack->count(), 0);
+        // Text that comes back unchanged is already in the target language.
+        set_recognizer_for_test([](const QImage &) { return result_of({line("Settings", QRectF(20, 20, 220, 24))}); });
+        session.make_service = [] { return scripted_service([](const QString &text) { return translated_as(text); }); };
+        QVERIFY(session.show(QRectF(0, 0, 320, 120)));
+        QTRY_VERIFY(!session.busy());
+        QCOMPARE(nothing.count(), 1);
+        QVERIFY(!scene.background->overlay_visible());
+
+        // Nothing recognized: the session stays on, so another try is one click away.
+        set_recognizer_for_test([](const QImage &) { return result_of({}); });
+        QVERIFY(session.show(QRectF(0, 0, 160, 120)));
+        QTRY_VERIFY(!session.busy());
+        QCOMPARE(failed.count(), 1);
+        QCOMPARE(failed.first().first().toString(), QString("No text was recognized in the selection."));
+        QVERIFY(session.shown());
+        // A run that is taken off before it ends reports nothing.
+        set_recognizer_for_test([](const QImage &) {
+            QThread::msleep(150);
+            return result_of({});
+        });
+        QVERIFY(session.show(QRectF(0, 0, 100, 100)));
+        QVERIFY(session.busy());
+        session.hide();
+        QVERIFY(!session.busy());
+        QTest::qWait(300);
+        QCOMPARE(failed.count(), 1);
     }
 };
 

@@ -22,6 +22,7 @@ class NumberSettingsPanel;
 class PaintSettingsPanel;
 class ShapeSettingsPanel;
 class TextSettingsPanel;
+class TranslationPanel;
 class WatermarkSettingsPanel;
 struct ToolContext;
 
@@ -116,6 +117,14 @@ public:
     // Mouse clicks opt into toggling back to the cursor; keyboard shortcuts are idempotent.
     void select_tool(const QString &tool_id, bool toggle = false);
     void hide_all_panels();
+    // A translation is laid over the capture, or no longer: the translate button stays lit
+    // and the translation panel takes the place a tool's panel would have.
+    void set_translation_shown(bool shown);
+    bool translation_shown() const { return translation_shown_; }
+    // The translate button pressed while a translation is shown: closes or reopens its
+    // panel, and takes the place back from a drawing tool's.
+    void toggle_translation_panel();
+    TranslationPanel *ensure_translation_panel();
     // Shows the tool's panel, refilled from that tool's saved settings. Item-specific
     // syncing after a selection must run after this.
     void show_panel_for_tool(const QString &tool_id);
@@ -146,6 +155,7 @@ public:
     TextSettingsPanel *text_panel = nullptr;
     MosaicSettingsPanel *mosaic_panel = nullptr;
     WatermarkSettingsPanel *watermark_panel = nullptr;
+    TranslationPanel *translation_panel = nullptr;
 
     // Unfolds the number panel's label and pointer part showing a selected number's state, or folds it.
     void show_number_extras(const std::optional<QVariantMap> &state);
@@ -203,6 +213,9 @@ protected:
     // Lays keys out in a row right of the handle, hiding every other button; the toolbar shrinks to fit.
     void arrange(const QStringList &keys);
     void sync_all_panels_position();
+    // Shows the translation panel when a translation is shown, the user has not closed the
+    // panel and no tool's panel is in its place; hides it otherwise.
+    void sync_translation_panel();
     // Same side as the toolbar (away from the selection) when there is room, else the other side.
     // Left-aligned with the toolbar; align_right for the "..." popup at the right end.
     void sync_panel_position(QWidget *panel, bool align_right = false);
@@ -218,6 +231,8 @@ protected:
     QHash<QString, int> button_widths_;
     QStringList folded_keys_;
     bool manual_positioned_ = false;
+    bool translation_shown_ = false;
+    bool translation_panel_wanted_ = false;
     bool dragging_ = false;
     QPoint drag_offset_;
     bool toolbar_below_selection_ = true;

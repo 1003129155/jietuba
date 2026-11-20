@@ -45,24 +45,24 @@ bool may_pass(TranslationErrorCode code) { return code == TranslationErrorCode::
 class Run {
 public:
     Run(const QStringList &texts, const std::vector<TranslationProvider *> &providers, const TranslationRequest &prototype, HttpCancellation *cancellation,
-        const std::function<void(int, int)> &progress)
-        : providers_(providers), prototype_(prototype), cancellation_(cancellation), progress_(progress), total_(static_cast<int>(texts.size())) {
+        const std::function<void(int, const QString &)> &settled)
+        : providers_(providers), prototype_(prototype), cancellation_(cancellation), settled_(settled) {
         QHash<QString, int> seen;
         owner_.reserve(texts.size());
-        for (const auto &text : texts) {
+        for (int index = 0; index < texts.size(); ++index) {
+            const auto &text = texts[index];
             if (text.trimmed().isEmpty()) {
                 owner_.append(-1);
-                ++settled_;
                 continue;
             }
             auto it = seen.find(text);
             if (it == seen.end()) {
                 it = seen.insert(text, static_cast<int>(unique_.size()));
                 unique_.append(text);
-                uses_.append(0);
+                users_.append(QVector<int>());
             }
             owner_.append(it.value());
-            ++uses_[it.value()];
+            users_[it.value()].append(index);
         }
         translated_.resize(unique_.size());
         const auto limits = providers_.front()->batch_limits();
@@ -230,20 +230,19 @@ private:
     void finish(int unique, const QString &translation) {
         translated_[unique] = translation;
         if (!translation.isEmpty()) translated_chars_ += unique_[unique].toUcs4().size();
-        settled_ += uses_[unique];
-        if (progress_) progress_(settled_, total_);
+        if (!settled_) return;
+        for (const int index : users_[unique]) settled_(index, translation);
     }
 
     const std::vector<TranslationProvider *> &providers_;
     const TranslationRequest &prototype_;
     HttpCancellation *cancellation_;
-    const std::function<void(int, int)> &progress_;
-    const int total_;
+    const std::function<void(int, const QString &)> &settled_;
 
     QStringList unique_;
-    // Per text its entry in unique_, -1 for a blank one; per unique text how many use it.
+    // Per text its entry in unique_, -1 for a blank one; per unique text the texts using it.
     QVector<int> owner_;
-    QVector<int> uses_;
+    QVector<QVector<int>> users_;
 
     std::mutex mutex_;
     std::condition_variable wake_;
@@ -255,7 +254,6 @@ private:
     // Counts the times the pace was lowered.
     int pace_ = 0;
     Clock::time_point next_start_;
-    int settled_ = 0;
     qint64 translated_chars_ = 0;
     bool batch_usable_ = true;
     bool batch_kept_ = false;
@@ -268,13 +266,13 @@ private:
 }
 
 ParagraphTranslations translate_paragraphs(const QStringList &texts, const std::vector<TranslationProvider *> &providers, const TranslationRequest &prototype,
-                                           HttpCancellation *cancellation, const std::function<void(int done, int total)> &progress) {
+                                           HttpCancellation *cancellation, const std::function<void(int index, const QString &translation)> &settled) {
     if (providers.empty()) {
         ParagraphTranslations none;
         none.translations.resize(texts.size());
         none.fatal = true;
         return none;
     }
-    return Run(texts, providers, prototype, cancellation, progress).result();
+    return Run(texts, providers, prototype, cancellation, settled).result();
 }
 }

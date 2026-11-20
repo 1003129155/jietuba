@@ -20,9 +20,15 @@ public:
     // The providers are resolved and the quota checked here, on the GUI thread, since both
     // read QSettings; run() only makes the network calls.
     OverlayTranslationWorker(const QImage &image, const QVariantMap &params, std::shared_ptr<TranslationService> service, QObject *parent = nullptr);
+    // Before start(): the capture is already recognized. Recognition is skipped, and only
+    // the blocks without a translation are sent.
+    void set_blocks(const QVector<OverlayTextBlock> &blocks);
+    // Before start(): false leaves result() null, for a caller that draws the blocks itself.
+    void set_paint_result(bool paint) { paint_result_ = paint; }
     // Stops the OCR at its next band or tile and the requests in flight at once; no result
     // is emitted afterwards.
     void abort();
+    const QString &target_lang() const { return target_lang_; }
     // Read on the GUI thread once finished_signal arrived.
     bool succeeded() const { return succeeded_; }
     QString error_text() const { return error_; }
@@ -39,6 +45,10 @@ public:
 signals:
     // total is 0 while the count is not known yet (recognition).
     void progress_changed(int done, int total);
+    // The capture's paragraphs, once recognition is done; not sent after set_blocks().
+    void recognized(const QVector<jietuba::OverlayTextBlock> &blocks);
+    // One paragraph's request is over; translation is empty when it failed.
+    void block_translated(int index, const QString &translation);
     void finished_signal(bool success);
 protected:
     void run() override;
@@ -52,6 +62,8 @@ private:
     QString configuration_error_;
     std::optional<TranslationResult> quota_error_;
     QVector<OverlayTextBlock> blocks_;
+    bool recognized_ = false;
+    bool paint_result_ = true;
     QImage result_;
     int painted_blocks_ = 0;
     int failed_blocks_ = 0;

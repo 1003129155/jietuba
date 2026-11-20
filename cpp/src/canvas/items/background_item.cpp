@@ -1,5 +1,6 @@
 #include "canvas/items/background_item.h"
 #include "core/logger.h"
+#include <QPainter>
 #include <QPixmap>
 #include <algorithm>
 
@@ -90,6 +91,23 @@ QImage BackgroundItem::reduced_image(int block_size) {
     reduced_cache_key_ = block_size;
     reduced_cache_image_ = padded;
     return padded;
+}
+
+void BackgroundItem::set_overlay(const QImage &layer, const QPoint &position) {
+    overlay_ = layer;
+    overlay_position_ = position;
+    update();
+}
+
+void BackgroundItem::set_overlay_visible(bool visible) {
+    if (overlay_visible_ == visible) return;
+    overlay_visible_ = visible;
+    update();
+}
+
+void BackgroundItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) {
+    QGraphicsPixmapItem::paint(painter, option, widget);
+    if (overlay_visible()) painter->drawImage(offset() + overlay_position_, overlay_);
 }
 
 void BackgroundItem::release_image_cache() {

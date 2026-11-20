@@ -1,14 +1,15 @@
 #pragma once
 #include "ocr/ocr_manager.h"
+#include <QColor>
+#include <QFont>
 #include <QImage>
 #include <QPoint>
 #include <QRectF>
 #include <QString>
 #include <QVector>
+#include <optional>
 
 namespace jietuba {
-class CanvasScene;
-
 // One paragraph of the capture's own text and the room it takes on the image, in source
 // pixels. A wrapped line continues its paragraph, a separate label or column does not.
 struct OverlayTextBlock {
@@ -34,7 +35,21 @@ QImage render_translation_overlay(const QImage &source, const QVector<OverlayTex
 // nothing was drawn. Safe off the GUI thread.
 QImage paint_translations(const QImage &source, const QVector<OverlayTextBlock> &blocks, const QString &target_lang, int *painted_blocks = nullptr);
 
-// Lays image (a layer, or an opaque replacement) over the scene's background at offset as one
-// undoable step; undo brings the original pixels back.
-void apply_translation_overlay(CanvasScene *scene, const QImage &layer, const QPoint &offset, const QString &command_text);
+// How one block is repainted: the cover that hides its original text, and the translation
+// set over it.
+struct OverlayPaintedBlock {
+    QRectF area;
+    QRect cover;
+    QColor background;
+    QColor foreground;
+    QFont font;
+    QString text;
+};
+
+// Where and how block index is repainted, sampled from source; nullopt for a blank
+// translation, for text that came back unchanged and for a block outside the image.
+std::optional<OverlayPaintedBlock> plan_overlay_block(const QImage &source, const QVector<OverlayTextBlock> &blocks, int index, const QString &target_lang);
+
+// Every cover, then every text, so no cover hides a neighbour's translation.
+void paint_overlay_blocks(QImage &target, const QVector<OverlayPaintedBlock> &painted);
 }

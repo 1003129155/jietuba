@@ -230,6 +230,38 @@ QString combo_popup_qss() {
         .arg(rgba(CONTROL_FILL));
 }
 
+QString panel_menu_qss() {
+    const auto accent = accent_color();
+    const auto accent_soft = QString("rgba(%1, %2, %3, 0.3)").arg(accent.red()).arg(accent.green()).arg(accent.blue());
+    return QString(R"(
+        QMenu {
+            background: white;
+            border: 1px solid %1;
+            padding: %2px;
+            font-family: %3;
+            font-size: %4px;
+            color: %5;
+        }
+        QMenu::item {
+            padding: %6px %7px %6px %8px;
+            background: transparent;
+            color: %5;
+        }
+        QMenu::item:selected {
+            background-color: %9;
+        }
+        QMenu::item:disabled {
+            color: %10;
+        }
+        QMenu::separator {
+            height: 1px;
+            background: %1;
+            margin: %2px %7px;
+        }
+    )").arg(rgba(DIVIDER_COLOR)).arg(scaled(3)).arg(CSS_FONT_FAMILY).arg(scaled(12)).arg(CONTROL_INK.name()).arg(scaled(5)).arg(scaled(14)).arg(scaled(26))
+        .arg(accent_soft).arg(CONTROL_SUB.name());
+}
+
 QString build_settings_panel_stylesheet(bool combo_enabled, const QString &, int combo_min_width, int combo_max_width, bool) {
     const int font_px = scaled(12);
     const auto accent = accent_color();

@@ -150,6 +150,10 @@ private:
     void on_watermark_text_changed(const QString &template_text);
     // Not undoable: a watermark present from the start must not go with the first Ctrl+Z.
     void add_auto_watermark();
+    // The translate button: side by side ends the capture; in place lays the translation over
+    // the selection and opens its panel, or toggles the panel when it is already there.
+    void on_screenshot_translate();
+    bool translation_panel_bound_ = false;
     // Leaving without a selection is not a capture and changes nothing remembered.
     void remember_watermark();
     void on_number_next_changed(int next_value);

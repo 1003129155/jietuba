@@ -25,12 +25,14 @@ struct ParagraphTranslations {
 //
 // providers are instances of the same service, one per request that may be in flight.
 // prototype carries the target language, the options and the timeout; its text is ignored.
-// progress is called with the number of texts settled so far, from any of the threads.
+// settled is called once for every text that is not blank when its request is over, with
+// an empty translation for one that failed: from any of the threads, one call at a time.
 //
 // A text that fails keeps an empty translation and the others still arrive. A rate limit
 // halves how many requests run at once, down to one a second; a network failure sends the
 // rest one at a time. A request that fails again at the slowest pace ends the run with
 // what is there.
 ParagraphTranslations translate_paragraphs(const QStringList &texts, const std::vector<TranslationProvider *> &providers, const TranslationRequest &prototype,
-                                           HttpCancellation *cancellation = nullptr, const std::function<void(int done, int total)> &progress = {});
+                                           HttpCancellation *cancellation = nullptr,
+                                           const std::function<void(int index, const QString &translation)> &settled = {});
 }

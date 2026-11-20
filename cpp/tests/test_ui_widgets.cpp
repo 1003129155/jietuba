@@ -32,6 +32,9 @@
 #include "ui/toolbar_layout_dialog.h"
 #include "ui/wait_bar.h"
 #include "ui/watermark_input_dialog.h"
+#include "ui/translation_panel.h"
+#include "translation/languages.h"
+#include "ui/segmented_toggle.h"
 #include "ui/watermark_settings_panel.h"
 #include <QApplication>
 #include <QCheckBox>
@@ -484,6 +487,153 @@ private slots:
         toolbar.show();
         QVERIFY(!toolbar_row(toolbar).contains("pen"));
         toolbar.hide();
+    }
+
+    // While a translation is shown its panel sits where a tool's panel would, and gives the
+    // place up to one: the translate button brings it back.
+    void theTranslationPanelSharesTheToolPanelsPlace() {
+        Toolbar toolbar;
+        toolbar.show();
+        QVERIFY(!toolbar.translation_panel);
+        toolbar.set_translation_shown(true);
+        QVERIFY(toolbar.translation_panel && toolbar.translation_panel->isVisible());
+        QVERIFY(toolbar.screenshot_translate_btn->isChecked());
+        toolbar.select_tool("pen");
+        QVERIFY(!toolbar.translation_panel->isVisible());
+        QVERIFY(toolbar.paint_panel->isVisible());
+        toolbar.select_tool("cursor");
+        QVERIFY(toolbar.translation_panel->isVisible());
+        // The button closes and reopens the panel; it stays lit, since the translation is still there.
+        toolbar.toggle_translation_panel();
+        QVERIFY(!toolbar.translation_panel->isVisible());
+        QVERIFY(toolbar.screenshot_translate_btn->isChecked());
+        toolbar.select_tool("pen");
+        toolbar.select_tool("cursor");
+        QVERIFY(!toolbar.translation_panel->isVisible());
+        toolbar.toggle_translation_panel();
+        QVERIFY(toolbar.translation_panel->isVisible());
+        toolbar.select_tool("pen");
+        toolbar.toggle_translation_panel();
+        QVERIFY(toolbar.translation_panel->isVisible());
+        QVERIFY(!toolbar.current_tool);
+        toolbar.set_translation_shown(false);
+        QVERIFY(!toolbar.translation_panel->isVisible());
+        QVERIFY(!toolbar.screenshot_translate_btn->isCheckable());
+        toolbar.toggle_translation_panel();
+        QVERIFY(!toolbar.translation_panel->isVisible());
+        toolbar.hide();
+    }
+
+    void theTranslationPanelReportsItsChoicesAndFollowsThePanelScale() {
+        const auto restore = qScopeGuard([] {
+            get_dialog_scale().set_percent(100);
+            get_ui_scale().set_percent(100);
+        });
+        get_ui_scale().set_percent(100);
+        TranslationPanel panel;
+        QSignalSpy original(&panel, &TranslationPanel::original_shown_changed);
+        QSignalSpy language(&panel, &TranslationPanel::target_language_changed);
+        QSignalSpy provider(&panel, &TranslationPanel::provider_changed);
+        // What the host sets is not reported back to it.
+        panel.set_providers({{"deepl", "DeepL API"}, {"baidu", "Baidu"}}, "baidu");
+        panel.set_target_language("ja");
+        panel.set_original_shown(true);
+        QCOMPARE(panel.provider(), QString("baidu"));
+        QCOMPARE(panel.target_language(), QString("JA"));
+        QVERIFY(panel.original_shown());
+        QCOMPARE(panel.view_toggle->current(), 1);
+        QCOMPARE(original.count() + language.count() + provider.count(), 0);
+        // The translation segment clicked: the translation shows again.
+        panel.show();
+        QTest::mouseClick(panel.view_toggle, Qt::LeftButton, {}, panel.view_toggle->segment_rect(0).center());
+        QCOMPARE(original.count(), 1);
+        QCOMPARE(original.last().first().toBool(), false);
+        // Clicking the chosen segment again changes nothing.
+        QTest::mouseClick(panel.view_toggle, Qt::LeftButton, {}, panel.view_toggle->segment_rect(0).center());
+        QCOMPARE(original.count(), 1);
+        panel.language_combo->setCurrentIndex(panel.language_combo->findData("KO"));
+        QCOMPARE(language.last().first().toString(), QString("KO"));
+        // The service is chosen from "...": a heading, then the services with the current one checked.
+        const auto actions = panel.more_menu->actions();
+        QCOMPARE(actions.size(), 3);
+        QVERIFY(!actions[0]->isEnabled());
+        QVERIFY(!actions[1]->isChecked());
+        QVERIFY(actions[2]->isChecked());
+        actions[1]->trigger();
+        QCOMPARE(provider.last().first().toString(), QString("deepl"));
+        QCOMPARE(panel.provider(), QString("deepl"));
+        QVERIFY(panel.more_menu->actions()[1]->isChecked());
+        QVERIFY(!panel.more_menu->actions()[2]->isChecked());
+        QVERIFY(!panel.view_toggle->toolTip().isEmpty());
+        QVERIFY(!panel.more_btn->toolTip().isEmpty());
+
+        // The language list holds the longest name whole, whatever is chosen.
+        int longest = 0;
+        for (const auto &[code, name] : translation_languages()) longest = std::max(longest, panel.language_combo->fontMetrics().horizontalAdvance(name));
+        QVERIFY(panel.language_combo->width() - scaled(PillComboBox::BASE_PADDING_LEFT) - scaled(PillComboBox::BASE_ARROW_COLUMN) >= longest);
+
+        const QSize normal = panel.sizeHint();
+        const int normal_language = panel.language_combo->width();
+        // The window scale leaves a panel alone; the panel scale resizes it.
+        get_dialog_scale().set_percent(150);
+        panel.apply_scale();
+        QCOMPARE(panel.sizeHint(), normal);
+        get_ui_scale().set_percent(150);
+        panel.apply_scale();
+        QCOMPARE(panel.view_toggle->height(), SegmentedToggle::BASE_HEIGHT * 3 / 2);
+        QCOMPARE(panel.more_btn->width(), TranslationPanel::BASE_BTN * 3 / 2);
+        QVERIFY(panel.language_combo->width() > normal_language * 13 / 10);
+        QVERIFY(panel.sizeHint().width() > normal.width());
+    }
+
+    // Every language's words fit the translation bar at every panel scale, measured with the
+    // desktop's fonts: both segments of the toggle, "To", and the longest language name.
+    void theTranslationBarFitsEveryLanguage() {
+        if (QGuiApplication::platformName() != "windows") QSKIP("needs -platform windows");
+        const QString language = I18nManager::get_current_language();
+        const auto restore = qScopeGuard([language] {
+            get_ui_scale().set_percent(100);
+            I18nManager::load_language(language);
+        });
+        for (const int percent : {100, 150, 200}) {
+            get_ui_scale().set_percent(percent);
+            for (const char *code : {"zh", "zh_TW", "en", "ja", "ko"}) {
+                QVERIFY(I18nManager::load_language(code));
+                TranslationPanel panel;
+                panel.show();
+                QApplication::processEvents();
+                panel.layout()->activate();
+                const auto where = [&](const QString &what) { return qPrintable(QString("%1 at %2%: %3").arg(code).arg(percent).arg(what)); };
+                if (QString(code) != "en") QVERIFY2(panel.view_toggle->labels() != QStringList({"Translated", "Original"}), where("not translated"));
+                QFont bold = panel.view_toggle->font();
+                bold.setWeight(QFont::DemiBold);
+                for (int index = 0; index < panel.view_toggle->labels().size(); ++index) {
+                    const auto &label = panel.view_toggle->labels()[index];
+                    QVERIFY2(panel.view_toggle->segment_rect(index).width() >= QFontMetrics(bold).horizontalAdvance(label), where(label));
+                }
+                QVERIFY2(panel.view_toggle->width() >= panel.view_toggle->sizeHint().width(), where("the toggle is squeezed"));
+                QVERIFY2(panel.into_label->width() >= panel.into_label->sizeHint().width(), where(panel.into_label->text()));
+                int longest = 0;
+                for (const auto &[language_code, name] : translation_languages()) longest = std::max(longest, panel.language_combo->fontMetrics().horizontalAdvance(name));
+                QVERIFY2(panel.language_combo->width() - scaled(PillComboBox::BASE_PADDING_LEFT) - scaled(PillComboBox::BASE_ARROW_COLUMN) >= longest, where("a language name is cut"));
+                for (QWidget *part : std::initializer_list<QWidget *>{panel.view_toggle, panel.into_label, panel.language_combo, panel.more_btn})
+                    QVERIFY2(panel.rect().contains(part->geometry()), where(QString("the bar is %1 wide").arg(panel.width())));
+                QVERIFY2(panel.width() <= scaled(420), where(QString("the bar is %1 wide").arg(panel.width())));
+            }
+        }
+    }
+
+    // The service menu opens on white, like the panels' lists.
+    void theTranslationPanelMenuOpensOnWhite() {
+        TranslationPanel panel;
+        panel.set_providers({{"deepl", "DeepL API"}, {"baidu", "Baidu"}}, "baidu");
+        panel.show();
+        panel.more_btn->click();
+        QTRY_VERIFY(panel.more_menu->isVisible());
+        const QImage menu = panel.more_menu->grab().toImage();
+        const QColor inside(menu.pixelColor(menu.width() / 2, menu.height() - 3));
+        QVERIFY2(inside.alpha() == 255 && inside.lightness() > 240, qPrintable(inside.name(QColor::HexArgb)));
+        panel.more_menu->hide();
     }
 
     void uncommonToolbarPanelsStayAbsentUntilUsed() {
@@ -1147,6 +1297,9 @@ private slots:
         panels.push_back(std::move(number));
         panels.push_back(std::make_unique<MosaicSettingsPanel>());
         panels.push_back(std::make_unique<WatermarkSettingsPanel>());
+        auto translation = std::make_unique<TranslationPanel>();
+        translation->set_providers({{"deepl", "DeepL API"}, {"baidu", "Baidu"}}, "baidu");
+        panels.push_back(std::move(translation));
         int checked = 0;
         for (const auto &panel : panels) {
             panel->show();

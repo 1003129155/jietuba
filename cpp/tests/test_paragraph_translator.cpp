@@ -104,19 +104,19 @@ private slots:
     void sendsEqualTextsOnceAndKeepsTheOrder() {
         Service service;
         Fleet fleet(service, 2);
-        QList<int> progress;
+        QMap<int, QString> settled;
         const auto result = translate_paragraphs({"Save", "Cancel", "Save", "  ", "Save", "Apply"}, fleet.providers, PROTOTYPE, nullptr,
-                                                 [&](int done, int total) {
-                                                     QCOMPARE(total, 6);
-                                                     progress << done;
+                                                 [&](int index, const QString &translation) {
+                                                     QVERIFY(!settled.contains(index));
+                                                     settled.insert(index, translation);
                                                  });
         QCOMPARE(result.translations, QStringList({"Save!", "Cancel!", "Save!", "", "Save!", "Apply!"}));
         QCOMPARE(result.failed, 0);
         QCOMPARE(service.singles(), 3);
         QCOMPARE(result.translated_chars, qint64(4 + 6 + 5));
-        // The blank text counts as settled from the start, the repeated one settles three at once.
-        QCOMPARE(progress.last(), 6);
-        QVERIFY(std::is_sorted(progress.begin(), progress.end()));
+        // Every text is reported once with its translation; the blank one is not a request.
+        QCOMPARE(settled.keys(), QList<int>({0, 1, 2, 4, 5}));
+        QCOMPARE(settled.value(4), QString("Save!"));
     }
 
     void runsAsManyRequestsAtOnceAsTheServiceTakes() {

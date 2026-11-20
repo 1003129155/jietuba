@@ -1,6 +1,7 @@
 #pragma once
 #include <QGraphicsPixmapItem>
 #include <QImage>
+#include <QPoint>
 #include <QRectF>
 #include <functional>
 #include <optional>
@@ -27,6 +28,13 @@ public:
     // only real pixels in the partial blocks at the right and bottom edges.
     QImage reduced_image(int block_size);
     void release_image_cache();
+    // A layer drawn over the image wherever the scene is shown or exported, at position in
+    // image pixels: translations laid over their source text. image() stays the picture
+    // underneath, so sampling it never reads the layer.
+    void set_overlay(const QImage &layer, const QPoint &position);
+    void set_overlay_visible(bool visible);
+    bool overlay_visible() const { return overlay_visible_ && !overlay_.isNull(); }
+    void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
 private:
     QRectF scene_rect_;
     QImage cached_image_;
@@ -34,5 +42,8 @@ private:
     std::function<QImage()> image_source_;
     std::optional<int> reduced_cache_key_;
     QImage reduced_cache_image_;
+    QImage overlay_;
+    QPoint overlay_position_;
+    bool overlay_visible_ = true;
 };
 }

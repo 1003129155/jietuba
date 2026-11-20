@@ -1744,14 +1744,6 @@ Replace it?</source>
         <translation>翻訳</translation>
     </message>
     <message>
-        <source>Translation applied. Ctrl+Z brings the original text back.</source>
-        <translation>訳文で原文を置き換えました。Ctrl+Z で元に戻せます。</translation>
-    </message>
-    <message>
-        <source>Translate Overlay</source>
-        <translation>翻訳で置き換え</translation>
-    </message>
-    <message>
         <source>Nothing to translate: the text is already in the target language.</source>
         <translation>翻訳する内容がありません。テキストはすでに翻訳先の言語です。</translation>
     </message>
@@ -7697,6 +7689,37 @@ Replace it?</source>
     <message>
         <source>The translation service returned no text.</source>
         <translation>翻訳サービスから訳文が返されませんでした。</translation>
+    </message>
+</context>
+<context>
+    <name>TranslationPanel</name>
+    <message>
+        <source>Show original image</source>
+        <translation>元画像を表示</translation>
+    </message>
+    <message>
+        <source>Target language</source>
+        <translation>翻訳先の言語</translation>
+    </message>
+    <message>
+        <source>Translation service</source>
+        <translation>翻訳サービス</translation>
+    </message>
+    <message>
+        <source>Translated</source>
+        <translation>翻訳</translation>
+    </message>
+    <message>
+        <source>Original</source>
+        <translation>元画像</translation>
+    </message>
+    <message>
+        <source>To</source>
+        <translation>翻訳先</translation>
+    </message>
+    <message>
+        <source>More</source>
+        <translation>その他</translation>
     </message>
 </context>
 </TS>

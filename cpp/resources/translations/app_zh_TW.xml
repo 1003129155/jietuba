@@ -1710,14 +1710,6 @@ Replace it?</source>
         <translation>翻譯</translation>
     </message>
     <message>
-        <source>Translation applied. Ctrl+Z brings the original text back.</source>
-        <translation>譯文已覆蓋到原文位置，按 Ctrl+Z 可還原原文。</translation>
-    </message>
-    <message>
-        <source>Translate Overlay</source>
-        <translation>翻譯覆蓋</translation>
-    </message>
-    <message>
         <source>Nothing to translate: the text is already in the target language.</source>
         <translation>沒有需要翻譯的內容：文字已是目標語言。</translation>
     </message>
@@ -8071,6 +8063,37 @@ Replace it?</source>
     <message>
         <source>The translation service returned no text.</source>
         <translation>翻譯服務沒有傳回譯文。</translation>
+    </message>
+</context>
+<context>
+    <name>TranslationPanel</name>
+    <message>
+        <source>Show original image</source>
+        <translation>顯示原圖</translation>
+    </message>
+    <message>
+        <source>Target language</source>
+        <translation>目標語言</translation>
+    </message>
+    <message>
+        <source>Translation service</source>
+        <translation>翻譯服務</translation>
+    </message>
+    <message>
+        <source>Translated</source>
+        <translation>譯文</translation>
+    </message>
+    <message>
+        <source>Original</source>
+        <translation>原圖</translation>
+    </message>
+    <message>
+        <source>To</source>
+        <translation>譯為</translation>
+    </message>
+    <message>
+        <source>More</source>
+        <translation>更多</translation>
     </message>
 </context>
 </TS>

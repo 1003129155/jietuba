@@ -1682,14 +1682,6 @@ Replace it?</translation>
         <translation>Translation</translation>
     </message>
     <message>
-        <source>Translation applied. Ctrl+Z brings the original text back.</source>
-        <translation>Translation applied. Ctrl+Z brings the original text back.</translation>
-    </message>
-    <message>
-        <source>Translate Overlay</source>
-        <translation>Translate Overlay</translation>
-    </message>
-    <message>
         <source>Nothing to translate: the text is already in the target language.</source>
         <translation>Nothing to translate: the text is already in the target language.</translation>
     </message>
@@ -7635,6 +7627,37 @@ Replace it?</translation>
     <message>
         <source>The translation service returned no text.</source>
         <translation>The translation service returned no text.</translation>
+    </message>
+</context>
+<context>
+    <name>TranslationPanel</name>
+    <message>
+        <source>Show original image</source>
+        <translation>Show original image</translation>
+    </message>
+    <message>
+        <source>Target language</source>
+        <translation>Target language</translation>
+    </message>
+    <message>
+        <source>Translation service</source>
+        <translation>Translation service</translation>
+    </message>
+    <message>
+        <source>Translated</source>
+        <translation>Translated</translation>
+    </message>
+    <message>
+        <source>Original</source>
+        <translation>Original</translation>
+    </message>
+    <message>
+        <source>To</source>
+        <translation>To</translation>
+    </message>
+    <message>
+        <source>More</source>
+        <translation>More</translation>
     </message>
 </context>
 </TS>

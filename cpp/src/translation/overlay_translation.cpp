@@ -1,11 +1,8 @@
 #include "translation/overlay_translation.h"
-#include "canvas/items/background_item.h"
-#include "canvas/scene.h"
 #include <QFont>
 #include <QFontInfo>
 #include <QFontMetricsF>
 #include <QPainter>
-#include <QPointer>
 #include <QPolygonF>
 #include <QStringList>
 #include <algorithm>
@@ -155,33 +152,6 @@ int growth_room(const QImage &source, const QRect &block_rect, const QColor &bac
     return total > 0 && plain * 100 >= total * 97 ? strip.height() : 0;
 }
 
-// One step of the undo stack. Only the translated region is kept for undo: a copy of the
-// whole desktop per step would be tens of megabytes. Swapping the pixels there means the
-// translation also reaches pins, the magnifier and mosaic sampling, which all read them.
-class ReplaceBackgroundRegionCommand : public QUndoCommand {
-public:
-    ReplaceBackgroundRegionCommand(CanvasScene *scene, QRect region, QImage before, QImage after, const QString &text)
-        : QUndoCommand(text), scene_(scene), region_(std::move(region)), before_(std::move(before)), after_(std::move(after)) {}
-    void undo() override { apply(before_); }
-    void redo() override { apply(after_); }
-private:
-    void apply(const QImage &patch) {
-        if (!scene_ || !scene_->background) return;
-        auto image = scene_->background->image();
-        if (image.isNull()) return;
-        {
-            QPainter painter(&image);
-            // A plain overwrite: the patch is the exact pixels that region had before.
-            painter.setCompositionMode(QPainter::CompositionMode_Source);
-            painter.drawImage(region_.topLeft(), patch);
-        }
-        scene_->background->update_image(image);
-    }
-    QPointer<CanvasScene> scene_;
-    QRect region_;
-    QImage before_, after_;
-};
-
 struct Line {
     QString text;
     QRectF rect;
@@ -277,14 +247,6 @@ void order_in_reading_order(QVector<Line> &lines) {
     lines = ordered;
 }
 
-struct PaintedBlock {
-    QRectF area;
-    QRect cover;
-    QColor background;
-    QColor foreground;
-    QFont font;
-    QString text;
-};
 }
 
 QVector<OverlayTextBlock> group_overlay_blocks(const OcrResult &result) {
@@ -334,59 +296,63 @@ QVector<OverlayTextBlock> group_overlay_blocks(const OcrResult &result) {
     return blocks;
 }
 
-namespace {
-// Where and how each changed block is repainted, sampled from source before anything is drawn.
-QVector<PaintedBlock> plan_blocks(const QImage &source, const QVector<OverlayTextBlock> &blocks, const QString &target_lang) {
-    QVector<PaintedBlock> painted;
-    if (source.isNull() || blocks.isEmpty()) return painted;
+std::optional<OverlayPaintedBlock> plan_overlay_block(const QImage &source, const QVector<OverlayTextBlock> &blocks, int index, const QString &target_lang) {
+    if (source.isNull() || index < 0 || index >= blocks.size()) return std::nullopt;
     const QRect bounds(QPoint(0, 0), source.size());
+    const auto &block = blocks[index];
+    const auto text = block.translated.trimmed();
+    if (text.isEmpty() || text == block.source.trimmed()) return std::nullopt;
+    auto area = block.rect.intersected(bounds);
+    if (area.width() < 2 || area.height() < 2) return std::nullopt;
     const QString family = overlay_font_family(target_lang);
-    painted.reserve(blocks.size());
-    for (int index = 0; index < blocks.size(); ++index) {
-        const auto &block = blocks[index];
-        const auto text = block.translated.trimmed();
-        if (text.isEmpty() || text == block.source.trimmed()) continue;
-        auto area = block.rect.intersected(bounds);
-        if (area.width() < 2 || area.height() < 2) continue;
-        // The paragraph's own line size, which is what the translation is set to: the pitch
-        // between lines is larger, so this never makes the new text bigger than the old.
-        const double line_height = block.line_height > 0 ? block.line_height : block.rect.height() / std::max(1, block.lines);
-        // A little over the text box, so no antialiased edge of the original glyphs survives
-        // beside the new text; neighbours that overlap are covered in the same pass.
-        const int padding = std::clamp(static_cast<int>(std::lround(line_height * 0.18)), 2, 8);
-        const auto block_rect = area.toAlignedRect();
-        auto cover = block_rect.adjusted(-padding, -padding, padding, padding).intersected(bounds);
-        if (cover.isEmpty()) continue;
-        const auto background = sample_background(source, cover);
-        auto font = fitted_font(text, area.size(), line_height, family);
-        // Too small to read: the translation needs more lines than the original had. It may
-        // take the blank room below, which is then covered as well.
-        if (font.pixelSize() < line_height * 0.8) {
-            const int next_top = index + 1 < blocks.size() ? static_cast<int>(std::lround(blocks[index + 1].rect.top())) : bounds.bottom();
-            const int room = growth_room(source, block_rect, background, next_top, padding, line_height);
-            if (room > 0) {
-                const auto grown = QRectF(area.left(), area.top(), area.width(), area.height() + room);
-                const auto grown_font = fitted_font(text, grown.size(), line_height, family);
-                if (grown_font.pixelSize() > font.pixelSize()) {
-                    area = grown;
-                    font = grown_font;
-                    cover = block_rect.adjusted(-padding, -padding, padding, padding + room).intersected(bounds);
-                }
+    // The paragraph's own line size, which is what the translation is set to: the pitch
+    // between lines is larger, so this never makes the new text bigger than the old.
+    const double line_height = block.line_height > 0 ? block.line_height : block.rect.height() / std::max(1, block.lines);
+    // A little over the text box, so no antialiased edge of the original glyphs survives
+    // beside the new text; neighbours that overlap are covered in the same pass.
+    const int padding = std::clamp(static_cast<int>(std::lround(line_height * 0.18)), 2, 8);
+    const auto block_rect = area.toAlignedRect();
+    auto cover = block_rect.adjusted(-padding, -padding, padding, padding).intersected(bounds);
+    if (cover.isEmpty()) return std::nullopt;
+    const auto background = sample_background(source, cover);
+    auto font = fitted_font(text, area.size(), line_height, family);
+    // Too small to read: the translation needs more lines than the original had. It may
+    // take the blank room below, which is then covered as well.
+    if (font.pixelSize() < line_height * 0.8) {
+        const int next_top = index + 1 < blocks.size() ? static_cast<int>(std::lround(blocks[index + 1].rect.top())) : bounds.bottom();
+        const int room = growth_room(source, block_rect, background, next_top, padding, line_height);
+        if (room > 0) {
+            const auto grown = QRectF(area.left(), area.top(), area.width(), area.height() + room);
+            const auto grown_font = fitted_font(text, grown.size(), line_height, family);
+            if (grown_font.pixelSize() > font.pixelSize()) {
+                area = grown;
+                font = grown_font;
+                cover = block_rect.adjusted(-padding, -padding, padding, padding + room).intersected(bounds);
             }
         }
-        PaintedBlock entry;
-        entry.area = area;
-        entry.cover = cover;
-        entry.background = background;
-        entry.foreground = sample_foreground(source, block_rect, background);
-        entry.font = font;
-        entry.text = text;
-        painted.append(entry);
     }
-    return painted;
+    OverlayPaintedBlock entry;
+    entry.area = area;
+    entry.cover = cover;
+    entry.background = background;
+    entry.foreground = sample_foreground(source, block_rect, background);
+    entry.font = font;
+    entry.text = text;
+    return entry;
 }
 
-void paint_blocks(QImage &target, const QVector<PaintedBlock> &painted) {
+namespace {
+// Every block that changed, sampled from source before anything is drawn.
+QVector<OverlayPaintedBlock> plan_blocks(const QImage &source, const QVector<OverlayTextBlock> &blocks, const QString &target_lang) {
+    QVector<OverlayPaintedBlock> painted;
+    painted.reserve(blocks.size());
+    for (int index = 0; index < blocks.size(); ++index)
+        if (const auto entry = plan_overlay_block(source, blocks, index, target_lang)) painted.append(*entry);
+    return painted;
+}
+}
+
+void paint_overlay_blocks(QImage &target, const QVector<OverlayPaintedBlock> &painted) {
     QPainter painter(&target);
     painter.setRenderHint(QPainter::Antialiasing);
     painter.setRenderHint(QPainter::TextAntialiasing);
@@ -403,7 +369,6 @@ void paint_blocks(QImage &target, const QVector<PaintedBlock> &painted) {
         painter.restore();
     }
 }
-}
 
 QImage render_translation_overlay(const QImage &source, const QVector<OverlayTextBlock> &blocks, const QString &target_lang, int *painted_blocks) {
     if (painted_blocks) *painted_blocks = 0;
@@ -411,7 +376,7 @@ QImage render_translation_overlay(const QImage &source, const QVector<OverlayTex
     if (painted.isEmpty()) return {};
     QImage layer(source.size(), QImage::Format_ARGB32_Premultiplied);
     layer.fill(Qt::transparent);
-    paint_blocks(layer, painted);
+    paint_overlay_blocks(layer, painted);
     if (painted_blocks) *painted_blocks = painted.size();
     return layer;
 }
@@ -424,26 +389,8 @@ QImage paint_translations(const QImage &source, const QVector<OverlayTextBlock> 
     QImage result = source;
     if (result.format() != QImage::Format_RGB32 && result.format() != QImage::Format_ARGB32_Premultiplied)
         result = result.convertToFormat(QImage::Format_ARGB32_Premultiplied);
-    paint_blocks(result, painted);
+    paint_overlay_blocks(result, painted);
     if (painted_blocks) *painted_blocks = painted.size();
     return result;
-}
-
-void apply_translation_overlay(CanvasScene *scene, const QImage &layer, const QPoint &offset, const QString &command_text) {
-    if (!scene || !scene->background || !scene->undo_stack || layer.isNull()) return;
-    const auto background = scene->background->image();
-    if (background.isNull()) return;
-    const auto region = QRect(offset, layer.size()).intersected(QRect(QPoint(0, 0), background.size()));
-    if (region.isEmpty()) return;
-    const auto before = background.copy(region);
-    // The layer is transparent wherever nothing was rewritten, so it is laid over the region
-    // rather than replacing it.
-    auto after = before;
-    {
-        QPainter painter(&after);
-        painter.setRenderHint(QPainter::SmoothPixmapTransform);
-        painter.drawImage(QPoint(0, 0), layer, QRect(offset - region.topLeft(), region.size()));
-    }
-    scene->undo_stack->push(new ReplaceBackgroundRegionCommand(scene, region, before, after, command_text));
 }
 }

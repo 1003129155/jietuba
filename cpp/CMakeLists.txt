@@ -439,6 +439,9 @@ if(BUILD_TESTING)
         # Verify the kind buttons with the desktop's icons and fonts.
         add_test(NAME mosaic_panel_desktop COMMAND jietuba_ui_widgets_tests -o ${JIETUBA_TEST_REPORTS}/mosaic_panel_desktop.txt,txt -platform windows mosaicPanelKindsAreIconsNamedByTooltips)
         set_tests_properties(mosaic_panel_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
+        # The translation bar's words in every language, measured with the desktop's fonts.
+        add_test(NAME translation_panel_desktop COMMAND jietuba_ui_widgets_tests -o ${JIETUBA_TEST_REPORTS}/translation_panel_desktop.txt,txt -platform windows theTranslationBarFitsEveryLanguage)
+        set_tests_properties(translation_panel_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
     endif()
     qt_add_executable(jietuba_save_image_dialog_tests tests/test_save_image_dialog.cpp)
     target_link_libraries(jietuba_save_image_dialog_tests PRIVATE jietuba_lib Qt6::Test)
