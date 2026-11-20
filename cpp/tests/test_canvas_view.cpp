@@ -15,6 +15,7 @@
 #include "canvas/view.h"
 #include "settings/tool_settings.h"
 #include "tools/controller.h"
+#include "tools/highlighter.h"
 #include "tools/mosaic.h"
 #include <QApplication>
 #include <QDir>
@@ -628,6 +629,37 @@ private slots:
 
         // Rects have no delete button; text does.
         QVERIFY(!handle_of(*editor, HandleType::ITEM_DELETE));
+    }
+
+    // A tool shortcut pressed in the middle of a drag keeps what was drawn as one undoable step,
+    // as the pen does, instead of leaving a shape behind that undo cannot reach.
+    void switchingToolsMidDragKeepsTheShapeUndoable() {
+        config_->update_settings("highlighter", {{"draw_mode", HighlighterTool::MODE_RECT}});
+        const auto restore = qScopeGuard([this] { config_->reset_tool("highlighter"); });
+        for (const QString tool : {"rect", "ellipse", "arrow", "highlighter"}) {
+            auto [scene, view] = canvas(tool);
+            const auto drawn = [scene] {
+                int count = 0;
+                for (auto *item : scene->items())
+                    if (dynamic_cast<RectItem *>(item) || dynamic_cast<EllipseItem *>(item) || dynamic_cast<ArrowItem *>(item)) ++count;
+                return count;
+            };
+            send(view, QEvent::MouseButtonPress, QPointF(60, 60));
+            send(view, QEvent::MouseMove, QPointF(120, 100));
+            send(view, QEvent::MouseMove, QPointF(200, 150));
+            scene->tool_controller->activate("pen");
+            send(view, QEvent::MouseButtonRelease, QPointF(200, 150), Qt::NoButton);
+            QVERIFY2(drawn() == 1, qPrintable(tool));
+            QVERIFY2(scene->undo_stack->count() == 1, qPrintable(tool));
+            scene->undo_stack->undo();
+            QVERIFY2(drawn() == 0, qPrintable(tool));
+            // Back on the tool, the next drag draws a new shape rather than resizing the old one.
+            scene->undo_stack->redo();
+            scene->tool_controller->activate(tool);
+            gesture(view, QPointF(300, 60), QPointF(380, 120), 4);
+            QVERIFY2(drawn() == 2, qPrintable(tool));
+            QVERIFY2(scene->undo_stack->count() == 2, qPrintable(tool));
+        }
     }
 
     // A box mosaic resized through its handles goes back to its size on undo.

@@ -13,6 +13,8 @@ public:
     bool on_press(const QPointF &pos, Qt::MouseButton button, ToolContext &ctx) override;
     void on_move(const QPointF &pos, ToolContext &ctx) override;
     void on_release(const QPointF &pos, ToolContext &ctx) override;
+    // Switching tools mid-drag keeps the shape, as releasing would.
+    void on_deactivate(ToolContext &ctx) override;
     bool drawing = false;
     QPointF start_pos;
     RectItem *current_item = nullptr;

@@ -51,4 +51,9 @@ void RectTool::on_release(const QPointF &, ToolContext &ctx) {
     }
     log_debug(T("完成绘制"), "RectTool");
 }
+
+void RectTool::on_deactivate(ToolContext &ctx) {
+    if (drawing) on_release(start_pos, ctx);
+    Tool::on_deactivate(ctx);
+}
 }

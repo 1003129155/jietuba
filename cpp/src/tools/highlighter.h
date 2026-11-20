@@ -16,12 +16,13 @@ public:
     bool on_press(const QPointF &pos, Qt::MouseButton button, ToolContext &ctx) override;
     void on_move(const QPointF &pos, ToolContext &ctx) override;
     void on_release(const QPointF &pos, ToolContext &ctx) override;
-    // Switching tools mid-stroke keeps the freehand stroke.
+    // Switching tools mid-drag keeps the stroke or box, as releasing would.
     void on_deactivate(ToolContext &ctx) override;
     bool drawing = false;
     StrokeItem *current_item = nullptr;
     RectItem *rect_item = nullptr;
     std::optional<QPointF> start_pos;  // rect mode
+    QPointF rect_end;  // rect mode: where the drag is now
     std::optional<FreehandStroke> stroke;  // freehand mode
     QString draw_mode = MODE_FREEHAND;
 private:
