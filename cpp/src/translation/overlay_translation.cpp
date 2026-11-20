@@ -91,13 +91,16 @@ QColor sample_foreground(const QImage &image, const QRect &bounds, const QColor 
     return median_color(ink);
 }
 
-// A font that shows the target language well: CJK needs its own faces, Latin text is set in
-// the UI face. Falls back to the application font when none of them is installed.
+// Han characters take a different form in each CJK language, so each gets its own face; other
+// scripts use the UI face and per-glyph fallback. Empty when none is installed.
 QString overlay_font_family(const QString &target_lang) {
     const auto lang = target_lang.toUpper();
-    const bool cjk = lang.startsWith("ZH") || lang.startsWith("JA") || lang.startsWith("KO");
-    const QStringList wanted = cjk ? QStringList{"Microsoft YaHei UI", "Microsoft YaHei", "SimHei", "Segoe UI"}
-                                   : QStringList{"Segoe UI", "Arial", "Microsoft YaHei UI"};
+    QStringList wanted;
+    if (lang.startsWith("ZH-HANT") || lang == "ZH-TW" || lang == "ZH-HK") wanted = {"Microsoft JhengHei UI", "Microsoft JhengHei", "PMingLiU"};
+    else if (lang.startsWith("ZH")) wanted = {"Microsoft YaHei UI", "Microsoft YaHei", "SimHei"};
+    else if (lang.startsWith("JA")) wanted = {"Yu Gothic UI", "Meiryo UI", "Meiryo", "MS UI Gothic"};
+    else if (lang.startsWith("KO")) wanted = {"Malgun Gothic", "Gulim"};
+    wanted << "Segoe UI" << "Arial";
     for (const auto &family : wanted) {
         if (QFontInfo(QFont(family)).family().compare(family, Qt::CaseInsensitive) == 0) return family;
     }
@@ -331,12 +334,13 @@ QVector<OverlayTextBlock> group_overlay_blocks(const OcrResult &result) {
     return blocks;
 }
 
-QImage render_translation_overlay(const QImage &source, const QVector<OverlayTextBlock> &blocks, const QString &target_lang, int *painted_blocks) {
-    if (painted_blocks) *painted_blocks = 0;
-    if (source.isNull() || blocks.isEmpty()) return {};
+namespace {
+// Where and how each changed block is repainted, sampled from source before anything is drawn.
+QVector<PaintedBlock> plan_blocks(const QImage &source, const QVector<OverlayTextBlock> &blocks, const QString &target_lang) {
+    QVector<PaintedBlock> painted;
+    if (source.isNull() || blocks.isEmpty()) return painted;
     const QRect bounds(QPoint(0, 0), source.size());
     const QString family = overlay_font_family(target_lang);
-    QVector<PaintedBlock> painted;
     painted.reserve(blocks.size());
     for (int index = 0; index < blocks.size(); ++index) {
         const auto &block = blocks[index];
@@ -379,13 +383,13 @@ QImage render_translation_overlay(const QImage &source, const QVector<OverlayTex
         entry.text = text;
         painted.append(entry);
     }
-    if (painted.isEmpty()) return {};
-    QImage layer(source.size(), QImage::Format_ARGB32_Premultiplied);
-    layer.fill(Qt::transparent);
-    QPainter painter(&layer);
+    return painted;
+}
+
+void paint_blocks(QImage &target, const QVector<PaintedBlock> &painted) {
+    QPainter painter(&target);
     painter.setRenderHint(QPainter::Antialiasing);
     painter.setRenderHint(QPainter::TextAntialiasing);
-    painter.setRenderHint(QPainter::SmoothPixmapTransform);
     // Every cover first: a padded one must not paint over a neighbour drawn before it.
     for (const auto &entry : painted) painter.fillRect(entry.cover, entry.background);
     for (const auto &entry : painted) {
@@ -398,9 +402,31 @@ QImage render_translation_overlay(const QImage &source, const QVector<OverlayTex
         painter.drawText(entry.area, Qt::AlignLeft | Qt::AlignVCenter | Qt::TextWordWrap, entry.text);
         painter.restore();
     }
-    painter.end();
+}
+}
+
+QImage render_translation_overlay(const QImage &source, const QVector<OverlayTextBlock> &blocks, const QString &target_lang, int *painted_blocks) {
+    if (painted_blocks) *painted_blocks = 0;
+    const auto painted = plan_blocks(source, blocks, target_lang);
+    if (painted.isEmpty()) return {};
+    QImage layer(source.size(), QImage::Format_ARGB32_Premultiplied);
+    layer.fill(Qt::transparent);
+    paint_blocks(layer, painted);
     if (painted_blocks) *painted_blocks = painted.size();
     return layer;
+}
+
+QImage paint_translations(const QImage &source, const QVector<OverlayTextBlock> &blocks, const QString &target_lang, int *painted_blocks) {
+    if (painted_blocks) *painted_blocks = 0;
+    const auto painted = plan_blocks(source, blocks, target_lang);
+    if (painted.isEmpty()) return {};
+    // Painting detaches the copy: the result is the only new buffer, as large as the source.
+    QImage result = source;
+    if (result.format() != QImage::Format_RGB32 && result.format() != QImage::Format_ARGB32_Premultiplied)
+        result = result.convertToFormat(QImage::Format_ARGB32_Premultiplied);
+    paint_blocks(result, painted);
+    if (painted_blocks) *painted_blocks = painted.size();
+    return result;
 }
 
 void apply_translation_overlay(CanvasScene *scene, const QImage &layer, const QPoint &offset, const QString &command_text) {

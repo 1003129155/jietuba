@@ -26,6 +26,9 @@ public:
     bool succeeded() const { return succeeded_; }
     QString error_text() const { return error_; }
     const QVector<OverlayTextBlock> &blocks() const { return blocks_; }
+    // The image with the translations painted on; null when no block changed.
+    QImage result() const { return result_; }
+    int painted_blocks() const { return painted_blocks_; }
     // Source characters sent to the provider, for the monthly quota bookkeeping.
     qint64 translated_chars() const { return translated_chars_; }
 signals:
@@ -44,6 +47,8 @@ private:
     QString configuration_error_;
     std::optional<TranslationResult> quota_error_;
     QVector<OverlayTextBlock> blocks_;
+    QImage result_;
+    int painted_blocks_ = 0;
     QString error_;
     bool succeeded_ = false;
     qint64 translated_chars_ = 0;

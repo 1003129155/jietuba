@@ -1690,6 +1690,22 @@ Replace it?</source>
 <context>
     <name>ActionTools</name>
     <message>
+        <source>Translation</source>
+        <translation>翻譯</translation>
+    </message>
+    <message>
+        <source>Translation applied. Ctrl+Z brings the original text back.</source>
+        <translation>譯文已覆蓋到原文位置，按 Ctrl+Z 可還原原文。</translation>
+    </message>
+    <message>
+        <source>Translate Overlay</source>
+        <translation>翻譯覆蓋</translation>
+    </message>
+    <message>
+        <source>Nothing to translate: the text is already in the target language.</source>
+        <translation>沒有需要翻譯的內容：文字已是目標語言。</translation>
+    </message>
+    <message>
         <source>Save Screenshot</source>
         <translation>儲存截圖</translation>
     </message>
@@ -6606,6 +6622,30 @@ Replace: move the current data there; the data already in that folder will be de
 <context>
     <name>ScrollCaptureWindow</name>
     <message>
+        <source>Translation</source>
+        <translation>翻譯</translation>
+    </message>
+    <message>
+        <source>Translation failed</source>
+        <translation>翻譯失敗</translation>
+    </message>
+    <message>
+        <source>Translation applied. Save or finish to export it; press translate again for the original.</source>
+        <translation>譯文已覆蓋原文，儲存或完成即可匯出；再點一次翻譯可還原原文。</translation>
+    </message>
+    <message>
+        <source>Original text restored</source>
+        <translation>已還原原文</translation>
+    </message>
+    <message>
+        <source>Nothing to translate: the text is already in the target language.</source>
+        <translation>沒有需要翻譯的內容：文字已是目標語言。</translation>
+    </message>
+    <message>
+        <source>Nothing to translate yet</source>
+        <translation>還沒有可翻譯的內容</translation>
+    </message>
+    <message>
         <source>Couldn't join. Scroll back</source>
         <translation>沒接上，往回滾</translation>
     </message>
@@ -7992,6 +8032,25 @@ Replace it?</source>
     <message>
         <source>Leave out the file extension; it is added automatically.</source>
         <translation>請移除副檔名，儲存時會自動加入。</translation>
+    </message>
+</context>
+<context>
+    <name>OverlayTranslation</name>
+    <message>
+        <source>The translation service is not configured yet.</source>
+        <translation>翻譯服務尚未設定。</translation>
+    </message>
+    <message>
+        <source>Text recognition failed.</source>
+        <translation>文字辨識失敗。</translation>
+    </message>
+    <message>
+        <source>No translation service is selected.</source>
+        <translation>尚未選擇翻譯服務。</translation>
+    </message>
+    <message>
+        <source>No text was recognized in the selection.</source>
+        <translation>選取範圍裡沒有辨識到文字。</translation>
     </message>
 </context>
 </TS>

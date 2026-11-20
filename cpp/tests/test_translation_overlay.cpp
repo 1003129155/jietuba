@@ -252,6 +252,23 @@ private slots:
         QVERIFY(differing_pixels(composited(source, layer), source, QRect(8, 6, 264, 26)) > 20);
     }
 
+    void paintsStraightOntoACopyOfTheSource() {
+        const auto source = page(QSize(320, 120), Qt::white, QColor(20, 20, 20), {{"Hello world", QRectF(10, 10, 260, 18)}});
+        const auto before = source.copy();
+        int painted = 0;
+        const auto translated = paint_translations(source, {block_of("Hello world", "Bonjour le monde", QRectF(10, 10, 260, 18), 18)}, "FR", &painted);
+        QCOMPARE(painted, 1);
+        QCOMPARE(translated.size(), source.size());
+        QCOMPARE(source, before);
+        // The block is rewritten on the page's colour; everything below it is the source as it was.
+        QVERIFY(differing_pixels(translated, source, QRect(8, 6, 264, 26)) > 20);
+        QVERIFY(near(QColor(translated.pixel(9, 8)), Qt::white));
+        QCOMPARE(translated.copy(QRect(0, 60, 320, 60)), source.copy(QRect(0, 60, 320, 60)));
+        // Nothing changed, nothing to show.
+        QVERIFY(paint_translations(source, {block_of("Hello world", "Hello world", QRectF(10, 10, 260, 18), 18)}, "FR", &painted).isNull());
+        QCOMPARE(painted, 0);
+    }
+
     void leavesUnchangedTextAlone() {
         const auto source = page(QSize(200, 60), Qt::white, QColor(20, 20, 20), {{"Name", QRectF(10, 10, 120, 16)}});
         int painted = -1;

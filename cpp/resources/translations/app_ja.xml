@@ -1724,6 +1724,26 @@ Replace it?</source>
 <context>
     <name>ActionTools</name>
     <message>
+        <source>Translation</source>
+        <translation>翻訳</translation>
+    </message>
+    <message>
+        <source>Translation applied. Ctrl+Z brings the original text back.</source>
+        <translation>訳文で原文を置き換えました。Ctrl+Z で元に戻せます。</translation>
+    </message>
+    <message>
+        <source>Translate Overlay</source>
+        <translation>翻訳で置き換え</translation>
+    </message>
+    <message>
+        <source>Nothing to translate: the text is already in the target language.</source>
+        <translation>翻訳する内容がありません。テキストはすでに翻訳先の言語です。</translation>
+    </message>
+    <message>
+        <source>Cannot create the save folder or reserve a file name.</source>
+        <translation>保存フォルダーを作成できないか、ファイル名を割り当てられません。設定の保存先を確認してください。</translation>
+    </message>
+    <message>
         <source>Save Screenshot</source>
         <translation>スクリーンショットを保存</translation>
     </message>
@@ -6226,6 +6246,30 @@ Replace: move the current data there; the data already in that folder will be de
 <context>
     <name>ScrollCaptureWindow</name>
     <message>
+        <source>Translation</source>
+        <translation>翻訳</translation>
+    </message>
+    <message>
+        <source>Translation failed</source>
+        <translation>翻訳に失敗しました</translation>
+    </message>
+    <message>
+        <source>Translation applied. Save or finish to export it; press translate again for the original.</source>
+        <translation>訳文で原文を置き換えました。保存または完了で書き出せます。もう一度「翻訳」を押すと原文に戻ります。</translation>
+    </message>
+    <message>
+        <source>Original text restored</source>
+        <translation>原文に戻しました</translation>
+    </message>
+    <message>
+        <source>Nothing to translate: the text is already in the target language.</source>
+        <translation>翻訳する内容がありません。テキストはすでに翻訳先の言語です。</translation>
+    </message>
+    <message>
+        <source>Nothing to translate yet</source>
+        <translation>まだ翻訳できる内容がありません</translation>
+    </message>
+    <message>
         <source>Couldn't join. Scroll back</source>
         <translation>つながりません。戻してください</translation>
     </message>
@@ -7614,6 +7658,25 @@ Replace it?</source>
     <message>
         <source>Leave out the file extension; it is added automatically.</source>
         <translation>拡張子は自動で付くため、入力しないでください。</translation>
+    </message>
+</context>
+<context>
+    <name>OverlayTranslation</name>
+    <message>
+        <source>The translation service is not configured yet.</source>
+        <translation>翻訳サービスがまだ設定されていません。</translation>
+    </message>
+    <message>
+        <source>Text recognition failed.</source>
+        <translation>文字認識に失敗しました。</translation>
+    </message>
+    <message>
+        <source>No translation service is selected.</source>
+        <translation>翻訳サービスが選択されていません。</translation>
+    </message>
+    <message>
+        <source>No text was recognized in the selection.</source>
+        <translation>選択範囲から文字を認識できませんでした。</translation>
     </message>
 </context>
 </TS>

@@ -256,7 +256,6 @@ void ActionTools::handle_screenshot_translate_overlay() {
     if (source_rect.isEmpty()) return;
     const auto image = background.copy(source_rect);
     const auto params = config_manager ? config_manager->get_translation_request_params() : QVariantMap{{"target_lang", "ZH"}};
-    const auto target_lang = params.value("target_lang", "ZH").toString();
     const auto service = create_default_translation_service();
     log_info(T("启动覆盖翻译: {width}x{height}", {{"width", image.width()}, {"height", image.height()}}), "ScreenshotTranslate");
     auto *worker = new OverlayTranslationWorker(image, params, service);
@@ -265,23 +264,23 @@ void ActionTools::handle_screenshot_translate_overlay() {
     bar->set_progress(0, 0);
     bar->center_on(selection.center().toPoint());
     bar->show_after(WAIT_BAR_DELAY_MS);
-    // A window of its own: it goes with the capture, whichever way that ends.
-    if (parent_window) QObject::connect(parent_window, &QObject::destroyed, bar, &QObject::deleteLater);
+    auto *target_scene = scene;
+    // The worker and its bar go with the scene, whichever way the capture ends: no more requests
+    // are sent for a capture that is gone, and its result is dropped.
+    QObject::connect(target_scene, &QObject::destroyed, worker, &OverlayTranslationWorker::abort);
+    QObject::connect(target_scene, &QObject::destroyed, bar, &QObject::deleteLater);
     QObject::connect(worker, &OverlayTranslationWorker::progress_changed, bar, [bar](int done, int total) { bar->set_progress(done, total); });
     QObject::connect(worker, &QThread::finished, worker, &QObject::deleteLater);
-    // Nothing here holds the capture's action handler: the scene is the connection's context,
-    // so a result that arrives after the capture closed is dropped instead of used.
     const QPointer<WaitBar> watch(bar);
     const QPointer<QWidget> parent = parent_window;
-    auto *target_scene = scene;
     QObject::connect(worker, &OverlayTranslationWorker::finished_signal, target_scene,
-                     [worker, watch, service, parent, image, source_rect, target_lang, target_scene](bool success) {
+                     [worker, watch, service, parent, source_rect, target_scene](bool success) {
                          if (watch) {
                              watch->dismiss();
                              watch->deleteLater();
                          }
                          if (!success) {
-                             if (parent) show_warning_dialog(parent, action_tr("Translation"), worker->error_text());
+                             if (parent) show_modeless_warning_dialog(parent, action_tr("Translation"), worker->error_text());
                              return;
                          }
                          // The monthly quota is counted here: the settings it reads belong to the GUI thread.
@@ -289,14 +288,13 @@ void ActionTools::handle_screenshot_translate_overlay() {
                              if (service) service->record_usage(*service->provider(), worker->translated_chars());
                          } catch (const std::exception &) {
                          }
-                         int painted = 0;
-                         const auto layer = render_translation_overlay(image, worker->blocks(), target_lang, &painted);
-                         if (layer.isNull() || painted == 0) {
+                         const auto translated = worker->result();
+                         if (translated.isNull()) {
                              show_toast(action_tr("Nothing to translate: the text is already in the target language."));
                              return;
                          }
-                         apply_translation_overlay(target_scene, layer, source_rect.topLeft(), action_tr("Translate Overlay"));
-                         log_info(T("覆盖翻译完成: {count} 个段落已替换", {{"count", painted}}), "ScreenshotTranslate");
+                         apply_translation_overlay(target_scene, translated, source_rect.topLeft(), action_tr("Translate Overlay"));
+                         log_info(T("覆盖翻译完成: {count} 个段落已替换", {{"count", worker->painted_blocks()}}), "ScreenshotTranslate");
                          show_toast(action_tr("Translation applied. Ctrl+Z brings the original text back."));
                      });
     worker->start();

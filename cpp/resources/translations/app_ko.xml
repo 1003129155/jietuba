@@ -1701,6 +1701,26 @@ Replace it?</source>
 <context>
     <name>ActionTools</name>
     <message>
+        <source>Translation</source>
+        <translation>번역</translation>
+    </message>
+    <message>
+        <source>Translation applied. Ctrl+Z brings the original text back.</source>
+        <translation>번역문으로 원문을 덮어썼습니다. Ctrl+Z로 원문을 되돌릴 수 있습니다.</translation>
+    </message>
+    <message>
+        <source>Translate Overlay</source>
+        <translation>번역 덮어쓰기</translation>
+    </message>
+    <message>
+        <source>Nothing to translate: the text is already in the target language.</source>
+        <translation>번역할 내용이 없습니다. 텍스트가 이미 대상 언어입니다.</translation>
+    </message>
+    <message>
+        <source>Cannot create the save folder or reserve a file name.</source>
+        <translation>저장 폴더를 만들 수 없거나 파일 이름을 할당할 수 없습니다. 설정의 저장 경로를 확인하세요.</translation>
+    </message>
+    <message>
         <source>Save Screenshot</source>
         <translation>스크린샷 저장</translation>
     </message>
@@ -6217,6 +6237,30 @@ Replace: move the current data there; the data already in that folder will be de
 <context>
     <name>ScrollCaptureWindow</name>
     <message>
+        <source>Translation</source>
+        <translation>번역</translation>
+    </message>
+    <message>
+        <source>Translation failed</source>
+        <translation>번역에 실패했습니다</translation>
+    </message>
+    <message>
+        <source>Translation applied. Save or finish to export it; press translate again for the original.</source>
+        <translation>번역문으로 원문을 덮어썼습니다. 저장하거나 완료하면 내보냅니다. 번역을 다시 누르면 원문으로 돌아갑니다.</translation>
+    </message>
+    <message>
+        <source>Original text restored</source>
+        <translation>원문으로 되돌렸습니다</translation>
+    </message>
+    <message>
+        <source>Nothing to translate: the text is already in the target language.</source>
+        <translation>번역할 내용이 없습니다. 텍스트가 이미 대상 언어입니다.</translation>
+    </message>
+    <message>
+        <source>Nothing to translate yet</source>
+        <translation>아직 번역할 내용이 없습니다</translation>
+    </message>
+    <message>
         <source>Couldn't join. Scroll back</source>
         <translation>이어지지 않습니다. 되돌려 주세요</translation>
     </message>
@@ -7605,6 +7649,25 @@ Replace it?</source>
     <message>
         <source>Leave out the file extension; it is added automatically.</source>
         <translation>확장자는 저장할 때 자동으로 추가되므로 입력하지 마세요.</translation>
+    </message>
+</context>
+<context>
+    <name>OverlayTranslation</name>
+    <message>
+        <source>The translation service is not configured yet.</source>
+        <translation>번역 서비스가 아직 설정되지 않았습니다.</translation>
+    </message>
+    <message>
+        <source>Text recognition failed.</source>
+        <translation>텍스트 인식에 실패했습니다.</translation>
+    </message>
+    <message>
+        <source>No translation service is selected.</source>
+        <translation>번역 서비스가 선택되지 않았습니다.</translation>
+    </message>
+    <message>
+        <source>No text was recognized in the selection.</source>
+        <translation>선택 영역에서 텍스트를 인식하지 못했습니다.</translation>
     </message>
 </context>
 </TS>

@@ -1420,7 +1420,6 @@ void ScrollCaptureWindow::on_translate_overlay() {
         return;
     }
     const auto params = config_manager ? config_manager->get_translation_request_params() : QVariantMap{{"target_lang", "ZH"}};
-    const auto target_lang = params.value("target_lang", "ZH").toString();
     const auto service = create_default_translation_service();
     log_stitch(T("🌐 开始长截图覆盖翻译: {width}x{height}", {{"width", image.width()}, {"height", image.height()}}));
     // The pixels stop changing while recognition and the network run: the image that was
@@ -1444,7 +1443,7 @@ void ScrollCaptureWindow::on_translate_overlay() {
     // Context this: a reply that arrives after the window closed is dropped instead of used.
     const QPointer<ScrollCaptureWindow> guard(this);
     const QPointer<WaitBar> watch(bar);
-    connect(worker, &OverlayTranslationWorker::finished_signal, this, [this, guard, worker, watch, service, image, target_lang](bool success) {
+    connect(worker, &OverlayTranslationWorker::finished_signal, this, [this, guard, worker, watch, service](bool success) {
         // The bar may already be gone: cancelling takes it down without waiting for a result.
         if (watch) {
             watch->dismiss();
@@ -1466,21 +1465,14 @@ void ScrollCaptureWindow::on_translate_overlay() {
             if (service) service->record_usage(*service->provider(), worker->translated_chars());
         } catch (const std::exception &) {
         }
-        int painted = 0;
-        const auto layer = render_translation_overlay(image, worker->blocks(), target_lang, &painted);
-        if (layer.isNull() || painted == 0) {
+        const auto translated = worker->result();
+        if (translated.isNull()) {
             log_stitch(T("[WARN] 长截图没有可替换的文字"));
             set_capture_frozen(false);
             show_toast(tr_text("Nothing to translate: the text is already in the target language."));
             return;
         }
-        auto translated = image;
-        {
-            QPainter painter(&translated);
-            painter.setRenderHint(QPainter::SmoothPixmapTransform);
-            painter.drawImage(QPoint(0, 0), layer);
-        }
-        log_stitch(T("[OK] 长截图覆盖翻译完成: {count} 个段落已替换", {{"count", painted}}), true);
+        log_stitch(T("[OK] 长截图覆盖翻译完成: {count} 个段落已替换", {{"count", worker->painted_blocks()}}), true);
         set_translated_result(translated);
         show_toast(tr_text("Translation applied. Save or finish to export it; press translate again for the original."));
     });

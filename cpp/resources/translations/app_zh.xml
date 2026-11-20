@@ -1682,6 +1682,10 @@ Replace it?</source>
 <context>
     <name>ActionTools</name>
     <message>
+        <source>Translation</source>
+        <translation>翻译</translation>
+    </message>
+    <message>
         <source>Translate Overlay</source>
         <translation>翻译覆盖</translation>
     </message>
@@ -7654,6 +7658,25 @@ Replace it?</source>
     <message>
         <source>Leave out the file extension; it is added automatically.</source>
         <translation>请去掉扩展名，保存时会自动添加。</translation>
+    </message>
+</context>
+<context>
+    <name>OverlayTranslation</name>
+    <message>
+        <source>The translation service is not configured yet.</source>
+        <translation>翻译服务尚未配置。</translation>
+    </message>
+    <message>
+        <source>Text recognition failed.</source>
+        <translation>文字识别失败。</translation>
+    </message>
+    <message>
+        <source>No translation service is selected.</source>
+        <translation>还没有选择翻译服务。</translation>
+    </message>
+    <message>
+        <source>No text was recognized in the selection.</source>
+        <translation>选区里没有识别到文字。</translation>
     </message>
 </context>
 </TS>

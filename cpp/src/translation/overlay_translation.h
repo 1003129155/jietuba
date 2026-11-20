@@ -25,15 +25,16 @@ struct OverlayTextBlock {
 // are dropped, since nothing can be placed for them.
 QVector<OverlayTextBlock> group_overlay_blocks(const OcrResult &result);
 
-// A copy of source with each block's translation painted over the original text: the
-// block's background colour is sampled and refilled, then the translation is drawn in it,
-// shrunk until it fits. Blank translations and text that came back unchanged are left
-// alone, so the layer stays transparent there. painted_blocks, when given, receives how
-// many blocks were actually drawn.
+// A transparent layer as big as source holding each block's translation over a refill of the
+// block's sampled background, shrunk until it fits. Blank translations and text that came back
+// unchanged are skipped; null when nothing was drawn. painted_blocks receives the drawn count.
 QImage render_translation_overlay(const QImage &source, const QVector<OverlayTextBlock> &blocks, const QString &target_lang, int *painted_blocks = nullptr);
 
-// Puts the layer, which is as big as the selection and transparent outside the rewritten
-// text, onto the scene's background at offset, as one undoable step: undo brings the
-// original pixels back.
+// The same drawing done straight onto a copy of source, without a separate layer; null when
+// nothing was drawn. Safe off the GUI thread.
+QImage paint_translations(const QImage &source, const QVector<OverlayTextBlock> &blocks, const QString &target_lang, int *painted_blocks = nullptr);
+
+// Lays image (a layer, or an opaque replacement) over the scene's background at offset as one
+// undoable step; undo brings the original pixels back.
 void apply_translation_overlay(CanvasScene *scene, const QImage &layer, const QPoint &offset, const QString &command_text);
 }

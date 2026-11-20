@@ -64,7 +64,7 @@ void OverlayTranslationWorker::run() {
         emit progress_changed(0, 0);
         const auto recognition = OCRManager::instance().recognize(image_, &cancelled_);
         if (isInterruptionRequested()) return;
-        if (recognition.code != 100) return fail(recognition.msg);
+        if (recognition.code != 100) return fail(recognition.msg.isEmpty() ? overlay_tr("Text recognition failed.") : recognition.msg);
         blocks_ = group_overlay_blocks(recognition);
         if (blocks_.isEmpty()) return fail(overlay_tr("No text was recognized in the selection."));
         const int total = static_cast<int>(blocks_.size());
@@ -124,6 +124,9 @@ void OverlayTranslationWorker::run() {
             ++done;
             emit progress_changed(done, total);
         }
+        // Drawn here, not on the GUI thread: a long screenshot has hundreds of blocks to fit.
+        result_ = paint_translations(image_, blocks_, target_lang_, &painted_blocks_);
+        if (isInterruptionRequested()) return;
         succeeded_ = true;
         emit finished_signal(true);
     } catch (const std::exception &e) {
