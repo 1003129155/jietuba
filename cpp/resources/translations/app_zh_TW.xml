@@ -6650,14 +6650,6 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>翻譯失敗</translation>
     </message>
     <message>
-        <source>Translation applied. Save or finish to export it; press translate again for the original.</source>
-        <translation>譯文已覆蓋原文，儲存或完成即可匯出；再點一次翻譯可還原原文。</translation>
-    </message>
-    <message>
-        <source>Original text restored</source>
-        <translation>已還原原文</translation>
-    </message>
-    <message>
         <source>Nothing to translate: the text is already in the target language.</source>
         <translation>沒有需要翻譯的內容：文字已是目標語言。</translation>
     </message>

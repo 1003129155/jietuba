@@ -6265,14 +6265,6 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>번역에 실패했습니다</translation>
     </message>
     <message>
-        <source>Translation applied. Save or finish to export it; press translate again for the original.</source>
-        <translation>번역문으로 원문을 덮어썼습니다. 저장하거나 완료하면 내보냅니다. 번역을 다시 누르면 원문으로 돌아갑니다.</translation>
-    </message>
-    <message>
-        <source>Original text restored</source>
-        <translation>원문으로 되돌렸습니다</translation>
-    </message>
-    <message>
         <source>Nothing to translate: the text is already in the target language.</source>
         <translation>번역할 내용이 없습니다. 텍스트가 이미 대상 언어입니다.</translation>
     </message>

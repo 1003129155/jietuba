@@ -6185,14 +6185,6 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>Translation failed</translation>
     </message>
     <message>
-        <source>Translation applied. Save or finish to export it; press translate again for the original.</source>
-        <translation>Translation applied. Save or finish to export it; press translate again for the original.</translation>
-    </message>
-    <message>
-        <source>Original text restored</source>
-        <translation>Original text restored</translation>
-    </message>
-    <message>
         <source>Nothing to translate: the text is already in the target language.</source>
         <translation>Nothing to translate: the text is already in the target language.</translation>
     </message>

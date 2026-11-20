@@ -118,11 +118,9 @@ public:
     QWidget *transparent_area = nullptr;
     FloatingToolbar *toolbar = nullptr;
     QPointer<PreviewPanel> preview_panel;
-    // Puts a long image with the translations painted over its own text in place of the
-    // stitched one: save, pin and finish export it, and capturing stops until it is
-    // cleared again (a null image), since new frames would not carry the translation.
-    void set_translated_result(const QImage &translated);
-    bool has_translated_result() const { return !translated_result_.isNull(); }
+    // What a finished translation does: pins the long image with the translations painted
+    // over its own text and ends the long screenshot. notice names paragraphs left as they were.
+    void finish_translated(const QImage &translated, const QString &notice = {});
     // Locks the buttons that would export or act on a result the worker still owns. Cancel
     // is left live: a slow engine must not trap the user in the wait.
     void set_translation_locked(bool locked);
@@ -246,13 +244,13 @@ private:
     void on_translate();
     // Ends the long screenshot and opens the side-by-side translation window, like OCR does.
     void on_translate_compare();
-    // Paints the translations over the result's own text and keeps the window open; pressed
-    // again once applied, it goes back to the original text.
+    // Translates the result and pins it with the translations painted over its own text,
+    // which ends the long screenshot; a failure hands the capture back as it was.
     void on_translate_overlay();
-    // Freezes the live capture while the translations are applied, then resumes it.
+    // Stops the live capture while a translation of the result runs.
     void set_capture_frozen(bool frozen);
-    // The thumbnail the preview panel shows of the translated result.
-    QImage translated_preview() const;
+    // Pins image centred on the region and ends the long screenshot; false when no pin could be made.
+    bool pin_and_close(const QImage &image);
     // Ends the long screenshot and asks where to save the result, like the capture toolbar's Save.
     void on_save();
     void on_quick_save();
@@ -261,19 +259,13 @@ private:
 
     QImage latest_preview_;
     std::optional<std::pair<int, int>> latest_box_;
-    // The stitched long image with the translations painted over it, empty while the
-    // original text is shown. Replaces the stitcher's result on every export.
-    QImage translated_result_;
     // Deletes itself when its thread finishes; cleared before any export is taken.
     OverlayTranslationWorker *translate_worker_ = nullptr;
     // The wait bar belongs to the window while the worker runs, so cancelling takes it down
     // even though an aborted worker never reports back.
     QPointer<QWidget> translate_bar_;
-    // The capture was stopped by the translation and has to be started again on failure
-    // or when the original text comes back.
+    // The capture is stopped while a translation runs, and started again when it fails.
     bool capture_frozen_ = false;
-    // The toolbar's size label before the translation replaced it, restored with the original.
-    QString size_label_before_translation_;
     // The panel follows the preview's own direction, not scroll_direction: results already
     // in flight when the direction switches were stitched the old way.
     QString preview_direction_ = "vertical";
