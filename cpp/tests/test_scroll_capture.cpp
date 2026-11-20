@@ -456,13 +456,19 @@ private slots:
         window->toolbar->translate_btn->click();
         QDialog *refusal = nullptr;
         QTRY_VERIFY((refusal = visible_top_level<QDialog>()));
+        // The dialog covers the region, so nothing is captured while it is open.
+        const int frames = window->screenshots;
+        QTest::qWait(CHANGE_WATCH_INTERVAL_MS * 3);
+        QCOMPARE(window->screenshots, frames);
+        QVERIFY(!window->toolbar->finish_btn->isEnabled());
         refusal->close();
+        QTRY_VERIFY(window->toolbar->crop_btn->isEnabled());
         QVERIFY(window->isVisible());
         QVERIFY(!window->has_translated_result());
         QVERIFY(window->toolbar->translate_btn->isEnabled());
         QVERIFY(window->toolbar->finish_btn->isEnabled());
-        QVERIFY(window->toolbar->crop_btn->isEnabled());
-        // Capturing goes on where it stopped.
+        // Capturing goes on where it stopped, once the watch has taken its first look.
+        QTest::qWait(CHANGE_WATCH_INTERVAL_MS + 150);
         QVERIFY(scroll_in_steps({300}));
     }
 

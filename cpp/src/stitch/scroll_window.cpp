@@ -1479,10 +1479,16 @@ void ScrollCaptureWindow::on_translate_overlay() {
         translate_worker_ = nullptr;
         if (!success) {
             log_stitch(T("[WARN] 长截图翻译失败: {e}", {{"e", worker->error_text()}}), true);
-            set_capture_frozen(false);
             const auto error = worker->error_text();
-            if (error.isEmpty()) show_preview_warning(tr_text("Translation failed"));
-            else show_modeless_warning_dialog(this, tr_text("Translation"), error);
+            if (error.isEmpty()) {
+                set_capture_frozen(false);
+                show_preview_warning(tr_text("Translation failed"));
+                return;
+            }
+            // The dialog opens over the region, and capturing would record it into the long
+            // image: capturing resumes once it is closed.
+            auto *dialog = show_modeless_warning_dialog(this, tr_text("Translation"), error);
+            connect(dialog, &QObject::destroyed, this, [this] { set_capture_frozen(false); });
             return;
         }
         // The monthly quota is counted here: the settings it reads belong to the GUI thread.
