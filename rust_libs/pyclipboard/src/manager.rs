@@ -206,7 +206,7 @@ pub fn set_clipboard_text(text: &str) -> Result<(), String> {
         if win_clipboard::write(&[(win_clipboard::CF_UNICODETEXT, data)]) {
             Ok(())
         } else {
-            Err("设置剪贴板失败: 剪贴板被占用".to_string())
+            Err("设置剪贴板失败: 剪贴板被占用或写入被拒绝".to_string())
         }
     }
 

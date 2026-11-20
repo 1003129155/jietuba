@@ -469,21 +469,29 @@ impl Database {
         if item.title.is_some() {
             return Ok(None);
         }
-        let found = if item.content_type == "image" && item.image_id.is_some() {
-            self.conn.query_row(
+        // 图片只认 image_id。解不出单张位图的图片（多图、EMF 等）content 只是
+        // "[PNG+CF_DIB 7.9 MB]" 这种描述，两张不同的图很容易撞键；按它查重会走更新分支，
+        // 前一条的 clipboard_formats 被替换掉，那张图就再也粘不出来了
+        if item.content_type == "image" {
+            let Some(image_id) = item.image_id.as_deref() else {
+                return Ok(None);
+            };
+            return self.conn.query_row(
                 "SELECT id FROM clipboard WHERE image_id = ?1 AND content_type = 'image' ORDER BY created_at DESC LIMIT 1",
-                params![&item.image_id],
+                params![image_id],
                 |row| row.get(0),
             )
-        } else {
-            self.conn.query_row(
-                "SELECT id FROM clipboard WHERE content = ?1 AND content_type = ?2 AND html_content IS ?3 AND title IS NULL
-                 ORDER BY created_at DESC LIMIT 1",
-                params![&item.content, &item.content_type, &item.html_content],
-                |row| row.get(0),
-            )
-        };
-        found.optional().map_err(|e| format!("查重失败: {}", e))
+            .optional()
+            .map_err(|e| format!("查重失败: {}", e));
+        }
+        self.conn.query_row(
+            "SELECT id FROM clipboard WHERE content = ?1 AND content_type = ?2 AND html_content IS ?3 AND title IS NULL
+             ORDER BY created_at DESC LIMIT 1",
+            params![&item.content, &item.content_type, &item.html_content],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|e| format!("查重失败: {}", e))
     }
 
     /// 分页查询；不算总数，调用方按这一页是否取满判断还有没有下一页。ungrouped_only 去掉已加入分组的
@@ -1206,6 +1214,24 @@ mod update_item_tests {
         db.replace_formats(id, &[(13, "CF_UNICODETEXT".to_string(), text, false)]).unwrap();
         let names: Vec<String> = db.get_formats(id).unwrap().into_iter().map(|(_, n, _)| n).collect();
         assert_eq!(names, vec!["CF_UNICODETEXT".to_string()]);
+    }
+
+    #[test]
+    fn undecodable_images_never_share_a_row() {
+        let db = Database::new(":memory:").unwrap();
+        let image = |image_id: Option<&str>| {
+            let mut item = PyClipboardItem::new(0, "[PNG+CF_DIB 7.9 MB]".to_string(), "image".to_string());
+            item.image_id = image_id.map(str::to_string);
+            item
+        };
+        // 解不出单张位图时 image_id 为空，content 只是格式与大小的概述：两张不同的图撞键也不能合并
+        let first = db.insert_item(&image(None)).unwrap();
+        let second = db.insert_item(&image(None)).unwrap();
+        assert_ne!(first, second);
+
+        // 有 image_id 的图片照旧按它去重，content 不同也算同一条
+        let keyed = db.insert_item(&image(Some("abc"))).unwrap();
+        assert_eq!(db.insert_item(&image(Some("abc"))).unwrap(), keyed);
     }
 }
 

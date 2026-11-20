@@ -1721,6 +1721,10 @@ Replace it?</source>
         <source>Saved: %1</source>
         <translation>已儲存：%1</translation>
     </message>
+    <message>
+        <source>Cannot create the save folder or reserve a file name.</source>
+        <translation>無法建立儲存資料夾或分配檔名，請檢查設定裡的儲存路徑。</translation>
+    </message>
 </context>
 <context>
     <name>PinTranslationHelper</name>

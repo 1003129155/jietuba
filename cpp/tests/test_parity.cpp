@@ -370,6 +370,18 @@ private slots:
         SaveService::cleanup_failed_placeholder(keep.fileName());
         QVERIFY(QFile::exists(keep.fileName()));
         QVERIFY(!service.save_qimage(QImage()).second);
+        // An unwritable save folder fails like any other save instead of throwing out of the
+        // confirm handler, where nothing above catches.
+        QFile blocker(temp.filePath("not-a-folder"));
+        QVERIFY(blocker.open(QIODevice::WriteOnly));
+        blocker.close();
+        const auto unwritable = blocker.fileName() + "/sub";
+        const auto failed = service.save_qimage(image, unwritable, "prefix", {}, "PNG");
+        QVERIFY(!failed.first);
+        QVERIFY(!failed.second);
+        QVERIFY(!service.save_qimage_async(image, unwritable, "prefix", {}, "PNG"));
+        // The side copy of an already saved file never takes the caller down with it.
+        QVERIFY(!SaveService::save_beside(image, temp.filePath("missing-dir/original.png"), "original"));
         QSemaphore ready;
         bool success = false;
         QString callbackPath;

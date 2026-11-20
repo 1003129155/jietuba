@@ -84,6 +84,9 @@ QString SaveService::compose_path(QString directory, const QString &prefix, cons
     return claim_first_free(QDir(directory).filePath(filename.left(dot)), filename.mid(dot));
 }
 QString SaveService::reserve_save_path(QString directory, QString prefix, QString suffix, QString format) const {
+    // The only entry point that still throws: the clipboard delivery reserves a name up front and
+    // catches to degrade to "no file reference". Everything below turns the same failures into a
+    // plain false, because a throw from inside a Qt slot ends the process.
     return compose_path(directory, prefix, suffix, format);
 }
 void SaveService::cleanup_failed_placeholder(const QString &path) {
@@ -172,14 +175,30 @@ QImage SaveService::scale_for_save(const QImage &image, const QSize &size) {
 std::pair<bool, std::optional<QString>> SaveService::save_qimage(const QImage &image, QString directory,
     QString prefix, QString suffix, QString format, int dpi, QString target) const {
     if (image.isNull()) return {false, std::nullopt};
-    if (target.isEmpty()) target = compose_path(directory, prefix, suffix, format);
+    if (target.isEmpty()) {
+        // An unwritable folder or an exhausted name pool is a failed save, not a crash:
+        // finish() runs synchronously from the confirm button and nothing above catches.
+        try {
+            target = compose_path(directory, prefix, suffix, format);
+        } catch (const std::exception &error) {
+            log_warning(T("保存失败: 无法确定文件名 ({e})", {{"e", QString::fromUtf8(error.what())}}), "Save");
+            return {false, std::nullopt};
+        }
+    }
     return {save_qimage_to_path(image, target, format, dpi), target};
 }
 std::optional<QString> SaveService::save_qimage_async(const QImage &image, QString directory, QString prefix,
     QString suffix, QString format, int dpi, std::function<void(bool, QString)> callback) const {
     if (image.isNull()) return std::nullopt;
     auto copy = image.copy();
-    const auto path = compose_path(directory, prefix, suffix, format);
+    QString path;
+    try {
+        path = compose_path(directory, prefix, suffix, format);
+    } catch (const std::exception &error) {
+        // No path, no worker: the caller treats an empty return as "the save did not start".
+        log_warning(T("保存失败: 无法确定文件名 ({e})", {{"e", QString::fromUtf8(error.what())}}), "Save");
+        return std::nullopt;
+    }
     // As in Python, callback executes on the worker thread. No borrowed service
     // or config pointer crosses the boundary; cancellation/lifecycle remains explicit.
     QThreadPool::globalInstance()->start(QRunnable::create([copy = std::move(copy), path, format, dpi, callback = std::move(callback)] {
@@ -194,12 +213,20 @@ std::optional<QString> SaveService::save_qimage_async(const QImage &image, QStri
     return path;
 }
 std::optional<QString> SaveService::save_beside(const QImage &image, const QString &saved, const QString &tag) {
+    if (image.isNull() || saved.isEmpty()) return std::nullopt;
     const auto filename = QFileInfo(saved).fileName();
     const int dot = filename.lastIndexOf('.');
     const bool has_ext = dot > 0;
     const auto stem = has_ext ? saved.left(saved.size() - filename.size() + dot) : saved;
     const auto ext = has_ext ? filename.mid(dot) : QString();
-    const auto target = claim_first_free(stem + "_" + tag, ext);
+    QString target;
+    try {
+        target = claim_first_free(stem + "_" + tag, ext);
+    } catch (const std::exception &error) {
+        // The original is a side copy of a save that already succeeded; never fail the caller over it.
+        log_warning(T("保存失败: 无法为原图确定文件名 ({e})", {{"e", QString::fromUtf8(error.what())}}), "Save");
+        return std::nullopt;
+    }
     return save_qimage_to_path(image, target) ? std::optional<QString>(target) : std::nullopt;
 }
 }

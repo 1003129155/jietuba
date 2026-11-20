@@ -117,17 +117,20 @@ void ActionTools::handle_quick_save() {
     finish_when_ready(rect, [this, rect] {
         const auto image = export_service.export_image(rect);
         const auto [success, path] = save_service->save_qimage(image, config_manager->get_screenshot_save_path(), "", "", config_manager->get_screenshot_format());
+        // A path comes back even when the write failed, so it doubles as the detail line;
+        // no path at all means the folder or the file name was the problem.
+        const auto failure_detail = path ? *path : action_tr("Cannot create the save folder or reserve a file name.");
         if (success) {
             save_original_beside(rect, path.value_or(QString()));
             cleanup_and_close();
             // Nothing else shows that the file was written.
             show_toast(action_tr("Saved: %1").replace("%1", QFileInfo(path.value_or(QString())).fileName()));
         } else if (parent_window && parent_window->isVisible()) {
-            show_warning_dialog(parent_window, action_tr("Save Failed"), path.value_or(QString()));
+            show_warning_dialog(parent_window, action_tr("Save Failed"), failure_detail);
         } else {
             // Handed over: the capture cannot come back, so it ends before the warning.
             cleanup_and_close();
-            show_warning_dialog(nullptr, action_tr("Save Failed"), path.value_or(QString()));
+            show_warning_dialog(nullptr, action_tr("Save Failed"), failure_detail);
         }
     });
 }
