@@ -469,7 +469,8 @@ void GroupBar::edit_group(qint64 group_id) {
 }
 
 void GroupBar::on_manage_data_changed() {
-    // Data changes in the manage window, passed up to the clipboard window.
-    if (auto *window = qobject_cast<ClipboardWindow *>(parent())) window->on_manage_data_changed();
+    // Data changes in the manage window, passed up to the clipboard window. The layout reparents
+    // the bar into the window's container, so the window is its top level, not its parent.
+    if (auto *window = qobject_cast<ClipboardWindow *>(this->window())) window->on_manage_data_changed();
 }
 }
