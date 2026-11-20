@@ -41,12 +41,12 @@ public:
     void handle_pin(bool close_after = true);
     // One capture action chosen by a mouse binding; false when it does not apply.
     bool handle_capture_action(const QString &action);
-    // Recognizes the selection, closes the capture, then opens the side-by-side translation
-    // window. The capture's translate button does not use this: it replaces the text in place.
+    // The translate button: overlay or side-by-side, as the settings choose.
+    void handle_screenshot_translate();
+    // Recognizes the selection, closes the capture, then opens the side-by-side translation window.
     void handle_screenshot_translate_compare();
-    // Recognizes the selection, translates it and paints the translations over the original
-    // text in the capture itself, as one undoable step; the capture stays open, so the
-    // translated image can be copied, saved or pinned like any other.
+    // Translates the selection and paints the translations over the original text in the capture
+    // itself, as one undoable step; the capture stays open.
     void handle_screenshot_translate_overlay();
     // Recognition is slow (hundreds of ms locally), so the result window opens first and waits.
     void handle_text_recognize();
@@ -60,7 +60,8 @@ public:
     QPointer<QWidget> parent_window;
     ExportService export_service;
     std::shared_ptr<SaveService> save_service;
-private:    // Export -> clipboard -> auto save -> close.
+private:
+    // Export -> clipboard -> auto save -> close.
     void copy_save_and_close(bool close_after = true);
     // Runs finish now, or, while a smart erase in the selection still rebuilds its pixels, hands the
     // window over and runs it once they are in.
@@ -77,8 +78,7 @@ private:    // Export -> clipboard -> auto save -> close.
     void temporarily_exit_editing();
     void cleanup_and_close();
     static QString format_from_save_path(const QString &file_path, const QString &selected_filter);
-    // The overlay translation still running for this capture; one at a time, since a second
-    // run would recognize the first run's own output.
+    // One overlay translation at a time: a second run would recognize the first one's output.
     QPointer<OverlayTranslationWorker> overlay_translation_;
 };
 }

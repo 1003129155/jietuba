@@ -793,6 +793,7 @@ void SettingsDialog::reset_translation_page() {
     // Every provider's credentials and switches reset from the registry's declarations.
     if (provider_field_widgets) provider_fields::reset_to_defaults(defaults, provider_fields::all_fields(*translation_registry), *provider_field_widgets);
     select_data(attr<QComboBox>("translation_target_combo"), defaults.value("translation_target_lang"));
+    select_data(attr<QComboBox>("screenshot_translate_mode_combo"), defaults.value("screenshot_translate_mode"));
     if (auto *toggle = attr_widget("split_sentences_toggle")) set_checked(toggle, defaults.value("translation_split_sentences").toBool());
     if (auto *toggle = attr_widget("preserve_formatting_toggle")) set_checked(toggle, defaults.value("translation_preserve_formatting").toBool());
     if (auto *toggle = attr_widget("translation_auto_close_toggle")) set_checked(toggle, defaults.value("translation_popup_auto_close").toBool());
@@ -962,6 +963,8 @@ void SettingsDialog::save_changes(QSet<QString> changed) {
     }
     if (auto *combo = attr<QComboBox>("translation_target_combo"); combo && has("translation_target_combo"))
         config_manager->set_translation_target_lang(combo->currentData().toString());
+    if (auto *combo = attr<QComboBox>("screenshot_translate_mode_combo"); combo && has("screenshot_translate_mode_combo"))
+        config_manager->set_screenshot_translate_mode(combo->currentData().toString());
     if (auto *toggle = attr_widget("split_sentences_toggle"); toggle && has("split_sentences_toggle")) config_manager->set_translation_split_sentences(checked_of(toggle));
     if (auto *toggle = attr_widget("preserve_formatting_toggle"); toggle && has("preserve_formatting_toggle"))
         config_manager->set_translation_preserve_formatting(checked_of(toggle));
@@ -1246,7 +1249,7 @@ QVariantMap SettingsDialog::snapshot_settings() const {
         if (auto *widget = attr_widget(name)) snap[name] = checked_of(widget);
     // Combos.
     for (const char *name : {"screenshot_format_combo", "save_dialog_style_combo", "shift_line_angle_combo", "ocr_result_position_combo", "translation_provider_combo", "translation_target_combo",
-                             "log_level_combo", "language_combo", "engine_combo", "cursor_move_combo", "clipboard_pick_combo", "log_retention_combo", "_ui_theme_combo",
+                             "screenshot_translate_mode_combo", "log_level_combo", "language_combo", "engine_combo", "cursor_move_combo", "clipboard_pick_combo", "log_retention_combo", "_ui_theme_combo",
                              "_ui_scale_combo", "_dialog_scale_combo", "_selection_border_combo", "_selection_handle_combo", "_selection_handle_size_combo",
                              "_color_picker_style_combo", "smart_mode_combo", "capture_engine_combo"})
         if (auto *combo = attr<QComboBox>(name)) snap[name] = combo->currentIndex();
@@ -1413,6 +1416,7 @@ void SettingsDialog::refresh_settings() {
     // Every provider's credentials and switches reload from the declarations.
     if (provider_field_widgets) provider_fields::load_into(config_manager, provider_fields::all_fields(*translation_registry), *provider_field_widgets);
     select_data(attr<QComboBox>("translation_target_combo"), config_manager->get_saved_translation_target_lang());
+    select_data(attr<QComboBox>("screenshot_translate_mode_combo"), config_manager->get_screenshot_translate_mode());
     if (auto *toggle = attr_widget("split_sentences_toggle")) set_checked(toggle, config_manager->get_translation_split_sentences());
     if (auto *toggle = attr_widget("preserve_formatting_toggle")) set_checked(toggle, config_manager->get_translation_preserve_formatting());
     if (auto *toggle = attr_widget("translation_auto_close_toggle")) set_checked(toggle, config_manager->get_translation_popup_auto_close());

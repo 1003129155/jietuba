@@ -72,8 +72,6 @@ signals:
     void crop_requested(const QString &side);
     void save_clicked();
     void ocr_clicked();
-    // Translates the long image and paints the translations over its own text; pressed
-    // again once applied, it goes back to the original text.
     void translate_clicked();
     void pin_clicked();
     void finish_clicked();

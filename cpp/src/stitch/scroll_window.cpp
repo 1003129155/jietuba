@@ -22,6 +22,7 @@
 #include "translation/overlay_translation.h"
 #include "translation/overlay_translation_worker.h"
 #include "translation/service.h"
+#include "translation/translation_manager.h"
 #include "ui/dialogs.h"
 #include "ui/toast.h"
 #include "ui/wait_bar.h"
@@ -425,7 +426,7 @@ void ScrollCaptureWindow::setup_floating_toolbar() {
     connect(toolbar, &FloatingToolbar::crop_requested, this, &ScrollCaptureWindow::crop);
     connect(toolbar, &FloatingToolbar::save_clicked, this, &ScrollCaptureWindow::on_save);
     connect(toolbar, &FloatingToolbar::ocr_clicked, this, &ScrollCaptureWindow::on_text_recognize);
-    connect(toolbar, &FloatingToolbar::translate_clicked, this, &ScrollCaptureWindow::on_translate_overlay);
+    connect(toolbar, &FloatingToolbar::translate_clicked, this, &ScrollCaptureWindow::on_translate);
     connect(toolbar, &FloatingToolbar::pin_clicked, this, &ScrollCaptureWindow::on_pin);
     connect(toolbar, &FloatingToolbar::finish_clicked, this, &ScrollCaptureWindow::on_finish);
     connect(toolbar, &FloatingToolbar::cancel_clicked, this, &ScrollCaptureWindow::on_cancel);
@@ -1398,6 +1399,30 @@ void ScrollCaptureWindow::on_text_recognize() {
     hide();
     if (copy_directly) copy_text_recognition(image);
     else show_text_recognition(image, anchor);
+    emit finished();
+    close();
+}
+
+void ScrollCaptureWindow::on_translate() {
+    // An applied translation is undone by the same button whichever mode is set now.
+    if (translated_result_.isNull() && !translate_worker_ && (!config_manager || config_manager->get_screenshot_translate_mode() == "compare"))
+        on_translate_compare();
+    else on_translate_overlay();
+}
+
+void ScrollCaptureWindow::on_translate_compare() {
+    capture_pending_now();
+    const auto image = result_qimage();
+    if (image.isNull()) {
+        log_stitch(T("[WARN] 没有拼接结果，无法翻译"));
+        show_preview_warning(tr_text("Nothing to translate yet"));
+        return;
+    }
+    // Read before the window closes.
+    const auto params = config_manager ? config_manager->get_translation_request_params() : QVariantMap();
+    cleanup();
+    hide();
+    TranslationManager::instance()->translate_from_image(QPixmap::fromImage(image), params);
     emit finished();
     close();
 }

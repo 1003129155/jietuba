@@ -592,6 +592,14 @@ void ToolSettingsManager::set_ocr_result_position(const QString &value) {
     store_ocr_result_position(choice_or_default(value, default_ocr_result_position(), OCR_RESULT_POSITIONS));
 }
 
+QString ToolSettingsManager::get_screenshot_translate_mode() const {
+    return choice_value(stored_screenshot_translate_mode(), default_screenshot_translate_mode(), SCREENSHOT_TRANSLATE_MODES);
+}
+
+void ToolSettingsManager::set_screenshot_translate_mode(const QString &value) {
+    store_screenshot_translate_mode(choice_or_default(value, default_screenshot_translate_mode(), SCREENSHOT_TRANSLATE_MODES));
+}
+
 std::optional<QPoint> ToolSettingsManager::get_ocr_result_last_center() const {
     const auto parts = qsettings.value("app/ocr_result_last_center", "").toString().split(',');
     if (parts.size() != 2) return std::nullopt;

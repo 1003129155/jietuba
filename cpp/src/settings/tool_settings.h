@@ -188,6 +188,8 @@ public:
     void set_shift_line_angle(int value);
     QString get_ocr_result_position() const;
     void set_ocr_result_position(const QString &value);
+    QString get_screenshot_translate_mode() const;
+    void set_screenshot_translate_mode(const QString &value);
     QString get_ocr_layout_mode() const;
     void set_ocr_layout_mode(const QString &value);
     QString get_ocr_punctuation() const;
@@ -305,6 +307,9 @@ inline const QStringList CAPTURE_ENGINE_CHOICES = {"auto", "mss", "hdr"};
 inline const QStringList OCR_ENGINES = {"auto", "oneocr", "ppocr_rust"};
 // Where the text recognition window opens, in settings-page order.
 inline const QStringList OCR_RESULT_POSITIONS = {"region_screen", "primary_screen", "beside_region", "near_cursor", "last_position"};
+// The translate button, in settings-page order: paint the translation over the original text in
+// the capture, or close the capture and open the side-by-side window.
+inline const QStringList SCREENSHOT_TRANSLATE_MODES = {"overlay", "compare"};
 // Result layout; values match text_recognition.layout.
 inline const QStringList OCR_LAYOUT_MODES = {"auto", "single_line", "multiline"};
 inline const QStringList OCR_PUNCTUATION_MODES = {"keep", "halfwidth", "fullwidth"};

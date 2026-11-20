@@ -284,6 +284,8 @@ SETTING(translation_split_sentences, "app/translation_split_sentences", bool, tr
 SETTING(translation_preserve_formatting, "app/translation_preserve_formatting", bool, true, Import, Gen, Gen)
 // The compact popup closes on a click outside it or on switching to another window.
 SETTING(translation_popup_auto_close, "app/translation_popup_auto_close", bool, false, Import, Gen, Gen)
+// What the capture and long screenshot toolbars' translate button does: one of SCREENSHOT_TRANSLATE_MODES.
+SETTING(screenshot_translate_mode, "translation/screenshot_mode", QString, "compare", Import, Own, Own)
 SETTING(translation_on_top, "app/translation_on_top", bool, true, Internal, Gen, Gen)
 SETTING(speech_voices, "speech/voices", QStringList, {}, Import, Gen, Gen)
 SETTING(speech_rate, "speech/rate", int, 0, Import, Gen, Gen)

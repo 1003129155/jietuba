@@ -9,6 +9,22 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>Side-by-side window</source>
+        <translation>Side-by-side window</translation>
+    </message>
+    <message>
+        <source>Replace the original text</source>
+        <translation>Replace the original text</translation>
+    </message>
+    <message>
+        <source>What the translate button on the capture and long screenshot toolbars does</source>
+        <translation>What the translate button on the capture and long screenshot toolbars does</translation>
+    </message>
+    <message>
+        <source>Screenshot Translation</source>
+        <translation>Screenshot Translation</translation>
+    </message>
+    <message>
         <source>Search settings</source>
         <translation>Search settings</translation>
     </message>
@@ -2237,6 +2253,10 @@ Replace it?</translation>
 <!-- ========== Scroll Screenshot (Long Screenshot) ========== -->
 <context>
     <name>FloatingToolbar</name>
+    <message>
+        <source>Translate the long screenshot</source>
+        <translation>Translate the long screenshot</translation>
+    </message>
     <message>
         <source>Drag to move</source>
         <translation>Drag to move</translation>

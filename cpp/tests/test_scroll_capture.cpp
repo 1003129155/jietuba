@@ -16,6 +16,7 @@
 #include "stitch/scroll_toolbar.h"
 #include "stitch/scroll_window.h"
 #include "text_recognition/result_window.h"
+#include "translation/translation_manager.h"
 #include "ui/fluent_lite/buttons.h"
 #include "ui/fluent_lite/inputs.h"
 #include "ui/save_image_dialog.h"
@@ -423,6 +424,46 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(QFileInfo::exists(path), 5000);
         QVERIFY(answer.answered);
         QCOMPARE(QImage(path).convertToFormat(QImage::Format_RGB32), translated);
+    }
+
+    // By default, translate ends the long screenshot and opens the side-by-side window.
+    void translatingByDefaultHandsTheLongImageOver() {
+        settings_->remove("translation/screenshot_mode");
+        auto *window = open();
+        QVERIFY(window);
+        QVERIFY(scroll_in_steps({150, 300}));
+        set_recognizer_for_test([](const QImage &) {
+            return OcrResult{100, "ok", {OcrLine{{QPointF(0, 0), QPointF(80, 0), QPointF(80, 16), QPointF(0, 16)}, "long text"}}, 0.0};
+        });
+        config_->set_translation_provider("deepl");
+        const auto restore = qScopeGuard([] {
+            set_recognizer_for_test({});
+            TranslationManager::cleanup();
+        });
+        QSignalSpy finished(window, &ScrollCaptureWindow::finished);
+        window->toolbar->translate_btn->click();
+        QCOMPARE(finished.count(), 1);
+        QTRY_VERIFY(TranslationManager::instance()->is_dialog_open());
+    }
+
+    // In place, a translation that cannot run reports why and hands the capture back unchanged.
+    void aFailedTranslationResumesTheCapture() {
+        auto *window = open();
+        QVERIFY(window);
+        QVERIFY(scroll_in_steps({150}));
+        config_->set_translation_provider("deepl");
+        config_->set_screenshot_translate_mode("overlay");
+        window->toolbar->translate_btn->click();
+        QDialog *refusal = nullptr;
+        QTRY_VERIFY((refusal = visible_top_level<QDialog>()));
+        refusal->close();
+        QVERIFY(window->isVisible());
+        QVERIFY(!window->has_translated_result());
+        QVERIFY(window->toolbar->translate_btn->isEnabled());
+        QVERIFY(window->toolbar->finish_btn->isEnabled());
+        QVERIFY(window->toolbar->crop_btn->isEnabled());
+        // Capturing goes on where it stopped.
+        QVERIFY(scroll_in_steps({300}));
     }
 
     // A thinking model can take a minute: the wait must always be escapable.

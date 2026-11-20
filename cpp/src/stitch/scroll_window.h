@@ -242,9 +242,12 @@ private:
     void on_pin();
     // Recognizes the text of the current result like the capture toolbar does, then ends the long screenshot.
     void on_text_recognize();
-    // Translates the current result and paints the translations over its own text, keeping
-    // the window open so the result can still be saved, pinned or finished; pressed again
-    // once applied, it goes back to the original text.
+    // The translate button: overlay or side-by-side, as the settings choose.
+    void on_translate();
+    // Ends the long screenshot and opens the side-by-side translation window, like OCR does.
+    void on_translate_compare();
+    // Paints the translations over the result's own text and keeps the window open; pressed
+    // again once applied, it goes back to the original text.
     void on_translate_overlay();
     // Freezes the live capture while the translations are applied, then resumes it.
     void set_capture_frozen(bool frozen);

@@ -1507,6 +1507,27 @@ private slots:
         QVERIFY(!config_->get_translation_popup_auto_close());
     }
 
+    void theScreenshotTranslateModeSavesAndResets() {
+        config_->settings().remove("translation/screenshot_mode");
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.on_nav_changed(4, "translation");
+        auto *combo = dialog.attr<QComboBox>("screenshot_translate_mode_combo");
+        QVERIFY(combo);
+        QCOMPARE(combo->currentData().toString(), QString("compare"));
+        combo->setCurrentIndex(combo->findData("overlay"));
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_screenshot_translate_mode(), QString("overlay"));
+        reset_page(dialog);
+        QCOMPARE(combo->currentData().toString(), QString("compare"));
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_screenshot_translate_mode(), QString("compare"));
+        // A value no build writes reads as the default.
+        config_->settings().setValue("translation/screenshot_mode", "sideways");
+        QCOMPARE(config_->get_screenshot_translate_mode(), QString("compare"));
+        config_->set_screenshot_translate_mode("sideways");
+        QCOMPARE(config_->settings().value("translation/screenshot_mode").toString(), QString("compare"));
+    }
+
     // Test Connection and Fetch Models use the form's unsaved values.
     void pendingProviderValuesOverlayTheConfig() {
         SettingsDialog dialog(config_, config_->get_hotkey());

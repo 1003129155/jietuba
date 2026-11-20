@@ -10,6 +10,22 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>Side-by-side window</source>
+        <translation>左右対照ウィンドウ</translation>
+    </message>
+    <message>
+        <source>Replace the original text</source>
+        <translation>原文を置き換え</translation>
+    </message>
+    <message>
+        <source>What the translate button on the capture and long screenshot toolbars does</source>
+        <translation>キャプチャとスクロールキャプチャのツールバーにある「翻訳」ボタンの動作</translation>
+    </message>
+    <message>
+        <source>Screenshot Translation</source>
+        <translation>スクショ翻訳</translation>
+    </message>
+    <message>
         <source>Search settings</source>
         <translation>設定を検索</translation>
     </message>
@@ -2301,6 +2317,10 @@ Replace it?</source>
 <!-- ========== Scroll Screenshot (Long Screenshot) ========== -->
 <context>
     <name>FloatingToolbar</name>
+    <message>
+        <source>Translate the long screenshot</source>
+        <translation>スクロールキャプチャを翻訳</translation>
+    </message>
     <message>
         <source>Drag to move</source>
         <translation>ドラッグして移動</translation>

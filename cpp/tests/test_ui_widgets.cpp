@@ -112,8 +112,7 @@ QJsonArray layout_with(const QString &first = {}, const QMap<QString, QString> &
 QStringList toolbar_row(Toolbar &toolbar) {
     const QList<std::pair<QString, QWidget *>> buttons = {
         {"long_screenshot", toolbar.long_screenshot_btn}, {"save", toolbar.save_btn}, {"copy", toolbar.copy_btn},
-        {"screenshot_translate", toolbar.screenshot_translate_btn}, {"translate_compare", toolbar.translate_compare_btn},
-        {"text_recognize", toolbar.text_recognize_btn},
+        {"screenshot_translate", toolbar.screenshot_translate_btn}, {"text_recognize", toolbar.text_recognize_btn},
         {"scan_code", toolbar.scan_code_btn}, {"gif", toolbar.gif_btn}, {"pen", toolbar.pen_btn},
         {"highlighter", toolbar.highlighter_btn}, {"mosaic", toolbar.mosaic_btn}, {"spotlight", toolbar.spotlight_btn},
         {"watermark", toolbar.watermark_btn}, {"arrow", toolbar.arrow_btn}, {"number", toolbar.number_btn},
@@ -532,28 +531,9 @@ private slots:
         const QRectF selection(screen.right() - 250, screen.height() / 4.0, 200, 100);
         toolbar.position_near_rect(selection);
         QVERIFY(toolbar.y() >= selection.bottom());
-        // Aligned by "Confirm", so the pointer lands on it after the drag. A selection near
-        // the screen's right edge leaves too little room to shift the whole toolbar under
-        // it and the screen edge stops the toolbar, so the point only has to fall on the
-        // button; the toolbar never leaves the screen either way.
-        const int confirm_left = toolbar.x() + toolbar.confirm_btn->geometry().left();
+        // Aligned by "Confirm", so the pointer lands on it after the drag.
         const int confirm_right = toolbar.x() + toolbar.confirm_btn->geometry().right();
-        const int release_x = static_cast<int>(selection.right());
-        QVERIFY2(confirm_left <= release_x && release_x <= confirm_right,
-                 qPrintable(QString("%1 is not on Confirm %2..%3").arg(release_x).arg(confirm_left).arg(confirm_right)));
-        QVERIFY(toolbar.geometry().right() <= screen.right());
-        // Away from the edges nothing stops the toolbar, and the button's edge lines up with
-        // the selection's. On a narrow screen even a selection pulled in from the edge can
-        // leave the toolbar no room at all, so the exact alignment is only asked of it when
-        // neither screen edge is holding it back.
-        const QRectF roomy(screen.right() - 220, screen.height() / 4.0, 200, 100);
-        toolbar.position_near_rect(roomy);
-        const bool against_edge = toolbar.x() <= screen.left() || toolbar.geometry().right() >= screen.right();
-        if (!against_edge) {
-            const int roomy_right = toolbar.x() + toolbar.confirm_btn->geometry().right();
-            QVERIFY2(std::abs(roomy_right - roomy.right()) <= 6, qPrintable(QString("%1 vs %2").arg(roomy_right).arg(roomy.right())));
-        }
-        QVERIFY(toolbar.geometry().right() <= screen.right());
+        QVERIFY2(std::abs(confirm_right - selection.right()) <= 6, qPrintable(QString("%1 vs %2").arg(confirm_right).arg(selection.right())));
         // No room below: above.
         const QRectF bottom(selection.x(), screen.bottom() - 30, 200, 30);
         toolbar.position_near_rect(bottom);

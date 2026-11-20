@@ -5,6 +5,22 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>Side-by-side window</source>
+        <translation>左右對照視窗</translation>
+    </message>
+    <message>
+        <source>Replace the original text</source>
+        <translation>覆蓋原文</translation>
+    </message>
+    <message>
+        <source>What the translate button on the capture and long screenshot toolbars does</source>
+        <translation>截圖與長截圖工具列上「翻譯」按鈕的做法</translation>
+    </message>
+    <message>
+        <source>Screenshot Translation</source>
+        <translation>截圖翻譯</translation>
+    </message>
+    <message>
         <source>Search settings</source>
         <translation>搜尋設定</translation>
     </message>
@@ -2256,6 +2272,10 @@ Replace it?</source>
 </context>
 <context>
     <name>FloatingToolbar</name>
+    <message>
+        <source>Translate the long screenshot</source>
+        <translation>翻譯長截圖</translation>
+    </message>
     <message>
         <source>Drag to move</source>
         <translation>拖曳以移動</translation>

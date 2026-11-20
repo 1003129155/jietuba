@@ -9,6 +9,22 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>Side-by-side window</source>
+        <translation>左右对照窗口</translation>
+    </message>
+    <message>
+        <source>Replace the original text</source>
+        <translation>覆盖原文</translation>
+    </message>
+    <message>
+        <source>What the translate button on the capture and long screenshot toolbars does</source>
+        <translation>截图和长截图工具栏上「翻译」按钮的做法</translation>
+    </message>
+    <message>
+        <source>Screenshot Translation</source>
+        <translation>截图翻译</translation>
+    </message>
+    <message>
         <source>Search settings</source>
         <translation>搜索设置</translation>
     </message>
@@ -1755,14 +1771,6 @@ Replace it?</source>
 <context>
     <name>Toolbar</name>
     <message>
-        <source>Screenshot translate: replace the text in the screenshot</source>
-        <translation>截图翻译：把译文覆盖到原文位置</translation>
-    </message>
-    <message>
-        <source>Screenshot translate (side-by-side view)</source>
-        <translation>截图翻译（左右对照）</translation>
-    </message>
-    <message>
         <source>More</source>
         <translation>更多</translation>
     </message>
@@ -2267,12 +2275,12 @@ Replace it?</source>
 <context>
     <name>FloatingToolbar</name>
     <message>
-        <source>Drag to move</source>
-        <translation>拖动以移动</translation>
+        <source>Translate the long screenshot</source>
+        <translation>翻译长截图</translation>
     </message>
     <message>
-        <source>Translate: replace the long screenshot's text</source>
-        <translation>翻译：把译文覆盖到长截图的原文上</translation>
+        <source>Drag to move</source>
+        <translation>拖动以移动</translation>
     </message>
     <message>
         <source>Vertical</source>
@@ -5693,14 +5701,6 @@ Replace: move the current data there; the data already in that folder will be de
 </context>
 <context>
     <name>ToolbarLayoutDialog</name>
-    <message>
-        <source>Translate in place</source>
-        <translation>翻译（覆盖原文）</translation>
-    </message>
-    <message>
-        <source>Translate (side-by-side)</source>
-        <translation>翻译（左右对照）</translation>
-    </message>
     <message>
         <source>Customize Toolbar</source>
         <translation>自定义工具栏</translation>
