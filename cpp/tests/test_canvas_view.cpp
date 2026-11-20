@@ -15,6 +15,7 @@
 #include "canvas/view.h"
 #include "settings/tool_settings.h"
 #include "tools/controller.h"
+#include "tools/mosaic.h"
 #include <QApplication>
 #include <QDir>
 #include <QFontDatabase>
@@ -627,6 +628,32 @@ private slots:
 
         // Rects have no delete button; text does.
         QVERIFY(!handle_of(*editor, HandleType::ITEM_DELETE));
+    }
+
+    // A box mosaic resized through its handles goes back to its size on undo.
+    void aResizedMosaicBoxIsUndone() {
+        config_->update_settings("mosaic", {{"draw_mode", MosaicTool::MODE_RECT}});
+        const auto restore = qScopeGuard([this] { config_->reset_tool("mosaic"); });
+        auto [scene, view] = canvas("mosaic");
+        gesture(view, QPointF(60, 60), QPointF(200, 150), 4);
+        MosaicItem *item = nullptr;
+        for (auto *candidate : scene->items())
+            if (auto *mosaic = dynamic_cast<MosaicItem *>(candidate)) item = mosaic;
+        QVERIFY(item);
+        QVERIFY(item->fill_mode());
+        const auto drawn = item->rect();
+        auto *editor = view->smart_edit_controller->layer_editor.get();
+        if (!editor->is_editing()) editor->start_edit(item);
+        const int before = scene->undo_stack->count();
+        const auto corner = handle_point(view, *handle_of(*editor, HandleType::CORNER_BR));
+        gesture(view, corner, corner + QPointF(40, 30), 4);
+        const auto resized = item->rect();
+        QVERIFY(resized != drawn);
+        QCOMPARE(scene->undo_stack->count() - before, 1);
+        scene->undo_stack->undo();
+        QCOMPARE(item->rect(), drawn);
+        scene->undo_stack->redo();
+        QCOMPARE(item->rect(), resized);
     }
 
     void theTextDeleteButtonRemovesItUndoably() {

@@ -1,6 +1,7 @@
 #include "canvas/undo.h"
 #include "core/logger.h"
 #include "canvas/items/arrow_item.h"
+#include "canvas/items/mosaic_item.h"
 #include "canvas/items/stroke_item.h"
 #include "canvas/items/text_item.h"
 #include <QGraphicsTextItem>
@@ -177,6 +178,11 @@ void EditItemCommand::apply_state(const QVariantMap &state) {
     if (rect.metaType().id() == QMetaType::QRectF) {
         if (auto *r = dynamic_cast<RectItem *>(item)) r->setRect(rect.toRectF());
         else if (auto *e = dynamic_cast<EllipseItem *>(item)) e->setRect(rect.toRectF());
+        else if (auto *m = dynamic_cast<MosaicItem *>(item)) {
+            m->setRect(rect.toRectF());
+            // As at the end of a resize: smart erase rebuilds the restored area at once.
+            m->edit_finished();
+        }
     }
     if (auto *arrow = dynamic_cast<ArrowItem *>(item)) {
         const auto start = state.value("start"), end = state.value("end"), control = state.value("control"), modified = state.value("control_modified");
