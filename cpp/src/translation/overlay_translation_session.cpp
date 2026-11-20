@@ -140,14 +140,19 @@ void OverlayTranslationSession::clear_translations() {
     for (auto &block : blocks_) block.translated.clear();
     planned_.fill(std::nullopt, blocks_.size());
     dirty_.clear();
+    unplaced_.clear();
     apply_layer();
 }
 
 void OverlayTranslationSession::flush() {
     flush_timer_.stop();
     if (dirty_.isEmpty()) return;
-    for (const int index : std::as_const(dirty_))
-        if (index < planned_.size()) planned_[index] = plan_overlay_block(source_, blocks_, index, target_lang_);
+    for (const int index : std::as_const(dirty_)) {
+        if (index >= planned_.size()) continue;
+        bool does_not_fit = false;
+        planned_[index] = plan_overlay_block(source_, blocks_, index, target_lang_, &does_not_fit);
+        if (does_not_fit) unplaced_.insert(index);
+    }
     dirty_.clear();
     apply_layer();
 }
@@ -185,7 +190,12 @@ void OverlayTranslationSession::on_finished(OverlayTranslationWorker *worker, bo
     const bool drawn = std::any_of(planned_.cbegin(), planned_.cend(), [](const std::optional<OverlayPaintedBlock> &entry) { return entry.has_value(); });
     log_info(T("覆盖翻译完成: {count} 个段落已替换", {{"count", static_cast<int>(std::count_if(planned_.cbegin(), planned_.cend(), [](const auto &entry) { return entry.has_value(); }))}}),
              "ScreenshotTranslate");
-    if (!notice.isEmpty()) emit partly_failed(notice);
+    auto indices = unplaced_.values();
+    std::sort(indices.begin(), indices.end());
+    // With nothing drawn at all, even a short label that did not fit is told about.
+    const auto unplaced = drawn ? unplaced_notice(blocks_, indices) : format_unplaced_translations(blocks_, indices);
+    if (!unplaced.isEmpty()) emit translations_did_not_fit(unplaced, notice);
+    else if (!notice.isEmpty()) emit partly_failed(notice);
     else if (!drawn) emit nothing_to_translate();
 }
 }

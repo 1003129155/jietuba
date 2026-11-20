@@ -120,7 +120,7 @@ public:
     QPointer<PreviewPanel> preview_panel;
     // What a finished translation does: pins the long image with the translations painted
     // over its own text and ends the long screenshot. notice names paragraphs left as they were.
-    void finish_translated(const QImage &translated, const QString &notice = {});
+    void finish_translated(const QImage &translated, const QString &notice = {}, const QString &unplaced = {});
     // Locks the buttons that would export or act on a result the worker still owns. Cancel
     // is left live: a slow engine must not trap the user in the wait.
     void set_translation_locked(bool locked);

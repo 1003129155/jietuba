@@ -7613,6 +7613,10 @@ Replace it?</translation>
 <context>
     <name>OverlayTranslation</name>
     <message>
+        <source>Some translations do not fit. The original text is still shown in the image.</source>
+        <translation>Some translations do not fit. The original text is still shown in the image.</translation>
+    </message>
+    <message>
         <source>The translation service is not configured yet.</source>
         <translation>The translation service is not configured yet.</translation>
     </message>

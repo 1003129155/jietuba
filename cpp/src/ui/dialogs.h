@@ -51,5 +51,6 @@ void show_update_dialog(QWidget *parent, const QString &title, const QString &co
 // For flows such as capture that must not block; single_line shows the message
 // in a scrollable read-only field (paths).
 QDialog *show_modeless_warning_dialog(QWidget *parent, const QString &title, const QString &message, bool single_line = false);
+QDialog *show_unplaced_overlay_translations(QWidget *parent, const QString &title, const QString &text, const QString &notice = {});
 void show_error_dialog(QWidget *parent, const QString &title, const QString &message);
 }

@@ -8049,6 +8049,10 @@ Replace it?</source>
 <context>
     <name>OverlayTranslation</name>
     <message>
+        <source>Some translations do not fit. The original text is still shown in the image.</source>
+        <translation>部分譯文放不下，圖片中保留了這些位置的原文。</translation>
+    </message>
+    <message>
         <source>The translation service is not configured yet.</source>
         <translation>翻譯服務尚未設定。</translation>
     </message>

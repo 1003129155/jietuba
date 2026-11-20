@@ -32,6 +32,7 @@
 #include <QLabel>
 #include <QMenu>
 #include <QPainter>
+#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QRandomGenerator>
 #include <QRegularExpression>
@@ -387,10 +388,17 @@ private slots:
         QImage translated(original.size(), QImage::Format_RGB32);
         translated.fill(QColor(9, 190, 120));
         QSignalSpy finished(window, &ScrollCaptureWindow::finished);
-        window->finish_translated(translated);
+        const QString unplaced = "Reset\nReset all settings to their default values.";
+        window->finish_translated(translated, {}, unplaced);
         QCOMPARE(finished.count(), 1);
         QCOMPARE(PinManager::instance()->count(), 1);
         QCOMPARE(PinManager::instance()->get_all_pins().first()->base_pixmap().toImage().convertToFormat(QImage::Format_RGB32), translated);
+        auto *dialog = visible_top_level<QDialog>();
+        QVERIFY(dialog);
+        const auto close_dialog = qScopeGuard([dialog] { dialog->close(); });
+        const auto *details = dialog->findChild<QPlainTextEdit *>();
+        QVERIFY(details && details->isReadOnly());
+        QCOMPARE(details->toPlainText(), unplaced);
         PinManager::instance()->close_all();
     }
 

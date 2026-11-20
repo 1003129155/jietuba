@@ -7666,6 +7666,10 @@ Replace it?</source>
 <context>
     <name>OverlayTranslation</name>
     <message>
+        <source>Some translations do not fit. The original text is still shown in the image.</source>
+        <translation>일부 번역문이 공간에 맞지 않아 이미지에 해당 원문이 표시됩니다.</translation>
+    </message>
+    <message>
         <source>The translation service is not configured yet.</source>
         <translation>번역 서비스가 아직 설정되지 않았습니다.</translation>
     </message>

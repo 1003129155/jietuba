@@ -1484,14 +1484,22 @@ void ScrollCaptureWindow::on_translate_overlay() {
         } catch (const std::exception &) {
         }
         const auto translated = worker->result();
+        const auto unplaced = worker->unplaced_translations();
+        const auto notice = worker->failure_notice();
         if (translated.isNull()) {
             log_stitch(T("[WARN] 长截图没有可替换的文字"));
+            if (!unplaced.isEmpty() || !notice.isEmpty()) {
+                auto *dialog = unplaced.isEmpty() ? show_modeless_warning_dialog(this, tr_text("Translation"), notice)
+                                                  : show_unplaced_overlay_translations(this, tr_text("Translation"), unplaced, notice);
+                connect(dialog, &QObject::destroyed, this, [this] { set_capture_frozen(false); });
+                return;
+            }
             set_capture_frozen(false);
             show_toast(tr_text("Nothing to translate: the text is already in the target language."));
             return;
         }
         log_stitch(T("[OK] 长截图覆盖翻译完成: {count} 个段落已替换", {{"count", worker->painted_blocks()}}), true);
-        finish_translated(translated, worker->failure_notice());
+        finish_translated(translated, notice, unplaced);
     });
     worker->start();
 }
@@ -1539,14 +1547,15 @@ void ScrollCaptureWindow::set_translation_locked(bool locked) {
     for (auto *button : {toolbar->save_btn, toolbar->ocr_btn, toolbar->translate_btn, toolbar->pin_btn, toolbar->finish_btn}) button->setEnabled(!locked);
 }
 
-void ScrollCaptureWindow::finish_translated(const QImage &translated, const QString &notice) {
+void ScrollCaptureWindow::finish_translated(const QImage &translated, const QString &notice, const QString &unplaced) {
     // A long image has no place on screen to be read at: it is pinned, which ends the long
     // screenshot the way the pin button does.
     if (!pin_and_close(translated)) {
         set_capture_frozen(false);
         return;
     }
-    if (!notice.isEmpty()) show_modeless_warning_dialog(nullptr, tr_text("Translation"), notice);
+    if (!unplaced.isEmpty()) show_unplaced_overlay_translations(nullptr, tr_text("Translation"), unplaced, notice);
+    else if (!notice.isEmpty()) show_modeless_warning_dialog(nullptr, tr_text("Translation"), notice);
 }
 
 void ScrollCaptureWindow::on_save() {

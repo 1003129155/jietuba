@@ -2,6 +2,7 @@
 #include "canvas/scene.h"
 #include "ocr/ocr_manager.h"
 #include "settings/tool_settings.h"
+#include "tools/action.h"
 #include "translation/overlay_translation.h"
 #include "translation/overlay_translation_session.h"
 #include "translation/overlay_translation_worker.h"
@@ -12,11 +13,13 @@
 #include <QFontDatabase>
 #include <QImage>
 #include <QPainter>
+#include <QPlainTextEdit>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QThread>
+#include <QtMath>
 #include <atomic>
 #include <mutex>
 #include <cmath>
@@ -145,10 +148,150 @@ private slots:
         QCOMPARE(blocks.size(), 1);
         QCOMPARE(blocks[0].lines, 3);
         // One text for the translation request, lines kept apart.
-        QCOMPARE(blocks[0].source, QString("The quick brown fox\njumps over the lazy dog\nand keeps running."));
+        // One text, read as the sentence it is; the lines themselves are kept beside it.
+        QCOMPARE(blocks[0].source, QString("The quick brown fox jumps over the lazy dog and keeps running."));
+        QCOMPARE(blocks[0].line_texts, QStringList({"The quick brown fox", "jumps over the lazy dog", "and keeps running."}));
+        QCOMPARE(blocks[0].line_rects.size(), 3);
         // The paragraph covers all three lines.
         QCOMPARE(blocks[0].rect, QRectF(10, 10, 300, 46));
         QCOMPARE(blocks[0].line_height, 14.0);
+    }
+
+    void keepsCloseMenuLabelsApartAndStillJoinsProse() {
+        const auto blocks = group_overlay_blocks(result_of({
+            line("Share", QRectF(20, 16, 40, 14)),
+            line("Copy link", QRectF(20, 34, 66, 14)),
+            line("Save", QRectF(20, 52, 34, 14)),
+            line("Open the", QRectF(20, 90, 64, 14)),
+            line("settings window.", QRectF(20, 108, 115, 14)),
+        }));
+        QCOMPARE(blocks.size(), 4);
+        QCOMPARE(blocks[0].source, QString("Share"));
+        QCOMPARE(blocks[1].source, QString("Copy link"));
+        QCOMPARE(blocks[2].source, QString("Save"));
+        QCOMPARE(blocks[3].source, QString("Open the settings window."));
+        QCOMPARE(blocks[3].line_rects, (QVector<QRectF>{QRectF(20, 90, 64, 14), QRectF(20, 108, 115, 14)}));
+    }
+
+    void tiltedTextFollowsItsOriginalAngleAndLeavesAnIconAlone() {
+        const QRectF local(0, 0, 148, 24);
+        QTransform placement;
+        placement.translate(48, 44);
+        placement.rotate(30);
+        auto tilted = line("Settings", local);
+        for (auto &point : tilted.box) point = placement.map(point);
+        auto blocks = group_overlay_blocks(result_of({tilted}));
+        QCOMPARE(blocks.size(), 1);
+        blocks[0].translated = QStringLiteral("Préférences");
+
+        const QRect icon(131, 54, 19, 13);
+        QVERIFY(blocks[0].rect.contains(icon));
+        QImage source(225, 155, QImage::Format_ARGB32_Premultiplied);
+        source.fill(Qt::white);
+        {
+            QPainter painter(&source);
+            painter.fillRect(icon, QColor(181, 52, 85));
+            painter.setWorldTransform(placement);
+            QFont font(page_family());
+            font.setPixelSize(22);
+            painter.setFont(font);
+            painter.drawText(local, Qt::AlignLeft | Qt::AlignVCenter, tilted.text);
+        }
+        const auto plan = plan_overlay_block(source, blocks, 0, "FR");
+        QVERIFY(plan.has_value());
+        const auto forward = plan->text_to_image.map(QPointF(1, 0)) - plan->text_to_image.map(QPointF(0, 0));
+        QVERIFY(std::abs(qRadiansToDegrees(std::atan2(forward.y(), forward.x())) - 30) < 0.1);
+        QVERIFY(!plan->background_region.intersects(icon));
+        const auto layer = render_translation_overlay(source, blocks, "FR");
+        QVERIFY(!layer.isNull());
+        const auto rendered = composited(source, layer);
+        QCOMPARE(differing_pixels(rendered, source, icon), 0);
+        QVERIFY(differing_pixels(rendered, source, blocks[0].rect.toAlignedRect()) > 50);
+        QCOMPARE(paint_translations(source, blocks, "FR"), rendered);
+    }
+
+    void skewedTextMapsToItsCornersAndKeepsTheOverflowFallback() {
+        const QVector<QPointF> quad{{30, 30}, {156, 49}, {145, 76}, {28, 52}};
+        auto skewed = line("Open", {});
+        skewed.box = quad;
+        auto blocks = group_overlay_blocks(result_of({skewed}));
+        QCOMPARE(blocks.size(), 1);
+        QImage source(210, 105, QImage::Format_ARGB32_Premultiplied);
+        source.fill(Qt::white);
+        blocks[0].translated = "Ouvrir";
+        const auto plan = plan_overlay_block(source, blocks, 0, "FR");
+        QVERIFY(plan.has_value());
+        QVERIFY(!plan->text_to_image.isAffine());
+        const auto corners = plan->text_to_image.map(QPolygonF(plan->area));
+        for (int index = 0; index < quad.size(); ++index)
+            QVERIFY(QLineF(corners.at(index), quad.at(index)).length() < 0.1);
+
+        blocks[0].translated = QString("Open the file in another application ").repeated(12);
+        QVector<int> unplaced;
+        QVERIFY(paint_translations(source, blocks, "FR", nullptr, &unplaced).isNull());
+        QCOMPARE(unplaced, QVector<int>{0});
+    }
+
+    void verticalTextKeepsGraphemesUprightAndMovesDownTheColumn() {
+        auto column = line(QStringLiteral("設定"), QRectF(50, 15, 26, 66));
+        column.vertical = true;
+        auto blocks = group_overlay_blocks(result_of({column}));
+        QCOMPARE(blocks.size(), 1);
+        const auto accented = QStringLiteral("A\u0301");
+        blocks[0].translated = accented + u'B';
+        QImage source(100, 110, QImage::Format_ARGB32_Premultiplied);
+        source.fill(Qt::white);
+        const auto plan = plan_overlay_block(source, blocks, 0, "EN");
+        QVERIFY(plan.has_value());
+        QCOMPARE(plan->lines, (QStringList{accented, "B"}));
+        QVERIFY(!plan->text_to_image.isRotating());
+        const QFontMetricsF metrics(plan->font);
+        const auto first = metrics.tightBoundingRect(plan->lines[0]).translated(plan->line_origins[0]).center();
+        const auto second = metrics.tightBoundingRect(plan->lines[1]).translated(plan->line_origins[1]).center();
+        QCOMPARE(first.x(), second.x());
+        QCOMPARE(second.y() - first.y(), 33.0);
+        const auto layer = render_translation_overlay(source, blocks, "EN");
+        QVERIFY(!layer.isNull());
+        QVERIFY(differing_pixels(source, composited(source, layer), blocks[0].rect.toAlignedRect()) > 50);
+    }
+
+    void joinsLinesTheWayTheirScriptReads() {
+        // No space where the script has none, and a word the line end hyphenated is whole again.
+        auto blocks = group_overlay_blocks(result_of({
+            line(QString::fromUtf8("截图后可以直接"), QRectF(10, 10, 200, 14)),
+            line(QString::fromUtf8("在图片上标注。"), QRectF(10, 26, 200, 14)),
+        }));
+        QCOMPARE(blocks.size(), 1);
+        QCOMPARE(blocks[0].source, QString::fromUtf8("截图后可以直接在图片上标注。"));
+        blocks = group_overlay_blocks(result_of({
+            line("Release the mouse to con-", QRectF(10, 10, 300, 14)),
+            line("firm the selection", QRectF(10, 26, 220, 14)),
+        }));
+        QCOMPARE(blocks.size(), 1);
+        QCOMPARE(blocks[0].source, QString("Release the mouse to confirm the selection"));
+    }
+
+    // Items of a list follow each other as closely as a paragraph's lines do, and are not one.
+    void keepsListItemsApart() {
+        auto blocks = group_overlay_blocks(result_of({
+            line("1. Open the settings page.", QRectF(10, 10, 300, 14)),
+            line("2. Choose a save folder.", QRectF(10, 26, 280, 14)),
+            line("which is used from then on", QRectF(10, 42, 290, 14)),
+            line(QString::fromUtf8("3、保存"), QRectF(10, 58, 80, 14)),
+            line(QString::fromUtf8("• Pin the picture"), QRectF(10, 74, 200, 14)),
+            line("- Close it", QRectF(10, 90, 120, 14)),
+        }));
+        QCOMPARE(blocks.size(), 5);
+        QCOMPARE(blocks[1].source, QString("2. Choose a save folder. which is used from then on"));
+        QCOMPARE(blocks[1].lines, 2);
+        // A paragraph that ended on a short last line is not continued either.
+        blocks = group_overlay_blocks(result_of({
+            line("The first paragraph runs the full width of the", QRectF(10, 10, 400, 14)),
+            line("column and ends here.", QRectF(10, 26, 180, 14)),
+            line("The second one starts at the same margin.", QRectF(10, 42, 380, 14)),
+        }));
+        QCOMPARE(blocks.size(), 2);
+        QCOMPARE(blocks[1].source, QString("The second one starts at the same margin."));
     }
 
     void keepsAHeadingApartFromTheTextBelow() {
@@ -176,10 +319,34 @@ private slots:
     void splitsOnADifferentMargin() {
         // An indented line starts something else even when it sits right below.
         const auto blocks = group_overlay_blocks(result_of({
-            line("Username", QRectF(10, 10, 300, 14)),
+            line("Username", QRectF(10, 10, 70, 14)),
             line("Enter the name you signed up with.", QRectF(60, 26, 250, 14)),
         }));
         QCOMPARE(blocks.size(), 2);
+    }
+
+    void aCaptionBesideAParagraphDoesNotBreakIt() {
+        // Two captions in a narrow column fall between the paragraph's lines in height, and come first in
+        // recognition order. Few lines make a column, so no gutter is found: read top down, they would cut it.
+        QVector<OcrLine> lines{line("caption a", QRectF(400, 18, 100, 14)), line("caption b", QRectF(400, 66, 100, 14))};
+        for (int index = 0; index < 6; ++index) lines.append(line(QString("paragraph line %1").arg(index), QRectF(10, 10 + index * 16, 300, 14)));
+        const auto blocks = group_overlay_blocks(result_of(lines));
+        QCOMPARE(blocks.size(), 3);
+        QCOMPARE(blocks[0].lines, 6);
+        QCOMPARE(blocks[0].source, QString("paragraph line 0 paragraph line 1 paragraph line 2 paragraph line 3 paragraph line 4 paragraph line 5"));
+        QCOMPARE(blocks[1].source, QString("caption a"));
+        QCOMPARE(blocks[2].source, QString("caption b"));
+    }
+
+    void anIndentedFirstLineStaysInItsParagraph() {
+        const auto blocks = group_overlay_blocks(result_of({
+            line(QString::fromUtf8("截图后可以直接在图片上标注，也可以先把它钉在屏幕上"), QRectF(40, 10, 260, 14)),
+            line(QString::fromUtf8("再慢慢处理，标注的内容会一直保留在图片里面。"), QRectF(10, 26, 280, 14)),
+            line(QString::fromUtf8("保存时可以选择格式。"), QRectF(10, 42, 150, 14)),
+        }));
+        QCOMPARE(blocks.size(), 1);
+        QCOMPARE(blocks[0].lines, 3);
+        QCOMPARE(blocks[0].rect, QRectF(10, 10, 290, 46));
     }
 
     void keepsSideBySideColumnsApart() {
@@ -275,11 +442,11 @@ private slots:
     void capsTheParagraphLength() {
         // A column of unrelated lines that happens to line up stays several paragraphs.
         QVector<OcrLine> lines;
-        for (int index = 0; index < 16; ++index) lines.append(line(QString("line %1").arg(index), QRectF(10, 10 + index * 16, 200, 14)));
+        for (int index = 0; index < 40; ++index) lines.append(line(QString("line %1").arg(index), QRectF(10, 10 + index * 16, 200, 14)));
         const auto blocks = group_overlay_blocks(result_of(lines));
         QCOMPARE(blocks.size(), 2);
-        QCOMPARE(blocks[0].lines, 12);
-        QCOMPARE(blocks[1].lines, 4);
+        QCOMPARE(blocks[0].lines, 30);
+        QCOMPARE(blocks[1].lines, 10);
     }
 
     void paintsTheTranslationOverTheOriginal() {
@@ -349,38 +516,199 @@ private slots:
         QVERIFY2(light > 10, "no light text was drawn on the dark page");
     }
 
-    void growsIntoTheBlankRoomBelow() {
-        // A translation far longer than the line it replaces cannot stay in the line's own
-        // height, so it takes the empty part of the page under it.
-        const auto source = page(QSize(320, 200), Qt::white, QColor(20, 20, 20), {{"Note", QRectF(10, 10, 260, 18)}});
-        const QString translation = QString("This note is much longer than the single word it replaces, so it needs several lines of its own.");
-        int painted = 0;
-        const auto layer = render_translation_overlay(source, {block_of("Note", translation, QRectF(10, 10, 260, 18), 18)}, "FR", &painted);
-        QCOMPARE(painted, 1);
-        // Below the block's own bottom edge (28) the page was blank, and is now covered.
-        QCOMPARE(qAlpha(layer.pixel(150, 40)), 255);
+    // A recognized box hugs its text, so the size of the original can be read from it: the
+    // translation is set no larger, however short it is and however much room that leaves.
+    void neverSetsATranslationLargerThanItsSource() {
+        QFont font(page_family());
+        font.setPixelSize(28);
+        const QString text = "Getting started";
+        const auto box = QFontMetricsF(font).tightBoundingRect(text).translated(40, 60);
+        OverlayTextBlock block = block_of(text, QString::fromUtf8("入门"), box, box.height());
+        block.line_rects = {box};
+        QImage source(400, 100, QImage::Format_ARGB32_Premultiplied);
+        source.fill(Qt::white);
+        const auto planned = plan_overlay_block(source, {block}, 0, "ZH");
+        QVERIFY(planned.has_value());
+        QCOMPARE(planned->lines, QStringList({QString::fromUtf8("入门")}));
+        // The face differs from the original's, so the size is near it rather than equal.
+        QVERIFY2(planned->font.pixelSize() <= 32 && planned->font.pixelSize() >= 20, qPrintable(QString::number(planned->font.pixelSize())));
+        QCOMPARE(planned->line_rects.first(), block.rect);
     }
 
-    void doesNotGrowOverSomethingElse() {
-        // The same long translation, but the page under it is not blank: growth is refused
-        // and the text stays shrunk inside its own line rather than painting over the icon.
-        auto source = page(QSize(320, 200), Qt::white, QColor(20, 20, 20),
-                           {{"Note", QRectF(10, 10, 260, 18)}, {"Following text", QRectF(10, 50, 260, 18)}});
-        const QColor icon(220, 40, 40);
+    void shrinksOnOneLineOnlyWhenTheWholeLabelFits() {
+        const auto source = page(QSize(320, 200), Qt::white, QColor(20, 20, 20), {{"Note", QRectF(10, 10, 260, 18)}});
+        const auto longer = plan_overlay_block(source, {block_of("Note", "This note is longer than the original", QRectF(10, 10, 260, 18), 18)}, 0, "FR");
+        QVERIFY(longer.has_value());
+        QCOMPARE(longer->lines.size(), 1);
+        QVERIFY(longer->font.pixelSize() >= 10);
+        // Within its row, which may have taken blank page beside the block but stays on the image.
+        QVERIFY(QFontMetricsF(longer->font).horizontalAdvance(longer->text) <= longer->line_rects.first().width() + 0.5);
+        QVERIFY(longer->line_rects.first().right() <= 320.0);
+
+        const QString far_too_long = QString("This note is much longer than the single word it replaces. ").repeated(6);
+        int painted = 0;
+        QVector<int> unplaced;
+        const QVector<OverlayTextBlock> blocks{block_of("Note", far_too_long, QRectF(10, 10, 260, 18), 18)};
+        QVERIFY(paint_translations(source, blocks, "FR", &painted, &unplaced).isNull());
+        QCOMPARE(painted, 0);
+        QCOMPARE(unplaced, QVector<int>{0});
+        QCOMPARE(format_unplaced_translations(blocks, unplaced), QString("Note\n") + far_too_long);
+    }
+
+    void aNeighbouringTranslationCannotEraseTheUnplacedParagraph() {
+        auto paragraph = block_of("First row and second row", QString("A long translation with nowhere to go. ").repeated(8), QRectF(14, 32, 160, 31), 15, 2);
+        paragraph.line_rects = {QRectF(14, 32, 160, 15), QRectF(14, 48, 140, 15)};
+        auto label = block_of("Save", "Save now", QRectF(14, 15, 130, 16), 16);
+        const auto source = page(QSize(250, 100), Qt::white, Qt::black, {{label.source, label.rect}, {"First row", paragraph.line_rects[0]}, {"and second row", paragraph.line_rects[1]}});
+        int painted = 0;
+        QVector<int> unplaced;
+        const auto result = paint_translations(source, {label, paragraph}, "EN", &painted, &unplaced);
+        QCOMPARE(painted, 1);
+        QCOMPARE(unplaced, QVector<int>{1});
+        QVERIFY(differing_pixels(result, source, label.rect.toAlignedRect()) > 0);
+        QCOMPARE(differing_pixels(result, source, paragraph.rect.toAlignedRect().adjusted(0, 0, 1, 1)), 0);
+    }
+
+    // A label of a word or two, a translation that is not: it keeps its size and runs on
+    // over the blank page beside it, as far as the next text or anything that is not page.
+    void aShortLabelRunsOnIntoTheBlankRoomBesideIt() {
+        QFont font(page_family());
+        font.setPixelSize(16);
+        const auto box = QFontMetricsF(font).tightBoundingRect("Esc").translated(20, 40).toAlignedRect();
+        QImage source(400, 80, QImage::Format_ARGB32_Premultiplied);
+        source.fill(Qt::white);
+        const QString translation = "Touche d'echappement";
+        const auto label = [&](const QRect &rect, const QString &text) {
+            OverlayTextBlock block = block_of(text, text == "Esc" ? translation : QString("x"), QRectF(rect), rect.height());
+            block.line_rects = {QRectF(rect)};
+            return block;
+        };
+        const QRect far_text(300, box.top(), 60, box.height());
+        const auto free = plan_overlay_block(source, {label(box, "Esc"), label(far_text, "Cancel")}, 0, "FR");
+        QVERIFY(free.has_value());
+        QCOMPARE(free->lines.size(), 1);
+        QVERIFY2(free->font.pixelSize() >= 12, qPrintable(QString::number(free->font.pixelSize())));
+        QVERIFY(free->line_rects.first().right() > box.right() + 40);
+        QVERIFY(free->line_rects.first().right() < far_text.left());
+        QVERIFY(free->cover.right() >= static_cast<int>(free->line_rects.first().right()) - 1);
+
+        // Text right beside it leaves no room even at the minimum size.
+        const QRect near_text(box.right() + 8, box.top(), 60, box.height());
+        bool does_not_fit = false;
+        QVERIFY(!plan_overlay_block(source, {label(box, "Esc"), label(near_text, "Cancel")}, 0, "FR", &does_not_fit));
+        QVERIFY(does_not_fit);
+        // So does a picture: the room ends where the page does.
         {
             QPainter painter(&source);
-            painter.fillRect(QRect(10, 34, 260, 10), icon);
+            painter.fillRect(QRect(box.right() + 10, box.top() - 4, 30, box.height() + 8), QColor(200, 40, 40));
         }
-        const QString translation = QString("This note is much longer than the single word it replaces, so it needs several lines of its own.");
-        int painted = 0;
-        const auto layer = render_translation_overlay(
-            source, {block_of("Note", translation, QRectF(10, 10, 260, 18), 18), block_of("Following text", "Texte suivant", QRectF(10, 50, 260, 18), 18)}, "FR",
-            &painted);
-        QCOMPARE(painted, 2);
-        // Nothing was painted over the icon, which is not the page's background.
-        QCOMPARE(qAlpha(layer.pixel(150, 40)), 0);
-        // The block's own line, and no more, carries the translation.
-        QCOMPARE(qAlpha(layer.pixel(150, 18)), 255);
+        QVERIFY(!plan_overlay_block(source, {label(box, "Esc"), label(far_text, "Cancel")}, 0, "FR", &does_not_fit));
+        QVERIFY(does_not_fit);
+    }
+
+    void keepsAParagraphsLinesWhereTheOriginalsStood() {
+        OverlayTextBlock block = block_of("first line of it\nsecond line\nthird", "premiere\ndeuxieme", QRectF(20, 20, 300, 78), 18, 3);
+        block.line_rects = {QRectF(20, 20, 300, 18), QRectF(20, 50, 220, 18), QRectF(20, 80, 100, 18)};
+        QImage source(360, 140, QImage::Format_ARGB32_Premultiplied);
+        source.fill(Qt::white);
+        const auto planned = plan_overlay_block(source, {block}, 0, "FR");
+        QVERIFY(planned.has_value());
+        QCOMPARE(planned->lines, QStringList({"premiere", "deuxieme"}));
+        QCOMPARE(planned->line_rects.at(0).center().y(), 29.0);
+        QCOMPARE(planned->line_rects.at(1).center().y(), 59.0);
+        // Ragged on the right: set from the left.
+        QCOMPARE(planned->alignment, Qt::Alignment(Qt::AlignLeft));
+
+        // Lines sharing a centre were centred, lines sharing a right edge were set from the right.
+        block.line_rects = {QRectF(20, 20, 300, 18), QRectF(60, 50, 220, 18), QRectF(120, 80, 100, 18)};
+        QCOMPARE(plan_overlay_block(source, {block}, 0, "FR")->alignment, Qt::Alignment(Qt::AlignHCenter));
+        block.line_rects = {QRectF(20, 20, 300, 18), QRectF(100, 50, 220, 18), QRectF(220, 80, 100, 18)};
+        QCOMPARE(plan_overlay_block(source, {block}, 0, "FR")->alignment, Qt::Alignment(Qt::AlignRight));
+        // One short first line is an indent.
+        block.line_rects = {QRectF(50, 20, 270, 18), QRectF(20, 50, 300, 18), QRectF(20, 80, 300, 18)};
+        QCOMPARE(plan_overlay_block(source, {block}, 0, "FR")->alignment, Qt::Alignment(Qt::AlignLeft));
+    }
+
+    // The fill behind the text is what the cover takes, not the frame around it, nor a
+    // mixture of the two that is on the page nowhere.
+    void coversWithTheFillTheTextStandsOn() {
+        const QColor fill(226, 238, 255), frame(40, 60, 110);
+        QImage source(260, 80, QImage::Format_ARGB32_Premultiplied);
+        source.fill(Qt::white);
+        {
+            QPainter painter(&source);
+            painter.fillRect(QRect(18, 18, 204, 34), frame);
+            painter.fillRect(QRect(21, 21, 198, 28), fill);
+            QFont font(page_family());
+            font.setPixelSize(16);
+            painter.setFont(font);
+            painter.setPen(QColor(20, 30, 60));
+            painter.drawText(QRect(24, 22, 190, 26), Qt::AlignLeft | Qt::AlignVCenter, "Save changes");
+        }
+        const auto planned = plan_overlay_block(source, {block_of("Save changes", "Enregistrer", QRectF(22, 22, 196, 26), 26)}, 0, "FR");
+        QVERIFY(planned.has_value());
+        QCOMPARE(planned->background, fill);
+        // Text right beside another block's is not sampled as page either.
+        const auto beside = plan_overlay_block(
+            source, {block_of("Save changes", "Enregistrer", QRectF(22, 22, 96, 26), 26), block_of("x", "y", QRectF(120, 22, 98, 26), 26)}, 0, "FR");
+        QCOMPARE(beside->background, fill);
+        // Nothing to sample from: a block of one colour takes that colour.
+        QImage flat(100, 40, QImage::Format_ARGB32_Premultiplied);
+        flat.fill(QColor(10, 120, 60));
+        QCOMPARE(plan_overlay_block(flat, {block_of("a", "b", QRectF(0, 0, 100, 40), 40)}, 0, "FR")->background, QColor(10, 120, 60));
+    }
+
+    // Bars standing in for the strokes of a heavy headline: they cover six of the nine rows read
+    // across the box, so inside it the ink runs longer than the page. The page still surrounds it.
+    void aBlockItsGlyphsFillTakesThePageAroundIt() {
+        QImage source(200, 80, QImage::Format_ARGB32_Premultiplied);
+        source.fill(Qt::white);
+        {
+            QPainter painter(&source);
+            for (int y = 20; y < 44; y += 6) painter.fillRect(QRect(20, y, 100, 4), Qt::black);
+        }
+        const auto planned = plan_overlay_block(source, {block_of("Headline", "Titre", QRectF(20, 20, 100, 24), 24)}, 0, "FR");
+        QVERIFY(planned.has_value());
+        QCOMPARE(planned->background, QColor(Qt::white));
+    }
+
+    // Light bars on a page that darkens from left to right by a third of a level a pixel: the
+    // page between them is one run however far it drifts, and the box takes the page's colour
+    // near its middle rather than the bars'.
+    void heavyTextOnAGradientTakesThePageNotTheInk() {
+        QImage source(360, 80, QImage::Format_ARGB32_Premultiplied);
+        {
+            QPainter painter(&source);
+            QLinearGradient page(0, 0, 360, 0);
+            page.setColorAt(0, QColor(250, 150, 30));
+            page.setColorAt(1, QColor(130, 30, 30));
+            painter.fillRect(source.rect(), page);
+            for (int y = 20; y < 44; y += 6) painter.fillRect(QRect(80, y, 200, 4), Qt::white);
+        }
+        const auto planned = plan_overlay_block(source, {block_of("Headline", "Titre", QRectF(80, 20, 200, 24), 24)}, 0, "FR");
+        QVERIFY(planned.has_value());
+        // Halfway along, the page is (190, 90, 30); the box spans 200 px, about 67 levels of red.
+        QVERIFY2(near(planned->background, QColor(190, 90, 30), 40), qPrintable(planned->background.name()));
+    }
+
+    // A box that cuts off a descender below and an accent above: the cover follows the ink out,
+    // and stops at a grey rule the accent touches, which is not the text's.
+    void theCoverFollowsTheInkTheBoxCutsOffButNotARule() {
+        QImage source(240, 100, QImage::Format_ARGB32_Premultiplied);
+        source.fill(Qt::white);
+        {
+            QPainter painter(&source);
+            painter.fillRect(QRect(30, 35, 181, 1), QColor(128, 128, 128));
+            painter.fillRect(QRect(60, 36, 3, 4), Qt::black);
+            painter.fillRect(QRect(100, 50, 3, 15), Qt::black);
+            painter.fillRect(QRect(44, 44, 40, 10), Qt::black);
+        }
+        const auto planned = plan_overlay_block(source, {block_of("text", "Texte", QRectF(40, 40, 160, 20), 20)}, 0, "FR");
+        QVERIFY(planned.has_value());
+        // Two pixels past the box (38..61), then one more row for each row the ink reaches.
+        QCOMPARE(planned->cover.bottom(), 64);
+        QCOMPARE(planned->cover.top(), 36);
+        QVERIFY(!planned->background_region.contains(QPoint(120, 35)));
     }
 
     // Recognition, the requests and the painting together: a paragraph the service refuses
@@ -438,6 +766,99 @@ private slots:
         QCOMPARE(run([](const QString &) { return TranslationResult::failure(TranslationErrorCode::AUTH_FAILED, "invalid key"); }), QString("invalid key"));
         QCOMPARE(run([](const QString &) { return TranslationResult::failure(TranslationErrorCode::INVALID_REQUEST, "text refused"); }), QString("text refused"));
         QCOMPARE(run([](const QString &) { return translated_as(QString()); }), QString("The translation service returned no text."));
+    }
+
+    // A translation that does not fit leaves its original and comes back as text, unless it is
+    // only a short label among translations that were drawn.
+    void theWorkerReturnsTheImageAndTheTextThatWouldNotFit() {
+        const QRectF wide(12, 58, 150, 16);
+        const QString full = QStringLiteral("Réinitialiser toute la configuration réseau et les profils enregistrés sur cet appareil, puis redémarrer");
+        const auto run = [&](const QString &label, const QString &unplaced) {
+            QFont font(page_family());
+            font.setPixelSize(13);
+            const QRectF narrow = QFontMetricsF(font).tightBoundingRect(label).translated(12, 24);
+            const auto source = page(QSize(260, 100), Qt::white, Qt::black, {{label, narrow}, {"Cancel", wide}});
+            const auto service = scripted_service([&](const QString &text) { return translated_as(text == label ? full : QString("Annuler")); });
+            OverlayTranslationWorker worker(source, {{"target_lang", "FR"}}, service);
+            auto block = block_of(label, {}, narrow, narrow.height());
+            block.line_rects = {narrow};
+            worker.set_blocks({block, block_of("Cancel", {}, wide, 16)});
+            QSignalSpy finished(&worker, &OverlayTranslationWorker::finished_signal);
+            worker.start();
+            QVERIFY(finished.wait(10000));
+            QVERIFY(worker.wait(5000));
+            QVERIFY(worker.succeeded());
+            QCOMPARE(worker.painted_blocks(), 1);
+            QCOMPARE(worker.failed_blocks(), 0);
+            QCOMPARE(worker.unplaced_translations(), unplaced);
+            QCOMPARE(differing_pixels(source, worker.result(), narrow.toAlignedRect()), 0);
+            QVERIFY(differing_pixels(source, worker.result(), wide.toAlignedRect()) > 0);
+        };
+        run("Reset all saved network profiles", QString("Reset all saved network profiles\n") + full);
+        run("Reset", QString());
+    }
+
+    // Small print is translated at its own size rather than not at all.
+    void smallPrintIsTranslatedAtItsOwnSize() {
+        QFont font(page_family());
+        font.setPixelSize(9);
+        const QString text = "Terms apply";
+        const auto box = QFontMetricsF(font).tightBoundingRect(text).translated(40, 40);
+        OverlayTextBlock block = block_of(text, QString::fromUtf8("适用条款"), box, box.height());
+        block.line_rects = {box};
+        QImage source(300, 80, QImage::Format_ARGB32_Premultiplied);
+        source.fill(Qt::white);
+        const auto planned = plan_overlay_block(source, {block}, 0, "ZH");
+        QVERIFY(planned.has_value());
+        QVERIFY2(planned->font.pixelSize() <= 10, qPrintable(QString::number(planned->font.pixelSize())));
+    }
+
+    // Hemmed in on the right, a label's translation takes the blank page on its left and ends
+    // where the label ends; with room on both sides it is centred over the label.
+    void aHemmedInLabelUsesTheBlankPageOnItsLeft() {
+        QFont font(page_family());
+        font.setPixelSize(16);
+        const auto box = QFontMetricsF(font).tightBoundingRect("Esc").translated(220, 40).toAlignedRect();
+        QImage source(400, 80, QImage::Format_ARGB32_Premultiplied);
+        source.fill(Qt::white);
+        const auto label = [&](const QRect &rect, const QString &text) {
+            OverlayTextBlock block = block_of(text, text == "Esc" ? QString("Touche d'echappement") : QString("x"), QRectF(rect), rect.height());
+            block.line_rects = {QRectF(rect)};
+            return block;
+        };
+        const QRect beside(box.right() + 3, box.top(), 60, box.height());
+        const auto hemmed = plan_overlay_block(source, {label(box, "Esc"), label(beside, "Cancel")}, 0, "FR");
+        QVERIFY(hemmed.has_value());
+        QCOMPARE(hemmed->alignment, Qt::Alignment(Qt::AlignRight));
+        QVERIFY(hemmed->line_rects.first().left() < box.left() - 40);
+        QVERIFY(hemmed->line_rects.first().right() <= box.right() + 1);
+        QVERIFY(hemmed->cover.left() <= static_cast<int>(hemmed->line_rects.first().left()) + 1);
+        // A little room on the right, the rest on the left: centred.
+        const QRect near(box.right() + 30, box.top(), 60, box.height());
+        const auto centred = plan_overlay_block(source, {label(box, "Esc"), label(near, "Cancel")}, 0, "FR");
+        QVERIFY(centred.has_value());
+        QCOMPARE(centred->alignment, Qt::Alignment(Qt::AlignHCenter));
+        QVERIFY(centred->line_rects.first().right() > box.right());
+        QVERIFY(centred->line_rects.first().left() < box.left());
+    }
+
+    // A paragraph that wraps around a box inside its own area keeps its translation clear of
+    // that box instead of giving up: the rows beside it are only as wide as the room left.
+    void aParagraphWrapsItsTranslationAroundABoxInItsArea() {
+        OverlayTextBlock paragraph = block_of("one\ntwo\nthree\nfour", QString("words of a translation ").repeated(8) + QString("and a little more"), QRectF(20, 20, 300, 76), 16, 4);
+        paragraph.line_texts = {"The first line of the paragraph runs wide", "and so does the second line of it here", "the third is short", "and the fourth"};
+        paragraph.line_rects = {QRectF(20, 20, 300, 16), QRectF(20, 40, 300, 16), QRectF(20, 60, 160, 16), QRectF(20, 80, 160, 16)};
+        const QRectF caption(200, 58, 120, 40);
+        QImage source(360, 120, QImage::Format_ARGB32_Premultiplied);
+        source.fill(Qt::white);
+        const auto planned = plan_overlay_block(source, {paragraph, block_of("Caption", "Legende", caption, 16)}, 0, "EN");
+        QVERIFY(planned.has_value());
+        QVERIFY(planned->lines.size() > 2);
+        const QFontMetricsF metrics(planned->font);
+        for (qsizetype index = 0; index < planned->lines.size(); ++index) {
+            const auto ink = metrics.tightBoundingRect(planned->lines[index]).translated(planned->line_origins[index]);
+            QVERIFY2(!ink.intersects(caption), qPrintable(planned->lines[index]));
+        }
     }
 
     // The translation is a layer on the background, not a change to its pixels.
@@ -598,6 +1019,36 @@ private slots:
         QVERIFY(!session.busy());
         QTest::qWait(300);
         QCOMPARE(failed.count(), 1);
+    }
+
+    void theCaptureShowsTheCompleteUnplacedTranslationAsPlainText() {
+        const QRectF selection(0, 0, 160, 80);
+        const QRectF box(10, 16, 36, 14);
+        const auto source = page(selection.size().toSize(), Qt::white, Qt::black, {{"Reset", box}});
+        CanvasScene scene(source, selection);
+        QWidget capture;
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QSettings settings(dir.filePath("settings.ini"), QSettings::IniFormat);
+        ToolSettingsManager config(settings);
+        set_recognizer_for_test([box](const QImage &) { return result_of({line("Reset", box)}); });
+        const auto restore = qScopeGuard([] { set_recognizer_for_test({}); });
+        ActionTools actions(&scene, &config, &capture);
+        auto *session = actions.overlay_translation();
+        const QString full = "Reset all settings to their default values, including <custom> profiles and shortcuts.";
+        session->make_service = [&] { return scripted_service([&](const QString &) { return translated_as(full); }); };
+        QSignalSpy overflow(session, &OverlayTranslationSession::translations_did_not_fit);
+        QSignalSpy nothing(session, &OverlayTranslationSession::nothing_to_translate);
+        capture.show();
+        QVERIFY(session->show(selection));
+        QTRY_COMPARE(overflow.count(), 1);
+        QCOMPARE(nothing.count(), 0);
+        QVERIFY(!scene.background->overlay_visible());
+        auto *details = capture.findChild<QPlainTextEdit *>();
+        QVERIFY(details);
+        QVERIFY(details->isVisible());
+        QVERIFY(details->isReadOnly());
+        QCOMPARE(details->toPlainText(), QString("Reset\n") + full);
     }
 };
 

@@ -103,7 +103,7 @@ void OverlayTranslationWorker::run() {
                 log_warning(T("覆盖翻译: {count} 个段落未译出: {reason}", {{"count", failed_blocks_}, {"reason", failure_reason_}}), "OverlayTranslation");
         }
         // Drawn here, not on the GUI thread: a long screenshot has hundreds of blocks to fit.
-        if (paint_result_) result_ = paint_translations(image_, blocks_, target_lang_, &painted_blocks_);
+        if (paint_result_) result_ = paint_translations(image_, blocks_, target_lang_, &painted_blocks_, &unplaced_);
         if (cancelled_) return;
         succeeded_ = true;
         emit finished_signal(true);

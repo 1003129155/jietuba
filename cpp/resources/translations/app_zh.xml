@@ -7653,6 +7653,10 @@ Replace it?</source>
 <context>
     <name>OverlayTranslation</name>
     <message>
+        <source>Some translations do not fit. The original text is still shown in the image.</source>
+        <translation>部分译文放不下，图片中保留了这些位置的原文。</translation>
+    </message>
+    <message>
         <source>The translation service is not configured yet.</source>
         <translation>翻译服务尚未配置。</translation>
     </message>

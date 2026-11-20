@@ -7,6 +7,7 @@
 #include <QPair>
 #include <QPointer>
 #include <QRect>
+#include <QSet>
 #include <QTimer>
 #include <functional>
 #include <memory>
@@ -66,6 +67,7 @@ signals:
     void failed(const QString &message);
     // The run ended with some paragraphs left as they were.
     void partly_failed(const QString &notice);
+    void translations_did_not_fit(const QString &text, const QString &notice);
     // The run ended and no paragraph differs from its source.
     void nothing_to_translate();
 
@@ -86,6 +88,7 @@ private:
     // Per block how it is drawn, once its translation is in.
     QVector<std::optional<OverlayPaintedBlock>> planned_;
     QVector<int> dirty_;
+    QSet<int> unplaced_;
     QString target_lang_;
     QTimer flush_timer_;
     QPointer<OverlayTranslationWorker> worker_;

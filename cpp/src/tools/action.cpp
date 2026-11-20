@@ -284,6 +284,9 @@ OverlayTranslationSession *ActionTools::overlay_translation() {
     };
     QObject::connect(session, &OverlayTranslationSession::failed, session, report);
     QObject::connect(session, &OverlayTranslationSession::partly_failed, session, report);
+    QObject::connect(session, &OverlayTranslationSession::translations_did_not_fit, session, [parent](const QString &text, const QString &notice) {
+        if (parent) show_unplaced_overlay_translations(parent, action_tr("Translation"), text, notice);
+    });
     QObject::connect(session, &OverlayTranslationSession::nothing_to_translate, session,
                      [] { show_toast(action_tr("Nothing to translate: the text is already in the target language.")); });
     return session;

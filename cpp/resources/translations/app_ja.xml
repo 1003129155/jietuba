@@ -7675,6 +7675,10 @@ Replace it?</source>
 <context>
     <name>OverlayTranslation</name>
     <message>
+        <source>Some translations do not fit. The original text is still shown in the image.</source>
+        <translation>一部の訳文が収まらなかったため、画像にはその箇所の原文を表示しています。</translation>
+    </message>
+    <message>
         <source>The translation service is not configured yet.</source>
         <translation>翻訳サービスがまだ設定されていません。</translation>
     </message>

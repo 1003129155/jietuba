@@ -36,6 +36,8 @@ public:
     // The image with the translations painted on; null when no block changed.
     QImage result() const { return result_; }
     int painted_blocks() const { return painted_blocks_; }
+    // The notice for translations that did not fit (unplaced_notice), every one when none was drawn.
+    QString unplaced_translations() const { return painted_blocks_ > 0 ? unplaced_notice(blocks_, unplaced_) : format_unplaced_translations(blocks_, unplaced_); }
     // Paragraphs the service did not translate, left as they were.
     int failed_blocks() const { return failed_blocks_; }
     // What to tell the user about them, with the first one's reason; empty when there are none.
@@ -65,6 +67,7 @@ private:
     bool recognized_ = false;
     bool paint_result_ = true;
     QImage result_;
+    QVector<int> unplaced_;
     int painted_blocks_ = 0;
     int failed_blocks_ = 0;
     QString failure_reason_;
