@@ -339,33 +339,10 @@ void GifRecordWindow::on_record_stop() {
     if (stop_pending_) return;
 
     show_stop_progress();
-
-    auto &frames = recorder_->frames();
-    const auto store = recorder_->store();
-    if (store) log_info(T("停止录制, 共 {frame_count} 帧, store=有", {{"frame_count", static_cast<qlonglong>(frames.size())}}), "GIF");
-    else log_info(T("停止录制, 共 {frame_count} 帧, store=无", {{"frame_count", static_cast<qlonglong>(frames.size())}}), "GIF");
-
-    if (store && store->frame_count() == 0) {
-        log_warning(T("FrameStore 为空"), "GIF");
-        dismiss_stop_progress();
-        show_warning_dialog(nullptr, gif_tr("Recording error"), gif_tr("The recording is empty. Please record again."));
-        // Back to an operable overlay and toolbar instead of the red pass-through state.
-        overlay_->set_recording(false);
-        overlay_->set_mode(OverlayMode::RESIZE);
-        record_toolbar_->reset_state();
-        return;
-    }
-    if (frames.empty()) {
-        log_warning(T("录制帧为空，不进入回放"), "GIF");
-        dismiss_stop_progress();
-        overlay_->set_recording(false);
-        overlay_->set_mode(OverlayMode::RESIZE);
-        record_toolbar_->reset_state();
-        return;
-    }
     // Waiting for the capture thread must not run a nested event loop: the user can close the
     // window while it waits, and the deferred deletes a nested loop processes would destroy this
-    // object in the middle of the call. The rest continues in on_stop_finished().
+    // object in the middle of the call. The frames are synced back only once the thread exits, so
+    // everything that reads them continues in on_stop_finished().
     stop_pending_ = true;
     connect(recorder_, &FrameRecorder::stop_finished, this, &GifRecordWindow::on_stop_finished, Qt::UniqueConnection);
     recorder_->stop_async();
@@ -379,9 +356,19 @@ void GifRecordWindow::on_stop_finished() {
     if (!recorder_ || !overlay_ || !record_toolbar_) return;
     auto &frames = recorder_->frames();
     const auto store = recorder_->store();
+    if (store) log_info(T("停止录制, 共 {frame_count} 帧, store=有", {{"frame_count", static_cast<qlonglong>(frames.size())}}), "GIF");
+    else log_info(T("停止录制, 共 {frame_count} 帧, store=无", {{"frame_count", static_cast<qlonglong>(frames.size())}}), "GIF");
     if (store && store->frame_count() == 0) {
-        log_warning(T("停止后 FrameStore 为空"), "GIF");
+        log_warning(T("FrameStore 为空"), "GIF");
         show_warning_dialog(nullptr, gif_tr("Recording error"), gif_tr("The recording is empty. Please record again."));
+        // Back to an operable overlay and toolbar instead of the red pass-through state.
+        overlay_->set_recording(false);
+        overlay_->set_mode(OverlayMode::RESIZE);
+        record_toolbar_->reset_state();
+        return;
+    }
+    if (frames.empty()) {
+        log_warning(T("录制帧为空，不进入回放"), "GIF");
         overlay_->set_recording(false);
         overlay_->set_mode(OverlayMode::RESIZE);
         record_toolbar_->reset_state();
