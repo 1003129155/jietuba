@@ -7689,5 +7689,13 @@ Replace it?</source>
         <source>No text was recognized in the selection.</source>
         <translation>선택 영역에서 텍스트를 인식하지 못했습니다.</translation>
     </message>
+    <message>
+        <source>%1 paragraphs could not be translated and were left as they are.</source>
+        <translation>단락 %1개는 번역하지 못해 원문 그대로 두었습니다.</translation>
+    </message>
+    <message>
+        <source>The translation service returned no text.</source>
+        <translation>번역 서비스가 번역문을 반환하지 않았습니다.</translation>
+    </message>
 </context>
 </TS>

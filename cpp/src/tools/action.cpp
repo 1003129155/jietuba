@@ -300,7 +300,9 @@ void ActionTools::handle_screenshot_translate_overlay() {
                          }
                          apply_translation_overlay(target_scene, translated, source_rect.topLeft(), action_tr("Translate Overlay"));
                          log_info(T("覆盖翻译完成: {count} 个段落已替换", {{"count", worker->painted_blocks()}}), "ScreenshotTranslate");
-                         show_toast(action_tr("Translation applied. Ctrl+Z brings the original text back."));
+                         const auto notice = worker->failure_notice();
+                         if (!notice.isEmpty() && parent) show_modeless_warning_dialog(parent, action_tr("Translation"), notice);
+                         else show_toast(action_tr("Translation applied. Ctrl+Z brings the original text back."));
                      });
     worker->start();
 }

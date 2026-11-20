@@ -7698,5 +7698,13 @@ Replace it?</source>
         <source>No text was recognized in the selection.</source>
         <translation>選択範囲から文字を認識できませんでした。</translation>
     </message>
+    <message>
+        <source>%1 paragraphs could not be translated and were left as they are.</source>
+        <translation>%1 個の段落は翻訳できず、原文のまま残しています。</translation>
+    </message>
+    <message>
+        <source>The translation service returned no text.</source>
+        <translation>翻訳サービスから訳文が返されませんでした。</translation>
+    </message>
 </context>
 </TS>

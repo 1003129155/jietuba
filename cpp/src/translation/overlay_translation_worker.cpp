@@ -30,6 +30,12 @@ OverlayTranslationWorker::OverlayTranslationWorker(const QImage &image, const QV
     quota_error_ = service_->check_quota(*providers_.front());
 }
 
+QString OverlayTranslationWorker::failure_notice() const {
+    if (failed_blocks_ <= 0) return {};
+    const auto notice = overlay_tr("%1 paragraphs could not be translated and were left as they are.").replace("%1", QString::number(failed_blocks_));
+    return failure_reason_.isEmpty() ? notice : notice + "\n" + failure_reason_;
+}
+
 void OverlayTranslationWorker::abort() {
     cancelled_ = true;
     // Interrupts the requests in flight instead of leaving the caller to wait out their
@@ -50,7 +56,7 @@ void OverlayTranslationWorker::run() {
         if (!providers_.front()->is_configured()) return fail(overlay_tr("The translation service is not configured yet."));
         if (quota_error_) return fail(quota_error_->error_message);
         emit progress_changed(0, 0);
-        const auto recognition = OCRManager::instance().recognize(image_, &cancelled_);
+        const auto recognition = recognize_text(image_, &cancelled_);
         if (cancelled_) return;
         if (recognition.code != 100) return fail(recognition.msg.isEmpty() ? overlay_tr("Text recognition failed.") : recognition.msg);
         blocks_ = group_overlay_blocks(recognition);
@@ -69,7 +75,8 @@ void OverlayTranslationWorker::run() {
         if (cancelled_ || translated.cancelled) return;
         translated_chars_ = translated.translated_chars;
         // Nothing came back at all: that is a failure to report, not a capture to leave as it is.
-        if (translated.fatal || translated.failed >= total) return fail(translated.error);
+        if (translated.fatal || translated.failed >= total)
+            return fail(translated.error.isEmpty() ? overlay_tr("The translation service returned no text.") : translated.error);
         for (int index = 0; index < total; ++index) blocks_[index].translated = translated.translations.at(index);
         failed_blocks_ = translated.failed;
         failure_reason_ = translated.error;

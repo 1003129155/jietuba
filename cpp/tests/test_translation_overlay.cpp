@@ -2,12 +2,15 @@
 #include "canvas/scene.h"
 #include "ocr/ocr_manager.h"
 #include "translation/overlay_translation.h"
+#include "translation/overlay_translation_worker.h"
+#include "translation/registry.h"
 #include <QColor>
 #include <QDir>
 #include <QFont>
 #include <QFontDatabase>
 #include <QImage>
 #include <QPainter>
+#include <QSignalSpy>
 #include <QTest>
 #include <cmath>
 
@@ -79,6 +82,34 @@ int differing_pixels(const QImage &left, const QImage &right, const QRect &area)
             if (left.pixel(x, y) != right.pixel(x, y)) ++count;
     return count;
 }
+
+// A translation service whose answer to each text the test decides.
+using Script = std::function<TranslationResult(const QString &)>;
+
+class ScriptedProvider : public TranslationProvider {
+public:
+    explicit ScriptedProvider(Script script) : script_(std::move(script)) { parallel_requests = 2; }
+    QString provider_id() const override { return "scripted"; }
+    QString display_name() const override { return "Scripted"; }
+    bool is_configured() const override { return true; }
+    TranslationResult translate(const TranslationRequest &request) override { return script_(request.text); }
+private:
+    Script script_;
+};
+
+class ScriptedConfig : public TranslationConfig {
+public:
+    QString get_translation_provider() const override { return "scripted"; }
+    QVariantMap get_translation_provider_config(const QString &) const override { return {}; }
+};
+
+std::shared_ptr<TranslationService> scripted_service(const Script &script) {
+    auto registry = std::make_shared<ProviderRegistry>();
+    registry->register_provider("scripted", [script](const ProviderConfig &) { return std::make_unique<ScriptedProvider>(script); }, std::nullopt, "Scripted");
+    return std::make_shared<TranslationService>(registry, std::make_shared<ScriptedConfig>());
+}
+
+TranslationResult translated_as(const QString &text) { return TranslationResult{true, text, {}, std::nullopt, {}}; }
 
 bool near(const QColor &color, const QColor &expected, int tolerance = 8) {
     return std::abs(color.red() - expected.red()) <= tolerance && std::abs(color.green() - expected.green()) <= tolerance &&
@@ -334,6 +365,63 @@ private slots:
         QCOMPARE(qAlpha(layer.pixel(150, 40)), 0);
         // The block's own line, and no more, carries the translation.
         QCOMPARE(qAlpha(layer.pixel(150, 18)), 255);
+    }
+
+    // Recognition, the requests and the painting together: a paragraph the service refuses
+    // keeps its original pixels, and the others are still translated.
+    void theWorkerKeepsWhatTranslatedWhenOneParagraphFails() {
+        const QVector<QPair<QString, QRectF>> texts{{"Settings", QRectF(20, 20, 220, 24)}, {"Cancel", QRectF(20, 90, 220, 24)}, {"Apply", QRectF(20, 160, 220, 24)}};
+        const auto source = page(QSize(320, 220), Qt::white, Qt::black, texts);
+        set_recognizer_for_test([&](const QImage &) {
+            QVector<OcrLine> lines;
+            for (const auto &text : texts) lines.append(line(text.first, text.second));
+            return result_of(lines);
+        });
+        const auto restore = qScopeGuard([] { set_recognizer_for_test({}); });
+        const auto service = scripted_service([](const QString &text) {
+            if (text == "Cancel") return TranslationResult::failure(TranslationErrorCode::INVALID_REQUEST, "text refused");
+            return translated_as(text == "Settings" ? QString::fromUtf8("设置") : QString::fromUtf8("应用"));
+        });
+        OverlayTranslationWorker worker(source, {{"target_lang", "zh-Hans"}}, service);
+        QSignalSpy finished(&worker, &OverlayTranslationWorker::finished_signal);
+        QSignalSpy progress(&worker, &OverlayTranslationWorker::progress_changed);
+        worker.start();
+        QVERIFY(finished.wait(10000));
+        QVERIFY(worker.wait(5000));
+        QVERIFY2(finished.first().first().toBool(), qPrintable(worker.error_text()));
+        QCOMPARE(worker.blocks().size(), 3);
+        QCOMPARE(worker.blocks().at(0).translated, QString::fromUtf8("设置"));
+        QCOMPARE(worker.blocks().at(1).translated, QString());
+        QCOMPARE(worker.failed_blocks(), 1);
+        QVERIFY2(worker.failure_notice().startsWith("1 "), qPrintable(worker.failure_notice()));
+        QVERIFY(worker.failure_notice().endsWith("\ntext refused"));
+        QCOMPARE(worker.painted_blocks(), 2);
+        QCOMPARE(worker.translated_chars(), qint64(8 + 5));
+        // The refused paragraph is untouched, the translated ones are repainted.
+        const auto painted = worker.result().convertToFormat(source.format());
+        QCOMPARE(differing_pixels(source, painted, texts[1].second.toAlignedRect()), 0);
+        QVERIFY(differing_pixels(source, painted, texts[0].second.toAlignedRect()) > 0);
+        QVERIFY(differing_pixels(source, painted, texts[2].second.toAlignedRect()) > 0);
+        // The progress counts every paragraph, the failed one included.
+        QCOMPARE(progress.last().at(0).toInt(), 3);
+        QCOMPARE(progress.last().at(1).toInt(), 3);
+    }
+
+    void theWorkerFailsWhenNothingWasTranslated() {
+        const QVector<QPair<QString, QRectF>> texts{{"Settings", QRectF(20, 20, 220, 24)}, {"Cancel", QRectF(20, 90, 220, 24)}};
+        const auto source = page(QSize(320, 160), Qt::white, Qt::black, texts);
+        set_recognizer_for_test([&](const QImage &) { return result_of({line("Settings", texts[0].second), line("Cancel", texts[1].second)}); });
+        const auto restore = qScopeGuard([] { set_recognizer_for_test({}); });
+        const auto run = [&](const Script &script) {
+            OverlayTranslationWorker worker(source, {{"target_lang", "zh-Hans"}}, scripted_service(script));
+            QSignalSpy finished(&worker, &OverlayTranslationWorker::finished_signal);
+            worker.start();
+            const bool reported = finished.wait(10000) && worker.wait(5000) && !finished.first().first().toBool() && worker.result().isNull();
+            return reported ? worker.error_text() : QString("no failure reported");
+        };
+        QCOMPARE(run([](const QString &) { return TranslationResult::failure(TranslationErrorCode::AUTH_FAILED, "invalid key"); }), QString("invalid key"));
+        QCOMPARE(run([](const QString &) { return TranslationResult::failure(TranslationErrorCode::INVALID_REQUEST, "text refused"); }), QString("text refused"));
+        QCOMPARE(run([](const QString &) { return translated_as(QString()); }), QString("The translation service returned no text."));
     }
 
     void appliesAsOneUndoableStep() {

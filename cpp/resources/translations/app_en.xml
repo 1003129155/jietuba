@@ -7636,5 +7636,13 @@ Replace it?</translation>
         <source>No text was recognized in the selection.</source>
         <translation>No text was recognized in the selection.</translation>
     </message>
+    <message>
+        <source>%1 paragraphs could not be translated and were left as they are.</source>
+        <translation>%1 paragraphs could not be translated and were left as they are.</translation>
+    </message>
+    <message>
+        <source>The translation service returned no text.</source>
+        <translation>The translation service returned no text.</translation>
+    </message>
 </context>
 </TS>

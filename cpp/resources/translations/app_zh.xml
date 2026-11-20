@@ -7678,5 +7678,13 @@ Replace it?</source>
         <source>No text was recognized in the selection.</source>
         <translation>选区里没有识别到文字。</translation>
     </message>
+    <message>
+        <source>%1 paragraphs could not be translated and were left as they are.</source>
+        <translation>有 %1 段没能译出，保留了原文。</translation>
+    </message>
+    <message>
+        <source>The translation service returned no text.</source>
+        <translation>翻译服务没有返回译文。</translation>
+    </message>
 </context>
 </TS>

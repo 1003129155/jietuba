@@ -30,9 +30,10 @@ public:
     // The image with the translations painted on; null when no block changed.
     QImage result() const { return result_; }
     int painted_blocks() const { return painted_blocks_; }
-    // Paragraphs the service did not translate, left as they were, and why the first failed.
+    // Paragraphs the service did not translate, left as they were.
     int failed_blocks() const { return failed_blocks_; }
-    QString failure_reason() const { return failure_reason_; }
+    // What to tell the user about them, with the first one's reason; empty when there are none.
+    QString failure_notice() const;
     // Source characters sent to the provider, for the monthly quota bookkeeping.
     qint64 translated_chars() const { return translated_chars_; }
 signals:
