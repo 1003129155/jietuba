@@ -47,6 +47,10 @@ struct BatchTranslationResult {
     static BatchTranslationResult failure(TranslationErrorCode code, const QString &message) {
         return BatchTranslationResult{false, {}, {}, code, message};
     }
+    // The failure a single-text exchange reported, for a batch that went the same way.
+    static BatchTranslationResult failure(const TranslationResult &single) {
+        return failure(single.error_code.value_or(TranslationErrorCode::UNKNOWN), single.error_message);
+    }
 };
 }
 

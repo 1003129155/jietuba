@@ -8,19 +8,20 @@
 #include <atomic>
 #include <memory>
 #include <optional>
+#include <vector>
 
 namespace jietuba {
-// Recognizes the capture and translates every paragraph on one worker thread: both the OCR
+// Recognizes the capture and translates its paragraphs off the GUI thread: both the OCR
 // engine and the providers block, and the capture window has to stay responsive while the
 // progress bar runs. The image is a value, so nothing here touches a widget.
 class OverlayTranslationWorker : public QThread {
     Q_OBJECT
 public:
-    // The provider is resolved and the quota checked here, on the GUI thread, since both
+    // The providers are resolved and the quota checked here, on the GUI thread, since both
     // read QSettings; run() only makes the network calls.
     OverlayTranslationWorker(const QImage &image, const QVariantMap &params, std::shared_ptr<TranslationService> service, QObject *parent = nullptr);
-    // Stops the OCR at its next band or tile, the request in flight at once, and the
-    // provider at its next check; no result is emitted afterwards.
+    // Stops the OCR at its next band or tile and the requests in flight at once; no result
+    // is emitted afterwards.
     void abort();
     // Read on the GUI thread once finished_signal arrived.
     bool succeeded() const { return succeeded_; }
@@ -29,6 +30,9 @@ public:
     // The image with the translations painted on; null when no block changed.
     QImage result() const { return result_; }
     int painted_blocks() const { return painted_blocks_; }
+    // Paragraphs the service did not translate, left as they were, and why the first failed.
+    int failed_blocks() const { return failed_blocks_; }
+    QString failure_reason() const { return failure_reason_; }
     // Source characters sent to the provider, for the monthly quota bookkeeping.
     qint64 translated_chars() const { return translated_chars_; }
 signals:
@@ -43,17 +47,19 @@ private:
     QString split_sentences_;
     bool preserve_formatting_ = true;
     std::shared_ptr<TranslationService> service_;
-    std::unique_ptr<TranslationProvider> provider_;
+    std::vector<std::unique_ptr<TranslationProvider>> providers_;
     QString configuration_error_;
     std::optional<TranslationResult> quota_error_;
     QVector<OverlayTextBlock> blocks_;
     QImage result_;
     int painted_blocks_ = 0;
+    int failed_blocks_ = 0;
+    QString failure_reason_;
     QString error_;
     bool succeeded_ = false;
     qint64 translated_chars_ = 0;
     std::atomic_bool cancelled_ = false;
-    // Ends the exchange in flight when the capture is cancelled or closed.
+    // Ends the exchanges in flight when the capture is cancelled or closed.
     HttpCancellation cancellation_;
 };
 }

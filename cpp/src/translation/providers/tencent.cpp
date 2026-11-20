@@ -21,6 +21,9 @@ const QSet<QString> UNSUPPORTED_TARGET = {"nl", "pl", "uk"};
 TencentTranslateProvider::TencentTranslateProvider(const ProviderConfig &config)
     : secret_id_(config.value("secret_id").toString().trimmed()), secret_key_(config.value("secret_key").toString().trimmed()) {
     min_timeout = 5;
+    // The API allows five requests a second.
+    parallel_requests = 2;
+    request_interval_ms = 250;
     quota_limit_chars = QUOTA_LIMIT_CHARS;
 }
 

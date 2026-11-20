@@ -43,7 +43,9 @@ public:
     OpenAICompatibleProvider(const ProviderConfig &config, const Defaults &defaults);
     bool is_configured() const override;
     TranslationResult translate(const TranslationRequest &request) override;
-    bool supports_batch() const override { return true; }
+    // Small batches: the reply is generated token by token, so wall time comes from how
+    // many requests run at once, not from how much one request carries.
+    BatchLimits batch_limits() const override { return {8, 900}; }
     BatchTranslationResult translate_batch(const QStringList &texts, const TranslationRequest &request) override;
     QStringList list_models() override;
     QString api_url() const { return base_url_ + "/chat/completions"; }

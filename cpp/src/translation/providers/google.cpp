@@ -49,6 +49,39 @@ TranslationResult GoogleTranslateProvider::translate(const TranslationRequest &r
     return TranslationResult{true, translated, detected.value_or(QString()), std::nullopt, {}};
 }
 
+BatchTranslationResult GoogleTranslateProvider::translate_batch(const QStringList &texts, const TranslationRequest &request) {
+    for (const auto &text : texts)
+        if (text.trimmed().isEmpty()) return BatchTranslationResult::failure(TranslationErrorCode::INVALID_REQUEST, "Text is empty");
+    if (texts.isEmpty()) return BatchTranslationResult::failure(TranslationErrorCode::INVALID_REQUEST, "Text is empty");
+    if (!is_configured()) return BatchTranslationResult::failure(TranslationErrorCode::NOT_CONFIGURED, "Google Cloud Translation API key is not configured");
+    const auto url = API_URL + "?" + python_urlencode({{"key", api_key_}});
+    const auto response = http_request("POST", url, {{"Content-Type", "application/json; charset=utf-8"}}, batch_payload(texts, request), request.timeout);
+    if (response.kind == HttpResponse::HttpError) return BatchTranslationResult::failure(http_error(response));
+    if (response.kind != HttpResponse::Ok)
+        return BatchTranslationResult::failure(TranslationErrorCode::NETWORK_ERROR, response.kind == HttpResponse::Timeout
+                                                                                         ? QString("Request timed out after %1s").arg(request.timeout)
+                                                                                         : "Network error: " + response.reason);
+    const auto raw = parse_json_body(response.body);
+    if (!raw) return BatchTranslationResult::failure(TranslationErrorCode::UNKNOWN, "Failed to parse Google Cloud Translation response");
+    return parse_batch(*raw, static_cast<int>(texts.size()));
+}
+
+QByteArray GoogleTranslateProvider::batch_payload(const QStringList &texts, const TranslationRequest &request) const {
+    QJsonObject body{{"q", QJsonArray::fromStringList(texts)}, {"target", to_google_code(request.target_lang)}, {"format", "text"}};
+    if (request.source_lang) body.insert("source", to_google_code(*request.source_lang));
+    return compact_json(body);
+}
+
+BatchTranslationResult GoogleTranslateProvider::parse_batch(const QJsonValue &raw, int expected) {
+    const auto translations = raw.toObject().value("data").toObject().value("translations").toArray();
+    // One entry per q, in the order sent: anything else cannot be paired up.
+    if (translations.size() != expected) return BatchTranslationResult::failure(TranslationErrorCode::UNKNOWN, "Invalid Google Cloud Translation response");
+    BatchTranslationResult result{true, {}, {}, std::nullopt, {}};
+    for (const auto &item : translations) result.translations << html_unescape(json_text(item.toObject().value("translatedText")));
+    result.detected_source_lang = normalize_language_code(translations.first().toObject().value("detectedSourceLanguage").toString()).value_or(QString());
+    return result;
+}
+
 QString GoogleTranslateProvider::to_google_code(const QString &language_code) {
     static const QHash<QString, QString> codes = {{"zh-Hans", "zh-CN"}, {"zh-Hant", "zh-TW"}, {"en-US", "en"}, {"en-GB", "en"}, {"pt-BR", "pt"}};
     return codes.value(language_code, language_code);

@@ -32,6 +32,17 @@ TranslationResult DeepLProvider::translate(const TranslationRequest &request) {
     return TranslationResult::failure(error_code(message), message);
 }
 
+BatchTranslationResult DeepLProvider::translate_batch(const QStringList &texts, const TranslationRequest &request) {
+    const auto split_sentences = request.options.value("split_sentences", "nonewlines").toString();
+    DeepLService service(api_key_, use_pro_);
+    const auto raw = service.translate_batch(texts, to_deepl_code(request.target_lang),
+                                             request.source_lang ? std::optional<QString>(to_deepl_code(*request.source_lang)) : std::nullopt, split_sentences,
+                                             request.preserve_formatting, request.timeout);
+    if (raw.success) return BatchTranslationResult{true, raw.translated_texts, normalize_language_code(raw.detected_source_lang).value_or(QString()), std::nullopt, {}};
+    const auto message = raw.error.isEmpty() ? QString("Translation failed") : raw.error;
+    return BatchTranslationResult::failure(error_code(message), message);
+}
+
 QString DeepLProvider::to_deepl_code(const QString &language_code) {
     static const QHash<QString, QString> codes = {
         {"zh-Hans", "ZH"}, {"zh-Hant", "ZH-HANT"}, {"en", "EN"}, {"en-US", "EN-US"}, {"en-GB", "EN-GB"}, {"ja", "JA"}, {"ko", "KO"},

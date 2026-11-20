@@ -1,26 +1,13 @@
 #include "translation/overlay_translation_worker.h"
 #include "core/i18n.h"
 #include "core/logger.h"
+#include "translation/paragraph_translator.h"
 #include <algorithm>
 #include <stdexcept>
 
 namespace jietuba {
 namespace {
 QString overlay_tr(const char *text) { return i18n_tr(text, "OverlayTranslation"); }
-
-// An LLM reply costs a round trip plus whatever the model thinks before answering: one
-// call per paragraph turns a long capture into minutes. Both limits matter, since a page
-// of short labels and a few long paragraphs should cost about the same request.
-constexpr int BATCH_MAX_TEXTS = 8;
-constexpr int BATCH_MAX_CHARS = 900;
-
-// A batch that failed for these reasons will fail text by text too, and each retry costs
-// another timeout: report at once instead of crawling through the capture.
-bool fatal_batch_error(const TranslationErrorCode code) {
-    return code == TranslationErrorCode::NOT_CONFIGURED || code == TranslationErrorCode::AUTH_FAILED ||
-           code == TranslationErrorCode::QUOTA_EXCEEDED || code == TranslationErrorCode::RATE_LIMITED ||
-           code == TranslationErrorCode::NETWORK_ERROR;
-}
 }
 
 OverlayTranslationWorker::OverlayTranslationWorker(const QImage &image, const QVariantMap &params, std::shared_ptr<TranslationService> service, QObject *parent)
@@ -31,26 +18,27 @@ OverlayTranslationWorker::OverlayTranslationWorker(const QImage &image, const QV
     split_sentences_ = params.value("split_sentences", "nonewlines").toString();
     if (!service_) return;
     try {
-        provider_ = service_->provider();
+        providers_.push_back(service_->provider());
+        // One instance per request that may be in flight.
+        const int parallel = std::max(1, providers_.front()->parallel_requests);
+        while (static_cast<int>(providers_.size()) < parallel) providers_.push_back(service_->provider());
     } catch (const std::invalid_argument &e) {
+        providers_.clear();
         configuration_error_ = QString::fromUtf8(e.what());
         return;
     }
-    if (provider_) quota_error_ = service_->check_quota(*provider_);
+    quota_error_ = service_->check_quota(*providers_.front());
 }
 
 void OverlayTranslationWorker::abort() {
     cancelled_ = true;
-    // Interrupts the request in flight instead of leaving the caller to wait out its
+    // Interrupts the requests in flight instead of leaving the caller to wait out their
     // timeout, which a thinking model can make a minute long.
     cancellation_.cancel();
     requestInterruption();
 }
 
 void OverlayTranslationWorker::run() {
-    // http_request watches this thread's cancellation, so a cancelled capture ends the
-    // call at once.
-    const HttpCancellationScope scope(&cancellation_);
     const auto fail = [this](const QString &reason) {
         error_ = reason;
         succeeded_ = false;
@@ -58,12 +46,12 @@ void OverlayTranslationWorker::run() {
         emit finished_signal(false);
     };
     try {
-        if (!provider_) return fail(configuration_error_.isEmpty() ? overlay_tr("No translation service is selected.") : configuration_error_);
-        if (!provider_->is_configured()) return fail(overlay_tr("The translation service is not configured yet."));
+        if (providers_.empty()) return fail(configuration_error_.isEmpty() ? overlay_tr("No translation service is selected.") : configuration_error_);
+        if (!providers_.front()->is_configured()) return fail(overlay_tr("The translation service is not configured yet."));
         if (quota_error_) return fail(quota_error_->error_message);
         emit progress_changed(0, 0);
         const auto recognition = OCRManager::instance().recognize(image_, &cancelled_);
-        if (isInterruptionRequested()) return;
+        if (cancelled_) return;
         if (recognition.code != 100) return fail(recognition.msg.isEmpty() ? overlay_tr("Text recognition failed.") : recognition.msg);
         blocks_ = group_overlay_blocks(recognition);
         if (blocks_.isEmpty()) return fail(overlay_tr("No text was recognized in the selection."));
@@ -71,62 +59,25 @@ void OverlayTranslationWorker::run() {
         log_info(T("覆盖翻译: 识别到 {total} 个段落", {{"total", total}}), "OverlayTranslation");
         emit progress_changed(0, total);
 
-        // One failed batch switches the rest of the capture to per-paragraph calls: a model
-        // that will not keep the array contract must not be tried again on every page.
-        bool batch_usable = provider_->supports_batch();
-        int done = 0;
-        // What the batch before ended with. A term or a subject introduced there is invisible
-        // to the next request, and without it the same word comes back rendered differently
-        // on either side of the boundary.
-        QString carry;
-        const auto remember_tail = [this, &carry](int from, int to) {
-            carry.clear();
-            for (int index = std::max(from, to - 2); index < to; ++index)
-                carry += "SOURCE: " + blocks_[index].source.left(240) + "\nTARGET: " + blocks_[index].translated.left(240) + "\n";
-        };
-        while (done < total) {
-            if (isInterruptionRequested()) return;
-            int end = done;
-            int chars = 0;
-            while (end < total && end - done < BATCH_MAX_TEXTS && (end == done || chars + blocks_[end].source.size() <= BATCH_MAX_CHARS)) {
-                chars += blocks_[end].source.size();
-                ++end;
-            }
-            if (batch_usable && end - done > 1) {
-                QStringList texts;
-                texts.reserve(end - done);
-                for (int i = done; i < end; ++i) texts.append(blocks_[i].source);
-                QVariantMap options{{"split_sentences", split_sentences_}};
-                if (!carry.isEmpty()) options.insert("context", carry);
-                const TranslationRequest batch_request(QString(), target_lang_, std::nullopt, preserve_formatting_, 10, options);
-                const auto batch = provider_->translate_batch(texts, batch_request);
-                if (isInterruptionRequested()) return;
-                if (batch.success && batch.translations.size() == texts.size()) {
-                    for (int i = done; i < end; ++i) {
-                        blocks_[i].translated = batch.translations.at(i - done);
-                        translated_chars_ += blocks_[i].source.toUcs4().size();
-                    }
-                    remember_tail(done, end);
-                    done = end;
-                    emit progress_changed(done, total);
-                    continue;
-                }
-                if (batch.error_code && fatal_batch_error(*batch.error_code)) return fail(batch.error_message);
-                batch_usable = false;
-                log_warning(T("批量翻译失败，回退逐段: {reason}", {{"reason", batch.error_message}}), "OverlayTranslation");
-            }
-            const TranslationRequest request(blocks_[done].source, target_lang_, std::nullopt, preserve_formatting_, 10, {{"split_sentences", split_sentences_}});
-            const auto translated = provider_->translate(request);
-            if (isInterruptionRequested()) return;
-            if (!translated.success) return fail(translated.error_message);
-            blocks_[done].translated = translated.translated_text;
-            translated_chars_ += blocks_[done].source.toUcs4().size();
-            ++done;
-            emit progress_changed(done, total);
-        }
+        QStringList texts;
+        texts.reserve(total);
+        for (const auto &block : blocks_) texts.append(block.source);
+        std::vector<TranslationProvider *> providers;
+        for (const auto &provider : providers_) providers.push_back(provider.get());
+        const TranslationRequest prototype(QString(), target_lang_, std::nullopt, preserve_formatting_, 10, {{"split_sentences", split_sentences_}});
+        const auto translated = translate_paragraphs(texts, providers, prototype, &cancellation_, [this](int done, int count) { emit progress_changed(done, count); });
+        if (cancelled_ || translated.cancelled) return;
+        translated_chars_ = translated.translated_chars;
+        // Nothing came back at all: that is a failure to report, not a capture to leave as it is.
+        if (translated.fatal || translated.failed >= total) return fail(translated.error);
+        for (int index = 0; index < total; ++index) blocks_[index].translated = translated.translations.at(index);
+        failed_blocks_ = translated.failed;
+        failure_reason_ = translated.error;
+        if (failed_blocks_ > 0)
+            log_warning(T("覆盖翻译: {count} 个段落未译出: {reason}", {{"count", failed_blocks_}, {"reason", failure_reason_}}), "OverlayTranslation");
         // Drawn here, not on the GUI thread: a long screenshot has hundreds of blocks to fit.
         result_ = paint_translations(image_, blocks_, target_lang_, &painted_blocks_);
-        if (isInterruptionRequested()) return;
+        if (cancelled_) return;
         succeeded_ = true;
         emit finished_signal(true);
     } catch (const std::exception &e) {

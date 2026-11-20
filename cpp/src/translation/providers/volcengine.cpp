@@ -54,6 +54,44 @@ TranslationResult VolcengineTranslateProvider::translate(const TranslationReques
     return handle_response(http_request("POST", request_url(), headers, payload, request.timeout), request.timeout);
 }
 
+BatchTranslationResult VolcengineTranslateProvider::translate_batch(const QStringList &texts, const TranslationRequest &request) {
+    for (const auto &text : texts)
+        if (text.trimmed().isEmpty()) return BatchTranslationResult::failure(TranslationErrorCode::INVALID_REQUEST, "Text is empty");
+    if (texts.isEmpty()) return BatchTranslationResult::failure(TranslationErrorCode::INVALID_REQUEST, "Text is empty");
+    if (!is_configured()) return BatchTranslationResult::failure(TranslationErrorCode::NOT_CONFIGURED, "Volcengine AccessKey/SecretKey is not configured");
+
+    const auto payload = batch_payload(texts, request);
+    const auto x_date = QDateTime::currentDateTimeUtc().toString("yyyyMMdd'T'HHmmss'Z'");
+    HttpHeaders headers;
+    for (const auto &header : signed_headers(payload, x_date))
+        if (header.first != "Host") headers.push_back(header);
+    const auto response = http_request("POST", request_url(), headers, payload, request.timeout);
+    if (response.kind != HttpResponse::Ok) return BatchTranslationResult::failure(handle_response(response, request.timeout));
+    const auto raw = parse_json_body(response.body);
+    if (!raw) return BatchTranslationResult::failure(TranslationErrorCode::UNKNOWN, "Failed to parse Volcengine MT response");
+    return parse_batch(*raw, static_cast<int>(texts.size()));
+}
+
+QByteArray VolcengineTranslateProvider::batch_payload(const QStringList &texts, const TranslationRequest &request) const {
+    return compact_json(QJsonObject{
+        {"SourceLanguage", request.source_lang ? to_code(*request.source_lang) : QString()},
+        {"TargetLanguage", to_code(request.target_lang)},
+        {"TextList", QJsonArray::fromStringList(texts)},
+    });
+}
+
+BatchTranslationResult VolcengineTranslateProvider::parse_batch(const QJsonValue &raw, int expected) const {
+    // The error envelope and the shape are the single-text reply's.
+    const auto checked = parse_response(raw);
+    if (!checked.success) return BatchTranslationResult::failure(checked);
+    const auto results = raw.toObject().value("TranslationList").toArray();
+    // One entry per text, in the order sent: anything else cannot be paired up.
+    if (results.size() != expected) return BatchTranslationResult::failure(TranslationErrorCode::UNKNOWN, INVALID_RESPONSE);
+    BatchTranslationResult result{true, {}, checked.detected_source_lang, std::nullopt, {}};
+    for (const auto &item : results) result.translations << first_text({item.toObject().value("Translation")});
+    return result;
+}
+
 QByteArray VolcengineTranslateProvider::request_payload(const TranslationRequest &request) const {
     return compact_json(QJsonObject{
         {"SourceLanguage", request.source_lang ? to_code(*request.source_lang) : QString()},
