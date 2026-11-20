@@ -369,9 +369,15 @@ std::optional<QString> get_autostart_program() {
     if (RegGetValueW(HKEY_CURRENT_USER, AUTOSTART_REG_KEY, name, RRF_RT_REG_SZ, nullptr, nullptr, &size) != ERROR_SUCCESS) return std::nullopt;
     std::wstring data(size / sizeof(wchar_t), L'\0');
     if (RegGetValueW(HKEY_CURRENT_USER, AUTOSTART_REG_KEY, name, RRF_RT_REG_SZ, nullptr, data.data(), &size) != ERROR_SUCCESS) return std::nullopt;
+    return autostart_program_of(QString::fromWCharArray(data.c_str()));
+}
+
+QString autostart_command(const QString &program) { return '"' + program + '"'; }
+
+QString autostart_program_of(const QString &command) {
     // Of a quoted command line with arguments only the program counts.
-    const QString command = QString::fromWCharArray(data.c_str()).trimmed();
-    return command.startsWith('"') ? command.mid(1, command.indexOf('"', 1) - 1) : command;
+    const QString trimmed = command.trimmed();
+    return trimmed.startsWith('"') ? trimmed.mid(1, trimmed.indexOf('"', 1) - 1) : trimmed;
 }
 
 bool startup_approved_disabled(const wchar_t *approved_key, const QString &name) {
@@ -395,9 +401,9 @@ void set_autostart(bool enabled) {
     }
     const auto *name = reinterpret_cast<LPCWSTR>(AUTOSTART_APP_NAME.utf16());
     if (enabled) {
-        const QString exe_path = QDir::toNativeSeparators(QCoreApplication::applicationFilePath());
-        status = RegSetValueExW(key, name, 0, REG_SZ, reinterpret_cast<const BYTE *>(exe_path.utf16()), static_cast<DWORD>((exe_path.size() + 1) * sizeof(wchar_t)));
-        if (status == ERROR_SUCCESS) log_info(T("已写入开机自启注册表项: {exe_path}", {{"exe_path", exe_path}}), "page6");
+        const QString command = autostart_command(QDir::toNativeSeparators(QCoreApplication::applicationFilePath()));
+        status = RegSetValueExW(key, name, 0, REG_SZ, reinterpret_cast<const BYTE *>(command.utf16()), static_cast<DWORD>((command.size() + 1) * sizeof(wchar_t)));
+        if (status == ERROR_SUCCESS) log_info(T("已写入开机自启注册表项: {exe_path}", {{"exe_path", command}}), "page6");
         else log_exception(QString("RegSetValueEx failed: %1").arg(status), T("设置开机自启"));
     } else {
         // A missing value is fine.
