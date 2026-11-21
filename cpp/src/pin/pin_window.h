@@ -177,6 +177,7 @@ public:
     void flip_image_horizontal();
     void flip_image_vertical();
     void reset_image_transform();
+    const PinImageTransform *image_transform() const { return image_transform_.get(); }
     QImage get_current_image();
     // Maps the pixels of a get_current_image() result of that size to the image's pixels,
     // undoing the pixel ratio, rotation and flips.

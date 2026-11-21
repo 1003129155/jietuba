@@ -506,9 +506,12 @@ impl Database {
             where_clauses.push("group_id IS NULL".to_string());
         }
 
+        // 和分组内一样匹配内容或标题：有标题的条目在列表里显示的就是标题
         if let Some(s) = search.filter(|s| !s.trim().is_empty()) {
-            where_clauses.push("contains_folded(content, ?)".to_string());
-            params_vec.push(Value::from(fold_needle(&s)));
+            let needle = fold_needle(&s);
+            where_clauses.push("(contains_folded(content, ?) OR contains_folded(title, ?))".to_string());
+            params_vec.push(Value::from(needle.clone()));
+            params_vec.push(Value::from(needle));
         }
 
         push_filter_conditions(filter, start_time, end_time, &mut where_clauses, &mut params_vec);
@@ -1224,6 +1227,18 @@ mod maintenance_tests {
             .unwrap().into_iter().map(|item| item.content).collect();
         found.sort();
         found
+    }
+
+    #[test]
+    fn history_search_matches_the_title_the_row_shows() {
+        let db = Database::new(":memory:").unwrap();
+        let mut item = PyClipboardItem::new(0, "ssh deploy@10.0.0.5".to_string(), "text".to_string());
+        item.title = Some("Production server".to_string());
+        db.insert_item(&item).unwrap();
+        add(&db, "unrelated");
+        assert_eq!(search(&db, "production"), vec!["ssh deploy@10.0.0.5"]);
+        assert_eq!(search(&db, "deploy"), vec!["ssh deploy@10.0.0.5"]);
+        assert_eq!(search(&db, "unrelated"), vec!["unrelated"]);
     }
 
     #[test]

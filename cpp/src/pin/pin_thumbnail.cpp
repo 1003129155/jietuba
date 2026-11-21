@@ -28,9 +28,10 @@ void PinThumbnailMode::enter(const std::optional<QRectF> &region) {
     const auto window_rect = win->geometry();
     double scene_x, scene_y;
     if (window_rect.contains(cursor_pos)) {
-        const auto local_pos = win->mapFromGlobal(cursor_pos);
-        scene_x = static_cast<double>(local_pos.x()) / window_rect.width() * win->orig_size().width();
-        scene_y = static_cast<double>(local_pos.y()) / window_rect.height() * win->orig_size().height();
+        // Through the view's own transform: a turned or mirrored pin is not a plain scale of the image.
+        const auto scene_pos = win->view->mapToScene(win->view->viewport()->mapFromGlobal(cursor_pos));
+        scene_x = scene_pos.x();
+        scene_y = scene_pos.y();
     } else {
         scene_x = win->orig_size().width() / 2.0;
         scene_y = win->orig_size().height() / 2.0;
@@ -85,8 +86,14 @@ void PinThumbnailMode::exit() {
 void PinThumbnailMode::update_view() {
     auto *win = win_;
     if (!win->view || !scene_center_) return;
+    // fitInView keeps the rotation and mirroring it starts from, so the thumbnail is the same way up as the pin.
+    QTransform orientation;
+    if (const auto *transform = win->image_transform()) {
+        orientation.scale(transform->flip_h() ? -1.0 : 1.0, transform->flip_v() ? -1.0 : 1.0);
+        orientation.rotate(transform->rotation());
+    }
     if (region_rect_) {
-        win->view->resetTransform();
+        win->view->setTransform(orientation);
         win->view->fitInView(*region_rect_, Qt::KeepAspectRatio);
         return;
     }
@@ -99,7 +106,7 @@ void PinThumbnailMode::update_view() {
     scene_top = std::max(0.0, std::min(scene_top, max_top));
     // The centre may have been clamped.
     scene_center_ = QPointF(scene_left + half, scene_top + half);
-    win->view->resetTransform();
+    win->view->setTransform(orientation);
     win->view->fitInView(QRectF(scene_left, scene_top, size_, size_), Qt::KeepAspectRatio);
 }
 }

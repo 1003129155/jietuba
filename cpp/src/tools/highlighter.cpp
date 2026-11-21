@@ -16,6 +16,7 @@ QString HighlighterTool::load_draw_mode(ToolContext &ctx) const {
 void HighlighterTool::start_rect_draw(const QPointF &pos, ToolContext &ctx) {
     drawing = true;
     start_pos = pos;
+    rect_end = pos;
     const auto color = color_with_opacity(ctx.color, ctx.opacity);
     QPen pen(color, std::max(1.0, ctx.stroke_width));
     pen.setCapStyle(Qt::RoundCap);
@@ -50,7 +51,10 @@ bool HighlighterTool::on_press(const QPointF &pos, Qt::MouseButton button, ToolC
 
 void HighlighterTool::on_move(const QPointF &pos, ToolContext &) {
     if (draw_mode == MODE_RECT) {
-        if (drawing && rect_item && start_pos) rect_item->setRect(QRectF(*start_pos, pos).normalized());
+        if (drawing && rect_item && start_pos) {
+            rect_end = pos;
+            rect_item->setRect(QRectF(*start_pos, pos).normalized());
+        }
         return;
     }
     if (!(drawing && current_item && stroke)) return;
@@ -83,7 +87,9 @@ void HighlighterTool::on_release(const QPointF &pos, ToolContext &ctx) {
 }
 
 void HighlighterTool::on_deactivate(ToolContext &ctx) {
-    finish_freehand(ctx);
+    if (draw_mode == MODE_RECT) {
+        if (drawing) on_release(rect_end, ctx);
+    } else finish_freehand(ctx);
     Tool::on_deactivate(ctx);
 }
 

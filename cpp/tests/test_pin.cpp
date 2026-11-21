@@ -712,6 +712,46 @@ private slots:
         pin->toggle_thumbnail_mode();
         QCOMPARE(pin->geometry(), before);
     }
+    // On a turned or mirrored pin the thumbnail shows what is under the pointer, the way the pin
+    // shows it: the same area, the same way up.
+    void theThumbnailFollowsRotationAndFlips() {
+        QImage image(400, 300, QImage::Format_RGB32);
+        {
+            QPainter painter(&image);
+            painter.fillRect(0, 0, 200, 150, QColor(0xE5, 0x39, 0x35));
+            painter.fillRect(200, 0, 200, 150, QColor(0x43, 0xA0, 0x47));
+            painter.fillRect(0, 150, 200, 150, QColor(0x1E, 0x88, 0xE5));
+            painter.fillRect(200, 150, 200, 150, QColor(0xFD, 0xD8, 0x35));
+        }
+        const QPoint corners[] = {QPoint(-20, -20), QPoint(20, -20), QPoint(-20, 20), QPoint(20, 20)};
+        for (int rotation = 0; rotation < 360; rotation += 90) {
+            for (const bool flip : {false, true}) {
+                auto *pin = new PinWindow(image, QPoint(100, 100), config_);
+                pins_.append(pin);
+                for (int turned = 0; turned < rotation; turned += 90) pin->rotate_image_cw();
+                if (flip) pin->flip_image_horizontal();
+                auto *viewport = pin->view->viewport();
+                const auto state = QString("rotation %1 flip %2").arg(rotation).arg(flip);
+                const auto shown = viewport->grab().toImage();
+                // Over the quarter shown top-left, the thumbnail is filled with that quarter.
+                const QPoint quarter(shown.width() / 4, shown.height() / 4);
+                QCursor::setPos(viewport->mapToGlobal(quarter));
+                pin->toggle_thumbnail_mode();
+                auto thumb = viewport->grab().toImage();
+                QVERIFY2(thumb.pixel(thumb.rect().center()) == shown.pixel(quarter), qPrintable(state));
+                pin->toggle_thumbnail_mode();
+                // Over the middle, the four quarters sit around it as they do on the pin.
+                const QPoint middle = shown.rect().center();
+                QCursor::setPos(viewport->mapToGlobal(middle));
+                pin->toggle_thumbnail_mode();
+                thumb = viewport->grab().toImage();
+                for (const auto &offset : corners)
+                    QVERIFY2(thumb.pixel(thumb.rect().center() + offset) == shown.pixel(middle + offset), qPrintable(state));
+                pin->toggle_thumbnail_mode();
+            }
+        }
+    }
+
     void draggedThumbnailMovesTheRestoredPin() {
         auto *pin = make_pin(QSize(500, 350), QPoint(300, 200));
         const auto before = pin->geometry();

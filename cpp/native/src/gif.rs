@@ -26,7 +26,7 @@ pub struct JbRecordSession {
     stopped_backend: Option<&'static str>,
 }
 
-/// One RGBA32 sprite of w x h.
+/// One premultiplied RGBA32 sprite of w x h.
 #[repr(C)]
 pub struct JbSprite {
     pub data: *const u8,

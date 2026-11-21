@@ -91,6 +91,11 @@ inline constexpr wchar_t AUTOSTART_REG_KEY[] = L"SOFTWARE\\Microsoft\\Windows\\C
 bool get_autostart();
 // The program the Run entry starts; nullopt without one.
 std::optional<QString> get_autostart_program();
+// The Run entry's command for program: quoted, so a path with spaces is not read as a shorter
+// program followed by arguments.
+QString autostart_command(const QString &program);
+// The program a Run entry's command starts, quoted or not.
+QString autostart_program_of(const QString &command);
 // Writes or removes the Run entry; failures are logged.
 void set_autostart(bool enabled);
 // Task Manager's Startup apps switch is kept apart from the Run entry, under this key and the

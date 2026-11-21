@@ -196,6 +196,18 @@ private slots:
         for (const char *scheme : {"file", "http", "https"}) QDesktopServices::unsetUrlHandler(scheme);
     }
 
+    // A change made in the manage window opened from the group bar reloads the list, as one opened
+    // from the window itself does.
+    void theGroupBarPassesManageChangesToTheList() {
+        auto *window = open_window();
+        const int before = window->list_widget->count();
+        QVERIFY(manager().add_item("added in the manage window", "text"));
+        QApplication::processEvents();
+        QCOMPARE(window->list_widget->count(), before);
+        window->group_bar->on_manage_data_changed();
+        QTRY_COMPARE(window->list_widget->count(), before + 1);
+    }
+
     void theListShowsTheHistoryAndPaints() {
         const auto ids = add_texts({"first", "second\nwith a second line"});
         QVERIFY(manager().add_item(file_payload({"C:\\docs\\a.txt", "C:\\docs\\b.txt"}), "file"));

@@ -1,5 +1,6 @@
 #include "core/constants.h"
 #include "core/data_location.h"
+#include "core/platform_utils.h"
 #include "settings/data_folder.h"
 #include "settings/tool_settings.h"
 #include <QCoreApplication>
@@ -312,6 +313,17 @@ private slots:
         QCOMPARE(fix(true, true, std::nullopt, std::nullopt), Fix(false, true));
         QCOMPARE(fix(true, true, other, std::nullopt), Fix(false, std::nullopt));
         for (const auto &task : {program, other, gone, QString()}) QCOMPARE(fix(true, true, std::nullopt, task), Fix(true, std::nullopt));
+    }
+
+    // The Run entry quotes the program, so a path with spaces is not started as a shorter
+    // program plus arguments; entries written either way read back as the same program.
+    void theRunEntryQuotesTheProgram() {
+        const QString program = QString::fromUtf8("C:\\Program Files\\截图吧\\jietuba_lite.exe");
+        QCOMPARE(autostart_command(program), "\"" + program + "\"");
+        QCOMPARE(autostart_program_of(autostart_command(program)), program);
+        // Older builds and the Python version wrote it bare.
+        QCOMPARE(autostart_program_of(program), program);
+        QCOMPARE(autostart_program_of("\"C:\\Python\\python.exe\" \"D:\\src\\main_app.py\""), QString("C:\\Python\\python.exe"));
     }
 
     // Every start the entries follow the switch, whatever changed either of them since.

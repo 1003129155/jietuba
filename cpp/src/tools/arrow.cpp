@@ -44,4 +44,9 @@ void ArrowTool::on_release(const QPointF &pos, ToolContext &ctx) {
     }
     log_debug(T("完成绘制"), "ArrowTool");
 }
+
+void ArrowTool::on_deactivate(ToolContext &ctx) {
+    if (drawing) on_release(current_item ? current_item->end_pos : start_pos, ctx);
+    Tool::on_deactivate(ctx);
+}
 }
