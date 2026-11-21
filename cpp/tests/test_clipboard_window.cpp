@@ -20,7 +20,6 @@
 #include <QDateEdit>
 #include <QDesktopServices>
 #include <QDrag>
-#include <QElapsedTimer>
 #include <QFile>
 #include <QKeyEvent>
 #include <QMimeData>
@@ -178,7 +177,6 @@ private slots:
         env_.config->set_clipboard_multi_paste_keep_merged(false);
         env_.config->set_clipboard_group_bar_position("right");
         env_.config->set_clipboard_open_position("cursor");
-        env_.config->set_clipboard_edge_hide(true);
         env_.config->set_inapp_clipboard_pick_mode("both");
         urls_.urls.clear();
     }
@@ -196,108 +194,6 @@ private slots:
 
     void cleanupTestCase() {
         for (const char *scheme : {"file", "http", "https"}) QDesktopServices::unsetUrlHandler(scheme);
-    }
-
-    void droppingAgainstTheEdgeSticksTheWindowThereAndKeepsItOpen() {
-        auto *window = open_window();
-        window->resize(window->minimumSize());
-        const QRect available = QGuiApplication::primaryScreen()->availableGeometry();
-        QVERIFY(available.width() > window->width() + 60 && available.height() > window->height() + 60);
-        // 距右边 5 像素松手：贴住右边，先保持展开。
-        window->move(available.left() + available.width() - window->width() - 5, available.top() + 20);
-        window->snap_to_edge_for_test();
-        QVERIFY(window->docked_for_test());
-        QVERIFY(!window->dock_collapsed_for_test());
-        QCOMPARE(window->x(), available.left() + available.width() - window->width());
-    }
-
-    void pushingPastTheEdgeTucksItAwayLeavingAStrip() {
-        auto *window = open_window();
-        window->resize(window->minimumSize());
-        const QRect available = QGuiApplication::primaryScreen()->availableGeometry();
-        QVERIFY(available.width() > window->width() + 60);
-        // 往屏幕外推 40 像素：收起，屏幕里只留一条细边。
-        window->move(available.left() + available.width() - window->width() + 40, available.top() + 20);
-        window->snap_to_edge_for_test();
-        QVERIFY(window->docked_for_test());
-        QVERIFY(window->dock_collapsed_for_test());
-        QVERIFY(window->x() > available.left() + available.width() - 20);
-        QVERIFY(window->x() < available.left() + available.width());
-    }
-
-    void droppingCloseEnoughSnapsButDroppingFurtherAwayDoesNot() {
-        auto *window = open_window();
-        window->resize(window->minimumSize());
-        const QRect available = QGuiApplication::primaryScreen()->availableGeometry();
-        QVERIFY(available.width() > window->width() + 120 && available.height() > window->height() + 120);
-        // 竖直方向放中间，免得贴到顶边或底边去；20 像素之内算贴住，往里 40 像素就不该贴。
-        const int y = available.top() + (available.height() - window->height()) / 2;
-        window->move(available.left() + available.width() - window->width() - 20, y);
-        window->snap_to_edge_for_test();
-        QVERIFY(window->docked_for_test());
-        QCOMPARE(window->x(), available.left() + available.width() - window->width());
-        window->move(available.left() + available.width() - window->width() - 40, y);
-        window->snap_to_edge_for_test();
-        QVERIFY(!window->docked_for_test());
-    }
-
-    void theWindowTucksItselfAwayOnceTheMouseLeavesIt() {
-        auto *window = open_window();
-        window->resize(window->minimumSize());
-        const QRect available = QGuiApplication::primaryScreen()->availableGeometry();
-        QVERIFY(available.width() > window->width() + 60 && available.height() > window->height() + 120);
-        const int y = available.top() + (available.height() - window->height()) / 2;
-        window->move(available.left() + available.width() - window->width() - 5, y);
-        window->snap_to_edge_for_test();
-        QVERIFY(window->docked_for_test());
-
-        // 鼠标还在窗口里：轮询跑多久都得让窗口开着。
-        const QPoint inside = window->geometry().center();
-        for (int i = 0; i < 20; ++i) {
-            window->dock_tick_for_test(inside);
-            QTest::qWait(20);
-        }
-        QVERIFY(!window->dock_collapsed_for_test());
-
-        // 鼠标走开：轮询每 50 ms 来一次，也不许把倒计时重置掉。
-        const QPoint away(available.left() + 20, available.top() + 20);
-        QElapsedTimer elapsed;
-        elapsed.start();
-        while (!window->dock_collapsed_for_test() && elapsed.elapsed() < 3000) {
-            window->dock_tick_for_test(away);
-            QTest::qWait(10);
-        }
-        QVERIFY(window->dock_collapsed_for_test());
-    }
-
-    void tuckingAwayAtTheBottomEdgeLeavesTheHandleAboveTheTaskbar() {
-        auto *window = open_window();
-        window->resize(window->minimumSize());
-        const QScreen *screen = QGuiApplication::primaryScreen();
-        const QRect available = screen->availableGeometry();
-        const QRect geo = screen->geometry();
-        // 拖到屏幕底边（有任务栏时就是压在任务栏上）松手：收起，把手留在工作区底边上方，
-        // 而不是钻到任务栏后面去。
-        window->move(geo.left() + (geo.width() - window->width()) / 2, geo.bottom() + 10 - window->height());
-        window->snap_to_edge_for_test();
-        QVERIFY(window->docked_for_test());
-        QVERIFY(window->dock_collapsed_for_test());
-        QVERIFY(window->y() < available.bottom());
-        QVERIFY(available.bottom() - window->y() < 20);
-        QVERIFY(window->y() + window->height() > available.bottom());
-    }
-
-    void turningTuckAwayOffLeavesTheWindowAlone() {
-        auto *window = open_window();
-        window->resize(window->minimumSize());
-        const QRect available = QGuiApplication::primaryScreen()->availableGeometry();
-        const QPoint dropped(available.left() + available.width() - window->width() - 5, available.top() + 20);
-        env_.config->set_clipboard_edge_hide(false);
-        window->move(dropped);
-        window->snap_to_edge_for_test();
-        QVERIFY(!window->docked_for_test());
-        QCOMPARE(window->pos(), dropped);
-        env_.config->set_clipboard_edge_hide(true);
     }
 
     void theListShowsTheHistoryAndPaints() {

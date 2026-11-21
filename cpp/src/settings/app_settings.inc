@@ -207,7 +207,6 @@ SETTING(clipboard_group_bar_position, "clipboard/group_bar_position", QString, "
 SETTING(clipboard_preserve_search, "clipboard/preserve_search", bool, false, Import, Gen, Gen)
 SETTING(clipboard_starter_groups_seeded, "clipboard/starter_groups_seeded", bool, false, Internal, Gen, Gen)
 SETTING(clipboard_open_position, "clipboard/open_position", QString, "cursor", Import, Gen, Gen)
-SETTING(clipboard_edge_hide, "clipboard/edge_hide", bool, true, Import, Gen, Gen)
 SETTING(clipboard_move_to_top_on_paste, "clipboard/move_to_top_on_paste", bool, true, Import, Gen, Gen)
 SETTING(clipboard_hide_grouped_in_history, "clipboard/hide_grouped_in_history", bool, false, Import, Gen, Gen)
 SETTING(clipboard_record_private, "clipboard/record_private", bool, false, Import, Gen, Gen)

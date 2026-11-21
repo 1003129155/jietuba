@@ -70,16 +70,6 @@ public:
     ~ClipboardWindow() override;
     // Window geometry goes to this INI file instead of the registry; empty restores.
     static void set_geometry_file_for_test(const QString &ini_path);
-    // 贴边状态的测试入口：窗口摆在哪里由测试决定，判定和收起仍走正式代码。
-    void snap_to_edge_for_test() { snap_to_edge(); }
-    bool docked_for_test() const { return docked_edge_.has_value(); }
-    bool dock_collapsed_for_test() const { return dock_collapsed_; }
-    // 轮询一次的正式逻辑，光标位置由测试给，免得依赖桌面上真实的鼠标。
-    void dock_tick_for_test(const QPoint &cursor) { dock_tick(cursor); }
-    // Tucked against an edge, whether showing or pulled away behind the handle.
-    bool is_docked() const { return docked_edge_.has_value(); }
-    // Reopens at the cursor after a tuck-away: the hotkey brings it back instead of closing it.
-    void summon_from_dock();
 
     ClipboardManager &manager;
     ClipboardController *controller;
@@ -270,22 +260,6 @@ private:
     // Moves the window above or below area_to_keep_clear_ when it covers it.
     void keep_area_clear();
     void check_and_hide();
-    // Dropped near a screen edge the window sticks to it and stays open while the mouse is
-    // around; once the mouse leaves it slides off the edge leaving a thin handle, and touching
-    // that handle slides it back.
-    void snap_to_edge();
-    void dock_to_edge(Qt::Edge edge, bool collapsed);
-    void collapse_to_dock();
-    void expand_from_dock();
-    void schedule_collapse();
-    void clear_dock();
-    // The window at that edge, either resting against it or tucked behind it.
-    QRect dock_rect(Qt::Edge edge, bool collapsed) const;
-    void on_dock_tick();
-    // One poll with the pointer where it is; split out so a test can place the mouse itself.
-    void dock_tick(const QPoint &cursor);
-    // True while the keyboard is in a field of this window: typing outranks the mouse leaving.
-    bool has_typing_focus() const;
     QRect area_to_keep_clear_;
     // The row as it looks, at most 240 wide, with the number of dragged rows when there are several.
     QPixmap drag_pixmap(qint64 item_id, int count, QPoint *hot_spot) const;
@@ -306,15 +280,6 @@ private:
     int pointer_row_ = -1;
     inline static bool offscreen_warmup_done_ = false;
     FramelessMixin frameless_;
-    // The edge it is stuck to; docked_rect_ is where it rests while open.
-    std::optional<Qt::Edge> docked_edge_;
-    bool dock_collapsed_ = false;
-    QRect docked_rect_;
-    // Watches the pointer while stuck: the strip brings the window back, leaving it tucks it away.
-    QTimer *dock_timer_ = nullptr;
-    QTimer *collapse_timer_ = nullptr;
-    // 最后一次在搜索框里敲字的时间：贴着边打字时窗口不收。
-    QElapsedTimer dock_typing_;
     std::unique_ptr<QSettings> qsettings_;
     std::optional<int> saved_x_, saved_y_;
     int saved_width_ = 450, saved_height_ = 600;

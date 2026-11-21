@@ -4091,14 +4091,6 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>再次打开剪贴板窗口时保留上次的搜索内容</translation>
     </message>
     <message>
-        <source>Tuck Away at Screen Edges</source>
-        <translation>贴边自动收起</translation>
-    </message>
-    <message>
-        <source>Drop the window within a finger's width of a screen edge and it sticks there. Once the mouse leaves, it slides off the edge leaving a thin handle; touching that handle brings it back.</source>
-        <translation>把窗口拖到离屏幕边缘一指宽以内松手就贴住；鼠标移开后窗口滑出屏幕，只留一条细边，鼠标碰到细边就滑回来。</translation>
-    </message>
-    <message>
         <source>List Display</source>
         <translation>列表显示</translation>
     </message>
