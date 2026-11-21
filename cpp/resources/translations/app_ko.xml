@@ -1081,6 +1081,14 @@ Replace it?</source>
         <translation>시간 제한(초)</translation>
     </message>
     <message>
+        <source>Parallel requests</source>
+        <translation>동시 요청 수</translation>
+    </message>
+    <message>
+        <source>Interval (ms)</source>
+        <translation>간격(ms)</translation>
+    </message>
+    <message>
         <source>Instructions</source>
         <translation>추가 지시</translation>
     </message>

@@ -29,11 +29,26 @@ struct ProviderField {
     static ProviderField toggle(const QString &key, const QString &label, const QString &description = {}) { return ProviderField{Toggle, key, label, {}, false, description}; }
 };
 
+// How a caller with many texts may load a service: requests in flight at once, and the least
+// time between the starts of two of them.
+struct RequestPacing {
+    static constexpr int MAX_PARALLEL = 16;
+    static constexpr int MAX_INTERVAL_MS = 5000;
+    int parallel = 4;
+    int interval_ms = 0;
+};
+
+// The two rows every provider page ends its options with. The field keys are
+// <prefix>_parallel_requests and <prefix>_request_interval_ms; the placeholders show defaults.
+std::vector<ProviderField> pacing_fields(const QString &prefix, const RequestPacing &defaults);
+
 struct ProviderMetadata {
     QString provider_id;
     QString display_name;
     std::vector<ProviderField> credentials;
     std::vector<ProviderField> options;
+    // Request pacing; kept apart from options, which are the service's own settings.
+    std::vector<ProviderField> pacing;
     // Which "general translation options" this provider uses; for UI visibility only,
     // requests always carry them and other providers ignore them.
     QSet<QString> supported_request_options;
@@ -41,7 +56,7 @@ struct ProviderMetadata {
     QString notice;
     QString help_label;
     QString help_url;
-    // Credentials plus provider options: everything the provider's page shows.
+    // Credentials, provider options and pacing: everything the provider's page shows.
     std::vector<ProviderField> all_fields() const;
 };
 
@@ -79,8 +94,11 @@ public:
     int min_timeout = 0;
     // For a caller with many texts: how many requests the service takes at once, and the
     // least time between the starts of two of them.
-    int parallel_requests = 4;
-    int request_interval_ms = 0;
+    int parallel_requests = RequestPacing{}.parallel;
+    int request_interval_ms = RequestPacing{}.interval_ms;
+    // The configured pacing, or defaults for a blank or unusable value: the settings are text,
+    // so a typo must not stall a translation. Called at the end of a provider's constructor.
+    void apply_pacing(const RequestPacing &defaults, const QVariantMap &config);
     // Monthly free quota in characters that the service guards; 0 for none.
     qint64 quota_limit_chars = 0;
 };

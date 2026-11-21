@@ -16,14 +16,14 @@ QString sha256_hex(const QByteArray &data) { return QString::fromLatin1(QCryptog
 const QString INVALID_RESPONSE = "Invalid Tencent MT response";
 // Target languages Tencent does not offer.
 const QSet<QString> UNSUPPORTED_TARGET = {"nl", "pl", "uk"};
+// The API allows five requests a second.
+constexpr RequestPacing PACING{2, 250};
 }
 
 TencentTranslateProvider::TencentTranslateProvider(const ProviderConfig &config)
     : secret_id_(config.value("secret_id").toString().trimmed()), secret_key_(config.value("secret_key").toString().trimmed()) {
     min_timeout = 5;
-    // The API allows five requests a second.
-    parallel_requests = 2;
-    request_interval_ms = 250;
+    apply_pacing(PACING, config);
     quota_limit_chars = QUOTA_LIMIT_CHARS;
 }
 
@@ -39,6 +39,7 @@ ProviderMetadata TencentTranslateProvider::class_metadata() {
         ProviderField::toggle("tencent_translate_quota_enabled", "Enable monthly quota guard", "Stop translation once the monthly free quota is reached"),
         ProviderField::text("tencent_translate_quota_limit", "Monthly quota (characters)", "4990000"),
     };
+    metadata.pacing = pacing_fields("tencent_translate", PACING);
     // The API refuses overuse with FailedOperation.NoFreeAmount until the account is
     // upgraded to paid; the local guard is an extra safeguard.
     metadata.notice = "Tencent Cloud TMT: about 5M free characters/month. The API rejects overuse itself; the local quota guard (default on) is extra protection.";

@@ -1082,6 +1082,14 @@ Replace it?</source>
         <translation>超时（秒）</translation>
     </message>
     <message>
+        <source>Parallel requests</source>
+        <translation>并发请求数</translation>
+    </message>
+    <message>
+        <source>Interval (ms)</source>
+        <translation>请求间隔（毫秒）</translation>
+    </message>
+    <message>
         <source>Instructions</source>
         <translation>附加要求</translation>
     </message>

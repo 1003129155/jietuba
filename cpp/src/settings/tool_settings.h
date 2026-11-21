@@ -245,6 +245,8 @@ private:
     void _load_tool_settings(ToolSettings &tool);
     void _save_tool_settings(const ToolSettings &tool);
     QVariant typed_value(const QString &path, const QVariant &fallback) const;
+    // A provider's credentials and own options, without the request pacing.
+    QVariantMap provider_own_config(const QString &provider_id) const;
     // Until the third clipboard slot is saved it follows the old switch; nothing is written.
     void migrate_win_v_slot(QStringList &values) const;
     std::unique_ptr<QSettings> owned_settings_;

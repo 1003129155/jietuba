@@ -1566,6 +1566,14 @@ Replace it?</translation>
         <translation>Timeout (s)</translation>
     </message>
     <message>
+        <source>Parallel requests</source>
+        <translation>Parallel requests</translation>
+    </message>
+    <message>
+        <source>Interval (ms)</source>
+        <translation>Interval (ms)</translation>
+    </message>
+    <message>
         <source>Temperature</source>
         <translation>Temperature</translation>
     </message>

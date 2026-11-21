@@ -6,13 +6,16 @@
 #include <QHash>
 
 namespace jietuba {
-GoogleTranslateProvider::GoogleTranslateProvider(const ProviderConfig &config) : api_key_(config.value("api_key").toString().trimmed()) {}
+GoogleTranslateProvider::GoogleTranslateProvider(const ProviderConfig &config) : api_key_(config.value("api_key").toString().trimmed()) {
+    apply_pacing(RequestPacing{}, config);
+}
 
 ProviderMetadata GoogleTranslateProvider::class_metadata() {
     ProviderMetadata metadata;
     metadata.provider_id = "google";
     metadata.display_name = "Google";
     metadata.credentials = {ProviderField::text("google_translate_api_key", "Google API Key", "Google API Key", true)};
+    metadata.pacing = pacing_fields("google_translate", RequestPacing{});
     metadata.help_label = "Google Cloud Console";
     metadata.help_url = "https://console.cloud.google.com/apis/credentials";
     return metadata;

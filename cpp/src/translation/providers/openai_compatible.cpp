@@ -106,7 +106,7 @@ OpenAICompatibleProvider::OpenAICompatibleProvider(const ProviderConfig &config,
     const auto model = config.value("model").toString().trimmed();
     model_ = model.isEmpty() ? defaults.model : model;
     min_timeout = defaults.min_timeout;
-    parallel_requests = 8;
+    apply_pacing(defaults.pacing, config);
 }
 
 QString OpenAICompatibleProvider::normalize_base_url(QString url) {

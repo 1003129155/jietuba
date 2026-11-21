@@ -165,8 +165,12 @@ private slots:
         config->set_volcengine_translate_secret_key("sk");
         config->set_tencent_translate_secret_id("  id  ");
         config->set_tencent_translate_secret_key("key");
-        QCOMPARE(config->get_translation_provider_config("volcengine"), (QVariantMap{{"access_key_id", "ak"}, {"secret_access_key", "sk"}}));
-        QCOMPARE(config->get_translation_provider_config("tencent"), (QVariantMap{{"secret_id", "id"}, {"secret_key", "key"}}));
+        // The request pacing is blank until set, which leaves the service its own default.
+        const QString blank;
+        QCOMPARE(config->get_translation_provider_config("volcengine"),
+                 (QVariantMap{{"access_key_id", "ak"}, {"secret_access_key", "sk"}, {"parallel_requests", blank}, {"request_interval_ms", blank}}));
+        QCOMPARE(config->get_translation_provider_config("tencent"),
+                 (QVariantMap{{"secret_id", "id"}, {"secret_key", "key"}, {"parallel_requests", blank}, {"request_interval_ms", blank}}));
     }
 
     void usageIsBucketedByMonth() {

@@ -3,7 +3,9 @@
 #include <QHash>
 
 namespace jietuba {
-DeepLProvider::DeepLProvider(const ProviderConfig &config) : api_key_(config.value("api_key").toString()), use_pro_(config.value("use_pro", false).toBool()) {}
+DeepLProvider::DeepLProvider(const ProviderConfig &config) : api_key_(config.value("api_key").toString()), use_pro_(config.value("use_pro", false).toBool()) {
+    apply_pacing(RequestPacing{}, config);
+}
 
 ProviderMetadata DeepLProvider::class_metadata() {
     ProviderMetadata metadata;
@@ -14,6 +16,7 @@ ProviderMetadata DeepLProvider::class_metadata() {
     // Only DeepL's API takes these two; this only drives the UI, requests always carry them.
     metadata.supported_request_options = {"split_sentences", "preserve_formatting"};
     metadata.notice = "DeepL free tier: 500,000 chars/month. Get API key at";
+    metadata.pacing = pacing_fields("deepl", RequestPacing{});
     metadata.help_label = "deepl.com/pro-api";
     metadata.help_url = "https://www.deepl.com/pro-api";
     return metadata;

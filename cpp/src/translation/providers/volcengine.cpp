@@ -18,6 +18,7 @@ const QString INVALID_RESPONSE = "Invalid Volcengine MT response";
 VolcengineTranslateProvider::VolcengineTranslateProvider(const ProviderConfig &config)
     : access_key_id_(config.value("access_key_id").toString().trimmed()), secret_access_key_(config.value("secret_access_key").toString().trimmed()) {
     min_timeout = 5;
+    apply_pacing(RequestPacing{}, config);
     quota_limit_chars = QUOTA_LIMIT_CHARS;
 }
 
@@ -36,6 +37,7 @@ ProviderMetadata VolcengineTranslateProvider::class_metadata() {
     // Overuse is billed rather than refused, so the guard is on by default.
     metadata.notice = "Volcengine machine translation: about 2M free characters/month. Overuse is billed at pay-as-you-go rates, so a local quota guard "
                       "(default on) prevents surprise charges.";
+    metadata.pacing = pacing_fields("volcengine_translate", RequestPacing{});
     metadata.help_label = "Volcengine Console";
     metadata.help_url = "https://console.volcengine.com/iam/keymanage/";
     return metadata;

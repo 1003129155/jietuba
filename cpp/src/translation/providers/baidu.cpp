@@ -7,8 +7,16 @@
 #include <QRandomGenerator>
 
 namespace jietuba {
+namespace {
+// A batch carries up to a hundred texts, so a capture takes few requests. An account without
+// the advanced tier is limited to one a second and is slowed down by the rate limit reply.
+constexpr RequestPacing PACING{4, 50};
+}
+
 BaiduTranslateProvider::BaiduTranslateProvider(const ProviderConfig &config)
-    : appid_(config.value("appid").toString().trimmed()), secret_key_(config.value("secret_key").toString().trimmed()) {}
+    : appid_(config.value("appid").toString().trimmed()), secret_key_(config.value("secret_key").toString().trimmed()) {
+    apply_pacing(PACING, config);
+}
 
 ProviderMetadata BaiduTranslateProvider::class_metadata() {
     ProviderMetadata metadata;
@@ -20,6 +28,7 @@ ProviderMetadata BaiduTranslateProvider::class_metadata() {
         // different credential that fails with the same generic 54001.
         ProviderField::text("baidu_translate_secret_key", "Baidu Secret Key", "Paired with APPID in the Baidu console", true),
     };
+    metadata.pacing = pacing_fields("baidu_translate", PACING);
     metadata.help_label = "Baidu Translate Open Platform";
     metadata.help_url = "https://fanyi-api.baidu.com/manage/developer";
     return metadata;

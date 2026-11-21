@@ -1,12 +1,15 @@
 #include "core/http_client.h"
 #include "translation/deepl_service.h"
+#include "translation/providers/amazon.h"
 #include "translation/providers/azure.h"
 #include "translation/providers/baidu.h"
 #include "translation/providers/custom_llm.h"
 #include "translation/providers/deepl.h"
+#include "translation/providers/deepseek.h"
 #include "translation/providers/google.h"
 #include "translation/providers/tencent.h"
 #include "translation/providers/volcengine.h"
+#include "translation/providers/youdao.h"
 #include <QCoreApplication>
 #include <QElapsedTimer>
 #include <QJsonArray>
@@ -464,7 +467,7 @@ private slots:
     void aBatchTranslationKeepsTheInputOrder() {
         CustomLLMProvider llm({{"api_key", "k"}, {"base_url", server_->url("/v1")}, {"model", "m"}});
         QVERIFY(llm.supports_batch());
-        QCOMPARE(llm.parallel_requests, 8);
+        QVERIFY(llm.parallel_requests > 1);
         const QStringList texts{"Hello", "World", "Good morning"};
         server_->queue({200, "OK", chat_reply("{\"translations\":[\"Bonjour\",\"Monde\",\"Bonjour\"]}")});
         const auto batch = llm.translate_batch(texts, TranslationRequest(QString(), "fr"));
@@ -554,6 +557,58 @@ private slots:
         QVERIFY(failure({200, "OK", {}, 0, true}).startsWith("Network error"));
         QCOMPARE(deepl.translate("  ").error, QString("Text is empty"));
         QCOMPARE(DeepLService("").translate("Hello").error, QString("API key not configured"));
+    }
+
+    // The load a service starts from: what its documentation allows, not one number for all.
+    void eachServiceStartsFromItsOwnPacing() {
+        struct Case {
+            std::unique_ptr<TranslationProvider> provider;
+            int parallel;
+            int interval_ms;
+        };
+        std::vector<Case> cases;
+        cases.push_back({std::make_unique<GoogleTranslateProvider>(ProviderConfig{}), 4, 0});
+        cases.push_back({std::make_unique<AzureTranslateProvider>(ProviderConfig{}), 4, 0});
+        cases.push_back({std::make_unique<DeepLProvider>(ProviderConfig{}), 4, 0});
+        cases.push_back({std::make_unique<AmazonTranslateProvider>(ProviderConfig{}), 4, 0});
+        cases.push_back({std::make_unique<VolcengineTranslateProvider>(ProviderConfig{}), 4, 0});
+        cases.push_back({std::make_unique<YoudaoTranslateProvider>(ProviderConfig{}), 4, 0});
+        cases.push_back({std::make_unique<BaiduTranslateProvider>(ProviderConfig{}), 4, 50});
+        cases.push_back({std::make_unique<TencentTranslateProvider>(ProviderConfig{}), 2, 250});
+        cases.push_back({std::make_unique<DeepSeekProvider>(ProviderConfig{}), 8, 0});
+        // A service the user runs locally queues what it cannot take at once.
+        cases.push_back({std::make_unique<CustomLLMProvider>(ProviderConfig{}), 4, 0});
+        for (const auto &c : cases) {
+            QVERIFY2(c.provider->parallel_requests == c.parallel && c.provider->request_interval_ms == c.interval_ms, qPrintable(c.provider->provider_id()));
+        }
+    }
+
+    // The settings are text: blank and unusable values fall back, the rest is kept inside what a
+    // person can sensibly ask for.
+    void aConfiguredPacingReplacesTheDefault() {
+        const auto baidu = [](const QString &parallel, const QString &interval) {
+            BaiduTranslateProvider provider({{"parallel_requests", parallel}, {"request_interval_ms", interval}});
+            return std::make_pair(provider.parallel_requests, provider.request_interval_ms);
+        };
+        using Pair = std::pair<int, int>;
+        QCOMPARE(baidu("3", "40"), Pair(3, 40));
+        QCOMPARE(baidu("", ""), Pair(4, 50));
+        QCOMPARE(baidu("many", "soon"), Pair(4, 50));
+        QCOMPARE(baidu(" 5 ", " 0 "), Pair(5, 0));
+        // Out of range values are pulled in.
+        QCOMPARE(baidu("0", "-4"), Pair(1, 0));
+        QCOMPARE(baidu("99", "99999"), Pair(16, 5000));
+        // Digits typed through an IME in full-width form.
+        QCOMPARE(baidu(QString::fromUtf8("\xEF\xBC\x93"), QString::fromUtf8("\xEF\xBC\x91\xEF\xBC\x90\xEF\xBC\x90")), Pair(3, 100));
+        // A key that is absent leaves the default, and a setting for one value leaves the other.
+        const BaiduTranslateProvider one({{"parallel_requests", "6"}});
+        QCOMPARE(Pair(one.parallel_requests, one.request_interval_ms), Pair(6, 50));
+        // The language-model services read the same keys over their own defaults.
+        QCOMPARE(DeepSeekProvider({{"parallel_requests", "2"}}).parallel_requests, 2);
+        QCOMPARE(DeepSeekProvider({{"parallel_requests", "x"}}).parallel_requests, 8);
+        QCOMPARE(CustomLLMProvider({{"parallel_requests", "12"}, {"request_interval_ms", "20"}}).parallel_requests, 12);
+        QCOMPARE(CustomLLMProvider({{"parallel_requests", "12"}, {"request_interval_ms", "20"}}).request_interval_ms, 20);
+        QCOMPARE(TencentTranslateProvider({{"request_interval_ms", "1000"}}).request_interval_ms, 1000);
     }
 };
 

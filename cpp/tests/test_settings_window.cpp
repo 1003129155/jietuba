@@ -1575,13 +1575,53 @@ private slots:
         config_->settings().remove("translation/providers/tencent");
     }
 
+    // Every service has its two pacing rows on its page; what they hold, saved or still being typed,
+    // is what its provider is built with, and blank means the provider's own default.
+    void everyServicesPacingRowsReachItsProvider() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.on_nav_changed(4, "translation");
+        QVERIFY(dialog.provider_field_widgets);
+        const auto registry = dialog.translation_registry;
+        QStringList keys;
+        const auto reset = qScopeGuard([this, &keys] {
+            for (const auto &key : keys) config_->set_accessor_value(key, "");
+        });
+        const auto providers = registry->available_providers();
+        QCOMPARE(providers.size(), size_t(12));
+        for (const auto &meta : providers) {
+            QVERIFY2(meta.pacing.size() == 2, qPrintable(meta.provider_id));
+            const auto &parallel = meta.pacing[0];
+            const auto &interval = meta.pacing[1];
+            keys << parallel.config_key << interval.config_key;
+            auto *edit = qobject_cast<QLineEdit *>(dialog.provider_field_widgets->value(parallel.config_key).data());
+            QVERIFY2(edit && dialog.provider_field_widgets->value(interval.config_key), qPrintable(meta.provider_id));
+            QCOMPARE(edit->placeholderText(), parallel.placeholder);
+            const auto build = [&](const QVariantMap &config) { return registry->create(meta.provider_id, config); };
+
+            auto provider = build(config_->get_translation_provider_config(meta.provider_id));
+            QCOMPARE(QString::number(provider->parallel_requests), parallel.placeholder);
+            QCOMPARE(QString::number(provider->request_interval_ms), interval.placeholder);
+
+            QVERIFY(config_->set_accessor_value(parallel.config_key, " 3 "));
+            QVERIFY(config_->set_accessor_value(interval.config_key, "70"));
+            provider = build(config_->get_translation_provider_config(meta.provider_id));
+            QVERIFY2(provider->parallel_requests == 3 && provider->request_interval_ms == 70, qPrintable(meta.provider_id));
+
+            edit->setText("5");
+            const auto fields = provider_fields::provider_fields(*registry, meta.provider_id);
+            const auto pending = provider_fields::pending_config(config_, fields, *dialog.provider_field_widgets);
+            provider = build(pending->get_translation_provider_config(meta.provider_id));
+            QVERIFY2(provider->parallel_requests == 5, qPrintable(meta.provider_id));
+        }
+    }
+
     void youdaoCredentialsReachTheProvider() {
         QVERIFY(config_->set_accessor_value("youdao_translate_app_key", " app "));
         QVERIFY(config_->set_accessor_value("youdao_translate_app_secret", " secret "));
         QCOMPARE(config_->accessor_value("youdao_translate_app_key")->toString(), QString("app"));
-        QCOMPARE(config_->get_translation_provider_config("youdao"), (QVariantMap{{"app_key", "app"}, {"app_secret", "secret"}}));
+        QCOMPARE(config_->get_translation_provider_config("youdao"), (QVariantMap{{"app_key", "app"}, {"app_secret", "secret"}, {"parallel_requests", ""}, {"request_interval_ms", ""}}));
         config_->settings().remove("translation/providers/youdao");
-        QCOMPARE(config_->get_translation_provider_config("youdao"), (QVariantMap{{"app_key", ""}, {"app_secret", ""}}));
+        QCOMPARE(config_->get_translation_provider_config("youdao"), (QVariantMap{{"app_key", ""}, {"app_secret", ""}, {"parallel_requests", ""}, {"request_interval_ms", ""}}));
     }
 
     void quotaProvidersShowTheirUsageUnderTheNotice() {

@@ -17,7 +17,9 @@ QString sha256_hex(const QByteArray &data) { return QString::fromLatin1(QCryptog
 
 AmazonTranslateProvider::AmazonTranslateProvider(const ProviderConfig &config)
     : region_(config.value("region", "us-west-2").toString().trimmed()), access_key_id_(config.value("access_key_id").toString().trimmed()),
-      secret_access_key_(config.value("secret_access_key").toString().trimmed()), session_token_(config.value("session_token").toString().trimmed()) {}
+      secret_access_key_(config.value("secret_access_key").toString().trimmed()), session_token_(config.value("session_token").toString().trimmed()) {
+    apply_pacing(RequestPacing{}, config);
+}
 
 ProviderMetadata AmazonTranslateProvider::class_metadata() {
     ProviderMetadata metadata;
@@ -29,6 +31,7 @@ ProviderMetadata AmazonTranslateProvider::class_metadata() {
         ProviderField::text("amazon_translate_secret_access_key", "Secret Access Key", "Secret Access Key", true),
         ProviderField::text("amazon_translate_session_token", "Session Token", QString::fromUtf8("可选，临时凭据使用"), true),
     };
+    metadata.pacing = pacing_fields("amazon_translate", RequestPacing{});
     metadata.help_label = "console.aws.amazon.com";
     metadata.help_url = "https://console.aws.amazon.com/iam/home#/security_credentials";
     return metadata;

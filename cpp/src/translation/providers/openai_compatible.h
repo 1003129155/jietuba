@@ -38,6 +38,9 @@ public:
         // Fixed fields added to the request body; parameter names differ per
         // service and some reject unknown ones, so they are opt-in.
         QJsonObject extra_body;
+        // A hosted service takes many requests at once; a service the user runs locally
+        // queues them, and a queued request waits out its timeout.
+        RequestPacing pacing{8, 0};
     };
     static constexpr int MODELS_TIMEOUT = 15;
     OpenAICompatibleProvider(const ProviderConfig &config, const Defaults &defaults);

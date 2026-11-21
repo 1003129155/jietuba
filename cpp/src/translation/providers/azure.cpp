@@ -10,6 +10,7 @@ AzureTranslateProvider::AzureTranslateProvider(const ProviderConfig &config)
     : api_key_(config.value("api_key").toString().trimmed()), region_(config.value("region").toString().trimmed()) {
     endpoint_ = config.value("endpoint").toString().trimmed();
     while (endpoint_.endsWith('/')) endpoint_.chop(1);
+    apply_pacing(RequestPacing{}, config);
 }
 
 ProviderMetadata AzureTranslateProvider::class_metadata() {
@@ -21,6 +22,7 @@ ProviderMetadata AzureTranslateProvider::class_metadata() {
         ProviderField::text("azure_translate_region", "Azure Region", "eastasia"),
         ProviderField::text("azure_translate_endpoint", "Azure Endpoint", "Optional, use default if empty"),
     };
+    metadata.pacing = pacing_fields("azure_translate", RequestPacing{});
     metadata.help_label = "portal.azure.com";
     metadata.help_url = "https://portal.azure.com/";
     return metadata;
