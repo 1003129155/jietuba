@@ -141,7 +141,7 @@ QVariant DragOutMimeData::retrieveData(const QString &mime_type, QMetaType type)
     return {};
 }
 
-int DragOutMimeData::removal_delay_ms(qint64 bytes) { return static_cast<int>(std::min<qint64>(5000 + bytes / 100, 600000)); }
+int DragOutMimeData::removal_delay_ms(qint64 bytes) { return static_cast<int>(std::min<qint64>(60000 + bytes / 100, 600000)); }
 
 void DragOutMimeData::remove_stale_folders(const QString &temp_root, int max_age_seconds) {
     const QDateTime cutoff = QDateTime::currentDateTime().addSecs(-max_age_seconds);

@@ -227,8 +227,8 @@ private slots:
     }
 
     void filesStayLongerTheLargerTheyAre() {
-        QCOMPARE(ItemDragMimeData::removal_delay_ms(0), 5000);
-        QCOMPARE(ItemDragMimeData::removal_delay_ms(300000), 8000);
+        QCOMPARE(ItemDragMimeData::removal_delay_ms(0), 60000);
+        QCOMPARE(ItemDragMimeData::removal_delay_ms(300000), 63000);
         QCOMPARE(ItemDragMimeData::removal_delay_ms(qint64(1) << 40), 600000);
     }
 };

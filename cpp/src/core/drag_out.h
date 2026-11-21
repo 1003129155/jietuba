@@ -80,7 +80,7 @@ public:
     // The files written so far; empty until a target asked for them.
     QStringList written_files() const { return written_.value_or(QStringList{}); }
 
-    // Five seconds plus 100 KB/s of the files' size, at most ten minutes.
+    // One minute plus one second per 100 kB, at most ten minutes.
     static int removal_delay_ms(qint64 bytes);
     // Removes drag folders older than `max_age_seconds`, left behind when the program exited before removing them:
     // an hour while running, every one at start-up, when no drag of this run can be in progress.
