@@ -1832,10 +1832,6 @@ Replace it?</source>
         <translation>钉图</translation>
     </message>
     <message>
-        <source>Confirm and save</source>
-        <translation>确定并保存</translation>
-    </message>
-    <message>
         <source>Cancel screenshot (ESC)</source>
         <translation>结束截图 (ESC)</translation>
     </message>

@@ -1875,10 +1875,6 @@ Replace it?</source>
         <translation>ピン留め</translation>
     </message>
     <message>
-        <source>Confirm and save</source>
-        <translation>確定して保存</translation>
-    </message>
-    <message>
         <source>Cancel screenshot (ESC)</source>
         <translation>スクリーンショットを終了 (ESC)</translation>
     </message>

@@ -1850,10 +1850,6 @@ Replace it?</source>
         <translation>이미지 고정</translation>
     </message>
     <message>
-        <source>Confirm and save</source>
-        <translation>확인 후 저장</translation>
-    </message>
-    <message>
         <source>Cancel screenshot (ESC)</source>
         <translation>스크린샷 취소 (ESC)</translation>
     </message>

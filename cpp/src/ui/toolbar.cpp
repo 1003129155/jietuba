@@ -211,7 +211,7 @@ void Toolbar::init_ui() {
     redo_btn = add_button("redo", QString::fromUtf8("svg/复原.svg"), "Redo", tool, [this] { emit redo_clicked(); });
     cancel_btn = add_button("cancel", QString::fromUtf8("svg/结束截图.svg"), "Cancel screenshot (ESC)", wide, [this] { emit cancel_clicked(); });
     pin_btn = add_button("pin", QString::fromUtf8("svg/钉图.svg"), "Pin image", wide, [this] { emit pin_clicked(); });
-    confirm_btn = add_button("confirm", QString::fromUtf8("svg/确定.svg"), "Confirm and save", wide, [this] { emit confirm_clicked(); });
+    confirm_btn = add_button("confirm", QString::fromUtf8("svg/确定.svg"), "Confirm", wide, [this] { emit confirm_clicked(); });
 
     // "...": hover or click opens folded buttons; registered like a button, arranged last.
     more_btn = new ToolbarMoreHandle(this);

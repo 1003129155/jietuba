@@ -397,6 +397,7 @@ private slots:
     void theToolbarFoldsHidesAndRereadsItsLayout() {
         Toolbar toolbar;
         toolbar.show();
+        QCOMPARE(toolbar.confirm_btn->toolTip(), QStringLiteral("Confirm"));
         // Low-frequency buttons start folded into "...".
         QVERIFY(toolbar.scan_code_btn->parentWidget() != &toolbar || toolbar.scan_code_btn->isHidden());
         QVERIFY(toolbar.copy_btn->isHidden());
