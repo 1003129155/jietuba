@@ -179,9 +179,8 @@ jobs:
           path: ${{ env.IDENTITY_NAME }}.msixbundle
           if-no-files-found: error
 
-  # 把轻量版的 .msixbundle 传进 Partner Center 的更新草稿，不提交认证：发行说明由人填好后在产品页点提交，
-  # 和 GitHub Release 先建草稿是同一个做法。只在打标签时跑；仓库变量 MSSTORE_PRODUCT_ID_LITE（Store ID）
-  # 为空时跳过。凭据是关联到 Partner Center 账号的 Entra 应用，存在仓库 Secrets 里。
+  # 打标签时把轻量版的 .msixbundle 上传到 Partner Center 并提交认证。
+  # 仓库变量 MSSTORE_PRODUCT_ID_LITE（Store ID）为空时跳过。凭据存在仓库 Secrets 里。
   msstore:
     needs: msix
     if: startsWith(github.ref, 'refs/tags/') && vars.MSSTORE_PRODUCT_ID_LITE != ''
@@ -196,7 +195,7 @@ jobs:
       - name: Setup Microsoft Store Developer CLI
         uses: microsoft/microsoft-store-apppublisher@cc9910a8d59f2eb55cbb83df0a3800cf3b5300e0 # v1.4
 
-      - name: Upload package to a draft submission
+      - name: Verify package version and submit to Microsoft Store
         env:
           TENANT_ID: ${{ secrets.MSSTORE_TENANT_ID }}
           SELLER_ID: ${{ secrets.MSSTORE_SELLER_ID }}
@@ -204,10 +203,32 @@ jobs:
           CLIENT_SECRET: ${{ secrets.MSSTORE_CLIENT_SECRET }}
           PRODUCT_ID: ${{ vars.MSSTORE_PRODUCT_ID_LITE }}
         run: |
+          $bundles = @(Get-ChildItem -LiteralPath msix -Filter '*.msixbundle' -File)
+          if ($bundles.Count -ne 1) { throw "Expected exactly one .msixbundle, found $($bundles.Count)." }
+          $bundle = $bundles[0]
+          $expectedVersion = "$($env:GITHUB_REF_NAME.Substring('release-'.Length)).0"
+          $archive = [System.IO.Compression.ZipFile]::OpenRead($bundle.FullName)
+          try {
+            $entry = $archive.GetEntry('AppxMetadata/AppxBundleManifest.xml')
+            if ($null -eq $entry) { throw 'Bundle manifest is missing.' }
+            $manifest = [System.Xml.XmlDocument]::new()
+            $stream = $entry.Open()
+            try {
+              $manifest.Load($stream)
+            } finally {
+              $stream.Dispose()
+            }
+          } finally {
+            $archive.Dispose()
+          }
+          $version = $manifest.DocumentElement.Identity.Version
+          if ($version -ne $expectedVersion) { throw "Bundle version $version does not match $expectedVersion." }
+          $bundle = Rename-Item -LiteralPath $bundle.FullName -NewName "$($bundle.BaseName)_$expectedVersion.msixbundle" -PassThru
+          Write-Host "Submitting $($bundle.Name) (version $version)"
+
           msstore reconfigure --tenantId $env:TENANT_ID --sellerId $env:SELLER_ID --clientId $env:CLIENT_ID --clientSecret $env:CLIENT_SECRET
           if ($LASTEXITCODE -ne 0) { throw "msstore reconfigure failed" }
-          $bundle = (Get-ChildItem msix\*.msixbundle | Select-Object -First 1).FullName
-          msstore publish $bundle --appId $env:PRODUCT_ID --noCommit
+          msstore publish $bundle.FullName --appId $env:PRODUCT_ID
           if ($LASTEXITCODE -ne 0) { throw "msstore publish failed" }
 
   release:
