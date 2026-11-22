@@ -1,0 +1,33 @@
+{
+  "train": {
+    "scenes": {"names": "all", "seeds": [0, 24]},
+    "web": {
+      "random_wiki": {"en": 30, "zh": 24, "ja": 14, "ko": 8},
+      "urls": {
+        "en": ["https://docs.python.org/3/library/itertools.html", "https://developer.mozilla.org/en-US/docs/Web/HTML/Element/table", "https://doc.rust-lang.org/book/ch06-01-defining-an-enum.html",
+               "https://news.ycombinator.com/item?id=1", "https://github.com/microsoft/vscode/issues/1", "https://text.npr.org/1001", "https://www.gnu.org/gnu/manifesto.html"],
+        "zh": ["https://docs.python.org/zh-cn/3/library/itertools.html", "https://developer.mozilla.org/zh-CN/docs/Web/HTML/Element/table", "https://www.runoob.com/python3/python3-list.html"],
+        "ja": ["https://docs.python.org/ja/3/library/itertools.html", "https://developer.mozilla.org/ja/docs/Web/HTML/Element/table"],
+        "ko": ["https://docs.python.org/ko/3/library/itertools.html"]
+      },
+      "scrolls": [0, 1.0, 2.0]
+    }
+  },
+  "train_more": {
+    "scenes": {"names": ["article", "nested_lists", "game_ui", "slides"], "seeds": [24, 72]}
+  },
+  "test": {
+    "scenes": {"names": "all", "seeds": [100, 108]},
+    "web": {
+      "random_wiki": {"en": 12, "zh": 10, "ja": 6, "ko": 4},
+      "urls": {
+        "en": ["https://docs.python.org/3/library/functools.html", "https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form", "https://news.ycombinator.com/item?id=8863",
+               "https://github.com/python/cpython/issues/90000", "https://www.gnu.org/philosophy/why-free.html"],
+        "zh": ["https://docs.python.org/zh-cn/3/library/functools.html", "https://www.runoob.com/python3/python3-tuple.html"],
+        "ja": ["https://docs.python.org/ja/3/library/functools.html"],
+        "ko": ["https://docs.python.org/ko/3/library/functools.html"]
+      },
+      "scrolls": [0, 1.0]
+    }
+  }
+}

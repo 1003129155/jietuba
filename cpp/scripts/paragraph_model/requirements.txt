@@ -1,0 +1,7 @@
+# The paragraph model's data and training scripts (not the application).
+playwright
+requests
+zhconv
+pillow
+numpy
+scikit-learn
