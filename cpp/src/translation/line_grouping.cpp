@@ -7,40 +7,47 @@
 
 namespace jietuba {
 namespace {
-// All distances are fractions of a line height, so one rule holds at every font size and DPI.
-// How far above and below its own box a line looks for neighbours, and how far its edges may
-// be from theirs.
-constexpr double NEIGHBOUR_REACH = 0.5;
-// Neighbours differ in height by less than this factor: a heading is set larger than its text.
-constexpr double MAX_HEIGHT_RATIO = 1.5;
-// An indented first line sits this far right of the lines below it. It must be most of a line
-// itself, or it is a label and not the start of a paragraph.
-constexpr double INDENT_MIN = 0.8;
-constexpr double INDENT_MAX = 3.5;
-constexpr double INDENT_GAP_BELOW = -0.2;
-constexpr double INDENT_LINE_SHARE = 0.6;
-// A paragraph's last line is short and ends on a full stop: what follows is the next paragraph.
-constexpr double SHORT_LAST_LINE = 0.85;
+// Decision trees trained on screenshots whose paragraphs are known. They score a pair of lines,
+// one above the other, from measurements that do not depend on the font size; a positive score
+// says the lower line continues the upper one.
+// A child index at or above zero is another split, below zero the leaf ~index.
+struct ModelSplit {
+    float threshold;
+    short left;
+    short right;
+    unsigned char feature;
+};
+#include "translation/line_grouping_model.inc"
+static_assert(MODEL_FEATURE_COUNT == PARAGRAPH_FEATURE_COUNT, "the model was trained on another set of features");
+
 // Longest paragraph kept: a run of unrelated lines that happens to line up stays readable.
 constexpr int MAX_PARAGRAPH_LINES = 30;
+const QString STOPS = QString::fromUtf8(".!?。！？");
+const QString COMMAS = QString::fromUtf8(",，、;；");
+const QString COLONS = QString::fromUtf8(":：");
+const QString LABEL_ENDS = QString::fromUtf8(".!?:-。！？：");
 
-// Whether other is a line self continues into: it overlaps self's span, lies within reach
-// above or below it, is about as tall, and is flush with it on the left, on the right or in
-// the middle (left for ragged text, right for justified or right-aligned, middle for centred).
-bool reaches(const QRectF &self, const QRectF &other) {
-    const double reach = NEIGHBOUR_REACH * self.height();
-    if (!(other.right() > self.left() && other.left() < self.right() && other.bottom() > self.top() - reach && other.top() < self.bottom() + reach)) return false;
-    if (std::abs(other.height() - self.height()) > reach) return false;
-    const double larger = std::max(other.height(), self.height()), smaller = std::min(other.height(), self.height());
-    if (larger / smaller >= MAX_HEIGHT_RATIO) return false;
-    return std::abs(other.left() - self.left()) <= reach || std::abs(other.right() - self.right()) <= reach ||
-           std::abs(other.center().x() - self.center().x()) <= reach;
+// Every feature is computed the same way as by the training script, operation for operation, so
+// the trees see the values they were trained on.
+struct Box {
+    double x0, y0, x1, y1;
+};
+
+double median_of(std::vector<double> values) {
+    std::sort(values.begin(), values.end());
+    const size_t count = values.size();
+    return count % 2 ? values[count / 2] : (values[count / 2 - 1] + values[count / 2]) / 2;
 }
 
-// Lines linked by reaches() in either direction are one group; groups come in order of their
-// first line.
-QVector<QVector<int>> neighbour_groups(const QVector<GroupingLine> &lines) {
-    const int count = static_cast<int>(lines.size());
+double percentile30(std::vector<double> values) {
+    std::sort(values.begin(), values.end());
+    const double k = static_cast<double>(values.size() - 1) * 0.3;
+    const auto floor = static_cast<size_t>(std::floor(k));
+    const size_t ceil = std::min(floor + 1, values.size() - 1);
+    return values[floor] + (values[ceil] - values[floor]) * (k - static_cast<double>(floor));
+}
+
+QVector<QVector<int>> components(int count, const std::vector<std::pair<int, int>> &edges) {
     std::vector<int> parent(static_cast<size_t>(count));
     std::iota(parent.begin(), parent.end(), 0);
     const auto find = [&parent](int index) {
@@ -50,9 +57,7 @@ QVector<QVector<int>> neighbour_groups(const QVector<GroupingLine> &lines) {
         }
         return index;
     };
-    for (int a = 0; a < count; ++a)
-        for (int b = 0; b < count; ++b)
-            if (a != b && reaches(lines[a].rect, lines[b].rect)) parent[static_cast<size_t>(find(a))] = find(b);
+    for (const auto &[a, b] : edges) parent[static_cast<size_t>(find(a))] = find(b);
     QVector<QVector<int>> groups;
     std::vector<int> slot(static_cast<size_t>(count), -1);
     for (int index = 0; index < count; ++index) {
@@ -66,92 +71,67 @@ QVector<QVector<int>> neighbour_groups(const QVector<GroupingLine> &lines) {
     return groups;
 }
 
-int topmost(const QVector<GroupingLine> &lines, const QVector<int> &group) {
-    int best = group.first();
-    for (const int index : group)
-        if (lines[index].rect.top() < lines[best].rect.top()) best = index;
-    return best;
-}
+// List markers other than numbers: bullets, circled numbers, "一、", "(가)". A dash needs a space or
+// a CJK character after it, and "o"/"O" (a hollow bullet read as a letter) a space and a capital or
+// CJK character.
+#define LIST_BULLETS "\\x{2022}\\x{25CF}\\x{25A0}\\x{25AA}\\x{25CB}\\x{25E6}\\x{25C6}\\x{25C7}\\x{25A1}\\x{25B6}\\x{25BA}\\x{25B8}\\x{27A2}\\x{2713}\\x{2714}\\x{2605}\\x{2606}\\x{203B}\\x{30FB}"
+#define LIST_CJK "\\x{3040}-\\x{30FF}\\x{3400}-\\x{9FFF}\\x{AC00}-\\x{D7AF}"
+#define LIST_HAN_NUMERALS "\\x{4E00}\\x{4E8C}\\x{4E09}\\x{56DB}\\x{4E94}\\x{516D}\\x{4E03}\\x{516B}\\x{4E5D}\\x{5341}"
+#define LIST_NUMBER "[(\\x{FF08}]?\\d{1,3}[.)\\x{3001}\\x{FF0E}\\x{FF09}]"
+#define LIST_OTHER_MARKERS                                                                                                                          \
+    "[" LIST_BULLETS "\\x{2460}-\\x{2473}]\\s*\\S|[" LIST_HAN_NUMERALS "]{1,3}\\x{3001}\\s*\\S|\\([\\x{AC00}-\\x{D7A3}]\\)\\s*\\S|[-*\\x{00B7}\\x{2013}]\\s+\\S|" \
+    "[-*\\x{2013}][" LIST_CJK "]|[oO]\\s+[\\p{Lu}" LIST_CJK "]"
 
-// A paragraph that starts with an indent is a single line to the left-aligned lines below it,
-// which are flush with each other but not with it.
-void join_indented_first_lines(const QVector<GroupingLine> &lines, QVector<QVector<int>> &groups) {
-    bool merged = true;
-    while (merged) {
-        merged = false;
-        for (int single = 0; single < groups.size(); ++single) {
-            if (groups[single].size() != 1) continue;
-            const QRectF &first = lines[groups[single].first()].rect;
-            const double height = first.height();
-            for (int below = 0; below < groups.size(); ++below) {
-                if (below == single || groups[below].isEmpty()) continue;
-                const QRectF &next = lines[topmost(lines, groups[below])].rect;
-                const double gap = next.top() - first.bottom(), indent = first.left() - next.left();
-                if (gap >= INDENT_GAP_BELOW * height && gap <= NEIGHBOUR_REACH * height && indent >= INDENT_MIN * height && indent <= INDENT_MAX * height &&
-                    first.width() >= INDENT_LINE_SHARE * next.width() && std::abs(next.height() - height) <= NEIGHBOUR_REACH * height) {
-                    groups[below] += groups[single];
-                    groups[single].clear();
-                    merged = true;
-                    break;
-                }
-            }
-        }
-        groups.erase(std::remove_if(groups.begin(), groups.end(), [](const QVector<int> &group) { return group.isEmpty(); }), groups.end());
-    }
-}
-
-// "1." "2)" "3、" or a bullet: an item of a list, which is never the continuation of the
-// line above however closely it follows.
+// "1." "2)" "3、", a bullet or another marker: an item of a list. For the trees also "[12]" and ". "
+// (a small bullet read as a dot), which a screenshot cutting a line in two can leave at its start.
 bool starts_list_item(const QString &text) {
-    static const QRegularExpression marker(QStringLiteral("^\\s*(?:\\(?\\d{1,3}[.)\\x{3001}\\x{FF0E}]\\s*\\S|[-*\\x{2022}\\x{00B7}\\x{25CF}\\x{25A0}\\x{25AA}\\x{2013}]\\s+\\S)"));
+    static const QRegularExpression marker(QStringLiteral("^\\s*(?:" LIST_NUMBER "\\s*\\S|\\[\\d{1,4}\\]\\s*\\S|\\.\\s+\\S|" LIST_OTHER_MARKERS ")"));
     return marker.match(text).hasMatch();
 }
 
-// Close, left-aligned labels in menus and tables can have the same pitch as prose.
-bool looks_like_short_label(const GroupingLine &line) {
-    const QString &text = line.text;
-    if (text.isEmpty() || line.rect.width() > line.rect.height() * 8 || QStringLiteral(".!?:-。！？：").contains(text.back()) || starts_list_item(text)) return false;
-    if (is_cjk(text.front())) return text.size() <= 6;
+// A marker with nothing after it: a bullet or a list number recognized as a box of its own.
+bool is_marker_only(const QString &text) {
+    static const QRegularExpression marker(QStringLiteral("^\\s*(?:[" LIST_BULLETS "\\x{2460}-\\x{2473}\\x{00B7}oO]|" LIST_NUMBER "|[" LIST_HAN_NUMERALS
+                                                          "]{1,3}[.\\x{3001}\\x{FF0E}]|\\([\\x{AC00}-\\x{D7A3}]\\))\\s*$"));
+    return marker.match(text).hasMatch();
+}
+
+double cjk_share(const QString &text) {
+    qsizetype count = 0;
+    for (const QChar c : text) count += is_cjk(c) ? 1 : 0;
+    return static_cast<double>(count) / static_cast<double>(std::max<qsizetype>(1, text.size()));
+}
+
+bool ends_in(const QString &text, const QString &chars) { return !text.isEmpty() && chars.contains(text.back()); }
+
+// A short, capitalised line that does not end a sentence: a menu entry or a field label.
+bool looks_like_short_label(const QString &text, const Box &box) {
+    if (text.isEmpty() || (box.x1 - box.x0) > (box.y1 - box.y0) * 8 || LABEL_ENDS.contains(text.back()) || starts_list_item(text)) return false;
+    // Five or six characters is already a wrapped line of a narrow table cell.
+    if (is_cjk(text.front())) return text.size() <= 4;
     return text.front().isUpper() && text.size() <= 24 && text.count(u' ') <= 2;
 }
 
-// Whether next, the line below a paragraph that has taken current so far, starts another one.
-bool starts_new_paragraph(const QVector<GroupingLine> &lines, const QVector<int> &current, int next) {
-    if (starts_list_item(lines[next].text)) return true;
-    if (current.size() == 1 && looks_like_short_label(lines[current.first()]) && looks_like_short_label(lines[next])) return true;
-    if (current.size() >= MAX_PARAGRAPH_LINES) return true;
-    if (current.size() < 2) return false;
-    const auto &last = lines[current.last()];
-    double left = lines[current.first()].rect.left(), right = lines[current.first()].rect.right();
-    for (const int index : current) {
-        left = std::min(left, lines[index].rect.left());
-        right = std::max(right, lines[index].rect.right());
-    }
-    static const QString stops = QString::fromUtf8(".!?。！？");
-    return !last.text.isEmpty() && stops.contains(last.text.back()) && last.rect.width() < SHORT_LAST_LINE * (right - left);
+// b continues a's column: overlaps it, lies within 1.2 line heights above or below, is about as
+// tall, and is flush with it on one side or centred on it.
+bool loosely_stacked(const Box &a, const Box &b) {
+    const double height = a.y1 - a.y0, reach = 1.2 * height, tolerance = 0.5 * height, other = b.y1 - b.y0;
+    if (!(b.x1 > a.x0 && b.x0 < a.x1 && b.y1 > a.y0 - reach && b.y0 < a.y1 + reach)) return false;
+    if (std::abs(other - height) > tolerance || std::max(other, height) / std::min(other, height) >= 1.5) return false;
+    return std::abs(b.x0 - a.x0) <= tolerance || std::abs(b.x1 - a.x1) <= tolerance || std::abs((b.x0 + b.x1) / 2 - (a.x0 + a.x1) / 2) <= tolerance;
 }
 
-// A group is lines that line up, not necessarily one paragraph: its lines are read top to
-// bottom and cut where a list item starts or a paragraph visibly ended.
-QVector<QVector<int>> split_into_paragraphs(const QVector<GroupingLine> &lines, QVector<QVector<int>> groups) {
-    QVector<QVector<int>> paragraphs;
-    for (auto &group : groups) {
-        std::stable_sort(group.begin(), group.end(), [&lines](int a, int b) {
-            if (lines[a].rect.top() != lines[b].rect.top()) return lines[a].rect.top() < lines[b].rect.top();
-            return lines[a].rect.left() < lines[b].rect.left();
-        });
-        QVector<int> current{group.first()};
-        for (int position = 1; position < group.size(); ++position) {
-            if (starts_new_paragraph(lines, current, group[position])) {
-                paragraphs.append(current);
-                current = {group[position]};
-            } else {
-                current.append(group[position]);
-            }
+double score(const std::array<float, PARAGRAPH_FEATURE_COUNT> &features) {
+    double raw = MODEL_BASELINE;
+    for (const short root : MODEL_TREES) {
+        int node = root;
+        while (node >= 0) {
+            const auto &split = MODEL_SPLITS[node];
+            node = features[split.feature] <= split.threshold ? split.left : split.right;
         }
-        paragraphs.append(current);
+        raw += MODEL_LEAVES[~node];
     }
-    return paragraphs;
+    return raw;
 }
 }
 
@@ -161,10 +141,265 @@ bool is_cjk(QChar c) {
            (u >= 0xFF00 && u <= 0xFFEF);
 }
 
+bool opens_list_item(const QString &text) {
+    static const QRegularExpression marker(QStringLiteral("^\\s*(?:" LIST_NUMBER "\\s*[^\\d\\s]|" LIST_OTHER_MARKERS ")"));
+    return marker.match(text).hasMatch();
+}
+
+QVector<int> detached_list_markers(const QVector<GroupingLine> &lines) {
+    QVector<int> owner(lines.size(), -1);
+    QVector<bool> marker(lines.size());
+    for (int i = 0; i < lines.size(); ++i) marker[i] = is_marker_only(lines[i].text);
+    for (int m = 0; m < lines.size(); ++m) {
+        if (!marker[m]) continue;
+        const auto &mark = lines[m].rect;
+        double best = 0;
+        for (int t = 0; t < lines.size(); ++t) {
+            const auto &item = lines[t].rect;
+            if (marker[t] || mark.center().y() < item.top() || mark.center().y() > item.bottom() || item.left() < mark.center().x() ||
+                mark.height() > 1.5 * item.height())
+                continue;
+            // Within a line height: a cell of the next table column or an equation number lies further off.
+            const double gap = (item.left() - mark.right()) / item.height();
+            if (gap <= 1.0 && (owner[m] < 0 || gap < best)) {
+                owner[m] = t;
+                best = gap;
+            }
+        }
+    }
+    return owner;
+}
+
+bool is_short_label(const GroupingLine &line) {
+    return looks_like_short_label(line.text, {line.rect.left(), line.rect.top(), line.rect.right(), line.rect.bottom()});
+}
+
+const std::array<const char *, PARAGRAPH_FEATURE_COUNT> PARAGRAPH_FEATURE_NAMES = {
+    "gap", "pitch", "pitch_page", "pitch_col", "dl", "dr", "dc", "wa", "wb", "wratio", "ovl", "hratio", "fill_a", "fill_b", "a_first", "b_last", "indent_a", "indent_b", "a_stop",
+    "a_comma", "b_upper", "b_lower", "b_digit", "a_list", "b_list", "a_cjk", "b_cjk", "len_a", "len_b", "a_label", "b_label", "comp_n", "comp_idx", "page_pitch_over_h",
+    "rank_below", "rank_above", "h_over_page", "a_colon", "row_a", "row_b", "grid"};
+
+QVector<LinePair> paragraph_line_pairs(const QVector<GroupingLine> &all) {
+    // A detached marker takes no part; the line it belongs to counts as opening a list item.
+    const auto owner = detached_list_markers(all);
+    std::vector<bool> has_marker(static_cast<size_t>(all.size()));
+    for (const int item : owner)
+        if (item >= 0) has_marker[static_cast<size_t>(item)] = true;
+    QVector<GroupingLine> lines;
+    QVector<int> source;
+    std::vector<bool> marked;
+    for (int i = 0; i < all.size(); ++i) {
+        if (owner[i] >= 0) continue;
+        lines.append(all[i]);
+        source.append(i);
+        marked.push_back(has_marker[static_cast<size_t>(i)]);
+    }
+    const int count = static_cast<int>(lines.size());
+    if (count == 0) return {};
+    std::vector<Box> box(static_cast<size_t>(count));
+    std::vector<double> height(box.size()), width(box.size()), middle(box.size());
+    for (int i = 0; i < count; ++i) {
+        const auto &rect = lines[i].rect;
+        box[i] = {rect.left(), rect.top(), rect.right(), rect.bottom()};
+        height[i] = std::max(1.0, box[i].y1 - box[i].y0);
+        width[i] = box[i].x1 - box[i].x0;
+        middle[i] = (box[i].y0 + box[i].y1) / 2;
+    }
+    const double typical_height = median_of(height);
+
+    // Columns: lines loosely stacked under each other, with each column's own line pitch.
+    std::vector<std::pair<int, int>> stacked;
+    for (int a = 0; a < count; ++a)
+        for (int b = 0; b < count; ++b)
+            if (a != b && loosely_stacked(box[a], box[b])) stacked.emplace_back(a, b);
+    const auto columns = components(count, stacked);
+    std::vector<int> column_of(box.size()), rank_in_column(box.size());
+    std::vector<double> column_left, column_width, column_pitch, column_size;
+    for (int k = 0; k < columns.size(); ++k) {
+        auto members = columns[k];
+        std::stable_sort(members.begin(), members.end(), [&](int a, int b) { return middle[a] < middle[b]; });
+        std::vector<double> pitches;
+        for (int r = 0; r + 1 < members.size(); ++r) pitches.push_back(middle[members[r + 1]] - middle[members[r]]);
+        column_pitch.push_back(pitches.empty() ? 1.2 * typical_height : std::max(percentile30(pitches), 0.05 * typical_height));
+        double left = box[members.first()].x0, widest = width[members.first()];
+        for (const int i : members) {
+            left = std::min(left, box[i].x0);
+            widest = std::max(widest, width[i]);
+        }
+        column_left.push_back(left);
+        column_width.push_back(widest);
+        column_size.push_back(static_cast<double>(members.size()));
+        for (int r = 0; r < members.size(); ++r) {
+            column_of[members[r]] = k;
+            rank_in_column[members[r]] = r;
+        }
+    }
+
+    // Candidates: a line below another that overlaps it and is within three line heights.
+    std::vector<std::vector<int>> below(box.size()), above(box.size());
+    for (int a = 0; a < count; ++a) {
+        for (int b = 0; b < count; ++b) {
+            if (a == b) continue;
+            const double overlap = std::min(box[a].x1, box[b].x1) - std::max(box[a].x0, box[b].x0);
+            if (overlap <= 0 || middle[b] <= middle[a] + 0.2 * height[a] || middle[b] - middle[a] > 3 * std::max(height[a], height[b])) continue;
+            below[a].push_back(b);
+        }
+    }
+    std::vector<double> nearest;
+    for (int a = 0; a < count; ++a) {
+        if (below[a].empty()) continue;
+        double closest = middle[below[a].front()] - middle[a];
+        for (const int b : below[a]) closest = std::min(closest, middle[b] - middle[a]);
+        nearest.push_back(closest);
+    }
+    const double page_pitch = nearest.empty() ? 1.2 * typical_height : median_of(nearest);
+    std::vector<std::vector<int>> rank_below(box.size());
+    for (int a = 0; a < count; ++a) {
+        auto order = below[a];
+        std::stable_sort(order.begin(), order.end(), [&](int x, int y) { return middle[x] - middle[a] < middle[y] - middle[a]; });
+        rank_below[a].assign(below[a].size(), 0);
+        for (size_t r = 0; r < order.size(); ++r)
+            rank_below[a][static_cast<size_t>(std::find(below[a].begin(), below[a].end(), order[r]) - below[a].begin())] = static_cast<int>(r);
+        for (const int b : below[a]) above[b].push_back(a);
+    }
+    std::vector<std::vector<std::pair<int, int>>> rank_above(box.size());  // (upper line, rank) for each lower line
+    for (int b = 0; b < count; ++b) {
+        auto order = above[b];
+        std::stable_sort(order.begin(), order.end(), [&](int x, int y) { return middle[b] - middle[x] < middle[b] - middle[y]; });
+        for (size_t r = 0; r < order.size(); ++r) rank_above[b].emplace_back(order[r], static_cast<int>(r));
+    }
+
+    struct Text {
+        bool list = false, label = false, stop = false, comma = false, colon = false, upper = false, lower = false, digit = false;
+        double cjk = 0, length = 0;
+    };
+    std::vector<Text> text(box.size());
+    for (int i = 0; i < count; ++i) {
+        const auto &t = lines[i].text;
+        auto &info = text[i];
+        info.list = marked[static_cast<size_t>(i)] || starts_list_item(t);
+        info.label = looks_like_short_label(t, box[i]);
+        info.stop = ends_in(t, STOPS);
+        info.comma = ends_in(t, COMMAS);
+        info.colon = ends_in(t, COLONS);
+        info.upper = !t.isEmpty() && t.front().isUpper();
+        info.lower = !t.isEmpty() && t.front().isLower();
+        info.digit = !t.isEmpty() && t.front().isDigit();
+        info.cjk = cjk_share(t);
+        info.length = static_cast<double>(t.size());
+    }
+
+    // Lines beside a line on the same row (half of the lower one's height shared, no horizontal
+    // overlap): the other cells of a table row. Two lines whose rows line up cell for cell sit in a grid.
+    std::vector<std::vector<int>> beside(box.size());
+    for (int i = 0; i < count; ++i) {
+        for (int j = 0; j < count; ++j) {
+            if (i == j) continue;
+            const double shared = std::min(box[i].y1, box[j].y1) - std::max(box[i].y0, box[j].y0);
+            if (shared > 0.5 * std::min(height[i], height[j]) && !(box[j].x1 > box[i].x0 && box[j].x0 < box[i].x1)) beside[i].push_back(j);
+        }
+    }
+
+    QVector<LinePair> pairs;
+    for (int a = 0; a < count; ++a) {
+        for (size_t k = 0; k < below[a].size(); ++k) {
+            const int b = below[a][k];
+            const double ha = height[a];
+            int grid = 0;
+            for (const int i : beside[a])
+                for (const int j : beside[b])
+                    if (std::abs(box[j].x0 - box[i].x0) <= 0.5 * ha) {
+                        ++grid;
+                        break;
+                    }
+            const int ka = column_of[a], kb = column_of[b];
+            const double overlap = std::min(box[a].x1, box[b].x1) - std::max(box[a].x0, box[b].x0);
+            const double centre_a = (box[a].x0 + box[a].x1) / 2, centre_b = (box[b].x0 + box[b].x1) / 2;
+            const double pitch = middle[b] - middle[a];
+            int above_rank = 0;
+            for (const auto &[upper, rank] : rank_above[b])
+                if (upper == a) above_rank = rank;
+            const double values[PARAGRAPH_FEATURE_COUNT] = {
+                (box[b].y0 - box[a].y1) / ha, pitch / ha, pitch / page_pitch, pitch / (ka == kb ? column_pitch[ka] : page_pitch),
+                (box[b].x0 - box[a].x0) / ha, (box[b].x1 - box[a].x1) / ha, (centre_b - centre_a) / ha, width[a] / ha, width[b] / ha, width[b] / std::max(1.0, width[a]),
+                overlap / std::max(1.0, std::min(width[a], width[b])), height[b] / ha, width[a] / std::max(1.0, column_width[ka]), width[b] / std::max(1.0, column_width[kb]),
+                rank_in_column[a] == 0 ? 1.0 : 0.0, rank_in_column[b] == column_size[kb] - 1 ? 1.0 : 0.0, (box[a].x0 - column_left[ka]) / ha, (box[b].x0 - column_left[kb]) / ha,
+                text[a].stop ? 1.0 : 0.0, text[a].comma ? 1.0 : 0.0, text[b].upper ? 1.0 : 0.0, text[b].lower ? 1.0 : 0.0, text[b].digit ? 1.0 : 0.0,
+                text[a].list ? 1.0 : 0.0, text[b].list ? 1.0 : 0.0, text[a].cjk, text[b].cjk, text[a].length, text[b].length,
+                text[a].label ? 1.0 : 0.0, text[b].label ? 1.0 : 0.0, column_size[ka], static_cast<double>(rank_in_column[a]),
+                page_pitch / typical_height, static_cast<double>(rank_below[a][k]), static_cast<double>(above_rank), ha / typical_height, text[a].colon ? 1.0 : 0.0,
+                static_cast<double>(beside[a].size()), static_cast<double>(beside[b].size()), static_cast<double>(grid)};
+            LinePair pair;
+            pair.above = source[a];
+            pair.below = source[b];
+            for (int f = 0; f < PARAGRAPH_FEATURE_COUNT; ++f) pair.features[f] = static_cast<float>(values[f]);
+            pairs.append(pair);
+        }
+    }
+    return pairs;
+}
+
 QVector<QVector<int>> group_lines_into_paragraphs(const QVector<GroupingLine> &lines) {
-    if (lines.isEmpty()) return {};
-    auto groups = neighbour_groups(lines);
-    join_indented_first_lines(lines, groups);
-    return split_into_paragraphs(lines, std::move(groups));
+    const int count = static_cast<int>(lines.size());
+    if (count == 0) return {};
+    // Each line keeps its best partner below and above; a pair both lines choose is a link.
+    std::vector<int> best_below(static_cast<size_t>(count), -1), best_above(static_cast<size_t>(count), -1);
+    std::vector<double> best_below_score(static_cast<size_t>(count)), best_above_score(static_cast<size_t>(count));
+    for (const auto &pair : paragraph_line_pairs(lines)) {
+        const double s = score(pair.features);
+        if (s < 0) continue;
+        if (best_below[pair.above] < 0 || s > best_below_score[pair.above]) {
+            best_below[pair.above] = pair.below;
+            best_below_score[pair.above] = s;
+        }
+        if (best_above[pair.below] < 0 || s > best_above_score[pair.below]) {
+            best_above[pair.below] = pair.above;
+            best_above_score[pair.below] = s;
+        }
+    }
+    std::vector<std::pair<int, int>> links;
+    for (int a = 0; a < count; ++a)
+        if (best_below[a] >= 0 && best_above[best_below[a]] == a) links.emplace_back(a, best_below[a]);
+
+    std::vector<Box> box(static_cast<size_t>(count));
+    std::vector<bool> label(static_cast<size_t>(count));
+    for (int i = 0; i < count; ++i) {
+        box[i] = {lines[i].rect.left(), lines[i].rect.top(), lines[i].rect.right(), lines[i].rect.bottom()};
+        label[i] = is_short_label(lines[i]);
+    }
+    // A detached marker goes just before the line it belongs to, left to right if there are several.
+    const auto owner = detached_list_markers(lines);
+    std::vector<QVector<int>> markers(static_cast<size_t>(count));
+    for (int i = 0; i < count; ++i)
+        if (owner[i] >= 0) markers[static_cast<size_t>(owner[i])].append(i);
+    for (auto &list : markers) std::stable_sort(list.begin(), list.end(), [&](int a, int b) { return box[a].x0 < box[b].x0; });
+    QVector<QVector<int>> paragraphs;
+    const auto add = [&paragraphs, &markers](const QVector<int> &piece) {
+        for (int start = 0; start < piece.size(); start += MAX_PARAGRAPH_LINES) {
+            QVector<int> paragraph;
+            for (const int line : piece.mid(start, MAX_PARAGRAPH_LINES)) paragraph << markers[static_cast<size_t>(line)] << line;
+            paragraphs.append(paragraph);
+        }
+    };
+    for (auto group : components(count, links)) {
+        if (owner[group.first()] >= 0) continue;  // a marker has no links: it is placed with its line
+        std::stable_sort(group.begin(), group.end(), [&](int a, int b) {
+            if (box[a].y0 != box[b].y0) return box[a].y0 < box[b].y0;
+            return box[a].x0 < box[b].x0;
+        });
+        // A list item starts a paragraph, and two menu entries stacked as tightly as prose stay apart.
+        QVector<int> piece{group.first()};
+        for (int position = 1; position < group.size(); ++position) {
+            const int line = group[position];
+            if (!markers[static_cast<size_t>(line)].isEmpty() || opens_list_item(lines[line].text) || (piece.size() == 1 && label[piece.first()] && label[line])) {
+                add(piece);
+                piece = {line};
+            } else {
+                piece.append(line);
+            }
+        }
+        add(piece);
+    }
+    return paragraphs;
 }
 }

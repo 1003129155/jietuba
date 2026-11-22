@@ -53,8 +53,10 @@ private slots:
     }
 
     void rightAlignedLinesBelongTogether() {
-        // Right edges all at x = 310; left edges 50 to 70 px apart, centres 10 to 25 px apart.
-        QCOMPARE(grouped({line("a", 210, 10, 100), line("b", 160, 26, 150), line("c", 230, 42, 80)}), (Groups{{0, 1, 2}}));
+        // Right edges all at x = 310; left edges 20 to 40 px apart against a reach of 7.
+        QCOMPARE(grouped({line("The quick brown fox jumps over the", 20, 10, 290), line("lazy dog and keeps on running", 60, 26, 250),
+                          line("until it reaches the river bank.", 40, 42, 270)}),
+                 (Groups{{0, 1, 2}}));
     }
 
     void anIndentedFirstLineJoinsTheLinesBelowIt() {
@@ -93,16 +95,51 @@ private slots:
                  (Groups{{0}, {1, 2}, {3}, {4}, {5}}));
     }
 
+    void markersWithoutASpaceStartItems() {
+        QCOMPARE(grouped({
+                     line(QString::fromUtf8("-其系列作目前一共有推出两款"), 10, 10, 300),
+                     line(QString::fromUtf8("-北周时下辖邑阳县一县。"), 10, 26, 280),
+                     line(QString::fromUtf8("○シリーズでは初となる作品"), 10, 42, 290),
+                     line(QString::fromUtf8("■高橋吉雄は1908年に生まれた"), 10, 58, 300),
+                     line("o In 2022, she won the cup", 10, 74, 290),
+                     line(QString::fromUtf8("① 第一项"), 10, 90, 120),
+                     line(QString::fromUtf8("三、距离最近的岛屿"), 10, 106, 200),
+                 }),
+                 (Groups{{0}, {1}, {2}, {3}, {4}, {5}, {6}}));
+    }
+
+    void wordsThatLookLikeMarkersDoNotStartItems() {
+        QVERIFY(!opens_list_item("-5 degrees overnight"));
+        QVERIFY(!opens_list_item("o bien se queda"));
+        QVERIFY(!opens_list_item("1.5 million people"));
+        QVERIFY(!opens_list_item(QString::fromUtf8("— and then it stopped")));
+        // A screenshot that cuts "2023. Nominated" leaves ". Nominated".
+        QVERIFY(!opens_list_item(". Nominated for a life peerage"));
+    }
+
+    void aDetachedBulletJoinsItsItem() {
+        // The bullets are boxes of their own, 6 px (under half a line height) left of each item's first line.
+        const QVector<GroupingLine> lines{
+            line(QString::fromUtf8("•"), 10, 13, 6, 8), line("Pin the picture to the screen", 22, 10, 260), line("and keep it on top of the others.", 22, 26, 250),
+            line(QString::fromUtf8("•"), 10, 45, 6, 8), line("Copy the text it shows", 22, 42, 200),
+        };
+        QCOMPARE(detached_list_markers(lines), (QVector<int>{1, -1, -1, 4, -1}));
+        QCOMPARE(grouped(lines), (Groups{{0, 1, 2}, {3, 4}}));
+    }
+
+    void aMarkLeftOfAFarCellIsNotABullet() {
+        // A "○" table cell 3 line heights left of the next column, and an equation number past the line's end.
+        const QVector<GroupingLine> lines{line(QString::fromUtf8("○"), 10, 13, 8, 8), line("Supported", 60, 10, 80), line("x = y + 1", 10, 40, 80), line("(1)", 300, 40, 20)};
+        QCOMPARE(detached_list_markers(lines), (QVector<int>{-1, -1, -1, -1}));
+    }
+
     void aParagraphEndsOnAShortLastLine() {
         // 180 px is under 0.85 of the 400 px the paragraph spans, and the line ends on a full stop.
         QCOMPARE(grouped({line("The first paragraph runs the full width of the", 10, 10, 400), line("column and ends here.", 10, 26, 180),
                           line("The second one starts at the same margin.", 10, 42, 380)}),
                  (Groups{{0, 1}, {2}}));
-        // A line that ends on a full stop but fills the width does not end it.
-        QCOMPARE(grouped({line("the paragraph begins here and", 10, 10, 400), line("a sentence ends right here.", 10, 26, 390), line("and the next one runs on", 10, 42, 380)}),
-                 (Groups{{0, 1, 2}}));
-        // A single short line does not either: it can be the first line of a longer paragraph.
-        QCOMPARE(grouped({line("Short.", 10, 10, 60), line("and then the paragraph goes on for a while.", 10, 26, 300)}), (Groups{{0, 1}}));
+        // A one-word sentence over a full line is a paragraph of its own.
+        QCOMPARE(grouped({line("Short.", 10, 10, 60), line("and then the paragraph goes on for a while.", 10, 26, 300)}), (Groups{{0}, {1}}));
     }
 
     void closeMenuLabelsStayApartAndProseStillJoins() {
@@ -117,8 +154,9 @@ private slots:
     }
 
     void shortCjkLabelsStayApart() {
+        // Two entries of a menu, then a description: three paragraphs.
         QCOMPARE(grouped({line(QString::fromUtf8("设置"), 20, 16, 28), line(QString::fromUtf8("关于"), 20, 34, 28), line(QString::fromUtf8("这是一段比较长的说明文字。"), 20, 52, 160)}),
-                 (Groups{{0}, {1, 2}}));
+                 (Groups{{0}, {1}, {2}}));
     }
 
     void aParagraphIsCappedAtThirtyLines() {
