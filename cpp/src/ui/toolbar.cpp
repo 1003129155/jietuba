@@ -24,6 +24,7 @@
 #include "ui/toolbar_layout_dialog.h"
 #include "ui/watermark_input_dialog.h"
 #include "ui/translation_panel.h"
+#include "ui/busy_ring.h"
 #include "ui/watermark_settings_panel.h"
 #include <QApplication>
 #include <QMouseEvent>
@@ -671,6 +672,18 @@ void Toolbar::set_translation_shown(bool shown) {
     // The panel takes a tool panel's place, so the tool goes back to the cursor first.
     if (shown && current_tool) select_tool("cursor");
     else sync_translation_panel();
+}
+
+void Toolbar::set_translation_busy(bool busy) {
+    if (!screenshot_translate_btn) return;
+    if (!translation_busy_ring) translation_busy_ring = new BusyRing(screenshot_translate_btn);
+    translation_busy_ring->set_busy(busy);
+}
+
+void Toolbar::set_translation_progress(int done, int total) {
+    if (!screenshot_translate_btn) return;
+    if (!translation_busy_ring) translation_busy_ring = new BusyRing(screenshot_translate_btn);
+    translation_busy_ring->set_progress(done, total);
 }
 
 void Toolbar::toggle_translation_panel() {

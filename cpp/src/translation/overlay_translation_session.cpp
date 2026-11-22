@@ -55,6 +55,7 @@ bool OverlayTranslationSession::show(const QRectF &selection) {
         cancel();
         region_ = region;
         source_ = background.copy(region);
+        dark_ = mostly_dark(source_, source_.rect());
         blocks_.clear();
         clear_translations();
     }
@@ -66,6 +67,7 @@ bool OverlayTranslationSession::show(const QRectF &selection) {
     apply_layer();
     const bool missing = std::any_of(blocks_.cbegin(), blocks_.cend(), [](const OverlayTextBlock &block) { return block.translated.isEmpty(); });
     if (!busy() && (blocks_.isEmpty() || missing)) run();
+    emit waiting_changed();
     return true;
 }
 
@@ -75,12 +77,14 @@ void OverlayTranslationSession::hide() {
     if (!shown_) return;
     shown_ = false;
     emit shown_changed(false);
+    emit waiting_changed();
 }
 
 void OverlayTranslationSession::set_original_shown(bool shown) {
     if (original_shown_ == shown) return;
     original_shown_ = shown;
     apply_layer();
+    emit waiting_changed();
 }
 
 void OverlayTranslationSession::set_target_language(const QString &code) {
@@ -111,6 +115,7 @@ void OverlayTranslationSession::run() {
     connect(worker, &OverlayTranslationWorker::recognized, this, [this](const QVector<OverlayTextBlock> &blocks) {
         blocks_ = blocks;
         planned_.fill(std::nullopt, blocks_.size());
+        emit waiting_changed();
     });
     connect(worker, &OverlayTranslationWorker::block_translated, this, [this](int index, const QString &translation) {
         if (index < 0 || index >= blocks_.size()) return;
@@ -118,10 +123,10 @@ void OverlayTranslationSession::run() {
         dirty_.append(index);
         if (!flush_timer_.isActive()) flush_timer_.start();
     });
-    connect(worker, &OverlayTranslationWorker::progress_changed, this, &OverlayTranslationSession::progress_changed);
     connect(worker, &OverlayTranslationWorker::finished_signal, this, [this, worker](bool success) { on_finished(worker, success); });
     connect(worker, &QThread::finished, worker, &QObject::deleteLater);
     emit busy_changed(true);
+    emit waiting_changed();
     worker->start();
 }
 
@@ -133,6 +138,7 @@ void OverlayTranslationSession::cancel() {
     disconnect(worker, nullptr, this, nullptr);
     worker->abort();
     emit busy_changed(false);
+    emit waiting_changed();
 }
 
 void OverlayTranslationSession::clear_translations() {
@@ -155,6 +161,7 @@ void OverlayTranslationSession::flush() {
     }
     dirty_.clear();
     apply_layer();
+    emit waiting_changed();
 }
 
 void OverlayTranslationSession::apply_layer() {
@@ -172,11 +179,23 @@ void OverlayTranslationSession::apply_layer() {
     scene_->background->set_overlay_visible(shown_ && !original_shown_);
 }
 
+OverlayTranslationWait OverlayTranslationSession::waiting() const {
+    if (!busy() || !shown_ || original_shown_ || !scene_) return {};
+    return {QRectF(scene_->sceneRect().topLeft() + QPointF(region_.topLeft()), QSizeF(region_.size())), dark_};
+}
+
+std::pair<int, int> OverlayTranslationSession::progress() const {
+    if (!busy()) return {0, 0};
+    const auto done = std::count_if(blocks_.cbegin(), blocks_.cend(), [](const OverlayTextBlock &block) { return !block.translated.isEmpty(); });
+    return {static_cast<int>(done), static_cast<int>(blocks_.size())};
+}
+
 void OverlayTranslationSession::on_finished(OverlayTranslationWorker *worker, bool success) {
     if (worker != worker_) return;
     worker_ = nullptr;
     flush();
     emit busy_changed(false);
+    emit waiting_changed();
     if (!success) {
         emit failed(worker->error_text());
         return;

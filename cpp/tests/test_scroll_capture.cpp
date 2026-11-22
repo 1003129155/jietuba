@@ -19,8 +19,10 @@
 #include "translation/translation_manager.h"
 #include "ui/fluent_lite/buttons.h"
 #include "ui/fluent_lite/inputs.h"
+#include "ui/busy_ring.h"
 #include "ui/save_image_dialog.h"
 #include "ui/toast.h"
+#include "ui/translation_sweep.h"
 #include "save_dialog_answerer.h"
 #include <QApplication>
 #include <QComboBox>
@@ -46,7 +48,9 @@
 #include <QTransform>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QThread>
 #include <QTimer>
+#include <atomic>
 #include <future>
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -445,6 +449,47 @@ private slots:
         // Capturing goes on where it stopped, once the watch has taken its first look.
         QTest::qWait(CHANGE_WATCH_INTERVAL_MS + 150);
         QVERIFY(scroll_in_steps({300}));
+    }
+
+    // In place, the wait sweeps over the frozen region in a window of its own, and the ring around
+    // the translate button turns; both are gone once the run ends.
+    void theTranslationWaitSweepsOverTheRegion() {
+        auto *window = open();
+        QVERIFY(window);
+        QVERIFY(scroll_in_steps({150}));
+        std::atomic_bool release = false;
+        set_recognizer_for_test([&release](const QImage &) {
+            while (!release) QThread::msleep(5);
+            return OcrResult{100, "ok", {}, 0.0};
+        });
+        // A key, so the run gets as far as recognizing; with nothing recognized no request is sent.
+        config_->set_translation_provider("deepl");
+        config_->set_accessor_value("deepl_api_key", "test-key");
+        config_->set_screenshot_translate_mode("overlay");
+        const auto restore = qScopeGuard([this, &release] {
+            release = true;
+            set_recognizer_for_test({});
+            config_->set_accessor_value("deepl_api_key", "");
+        });
+        window->toolbar->translate_btn->click();
+        TranslationSweepWindow *sweep = nullptr;
+        QTRY_VERIFY((sweep = visible_top_level<TranslationSweepWindow>()));
+        QCOMPARE(sweep->geometry(), window->capture_rect);
+        QVERIFY(sweep->windowFlags() & Qt::WindowTransparentForInput);
+        BusyRing *ring = nullptr;
+        for (auto *child : window->toolbar->translate_btn->children())
+            if (auto *typed = dynamic_cast<BusyRing *>(child)) ring = typed;
+        QVERIFY(ring);
+        QTRY_VERIFY(ring->isVisible());
+        // Nothing recognized: the sweep and the ring are gone when the reason is shown, and the
+        // capture goes on once it is closed.
+        release = true;
+        QDialog *reason = nullptr;
+        QTRY_VERIFY((reason = visible_top_level<QDialog>()));
+        QVERIFY(!visible_top_level<TranslationSweepWindow>());
+        QVERIFY(ring->isHidden());
+        reason->close();
+        QTRY_VERIFY(window->toolbar->crop_btn->isEnabled());
     }
 
     // A thinking model can take a minute: the wait must always be escapable.

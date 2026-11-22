@@ -86,4 +86,7 @@ std::optional<OverlayPaintedBlock> plan_overlay_block(const QImage &source, cons
 
 // Every cover, then every text, so no cover hides a neighbour's translation.
 void paint_overlay_blocks(QImage &target, const QVector<OverlayPaintedBlock> &painted);
+
+// Whether the pixels of image in rect are mostly dark.
+bool mostly_dark(const QImage &image, const QRect &rect);
 }

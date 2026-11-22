@@ -23,9 +23,10 @@
 #include "translation/overlay_translation_worker.h"
 #include "translation/service.h"
 #include "translation/translation_manager.h"
+#include "ui/busy_ring.h"
 #include "ui/dialogs.h"
 #include "ui/toast.h"
-#include "ui/wait_bar.h"
+#include "ui/translation_sweep.h"
 #include <QApplication>
 #include <QCursor>
 #include <QDateTime>
@@ -50,8 +51,6 @@
 namespace jietuba {
 namespace {
 const QString MODULE_TAG = "LongStitch";
-// The wait bar only appears when recognition and the network actually take a while.
-constexpr int WAIT_BAR_DELAY_MS = 200;
 QString tr_text(const char *text) { return i18n_tr(text, "ScrollCaptureWindow"); }
 
 // INFO when forced (always kept), DEBUG otherwise (filtered by the global level).
@@ -1443,26 +1442,33 @@ void ScrollCaptureWindow::on_translate_overlay() {
     set_translation_locked(true);
     auto *worker = new OverlayTranslationWorker(image, params, service);
     translate_worker_ = worker;
-    auto *bar = new WaitBar(nullptr, QSize(scaled(260), scaled(14)));
-    bar->set_progress(0, 0);
-    bar->center_on(capture_rect.center());
-    bar->show_after(WAIT_BAR_DELAY_MS);
-    translate_bar_ = bar;
+    // The wait looks as on a capture: the band sweeps over the frozen region, and the ring
+    // around the translate button fills as paragraphs come back.
+    auto *sweep = new TranslationSweepWindow(capture_rect, mostly_dark(image, image.rect()));
+    sweep->begin();
+    translate_sweep_ = sweep;
     // A window of its own: it goes with the window, whichever way that ends.
-    connect(this, &QObject::destroyed, bar, &QObject::deleteLater);
-    connect(worker, &OverlayTranslationWorker::progress_changed, bar, [bar](int done, int total) { bar->set_progress(done, total); });
+    connect(this, &QObject::destroyed, sweep, &QObject::deleteLater);
+    if (!translate_ring_ && toolbar) translate_ring_ = new BusyRing(toolbar->translate_btn);
+    if (auto *ring = translate_ring_.data()) {
+        ring->set_progress(0, 0);
+        ring->set_busy(true);
+        connect(worker, &OverlayTranslationWorker::progress_changed, ring, [ring](int done, int total) { ring->set_progress(done, total); });
+    }
     connect(worker, &QThread::finished, worker, &QObject::deleteLater);
     // Context this: a reply that arrives after the window closed is dropped instead of used.
     const QPointer<ScrollCaptureWindow> guard(this);
-    const QPointer<WaitBar> watch(bar);
+    const QPointer<TranslationSweepWindow> watch(sweep);
     connect(worker, &OverlayTranslationWorker::finished_signal, this, [this, guard, worker, watch, service](bool success) {
-        // The bar may already be gone: cancelling takes it down without waiting for a result.
+        // The sweep may already be gone: cancelling takes it down without waiting for a result.
+        // It goes before the capture can resume.
         if (watch) {
-            watch->dismiss();
+            watch->end();
             watch->deleteLater();
         }
-        translate_bar_ = nullptr;
         if (!guard || translate_worker_ != worker) return;
+        translate_sweep_ = nullptr;
+        if (translate_ring_) translate_ring_->set_busy(false);
         translate_worker_ = nullptr;
         if (!success) {
             log_stitch(T("[WARN] 长截图翻译失败: {e}", {{"e", worker->error_text()}}), true);
@@ -1635,13 +1641,14 @@ void ScrollCaptureWindow::cleanup() {
         translate_worker_->abort();
         translate_worker_ = nullptr;
     }
-    // The bar is its own window: an aborted worker never reports back, so it is taken down
+    // The sweep is its own window: an aborted worker never reports back, so it is taken down
     // here or it would stay on the screen over a closed capture.
-    if (auto *bar = qobject_cast<WaitBar *>(translate_bar_.data())) {
-        bar->dismiss();
-        bar->deleteLater();
+    if (translate_sweep_) {
+        translate_sweep_->end();
+        translate_sweep_->deleteLater();
     }
-    translate_bar_ = nullptr;
+    translate_sweep_ = nullptr;
+    if (translate_ring_) translate_ring_->set_busy(false);
     cancel_edge(false);
     ++capture_generation_;
     if (change_watch_) change_watch_->stop();

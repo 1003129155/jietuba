@@ -18,6 +18,16 @@ class CanvasScene;
 class OverlayTranslationWorker;
 class ToolSettingsManager;
 
+// What a run is working on, in scene coordinates: the whole selection while it is recognized and
+// translated, and whether the picture there is mostly dark. Nothing while no run goes on, or
+// while the original is shown instead.
+struct OverlayTranslationWait {
+    QRectF rect;
+    bool dark = false;
+    bool empty() const { return rect.isEmpty(); }
+    bool operator==(const OverlayTranslationWait &) const = default;
+};
+
 // The translation laid over one capture's selection. It is a layer on the background, not
 // a change to its pixels: it can be taken off and put back, and translated again in another
 // language or by another service without recognizing the capture a second time.
@@ -55,14 +65,18 @@ public:
     // The services to choose from, as (id, name): the configured ones and the current one.
     QList<QPair<QString, QString>> providers() const;
     const QVector<OverlayTextBlock> &blocks() const { return blocks_; }
+    OverlayTranslationWait waiting() const;
+    // Paragraphs translated and in all while a run goes on; in all is 0 until the selection is
+    // recognized.
+    std::pair<int, int> progress() const;
     // Replaces the service the requests go through.
     std::function<std::shared_ptr<TranslationService>()> make_service;
 
 signals:
     void shown_changed(bool shown);
     void busy_changed(bool busy);
-    // total is 0 while the count is not known yet (recognition).
-    void progress_changed(int done, int total);
+    // waiting() may have changed.
+    void waiting_changed();
     // The run ended without a translation.
     void failed(const QString &message);
     // The run ended with some paragraphs left as they were.
@@ -84,6 +98,8 @@ private:
     ToolSettingsManager *config_;
     QRect region_;
     QImage source_;
+    // Whether the source is mostly dark.
+    bool dark_ = false;
     QVector<OverlayTextBlock> blocks_;
     // Per block how it is drawn, once its translation is in.
     QVector<std::optional<OverlayPaintedBlock>> planned_;

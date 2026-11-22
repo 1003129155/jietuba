@@ -1,5 +1,6 @@
 #include "canvas/items/background_item.h"
 #include "canvas/scene.h"
+#include "core/export.h"
 #include "ocr/ocr_manager.h"
 #include "settings/tool_settings.h"
 #include "tools/action.h"
@@ -7,7 +8,10 @@
 #include "translation/overlay_translation_session.h"
 #include "translation/overlay_translation_worker.h"
 #include "translation/registry.h"
+#include "ui/overlay_translation_indicator.h"
+#include "ui/translation_sweep.h"
 #include <QColor>
+#include <QGraphicsView>
 #include <QDir>
 #include <QFont>
 #include <QFontDatabase>
@@ -983,6 +987,170 @@ private slots:
         QCOMPARE(recognitions.load(), 2);
         QCOMPARE(session.blocks().size(), 1);
         QVERIFY(!session.show(QRectF(900, 900, 50, 50)));
+    }
+
+    // While a run goes on, the wait covers the whole selection and the progress counts the
+    // paragraphs in; nothing while the original is shown, nor once it ends.
+    void aSessionTellsWhatItWorksOnAndHowFar() {
+        const auto source = page(QSize(400, 260), Qt::white, Qt::black, {{"Settings", QRectF(60, 50, 220, 24)}, {"Cancel", QRectF(60, 120, 220, 24)}});
+        CanvasScene scene(source, QRectF(0, 0, 400, 260));
+        std::atomic_bool read = false, answer_cancel = false;
+        // Boxes are in the selection's own pixels.
+        set_recognizer_for_test([&](const QImage &) {
+            while (!read) QThread::msleep(5);
+            return result_of({line("Settings", QRectF(20, 20, 220, 24)), line("Cancel", QRectF(20, 90, 220, 24))});
+        });
+        const auto restore = qScopeGuard([&] {
+            read = true;
+            answer_cancel = true;
+            set_recognizer_for_test({});
+        });
+        const auto service = [&] {
+            return scripted_service([&](const QString &text) {
+                while (text == "Cancel" && !answer_cancel) QThread::msleep(5);
+                return translated_as(QString::fromUtf8("译") + text);
+            });
+        };
+        OverlayTranslationSession session(&scene, nullptr);
+        session.make_service = service;
+        QVector<OverlayTranslationWait> seen;
+        connect(&session, &OverlayTranslationSession::waiting_changed, this, [&] {
+            if (seen.isEmpty() || !(seen.last() == session.waiting())) seen.append(session.waiting());
+        });
+
+        QVERIFY(session.show(QRectF(40, 30, 300, 200)));
+        const OverlayTranslationWait whole{QRectF(40, 30, 300, 200), false};
+        QVERIFY(session.waiting() == whole);
+        // Before the selection is read, how much there is to do is not known.
+        QCOMPARE(session.progress(), std::make_pair(0, 0));
+        session.set_original_shown(true);
+        QVERIFY(session.waiting().empty());
+        session.set_original_shown(false);
+        QVERIFY(session.waiting() == whole);
+
+        read = true;
+        QTRY_COMPARE(session.progress(), std::make_pair(1, 2));
+        QVERIFY(session.waiting() == whole);
+        answer_cancel = true;
+        QTRY_VERIFY(!session.busy());
+        QVERIFY(session.waiting().empty());
+        QCOMPARE(session.progress(), std::make_pair(0, 0));
+        QVERIFY(seen.size() >= 2);
+        QVERIFY(seen.last().empty());
+
+        // Over a dark page the wait says so, to be drawn light.
+        const auto night = page(QSize(200, 100), QColor(20, 22, 26), QColor(230, 230, 230), {{"Night", QRectF(20, 20, 120, 20)}});
+        CanvasScene dark_scene(night, QRectF(0, 0, 200, 100));
+        OverlayTranslationSession dark_session(&dark_scene, nullptr);
+        dark_session.make_service = service;
+        read = false;
+        QVERIFY(dark_session.show(QRectF(0, 0, 200, 100)));
+        QVERIFY(dark_session.waiting().dark);
+        read = true;
+        QTRY_VERIFY(!dark_session.busy());
+    }
+
+    // The wait is swept over the selection on the view after a short delay, and an export of the
+    // selection never includes it.
+    void theWaitIsSweptOverTheSelectionAndNeverExported() {
+        const auto source = page(QSize(320, 200), Qt::white, Qt::black, {{"Settings", QRectF(40, 40, 200, 20)}});
+        CanvasScene scene(source, QRectF(0, 0, 320, 200));
+        QGraphicsView view(&scene);
+        view.setFrameShape(QFrame::NoFrame);
+        view.setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        view.setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        view.resize(320, 200);
+        view.show();
+        const QImage plain = view.grab().toImage();
+        OverlayTranslationIndicator indicator(&view);
+
+        // A wait that ends within the delay shows nothing.
+        const OverlayTranslationWait wait{QRectF(40, 40, 200, 120), false};
+        indicator.set_waiting(wait);
+        indicator.set_waiting({});
+        QTest::qWait(TranslationSweep::SHOW_DELAY_MS + 100);
+        QVERIFY(!indicator.active());
+
+        indicator.set_waiting(wait);
+        QVERIFY(!indicator.active());
+        QCOMPARE(view.grab().toImage(), plain);
+        QTRY_VERIFY(indicator.active());
+        // Halfway across, the band is inside the selection and nowhere else.
+        indicator.hold_at_for_test(TranslationSweep::CROSS_MS / 2);
+        const QImage shown = view.grab().toImage();
+        QVERIFY(differing_pixels(shown, plain, QRect(40, 40, 200, 120)) > 0);
+        QCOMPARE(differing_pixels(shown, plain, QRect(0, 0, 320, 40)), 0);
+        QCOMPARE(differing_pixels(shown, plain, QRect(0, 160, 320, 40)), 0);
+        QCOMPARE(differing_pixels(shown, plain, QRect(0, 40, 40, 120)), 0);
+        QCOMPARE(differing_pixels(shown, plain, QRect(240, 40, 80, 120)), 0);
+        const QImage exported = ExportService(&scene).export_image(QRectF(0, 0, 320, 200)).convertToFormat(QImage::Format_RGB32);
+        QCOMPARE(differing_pixels(exported, source.convertToFormat(QImage::Format_RGB32), QRect(0, 0, 320, 200)), 0);
+        // Between two sweeps nothing is drawn.
+        indicator.hold_at_for_test(TranslationSweep::CROSS_MS + 100);
+        QCOMPARE(view.grab().toImage(), plain);
+
+        indicator.set_waiting({});
+        QVERIFY(!indicator.active());
+        QCOMPARE(view.grab().toImage(), plain);
+    }
+
+    // The band stands out clearly on a light page, in the theme colour, and on a dark one, lighter.
+    void theSweepShowsOnLightAndDarkPictures() {
+        for (const bool dark : {false, true}) {
+            const QColor page = dark ? QColor(20, 22, 26) : QColor(Qt::white);
+            QImage image(400, 200, QImage::Format_ARGB32_Premultiplied);
+            image.fill(page);
+            QPainter painter(&image);
+            TranslationSweep::paint_band(painter, image.rect(), dark, TranslationSweep::CROSS_MS / 2);
+            painter.end();
+            const QRect band = TranslationSweep::band_bounds(image.rect(), TranslationSweep::CROSS_MS / 2);
+            QVERIFY(!band.isEmpty() && band.width() < image.width());
+            QRgb strongest = page.rgb();
+            int contrast = 0;
+            for (int x = band.left(); x <= band.right(); ++x) {
+                const QRgb pixel = image.pixel(x, 100);
+                const int distance = std::max({std::abs(qRed(pixel) - page.red()), std::abs(qGreen(pixel) - page.green()), std::abs(qBlue(pixel) - page.blue())});
+                if (distance > contrast) {
+                    contrast = distance;
+                    strongest = pixel;
+                }
+            }
+            QVERIFY2(contrast >= 40, qPrintable(QString("%1: %2").arg(dark).arg(contrast)));
+            if (dark) QVERIFY(qGray(strongest) > qGray(page.rgb()) + 30);
+            // Outside the band the picture is untouched.
+            QCOMPARE(image.pixel(band.right() + 2 < image.width() ? band.right() + 2 : band.left() - 2, 0), page.rgb());
+        }
+    }
+
+    // On a long screenshot the sweep is a window of its own over the region, which clicks go
+    // through and which never takes the focus.
+    void theLongScreenshotSweepIsAClickThroughWindowOverTheRegion() {
+        const QRect area(100, 80, 360, 240);
+        TranslationSweepWindow sweep(area, false);
+        QVERIFY(sweep.isWindow());
+        QCOMPARE(sweep.geometry(), area);
+        QVERIFY(sweep.windowFlags() & Qt::WindowTransparentForInput);
+        QVERIFY(sweep.windowFlags() & Qt::WindowDoesNotAcceptFocus);
+        QVERIFY(sweep.windowFlags() & Qt::WindowStaysOnTopHint);
+        QVERIFY(sweep.testAttribute(Qt::WA_TransparentForMouseEvents));
+        QVERIFY(sweep.testAttribute(Qt::WA_ShowWithoutActivating));
+        sweep.begin();
+        QVERIFY(sweep.isHidden());
+        QTRY_VERIFY(sweep.isVisible() && sweep.active());
+        sweep.hold_at_for_test(TranslationSweep::CROSS_MS / 2);
+        QImage drawn(area.size(), QImage::Format_ARGB32_Premultiplied);
+        drawn.fill(Qt::transparent);
+        sweep.render(&drawn);
+        // The band alone is drawn; the rest of the window stays see-through.
+        int painted = 0;
+        for (int y = 0; y < drawn.height(); ++y)
+            for (int x = 0; x < drawn.width(); ++x) painted += qAlpha(drawn.pixel(x, y)) > 0;
+        QVERIFY(painted > 0 && painted < area.width() * area.height() / 2);
+        QCOMPARE(qAlpha(drawn.pixel(0, 0)), 0);
+        QCOMPARE(qAlpha(drawn.pixel(area.width() - 1, area.height() - 1)), 0);
+        sweep.end();
+        QVERIFY(sweep.isHidden());
+        QVERIFY(!sweep.active());
     }
 
     void aSessionReportsWhatItCouldNotDo() {

@@ -7,6 +7,7 @@
 #include "settings/color_formats.h"
 #include "settings/tool_settings.h"
 #include "ui/base_settings_panel.h"
+#include "ui/busy_ring.h"
 #include "ui/dialogs.h"
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/labels.h"
@@ -50,7 +51,9 @@
 #include <QToolButton>
 #include <QAbstractItemView>
 #include <algorithm>
+#include <cmath>
 #include <functional>
+#include <numbers>
 #include <stdexcept>
 #include <memory>
 #include <QMouseEvent>
@@ -395,6 +398,77 @@ private slots:
         QCOMPARE(tl::load_layout(*config_), custom);
         config_->set_app_setting(tl::SCREENSHOT.setting_key, "{not json");
         QCOMPARE(tl::load_layout(*config_), tl::default_layout());
+    }
+
+    // A ring turns around the translate button while the translation is worked on, once the
+    // wait outlasts a short delay; it follows the toolbar's scale and lets clicks through.
+    void theTranslateButtonTurnsARingWhileTheTranslationRuns() {
+        Toolbar toolbar;
+        toolbar.show();
+        auto *button = toolbar.screenshot_translate_btn;
+        toolbar.set_translation_busy(true);
+        toolbar.set_translation_busy(false);
+        auto *ring = toolbar.translation_busy_ring;
+        QVERIFY(ring);
+        QTest::qWait(BusyRing::SHOW_DELAY_MS + 100);
+        QVERIFY(ring->isHidden());
+
+        toolbar.set_translation_busy(true);
+        QVERIFY(ring->isHidden());
+        QTRY_VERIFY(!ring->isHidden());
+        QCOMPARE(ring->parentWidget(), button);
+        QCOMPARE(ring->geometry(), button->rect());
+        QVERIFY(ring->testAttribute(Qt::WA_TransparentForMouseEvents));
+        const QRectF at_100 = ring->circle();
+        QVERIFY(QRectF(button->rect()).contains(at_100));
+        QVERIFY(at_100.width() > button->iconSize().width());
+
+        get_ui_scale().set_percent(150);
+        const auto restore = qScopeGuard([] { get_ui_scale().set_percent(100); });
+        QTRY_COMPARE(ring->geometry(), button->rect());
+        QVERIFY2(ring->circle().width() >= at_100.width() * 1.4, qPrintable(QString::number(ring->circle().width())));
+        QVERIFY(QRectF(button->rect()).contains(ring->circle()));
+
+        toolbar.set_translation_busy(false);
+        QVERIFY(ring->isHidden());
+    }
+
+    // Once the number of paragraphs is known, the ring fills clockwise from the top as they come
+    // in; the next run turns it again until its own number is known.
+    void theTranslateRingFillsAsParagraphsComeIn() {
+        Toolbar toolbar;
+        toolbar.show();
+        toolbar.set_translation_busy(true);
+        auto *ring = toolbar.translation_busy_ring;
+        QTRY_VERIFY(ring && !ring->isHidden());
+        QVERIFY(!ring->progress());
+        // The most opaque pixel near the point a share of a turn clockwise from the top.
+        const auto ink_at = [ring](double turn) {
+            QImage image(ring->size(), QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            ring->render(&image);
+            const QRectF circle = ring->circle();
+            const double angle = turn * 2 * std::numbers::pi, radius = circle.width() / 2;
+            const QPoint at(qRound(circle.center().x() + radius * std::sin(angle)), qRound(circle.center().y() - radius * std::cos(angle)));
+            int most = 0;
+            for (int dy = -1; dy <= 1; ++dy)
+                for (int dx = -1; dx <= 1; ++dx)
+                    if (image.rect().contains(at + QPoint(dx, dy))) most = std::max(most, qAlpha(image.pixel(at + QPoint(dx, dy))));
+            return most;
+        };
+        toolbar.set_translation_progress(1, 4);
+        QCOMPARE(ring->progress(), std::optional<double>(0.25));
+        QTRY_VERIFY2(ink_at(0.15) > 200, qPrintable(QString::number(ink_at(0.15))));
+        QVERIFY2(ink_at(0.6) < 120, qPrintable(QString::number(ink_at(0.6))));
+        toolbar.set_translation_progress(4, 4);
+        QTRY_VERIFY(ink_at(0.6) > 200);
+
+        toolbar.set_translation_progress(0, 0);
+        QVERIFY(!ring->progress());
+        toolbar.set_translation_progress(3, 4);
+        toolbar.set_translation_busy(false);
+        QVERIFY(ring->isHidden());
+        QVERIFY(!ring->progress());
     }
 
     void theToolbarFoldsHidesAndRereadsItsLayout() {

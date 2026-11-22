@@ -16,6 +16,7 @@ class QScreen;
 
 namespace jietuba {
 class ArrowSettingsPanel;
+class BusyRing;
 class CursorManager;
 class MosaicSettingsPanel;
 class NumberSettingsPanel;
@@ -125,6 +126,10 @@ public:
     // panel, and takes the place back from a drawing tool's.
     void toggle_translation_panel();
     TranslationPanel *ensure_translation_panel();
+    // The translation is still being worked on: a ring goes around the translate button.
+    void set_translation_busy(bool busy);
+    // Paragraphs translated out of total: the ring fills as they come in; 0 in all turns it.
+    void set_translation_progress(int done, int total);
     // Shows the tool's panel, refilled from that tool's saved settings. Item-specific
     // syncing after a selection must run after this.
     void show_panel_for_tool(const QString &tool_id);
@@ -156,6 +161,7 @@ public:
     MosaicSettingsPanel *mosaic_panel = nullptr;
     WatermarkSettingsPanel *watermark_panel = nullptr;
     TranslationPanel *translation_panel = nullptr;
+    BusyRing *translation_busy_ring = nullptr;
 
     // Unfolds the number panel's label and pointer part showing a selected number's state, or folds it.
     void show_number_extras(const std::optional<QVariantMap> &state);

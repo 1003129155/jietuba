@@ -748,12 +748,21 @@ void ScreenshotWindow::on_screenshot_translate() {
         connect(panel, &TranslationPanel::target_language_changed, session, &OverlayTranslationSession::set_target_language);
         connect(panel, &TranslationPanel::provider_changed, session, &OverlayTranslationSession::set_provider);
         connect(session, &OverlayTranslationSession::shown_changed, toolbar, &Toolbar::set_translation_shown);
+        connect(session, &OverlayTranslationSession::busy_changed, toolbar, &Toolbar::set_translation_busy);
         // The layer belongs to the pixels it was translated from: another selection takes it off.
         connect(scene->selection_model, &SelectionModel::rectChanged, session, [session](const QRectF &rect) {
             if (session->shown() && session->region_of(rect) != session->region()) session->hide();
         });
+        connect(session, &OverlayTranslationSession::waiting_changed, toolbar, [bar = toolbar, session] {
+            const auto [done, total] = session->progress();
+            bar->set_translation_progress(done, total);
+        });
     }
     toolbar->set_translation_shown(true);
+    // The run began before the toolbar was listening.
+    toolbar->set_translation_busy(session->busy());
+    const auto [done, total] = session->progress();
+    toolbar->set_translation_progress(done, total);
 }
 
 void ScreenshotWindow::remember_watermark() {

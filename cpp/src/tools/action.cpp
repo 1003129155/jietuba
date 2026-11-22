@@ -25,6 +25,7 @@
 #include "ui/dialogs.h"
 #include "ui/save_image_dialog.h"
 #include "ui/toast.h"
+#include "ui/overlay_translation_indicator.h"
 #include "ui/wait_bar.h"
 #include <QApplication>
 #include <QDateTime>
@@ -260,25 +261,12 @@ OverlayTranslationSession *ActionTools::overlay_translation() {
     auto *session = new OverlayTranslationSession(scene, config_manager, scene);
     overlay_session_ = session;
     const QPointer<QWidget> parent = parent_window;
-    // The wait is shown at the selection's lower edge, clear of the paragraphs filling in.
-    QObject::connect(session, &OverlayTranslationSession::busy_changed, session, [this, session](bool busy) {
-        if (overlay_bar_) {
-            overlay_bar_->dismiss();
-            overlay_bar_->deleteLater();
-            overlay_bar_ = nullptr;
-        }
-        if (!busy || !scene) return;
-        const auto selection = scene->selection_model->rect();
-        auto *bar = new WaitBar(nullptr, QSize(scaled(260), scaled(14)));
-        bar->set_progress(0, 0);
-        bar->center_on(QPoint(static_cast<int>(selection.center().x()), static_cast<int>(selection.bottom()) - scaled(20)));
-        bar->show_after(WAIT_BAR_DELAY_MS);
-        QObject::connect(session, &QObject::destroyed, bar, &QObject::deleteLater);
-        overlay_bar_ = bar;
-    });
-    QObject::connect(session, &OverlayTranslationSession::progress_changed, session, [this](int done, int total) {
-        if (overlay_bar_) overlay_bar_->set_progress(done, total);
-    });
+    // The wait is swept over the selection until the run ends.
+    if (auto *view = scene->views().value(0)) {
+        auto *indicator = new OverlayTranslationIndicator(view);
+        QObject::connect(session, &OverlayTranslationSession::waiting_changed, indicator, [indicator, session] { indicator->set_waiting(session->waiting()); });
+        QObject::connect(session, &QObject::destroyed, indicator, &QObject::deleteLater);
+    }
     const auto report = [parent](const QString &message) {
         if (parent) show_modeless_warning_dialog(parent, action_tr("Translation"), message);
     };

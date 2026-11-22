@@ -22,11 +22,13 @@
 //     window->show();
 namespace jietuba {
 class AutoScroller;
+class BusyRing;
 class ChangeWatch;
 class FloatingToolbar;
 class InputHub;
 class OverlayTranslationWorker;
 class ToolSettingsManager;
+class TranslationSweepWindow;
 
 // One grabbed frame: width x height BGRA pixels.
 struct GrabbedFrame {
@@ -261,9 +263,10 @@ private:
     std::optional<std::pair<int, int>> latest_box_;
     // Deletes itself when its thread finishes; cleared before any export is taken.
     OverlayTranslationWorker *translate_worker_ = nullptr;
-    // The wait bar belongs to the window while the worker runs, so cancelling takes it down
-    // even though an aborted worker never reports back.
-    QPointer<QWidget> translate_bar_;
+    // The sweep over the region belongs to the window while the worker runs, so cancelling
+    // takes it down even though an aborted worker never reports back.
+    QPointer<TranslationSweepWindow> translate_sweep_;
+    QPointer<BusyRing> translate_ring_;
     // The capture is stopped while a translation runs, and started again when it fails.
     bool capture_frozen_ = false;
     // The panel follows the preview's own direction, not scroll_direction: results already

@@ -12,7 +12,6 @@ namespace jietuba {
 class CanvasScene;
 class OverlayTranslationSession;
 class SaveService;
-class WaitBar;
 class ToolSettingsManager;
 
 // The window ActionTools works for; cleanup_and_close when it has one, else close().
@@ -84,6 +83,5 @@ private:
     void cleanup_and_close();
     static QString format_from_save_path(const QString &file_path, const QString &selected_filter);
     QPointer<OverlayTranslationSession> overlay_session_;
-    QPointer<WaitBar> overlay_bar_;
 };
 }

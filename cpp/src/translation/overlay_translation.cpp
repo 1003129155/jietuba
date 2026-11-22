@@ -866,4 +866,15 @@ QString format_unplaced_translations(const QVector<OverlayTextBlock> &blocks, co
     for (const int index : unplaced) text.append(blocks[index].source + u'\n' + blocks[index].translated);
     return text.join(QStringLiteral("\n\n"));
 }
+
+bool mostly_dark(const QImage &image, const QRect &rect) {
+    const QRect area = rect.intersected(image.rect());
+    if (area.isEmpty()) return false;
+    // An 8 by 8 grid is plenty to tell a dark page from a light one.
+    int total = 0;
+    for (int row = 0; row < 8; ++row)
+        for (int column = 0; column < 8; ++column)
+            total += qGray(image.pixel(area.left() + (2 * column + 1) * area.width() / 16, area.top() + (2 * row + 1) * area.height() / 16));
+    return total < 128 * 64;
+}
 }
