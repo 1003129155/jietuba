@@ -1153,6 +1153,150 @@ private slots:
         QVERIFY(!sweep.active());
     }
 
+    // Twenty selections in quick succession: never two recognitions at once, the runs asked for
+    // in between are skipped, and the last selection is the one translated.
+    void quickSelectionChangesRunOneAtATimeAndTheNewestWins() {
+        const auto source = page(QSize(400, 260), Qt::white, Qt::black, {{"Settings", QRectF(60, 50, 220, 24)}});
+        CanvasScene scene(source, QRectF(0, 0, 400, 260));
+        std::atomic_int running = 0, most = 0, recognitions = 0, asked = 0;
+        // The recognizer cannot be interrupted, like the real engines; it names the width it saw.
+        set_recognizer_for_test([&](const QImage &image) {
+            const int now = ++running;
+            for (int seen = most.load(); now > seen && !most.compare_exchange_weak(seen, now);) {
+            }
+            ++recognitions;
+            QThread::msleep(60);
+            --running;
+            return result_of({line(QString("Width %1").arg(image.width()), QRectF(10, 10, 120, 20))});
+        });
+        const auto restore = qScopeGuard([] { set_recognizer_for_test({}); });
+        OverlayTranslationSession session(&scene, nullptr);
+        session.make_service = [&] {
+            return scripted_service([&](const QString &text) {
+                ++asked;
+                return translated_as(QString::fromUtf8("译") + text);
+            });
+        };
+        QSignalSpy busy(&session, &OverlayTranslationSession::busy_changed);
+        for (int step = 0; step < 20; ++step) {
+            QVERIFY(session.show(QRectF(10, 10, 200 + step * 5, 150)));
+            QTest::qWait(8);
+        }
+        QTRY_VERIFY_WITH_TIMEOUT(!session.busy(), 10000);
+        QCOMPARE(most.load(), 1);
+        // A run starts only when the one before has ended, with the newest selection, so the
+        // recognitions follow how long they take rather than how many selections were asked for.
+        QVERIFY2(recognitions.load() <= 10, qPrintable(QString::number(recognitions.load())));
+        QCOMPARE(session.region(), QRect(10, 10, 295, 150));
+        QCOMPARE(session.blocks().size(), 1);
+        QCOMPARE(session.blocks().first().source, QString("Width 295"));
+        QCOMPARE(session.blocks().first().translated, QString::fromUtf8("译Width 295"));
+        // Only runs that got past recognition asked for anything.
+        QVERIFY(asked.load() <= recognitions.load());
+        // Busy once from the first selection to the end, not on and off at every change.
+        QCOMPARE(busy.count(), 2);
+        QCOMPARE(busy.first().first().toBool(), true);
+        QCOMPARE(busy.last().first().toBool(), false);
+    }
+
+    // A paragraph met again, as when the selection moves a little, takes the translation it got
+    // before: only what is new is asked for. Another language asks for everything again.
+    void aParagraphMetAgainIsNotAskedForTwice() {
+        const auto source = page(QSize(400, 260), Qt::white, Qt::black, {{"Settings", QRectF(60, 50, 220, 24)}, {"Cancel", QRectF(60, 120, 220, 24)}, {"Apply", QRectF(60, 190, 220, 24)}});
+        CanvasScene scene(source, QRectF(0, 0, 400, 260));
+        QTemporaryDir dir;
+        QSettings settings(dir.filePath("settings.ini"), QSettings::IniFormat);
+        ToolSettingsManager config(settings);
+        // The upper selection holds Settings and Cancel, the lower one Cancel and Apply.
+        set_recognizer_for_test([](const QImage &image) {
+            if (image.height() == 120) return result_of({line("Settings", QRectF(20, 20, 220, 24)), line("Cancel", QRectF(20, 90, 220, 24))});
+            return result_of({line("Cancel", QRectF(20, 20, 220, 24)), line("Apply", QRectF(20, 90, 220, 24))});
+        });
+        const auto restore = qScopeGuard([] { set_recognizer_for_test({}); });
+        std::mutex mutex;
+        QStringList asked;
+        OverlayTranslationSession session(&scene, &config);
+        session.make_service = [&] {
+            return scripted_service([&](const QString &text) {
+                const std::lock_guard lock(mutex);
+                asked << text;
+                return translated_as(QString::fromUtf8("译") + text);
+            });
+        };
+        QVERIFY(session.show(QRectF(40, 30, 300, 120)));
+        QTRY_VERIFY(!session.busy());
+        asked.sort();
+        QCOMPARE(asked, QStringList({"Cancel", "Settings"}));
+
+        asked.clear();
+        QVERIFY(session.show(QRectF(40, 100, 300, 130)));
+        QTRY_VERIFY(!session.busy());
+        QCOMPARE(asked, QStringList({"Apply"}));
+        QCOMPARE(session.blocks().size(), 2);
+        QCOMPARE(session.blocks()[0].translated, QString::fromUtf8("译Cancel"));
+        QCOMPARE(session.blocks()[1].translated, QString::fromUtf8("译Apply"));
+
+        asked.clear();
+        session.set_target_language(config.get_translation_target_lang() == "JA" ? "KO" : "JA");
+        QTRY_VERIFY(!session.busy());
+        asked.sort();
+        QCOMPARE(asked, QStringList({"Apply", "Cancel"}));
+    }
+
+    // Moving the selection takes the layer off at once, and the translation follows when the
+    // drag ends; a change without a drag, as from the keyboard, follows after a short pause.
+    // The translation stays on all along.
+    void theTranslationFollowsTheSelection() {
+        const auto source = page(QSize(400, 260), Qt::white, Qt::black, {{"Settings", QRectF(60, 50, 220, 24)}});
+        CanvasScene scene(source, QRectF(0, 0, 400, 260));
+        QTemporaryDir dir;
+        QSettings settings(dir.filePath("settings.ini"), QSettings::IniFormat);
+        ToolSettingsManager config(settings);
+        std::atomic_int recognitions = 0;
+        set_recognizer_for_test([&](const QImage &image) {
+            ++recognitions;
+            return result_of({line(QString("Width %1").arg(image.width()), QRectF(10, 10, 160, 20))});
+        });
+        const auto restore = qScopeGuard([] { set_recognizer_for_test({}); });
+        ActionTools tools(&scene, &config);
+        auto *session = tools.overlay_translation();
+        session->make_service = [] { return scripted_service([](const QString &text) { return translated_as(QString::fromUtf8("译") + text); }); };
+        QSignalSpy shown(session, &OverlayTranslationSession::shown_changed);
+        QRectF first(20, 20, 300, 200);
+        scene.selection_model->set_rect(first);
+        QVERIFY(session->show(first));
+        QTRY_VERIFY(!session->busy());
+        QVERIFY(scene.background->overlay_visible());
+
+        scene.selection_model->start_dragging();
+        QRectF moved(30, 20, 300, 200);
+        scene.selection_model->set_rect(moved);
+        QVERIFY(!scene.background->overlay_visible());
+        QVERIFY(!session->busy());
+        // Held still mid-drag for longer than the pause: nothing runs until the drag ends.
+        QTest::qWait(500);
+        QVERIFY(!session->busy());
+        QCOMPARE(recognitions.load(), 1);
+        QRectF wider(30, 20, 340, 200);
+        scene.selection_model->set_rect(wider);
+        scene.selection_model->stop_dragging();
+        QVERIFY(session->busy());
+        QTRY_VERIFY(!session->busy());
+        QCOMPARE(recognitions.load(), 2);
+        QCOMPARE(session->region(), QRect(30, 20, 340, 200));
+        QCOMPARE(session->blocks().first().source, QString("Width 340"));
+        QVERIFY(scene.background->overlay_visible());
+
+        QRectF nudged(31, 20, 340, 200);
+        scene.selection_model->set_rect(nudged);
+        QVERIFY(!session->busy());
+        QTRY_COMPARE(recognitions.load(), 3);
+        QTRY_VERIFY(!session->busy());
+        QCOMPARE(session->region(), QRect(31, 20, 340, 200));
+        QVERIFY(session->shown());
+        QCOMPARE(shown.count(), 1);
+    }
+
     void aSessionReportsWhatItCouldNotDo() {
         const auto source = page(QSize(320, 120), Qt::white, Qt::black, {{"Settings", QRectF(20, 20, 220, 24)}});
         CanvasScene scene(source, QRectF(0, 0, 320, 120));

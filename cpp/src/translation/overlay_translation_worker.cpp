@@ -77,6 +77,11 @@ void OverlayTranslationWorker::run() {
         QStringList texts;
         for (int index = 0; index < blocks_.size(); ++index) {
             if (!blocks_[index].translated.isEmpty()) continue;
+            if (const auto known = known_.find(blocks_[index].source); known != known_.end()) {
+                blocks_[index].translated = known.value();
+                emit block_translated(index, known.value());
+                continue;
+            }
             pending.append(index);
             texts.append(blocks_[index].source);
         }

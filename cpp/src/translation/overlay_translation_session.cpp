@@ -67,24 +67,31 @@ bool OverlayTranslationSession::show(const QRectF &selection) {
     apply_layer();
     const bool missing = std::any_of(blocks_.cbegin(), blocks_.cend(), [](const OverlayTextBlock &block) { return block.translated.isEmpty(); });
     if (!busy() && (blocks_.isEmpty() || missing)) run();
-    emit waiting_changed();
+    notify();
     return true;
 }
 
 void OverlayTranslationSession::hide() {
     cancel();
     if (scene_ && scene_->background) scene_->background->set_overlay_visible(false);
-    if (!shown_) return;
-    shown_ = false;
-    emit shown_changed(false);
-    emit waiting_changed();
+    if (shown_) {
+        shown_ = false;
+        emit shown_changed(false);
+    }
+    notify();
+}
+
+void OverlayTranslationSession::suspend() {
+    cancel();
+    if (scene_ && scene_->background) scene_->background->set_overlay_visible(false);
+    notify();
 }
 
 void OverlayTranslationSession::set_original_shown(bool shown) {
     if (original_shown_ == shown) return;
     original_shown_ = shown;
     apply_layer();
-    emit waiting_changed();
+    notify();
 }
 
 void OverlayTranslationSession::set_target_language(const QString &code) {
@@ -92,6 +99,7 @@ void OverlayTranslationSession::set_target_language(const QString &code) {
     config_->set_translation_target_lang(code);
     clear_translations();
     if (shown_) run();
+    notify();
 }
 
 void OverlayTranslationSession::set_provider(const QString &provider_id) {
@@ -99,46 +107,78 @@ void OverlayTranslationSession::set_provider(const QString &provider_id) {
     config_->set_translation_provider(provider_id);
     clear_translations();
     if (shown_) run();
+    notify();
+}
+
+void OverlayTranslationSession::notify() {
+    if (busy() != busy_told_) {
+        busy_told_ = busy();
+        emit busy_changed(busy_told_);
+    }
+    emit waiting_changed();
 }
 
 void OverlayTranslationSession::run() {
-    cancel();
+    retire_worker();
+    if (stopping_) {
+        // OCR cannot be stopped midway: starting beside it would only add a thread doing the same.
+        run_waiting_ = true;
+        return;
+    }
+    run_waiting_ = false;
     const auto params = config_ ? config_->get_translation_request_params() : QVariantMap{{"target_lang", "ZH"}};
     target_lang_ = params.value("target_lang", "ZH").toString();
     service_ = make_service();
+    // The service chosen in the settings and the one the service resolved: the same in practice.
+    remembered_scope_ = QStringList{config_ ? config_->get_translation_provider() : QString(), service_ ? service_->active_provider_id() : QString(), target_lang_}.join(u'\x1f');
     // Without a parent: it ends on its own thread and may outlive this object.
     auto *worker = new OverlayTranslationWorker(source_, params, service_);
     if (!blocks_.isEmpty()) worker->set_blocks(blocks_);
+    worker->set_known_translations(remembered_.value(remembered_scope_));
     worker->set_paint_result(false);
     worker_ = worker;
-    // A worker that was replaced is disconnected, so every signal here is the current run's.
-    connect(worker, &OverlayTranslationWorker::recognized, this, [this](const QVector<OverlayTextBlock> &blocks) {
+    // A worker that was replaced is disconnected; a reply it queued before that is dropped
+    // here too, so nothing of an earlier selection lands on this one.
+    connect(worker, &OverlayTranslationWorker::recognized, this, [this, worker](const QVector<OverlayTextBlock> &blocks) {
+        if (worker != worker_) return;
         blocks_ = blocks;
         planned_.fill(std::nullopt, blocks_.size());
-        emit waiting_changed();
+        notify();
     });
-    connect(worker, &OverlayTranslationWorker::block_translated, this, [this](int index, const QString &translation) {
-        if (index < 0 || index >= blocks_.size()) return;
+    connect(worker, &OverlayTranslationWorker::block_translated, this, [this, worker](int index, const QString &translation) {
+        if (worker != worker_ || index < 0 || index >= blocks_.size()) return;
         blocks_[index].translated = translation;
+        if (!translation.isEmpty()) remembered_[remembered_scope_].insert(blocks_[index].source, translation);
         dirty_.append(index);
         if (!flush_timer_.isActive()) flush_timer_.start();
     });
     connect(worker, &OverlayTranslationWorker::finished_signal, this, [this, worker](bool success) { on_finished(worker, success); });
     connect(worker, &QThread::finished, worker, &QObject::deleteLater);
-    emit busy_changed(true);
-    emit waiting_changed();
     worker->start();
 }
 
-void OverlayTranslationSession::cancel() {
+void OverlayTranslationSession::retire_worker() {
     flush_timer_.stop();
     if (!worker_) return;
     auto *worker = worker_.data();
     worker_ = nullptr;
+    // Nothing it sends from now on is this session's business, but when its thread ends a
+    // waiting run may start.
     disconnect(worker, nullptr, this, nullptr);
     worker->abort();
-    emit busy_changed(false);
-    emit waiting_changed();
+    stopping_ = worker;
+    connect(worker, &QThread::finished, this, &OverlayTranslationSession::start_waiting_run);
+}
+
+void OverlayTranslationSession::start_waiting_run() {
+    stopping_ = nullptr;
+    if (run_waiting_) run();
+    notify();
+}
+
+void OverlayTranslationSession::cancel() {
+    retire_worker();
+    run_waiting_ = false;
 }
 
 void OverlayTranslationSession::clear_translations() {
@@ -161,7 +201,7 @@ void OverlayTranslationSession::flush() {
     }
     dirty_.clear();
     apply_layer();
-    emit waiting_changed();
+    notify();
 }
 
 void OverlayTranslationSession::apply_layer() {
@@ -194,8 +234,7 @@ void OverlayTranslationSession::on_finished(OverlayTranslationWorker *worker, bo
     if (worker != worker_) return;
     worker_ = nullptr;
     flush();
-    emit busy_changed(false);
-    emit waiting_changed();
+    notify();
     if (!success) {
         emit failed(worker->error_text());
         return;

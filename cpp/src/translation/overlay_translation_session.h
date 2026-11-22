@@ -1,6 +1,7 @@
 #pragma once
 #include "translation/overlay_translation.h"
 #include "translation/service.h"
+#include <QHash>
 #include <QImage>
 #include <QList>
 #include <QObject>
@@ -33,7 +34,10 @@ struct OverlayTranslationWait {
 // language or by another service without recognizing the capture a second time.
 //
 // Paragraphs appear as their requests come back. One that failed keeps its original text,
-// and the next show() asks for those again.
+// and the next show() asks for those again. One run goes on at a time: a run asked for while a
+// stopped one is still ending waits for it, and only the newest of those starts. A translation
+// that came back is remembered for the service and language it came from, so a paragraph met
+// again, as when the selection moves a little, is not asked for twice.
 class OverlayTranslationSession : public QObject {
     Q_OBJECT
 public:
@@ -48,8 +52,11 @@ public:
     bool show(const QRectF &selection);
     // Takes the layer off and stops the requests. What is translated stays for show().
     void hide();
+    // The selection is moving: the layer comes off and the run stops, but the translation stays
+    // on, for the show() that follows where the selection ends.
+    void suspend();
     bool shown() const { return shown_; }
-    bool busy() const { return !worker_.isNull(); }
+    bool busy() const { return !worker_.isNull() || run_waiting_; }
 
     // The original picture instead of the layer, while the translation stays on.
     void set_original_shown(bool shown);
@@ -88,6 +95,13 @@ signals:
 private:
     void run();
     void cancel();
+    // Stops the current run: its worker is kept until its thread ends.
+    void retire_worker();
+    void start_waiting_run();
+    // busy_changed when busy() differs from what was last told, then waiting_changed: once at
+    // the end of each outside call, so stopping one run and queueing the next is not told as
+    // two changes.
+    void notify();
     // Forgets the translations and the layer; the recognized paragraphs stay.
     void clear_translations();
     void flush();
@@ -108,6 +122,13 @@ private:
     QString target_lang_;
     QTimer flush_timer_;
     QPointer<OverlayTranslationWorker> worker_;
+    // A stopped run whose thread has not ended yet, and whether a run waits for it.
+    QPointer<OverlayTranslationWorker> stopping_;
+    bool run_waiting_ = false;
+    bool busy_told_ = false;
+    // Translations that came back, per service and target language, by source text.
+    QHash<QString, QHash<QString, QString>> remembered_;
+    QString remembered_scope_;
     std::shared_ptr<TranslationService> service_;
     bool shown_ = false;
     bool original_shown_ = false;

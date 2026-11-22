@@ -41,6 +41,8 @@ namespace {
 QString action_tr(const char *text) { return i18n_tr(text, "ActionTools"); }
 // A capture handed over shows that it is still at work only when that takes a while.
 constexpr int WAIT_BAR_DELAY_MS = 200;
+// A selection changed without a drag is taken as resting after this long.
+constexpr int SELECTION_REST_MS = 300;
 }
 
 ActionTools::ActionTools(CanvasScene *scene, ToolSettingsManager *config_manager, QWidget *parent_window)
@@ -267,6 +269,27 @@ OverlayTranslationSession *ActionTools::overlay_translation() {
         QObject::connect(session, &OverlayTranslationSession::waiting_changed, indicator, [indicator, session] { indicator->set_waiting(session->waiting()); });
         QObject::connect(session, &QObject::destroyed, indicator, &QObject::deleteLater);
     }
+    // The layer belongs to the pixels it was translated from: moving the selection takes it
+    // off, and the translation follows once the selection rests. A drag ends on release; a
+    // change without one, as from the keyboard, rests after a short pause.
+    auto *rest = new QTimer(session);
+    rest->setSingleShot(true);
+    rest->setInterval(SELECTION_REST_MS);
+    const QPointer<CanvasScene> canvas(scene);
+    const auto follow = [session, canvas] {
+        if (canvas && session->shown() && !canvas->selection_model->is_dragging()) session->show(canvas->selection_model->rect());
+    };
+    QObject::connect(rest, &QTimer::timeout, session, follow);
+    QObject::connect(scene->selection_model, &SelectionModel::rectChanged, session, [session, rest](const QRectF &rect) {
+        if (!session->shown() || session->region_of(rect) == session->region()) return;
+        session->suspend();
+        rest->start();
+    });
+    QObject::connect(scene->selection_model, &SelectionModel::draggingChanged, session, [rest, follow](bool dragging) {
+        if (dragging) return;
+        rest->stop();
+        follow();
+    });
     const auto report = [parent](const QString &message) {
         if (parent) show_modeless_warning_dialog(parent, action_tr("Translation"), message);
     };

@@ -2,6 +2,7 @@
 #include "core/http_client.h"
 #include "translation/overlay_translation.h"
 #include "translation/service.h"
+#include <QHash>
 #include <QImage>
 #include <QThread>
 #include <QVariantMap>
@@ -23,6 +24,9 @@ public:
     // Before start(): the capture is already recognized. Recognition is skipped, and only
     // the blocks without a translation are sent.
     void set_blocks(const QVector<OverlayTextBlock> &blocks);
+    // Before start(): translations already known, by source text. A paragraph found among them
+    // takes its translation at once, with block_translated, instead of being asked for.
+    void set_known_translations(const QHash<QString, QString> &known) { known_ = known; }
     // Before start(): false leaves result() null, for a caller that draws the blocks itself.
     void set_paint_result(bool paint) { paint_result_ = paint; }
     // Stops the OCR at its next band or tile and the requests in flight at once; no result
@@ -64,6 +68,7 @@ private:
     QString configuration_error_;
     std::optional<TranslationResult> quota_error_;
     QVector<OverlayTextBlock> blocks_;
+    QHash<QString, QString> known_;
     bool recognized_ = false;
     bool paint_result_ = true;
     QImage result_;
