@@ -5,11 +5,12 @@
 #include <QString>
 #include <QStringList>
 #include <QVector>
+#include <array>
 #include <functional>
 #include <optional>
 
-// Rebuilds a table from recognized words and the screenshot's ruling lines, without a
-// table model: what a table recognition service returns, at the cost of a pass over the
+// Rebuilds a table from recognized words and the screenshot's ruling lines, without an
+// image model: what a table recognition service returns, at the cost of a pass over the
 // OCR result.
 //
 // Columns come from two kinds of evidence: x ranges where the segments of different rows
@@ -19,7 +20,9 @@
 // one is missing between two ruled cells those cells are merged.
 //
 // The thresholds were tuned on rendered table screenshots with known structure (local
-// notes, table_proto). Positions are in image pixels.
+// notes, table_proto). Whether a line continues the row above is then scored by small
+// decision trees trained on rendered and real web tables (scripts/table_model), which read
+// the rules' own answer among their measurements. Positions are in image pixels.
 namespace jietuba::text_table {
 // One word, or one CJK character, as it appears in its line's text.
 struct Word {
@@ -44,6 +47,8 @@ struct Cell {
 struct Table {
     int rows = 0, columns = 0;
     QVector<Cell> cells;
+    // As built: the first row holds the table's title and the last its note, each one cell across.
+    int title_rows = 0, note_rows = 0;
     bool operator==(const Table &other) const;
 };
 
@@ -54,6 +59,55 @@ QVector<Line> table_lines(const QVector<OcrLine> &lines);
 
 // The table the lines form in image; empty without one.
 Table build_table(const QImage &image, const QVector<Line> &lines);
+
+// For training and checking the models (scripts/table_model). A visual row is one line of text
+// across the table; a cell that wraps spreads one table row over several visual rows. The builder
+// first decides which visual rows belong to the table (titles, captions and notes do not), then,
+// for each pair of consecutive visual rows of the table, whether the lower one continues the table
+// row of the upper one, from measurements the trees read.
+constexpr int ROW_FEATURE_COUNT = 57;
+extern const std::array<const char *, ROW_FEATURE_COUNT> ROW_FEATURE_NAMES;
+struct RowPair {
+    std::array<float, ROW_FEATURE_COUNT> features{};
+    bool rules_join = false;  // what the hand-written rules decide
+    bool fixed = false;       // next to a row the rules take for text centred over a row span
+    bool joined = false;
+};
+constexpr int EXTENT_FEATURE_COUNT = 42;
+extern const std::array<const char *, EXTENT_FEATURE_COUNT> EXTENT_FEATURE_NAMES;
+struct ExtentRow {
+    std::array<float, EXTENT_FEATURE_COUNT> features{};
+    bool rules_in = false;  // inside the run of rows the rules keep
+    bool in = false;
+};
+// Rows just outside the table's extent: above it a title, below it a note, when the trees keep them.
+constexpr int CAPTION_FEATURE_COUNT = 30;
+extern const std::array<const char *, CAPTION_FEATURE_COUNT> CAPTION_FEATURE_NAMES;
+struct CaptionRow {
+    int row = 0;  // index into all_rows
+    bool above = true;
+    std::array<float, CAPTION_FEATURE_COUNT> features{};
+    bool kept = false;
+};
+struct RowTrace {
+    QVector<QVector<QRectF>> all_rows;  // every visual row's segment boxes, before the extent is chosen
+    QVector<QStringList> all_texts;
+    QVector<ExtentRow> extent;          // extent[i]: all_rows[i]
+    QVector<CaptionRow> captions;
+    QVector<QVector<QRectF>> rows;      // the table's visual rows
+    QVector<QStringList> texts;
+    QVector<RowPair> pairs;  // pairs[i]: rows i and i + 1
+};
+struct RowControl {
+    bool use_model = true;         // false: the rules alone join rows
+    bool use_extent_model = true;  // false: the rules alone choose the table's rows
+    bool use_caption_model = true; // false: no title or note rows
+    QVector<int> given;            // per pair, 1 joins and 0 parts the rows, overriding model and rules
+    QVector<int> given_extent;     // per visual row, 1 keeps and 0 drops it at either end
+    QVector<int> given_caption;    // per visual row, 1 keeps it as title or note when it lies just outside
+    RowTrace *trace = nullptr;
+};
+Table build_table(const QImage &image, const QVector<Line> &lines, const RowControl &control);
 
 // Two or more rows and columns, and in most rows two or more filled cells: prose and
 // single lists are not offered as tables.

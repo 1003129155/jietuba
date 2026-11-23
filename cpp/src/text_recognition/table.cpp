@@ -41,6 +41,58 @@ double median(std::vector<double> values) {
 
 int trunc_int(double v) { return static_cast<int>(std::trunc(v)); }
 
+// Trees trained on screenshots whose cells are known (scripts/table_model): one scores whether a
+// visual row continues the table row above it, the other whether a visual row belongs to the table
+// at all; a positive score says yes. A child index at or above zero is another split, below zero
+// the leaf ~index.
+struct ModelSplit {
+    float threshold;
+    short left;
+    short right;
+    unsigned char feature;
+};
+namespace row_model {
+#include "text_recognition/table_row_model.inc"
+}
+namespace extent_model {
+#include "text_recognition/table_extent_model.inc"
+}
+namespace caption_model {
+#include "text_recognition/table_caption_model.inc"
+}
+static_assert(caption_model::MODEL_FEATURE_COUNT == CAPTION_FEATURE_COUNT, "the caption model was trained on another set of features");
+static_assert(row_model::MODEL_FEATURE_COUNT == ROW_FEATURE_COUNT, "the row model was trained on another set of features");
+static_assert(extent_model::MODEL_FEATURE_COUNT == EXTENT_FEATURE_COUNT, "the extent model was trained on another set of features");
+// The trees overrule the rules only with this much confidence; a score closer to zero keeps the
+// rules' answer. Kept equal to MARGIN in scripts/table_model/train.py.
+constexpr double ROW_OVERRIDE_MARGIN = 0.5;
+constexpr double EXTENT_OVERRIDE_MARGIN = 0.5;
+// The rules keep no title or note; the trees keep one with the same confidence.
+constexpr double CAPTION_KEEP_SCORE = 0.5;
+
+template <size_t N, size_t S, size_t L, size_t T>
+double tree_score(const std::array<float, N> &features, double baseline, const ModelSplit (&splits)[S], const double (&leaves)[L], const short (&trees)[T]) {
+    double raw = baseline;
+    for (const short root : trees) {
+        int node = root;
+        while (node >= 0) {
+            const auto &split = splits[node];
+            node = features[split.feature] <= split.threshold ? split.left : split.right;
+        }
+        raw += leaves[~node];
+    }
+    return raw;
+}
+double row_score(const std::array<float, ROW_FEATURE_COUNT> &f) {
+    return tree_score(f, row_model::MODEL_BASELINE, row_model::MODEL_SPLITS, row_model::MODEL_LEAVES, row_model::MODEL_TREES);
+}
+double extent_score(const std::array<float, EXTENT_FEATURE_COUNT> &f) {
+    return tree_score(f, extent_model::MODEL_BASELINE, extent_model::MODEL_SPLITS, extent_model::MODEL_LEAVES, extent_model::MODEL_TREES);
+}
+double caption_score(const std::array<float, CAPTION_FEATURE_COUNT> &f) {
+    return tree_score(f, caption_model::MODEL_BASELINE, caption_model::MODEL_SPLITS, caption_model::MODEL_LEAVES, caption_model::MODEL_TREES);
+}
+
 struct PlacedWord {
     QString text;
     double x0, x1, y0, y1;
@@ -160,7 +212,7 @@ std::vector<uint8_t> gray_of(const QImage &image) {
 
 class Builder {
 public:
-    Builder(const QImage &image, const QVector<Line> &lines) : image_(image) { make_segments(lines); }
+    Builder(const QImage &image, const QVector<Line> &lines, const RowControl &control) : image_(image), control_(control) { make_segments(lines); }
     Table build();
 
 private:
@@ -218,13 +270,19 @@ private:
 
     // ---- Context ----
     std::vector<Row> drop_context(std::vector<Row> rows) const;
+    double fill_of(const Row &row, double x0, double x1) const;
+    std::vector<Row> table_extent(const std::vector<Row> &all, const std::vector<Row> &kept, const std::function<int(const Row &)> &straddles);
     QString join_text(std::vector<int> parts) const;
 
     QImage image_;
+    const RowControl &control_;
+    std::vector<uint8_t> gray_;
     std::vector<Seg> segs_;
     double text_h_ = 0;
     std::vector<Rule> hrules_, vrules_;
     std::vector<double> bounds_;
+    // Rows just outside the table kept as its title (above) and its note (below), top to bottom.
+    std::vector<Row> title_, note_;
     bool lattice_ = false;
 };
 
@@ -350,7 +408,8 @@ int Builder::split(int seg, double x, double reach) {
 void Builder::detect_rules() {
     const int width = image_.width(), height = image_.height();
     if (width < 2 || height < 2) return;
-    const auto gray = gray_of(image_);
+    gray_ = gray_of(image_);
+    const auto &gray = gray_;
     std::vector<uint8_t> text(static_cast<size_t>(width) * height, 0);
     for (const auto &s : segs_)
         for (const auto &w : s.words) {
@@ -656,6 +715,311 @@ std::vector<Row> Builder::drop_context(std::vector<Row> rows) const {
     return rows;
 }
 
+// Where the table starts and ends among the visual rows. The rules kept a run of them (kept);
+// trees trained on screenshots with known cells weigh that with the measurements below, and the
+// rows they leave out at either end (titles, captions, notes) are cut.
+std::vector<Row> Builder::table_extent(const std::vector<Row> &all, const std::vector<Row> &kept, const std::function<int(const Row &)> &straddles) {
+    const int n = static_cast<int>(all.size());
+    int lo = -1, hi = -2;
+    if (!kept.empty()) {
+        const auto it = std::find(all.begin(), all.end(), kept.front());
+        if (it == all.end()) return kept;
+        lo = static_cast<int>(it - all.begin());
+        hi = lo + static_cast<int>(kept.size()) - 1;
+    }
+    if (n == 0) return kept;
+    const double t = text_h_;
+    double tx0 = 1e18, tx1 = -1e18;
+    for (const auto &r : all)
+        for (int s : r) {
+            tx0 = std::min(tx0, segs_[s].x0);
+            tx1 = std::max(tx1, segs_[s].x1);
+        }
+    const double w = std::max(1.0, tx1 - tx0);
+    std::vector<double> long_rules;
+    for (const auto &h : hrules_)
+        if (h.end - h.start >= 0.5 * w) long_rules.push_back(h.pos);
+    std::sort(long_rules.begin(), long_rules.end());
+    std::vector<double> gaps, seg_counts;
+    for (int i = 0; i + 1 < n; ++i) gaps.push_back(gap(all[i], all[i + 1]));
+    for (const auto &r : all) seg_counts.push_back(static_cast<double>(r.size()));
+    const double med_gap = median(gaps), typical = median(seg_counts);
+    const double nbounds = static_cast<double>(bounds_.size());
+    static const QStringList note_marks = {"*", QString::fromUtf8("※"), QString::fromUtf8("注"), "Note", "Source", QString::fromUtf8("来源"),
+                                           QString::fromUtf8("資料"), QString::fromUtf8("出典"), QString::fromUtf8("出所"), QString::fromUtf8("备注")};
+    static const QStringList caption_marks = {"Table", QString::fromUtf8("表"), "Fig", QString::fromUtf8("图"), QString::fromUtf8("圖")};
+    auto text_of = [&](const Row &r) {
+        std::vector<int> order(r);
+        std::sort(order.begin(), order.end(), [&](int a, int b) { return segs_[a].x0 < segs_[b].x0; });
+        QString out;
+        for (int s : order) out += segs_[s].text() + ' ';
+        return out.trimmed();
+    };
+    auto rule_between = [&](double ya, double yb) {
+        return std::any_of(long_rules.begin(), long_rules.end(), [&](double y) { return ya - 2 <= y && y <= yb + 2; });
+    };
+    std::vector<double> fills(n, -1);
+    auto fill = [&](int i) {
+        if (fills[i] < 0) fills[i] = fill_of(all[i], tx0, tx1);
+        return fills[i];
+    };
+    std::vector<uint8_t> in(n, 0);
+    std::vector<double> scores(n, 0);
+    for (int i = 0; i < n; ++i) {
+        const Row &r = all[i];
+        ExtentRow row;
+        auto &f = row.features;
+        double rx0 = 1e18, rx1 = -1e18;
+        std::vector<double> hs;
+        for (int s : r) {
+            rx0 = std::min(rx0, segs_[s].x0);
+            rx1 = std::max(rx1, segs_[s].x1);
+            hs.push_back(segs_[s].h());
+        }
+        f[0] = static_cast<float>(std::min(i, 6));
+        f[1] = static_cast<float>(std::min(n - 1 - i, 6));
+        f[2] = static_cast<float>(n);
+        f[3] = static_cast<float>(r.size());
+        f[4] = static_cast<float>((rx1 - rx0) / w);
+        f[5] = static_cast<float>((rx0 - tx0) / t);
+        f[6] = static_cast<float>((tx1 - rx1) / t);
+        f[7] = static_cast<float>(std::abs((rx0 + rx1) / 2 - (tx0 + tx1) / 2) / w);
+        f[8] = static_cast<float>(median(hs) / t);
+        f[9] = static_cast<float>(*std::max_element(hs.begin(), hs.end()) / t);
+        f[10] = static_cast<float>(i > 0 ? gaps[i - 1] / t : -9);
+        f[11] = static_cast<float>(i + 1 < n ? gaps[i] / t : -9);
+        f[12] = static_cast<float>(i > 0 ? (gaps[i - 1] - med_gap) / t : -9);
+        f[13] = static_cast<float>(i + 1 < n ? (gaps[i] - med_gap) / t : -9);
+        f[14] = static_cast<float>(straddles(r));
+        int crossed = 0;
+        for (double b : bounds_) {
+            bool hit = false;
+            for (int s : r)
+                for (const auto &word : segs_[s].words)
+                    if (word.x0 + 1 < b && b < word.x1 - 1) hit = true;
+            crossed += hit;
+        }
+        f[15] = static_cast<float>(crossed);
+        f[16] = static_cast<float>(nbounds);
+        f[17] = static_cast<float>(row_cols(r).size() / (nbounds + 1));
+        std::vector<PlacedWord> words;
+        for (int s : r) words.insert(words.end(), segs_[s].words.begin(), segs_[s].words.end());
+        std::stable_sort(words.begin(), words.end(), [](const PlacedWord &a, const PlacedWord &b) { return a.x0 < b.x0; });
+        double longest = 0, start = words.front().x0, end = words.front().x1;
+        int runs = 1;
+        for (size_t k = 1; k < words.size(); ++k) {
+            if (words[k].x0 - end > 0.6 * t) {
+                longest = std::max(longest, end - start);
+                start = words[k].x0;
+                ++runs;
+            }
+            end = std::max(end, words[k].x1);
+        }
+        longest = std::max(longest, end - start);
+        f[18] = static_cast<float>(longest / w);
+        f[19] = static_cast<float>(runs);
+        f[20] = rule_between(i > 0 ? bottom(all[i - 1]) : top(r) - 2 * t, top(r)) ? 1.f : 0.f;
+        f[21] = rule_between(bottom(r), i + 1 < n ? top(all[i + 1]) : bottom(r) + 2 * t) ? 1.f : 0.f;
+        const bool framed = long_rules.size() >= 2;
+        f[22] = framed && long_rules.front() < top(r) && bottom(r) < long_rules.back() ? 1.f : 0.f;
+        f[23] = framed && bottom(r) < long_rules.front() ? 1.f : 0.f;
+        f[24] = framed && top(r) > long_rules.back() ? 1.f : 0.f;
+        f[25] = std::any_of(vrules_.begin(), vrules_.end(), [&](const Rule &v) {
+                    return tx0 - t < v.pos && v.pos < tx1 + t && v.start <= top(r) + 0.2 * t && v.end >= bottom(r) - 0.2 * t;
+                }) ? 1.f : 0.f;
+        f[26] = static_cast<float>(i + 1 < n ? std::abs(fill(i) - fill(i + 1)) : 0);
+        f[27] = static_cast<float>(i > 0 ? std::abs(fill(i) - fill(i - 1)) : 0);
+        row.rules_in = lo <= i && i <= hi;
+        f[28] = row.rules_in ? 1.f : 0.f;
+        const QString text = text_of(r);
+        f[29] = !text.isEmpty() && (text.back() == ':' || text.back() == QChar(0xFF1A)) ? 1.f : 0.f;
+        f[30] = !text.isEmpty() && (text.back() == '.' || text.back() == QChar(0x3002)) ? 1.f : 0.f;
+        f[31] = std::any_of(note_marks.begin(), note_marks.end(), [&](const QString &m) { return text.startsWith(m, Qt::CaseInsensitive); }) ? 1.f : 0.f;
+        f[32] = std::any_of(caption_marks.begin(), caption_marks.end(), [&](const QString &m) { return text.startsWith(m, Qt::CaseInsensitive); }) ? 1.f : 0.f;
+        int digits = 0, cjk = 0, chars = 0;
+        for (QChar c : text) {
+            if (c.isSpace()) continue;
+            ++chars;
+            digits += c.isDigit();
+            cjk += is_cjk(c);
+        }
+        f[33] = static_cast<float>(std::min(chars, 300));
+        f[34] = static_cast<float>(chars ? static_cast<double>(digits) / chars : 0);
+        f[35] = static_cast<float>(chars ? static_cast<double>(cjk) / chars : 0);
+        f[36] = static_cast<float>(i > 0 ? static_cast<double>(all[i - 1].size()) : -1);
+        f[37] = static_cast<float>(i + 1 < n ? static_cast<double>(all[i + 1].size()) : -1);
+        const auto own = row_cols(r);
+        auto shared_with = [&](int k) {
+            const auto other = row_cols(all[k]);
+            int m = 0;
+            for (int c : own) m += static_cast<int>(other.count(c));
+            return static_cast<float>(m / std::max<double>(1.0, static_cast<double>(own.size())));
+        };
+        f[38] = i + 1 < n ? shared_with(i + 1) : -1.f;
+        f[39] = i > 0 ? shared_with(i - 1) : -1.f;
+        f[40] = static_cast<float>(fill(i) / 255.0);
+        f[41] = static_cast<float>(r.size() / std::max(1.0, typical));
+        const int given = i < static_cast<int>(control_.given_extent.size()) ? control_.given_extent[i] : -1;
+        if (extent_model::MODEL_TRAINED) scores[i] = extent_score(row.features);
+        if (given == 0 || given == 1)
+            row.in = given == 1;
+        else if (control_.use_extent_model && extent_model::MODEL_TRAINED)
+            row.in = scores[i] >= (row.rules_in ? -EXTENT_OVERRIDE_MARGIN : EXTENT_OVERRIDE_MARGIN) &&
+                     // A segment running through several column boundaries fits no column: a title or
+                     // prose the rules left out stays out.
+                     (row.rules_in || f[14] < std::max(2.0, std::floor(nbounds / 3)));
+        else
+            row.in = row.rules_in;
+        in[i] = row.in;
+        if (control_.trace) {
+            control_.trace->extent.append(row);
+            QVector<QRectF> boxes;
+            QStringList texts;
+            for (int s : r) {
+                boxes.append(QRectF(QPointF(segs_[s].x0, segs_[s].y0), QPointF(segs_[s].x1, segs_[s].y1)));
+                texts.append(segs_[s].text());
+            }
+            control_.trace->all_rows.append(boxes);
+            control_.trace->all_texts.append(texts);
+        }
+    }
+    int first = 0, last = n - 1;
+    while (first < n && !in[first]) ++first;
+    while (last >= 0 && !in[last]) --last;
+    if (first > last) {
+        if (lo < 0) return kept;
+        first = lo;
+        last = hi;
+    }
+
+    // Title and note: the rows right above and below the table that trees trained on screenshots
+    // with known titles and notes keep, outward from the table until one is not kept.
+    double bx0 = 1e18, bx1 = -1e18;
+    std::vector<double> body_h;
+    for (int i = first; i <= last; ++i)
+        for (int s : all[i]) {
+            bx0 = std::min(bx0, segs_[s].x0);
+            bx1 = std::max(bx1, segs_[s].x1);
+            body_h.push_back(segs_[s].h());
+        }
+    const double bw = std::max(1.0, bx1 - bx0), body_med = std::max(1.0, median(body_h));
+    const int height = image_.height();
+    auto caption = [&](int k, bool above, int distance) {
+        const Row &r = all[k];
+        CaptionRow row;
+        row.row = k;
+        row.above = above;
+        auto &f = row.features;
+        const Row &edge = above ? all[first] : all[last];
+        const Row &toward = above ? all[k + 1] : all[k - 1];
+        double rx0 = 1e18, rx1 = -1e18;
+        std::vector<double> hs;
+        for (int s : r) {
+            rx0 = std::min(rx0, segs_[s].x0);
+            rx1 = std::max(rx1, segs_[s].x1);
+            hs.push_back(segs_[s].h());
+        }
+        const QString text = text_of(r);
+        int digits = 0, cjk = 0, chars = 0;
+        for (QChar c : text) {
+            if (c.isSpace()) continue;
+            ++chars;
+            digits += c.isDigit();
+            cjk += is_cjk(c);
+        }
+        std::vector<PlacedWord> words;
+        for (int s : r) words.insert(words.end(), segs_[s].words.begin(), segs_[s].words.end());
+        std::stable_sort(words.begin(), words.end(), [](const PlacedWord &a, const PlacedWord &b) { return a.x0 < b.x0; });
+        double longest = 0, start = words.front().x0, end = words.front().x1;
+        int runs = 1;
+        for (size_t m = 1; m < words.size(); ++m) {
+            if (words[m].x0 - end > 0.6 * t) {
+                longest = std::max(longest, end - start);
+                start = words[m].x0;
+                ++runs;
+            }
+            end = std::max(end, words[m].x1);
+        }
+        longest = std::max(longest, end - start);
+        f[0] = above ? 1.f : 0.f;
+        f[1] = static_cast<float>(distance);
+        f[2] = static_cast<float>((above ? top(toward) - bottom(r) : top(r) - bottom(toward)) / t);
+        f[3] = static_cast<float>((above ? top(edge) - bottom(r) : top(r) - bottom(edge)) / t);
+        f[4] = static_cast<float>(r.size());
+        f[5] = static_cast<float>((rx1 - rx0) / bw);
+        f[6] = static_cast<float>((rx0 - bx0) / t);
+        f[7] = static_cast<float>((bx1 - rx1) / t);
+        f[8] = static_cast<float>(std::abs((rx0 + rx1) / 2 - (bx0 + bx1) / 2) / bw);
+        f[9] = static_cast<float>(median(hs) / t);
+        f[10] = static_cast<float>(*std::max_element(hs.begin(), hs.end()) / t);
+        f[11] = static_cast<float>(median(hs) / body_med);
+        f[12] = static_cast<float>(std::min(chars, 300));
+        f[13] = static_cast<float>(chars ? static_cast<double>(digits) / chars : 0);
+        f[14] = static_cast<float>(chars ? static_cast<double>(cjk) / chars : 0);
+        f[15] = !text.isEmpty() && (text.back() == ':' || text.back() == QChar(0xFF1A)) ? 1.f : 0.f;
+        f[16] = !text.isEmpty() && (text.back() == '.' || text.back() == QChar(0x3002)) ? 1.f : 0.f;
+        f[17] = std::any_of(note_marks.begin(), note_marks.end(), [&](const QString &m) { return text.startsWith(m, Qt::CaseInsensitive); }) ? 1.f : 0.f;
+        f[18] = std::any_of(caption_marks.begin(), caption_marks.end(), [&](const QString &m) { return text.startsWith(m, Qt::CaseInsensitive); }) ? 1.f : 0.f;
+        f[19] = static_cast<float>(runs);
+        f[20] = static_cast<float>(longest / bw);
+        f[21] = static_cast<float>(straddles(r));
+        f[22] = (above ? rule_between(bottom(r), top(edge)) : rule_between(bottom(edge), top(r))) ? 1.f : 0.f;
+        f[23] = static_cast<float>(std::abs(fill(k) - fill(above ? first : last)));
+        f[24] = static_cast<float>(above ? k : n - 1 - k);
+        f[25] = static_cast<float>((above ? top(r) : height - bottom(r)) / t);
+        f[26] = static_cast<float>(scores[k]);
+        f[27] = lo <= k && k <= hi ? 1.f : 0.f;
+        f[28] = static_cast<float>(above ? first : n - 1 - last);
+        f[29] = static_cast<float>(last - first + 1);
+        const int given = k < static_cast<int>(control_.given_caption.size()) ? control_.given_caption[k] : -1;
+        if (given == 0 || given == 1)
+            row.kept = given == 1;
+        else
+            row.kept = control_.use_caption_model && caption_model::MODEL_TRAINED && caption_score(row.features) >= CAPTION_KEEP_SCORE;
+        if (control_.trace) control_.trace->captions.append(row);
+        return row.kept;
+    };
+    title_.clear();
+    note_.clear();
+    bool open = true;
+    for (int k = first - 1, d = 1; k >= 0 && d <= 4; --k, ++d) {
+        open = caption(k, true, d) && open;
+        if (open) title_.insert(title_.begin(), all[k]);
+    }
+    open = true;
+    for (int k = last + 1, d = 1; k < n && d <= 3; ++k, ++d) {
+        open = caption(k, false, d) && open;
+        if (open) note_.push_back(all[k]);
+    }
+    return std::vector<Row>(all.begin() + first, all.begin() + last + 1);
+}
+
+// Background of a visual row: the median luma around its words from x0 to x1.
+double Builder::fill_of(const Row &row, double x0, double x1) const {
+    if (gray_.empty() || row.empty()) return 0;
+    const int width = image_.width(), height = image_.height();
+    const int ya = std::clamp(trunc_int(top(row)), 0, height), yb = std::clamp(trunc_int(bottom(row)) + 1, 0, height);
+    const int xa = std::clamp(trunc_int(x0), 0, width), xb = std::clamp(trunc_int(x1) + 1, 0, width);
+    std::array<int, 256> hist{};
+    int count = 0;
+    for (int y = ya; y < yb; ++y)
+        for (int x = xa; x < xb; ++x) {
+            bool inside = false;
+            for (int s : row)
+                if (segs_[s].x0 - 1 <= x && x <= segs_[s].x1 + 1) inside = true;
+            if (inside) continue;
+            ++hist[gray_[static_cast<size_t>(y) * width + x]];
+            ++count;
+        }
+    if (!count) return 0;
+    int seen = 0;
+    for (int v = 0; v < 256; ++v) {
+        seen += hist[v];
+        if (2 * seen >= count) return v;
+    }
+    return 255;
+}
+
 QString Builder::join_text(std::vector<int> parts) const {
     const double unit = std::max(1.0, text_h_ * 0.6);
     std::stable_sort(parts.begin(), parts.end(), [&](int a, int b) {
@@ -678,21 +1042,22 @@ Table Builder::build() {
     for (const auto &s : segs_) heights.push_back(s.h());
     text_h_ = median(heights);
     detect_rules();
-    auto rows = drop_context(visual_rows());
+    const auto all = visual_rows();
+    auto rows = drop_context(all);
 
     // Prose lines have gaps like merged cells, so the first pass counts only rows of several segments.
     find_columns(rows, false);
     // Prose above or below the table runs through column boundaries; its short last line goes with it.
+    // Counted per segment: group headers each centred over two columns cross one boundary apiece.
     auto straddles = [&](const Row &row) {
-        int n = 0;
-        for (double b : bounds_) {
-            bool hit = false;
-            for (int s : row)
-                for (const auto &w : segs_[s].words)
-                    if (w.x0 + 1 < b && b < w.x1 - 1) hit = true;
-            if (hit) ++n;
+        int most = 0;
+        for (int s : row) {
+            int n = 0;
+            for (double b : bounds_)
+                n += std::any_of(segs_[s].words.begin(), segs_[s].words.end(), [&](const PlacedWord &w) { return w.x0 + 1 < b && b < w.x1 - 1; });
+            most = std::max(most, n);
         }
-        return n;
+        return most;
     };
     auto one_run = [&](const Row &row) {
         std::vector<PlacedWord> words;
@@ -714,6 +1079,7 @@ Table Builder::build() {
             break;
         }
     }
+    rows = table_extent(all, rows, straddles);
     if (rows.empty()) return {};
     find_columns(rows, true);
     double tx0 = 1e18, tx1 = -1e18, ty0 = 1e18, ty1 = -1e18;
@@ -850,12 +1216,30 @@ Table Builder::build() {
         if (header_over(rows[i - 1], rows[i + 1])) header_rows.insert(i + 1);
         down.insert(rows[i].begin(), rows[i].end());
         split_after.insert(i);
-        // A header above the row-spanning cells covers the columns those cells leave free.
+        // A header above the row-spanning cells covers the columns those cells leave free. Each free
+        // column goes to the nearest header of that row, and none across a vertical rule beside it:
+        // two group headers never take the same column.
         auto free = [&](int c) { return c >= 0 && c < ncols && !cols[i].count(c) && cols[i + 1].count(c) && !cols[i - 1].count(c); };
-        for (int u : rows[i - 1]) {
+        const Row &upper = rows[i - 1];
+        const double ry0 = top(upper) + 0.2 * text_h_, ry1 = bottom(upper) - 0.2 * text_h_;
+        auto nearest = [&](int c) {
+            const double lo = c == 0 ? tx0 : bounds_[c - 1], hi = c + 1 == ncols ? tx1 : bounds_[c];
+            const double x = (lo + hi) / 2;
+            int best = -1;
+            double best_d = 1e18;
+            for (int s : upper) {
+                const double d = x < segs_[s].x0 ? segs_[s].x0 - x : x > segs_[s].x1 ? x - segs_[s].x1 : 0;
+                if (d < best_d) {
+                    best_d = d;
+                    best = s;
+                }
+            }
+            return best;
+        };
+        for (int u : upper) {
             auto [c0, c1] = seg_cols(u);
-            while (free(c0 - 1)) --c0;
-            while (free(c1 + 1)) ++c1;
+            while (free(c0 - 1) && nearest(c0 - 1) == u && !vrule_at(bounds_[c0 - 1], ry0, ry1)) --c0;
+            while (free(c1 + 1) && nearest(c1 + 1) == u && !vrule_at(bounds_[c1], ry0, ry1)) ++c1;
             forced[u] = {c0, c1};
         }
     }
@@ -1128,10 +1512,220 @@ Table Builder::build() {
         }
     }
 
-    // Rows of the table: runs of united visual rows.
+    // Whether each visual row continues the table row above it. The rules above give one answer;
+    // trees trained on screenshots with known cells weigh it with the measurements below.
+    std::vector<double> pair_gaps;
+    for (int i = 0; i + 1 < n; ++i) pair_gaps.push_back(gap(rows[i], rows[i + 1]));
+    const double med_pair_gap = median(pair_gaps);
+    // Where a gap falls among the table's gaps: lines within cells and rows of the table form two
+    // clusters, and in a table of wrapped cells the median is a line gap.
+    std::vector<double> sorted_gaps(pair_gaps);
+    std::sort(sorted_gaps.begin(), sorted_gaps.end());
+    const double gap_p80 = sorted_gaps.empty() ? 0 : sorted_gaps[std::min(sorted_gaps.size() - 1, sorted_gaps.size() * 4 / 5)];
+    double split_gap = sorted_gaps.empty() ? 0 : sorted_gaps.back(), split_ratio = 1;
+    {
+        double best = -1;
+        for (size_t k = 1; k < sorted_gaps.size(); ++k) {
+            const double lo = std::accumulate(sorted_gaps.begin(), sorted_gaps.begin() + static_cast<long>(k), 0.0) / static_cast<double>(k);
+            const double hi = std::accumulate(sorted_gaps.begin() + static_cast<long>(k), sorted_gaps.end(), 0.0) / static_cast<double>(sorted_gaps.size() - k);
+            const double separation = static_cast<double>(k) * static_cast<double>(sorted_gaps.size() - k) * (hi - lo) * (hi - lo);
+            if (separation > best) {
+                best = separation;
+                split_gap = (sorted_gaps[k - 1] + sorted_gaps[k]) / 2;
+                split_ratio = (hi - lo) / text_h_;
+            }
+        }
+    }
+    std::optional<double> head_rule;
+    for (double y : rule_ys)
+        if (ty0 + 0.5 * text_h_ < y && y < ty1 - 0.5 * text_h_) {
+            int below = 0;
+            for (const auto &r : rows) below += top(r) > y;
+            if (below >= 2) {
+                head_rule = y;
+                break;
+            }
+        }
+    std::vector<double> fills(n, -1);
+    auto row_fill = [&](int i) {
+        if (fills[i] < 0) fills[i] = fill_of(rows[i], tx0, tx1);
+        return fills[i];
+    };
+    auto share = [](const std::vector<int> &segments, const std::function<bool(int)> &test) {
+        if (segments.empty()) return 0.0;
+        return static_cast<double>(std::count_if(segments.begin(), segments.end(), test)) / static_cast<double>(segments.size());
+    };
+    static const QRegularExpression numeric(QString::fromUtf8("^[-+±−$€£¥￥]?[\\d.,，．%‰ ]+[%‰]?$"));
+    static const QString continuation = QString::fromUtf8("-,(/、，（&");
+    static const QString opening = QString::fromUtf8("([（【「");
+    // The segment of row r in column c, when it fills that column alone.
+    auto seg_in = [&](int r, int c) -> int {
+        for (int s : rows[r]) {
+            const auto [c0, c1] = seg_cols(s);
+            if (c0 == c && c1 == c) return s;
+        }
+        return -1;
+    };
+    std::vector<uint8_t> joined(std::max(0, n - 1), 0);
+    for (int i = 0; i + 1 < n; ++i) {
+        const int j = i + 1;
+        const Row &u = rows[i], &l = rows[j];
+        RowPair pair;
+        auto &f = pair.features;
+        const double t = text_h_;
+        const double g = pair_gaps[i];
+        f[0] = static_cast<float>(g / t);
+        f[1] = static_cast<float>(i > 0 ? pair_gaps[i - 1] / t : -9);
+        f[2] = static_cast<float>(j + 1 < n ? pair_gaps[j] / t : -9);
+        f[3] = static_cast<float>((g - med_pair_gap) / t);
+        f[4] = static_cast<float>(row_gap ? (g - *row_gap) / t : -9);
+        double gmin = 9 * t, gmax = -9 * t;
+        bool any_shared = false;
+        int cont = 0, aligned = 0, centred = 0, single_l = 0;
+        for (int b : l) {
+            const auto [c0, c1] = seg_cols(b);
+            if (c0 != c1) continue;
+            ++single_l;
+            const int a = seg_in(i, c0);
+            if (a < 0) continue;
+            any_shared = true;
+            const double cg = segs_[b].y0 - segs_[a].y1;
+            gmin = std::min(gmin, cg);
+            gmax = std::max(gmax, cg);
+            const auto it = widest.find(c0);
+            const bool wide = segs_[a].x1 - segs_[a].x0 >= 0.75 * (it == widest.end() ? 0.0 : it->second);
+            const bool left = std::abs(segs_[a].x0 - segs_[b].x0) <= 0.3 * t;
+            const bool right = std::abs(segs_[a].x1 - segs_[b].x1) <= 0.3 * t;
+            const bool centre = std::abs(segs_[a].x0 + segs_[a].x1 - segs_[b].x0 - segs_[b].x1) <= 0.6 * t;
+            cont += wide && (left || right || centre);
+            aligned += left;
+            centred += centre;
+        }
+        f[5] = static_cast<float>(any_shared ? gmin / t : 9);
+        f[6] = static_cast<float>(any_shared ? gmax / t : 9);
+        std::vector<double> hu, hl;
+        for (int s : u) hu.push_back(segs_[s].h());
+        for (int s : l) hl.push_back(segs_[s].h());
+        f[7] = static_cast<float>(median(hu) / t);
+        f[8] = static_cast<float>(median(hl) / t);
+        const auto &cu = cols[i], &cl = cols[j];
+        const double nc = ncols;
+        const int common = shared(cu, cl);
+        f[9] = static_cast<float>(cu.size() / nc);
+        f[10] = static_cast<float>(cl.size() / nc);
+        f[11] = static_cast<float>(common / nc);
+        f[12] = std::includes(cu.begin(), cu.end(), cl.begin(), cl.end()) ? 1.f : 0.f;
+        f[13] = std::includes(cl.begin(), cl.end(), cu.begin(), cu.end()) ? 1.f : 0.f;
+        f[14] = static_cast<float>((static_cast<double>(cl.size()) - common) / nc);
+        f[15] = static_cast<float>((static_cast<double>(cu.size()) - common) / nc);
+        f[16] = static_cast<float>(u.size());
+        f[17] = static_cast<float>(l.size());
+        f[18] = static_cast<float>(ncols);
+        f[19] = ruled(u, l) ? 1.f : 0.f;
+        f[20] = hrule_between(bottom(u), top(l), tx0, tx1, 0.5 * twidth) ? 1.f : 0.f;
+        f[21] = rule_mode ? 1.f : 0.f;
+        f[22] = lattice_ ? 1.f : 0.f;
+        f[23] = nbands ? (bands[i] == bands[j] ? 1.f : 0.f) : -1.f;
+        f[24] = static_cast<float>(nbands ? per_band[bands[i]] : 0);
+        f[25] = static_cast<float>(single_l ? static_cast<double>(cont) / single_l : 0);
+        std::vector<int> single_u;
+        for (int s : u)
+            if (seg_cols(s).first == seg_cols(s).second) single_u.push_back(s);
+        f[26] = static_cast<float>(share(single_u, [&](int s) {
+            const auto it = widest.find(seg_cols(s).first);
+            return segs_[s].x1 - segs_[s].x0 >= 0.75 * (it == widest.end() ? 0.0 : it->second);
+        }));
+        f[27] = static_cast<float>(single_l ? static_cast<double>(aligned) / single_l : 0);
+        f[28] = static_cast<float>(std::min(i, 6));
+        f[29] = static_cast<float>(n > 1 ? static_cast<double>(i) / (n - 1) : 0);
+        f[30] = head_rule && bottom(l) < *head_rule ? 1.f : 0.f;
+        pair.rules_join = ufind(i) == ufind(j);
+        f[31] = pair.rules_join ? 1.f : 0.f;
+        f[32] = header_over(u, l) ? 1.f : 0.f;
+        f[33] = std::any_of(pairs.begin(), pairs.end(), [&](const std::pair<int, int> &p) { return row_of[p.first] == i && row_of[p.second] == j; }) ? 1.f : 0.f;
+        std::vector<int> both(u);
+        both.insert(both.end(), l.begin(), l.end());
+        f[34] = static_cast<float>(share(both, [&](int s) { return has_cjk(segs_[s].text()); }));
+        f[35] = static_cast<float>(share(u, [&](int s) {
+            const QString x = segs_[s].text();
+            return !x.isEmpty() && continuation.contains(x.back());
+        }));
+        f[36] = static_cast<float>(share(l, [&](int s) {
+            const QString x = segs_[s].text();
+            return !x.isEmpty() && x.front().isLower();
+        }));
+        f[37] = static_cast<float>(share(l, [&](int s) {
+            const QString x = segs_[s].text();
+            return !x.isEmpty() && opening.contains(x.front());
+        }));
+        f[38] = static_cast<float>(share(u, [&](int s) { return numeric.match(segs_[s].text()).hasMatch(); }));
+        f[39] = static_cast<float>(share(l, [&](int s) { return numeric.match(segs_[s].text()).hasMatch(); }));
+        f[40] = static_cast<float>(std::abs(row_fill(i) - row_fill(j)));
+        f[41] = static_cast<float>(n);
+        f[42] = static_cast<float>(single_l ? static_cast<double>(centred) / single_l : 0);
+        f[43] = static_cast<float>(std::lower_bound(sorted_gaps.begin(), sorted_gaps.end(), g) - sorted_gaps.begin()) / static_cast<float>(sorted_gaps.size());
+        f[44] = static_cast<float>((g - gap_p80) / t);
+        f[45] = static_cast<float>((g - split_gap) / t);
+        f[46] = static_cast<float>(split_ratio);
+        double neighbour = 9 * t;
+        if (i > 0) neighbour = std::min(neighbour, pair_gaps[i - 1]);
+        if (j + 1 < n) neighbour = std::min(neighbour, pair_gaps[j]);
+        f[47] = static_cast<float>((g - neighbour) / t);
+        // Columns the lower row fills that already hold text in the run of rows the rules joined
+        // ending at the upper one: joining would put two cells' text in one.
+        ColumnSet taken;
+        for (int k = i; k >= 0 && ufind(k) == ufind(i); --k) taken.insert(cols[k].begin(), cols[k].end());
+        const int overlap = shared(cl, taken);
+        f[48] = static_cast<float>(cl.empty() ? 0.0 : overlap / static_cast<double>(cl.size()));
+        f[49] = static_cast<float>(overlap);
+        pair.fixed = split_after.count(i) || split_after.count(j);
+        f[50] = split_after.count(i) ? 1.f : 0.f;
+        f[51] = split_after.count(j) ? 1.f : 0.f;
+        f[52] = header_rows.count(j) ? 1.f : 0.f;
+        // The rows around the pair: text centred over a row span sits between fuller rows; a line
+        // centred beside wrapped cells has their lines above and below it in columns it leaves empty.
+        f[53] = static_cast<float>(i > 0 ? cols[i - 1].size() / nc : -1);
+        f[54] = static_cast<float>(j + 1 < n ? cols[j + 1].size() / nc : -1);
+        auto around = [&](int above, int middle, int below) {
+            int k = 0;
+            for (int c : cols[above]) k += cols[below].count(c) && !cols[middle].count(c);
+            return static_cast<float>(k / nc);
+        };
+        f[55] = i > 0 ? around(i - 1, i, j) : 0.f;
+        f[56] = j + 1 < n ? around(i, j, j + 1) : 0.f;
+        const int given = i < static_cast<int>(control_.given.size()) ? control_.given[i] : -1;
+        if (given == 0 || given == 1)
+            pair.joined = given == 1;
+        else if (control_.use_model && row_model::MODEL_TRAINED)
+            pair.joined = row_score(pair.features) >= (pair.rules_join ? -ROW_OVERRIDE_MARGIN : ROW_OVERRIDE_MARGIN);
+        else
+            pair.joined = pair.rules_join;
+        joined[i] = pair.joined;
+        if (control_.trace) control_.trace->pairs.append(pair);
+    }
+    // A row the rules took for text centred over a row span that the decisions put elsewhere is a
+    // line of a wrapped cell: its cells no longer span down, nor the header above it across.
+    for (int m : split_after)
+        if (!joined[m - 1] || joined[m]) {
+            for (int s : rows[m]) down.erase(s);
+            for (int s : rows[m - 1]) forced.erase(s);
+        }
+    if (control_.trace)
+        for (const auto &r : rows) {
+            QVector<QRectF> boxes;
+            QStringList texts;
+            for (int s : r) {
+                boxes.append(QRectF(QPointF(segs_[s].x0, segs_[s].y0), QPointF(segs_[s].x1, segs_[s].y1)));
+                texts.append(segs_[s].text());
+            }
+            control_.trace->rows.append(boxes);
+            control_.trace->texts.append(texts);
+        }
+
+    // Rows of the table: runs of joined visual rows.
     std::vector<std::vector<int>> groups;
     for (int i = 0; i < n; ++i) {
-        if (!groups.empty() && ufind(i) == ufind(i - 1))
+        if (!groups.empty() && joined[i - 1])
             groups.back().push_back(i);
         else
             groups.push_back({i});
@@ -1273,6 +1867,23 @@ Table Builder::build() {
         const int c_end = index_of(clist, last_before(clist, c.column + c.column_span));
         table.cells.push_back({r, col, r_end - r + 1, c_end - col + 1, c.text, c.boxes});
     }
+    // The title above and the note below, each one cell across every column.
+    auto across = [&](const std::vector<Row> &lines, int row) {
+        std::vector<int> parts;
+        for (const auto &r : lines) parts.insert(parts.end(), r.begin(), r.end());
+        return Cell{row, 0, 1, table.columns, join_text(parts), boxes_of(parts)};
+    };
+    if (table.columns > 0 && !title_.empty()) {
+        for (auto &c : table.cells) ++c.row;
+        table.cells.push_back(across(title_, 0));
+        ++table.rows;
+        table.title_rows = 1;
+    }
+    if (table.columns > 0 && !note_.empty()) {
+        table.cells.push_back(across(note_, table.rows));
+        ++table.rows;
+        table.note_rows = 1;
+    }
     std::sort(table.cells.begin(), table.cells.end(), [](const Cell &a, const Cell &b) { return std::tie(a.row, a.column) < std::tie(b.row, b.column); });
     return table;
 }
@@ -1345,18 +1956,47 @@ QVector<Line> table_lines(const QVector<OcrLine> &lines) {
     return out;
 }
 
+const std::array<const char *, CAPTION_FEATURE_COUNT> CAPTION_FEATURE_NAMES = {
+    "above", "distance", "gap_toward", "gap_to_table", "segs", "width", "left_inset", "right_inset", "off_centre", "h_median",
+    "h_max", "h_vs_body", "chars", "digits", "cjk", "colon_end", "stop_end", "note_mark", "caption_mark", "runs", "longest_run",
+    "straddle_seg", "rule_between", "fill_diff", "from_image_edge", "edge_space", "extent_score", "rules_in", "rows_outside",
+    "table_rows"};
+
+const std::array<const char *, EXTENT_FEATURE_COUNT> EXTENT_FEATURE_NAMES = {
+    "from_top", "from_bottom", "visual_rows", "segs", "width", "left_inset", "right_inset", "off_centre", "h_median", "h_max",
+    "gap_above", "gap_below", "gap_above_med", "gap_below_med", "straddle_seg", "straddle_row", "bounds", "cols", "longest_run",
+    "runs", "rule_above", "rule_below", "in_frame", "above_frame", "below_frame", "vrule_through", "fill_diff_below",
+    "fill_diff_above", "rules_in", "colon_end", "stop_end", "note_mark", "caption_mark", "chars", "digits", "cjk",
+    "segs_above", "segs_below", "shared_below", "shared_above", "fill", "segs_vs_typical"};
+
+const std::array<const char *, ROW_FEATURE_COUNT> ROW_FEATURE_NAMES = {
+    "gap", "gap_prev", "gap_next", "gap_med", "gap_row", "col_gap_min", "col_gap_max", "h_upper", "h_lower",
+    "cols_upper", "cols_lower", "cols_shared", "lower_within", "upper_within", "cols_new", "cols_left", "segs_upper",
+    "segs_lower", "columns", "ruled", "long_rule", "rule_mode", "lattice", "same_band", "band_rows", "continues",
+    "upper_wide", "left_aligned", "index", "position", "head_zone", "rules_join", "header_over", "cell_lines", "cjk",
+    "upper_open_end", "lower_lowercase", "lower_bracket", "upper_numeric", "lower_numeric", "fill_diff", "visual_rows",
+    "centred", "gap_rank", "gap_p80", "gap_split", "split_spread", "gap_local", "taken_share", "taken_count",
+    "centred_upper", "centred_lower", "header_below", "cols_before", "cols_after", "around_upper", "around_lower"};
+
 Table build_table(const QImage &image, const QVector<Line> &lines) {
+    static const RowControl usual;
+    return build_table(image, lines, usual);
+}
+
+Table build_table(const QImage &image, const QVector<Line> &lines, const RowControl &control) {
     if (lines.isEmpty()) return {};
-    return Builder(image, lines).build();
+    return Builder(image, lines, control).build();
 }
 
 bool is_table(const Table &table) {
-    if (table.rows < 2 || table.columns < 2) return false;
+    // The title and note rows say nothing about whether the rest is a table.
+    const int body = table.rows - table.title_rows - table.note_rows;
+    if (body < 2 || table.columns < 2) return false;
     std::vector<int> filled(table.rows, 0);
     for (const auto &c : table.cells)
         if (!c.text.isEmpty()) ++filled[c.row];
-    const auto multi = std::count_if(filled.begin(), filled.end(), [](int k) { return k >= 2; });
-    return multi >= 2 && multi * 2 >= table.rows;
+    const auto multi = std::count_if(filled.begin() + table.title_rows, filled.end() - table.note_rows, [](int k) { return k >= 2; });
+    return multi >= 2 && multi * 2 >= body;
 }
 
 QString table_html(const Table &table) {
