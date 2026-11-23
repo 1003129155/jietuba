@@ -44,6 +44,11 @@ void SwitchButton::setChecked(bool checked) {
 
 void SwitchButton::animate() {
     animation_->stop();
+    // A switch not on screen yet, such as one on a page being built, takes its state at once.
+    if (!isVisible()) {
+        set_progress(checked_ ? 1.0 : 0.0);
+        return;
+    }
     animation_->setStartValue(progress_);
     animation_->setEndValue(checked_ ? 1.0 : 0.0);
     animation_->start();

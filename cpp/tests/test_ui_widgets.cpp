@@ -11,6 +11,7 @@
 #include "ui/dialogs.h"
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/labels.h"
+#include "ui/fluent_lite/switch.h"
 #include "ui/hotkey_edit.h"
 #include "ui/mosaic_settings_panel.h"
 #include "ui/arrow_settings_panel.h"
@@ -1796,6 +1797,21 @@ private slots:
         get_ui_scale().set_percent(200);
         ColorPickerDialog panels_scaled(QColor("#3366CC"));
         QCOMPARE(panels_scaled.size(), large.size());
+    }
+
+    // A page sets its switches before it shows, so they must open in their final state; a click on screen still slides.
+    void switchSlidesOnlyOnScreen() {
+        QWidget host;
+        auto *hidden = new SwitchButton(&host);
+        hidden->setChecked(true);
+        QCOMPARE(hidden->progress(), 1.0);
+        hidden->setChecked(false);
+        QCOMPARE(hidden->progress(), 0.0);
+        host.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&host));
+        hidden->setChecked(true);
+        QVERIFY(hidden->progress() < 1.0);
+        QTRY_COMPARE(hidden->progress(), 1.0);
     }
 
     // An overlay of the capture, so it follows the panel scale and ignores the window scale.
