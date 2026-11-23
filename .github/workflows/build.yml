@@ -4,7 +4,7 @@ on:
   push:
     tags:
       - "release-*"
-  # 手动触发只构建并签名，不创建发布草稿
+  # 手动触发时 ref 选 release-* 标签，和推标签一样建草稿；选分支只构建，不建草稿
   workflow_dispatch:
 
 permissions:
@@ -123,8 +123,8 @@ jobs:
             jietuba_pp-${{ github.ref_name }}-${{ matrix.arch }}.zip
             jietuba_lite-${{ github.ref_name }}-${{ matrix.arch }}.zip
 
-  # 微软商店包：用 lite 作业编出的 exe 打成 .msixbundle（x64+arm64），作为构建产物供 msstore 作业或人工
-  # 上传到 Partner Center，不进 GitHub Release（未签名，装不上）。商店收包后自己签名，exe 不必经 SignPath，
+  # 微软商店包：用 lite 作业编出的 exe 打成 .msixbundle（x64+arm64），作为构建产物留给 publish.yml
+  # 正式发布时提交商店，不进 GitHub Release（未签名，装不上）。商店收包后自己签名，exe 不必经 SignPath，
   # 所以不依赖 signing 环境，任何分支手动触发都能出包。标识值来自 Partner Center 的 Product identity，
   # 存在仓库变量里；MSSTORE_PUBLISHER 为空时整个作业跳过，某一版的 MSSTORE_IDENTITY_* 为空时跳过该版。
   msix:
@@ -179,58 +179,6 @@ jobs:
           path: ${{ env.IDENTITY_NAME }}.msixbundle
           if-no-files-found: error
 
-  # 打标签时把轻量版的 .msixbundle 上传到 Partner Center 并提交认证。
-  # 仓库变量 MSSTORE_PRODUCT_ID_LITE（Store ID）为空时跳过。凭据存在仓库 Secrets 里。
-  msstore:
-    needs: msix
-    if: startsWith(github.ref, 'refs/tags/') && vars.MSSTORE_PRODUCT_ID_LITE != ''
-    runs-on: windows-latest
-    steps:
-      - name: Download .msixbundle
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
-        with:
-          name: msixbundle-lite
-          path: msix
-
-      - name: Setup Microsoft Store Developer CLI
-        uses: microsoft/microsoft-store-apppublisher@cc9910a8d59f2eb55cbb83df0a3800cf3b5300e0 # v1.4
-
-      - name: Verify package version and submit to Microsoft Store
-        env:
-          TENANT_ID: ${{ secrets.MSSTORE_TENANT_ID }}
-          SELLER_ID: ${{ secrets.MSSTORE_SELLER_ID }}
-          CLIENT_ID: ${{ secrets.MSSTORE_CLIENT_ID }}
-          CLIENT_SECRET: ${{ secrets.MSSTORE_CLIENT_SECRET }}
-          PRODUCT_ID: ${{ vars.MSSTORE_PRODUCT_ID_LITE }}
-        run: |
-          $bundles = @(Get-ChildItem -LiteralPath msix -Filter '*.msixbundle' -File)
-          if ($bundles.Count -ne 1) { throw "Expected exactly one .msixbundle, found $($bundles.Count)." }
-          $bundle = $bundles[0]
-          $expectedVersion = "$($env:GITHUB_REF_NAME.Substring('release-'.Length)).0"
-          $archive = [System.IO.Compression.ZipFile]::OpenRead($bundle.FullName)
-          try {
-            $entry = $archive.GetEntry('AppxMetadata/AppxBundleManifest.xml')
-            if ($null -eq $entry) { throw 'Bundle manifest is missing.' }
-            $manifest = [System.Xml.XmlDocument]::new()
-            $stream = $entry.Open()
-            try {
-              $manifest.Load($stream)
-            } finally {
-              $stream.Dispose()
-            }
-          } finally {
-            $archive.Dispose()
-          }
-          $version = $manifest.DocumentElement.Identity.Version
-          if ($version -ne $expectedVersion) { throw "Bundle version $version does not match $expectedVersion." }
-          $bundle = Rename-Item -LiteralPath $bundle.FullName -NewName "$($bundle.BaseName)_$expectedVersion.msixbundle" -PassThru
-          Write-Host "Submitting $($bundle.Name) (version $version)"
-
-          msstore reconfigure --tenantId $env:TENANT_ID --sellerId $env:SELLER_ID --clientId $env:CLIENT_ID --clientSecret $env:CLIENT_SECRET
-          if ($LASTEXITCODE -ne 0) { throw "msstore reconfigure failed" }
-          msstore publish $bundle.FullName --appId $env:PRODUCT_ID
-          if ($LASTEXITCODE -ne 0) { throw "msstore publish failed" }
-
   release:
     needs: package
     if: startsWith(github.ref, 'refs/tags/')
@@ -265,5 +213,5 @@ jobs:
             release-assets/SHA256SUMS.txt
             release-assets/winget-manifests.zip
           generate_release_notes: true
-          # 先建草稿：发布说明审过、发布包验过之后再公开
+          # 只建草稿，不碰商店：包测过、说明改好后由 publish.yml 提交商店并公开
           draft: true
