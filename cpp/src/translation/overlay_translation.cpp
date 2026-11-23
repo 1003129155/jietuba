@@ -832,10 +832,11 @@ QImage paint_translations(const QImage &source, const QVector<OverlayTextBlock> 
     if (painted_blocks) *painted_blocks = 0;
     const auto painted = plan_blocks(source, blocks, target_lang, unplaced);
     if (painted.isEmpty()) return {};
-    // Painting detaches the copy: the result is the only new buffer, as large as the source.
+    // Painting detaches the copy: the result is the only new buffer, as large as the source. An
+    // opaque source becomes RGB32, which a pin's pixmap shares instead of copying.
     QImage result = source;
     if (result.format() != QImage::Format_RGB32 && result.format() != QImage::Format_ARGB32_Premultiplied)
-        result = result.convertToFormat(QImage::Format_ARGB32_Premultiplied);
+        result = result.convertToFormat(result.hasAlphaChannel() ? QImage::Format_ARGB32_Premultiplied : QImage::Format_RGB32);
     paint_overlay_blocks(result, painted);
     if (painted_blocks) *painted_blocks = painted.size();
     return result;

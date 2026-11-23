@@ -17,6 +17,7 @@
 #include <QFontDatabase>
 #include <QImage>
 #include <QPainter>
+#include <QPixmap>
 #include <QPlainTextEdit>
 #include <QSettings>
 #include <QSignalSpy>
@@ -485,6 +486,24 @@ private slots:
         // Nothing changed, nothing to show.
         QVERIFY(paint_translations(source, {block_of("Hello world", "Hello world", QRectF(10, 10, 260, 18), 18)}, "FR", &painted).isNull());
         QCOMPARE(painted, 0);
+    }
+
+    // A long screenshot arrives as RGB888 and is pinned: the pixmap made of the result must not
+    // need a second copy of it.
+    void anOpaqueSourceIsPaintedAsRgb32AndAPixmapSharesIt() {
+        const auto page_image = page(QSize(320, 120), Qt::white, QColor(20, 20, 20), {{"Hello world", QRectF(10, 10, 260, 18)}});
+        const QVector<OverlayTextBlock> blocks{block_of("Hello world", "Bonjour le monde", QRectF(10, 10, 260, 18), 18)};
+        const auto translated = paint_translations(page_image.convertToFormat(QImage::Format_RGB888), blocks, "FR");
+        QCOMPARE(translated.format(), QImage::Format_RGB32);
+        QCOMPARE(translated, paint_translations(page_image, blocks, "FR").convertToFormat(QImage::Format_RGB32));
+        QCOMPARE(QPixmap::fromImage(translated).toImage().constBits(), translated.constBits());
+
+        // Transparency stays.
+        auto clear = page_image.convertToFormat(QImage::Format_ARGB32);
+        clear.setPixelColor(300, 110, Qt::transparent);
+        const auto kept = paint_translations(clear, blocks, "FR");
+        QCOMPARE(kept.format(), QImage::Format_ARGB32_Premultiplied);
+        QCOMPARE(qAlpha(kept.pixel(300, 110)), 0);
     }
 
     void leavesUnchangedTextAlone() {
