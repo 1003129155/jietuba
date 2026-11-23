@@ -20,7 +20,10 @@
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/segmented.h"
 #include "caption_check.h"
+#include <QComboBox>
 #include <QDragEnterEvent>
+#include <QFrame>
+#include <QPushButton>
 #include <QEvent>
 #include <QFile>
 #include <QMimeData>
@@ -714,6 +717,20 @@ private slots:
         dialog->add_item_btn->click();
         dialog->content_kind_switch->setCurrentItem("file");
         QVERIFY(dialog->file_path_input);
+    }
+
+    // The encoding name is not elided, and the export button has a row of its own below it, so the row fits the narrow column.
+    void exportFormGivesTheEncodingRoomAndTheButtonItsOwnRow() {
+        auto *dialog = open_dialog();
+        dialog->import_export_btn->click();
+        QApplication::processEvents();
+        const auto cards = dialog->findChildren<QFrame *>("ManageSectionCard");
+        QCOMPARE(cards.size(), 2);
+        QComboBox *combo = dialog->export_encoding_combo;
+        QVERIFY(combo->width() >= combo->fontMetrics().horizontalAdvance("UTF-8 (BOM)") + 40);
+        const auto buttons = cards[0]->findChildren<QPushButton *>();
+        QCOMPARE(buttons.size(), 1);
+        QVERIFY(buttons[0]->mapTo(cards[0], QPoint()).y() >= combo->mapTo(cards[0], QPoint()).y() + combo->height());
     }
 
     void csvRoundTripsThroughTheWindow() {

@@ -53,10 +53,13 @@ void build_import_export_form(ManageDialog *dialog) {
     combo->addItem("UTF-8", "utf-8");
     combo->addItem("Shift_JIS", "shift_jis");
     combo->addItem("GBK", "gbk");
+    // Fixed to the longest name: the default minimum width elides it. The button gets a row of its own so the row stays within the narrow column.
+    combo->ensurePolished();
+    combo->setFixedWidth(combo->fontMetrics().horizontalAdvance("UTF-8 (BOM)") + dialog_scaled(56));
     export_row->addWidget(combo);
     export_row->addStretch();
-    export_row->addWidget(action_button(dialog, ManageDialog::tr_text("Export to CSV"), &ManageDialog::export_to_csv));
     export_layout->addLayout(export_row);
+    export_layout->addWidget(action_button(dialog, ManageDialog::tr_text("Export to CSV"), &ManageDialog::export_to_csv), 0, Qt::AlignRight);
     dialog->detail_layout->addWidget(export_card);
 
     auto [import_card, import_layout] =
