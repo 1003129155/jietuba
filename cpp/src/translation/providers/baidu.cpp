@@ -7,8 +7,16 @@
 #include <QRandomGenerator>
 
 namespace jietuba {
+namespace {
+// A batch carries up to a hundred texts, so a capture takes few requests. An account without
+// the advanced tier is limited to one a second and is slowed down by the rate limit reply.
+constexpr RequestPacing PACING{4, 50};
+}
+
 BaiduTranslateProvider::BaiduTranslateProvider(const ProviderConfig &config)
-    : appid_(config.value("appid").toString().trimmed()), secret_key_(config.value("secret_key").toString().trimmed()) {}
+    : appid_(config.value("appid").toString().trimmed()), secret_key_(config.value("secret_key").toString().trimmed()) {
+    apply_pacing(PACING, config);
+}
 
 ProviderMetadata BaiduTranslateProvider::class_metadata() {
     ProviderMetadata metadata;
@@ -20,6 +28,7 @@ ProviderMetadata BaiduTranslateProvider::class_metadata() {
         // different credential that fails with the same generic 54001.
         ProviderField::text("baidu_translate_secret_key", "Baidu Secret Key", "Paired with APPID in the Baidu console", true),
     };
+    metadata.pacing = pacing_fields("baidu_translate", PACING);
     metadata.help_label = "Baidu Translate Open Platform";
     metadata.help_url = "https://fanyi-api.baidu.com/manage/developer";
     return metadata;
@@ -28,7 +37,50 @@ ProviderMetadata BaiduTranslateProvider::class_metadata() {
 TranslationResult BaiduTranslateProvider::translate(const TranslationRequest &request) {
     if (request.text.trimmed().isEmpty()) return TranslationResult::failure(TranslationErrorCode::INVALID_REQUEST, "Text is empty");
     if (!is_configured()) return TranslationResult::failure(TranslationErrorCode::NOT_CONFIGURED, "Baidu Translate APPID/Secret Key is not configured");
+    return exchange(request.text, request, nullptr);
+}
 
+BatchTranslationResult BaiduTranslateProvider::translate_batch(const QStringList &texts, const TranslationRequest &request) {
+    if (texts.isEmpty()) return BatchTranslationResult::failure(TranslationErrorCode::INVALID_REQUEST, "Text is empty");
+    if (!is_configured()) return BatchTranslationResult::failure(TranslationErrorCode::NOT_CONFIGURED, "Baidu Translate APPID/Secret Key is not configured");
+    QVector<int> line_counts;
+    const auto lines = batch_lines(texts, &line_counts);
+    if (!lines) return BatchTranslationResult::failure(TranslationErrorCode::INVALID_REQUEST, "Text has an empty line");
+    QStringList entries;
+    const auto reply = exchange(lines->join('\n'), request, &entries);
+    if (!reply.success) return BatchTranslationResult::failure(reply);
+    const auto translations = batch_translations(entries, line_counts);
+    if (!translations) return BatchTranslationResult::failure(TranslationErrorCode::UNKNOWN, "Invalid Baidu Translate response");
+    return BatchTranslationResult{true, *translations, reply.detected_source_lang, std::nullopt, {}};
+}
+
+std::optional<QStringList> BaiduTranslateProvider::batch_lines(const QStringList &texts, QVector<int> *line_counts) {
+    QStringList lines;
+    for (const auto &text : texts) {
+        const auto own = text.split('\n');
+        for (const auto &line : own)
+            if (line.trimmed().isEmpty()) return std::nullopt;
+        lines += own;
+        line_counts->append(static_cast<int>(own.size()));
+    }
+    return lines;
+}
+
+std::optional<QStringList> BaiduTranslateProvider::batch_translations(const QStringList &entries, const QVector<int> &line_counts) {
+    int total = 0;
+    for (const int count : line_counts) total += count;
+    // One entry per line sent: anything else cannot be paired up.
+    if (entries.size() != total) return std::nullopt;
+    QStringList translations;
+    int next = 0;
+    for (const int count : line_counts) {
+        translations << entries.mid(next, count).join('\n');
+        next += count;
+    }
+    return translations;
+}
+
+TranslationResult BaiduTranslateProvider::exchange(const QString &q, const TranslationRequest &request, QStringList *entries) const {
     // salt must be a JSON number and appid a JSON string; either the other way
     // round fails with 53001.
     const int salt = QRandomGenerator::global()->bounded(100000, 1000000);
@@ -36,9 +88,9 @@ TranslationResult BaiduTranslateProvider::translate(const TranslationRequest &re
         {"appid", appid_},
         {"from", request.source_lang ? to_baidu_code(*request.source_lang) : QString("auto")},
         {"to", to_baidu_code(request.target_lang)},
-        {"q", request.text},
+        {"q", q},
         {"salt", salt},
-        {"sign", sign(request.text, salt)},
+        {"sign", sign(q, salt)},
     };
     const auto response = http_request("POST", API_URL, {{"Content-Type", "application/json"}}, compact_json(body), request.timeout);
     if (response.kind == HttpResponse::HttpError) return http_error(response);
@@ -55,7 +107,7 @@ TranslationResult BaiduTranslateProvider::translate(const TranslationRequest &re
         log_error(QString("Baidu Translate response error: invalid JSON"), "BaiduTranslate");
         return TranslationResult::failure(TranslationErrorCode::UNKNOWN, "Failed to parse Baidu Translate response");
     }
-    return parse_response(*raw);
+    return parse_response(*raw, entries);
 }
 
 QString BaiduTranslateProvider::sign(const QString &text, int salt) const {
@@ -63,7 +115,7 @@ QString BaiduTranslateProvider::sign(const QString &text, int salt) const {
     return QString::fromLatin1(QCryptographicHash::hash(raw.toUtf8(), QCryptographicHash::Md5).toHex());
 }
 
-TranslationResult BaiduTranslateProvider::parse_response(const QJsonValue &raw_value) const {
+TranslationResult BaiduTranslateProvider::parse_response(const QJsonValue &raw_value, QStringList *entries) const {
     // Authentication and parameter errors also come back as HTTP 200 with
     // error_code/error_msg in the body.
     if (!raw_value.isObject()) return TranslationResult::failure(TranslationErrorCode::UNKNOWN, "Invalid Baidu Translate response");
@@ -81,6 +133,7 @@ TranslationResult BaiduTranslateProvider::parse_response(const QJsonValue &raw_v
     for (const auto &item : results) parts << json_text(item.toObject().value("dst"));
     const auto translated = parts.join("\n");
     if (translated.isEmpty()) return TranslationResult::failure(TranslationErrorCode::UNKNOWN, "Invalid Baidu Translate response");
+    if (entries) *entries = parts;
     const auto detected = from_baidu_code(json_text(raw.value("from")));
     return TranslationResult{true, translated, detected, std::nullopt, {}};
 }
@@ -117,9 +170,10 @@ TranslationResult BaiduTranslateProvider::http_error(const HttpResponse &respons
 }
 
 TranslationErrorCode BaiduTranslateProvider::map_api_error_code(const QString &error_code) {
-    // Codes from https://fanyi-api.baidu.com/doc/21; 53001 (unparseable body) is
-    // undocumented but returned by the live API.
-    static const QSet<QString> auth = {"52003", "54001", "58000"}, invalid = {"53001", "54000"}, rate = {"54003", "54005"}, network = {"52001", "52002"};
+    // Codes from https://fanyi-api.baidu.com/doc/21; 53001 (unparseable body) and 59004
+    // (over the account's requests per second) are undocumented but returned by the live API.
+    static const QSet<QString> auth = {"52003", "54001", "58000"}, invalid = {"53001", "54000"}, rate = {"54003", "54005", "59004"},
+                               network = {"52001", "52002"};
     if (auth.contains(error_code)) return TranslationErrorCode::AUTH_FAILED;
     if (invalid.contains(error_code)) return TranslationErrorCode::INVALID_REQUEST;
     if (rate.contains(error_code)) return TranslationErrorCode::RATE_LIMITED;

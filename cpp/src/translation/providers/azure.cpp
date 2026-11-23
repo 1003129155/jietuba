@@ -10,6 +10,7 @@ AzureTranslateProvider::AzureTranslateProvider(const ProviderConfig &config)
     : api_key_(config.value("api_key").toString().trimmed()), region_(config.value("region").toString().trimmed()) {
     endpoint_ = config.value("endpoint").toString().trimmed();
     while (endpoint_.endsWith('/')) endpoint_.chop(1);
+    apply_pacing(RequestPacing{}, config);
 }
 
 ProviderMetadata AzureTranslateProvider::class_metadata() {
@@ -21,6 +22,7 @@ ProviderMetadata AzureTranslateProvider::class_metadata() {
         ProviderField::text("azure_translate_region", "Azure Region", "eastasia"),
         ProviderField::text("azure_translate_endpoint", "Azure Endpoint", "Optional, use default if empty"),
     };
+    metadata.pacing = pacing_fields("azure_translate", RequestPacing{});
     metadata.help_label = "portal.azure.com";
     metadata.help_url = "https://portal.azure.com/";
     return metadata;
@@ -69,6 +71,42 @@ TranslationResult AzureTranslateProvider::translate(const TranslationRequest &re
     const auto detected_lang = first.value("detectedLanguage").toObject();
     if (!detected_lang.isEmpty()) detected = normalize_language_code(detected_lang.value("language").toString()).value_or(QString());
     return TranslationResult{true, translated, detected, std::nullopt, {}};
+}
+
+BatchTranslationResult AzureTranslateProvider::translate_batch(const QStringList &texts, const TranslationRequest &request) {
+    QJsonArray entries;
+    for (const auto &text : texts) {
+        if (text.trimmed().isEmpty()) return BatchTranslationResult::failure(TranslationErrorCode::INVALID_REQUEST, "Text is empty");
+        entries.append(QJsonObject{{"Text", text}});
+    }
+    if (texts.isEmpty()) return BatchTranslationResult::failure(TranslationErrorCode::INVALID_REQUEST, "Text is empty");
+    if (!is_configured()) return BatchTranslationResult::failure(TranslationErrorCode::NOT_CONFIGURED, "Azure Translator API key is not configured");
+
+    std::vector<std::pair<QString, QString>> params = {{"api-version", API_VERSION}, {"to", to_azure_code(request.target_lang)}};
+    if (request.source_lang) params.emplace_back("from", to_azure_code(*request.source_lang));
+    const auto url = (endpoint_.isEmpty() ? API_URL : endpoint_ + "/translate") + "?" + python_urlencode(params);
+    HttpHeaders headers = {
+        {"Content-Type", "application/json; charset=utf-8"},
+        {"Ocp-Apim-Subscription-Key", api_key_},
+        {"X-ClientTraceId", QUuid::createUuid().toString(QUuid::WithoutBraces)},
+    };
+    if (!region_.isEmpty()) headers.emplace_back("Ocp-Apim-Subscription-Region", region_);
+    const auto response = http_request("POST", url, headers, compact_json(entries), request.timeout);
+    if (response.kind == HttpResponse::HttpError) return BatchTranslationResult::failure(http_error(response));
+    if (response.kind != HttpResponse::Ok)
+        return BatchTranslationResult::failure(TranslationErrorCode::NETWORK_ERROR, response.kind == HttpResponse::Timeout
+                                                                                         ? QString("Request timed out after %1s").arg(request.timeout)
+                                                                                         : "Network error: " + response.reason);
+    const auto raw = parse_json_body(response.body);
+    if (!raw) return BatchTranslationResult::failure(TranslationErrorCode::UNKNOWN, "Failed to parse Azure Translator response");
+    const auto results = raw->toArray();
+    // One result per text, in the order sent: anything else cannot be paired up.
+    if (!raw->isArray() || results.size() != texts.size()) return BatchTranslationResult::failure(TranslationErrorCode::UNKNOWN, "Invalid Azure Translator response");
+    BatchTranslationResult result{true, {}, {}, std::nullopt, {}};
+    for (const auto &item : results) result.translations << json_text(item.toObject().value("translations").toArray().first().toObject().value("text"));
+    const auto detected = results.first().toObject().value("detectedLanguage").toObject();
+    if (!detected.isEmpty()) result.detected_source_lang = normalize_language_code(detected.value("language").toString()).value_or(QString());
+    return result;
 }
 
 QString AzureTranslateProvider::to_azure_code(const QString &language_code) {

@@ -110,7 +110,11 @@ HttpCancellation::~HttpCancellation() { CloseHandle(static_cast<HANDLE>(event_))
 
 void HttpCancellation::cancel() { SetEvent(static_cast<HANDLE>(event_)); }
 
-bool HttpCancellation::cancelled() const { return WaitForSingleObject(static_cast<HANDLE>(event_), 0) == WAIT_OBJECT_0; }
+bool HttpCancellation::cancelled() const { return wait(0); }
+
+bool HttpCancellation::wait(int timeout_ms) const {
+    return WaitForSingleObject(static_cast<HANDLE>(event_), static_cast<DWORD>(std::max(0, timeout_ms))) == WAIT_OBJECT_0;
+}
 
 HttpCancellationScope::HttpCancellationScope(HttpCancellation *cancellation) : previous_(current_cancellation) { current_cancellation = cancellation; }
 

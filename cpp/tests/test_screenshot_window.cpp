@@ -1157,13 +1157,23 @@ private slots:
         window->toolbar->text_recognize_btn->click();
         QVERIFY(!window->session_active());
         shutdown_recognition();
-        // Screenshot translation: an engine without a key answers locally.
+        // Screenshot translation: an engine without a key answers locally. The default closes
+        // the capture and opens the side-by-side translation window.
         config_->set_translation_provider("deepl");
         window = open_with_selection();
         window->toolbar->screenshot_translate_btn->click();
         QVERIFY(!window->session_active());
         QVERIFY(TranslationManager::instance()->is_dialog_open());
         TranslationManager::cleanup();
+        // In place, the capture stays open and the missing key is reported over it.
+        config_->set_screenshot_translate_mode("overlay");
+        window = open_with_selection();
+        window->toolbar->screenshot_translate_btn->click();
+        QVERIFY(window->session_active());
+        QDialog *refusal = nullptr;
+        QTRY_VERIFY((refusal = visible_window<QDialog>()));
+        refusal->close();
+        QVERIFY(window->session_active());
         // Without a confirmed selection a warning explains why nothing happens.
         window = open();
         window->action_handler->handle_scan_code();

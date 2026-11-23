@@ -1534,7 +1534,7 @@
    "translated_text": "",
    "detected_source_lang": "",
    "error_code": "unknown",
-   "error_message": "Custom LLM-1 spent the whole reply on reasoning. Turn thinking off by adding {\"reasoning_effort\": \"none\"} to Extra Body"
+   "error_message": "Custom LLM-1 spent the whole reply on reasoning. Turn thinking off in Extra Body: {\"reasoning_effort\": \"none\"} for OpenAI-style services, {\"thinking\": {\"type\": \"disabled\"}} for DeepSeek"
   },
   {
    "provider": "custom_llm",

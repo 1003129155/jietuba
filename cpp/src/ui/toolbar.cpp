@@ -23,6 +23,8 @@
 #include "ui/toolbar_layout.h"
 #include "ui/toolbar_layout_dialog.h"
 #include "ui/watermark_input_dialog.h"
+#include "ui/translation_panel.h"
+#include "ui/busy_ring.h"
 #include "ui/watermark_settings_panel.h"
 #include <QApplication>
 #include <QMouseEvent>
@@ -325,7 +327,8 @@ void Toolbar::reload_layout() {
 
 QList<QWidget *> Toolbar::panels() const {
     QList<QWidget *> result;
-    for (QWidget *panel : std::initializer_list<QWidget *>{paint_panel, shape_panel, arrow_panel, number_panel, text_panel, mosaic_panel, watermark_panel})
+    for (QWidget *panel : std::initializer_list<QWidget *>{paint_panel, shape_panel, arrow_panel, number_panel, text_panel, mosaic_panel, watermark_panel,
+                                                           translation_panel})
         if (panel) result.append(panel);
     return result;
 }
@@ -343,6 +346,7 @@ void Toolbar::apply_scale() {
     if (text_panel) text_panel->apply_scale();
     if (mosaic_panel) mosaic_panel->apply_scale();
     if (watermark_panel) watermark_panel->apply_scale();
+    if (translation_panel) translation_panel->apply_scale();
     reposition_self();
     sync_all_panels_position();
 }
@@ -579,6 +583,7 @@ void Toolbar::retranslate() {
     if (mosaic_panel) mosaic_panel->retranslate();
     if (text_panel) text_panel->retranslate();
     if (watermark_panel) watermark_panel->retranslate();
+    if (translation_panel) translation_panel->retranslate();
     if (more_popup_) more_popup_->adjust_btn->setText(toolbar_tr("Adjust"));
 }
 
@@ -586,6 +591,7 @@ void Toolbar::restore_active_tool_state(const QString &tool_id, const ToolContex
     set_temporary_edit_active(false);
     if (tool_id == "cursor" || tool_id.isEmpty()) {
         hide_all_panels();
+        sync_translation_panel();
         return;
     }
     ensure_panel_for_tool(tool_id);
@@ -627,6 +633,7 @@ void Toolbar::select_tool(const QString &tool_id, bool toggle) {
         current_tool.reset();
         emit tool_changed("cursor");
         hide_all_panels();
+        sync_translation_panel();
         return;
     }
     if (!tool_buttons.contains(tool_id)) return;
@@ -644,6 +651,65 @@ void Toolbar::select_tool(const QString &tool_id, bool toggle) {
 
 void Toolbar::hide_all_panels() {
     for (auto *panel : panels()) panel->hide();
+}
+
+TranslationPanel *Toolbar::ensure_translation_panel() {
+    if (!translation_panel) {
+        translation_panel = new TranslationPanel(parentWidget());
+        make_floating(translation_panel);
+        translation_panel->hide();
+    }
+    return translation_panel;
+}
+
+void Toolbar::set_translation_shown(bool shown) {
+    translation_shown_ = shown;
+    translation_panel_wanted_ = shown;
+    if (screenshot_translate_btn) {
+        screenshot_translate_btn->setCheckable(shown);
+        screenshot_translate_btn->setChecked(shown);
+    }
+    // The panel takes a tool panel's place, so the tool goes back to the cursor first.
+    if (shown && current_tool) select_tool("cursor");
+    else sync_translation_panel();
+}
+
+void Toolbar::set_translation_busy(bool busy) {
+    if (!screenshot_translate_btn) return;
+    if (!translation_busy_ring) translation_busy_ring = new BusyRing(screenshot_translate_btn);
+    translation_busy_ring->set_busy(busy);
+}
+
+void Toolbar::set_translation_progress(int done, int total) {
+    if (!screenshot_translate_btn) return;
+    if (!translation_busy_ring) translation_busy_ring = new BusyRing(screenshot_translate_btn);
+    translation_busy_ring->set_progress(done, total);
+}
+
+void Toolbar::toggle_translation_panel() {
+    if (!translation_shown_) return;
+    if (current_tool) {
+        translation_panel_wanted_ = true;
+        select_tool("cursor");
+    } else {
+        translation_panel_wanted_ = !translation_panel_wanted_;
+        sync_translation_panel();
+    }
+    // The click toggled the button itself; lit means a translation is shown.
+    screenshot_translate_btn->setChecked(true);
+}
+
+void Toolbar::sync_translation_panel() {
+    if (!translation_shown_ || !translation_panel_wanted_ || current_tool || !isVisible()) {
+        if (translation_panel) translation_panel->hide();
+        return;
+    }
+    auto *panel = ensure_translation_panel();
+    panel->show();
+    panel->raise();
+    sync_panel_position(panel);
+    // Keeps the toolbar above its panel.
+    raise();
 }
 
 void Toolbar::show_panel_for_tool(const QString &tool_id) {

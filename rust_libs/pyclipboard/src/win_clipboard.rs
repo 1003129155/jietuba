@@ -208,20 +208,28 @@ impl Drop for OpenClipboardGuard<'_> {
     }
 }
 
-/// 清空剪贴板并写入这些格式；剪贴板打不开时返回 false。
+/// 清空剪贴板并写入这些格式。剪贴板打不开、清空失败或任一格式没写进去都返回 false：
+/// 调用方据此报告失败，不能把「只清空了、内容没进去」当成成功（粘贴出来是空的）。
 /// 在界面线程上调用，等别的程序让出剪贴板不宜太久
 pub fn write(formats: &[(u32, Vec<u8>)]) -> bool {
+    if formats.is_empty() {
+        return false;
+    }
     let Some(window) = ClipboardWindow::new() else {
         return false;
     };
     let Some(clipboard) = window.open(Duration::from_millis(300)) else {
         return false;
     };
-    clipboard.clear();
-    for (format, data) in formats {
-        clipboard.put(*format, data);
+    if !clipboard.clear() {
+        return false;
     }
-    true
+    let mut all_written = true;
+    for (format, data) in formats {
+        // 一种格式失败不影响其余格式，但整体结果必须是失败
+        all_written &= clipboard.put(*format, data);
+    }
+    all_written
 }
 
 // ── 格式编解码 ────────────────────────────────────────────
@@ -365,6 +373,12 @@ pub fn rgba_to_dibv5(img: &RgbaImage) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn writing_nothing_is_a_failure() {
+        // 空列表不能算成功：那等于把剪贴板清空后什么也没放进去
+        assert!(!write(&[]));
+    }
 
     #[test]
     fn unicode_text_round_trips_and_stops_at_the_terminator() {

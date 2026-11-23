@@ -637,6 +637,17 @@ QWidget *create_translation_page(SettingsDialog *dialog) {
     lang_card->addControl(target_combo);
     grp_opts->addSettingCard(lang_card);
 
+    auto *mode_card = new SettingCard(FluentIcon::Camera,dialog->tr_text("Screenshot Translation"),
+                                      dialog->tr_text("What the translate button on the capture and long screenshot toolbars does"), grp_opts);
+    auto *mode_combo = new ComboBox(mode_card);
+    // The labels follow SCREENSHOT_TRANSLATE_MODES.
+    const char *mode_labels[] = {"Replace the original text", "Side-by-side window"};
+    for (int i = 0; i < SCREENSHOT_TRANSLATE_MODES.size(); ++i) mode_combo->addItem(dialog->tr_text(mode_labels[i]), SCREENSHOT_TRANSLATE_MODES[i]);
+    mode_combo->setCurrentIndex(SCREENSHOT_TRANSLATE_MODES.indexOf(config->get_screenshot_translate_mode()));
+    dialog->set_attr("screenshot_translate_mode_combo", mode_combo);
+    mode_card->addControl(mode_combo);
+    grp_opts->addSettingCard(mode_card);
+
     auto *auto_close_card = new SwitchSettingCard(FluentIcon::Hide, dialog->tr_text("Close When Clicking Outside"),
                                                   dialog->tr_text("The translation popup opened by the shortcut closes when you click outside it or switch windows"),
                                                   grp_opts, "translate");

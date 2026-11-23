@@ -803,6 +803,36 @@ private slots:
         config->set_app_setting("recording_format", "gif");
     }
 
+    // Closing while the capture thread is still stopping must not crash: the continuation runs
+    // later, finds no recorder, and playback never opens.
+    void closingWhileTheRecordingStopsIsSafe() {
+        auto *config = get_tool_settings_manager();
+        config->set_app_setting("recording_format", "gif");
+        config->set_app_setting("recording_delay", 0);
+        const QRect rect = centred_rect(QSize(320, 200));
+        AnimatedWindow page;
+        page.setGeometry(rect);
+        page.show();
+        auto *window = new GifRecordWindow(rect);
+        active_gif_window() = window;
+        QSignalSpy closed(window, &GifRecordWindow::closed);
+        QSignalSpy destroyed(window, &QObject::destroyed);
+        RecordToolbar *toolbar = nullptr;
+        QTRY_VERIFY((toolbar = visible_top_level<RecordToolbar>()));
+        button_with_tooltip(toolbar, "开始录制")->click();
+        QTRY_VERIFY_WITH_TIMEOUT(button_with_tooltip(toolbar, "停止录制"), 3000);
+        QTest::qWait(600);
+        button_with_tooltip(toolbar, "停止录制")->click();
+        // Straight away, before the frames have been synced back from the capture thread.
+        window->close_all();
+        QCOMPARE(closed.size(), 1);
+        QVERIFY(destroyed.wait(5000));
+        QVERIFY(active_gif_window().isNull());
+        // A stop that lands after the window is gone must not open playback.
+        QTest::qWait(1000);
+        QVERIFY(!visible_top_level<PlaybackToolbar>());
+    }
+
     // Closing with the save dialog open drops it and closes at once.
     void closingWithTheSaveDialogOpenCloses() {
         get_tool_settings_manager()->set_app_setting("recording_format", "mp4");

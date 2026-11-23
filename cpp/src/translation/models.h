@@ -1,6 +1,7 @@
 #pragma once
 #include <QMetaType>
 #include <QString>
+#include <QStringList>
 #include <QVariantMap>
 #include <optional>
 
@@ -31,6 +32,25 @@ struct TranslationResult {
     std::optional<TranslationErrorCode> error_code;
     QString error_message;
     static TranslationResult failure(TranslationErrorCode code, const QString &message) { return TranslationResult{false, {}, {}, code, message}; }
+};
+
+// Several texts in one request. An LLM reply costs a round trip, and a capture's
+// paragraphs are short: sending them together turns dozens of calls into a few. A
+// failed batch is not fatal, since the caller can still translate text by text.
+struct BatchTranslationResult {
+    bool success = false;
+    // Same size and order as the requested texts; empty along with success = false.
+    QStringList translations;
+    QString detected_source_lang;
+    std::optional<TranslationErrorCode> error_code;
+    QString error_message;
+    static BatchTranslationResult failure(TranslationErrorCode code, const QString &message) {
+        return BatchTranslationResult{false, {}, {}, code, message};
+    }
+    // The failure a single-text exchange reported, for a batch that went the same way.
+    static BatchTranslationResult failure(const TranslationResult &single) {
+        return failure(single.error_code.value_or(TranslationErrorCode::UNKNOWN), single.error_message);
+    }
 };
 }
 

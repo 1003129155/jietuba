@@ -592,6 +592,14 @@ void ToolSettingsManager::set_ocr_result_position(const QString &value) {
     store_ocr_result_position(choice_or_default(value, default_ocr_result_position(), OCR_RESULT_POSITIONS));
 }
 
+QString ToolSettingsManager::get_screenshot_translate_mode() const {
+    return choice_value(stored_screenshot_translate_mode(), default_screenshot_translate_mode(), SCREENSHOT_TRANSLATE_MODES);
+}
+
+void ToolSettingsManager::set_screenshot_translate_mode(const QString &value) {
+    store_screenshot_translate_mode(choice_or_default(value, default_screenshot_translate_mode(), SCREENSHOT_TRANSLATE_MODES));
+}
+
 std::optional<QPoint> ToolSettingsManager::get_ocr_result_last_center() const {
     const auto parts = qsettings.value("app/ocr_result_last_center", "").toString().split(',');
     if (parts.size() != 2) return std::nullopt;
@@ -621,8 +629,26 @@ void ToolSettingsManager::set_translation_provider(const QString &provider_id) {
     store_translation_provider((provider_id.isEmpty() ? QString("deepl") : provider_id).trimmed().toLower());
 }
 
+namespace {
+// The prefix of a provider's pacing settings; empty for a provider without any.
+QString pacing_setting_prefix(const QString &provider_id) {
+    if (provider_id == "deepl" || provider_id == "deepseek" || CUSTOM_LLM_PROVIDER_IDS.contains(provider_id)) return provider_id;
+    static const QStringList translate_services = {"amazon", "google", "azure", "baidu", "volcengine", "tencent", "youdao"};
+    return translate_services.contains(provider_id) ? provider_id + "_translate" : QString();
+}
+}
+
 QVariantMap ToolSettingsManager::get_translation_provider_config(const QString &requested) const {
     const auto provider_id = requested.trimmed().toLower();
+    auto config = provider_own_config(provider_id);
+    const auto prefix = pacing_setting_prefix(provider_id);
+    if (prefix.isEmpty()) return config;
+    config["parallel_requests"] = get_app_setting(prefix + "_parallel_requests").toString();
+    config["request_interval_ms"] = get_app_setting(prefix + "_request_interval_ms").toString();
+    return config;
+}
+
+QVariantMap ToolSettingsManager::provider_own_config(const QString &provider_id) const {
     if (provider_id == "deepl") return {{"api_key", get_deepl_api_key()}, {"use_pro", get_deepl_use_pro()}};
     if (provider_id == "amazon")
         return {{"region", get_amazon_translate_region()}, {"access_key_id", get_amazon_translate_access_key_id()},

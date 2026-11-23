@@ -19,7 +19,14 @@
 #include "stitch/scroll_toolbar.h"
 #include "text_recognition/result_window.h"
 #include "tools/action.h"
+#include "translation/overlay_translation.h"
+#include "translation/overlay_translation_worker.h"
+#include "translation/service.h"
+#include "translation/translation_manager.h"
+#include "ui/busy_ring.h"
+#include "ui/dialogs.h"
 #include "ui/toast.h"
+#include "ui/translation_sweep.h"
 #include <QApplication>
 #include <QCursor>
 #include <QDateTime>
@@ -418,6 +425,7 @@ void ScrollCaptureWindow::setup_floating_toolbar() {
     connect(toolbar, &FloatingToolbar::crop_requested, this, &ScrollCaptureWindow::crop);
     connect(toolbar, &FloatingToolbar::save_clicked, this, &ScrollCaptureWindow::on_save);
     connect(toolbar, &FloatingToolbar::ocr_clicked, this, &ScrollCaptureWindow::on_text_recognize);
+    connect(toolbar, &FloatingToolbar::translate_clicked, this, &ScrollCaptureWindow::on_translate);
     connect(toolbar, &FloatingToolbar::pin_clicked, this, &ScrollCaptureWindow::on_pin);
     connect(toolbar, &FloatingToolbar::finish_clicked, this, &ScrollCaptureWindow::on_finish);
     connect(toolbar, &FloatingToolbar::cancel_clicked, this, &ScrollCaptureWindow::on_cancel);
@@ -723,6 +731,8 @@ void ScrollCaptureWindow::on_mouse_captured(const QString &watcher, const QStrin
 }
 
 void ScrollCaptureWindow::trigger_mouse_action(const QString &action) {
+    // A translation in progress owns the result until it lands, either way.
+    if (translate_worker_) return;
     if (action == "copy") on_finish();
     else if (action == "pin") on_pin();
     else if (action == "save") on_save();
@@ -731,11 +741,13 @@ void ScrollCaptureWindow::trigger_mouse_action(const QString &action) {
 }
 
 void ScrollCaptureWindow::on_screen_changed() {
-    if (auto_scroller_->running() || drag_edge_ || extension_pending_ || quick_saving_) return;
+    if (auto_scroller_->running() || drag_edge_ || extension_pending_ || quick_saving_ || capture_frozen_) return;
     do_capture();
 }
 
 void ScrollCaptureWindow::toggle_auto_scroll() {
+    // The image being translated is fixed; scrolling on would only move the page behind it.
+    if (capture_frozen_) { toolbar->set_auto_scrolling(false); return; }
     if (drag_edge_ || extension_pending_) { toolbar->set_auto_scrolling(false); return; }
     if (auto_scroller_->running()) {
         auto_scroller_->stop();
@@ -752,6 +764,8 @@ void ScrollCaptureWindow::toggle_auto_scroll() {
 }
 
 void ScrollCaptureWindow::capture_pending_now() {
+    // Frozen for a translation: nothing that is on screen now belongs to the image sent.
+    if (capture_frozen_) return;
     cancel_edge();
     auto_scroller_->stop();
     auto_scroller_->flush();
@@ -1129,7 +1143,8 @@ void ScrollCaptureWindow::on_frame_stitched(const FrameResult &result) {
 }
 
 void ScrollCaptureWindow::crop(const QString &side) {
-    if (!stitcher_) return;
+    // The image being translated is fixed until the translation is back.
+    if (!stitcher_ || capture_frozen_) return;
     capture_pending_now();
     stitcher_->crop(side);
 }
@@ -1160,7 +1175,9 @@ QImage ScrollCaptureWindow::export_result() {
 }
 
 std::optional<Qt::Edge> ScrollCaptureWindow::edge_at(const QPoint &position) const {
-    if (!stitcher_ || extension_pending_ || quick_saving_) return std::nullopt;
+    // Frozen for a translation: extending the region would capture frames that never reach
+    // the image sent.
+    if (!stitcher_ || extension_pending_ || quick_saving_ || capture_frozen_) return std::nullopt;
     if (scroll_direction == "vertical") {
         if (can_extend_start_ && position.y() < 3) return Qt::TopEdge;
         if (can_extend_end_ && position.y() >= height() - 3) return Qt::BottomEdge;
@@ -1344,6 +1361,10 @@ void ScrollCaptureWindow::on_pin() {
         log_stitch(T("[WARN] 没有拼接结果，无法钉图"));
         return;
     }
+    pin_and_close(image);
+}
+
+bool ScrollCaptureWindow::pin_and_close(const QImage &image) {
     // The pin is centred on the long screenshot region.
     const auto center = capture_rect.center();
     const QPoint position(center.x() - python_floordiv(image.width(), 2), center.y() - python_floordiv(image.height(), 2));
@@ -1351,7 +1372,7 @@ void ScrollCaptureWindow::on_pin() {
         PinManager::instance()->create_pin(image, position, config_manager);
     } catch (const std::exception &e) {
         log_stitch(T("[ERROR] 创建钉图失败: {e}", {{"e", QString::fromUtf8(e.what())}}));
-        return;
+        return false;
     }
     log_debug(T("钉图已创建，位置: ({pin_x}, {pin_y})", {{"pin_x", position.x()}, {"pin_y", position.y()}}), MODULE_TAG);
     cleanup();
@@ -1359,6 +1380,7 @@ void ScrollCaptureWindow::on_pin() {
     deliver_screenshot(image, config_manager, false, "pin", file_prefix());
     emit finished();
     close();
+    return true;
 }
 
 void ScrollCaptureWindow::on_text_recognize() {
@@ -1376,6 +1398,170 @@ void ScrollCaptureWindow::on_text_recognize() {
     else show_text_recognition(image, anchor);
     emit finished();
     close();
+}
+
+void ScrollCaptureWindow::on_translate() {
+    if (!config_manager || config_manager->get_screenshot_translate_mode() == "compare") on_translate_compare();
+    else on_translate_overlay();
+}
+
+void ScrollCaptureWindow::on_translate_compare() {
+    capture_pending_now();
+    const auto image = result_qimage();
+    if (image.isNull()) {
+        log_stitch(T("[WARN] 没有拼接结果，无法翻译"));
+        show_preview_warning(tr_text("Nothing to translate yet"));
+        return;
+    }
+    // Read before the window closes.
+    const auto params = config_manager ? config_manager->get_translation_request_params() : QVariantMap();
+    cleanup();
+    hide();
+    TranslationManager::instance()->translate_from_image(QPixmap::fromImage(image), params);
+    emit finished();
+    close();
+}
+
+void ScrollCaptureWindow::on_translate_overlay() {
+    if (!stitcher_ || translate_worker_) return;
+    capture_pending_now();
+    const auto image = result_qimage();
+    if (image.isNull()) {
+        log_stitch(T("[WARN] 没有拼接结果，无法翻译"));
+        show_preview_warning(tr_text("Nothing to translate yet"));
+        return;
+    }
+    const auto params = config_manager ? config_manager->get_translation_request_params() : QVariantMap{{"target_lang", "ZH"}};
+    const auto service = create_default_translation_service();
+    log_stitch(T("🌐 开始长截图覆盖翻译: {width}x{height}", {{"width", image.width()}, {"height", image.height()}}));
+    // The pixels stop changing while recognition and the network run: the image that was
+    // sent is the one the translation lands on.
+    set_capture_frozen(true);
+    // Nothing else may act on the result while the worker owns it, but cancelling the
+    // capture has to stay possible however slow the engine is.
+    set_translation_locked(true);
+    auto *worker = new OverlayTranslationWorker(image, params, service);
+    translate_worker_ = worker;
+    // The wait looks as on a capture: the band sweeps over the frozen region, and the ring
+    // around the translate button fills as paragraphs come back.
+    auto *sweep = new TranslationSweepWindow(capture_rect, mostly_dark(image, image.rect()));
+    sweep->begin();
+    translate_sweep_ = sweep;
+    // A window of its own: it goes with the window, whichever way that ends.
+    connect(this, &QObject::destroyed, sweep, &QObject::deleteLater);
+    if (!translate_ring_ && toolbar) translate_ring_ = new BusyRing(toolbar->translate_btn);
+    if (auto *ring = translate_ring_.data()) {
+        ring->set_progress(0, 0);
+        ring->set_busy(true);
+        connect(worker, &OverlayTranslationWorker::progress_changed, ring, [ring](int done, int total) { ring->set_progress(done, total); });
+    }
+    connect(worker, &QThread::finished, worker, &QObject::deleteLater);
+    // Context this: a reply that arrives after the window closed is dropped instead of used.
+    const QPointer<ScrollCaptureWindow> guard(this);
+    const QPointer<TranslationSweepWindow> watch(sweep);
+    connect(worker, &OverlayTranslationWorker::finished_signal, this, [this, guard, worker, watch, service](bool success) {
+        // The sweep may already be gone: cancelling takes it down without waiting for a result.
+        // It goes before the capture can resume.
+        if (watch) {
+            watch->end();
+            watch->deleteLater();
+        }
+        if (!guard || translate_worker_ != worker) return;
+        translate_sweep_ = nullptr;
+        if (translate_ring_) translate_ring_->set_busy(false);
+        translate_worker_ = nullptr;
+        if (!success) {
+            log_stitch(T("[WARN] 长截图翻译失败: {e}", {{"e", worker->error_text()}}), true);
+            const auto error = worker->error_text();
+            if (error.isEmpty()) {
+                set_capture_frozen(false);
+                show_preview_warning(tr_text("Translation failed"));
+                return;
+            }
+            // The dialog opens over the region, and capturing would record it into the long
+            // image: capturing resumes once it is closed.
+            auto *dialog = show_modeless_warning_dialog(this, tr_text("Translation"), error);
+            connect(dialog, &QObject::destroyed, this, [this] { set_capture_frozen(false); });
+            return;
+        }
+        // The monthly quota is counted here: the settings it reads belong to the GUI thread.
+        try {
+            if (service) service->record_usage(*service->provider(), worker->translated_chars());
+        } catch (const std::exception &) {
+        }
+        const auto translated = worker->result();
+        const auto unplaced = worker->unplaced_translations();
+        const auto notice = worker->failure_notice();
+        if (translated.isNull()) {
+            log_stitch(T("[WARN] 长截图没有可替换的文字"));
+            if (!unplaced.isEmpty() || !notice.isEmpty()) {
+                auto *dialog = unplaced.isEmpty() ? show_modeless_warning_dialog(this, tr_text("Translation"), notice)
+                                                  : show_unplaced_overlay_translations(this, tr_text("Translation"), unplaced, notice);
+                connect(dialog, &QObject::destroyed, this, [this] { set_capture_frozen(false); });
+                return;
+            }
+            set_capture_frozen(false);
+            show_toast(tr_text("Nothing to translate: the text is already in the target language."));
+            return;
+        }
+        log_stitch(T("[OK] 长截图覆盖翻译完成: {count} 个段落已替换", {{"count", worker->painted_blocks()}}), true);
+        finish_translated(translated, notice, unplaced);
+    });
+    worker->start();
+}
+
+void ScrollCaptureWindow::set_capture_frozen(bool frozen) {
+    if (capture_frozen_ == frozen) return;
+    capture_frozen_ = frozen;
+    if (frozen) {
+        cancel_edge();
+        auto_scroller_->stop();
+        if (change_watch_) change_watch_->stop();
+        if (still_timer_.isActive()) {
+            still_timer_.stop();
+            still_frame_.reset();
+            finish_still(std::nullopt);
+        }
+        if (toolbar) {
+            toolbar->set_auto_scrolling(false);
+            // Direction and crop both act on the stitcher, which no longer feeds the export.
+            toolbar->direction_btn->setEnabled(false);
+            toolbar->crop_btn->setEnabled(false);
+            toolbar->auto_scroll_btn->setEnabled(false);
+        }
+        sync_mouse_capture();
+        update();
+        return;
+    }
+    if (toolbar) {
+        toolbar->direction_btn->setEnabled(true);
+        toolbar->crop_btn->setEnabled(true);
+        toolbar->auto_scroll_btn->setEnabled(true);
+        toolbar->setEnabled(true);
+    }
+    set_translation_locked(false);
+    if (change_watch_ && stitcher_) change_watch_->start();
+    sync_mouse_capture();
+    update();
+}
+
+void ScrollCaptureWindow::set_translation_locked(bool locked) {
+    if (!toolbar) return;
+    // Saving, pinning, finishing or recognizing again would all export or read the result
+    // the worker is still rewriting; the direction, crop and auto scroll buttons follow the
+    // frozen capture state instead.
+    for (auto *button : {toolbar->save_btn, toolbar->ocr_btn, toolbar->translate_btn, toolbar->pin_btn, toolbar->finish_btn}) button->setEnabled(!locked);
+}
+
+void ScrollCaptureWindow::finish_translated(const QImage &translated, const QString &notice, const QString &unplaced) {
+    // A long image has no place on screen to be read at: it is pinned, which ends the long
+    // screenshot the way the pin button does.
+    if (!pin_and_close(translated)) {
+        set_capture_frozen(false);
+        return;
+    }
+    if (!unplaced.isEmpty()) show_unplaced_overlay_translations(nullptr, tr_text("Translation"), unplaced, notice);
+    else if (!notice.isEmpty()) show_modeless_warning_dialog(nullptr, tr_text("Translation"), notice);
 }
 
 void ScrollCaptureWindow::on_save() {
@@ -1450,6 +1636,19 @@ void ScrollCaptureWindow::on_quick_save() {
 
 void ScrollCaptureWindow::cleanup() {
     qApp->removeEventFilter(this);
+    // A translation still running must not paint onto a closed window; its result is dropped.
+    if (translate_worker_) {
+        translate_worker_->abort();
+        translate_worker_ = nullptr;
+    }
+    // The sweep is its own window: an aborted worker never reports back, so it is taken down
+    // here or it would stay on the screen over a closed capture.
+    if (translate_sweep_) {
+        translate_sweep_->end();
+        translate_sweep_->deleteLater();
+    }
+    translate_sweep_ = nullptr;
+    if (translate_ring_) translate_ring_->set_busy(false);
     cancel_edge(false);
     ++capture_generation_;
     if (change_watch_) change_watch_->stop();

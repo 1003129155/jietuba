@@ -9,6 +9,22 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>Side-by-side window</source>
+        <translation>Side-by-side window</translation>
+    </message>
+    <message>
+        <source>Replace the original text</source>
+        <translation>Replace the original text</translation>
+    </message>
+    <message>
+        <source>What the translate button on the capture and long screenshot toolbars does</source>
+        <translation>What the translate button on the capture and long screenshot toolbars does</translation>
+    </message>
+    <message>
+        <source>Screenshot Translation</source>
+        <translation>Screenshot Translation</translation>
+    </message>
+    <message>
         <source>Search settings</source>
         <translation>Search settings</translation>
     </message>
@@ -1550,6 +1566,14 @@ Replace it?</translation>
         <translation>Timeout (s)</translation>
     </message>
     <message>
+        <source>Parallel requests</source>
+        <translation>Parallel requests</translation>
+    </message>
+    <message>
+        <source>Interval (ms)</source>
+        <translation>Interval (ms)</translation>
+    </message>
+    <message>
         <source>Temperature</source>
         <translation>Temperature</translation>
     </message>
@@ -1661,6 +1685,18 @@ Replace it?</translation>
 
 <context>
     <name>ActionTools</name>
+    <message>
+        <source>Translation</source>
+        <translation>Translation</translation>
+    </message>
+    <message>
+        <source>Nothing to translate: the text is already in the target language.</source>
+        <translation>Nothing to translate: the text is already in the target language.</translation>
+    </message>
+    <message>
+        <source>Cannot create the save folder or reserve a file name.</source>
+        <translation>Cannot create the save folder or reserve a file name.</translation>
+    </message>
     <message>
         <source>Save Screenshot</source>
         <translation>Save Screenshot</translation>
@@ -2213,6 +2249,10 @@ Replace it?</translation>
 <!-- ========== Scroll Screenshot (Long Screenshot) ========== -->
 <context>
     <name>FloatingToolbar</name>
+    <message>
+        <source>Translate the long screenshot</source>
+        <translation>Translate the long screenshot</translation>
+    </message>
     <message>
         <source>Drag to move</source>
         <translation>Drag to move</translation>
@@ -6133,6 +6173,22 @@ Replace: move the current data there; the data already in that folder will be de
 <context>
     <name>ScrollCaptureWindow</name>
     <message>
+        <source>Translation</source>
+        <translation>Translation</translation>
+    </message>
+    <message>
+        <source>Translation failed</source>
+        <translation>Translation failed</translation>
+    </message>
+    <message>
+        <source>Nothing to translate: the text is already in the target language.</source>
+        <translation>Nothing to translate: the text is already in the target language.</translation>
+    </message>
+    <message>
+        <source>Nothing to translate yet</source>
+        <translation>Nothing to translate yet</translation>
+    </message>
+    <message>
         <source>Couldn't join. Scroll back</source>
         <translation>Couldn't join. Scroll back</translation>
     </message>
@@ -7548,6 +7604,68 @@ Replace it?</translation>
     <message>
         <source>Leave out the file extension; it is added automatically.</source>
         <translation>Leave out the file extension; it is added automatically.</translation>
+    </message>
+</context>
+<context>
+    <name>OverlayTranslation</name>
+    <message>
+        <source>Some translations do not fit. The original text is still shown in the image.</source>
+        <translation>Some translations do not fit. The original text is still shown in the image.</translation>
+    </message>
+    <message>
+        <source>The translation service is not configured yet.</source>
+        <translation>The translation service is not configured yet.</translation>
+    </message>
+    <message>
+        <source>Text recognition failed.</source>
+        <translation>Text recognition failed.</translation>
+    </message>
+    <message>
+        <source>No translation service is selected.</source>
+        <translation>No translation service is selected.</translation>
+    </message>
+    <message>
+        <source>No text was recognized in the selection.</source>
+        <translation>No text was recognized in the selection.</translation>
+    </message>
+    <message>
+        <source>%1 paragraphs could not be translated and were left as they are.</source>
+        <translation>%1 paragraphs could not be translated and were left as they are.</translation>
+    </message>
+    <message>
+        <source>The translation service returned no text.</source>
+        <translation>The translation service returned no text.</translation>
+    </message>
+</context>
+<context>
+    <name>TranslationPanel</name>
+    <message>
+        <source>Show original image</source>
+        <translation>Show original image</translation>
+    </message>
+    <message>
+        <source>Target language</source>
+        <translation>Target language</translation>
+    </message>
+    <message>
+        <source>Translation service</source>
+        <translation>Translation service</translation>
+    </message>
+    <message>
+        <source>Translated</source>
+        <translation>Translated</translation>
+    </message>
+    <message>
+        <source>Original</source>
+        <translation>Original</translation>
+    </message>
+    <message>
+        <source>To</source>
+        <translation>To</translation>
+    </message>
+    <message>
+        <source>More</source>
+        <translation>More</translation>
     </message>
 </context>
 </TS>

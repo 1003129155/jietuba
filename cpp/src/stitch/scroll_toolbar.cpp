@@ -145,6 +145,8 @@ void FloatingToolbar::setup_toolbar_ui() {
     crop_btn = add_icon_button(toolbar_layout, QString::fromUtf8("裁剪.svg"), tr_text("Crop"), [this] { show_crop_menu(); });
     save_btn = add_icon_button(toolbar_layout, QString::fromUtf8("下载.svg"), tr_text("Save to file"), [this] { emit save_clicked(); });
     ocr_btn =add_icon_button(toolbar_layout, QString::fromUtf8("文字识别.svg"), tr_text("Recognize text (OCR)"), [this] { emit ocr_clicked(); });
+    // Same icon and setting as the capture toolbar's translate button.
+    translate_btn = add_icon_button(toolbar_layout, QString::fromUtf8("翻译.svg"), tr_text("Translate the long screenshot"), [this] { emit translate_clicked(); });
 
     // The last three buttons match the capture toolbar's order and icons.
     cancel_btn = add_icon_button(toolbar_layout, QString::fromUtf8("结束截图.svg"), tr_text("Cancel long screenshot"), [this] { emit cancel_clicked(); });

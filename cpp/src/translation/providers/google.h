@@ -14,6 +14,11 @@ public:
     QString display_name() const override { return "Google"; }
     bool is_configured() const override { return !api_key_.isEmpty(); }
     TranslationResult translate(const TranslationRequest &request) override;
+    // 128 strings a request at most; the service recommends about 5000 characters.
+    BatchLimits batch_limits() const override { return {100, 5000}; }
+    BatchTranslationResult translate_batch(const QStringList &texts, const TranslationRequest &request) override;
+    QByteArray batch_payload(const QStringList &texts, const TranslationRequest &request) const;
+    static BatchTranslationResult parse_batch(const QJsonValue &raw, int expected);
 private:
     static QString to_google_code(const QString &language_code);
     TranslationResult http_error(const HttpResponse &response) const;

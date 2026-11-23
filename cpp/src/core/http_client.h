@@ -29,6 +29,8 @@ public:
     HttpCancellation &operator=(const HttpCancellation &) = delete;
     void cancel();
     bool cancelled() const;
+    // Waits up to timeout_ms for a cancel; true when it came.
+    bool wait(int timeout_ms) const;
     // The manual-reset event that cancel() signals.
     void *native_event() const { return event_; }
 private:

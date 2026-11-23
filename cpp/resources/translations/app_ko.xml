@@ -8,6 +8,22 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>Side-by-side window</source>
+        <translation>좌우 대조 창</translation>
+    </message>
+    <message>
+        <source>Replace the original text</source>
+        <translation>원문 덮어쓰기</translation>
+    </message>
+    <message>
+        <source>What the translate button on the capture and long screenshot toolbars does</source>
+        <translation>스크린샷과 긴 스크린샷 도구 모음에 있는 '번역' 버튼의 동작</translation>
+    </message>
+    <message>
+        <source>Screenshot Translation</source>
+        <translation>스크린샷 번역</translation>
+    </message>
+    <message>
         <source>Search settings</source>
         <translation>설정 검색</translation>
     </message>
@@ -1065,6 +1081,14 @@ Replace it?</source>
         <translation>시간 제한(초)</translation>
     </message>
     <message>
+        <source>Parallel requests</source>
+        <translation>동시 요청 수</translation>
+    </message>
+    <message>
+        <source>Interval (ms)</source>
+        <translation>간격(ms)</translation>
+    </message>
+    <message>
         <source>Instructions</source>
         <translation>추가 지시</translation>
     </message>
@@ -1701,6 +1725,18 @@ Replace it?</source>
 <context>
     <name>ActionTools</name>
     <message>
+        <source>Translation</source>
+        <translation>번역</translation>
+    </message>
+    <message>
+        <source>Nothing to translate: the text is already in the target language.</source>
+        <translation>번역할 내용이 없습니다. 텍스트가 이미 대상 언어입니다.</translation>
+    </message>
+    <message>
+        <source>Cannot create the save folder or reserve a file name.</source>
+        <translation>저장 폴더를 만들 수 없거나 파일 이름을 할당할 수 없습니다. 설정의 저장 경로를 확인하세요.</translation>
+    </message>
+    <message>
         <source>Save Screenshot</source>
         <translation>스크린샷 저장</translation>
     </message>
@@ -2252,6 +2288,10 @@ Replace it?</source>
 <!-- ========== Scroll Screenshot (Long Screenshot) ========== -->
 <context>
     <name>FloatingToolbar</name>
+    <message>
+        <source>Translate the long screenshot</source>
+        <translation>긴 스크린샷 번역</translation>
+    </message>
     <message>
         <source>Drag to move</source>
         <translation>드래그하여 이동</translation>
@@ -6213,6 +6253,22 @@ Replace: move the current data there; the data already in that folder will be de
 <context>
     <name>ScrollCaptureWindow</name>
     <message>
+        <source>Translation</source>
+        <translation>번역</translation>
+    </message>
+    <message>
+        <source>Translation failed</source>
+        <translation>번역에 실패했습니다</translation>
+    </message>
+    <message>
+        <source>Nothing to translate: the text is already in the target language.</source>
+        <translation>번역할 내용이 없습니다. 텍스트가 이미 대상 언어입니다.</translation>
+    </message>
+    <message>
+        <source>Nothing to translate yet</source>
+        <translation>아직 번역할 내용이 없습니다</translation>
+    </message>
+    <message>
         <source>Couldn't join. Scroll back</source>
         <translation>이어지지 않습니다. 되돌려 주세요</translation>
     </message>
@@ -7601,6 +7657,68 @@ Replace it?</source>
     <message>
         <source>Leave out the file extension; it is added automatically.</source>
         <translation>확장자는 저장할 때 자동으로 추가되므로 입력하지 마세요.</translation>
+    </message>
+</context>
+<context>
+    <name>OverlayTranslation</name>
+    <message>
+        <source>Some translations do not fit. The original text is still shown in the image.</source>
+        <translation>일부 번역문이 공간에 맞지 않아 이미지에 해당 원문이 표시됩니다.</translation>
+    </message>
+    <message>
+        <source>The translation service is not configured yet.</source>
+        <translation>번역 서비스가 아직 설정되지 않았습니다.</translation>
+    </message>
+    <message>
+        <source>Text recognition failed.</source>
+        <translation>텍스트 인식에 실패했습니다.</translation>
+    </message>
+    <message>
+        <source>No translation service is selected.</source>
+        <translation>번역 서비스가 선택되지 않았습니다.</translation>
+    </message>
+    <message>
+        <source>No text was recognized in the selection.</source>
+        <translation>선택 영역에서 텍스트를 인식하지 못했습니다.</translation>
+    </message>
+    <message>
+        <source>%1 paragraphs could not be translated and were left as they are.</source>
+        <translation>단락 %1개는 번역하지 못해 원문 그대로 두었습니다.</translation>
+    </message>
+    <message>
+        <source>The translation service returned no text.</source>
+        <translation>번역 서비스가 번역문을 반환하지 않았습니다.</translation>
+    </message>
+</context>
+<context>
+    <name>TranslationPanel</name>
+    <message>
+        <source>Show original image</source>
+        <translation>원본 이미지 표시</translation>
+    </message>
+    <message>
+        <source>Target language</source>
+        <translation>대상 언어</translation>
+    </message>
+    <message>
+        <source>Translation service</source>
+        <translation>번역 서비스</translation>
+    </message>
+    <message>
+        <source>Translated</source>
+        <translation>번역</translation>
+    </message>
+    <message>
+        <source>Original</source>
+        <translation>원본</translation>
+    </message>
+    <message>
+        <source>To</source>
+        <translation>대상 언어</translation>
+    </message>
+    <message>
+        <source>More</source>
+        <translation>더보기</translation>
     </message>
 </context>
 </TS>

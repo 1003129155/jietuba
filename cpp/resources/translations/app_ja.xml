@@ -10,6 +10,22 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>Side-by-side window</source>
+        <translation>左右対照ウィンドウ</translation>
+    </message>
+    <message>
+        <source>Replace the original text</source>
+        <translation>原文を置き換え</translation>
+    </message>
+    <message>
+        <source>What the translate button on the capture and long screenshot toolbars does</source>
+        <translation>キャプチャとスクロールキャプチャのツールバーにある「翻訳」ボタンの動作</translation>
+    </message>
+    <message>
+        <source>Screenshot Translation</source>
+        <translation>スクショ翻訳</translation>
+    </message>
+    <message>
         <source>Search settings</source>
         <translation>設定を検索</translation>
     </message>
@@ -1068,6 +1084,14 @@ Replace it?</source>
         <translation>タイムアウト（秒）</translation>
     </message>
     <message>
+        <source>Parallel requests</source>
+        <translation>同時リクエスト数</translation>
+    </message>
+    <message>
+        <source>Interval (ms)</source>
+        <translation>間隔（ms）</translation>
+    </message>
+    <message>
         <source>Instructions</source>
         <translation>追加の指示</translation>
     </message>
@@ -1724,6 +1748,18 @@ Replace it?</source>
 <context>
     <name>ActionTools</name>
     <message>
+        <source>Translation</source>
+        <translation>翻訳</translation>
+    </message>
+    <message>
+        <source>Nothing to translate: the text is already in the target language.</source>
+        <translation>翻訳する内容がありません。テキストはすでに翻訳先の言語です。</translation>
+    </message>
+    <message>
+        <source>Cannot create the save folder or reserve a file name.</source>
+        <translation>保存フォルダーを作成できないか、ファイル名を割り当てられません。設定の保存先を確認してください。</translation>
+    </message>
+    <message>
         <source>Save Screenshot</source>
         <translation>スクリーンショットを保存</translation>
     </message>
@@ -2277,6 +2313,10 @@ Replace it?</source>
 <!-- ========== Scroll Screenshot (Long Screenshot) ========== -->
 <context>
     <name>FloatingToolbar</name>
+    <message>
+        <source>Translate the long screenshot</source>
+        <translation>スクロールキャプチャを翻訳</translation>
+    </message>
     <message>
         <source>Drag to move</source>
         <translation>ドラッグして移動</translation>
@@ -6222,6 +6262,22 @@ Replace: move the current data there; the data already in that folder will be de
 <context>
     <name>ScrollCaptureWindow</name>
     <message>
+        <source>Translation</source>
+        <translation>翻訳</translation>
+    </message>
+    <message>
+        <source>Translation failed</source>
+        <translation>翻訳に失敗しました</translation>
+    </message>
+    <message>
+        <source>Nothing to translate: the text is already in the target language.</source>
+        <translation>翻訳する内容がありません。テキストはすでに翻訳先の言語です。</translation>
+    </message>
+    <message>
+        <source>Nothing to translate yet</source>
+        <translation>まだ翻訳できる内容がありません</translation>
+    </message>
+    <message>
         <source>Couldn't join. Scroll back</source>
         <translation>つながりません。戻してください</translation>
     </message>
@@ -7610,6 +7666,68 @@ Replace it?</source>
     <message>
         <source>Leave out the file extension; it is added automatically.</source>
         <translation>拡張子は自動で付くため、入力しないでください。</translation>
+    </message>
+</context>
+<context>
+    <name>OverlayTranslation</name>
+    <message>
+        <source>Some translations do not fit. The original text is still shown in the image.</source>
+        <translation>一部の訳文が収まらなかったため、画像にはその箇所の原文を表示しています。</translation>
+    </message>
+    <message>
+        <source>The translation service is not configured yet.</source>
+        <translation>翻訳サービスがまだ設定されていません。</translation>
+    </message>
+    <message>
+        <source>Text recognition failed.</source>
+        <translation>文字認識に失敗しました。</translation>
+    </message>
+    <message>
+        <source>No translation service is selected.</source>
+        <translation>翻訳サービスが選択されていません。</translation>
+    </message>
+    <message>
+        <source>No text was recognized in the selection.</source>
+        <translation>選択範囲から文字を認識できませんでした。</translation>
+    </message>
+    <message>
+        <source>%1 paragraphs could not be translated and were left as they are.</source>
+        <translation>%1 個の段落は翻訳できず、原文のまま残しています。</translation>
+    </message>
+    <message>
+        <source>The translation service returned no text.</source>
+        <translation>翻訳サービスから訳文が返されませんでした。</translation>
+    </message>
+</context>
+<context>
+    <name>TranslationPanel</name>
+    <message>
+        <source>Show original image</source>
+        <translation>元画像を表示</translation>
+    </message>
+    <message>
+        <source>Target language</source>
+        <translation>翻訳先の言語</translation>
+    </message>
+    <message>
+        <source>Translation service</source>
+        <translation>翻訳サービス</translation>
+    </message>
+    <message>
+        <source>Translated</source>
+        <translation>翻訳</translation>
+    </message>
+    <message>
+        <source>Original</source>
+        <translation>元画像</translation>
+    </message>
+    <message>
+        <source>To</source>
+        <translation>翻訳先</translation>
+    </message>
+    <message>
+        <source>More</source>
+        <translation>その他</translation>
     </message>
 </context>
 </TS>

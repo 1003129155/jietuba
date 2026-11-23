@@ -5,6 +5,22 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>Side-by-side window</source>
+        <translation>左右對照視窗</translation>
+    </message>
+    <message>
+        <source>Replace the original text</source>
+        <translation>覆蓋原文</translation>
+    </message>
+    <message>
+        <source>What the translate button on the capture and long screenshot toolbars does</source>
+        <translation>截圖與長截圖工具列上「翻譯」按鈕的做法</translation>
+    </message>
+    <message>
+        <source>Screenshot Translation</source>
+        <translation>截圖翻譯</translation>
+    </message>
+    <message>
         <source>Search settings</source>
         <translation>搜尋設定</translation>
     </message>
@@ -1075,6 +1091,14 @@ Replace it?</source>
         <translation>超時（秒）</translation>
     </message>
     <message>
+        <source>Parallel requests</source>
+        <translation>並行請求數</translation>
+    </message>
+    <message>
+        <source>Interval (ms)</source>
+        <translation>請求間隔（毫秒）</translation>
+    </message>
+    <message>
         <source>Instructions</source>
         <translation>附加要求</translation>
     </message>
@@ -1690,6 +1714,14 @@ Replace it?</source>
 <context>
     <name>ActionTools</name>
     <message>
+        <source>Translation</source>
+        <translation>翻譯</translation>
+    </message>
+    <message>
+        <source>Nothing to translate: the text is already in the target language.</source>
+        <translation>沒有需要翻譯的內容：文字已是目標語言。</translation>
+    </message>
+    <message>
         <source>Save Screenshot</source>
         <translation>儲存截圖</translation>
     </message>
@@ -1724,6 +1756,10 @@ Replace it?</source>
     <message>
         <source>Saved: %1</source>
         <translation>已儲存：%1</translation>
+    </message>
+    <message>
+        <source>Cannot create the save folder or reserve a file name.</source>
+        <translation>無法建立儲存資料夾或分配檔名，請檢查設定裡的儲存路徑。</translation>
     </message>
 </context>
 <context>
@@ -2232,6 +2268,10 @@ Replace it?</source>
 </context>
 <context>
     <name>FloatingToolbar</name>
+    <message>
+        <source>Translate the long screenshot</source>
+        <translation>翻譯長截圖</translation>
+    </message>
     <message>
         <source>Drag to move</source>
         <translation>拖曳以移動</translation>
@@ -6598,6 +6638,22 @@ Replace: move the current data there; the data already in that folder will be de
 <context>
     <name>ScrollCaptureWindow</name>
     <message>
+        <source>Translation</source>
+        <translation>翻譯</translation>
+    </message>
+    <message>
+        <source>Translation failed</source>
+        <translation>翻譯失敗</translation>
+    </message>
+    <message>
+        <source>Nothing to translate: the text is already in the target language.</source>
+        <translation>沒有需要翻譯的內容：文字已是目標語言。</translation>
+    </message>
+    <message>
+        <source>Nothing to translate yet</source>
+        <translation>還沒有可翻譯的內容</translation>
+    </message>
+    <message>
         <source>Couldn't join. Scroll back</source>
         <translation>沒接上，往回滾</translation>
     </message>
@@ -7984,6 +8040,68 @@ Replace it?</source>
     <message>
         <source>Leave out the file extension; it is added automatically.</source>
         <translation>請移除副檔名，儲存時會自動加入。</translation>
+    </message>
+</context>
+<context>
+    <name>OverlayTranslation</name>
+    <message>
+        <source>Some translations do not fit. The original text is still shown in the image.</source>
+        <translation>部分譯文放不下，圖片中保留了這些位置的原文。</translation>
+    </message>
+    <message>
+        <source>The translation service is not configured yet.</source>
+        <translation>翻譯服務尚未設定。</translation>
+    </message>
+    <message>
+        <source>Text recognition failed.</source>
+        <translation>文字辨識失敗。</translation>
+    </message>
+    <message>
+        <source>No translation service is selected.</source>
+        <translation>尚未選擇翻譯服務。</translation>
+    </message>
+    <message>
+        <source>No text was recognized in the selection.</source>
+        <translation>選取範圍裡沒有辨識到文字。</translation>
+    </message>
+    <message>
+        <source>%1 paragraphs could not be translated and were left as they are.</source>
+        <translation>有 %1 段未能譯出，保留了原文。</translation>
+    </message>
+    <message>
+        <source>The translation service returned no text.</source>
+        <translation>翻譯服務沒有傳回譯文。</translation>
+    </message>
+</context>
+<context>
+    <name>TranslationPanel</name>
+    <message>
+        <source>Show original image</source>
+        <translation>顯示原圖</translation>
+    </message>
+    <message>
+        <source>Target language</source>
+        <translation>目標語言</translation>
+    </message>
+    <message>
+        <source>Translation service</source>
+        <translation>翻譯服務</translation>
+    </message>
+    <message>
+        <source>Translated</source>
+        <translation>譯文</translation>
+    </message>
+    <message>
+        <source>Original</source>
+        <translation>原圖</translation>
+    </message>
+    <message>
+        <source>To</source>
+        <translation>譯為</translation>
+    </message>
+    <message>
+        <source>More</source>
+        <translation>更多</translation>
     </message>
 </context>
 </TS>

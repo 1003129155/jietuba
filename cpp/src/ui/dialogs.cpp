@@ -7,6 +7,7 @@
 #include <QCheckBox>
 #include <QDesktopServices>
 #include <QFileDialog>
+#include <QPlainTextEdit>
 #include <QPointer>
 #include <QPushButton>
 #include <QScreen>
@@ -271,6 +272,27 @@ QDialog *show_modeless_warning_dialog(QWidget *parent, const QString &title, con
         dialog->resize(width, dialog->sizeHint().height());
         ok_button->setFocus();
     }
+    track_modeless_dialog(dialog);
+    dialog->show();
+    return dialog;
+}
+
+QDialog *show_unplaced_overlay_translations(QWidget *parent, const QString &title, const QString &text, const QString &notice) {
+    auto message = i18n_tr("Some translations do not fit. The original text is still shown in the image.", "OverlayTranslation");
+    if (!notice.isEmpty()) message += QStringLiteral("\n\n") + notice;
+    auto *dialog = new StandardDialog(parent, title, message);
+    dialog->label->setTextFormat(Qt::PlainText);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->setAttribute(Qt::WA_ShowWithoutActivating);
+    auto *details = new QPlainTextEdit(dialog);
+    details->setPlainText(text);
+    details->setReadOnly(true);
+    details->setWordWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+    auto *layout = static_cast<QVBoxLayout *>(dialog->layout());
+    layout->insertWidget(layout->count() - 1, details, 1);
+    auto *ok = dialog->button_box->addButton(dialog_tr("OK"), QDialogButtonBox::AcceptRole);
+    QObject::connect(ok, &QPushButton::clicked, dialog, &QDialog::accept);
+    dialog->resize(560, 320);
     track_modeless_dialog(dialog);
     dialog->show();
     return dialog;
