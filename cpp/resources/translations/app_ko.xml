@@ -7721,4 +7721,56 @@ Replace it?</source>
         <translation>더보기</translation>
     </message>
 </context>
+<context>
+    <name>SettingsDialog</name>
+    <!-- Translation page tabs and provider cards -->
+    <message>
+        <source>General</source>
+        <translation>일반</translation>
+    </message>
+    <message>
+        <source>API Services</source>
+        <translation>API 서비스</translation>
+    </message>
+    <message>
+        <source>Translation API</source>
+        <translation>번역 API</translation>
+    </message>
+    <message>
+        <source>Large Language Models</source>
+        <translation>대규모 언어 모델</translation>
+    </message>
+    <message>
+        <source>Use This</source>
+        <translation>이것 사용</translation>
+    </message>
+    <message>
+        <source>In Use</source>
+        <translation>사용 중</translation>
+    </message>
+    <message>
+        <source>Not Configured</source>
+        <translation>미설정</translation>
+    </message>
+    <message>
+        <source>Configured</source>
+        <translation>설정됨</translation>
+    </message>
+    <message>
+        <source>Not configured yet</source>
+        <translation>아직 설정되지 않음</translation>
+    </message>
+    <message>
+        <source>%1% used this month</source>
+        <translation>이번 달 %1% 사용</translation>
+    </message>
+    <message>
+        <source>Advanced</source>
+        <translation>고급</translation>
+    </message>
+    <message>
+        <source>Configure API</source>
+        <translation>API 설정</translation>
+    </message>
+</context>
 </TS>

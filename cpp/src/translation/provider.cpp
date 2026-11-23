@@ -17,8 +17,8 @@ int pacing_value(const QVariant &text, int fallback, int low, int high) {
 
 std::vector<ProviderField> pacing_fields(const QString &prefix, const RequestPacing &defaults) {
     return {
-        ProviderField::text(prefix + "_parallel_requests", "Parallel requests", QString::number(defaults.parallel)),
-        ProviderField::text(prefix + "_request_interval_ms", "Interval (ms)", QString::number(defaults.interval_ms)),
+        ProviderField::text(prefix + "_parallel_requests", "Parallel requests", QString::number(defaults.parallel)).as_advanced(),
+        ProviderField::text(prefix + "_request_interval_ms", "Interval (ms)", QString::number(defaults.interval_ms)).as_advanced(),
     };
 }
 

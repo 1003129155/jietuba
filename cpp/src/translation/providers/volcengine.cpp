@@ -31,8 +31,8 @@ ProviderMetadata VolcengineTranslateProvider::class_metadata() {
         ProviderField::text("volcengine_translate_secret_key", "Secret Access Key", "Volcengine AccessKey SK, paired with the AK", true),
     };
     metadata.options = {
-        ProviderField::toggle("volcengine_translate_quota_enabled", "Enable monthly quota guard", "Stop translation once the monthly free quota is reached"),
-        ProviderField::text("volcengine_translate_quota_limit", "Monthly quota (characters)", "1990000"),
+        ProviderField::toggle("volcengine_translate_quota_enabled", "Enable monthly quota guard", "Stop translation once the monthly free quota is reached").as_advanced(),
+        ProviderField::text("volcengine_translate_quota_limit", "Monthly quota (characters)", "1990000").as_advanced(),
     };
     // Overuse is billed rather than refused, so the guard is on by default.
     metadata.notice = "Volcengine machine translation: about 2M free characters/month. Overuse is billed at pay-as-you-go rates, so a local quota guard "

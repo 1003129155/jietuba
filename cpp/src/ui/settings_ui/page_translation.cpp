@@ -10,71 +10,459 @@
 #include "ui/fluent_lite/buttons.h"
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/labels.h"
+#include "ui/fluent_lite/segmented.h"
 #include "ui/fluent_lite/switch.h"
 #include "ui/fluent_lite/text_context_menu.h"
 #include "ui/settings_ui/components.h"
 #include "ui/settings_ui/dialog.h"
 #include "ui/settings_ui/pages.h"
 #include "ui/settings_ui/search.h"
-#include <QDesktopServices>
+#include <QAbstractButton>
+#include <QButtonGroup>
 #include <QDate>
+#include <QDesktopServices>
 #include <QFrame>
 #include <QLocale>
 #include <QMenu>
+#include <QPainter>
 #include <QRegularExpression>
+#include <QScrollArea>
+#include <QScrollBar>
+#include <QStackedWidget>
 #include <QThread>
 #include <QToolTip>
 #include <QUrl>
 #include <algorithm>
 #include <set>
 
-// The translation settings page. No provider is named here: each provider's credentials,
-// own switches, hints, help link and which general options it uses all come from its own
-// declaration (ProviderField / ProviderMetadata); the page only renders them, so a provider
-// cannot be missing from either the form or the save.
+// The translation settings page: a General tab (engine, options, read aloud) and an API tab with
+// one card per provider. No provider is named here: each provider's credentials, own switches,
+// hints, help link and which general options it uses all come from its own declaration
+// (ProviderField / ProviderMetadata); the page only renders them, so a provider cannot be missing
+// from either the form or the save.
 namespace jietuba {
 namespace {
 // Label column width. Providers differ in field count and label length; a fixed width
 // keeps inputs from jumping sideways when switching providers.
 constexpr int LABEL_WIDTH = 135;
+// Left room of a provider card's rows at 100%; the right room is card_right_margin().
+constexpr int CARD_PADDING = 16;
+constexpr int TAB_HEIGHT = 44;
+constexpr int TAB_GAP = 14;
+constexpr int CHIP_HEIGHT = 34;
+constexpr int CHIP_COLUMNS = 4;
+const char *const GENERAL_TAB = "general";
+const char *const API_TAB = "api";
+const char *const PROVIDER_ID = "provider_id";
 
-// A set of rows shown with its provider. Like SettingCardGroup::addSettingCard it puts
-// 1 px separators between rows, but has no title or frame: the one enclosing group draws
-// those, so the page stays a single block. With lead_each every card gets its own leading
-// separator, hidden together with the card by set_card_visible so no orphan line stays;
-// such a section joins its group without the group's separator.
-class ProviderSection : public QWidget {
+QFont ui_font(int pixel_size, bool bold = false) {
+    QFont font;
+    font.setFamilies(FONT_FAMILIES());
+    font.setPixelSize(dialog_scaled(pixel_size));
+    font.setWeight(bold ? QFont::DemiBold : QFont::Normal);
+    return font;
+}
+
+QString rgba(const QString &color, double alpha) {
+    const QColor c = css_color(color);
+    return QString("rgba(%1, %2, %3, %4)").arg(c.red()).arg(c.green()).arg(c.blue()).arg(alpha);
+}
+
+// The line above every row of a provider card but the first, from the text column to the edge.
+class RowLine : public QFrame {
 public:
-    explicit ProviderSection(QWidget *parent = nullptr, bool lead_each = false) : QWidget(parent), lead_each_(lead_each) {
-        v_ = new QVBoxLayout(this);
-        v_->setContentsMargins(0, 0, 0, 0);
-        v_->setSpacing(0);
-        QObject::connect(get_ui_theme(), &UIThemeManager::theme_changed, this, [this] { apply_separator_theme(); });
-    }
-    void addSettingCard(QWidget *card) {
-        QFrame *separator = lead_each_ || !cards_.isEmpty() ? add_separator() : nullptr;
-        card->setParent(this);
-        v_->addWidget(card);
-        cards_.append(card);
-        if (lead_each_) card->setProperty("_leading_separator", QVariant::fromValue(static_cast<QObject *>(separator)));
-        apply_separator_theme();
+    explicit RowLine(QWidget *parent) : QFrame(parent) {
+        setFixedHeight(dialog_scaled(1));
+        apply_theme();
+        QObject::connect(get_ui_theme(), &UIThemeManager::theme_changed, this, [this] { apply_theme(); });
     }
 private:
-    QFrame *add_separator() {
-        auto *separator = new QFrame(this);
-        separator->setFixedHeight(dialog_scaled(1));
-        separators_.append(separator);
-        v_->addWidget(separator);
-        return separator;
+    void apply_theme() { set_own_style(this, QString("background: %1; border: none; margin-left: %2px;").arg(ui_tokens(this).separator).arg(dialog_scaled(CARD_PADDING))); }
+};
+
+void add_row(QVBoxLayout *layout, QWidget *row) {
+    layout->addWidget(new RowLine(row->parentWidget()));
+    layout->addWidget(row);
+}
+
+// The page's scroll area with the tab row fixed above the scrolling content.
+class TabbedScrollArea : public QScrollArea {
+public:
+    TabbedScrollArea(QWidget *parent, QWidget *header, int right_inset) : QScrollArea(parent), header_(header), right_inset_(right_inset) {
+        header->setParent(this);
+        setViewportMargins(0, header->height() + dialog_scaled(TAB_GAP), 0, 0);
     }
-    void apply_separator_theme() {
-        const QString color = ui_tokens(this).separator;
-        for (auto *separator : separators_) set_own_style(separator, QString("background: %1; border: none; margin-left: %2px;").arg(color).arg(card_text_left()));
+protected:
+    void resizeEvent(QResizeEvent *event) override {
+        QScrollArea::resizeEvent(event);
+        header_->setGeometry(viewport()->x(), 0, std::max(0, viewport()->width() - right_inset_), header_->height());
     }
-    QVBoxLayout *v_;
-    bool lead_each_;
-    QList<QWidget *> cards_;
-    QList<QFrame *> separators_;
+private:
+    QWidget *header_;
+    int right_inset_;
+};
+
+// One page shown at a time. Unlike a stack, the hidden pages take no room, so a short page does
+// not leave the height of the tallest one below it.
+class PageSwitcher : public QWidget {
+public:
+    explicit PageSwitcher(QWidget *parent) : QWidget(parent) {
+        layout_ = new QVBoxLayout(this);
+        layout_->setContentsMargins(0, 0, 0, 0);
+        layout_->setSpacing(0);
+    }
+    void add_page(QWidget *page) {
+        page->setParent(this);
+        layout_->addWidget(page);
+        pages_.append(page);
+        page->setVisible(pages_.size() - 1 == current_);
+    }
+    void set_current(int index) {
+        current_ = index;
+        for (int i = 0; i < pages_.size(); ++i)
+            if (pages_[i]) pages_[i]->setVisible(i == index);
+    }
+    QList<QWidget *> pages() const {
+        QList<QWidget *> pages;
+        for (const auto &page : pages_)
+            if (page) pages.append(page);
+        return pages;
+    }
+private:
+    QVBoxLayout *layout_;
+    QList<QPointer<QWidget>> pages_;
+    int current_ = 0;
+};
+
+// The rounded frame around a provider's rows, drawn like a card group's body.
+class ProviderCard : public QFrame {
+public:
+    explicit ProviderCard(QWidget *parent) : QFrame(parent) {
+        setFrameShape(QFrame::NoFrame);
+        QObject::connect(get_ui_theme(), &UIThemeManager::theme_changed, this, [this] { update(); });
+    }
+protected:
+    void paintEvent(QPaintEvent *) override {
+        const auto &t = ui_tokens(this);
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing);
+        painter.setPen(css_color(t.border));
+        painter.setBrush(css_color(t.surface));
+        const int radius = dialog_scaled(15);
+        painter.drawRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), radius, radius);
+    }
+};
+
+// This month's share of a free quota.
+class QuotaBar : public QWidget {
+public:
+    explicit QuotaBar(QWidget *parent) : QWidget(parent) {
+        setFixedHeight(dialog_scaled(4));
+        QObject::connect(get_ui_theme(), &UIThemeManager::theme_changed, this, [this] { update(); });
+    }
+    void set_fraction(double fraction) {
+        fraction_ = std::clamp(fraction, 0.0, 1.0);
+        update();
+    }
+protected:
+    void paintEvent(QPaintEvent *) override {
+        const auto &t = ui_tokens(this);
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing);
+        painter.setPen(Qt::NoPen);
+        const qreal radius = height() / 2.0;
+        painter.setBrush(css_color(t.border));
+        painter.drawRoundedRect(QRectF(rect()), radius, radius);
+        if (fraction_ <= 0) return;
+        painter.setBrush(css_color(fraction_ >= 1 ? t.danger : t.accent));
+        painter.drawRoundedRect(QRectF(0, 0, std::max<qreal>(height(), width() * fraction_), height()), radius, radius);
+    }
+private:
+    double fraction_ = 0;
+};
+
+// Folds a provider's rarely changed settings: a chevron, its title and, while folded, what is inside.
+class DisclosureRow : public QAbstractButton {
+public:
+    DisclosureRow(const QString &text, const QString &summary, QWidget *parent) : QAbstractButton(parent), summary_(summary) {
+        setText(text);
+        setCheckable(true);
+        setCursor(Qt::PointingHandCursor);
+        setFocusPolicy(Qt::TabFocus);
+        setAttribute(Qt::WA_Hover);
+        setFixedHeight(dialog_scaled(44));
+        setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        QObject::connect(get_ui_theme(), &UIThemeManager::theme_changed, this, [this] { update(); });
+    }
+    QSize sizeHint() const override { return {dialog_scaled(200), dialog_scaled(44)}; }
+protected:
+    void paintEvent(QPaintEvent *) override {
+        const auto &t = ui_tokens(this);
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing);
+        if (underMouse() || hasFocus()) painter.fillRect(rect(), css_color(t.surface_subtle));
+        const qreal size = dialog_scaled(8);
+        const qreal left = dialog_scaled(CARD_PADDING);
+        const QPointF c(left + size / 2, height() / 2.0);
+        QPen pen(css_color(t.text_muted), std::max(1.2, dialog_scaled(15) / 10.0));
+        pen.setCapStyle(Qt::RoundCap);
+        pen.setJoinStyle(Qt::RoundJoin);
+        painter.setPen(pen);
+        const QPointF down[] = {{c.x() - size / 2, c.y() - size / 4}, {c.x(), c.y() + size / 4}, {c.x() + size / 2, c.y() - size / 4}};
+        const QPointF right[] = {{c.x() - size / 4, c.y() - size / 2}, {c.x() + size / 4, c.y()}, {c.x() - size / 4, c.y() + size / 2}};
+        painter.drawPolyline(isChecked() ? down : right, 3);
+
+        const QFont title_font = ui_font(13);
+        const int text_left = qRound(left + size) + dialog_scaled(10);
+        const int title_width = QFontMetrics(title_font).horizontalAdvance(text()) + 1;
+        painter.setFont(title_font);
+        painter.setPen(css_color(t.text));
+        painter.drawText(QRect(text_left, 0, title_width, height()), Qt::AlignLeft | Qt::AlignVCenter, text());
+        if (isChecked() || summary_.isEmpty()) return;
+        const QFont small = ui_font(12);
+        const int x = text_left + title_width + dialog_scaled(10);
+        const int room = width() - card_right_margin() - x;
+        if (room <= 0) return;
+        painter.setFont(small);
+        painter.setPen(css_color(t.text_muted));
+        painter.drawText(QRect(x, 0, room, height()), Qt::AlignLeft | Qt::AlignVCenter, QFontMetrics(small).elidedText(summary_, Qt::ElideRight, room));
+    }
+private:
+    QString summary_;
+};
+
+// A provider on the API tab. A dot marks one whose required settings are filled, a check the one in
+// use, and a warning sign the one in use while it still lacks them.
+class ProviderChip : public QAbstractButton {
+public:
+    ProviderChip(const QString &provider_id, const QString &text, QWidget *parent) : QAbstractButton(parent) {
+        setText(text);
+        setCheckable(true);
+        setCursor(Qt::PointingHandCursor);
+        setFocusPolicy(Qt::TabFocus);
+        setAttribute(Qt::WA_Hover);
+        setProperty(PROVIDER_ID, provider_id);
+        setFixedHeight(dialog_scaled(CHIP_HEIGHT));
+        setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        QObject::connect(get_ui_theme(), &UIThemeManager::theme_changed, this, [this] { update(); });
+        QObject::connect(this, &QAbstractButton::toggled, this, [this] { update(); });
+    }
+    void set_state(bool configured, bool current) {
+        setProperty("configured", configured);
+        setProperty("current", current);
+        const char *state = current ? (configured ? "In Use" : "Not configured yet") : configured ? "Configured" : "Not Configured";
+        setToolTip(settings_tr(state));
+        setAccessibleDescription(toolTip());
+        update();
+    }
+    // The mark and the name, measured bold as when selected, plus the padding.
+    QSize sizeHint() const override {
+        const int name = QFontMetrics(ui_font(13, true)).horizontalAdvance(text());
+        return {name + dialog_scaled(12) + dialog_scaled(6) + 2 * dialog_scaled(10), dialog_scaled(CHIP_HEIGHT)};
+    }
+    QSize minimumSizeHint() const override { return sizeHint(); }
+protected:
+    void paintEvent(QPaintEvent *) override {
+        const auto &t = ui_tokens(this);
+        const bool selected = isChecked();
+        const bool current = property("current").toBool();
+        const bool configured = property("configured").toBool();
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing);
+        QColor border = css_color(selected || hasFocus() ? t.accent : t.border);
+        if (selected && !hasFocus()) border.setAlphaF(0.55f);
+        painter.setPen(QPen(border, hasFocus() ? 2 : 1));
+        painter.setBrush(css_color(selected ? t.accent_soft : underMouse() ? t.surface_hover : t.surface));
+        const int radius = dialog_scaled(8);
+        painter.drawRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), radius, radius);
+
+        const QFont font = ui_font(13, selected);
+        const QFontMetrics metrics(font);
+        const int mark = current ? dialog_scaled(12) : configured ? dialog_scaled(6) : 0;
+        const int gap = mark ? dialog_scaled(6) : 0;
+        const int room = std::max(0, width() - 2 * dialog_scaled(10) - mark - gap);
+        const QString name = metrics.elidedText(text(), Qt::ElideRight, room);
+        const int name_width = metrics.horizontalAdvance(name);
+        int x = (width() - mark - gap - name_width) / 2;
+        const qreal cy = height() / 2.0;
+        if (current && configured) {
+            QPen pen(css_color(t.success), std::max(1.5, dialog_scaled(18) / 10.0));
+            pen.setCapStyle(Qt::RoundCap);
+            pen.setJoinStyle(Qt::RoundJoin);
+            painter.setPen(pen);
+            painter.setBrush(Qt::NoBrush);
+            const qreal s = mark;
+            const QPointF tick[] = {{x + s * 0.08, cy}, {x + s * 0.4, cy + s * 0.32}, {x + s * 0.95, cy - s * 0.35}};
+            painter.drawPolyline(tick, 3);
+        } else if (current) {
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(css_color(t.danger));
+            painter.drawEllipse(QRectF(x, cy - mark / 2.0, mark, mark));
+            painter.setBrush(Qt::white);
+            const qreal w = mark * 0.16;
+            painter.drawRoundedRect(QRectF(x + (mark - w) / 2, cy - mark * 0.3, w, mark * 0.36), w / 2, w / 2);
+            painter.drawEllipse(QRectF(x + (mark - w) / 2, cy + mark * 0.16, w, w));
+        } else if (configured) {
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(css_color(t.success));
+            painter.drawEllipse(QRectF(x, cy - mark / 2.0, mark, mark));
+        }
+        x += mark + gap;
+        painter.setFont(font);
+        painter.setPen(css_color(selected ? t.accent_text : t.text));
+        painter.drawText(QRect(x, 0, name_width + 1, height()), Qt::AlignLeft | Qt::AlignVCenter, name);
+    }
+};
+
+// Equal columns of chips, as many as fit up to CHIP_COLUMNS, so a long name in a narrow window
+// takes another row instead of widening the page. Grids sharing a cell width line up.
+class ChipGrid : public QLayout {
+public:
+    explicit ChipGrid(QWidget *parent) : QLayout(parent) {
+        setContentsMargins(0, 0, 0, 0);
+        setSpacing(dialog_scaled(6));
+    }
+    ~ChipGrid() override {
+        while (QLayoutItem *item = takeAt(0)) delete item;
+    }
+    void set_cell_width(int width) {
+        cell_width_ = width;
+        invalidate();
+    }
+    void addItem(QLayoutItem *item) override { items_.append(item); }
+    int count() const override { return static_cast<int>(items_.size()); }
+    QLayoutItem *itemAt(int index) const override { return items_.value(index); }
+    QLayoutItem *takeAt(int index) override { return index >= 0 && index < items_.size() ? items_.takeAt(index) : nullptr; }
+    Qt::Orientations expandingDirections() const override { return Qt::Horizontal; }
+    bool hasHeightForWidth() const override { return true; }
+    int heightForWidth(int width) const override { return place(QRect(0, 0, width, 0), false); }
+    QSize minimumSize() const override { return {cell_width_, heightForWidth(cell_width_)}; }
+    QSize sizeHint() const override {
+        const int width = CHIP_COLUMNS * cell_width_ + (CHIP_COLUMNS - 1) * spacing();
+        return {width, heightForWidth(width)};
+    }
+    void setGeometry(const QRect &rect) override {
+        QLayout::setGeometry(rect);
+        place(rect, true);
+    }
+private:
+    int place(const QRect &rect, bool apply) const {
+        if (items_.isEmpty()) return 0;
+        const int gap = spacing();
+        const int columns = std::clamp((rect.width() + gap) / std::max(1, cell_width_ + gap), 1, CHIP_COLUMNS);
+        const int cell = std::max(0, (rect.width() - gap * (columns - 1)) / columns);
+        const int height = items_.first()->sizeHint().height();
+        for (int i = 0; apply && i < items_.size(); ++i)
+            items_[i]->setGeometry(QRect(rect.x() + (i % columns) * (cell + gap), rect.y() + (i / columns) * (height + gap), cell, height));
+        const int rows = (static_cast<int>(items_.size()) + columns - 1) / columns;
+        return rows * height + (rows - 1) * gap;
+    }
+    QList<QLayoutItem *> items_;
+    int cell_width_ = 0;
+};
+
+// The providers in groups of chips; one is selected and its card shows below.
+class ProviderPicker : public QWidget {
+public:
+    explicit ProviderPicker(QWidget *parent) : QWidget(parent), group_(new QButtonGroup(this)) {
+        layout_ = new QVBoxLayout(this);
+        layout_->setContentsMargins(0, 0, 0, 0);
+        layout_->setSpacing(0);
+        group_->setExclusive(true);
+        QObject::connect(get_ui_theme(), &UIThemeManager::theme_changed, this, [this] { apply_theme(); });
+    }
+    void add_group(const QString &title, const std::vector<std::pair<QString, QString>> &items) {
+        if (items.empty()) return;
+        if (layout_->count()) layout_->addSpacing(dialog_scaled(14));
+        auto *label = new QLabel(title, this);
+        titles_.append(label);
+        layout_->addWidget(label);
+        layout_->addSpacing(dialog_scaled(6));
+        auto *grid_host = new QWidget(this);
+        auto *grid = new ChipGrid(grid_host);
+        grids_.append(grid);
+        for (const auto &[id, text] : items) {
+            auto *chip = new ProviderChip(id, text, grid_host);
+            grid->addWidget(chip);
+            group_->addButton(chip);
+            chips_[id] = chip;
+            const QString key = id;
+            QObject::connect(chip, &QAbstractButton::clicked, this, [this, key] { setCurrentItem(key); });
+            cell_width_ = std::max(cell_width_, chip->minimumSizeHint().width());
+        }
+        for (auto *each : grids_) each->set_cell_width(cell_width_);
+        layout_->addWidget(grid_host);
+        apply_theme();
+    }
+    void setCurrentItem(const QString &id) {
+        if (!chips_.contains(id)) return;
+        chips_[id]->setChecked(true);
+        if (current_ == id) return;
+        current_ = id;
+        if (on_select) on_select(id);
+    }
+    QString currentItem() const { return current_; }
+    QString itemText(const QString &id) const { return chips_.contains(id) ? chips_[id]->text() : QString(); }
+    ProviderChip *chip(const QString &id) const { return chips_.value(id); }
+    std::function<void(const QString &)> on_select;
+private:
+    // Like a card group's title.
+    void apply_theme() {
+        const auto &t = ui_tokens(this);
+        for (auto *label : titles_)
+            set_own_style(label, QString("color: %1; font: 600 %2px %3; padding: %4px %5px 0 %5px; background: transparent;")
+                                     .arg(t.text).arg(dialog_scaled(12)).arg(FONT_FAMILY).arg(dialog_scaled(2)).arg(dialog_scaled(8)));
+    }
+    QVBoxLayout *layout_;
+    QButtonGroup *group_;
+    QMap<QString, ProviderChip *> chips_;
+    QList<QLabel *> titles_;
+    QList<ChipGrid *> grids_;
+    int cell_width_ = 0;
+    QString current_;
+};
+
+// A small tag beside a provider's name; good tags are green, the others muted.
+QLabel *make_badge(QWidget *parent, const QString &text, bool good) {
+    auto *badge = new QLabel(text, parent);
+    const auto apply = [badge, good] {
+        const auto &t = ui_tokens(badge);
+        const QString color = good ? t.success : t.text_muted;
+        set_own_style(badge, QString("color: %1; background: %2; border: none; border-radius: %3px; padding: %4px %5px; font: %6px %7;")
+                                 .arg(color, rgba(color, good ? 0.14 : 0.12))
+                                 .arg(dialog_scaled(4))
+                                 .arg(dialog_scaled(1))
+                                 .arg(dialog_scaled(7))
+                                 .arg(dialog_scaled(11))
+                                 .arg(FONT_FAMILY));
+    };
+    apply();
+    QObject::connect(get_ui_theme(), &UIThemeManager::theme_changed, badge, apply);
+    return badge;
+}
+
+// What the page updates as the engine, the fields and this month's usage change.
+struct ProviderView {
+    bool configured = false;
+    QPointer<QLabel> in_use;
+    QPointer<QLabel> unconfigured;
+    QPointer<QPushButton> use_button;
+    QPointer<QuotaBar> quota_bar;
+    QPointer<QLabel> quota_label;
+};
+
+struct TranslationPage {
+    SettingsDialog *dialog = nullptr;
+    std::vector<ProviderMetadata> providers;
+    QPointer<QComboBox> engine_combo;
+    QPointer<SettingCard> engine_card;
+    QPointer<SettingsCardGroup> options_group;
+    QPointer<SegmentedWidget> tabs;
+    QPointer<ProviderPicker> picker;
+    QPointer<QScrollArea> scroll;
+    QMap<QString, ProviderView> views;
+    // Every switch of a general option a provider uses, by option; each provider using it has one.
+    QMap<QString, QList<QPointer<SwitchButton>>> request_switches;
 };
 
 // Request threads are not children of the settings window: the window may close while a
@@ -103,15 +491,25 @@ private:
     std::unique_ptr<TranslationProvider> provider_;
 };
 
-TranslationService pending_service(SettingsDialog *dialog, const QString &provider_id) {
+std::shared_ptr<TranslationConfig> pending_provider_config(SettingsDialog *dialog, const QString &provider_id) {
     const auto fields = provider_fields::provider_fields(*dialog->translation_registry, provider_id);
-    return TranslationService(dialog->translation_registry, provider_fields::pending_config(dialog->config_manager, fields, *dialog->provider_field_widgets));
+    return provider_fields::pending_config(dialog->config_manager, fields, *dialog->provider_field_widgets);
 }
 
-// An empty text shows what the row is for, rather than a blank.
+TranslationService pending_service(SettingsDialog *dialog, const QString &provider_id) { return TranslationService(dialog->translation_registry, pending_provider_config(dialog, provider_id)); }
+
+// Whether the form's current, possibly unsaved values let the provider translate.
+bool pending_configured(SettingsDialog *dialog, const QString &provider_id) {
+    try {
+        const auto config = pending_provider_config(dialog, provider_id);
+        return dialog->translation_registry->create(provider_id, config->get_translation_provider_config(provider_id))->is_configured();
+    } catch (const std::exception &) {
+        return false;
+    }
+}
+
 void show_status(SettingsDialog *dialog, const QString &provider_id, const QString &text) {
-    if (auto *label = dialog->provider_status_labels.value(provider_id).data())
-        label->setText(!text.isEmpty() ? text : dialog->tr_text("Click the button on the right to test the translation API"));
+    if (auto *label = dialog->provider_status_labels.value(provider_id).data()) label->setText(text);
 }
 
 void test_connection(SettingsDialog *dialog, const QString &provider_id, QPushButton *button) {
@@ -131,8 +529,8 @@ void test_connection(SettingsDialog *dialog, const QString &provider_id, QPushBu
     keep_until_finished(worker);
 }
 
-// The status row sits at the bottom of the provider's form, several rows away from the
-// model row, so a failure is repeated next to the button. No owning widget is passed:
+// The status sits at the bottom of the provider's card, several rows away from the model
+// row, so a failure is repeated next to the button. No owning widget is passed:
 // the button's style sheet would then style the tooltip with dark text on black.
 void show_near(QPushButton *button, const QString &text) { QToolTip::showText(button->mapToGlobal(QPoint(0, button->height())), text, nullptr, QRect(), 8000); }
 
@@ -184,44 +582,49 @@ void toggle_secret(SettingsDialog *dialog, QLineEdit *edit, QPushButton *button)
     adjust_button_width(button, 60);
 }
 
-// A provider's own switch. Like the credential rows: no icon, text aligned with the title column, so it reads as part of the provider above.
-QWidget *build_toggle_row(SettingsDialog *dialog, ProviderSection *section, const ProviderField &field) {
-    auto *card = new WhiteCard(section);
+// A switch with its title and description, in a provider card.
+std::pair<WhiteCard *, SwitchButton *> toggle_row(QWidget *parent, const QString &title, const QString &description, bool checked) {
+    auto *card = new WhiteCard(parent);
     auto *row = new QHBoxLayout(card);
-    row->setContentsMargins(card_text_left(), dialog_scaled(10), card_right_margin(), dialog_scaled(10));
+    row->setContentsMargins(dialog_scaled(CARD_PADDING), dialog_scaled(10), card_right_margin(), dialog_scaled(10));
     row->setSpacing(dialog_scaled(10));
     auto *text = new QVBoxLayout;
     text->setSpacing(dialog_scaled(2));
-    auto *title = new QLabel(dialog->tr_text(field.label.toUtf8().constData()), card);
-    apply_theme_text_style(title, 13);
-    text->addWidget(title);
-    QLabel *description = nullptr;
-    if (!field.description.isEmpty()) {
-        description = new QLabel(dialog->tr_text(field.description.toUtf8().constData()), card);
-        description->setWordWrap(true);
-        apply_theme_text_style(description, 12, false, {}, true);
-        text->addWidget(description);
+    auto *title_label = new QLabel(title, card);
+    apply_theme_text_style(title_label, 13);
+    text->addWidget(title_label);
+    QLabel *description_label = nullptr;
+    if (!description.isEmpty()) {
+        description_label = new QLabel(description, card);
+        description_label->setWordWrap(true);
+        apply_theme_text_style(description_label, 12, false, {}, true);
+        text->addWidget(description_label);
     }
-    mark_search_row(card, title, description);
+    mark_search_row(card, title_label, description_label);
     row->addLayout(text, 1);
     auto *switch_button = new SwitchButton(card);
-    switch_button->setChecked(provider_fields::read_config(dialog->config_manager, field).toBool());
+    switch_button->setChecked(checked);
     row->addWidget(switch_button, 0, Qt::AlignVCenter);
     card->setMinimumHeight(dialog_scaled(58));
-    section->addSettingCard(card);
-    return switch_button;
+    return {card, switch_button};
 }
 
-// One control row per field, by the field's kind.
-QWidget *build_field(SettingsDialog *dialog, ProviderSection *section, const ProviderField &field, const QString &provider_id) {
-    if (field.kind == ProviderField::Toggle) return build_toggle_row(dialog, section, field);
-    auto *card = new WhiteCard(section);
+// One row per field, by the field's kind; returns the row and the control holding the value.
+std::pair<WhiteCard *, QWidget *> build_field(SettingsDialog *dialog, QWidget *parent, const ProviderField &field, const QString &provider_id) {
+    if (field.kind == ProviderField::Toggle) {
+        const auto row = toggle_row(parent, dialog->tr_text(field.label.toUtf8().constData()),
+                                    field.description.isEmpty() ? QString() : dialog->tr_text(field.description.toUtf8().constData()),
+                                    provider_fields::read_config(dialog->config_manager, field).toBool());
+        return {row.first, row.second};
+    }
+    auto *card = new WhiteCard(parent);
     auto *row = new QHBoxLayout(card);
-    row->setContentsMargins(card_text_left(), dialog_scaled(12), card_right_margin(), dialog_scaled(12));
+    row->setContentsMargins(dialog_scaled(CARD_PADDING), dialog_scaled(12), card_right_margin(), dialog_scaled(12));
     row->setSpacing(dialog_scaled(10));
     auto *title = new QLabel(dialog->tr_text(field.label.toUtf8().constData()), card);
     apply_theme_text_style(title, 13);
     title->setFixedWidth(dialog_scaled(LABEL_WIDTH));
+    title->setWordWrap(true);
     row->addWidget(title);
     mark_search_row(card, title);
     auto *edit = new LineEdit(card);
@@ -244,35 +647,322 @@ QWidget *build_field(SettingsDialog *dialog, ProviderSection *section, const Pro
         QObject::connect(button, &QPushButton::clicked, dialog, [dialog, provider_id, edit, button] { fetch_models(dialog, provider_id, edit, button); });
         row->addWidget(button);
     }
-    card->setFixedHeight(dialog_scaled(58));
-    section->addSettingCard(card);
-    return edit;
+    card->setMinimumHeight(dialog_scaled(58));
+    return {card, edit};
 }
 
-// Each provider's last row sends a test sentence with the form's current (possibly unsaved) values.
-void build_test_row(SettingsDialog *dialog, ProviderSection *section, const QString &provider_id) {
-    auto *card = new WhiteCard(section);
-    auto *row = new QHBoxLayout(card);
-    row->setContentsMargins(card_text_left(), dialog_scaled(12), card_right_margin(), dialog_scaled(12));
-    row->setSpacing(dialog_scaled(10));
-    auto *status = new QLabel(card);
+// The provider's hint. URLs never wrap inside: word joiners (U+2060) between their characters keep
+// a narrow card from breaking "http://" from the rest; <nobr> only covers spaces.
+QString notice_text(SettingsDialog *dialog, const ProviderMetadata &metadata) {
+    if (metadata.notice.isEmpty()) return {};
+    static const QRegularExpression url(R"(https?://[\w.:/%?#=&-]+)", QRegularExpression::NoPatternOption);
+    const QString text = dialog->tr_text(metadata.notice.toUtf8().constData());
+    QString result;
+    qsizetype last = 0;
+    for (auto it = url.globalMatch(text); it.hasNext();) {
+        const auto match = it.next();
+        result += text.mid(last, match.capturedStart() - last);
+        const QString found = match.captured(0);
+        QString joined;
+        for (int i = 0; i < found.size(); ++i) {
+            if (i) joined += QChar(0x2060);
+            joined += found[i];
+        }
+        result += joined;
+        last = match.capturedEnd();
+    }
+    return result + text.mid(last);
+}
+
+// The hint followed by the help link, which some hints lead into ("Get API key at").
+QString notice_html(SettingsDialog *dialog, const ProviderMetadata &metadata) {
+    QStringList parts;
+    if (const QString text = notice_text(dialog, metadata); !text.isEmpty()) parts << text.toHtmlEscaped();
+    if (!metadata.help_url.isEmpty()) {
+        const QString label = !metadata.help_label.isEmpty() ? dialog->tr_text(metadata.help_label.toUtf8().constData()) : metadata.help_url;
+        parts << QString("<a href=\"%1\" style=\"color: %2;\">%3</a>").arg(metadata.help_url, ACCENT, label.toHtmlEscaped());
+    }
+    return parts.join(" ");
+}
+
+struct QuotaUse {
+    qint64 used = 0;
+    qint64 limit = 0;
+    bool guarded = false;
+};
+
+std::optional<QuotaUse> quota_use(SettingsDialog *dialog, const QString &provider_id, std::optional<qint64> usage) {
+    if (provider_id.isEmpty() || !dialog->translation_registry || !dialog->config_manager) return std::nullopt;
+    std::unique_ptr<TranslationProvider> provider;
+    try {
+        provider = dialog->translation_registry->create(provider_id, {});
+    } catch (const std::invalid_argument &) {
+        return std::nullopt;
+    }
+    if (provider->quota_limit_chars <= 0) return std::nullopt;
+    const auto custom = dialog->config_manager->get_translation_quota_limit(provider_id);
+    QuotaUse use;
+    use.limit = custom > 0 ? custom : provider->quota_limit_chars;
+    use.used = usage ? *usage : dialog->config_manager->get_translation_usage_chars(provider_id);
+    use.guarded = dialog->config_manager->get_translation_quota_enabled(provider_id);
+    return use;
+}
+
+// Until the first background read returns, usage comes from the settings rather than as 0.
+std::optional<qint64> read_usage(SettingsDialog *dialog, const QString &provider_id) {
+    const auto read = dialog->translation_usage.constFind(provider_id);
+    return read == dialog->translation_usage.cend() ? std::nullopt : std::optional<qint64>(*read);
+}
+
+const ProviderMetadata *find_provider(const TranslationPage &page, const QString &provider_id) {
+    for (const auto &metadata : page.providers)
+        if (metadata.provider_id == provider_id) return &metadata;
+    return nullptr;
+}
+
+QString current_engine(const TranslationPage &page) { return page.engine_combo ? page.engine_combo->currentData().toString() : QString(); }
+
+// The model a language model provider uses: the field's text, or the default it shows.
+QString model_name(SettingsDialog *dialog, const ProviderMetadata &metadata) {
+    for (const auto &field : metadata.credentials) {
+        if (field.kind != ProviderField::Model) continue;
+        auto *edit = qobject_cast<QLineEdit *>(dialog->provider_field_widgets->value(field.config_key).data());
+        if (!edit) return {};
+        return !edit->text().trimmed().isEmpty() ? edit->text().trimmed() : edit->placeholderText();
+    }
+    return {};
+}
+
+// Whether the engine in use is ready, under its name on the General tab; a link to its card.
+void apply_engine_status(TranslationPage &page) {
+    if (!page.engine_card) return;
+    SettingsDialog *dialog = page.dialog;
+    const auto &t = ui_tokens(page.engine_card);
+    const QString id = current_engine(page);
+    const ProviderMetadata *metadata = find_provider(page, id);
+    const ProviderView view = page.views.value(id);
+    QString text;
+    QString color = t.text_muted;
+    if (metadata && !view.configured) {
+        text = dialog->tr_text("Not configured yet");
+        color = t.danger;
+    } else if (metadata) {
+        QString detail;
+        if (const auto use = quota_use(dialog, id, read_usage(dialog, id)); use && use->limit > 0) {
+            const double percent = 100.0 * use->used / use->limit;
+            const QString shown = use->used <= 0 ? "0" : percent < 1 ? "<1" : QString::number(qRound(percent));
+            detail = dialog->tr_text("%1% used this month").arg(shown);
+        } else {
+            detail = model_name(dialog, *metadata);
+        }
+        text = dialog->tr_text("Configured") + (detail.isEmpty() ? QString() : QString::fromUtf8(" · ") + detail);
+    }
+    const QString dot_color = view.configured ? t.success : t.danger;
+    page.engine_card->setContent(text.isEmpty() ? QString()
+                                                : QString("<a href=\"configure\" style=\"color: %1; text-decoration: none;\"><span style=\"color: %2; font-size: %3px;\">"
+                                                          "&#9679;</span>&nbsp;%4</a>")
+                                                      .arg(color, dot_color)
+                                                      .arg(dialog_scaled(9))
+                                                      .arg(text.toHtmlEscaped()));
+    if (page.options_group) page.options_group->refreshHeight();
+}
+
+// A provider's chip, tags, "Use This" button and quota line from the cached state.
+void apply_view(TranslationPage &page, const QString &provider_id) {
+    const ProviderView view = page.views.value(provider_id);
+    const bool current = provider_id == current_engine(page);
+    if (page.picker)
+        if (auto *chip = page.picker->chip(provider_id)) chip->set_state(view.configured, current);
+    if (view.in_use) view.in_use->setVisible(current);
+    if (view.unconfigured) view.unconfigured->setVisible(!view.configured);
+    if (view.use_button) view.use_button->setVisible(!current && view.configured);
+    if (view.quota_label) {
+        if (const auto use = quota_use(page.dialog, provider_id, read_usage(page.dialog, provider_id))) {
+            view.quota_label->setText(quota_usage_text(page.dialog, provider_id, use->used));
+            if (view.quota_bar) view.quota_bar->set_fraction(use->limit > 0 ? double(use->used) / use->limit : 0);
+        }
+    }
+}
+
+void apply_all(TranslationPage &page) {
+    for (const auto &metadata : page.providers) apply_view(page, metadata.provider_id);
+    apply_engine_status(page);
+}
+
+void update_provider(TranslationPage &page, const QString &provider_id) {
+    page.views[provider_id].configured = pending_configured(page.dialog, provider_id);
+    apply_view(page, provider_id);
+    if (provider_id == current_engine(page)) apply_engine_status(page);
+}
+
+void open_provider(TranslationPage &page, const QString &provider_id) {
+    if (page.tabs) page.tabs->setCurrentItem(API_TAB);
+    if (page.picker) page.picker->setCurrentItem(provider_id);
+    if (page.scroll) page.scroll->verticalScrollBar()->setValue(0);
+}
+
+// The switch of a general option a provider uses. All switches of one option show the same value,
+// and the first is the one saved.
+void add_request_switch(const std::shared_ptr<TranslationPage> &page, QVBoxLayout *layout, QWidget *parent, const QString &option) {
+    SettingsDialog *dialog = page->dialog;
+    const bool split = option == "split_sentences";
+    if (!split && option != "preserve_formatting") return;
+    const auto row = toggle_row(parent, dialog->tr_text(split ? "Ignore Line Breaks" : "Preserve Formatting"),
+                                dialog->tr_text(split ? "Merge multi-line text for better translation" : "Keep original text formatting"),
+                                split ? dialog->config_manager->get_translation_split_sentences() : dialog->config_manager->get_translation_preserve_formatting());
+    add_row(layout, row.first);
+    SwitchButton *button = row.second;
+    auto &switches = page->request_switches[option];
+    if (switches.isEmpty()) dialog->set_attr(split ? "split_sentences_toggle" : "preserve_formatting_toggle", button);
+    switches.append(button);
+    const std::weak_ptr<TranslationPage> weak = page;
+    QObject::connect(button, &SwitchButton::checkedChanged, button, [weak, option, button](bool checked) {
+        const auto page = weak.lock();
+        if (!page) return;
+        for (const auto &other : page->request_switches.value(option)) {
+            if (!other || other == button || other->isChecked() == checked) continue;
+            const QSignalBlocker blocker(other.data());
+            other->setChecked(checked);
+        }
+    });
+}
+
+QWidget *build_provider_card(const std::shared_ptr<TranslationPage> &page, const ProviderMetadata &metadata, QWidget *parent) {
+    SettingsDialog *dialog = page->dialog;
+    const QString id = metadata.provider_id;
+    ProviderView &view = page->views[id];
+    auto *card = new ProviderCard(parent);
+    card->setProperty(PROVIDER_ID, id);
+    auto *layout = new QVBoxLayout(card);
+    // Inside the border, so a highlighted row does not paint over it.
+    layout->setContentsMargins(1, 1, 1, 1);
+    layout->setSpacing(0);
+
+    // Name, tags and "Use This"; then the provider's hint and this month's quota.
+    auto *header = new QWidget(card);
+    auto *header_layout = new QVBoxLayout(header);
+    header_layout->setContentsMargins(dialog_scaled(CARD_PADDING), dialog_scaled(12), card_right_margin(), dialog_scaled(13));
+    header_layout->setSpacing(dialog_scaled(4));
+    auto *title_row = new QWidget(header);
+    // As tall as the button, so the header keeps its height when the button hides.
+    title_row->setMinimumHeight(dialog_scaled(34));
+    auto *title_layout = new QHBoxLayout(title_row);
+    title_layout->setContentsMargins(0, 0, 0, 0);
+    title_layout->setSpacing(dialog_scaled(8));
+    auto *name = new QLabel(dialog->tr_text(metadata.display_name.toUtf8().constData()), title_row);
+    apply_theme_text_style(name, 15, true);
+    title_layout->addWidget(name, 0, Qt::AlignVCenter);
+    view.in_use = make_badge(title_row, dialog->tr_text("In Use"), true);
+    title_layout->addWidget(view.in_use, 0, Qt::AlignVCenter);
+    view.unconfigured = make_badge(title_row, dialog->tr_text("Not Configured"), false);
+    title_layout->addWidget(view.unconfigured, 0, Qt::AlignVCenter);
+    title_layout->addStretch(1);
+    auto *use_button = new PushButton(dialog->tr_text("Use This"), title_row);
+    use_button->setFixedHeight(dialog_scaled(32));
+    adjust_button_width(use_button, 60);
+    view.use_button = use_button;
+    const std::weak_ptr<TranslationPage> weak = page;
+    QObject::connect(use_button, &QPushButton::clicked, use_button, [weak, id] {
+        const auto page = weak.lock();
+        if (page && page->engine_combo) page->engine_combo->setCurrentIndex(page->engine_combo->findData(id));
+    });
+    title_layout->addWidget(use_button);
+    header_layout->addWidget(title_row);
+    QLabel *notice = nullptr;
+    if (const QString html = notice_html(dialog, metadata); !html.isEmpty()) {
+        notice = new QLabel(html, header);
+        notice->setTextFormat(Qt::RichText);
+        notice->setWordWrap(true);
+        notice->setOpenExternalLinks(true);
+        apply_theme_text_style(notice, 12, false, {}, true);
+        header_layout->addWidget(notice);
+    }
+    // The provider's name finds its card.
+    mark_search_row(header, name, notice);
+    if (quota_use(dialog, id, std::nullopt)) {
+        header_layout->addSpacing(dialog_scaled(5));
+        view.quota_bar = new QuotaBar(header);
+        header_layout->addWidget(view.quota_bar);
+        auto *quota = new QLabel(header);
+        quota->setObjectName("ProviderQuota");
+        quota->setWordWrap(true);
+        apply_theme_text_style(quota, 12, false, {}, true);
+        view.quota_label = quota;
+        header_layout->addWidget(quota);
+    }
+    layout->addWidget(header);
+
+    // Settings needed to work, the provider's own switches and the general options it uses.
+    std::vector<ProviderField> folded;
+    for (const auto &field : metadata.all_fields()) {
+        if (field.advanced) {
+            folded.push_back(field);
+            continue;
+        }
+        const auto [row, control] = build_field(dialog, card, field, id);
+        (*dialog->provider_field_widgets)[field.config_key] = control;
+        add_row(layout, row);
+    }
+    for (const char *option : {"split_sentences", "preserve_formatting"})
+        if (metadata.supported_request_options.contains(option)) add_request_switch(page, layout, card, option);
+
+    // The rest, folded.
+    if (!folded.empty()) {
+        QStringList labels;
+        for (const auto &field : folded) labels << dialog->tr_text(field.label.toUtf8().constData());
+        auto *disclosure = new DisclosureRow(dialog->tr_text("Advanced"), labels.join(QString::fromUtf8(" · ")), card);
+        add_row(layout, disclosure);
+        auto *box = new QWidget(card);
+        auto *box_layout = new QVBoxLayout(box);
+        box_layout->setContentsMargins(0, 0, 0, 0);
+        box_layout->setSpacing(0);
+        for (const auto &field : folded) {
+            const auto [row, control] = build_field(dialog, box, field, id);
+            (*dialog->provider_field_widgets)[field.config_key] = control;
+            add_row(box_layout, row);
+        }
+        box->setVisible(false);
+        layout->addWidget(box);
+        QObject::connect(disclosure, &QAbstractButton::toggled, box, [box](bool open) { box->setVisible(open); });
+        mark_search_revealable(box, [disclosure] { disclosure->setChecked(true); });
+    }
+
+    // The last test or model list result, and the test.
+    auto *footer = new WhiteCard(card);
+    auto *footer_layout = new QHBoxLayout(footer);
+    footer_layout->setContentsMargins(dialog_scaled(CARD_PADDING), dialog_scaled(12), card_right_margin(), dialog_scaled(12));
+    footer_layout->setSpacing(dialog_scaled(10));
+    auto *status = new QLabel(footer);
     status->setWordWrap(true);
     status->setTextInteractionFlags(status->textInteractionFlags() | Qt::TextSelectableByMouse);
     apply_theme_text_style(status, 13, false, {}, true);
-    row->addWidget(status, 1);
-    dialog->provider_status_labels[provider_id] = status;
-    show_status(dialog, provider_id, "");
-    auto *button = new PushButton(dialog->tr_text("Test Connection"), card);
-    button->setFixedHeight(dialog_scaled(32));
-    adjust_button_width(button, 60);
-    QObject::connect(button, &QPushButton::clicked, dialog, [dialog, provider_id, button] { test_connection(dialog, provider_id, button); });
-    row->addWidget(button);
-    card->setMinimumHeight(dialog_scaled(58));
-    section->addSettingCard(card);
+    footer_layout->addWidget(status, 1);
+    dialog->provider_status_labels[id] = status;
+    auto *test_button = new PushButton(dialog->tr_text("Test Connection"), footer);
+    test_button->setFixedHeight(dialog_scaled(32));
+    adjust_button_width(test_button, 60);
+    QObject::connect(test_button, &QPushButton::clicked, dialog, [dialog, id, test_button] { test_connection(dialog, id, test_button); });
+    footer_layout->addWidget(test_button);
+    footer->setMinimumHeight(dialog_scaled(58));
+    add_row(layout, footer);
+
+    // Typing a key can make the provider usable.
+    for (const auto &field : metadata.all_fields()) {
+        QWidget *control = dialog->provider_field_widgets->value(field.config_key);
+        if (auto *edit = qobject_cast<QLineEdit *>(control))
+            QObject::connect(edit, &QLineEdit::textChanged, card, [weak, id] {
+                if (const auto page = weak.lock()) update_provider(*page, id);
+            });
+        else if (auto *button = qobject_cast<SwitchButton *>(control))
+            QObject::connect(button, &SwitchButton::checkedChanged, card, [weak, id] {
+                if (const auto page = weak.lock()) update_provider(*page, id);
+            });
+    }
+    return card;
 }
 
 // SAPI rates for the labelled speeds: each rate step is about 12% faster.
-const std::pair<const char *, int> SPEECH_RATES[] = {{"0.5\u00d7", -6}, {"0.75\u00d7", -3}, {"1\u00d7", 0}, {"1.25\u00d7", 2}, {"1.5\u00d7", 4}, {"2\u00d7", 6}};
+const std::pair<const char *, int> SPEECH_RATES[] = {{"0.5×", -6}, {"0.75×", -3}, {"1×", 0}, {"1.25×", 2}, {"1.5×", 4}, {"2×", 6}};
 const int SPEECH_VOLUMES[] = {100, 80, 60, 40, 20};
 
 QString speech_sample(const QLocale &locale) {
@@ -421,95 +1111,144 @@ SettingsCardGroup *build_speech_group(SettingsDialog *dialog, QWidget *page, std
     return group;
 }
 
-// Shows or hides a card with its leading separator (only lead_each sections have one).
-void set_card_visible(QWidget *card, bool visible) {
-    card->setVisible(visible);
-    if (auto *separator = qobject_cast<QWidget *>(card->property("_leading_separator").value<QObject *>())) separator->setVisible(visible);
+// The engine, the options every provider shares, and read aloud.
+QWidget *build_general_tab(const std::shared_ptr<TranslationPage> &page, const QString &current_provider) {
+    SettingsDialog *dialog = page->dialog;
+    auto *config = dialog->config_manager;
+    auto *general = new QWidget;
+    set_own_style(general, "background: transparent;");
+    auto *layout = new QVBoxLayout(general);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(dialog_scaled(14));
+
+    auto *group = new SettingsCardGroup(dialog->tr_text("Translation Options"), general, "translate");
+    page->options_group = group;
+    dialog->set_attr("translation_options_group", group);
+    // The description tells whether the engine is ready and leads to its card, as does the button.
+    auto *engine_card = new SettingCard(FluentIcon::Application, dialog->tr_text("Translation Engine"), {}, group);
+    engine_card->contentLabel->setTextFormat(Qt::RichText);
+    page->engine_card = engine_card;
+    dialog->set_attr("translation_engine_card", engine_card);
+    auto *provider_combo = new ComboBox(engine_card);
+    for (const auto &metadata : page->providers)
+        // Brand names have no translation entry and come back unchanged; only names such as "Custom" change.
+        provider_combo->addItem(dialog->tr_text(metadata.display_name.toUtf8().constData()), metadata.provider_id);
+    provider_combo->setCurrentIndex(std::max(0, provider_combo->findData(current_provider)));
+    page->engine_combo = provider_combo;
+    dialog->set_attr("translation_provider_combo", provider_combo);
+    engine_card->addControl(provider_combo);
+    const QString configure_text = dialog->tr_text("Configure API");
+    auto *configure = new PushButton({}, engine_card, FluentIcon::Setting);
+    configure->setFixedSize(dialog_scaled(32), dialog_scaled(32));
+    configure->setIconSize(QSize(dialog_scaled(16), dialog_scaled(16)));
+    configure->setToolTip(configure_text);
+    configure->setAccessibleName(configure_text);
+    dialog->set_attr("translation_configure_button", configure);
+    engine_card->addControl(configure, Qt::AlignRight);
+    const std::weak_ptr<TranslationPage> weak = page;
+    const auto open_current = [weak] {
+        if (const auto page = weak.lock()) open_provider(*page, current_engine(*page));
+    };
+    QObject::connect(configure, &QPushButton::clicked, configure, open_current);
+    QObject::connect(engine_card->contentLabel, &QLabel::linkActivated, engine_card, open_current);
+    group->addSettingCard(engine_card);
+
+    auto *lang_card = new SettingCard(FluentIcon::Language, dialog->tr_text("Target Language"), {}, group);
+    auto *target_combo = new ComboBox(lang_card);
+    std::vector<std::pair<QString, QString>> lang_options{{"", dialog->tr_text("Auto (System)")}};
+    lang_options.insert(lang_options.end(), translation_languages().begin(), translation_languages().end());
+    const QString current_lang = config->get_saved_translation_target_lang();
+    int current_index = 0;
+    for (int i = 0; i < static_cast<int>(lang_options.size()); ++i) {
+        target_combo->addItem(lang_options[i].second, lang_options[i].first);
+        if (lang_options[i].first == current_lang) current_index = i;
+    }
+    target_combo->setCurrentIndex(current_index);
+    dialog->set_attr("translation_target_combo", target_combo);
+    lang_card->addControl(target_combo);
+    group->addSettingCard(lang_card);
+
+    auto *mode_card = new SettingCard(FluentIcon::Camera, dialog->tr_text("Screenshot Translation"),
+                                      dialog->tr_text("What the translate button on the capture and long screenshot toolbars does"), group);
+    auto *mode_combo = new ComboBox(mode_card);
+    // The labels follow SCREENSHOT_TRANSLATE_MODES.
+    const char *mode_labels[] = {"Replace the original text", "Side-by-side window"};
+    for (int i = 0; i < SCREENSHOT_TRANSLATE_MODES.size(); ++i) mode_combo->addItem(dialog->tr_text(mode_labels[i]), SCREENSHOT_TRANSLATE_MODES[i]);
+    mode_combo->setCurrentIndex(SCREENSHOT_TRANSLATE_MODES.indexOf(config->get_screenshot_translate_mode()));
+    dialog->set_attr("screenshot_translate_mode_combo", mode_combo);
+    mode_card->addControl(mode_combo);
+    group->addSettingCard(mode_card);
+
+    auto *auto_close_card = new SwitchSettingCard(FluentIcon::Hide, dialog->tr_text("Close When Clicking Outside"),
+                                                  dialog->tr_text("The translation popup opened by the shortcut closes when you click outside it or switch windows"),
+                                                  group, "translate");
+    auto_close_card->setChecked(config->get_translation_popup_auto_close());
+    dialog->set_attr("translation_auto_close_toggle", auto_close_card);
+    group->addSettingCard(auto_close_card);
+    layout->addWidget(group);
+
+    layout->addWidget(build_speech_group(dialog, general, {}));
+    return general;
 }
 
-QString notice_html(SettingsDialog *dialog, const std::optional<ProviderMetadata> &metadata) {
-    if (!metadata) return {};
-    QStringList parts;
-    if (!metadata->notice.isEmpty()) {
-        // URLs never wrap inside: word joiners (U+2060) between their characters keep a narrow
-        // description from breaking "http://" from the rest; <nobr> only covers spaces.
-        static const QRegularExpression url(R"(https?://[\w.:/%?#=&-]+)", QRegularExpression::NoPatternOption);
-        QString text = dialog->tr_text(metadata->notice.toUtf8().constData());
-        QString result;
-        qsizetype last = 0;
-        for (auto it = url.globalMatch(text); it.hasNext();) {
-            const auto match = it.next();
-            result += text.mid(last, match.capturedStart() - last);
-            const QString found = match.captured(0);
-            QString joined;
-            for (int i = 0; i < found.size(); ++i) {
-                if (i) joined += QChar(0x2060);
-                joined += found[i];
-            }
-            result += joined;
-            last = match.capturedEnd();
-        }
-        result += text.mid(last);
-        parts.append(result);
-    }
-    if (!metadata->help_url.isEmpty()) {
-        const QString label = !metadata->help_label.isEmpty() ? dialog->tr_text(metadata->help_label.toUtf8().constData()) : QString();
-        parts.append(QString("<a href=\"%1\" style=\"color:%2;\">%3</a>").arg(metadata->help_url, ACCENT, !label.isEmpty() ? label : metadata->help_url));
-    }
-    return parts.join(" ");
-}
+// The providers as chips, translation APIs before language models, and the selected one's card.
+QWidget *build_api_tab(const std::shared_ptr<TranslationPage> &page, const QString &current_provider) {
+    SettingsDialog *dialog = page->dialog;
+    auto *api = new QWidget;
+    set_own_style(api, "background: transparent;");
+    auto *layout = new QVBoxLayout(api);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(dialog_scaled(14));
 
-// Expands only the current provider's settings and shows the general options its declaration
-// supports. No provider is named: an unknown or empty one hides everything rather than
-// leaving the previous provider's inputs, since the registry is dynamic.
-void update_provider_groups(SettingsDialog *dialog) {
-    const QString provider_id = dialog->attr<QComboBox>("translation_provider_combo")->currentData().toString();
-    for (auto it = dialog->provider_sections.begin(); it != dialog->provider_sections.end(); ++it)
-        if (it.value()) it.value()->setVisible(it.key() == provider_id);
+    auto *picker = new ProviderPicker(api);
+    page->picker = picker;
+    dialog->set_attr("translation_provider_picker", picker);
+    std::vector<std::pair<QString, QString>> services, models;
+    for (const auto &metadata : page->providers)
+        (metadata.language_model ? models : services).emplace_back(metadata.provider_id, dialog->tr_text(metadata.display_name.toUtf8().constData()));
+    picker->add_group(dialog->tr_text("Translation API"), services);
+    picker->add_group(dialog->tr_text("Large Language Models"), models);
+    layout->addWidget(picker);
 
-    std::optional<ProviderMetadata> metadata;
-    if (dialog->translation_registry && !provider_id.isEmpty()) {
-        try {
-            metadata = dialog->translation_registry->metadata(provider_id);
-        } catch (const std::invalid_argument &) {
-            metadata.reset();
-        }
+    auto *cards = new PageSwitcher(api);
+    QStringList ids;
+    dialog->provider_sections.clear();
+    dialog->provider_status_labels.clear();
+    for (const auto &metadata : page->providers) {
+        QWidget *card = build_provider_card(page, metadata, cards);
+        cards->add_page(card);
+        ids << metadata.provider_id;
+        dialog->provider_sections[metadata.provider_id] = card;
     }
-    const QSet<QString> supported = metadata ? metadata->supported_request_options : QSet<QString>();
-    for (auto it = dialog->request_option_cards.begin(); it != dialog->request_option_cards.end(); ++it)
-        if (it.value()) set_card_visible(it.value(), supported.contains(it.key()));
-    if (auto *section = dialog->attr_widget("switch_options_section")) section->setVisible(!supported.isEmpty());
-    if (auto *label = dialog->attr<QLabel>("translation_notice_label")) {
-        auto html = notice_html(dialog, metadata);
-        // Until the first query returns, the count comes from the settings rather than as 0.
-        const auto read = dialog->translation_usage.constFind(provider_id);
-        const auto usage = quota_usage_text(dialog, provider_id, read == dialog->translation_usage.cend() ? std::nullopt : std::optional<qint64>(*read));
-        if (!usage.isEmpty()) html = html.isEmpty() ? usage : html + "<br/>" + usage;
-        label->setText(html);
-        label->setVisible(!html.isEmpty());
-    }
-    for (const char *attr : {"translation_engine_group", "translation_options_group"})
-        if (auto *group = dialog->attr<SettingsCardGroup>(attr)) group->refreshHeight();
+    layout->addWidget(cards);
+    picker->on_select = [cards, ids](const QString &id) { cards->set_current(ids.indexOf(id)); };
+    const QPointer<ProviderPicker> guarded(picker);
+    link_pages(
+        cards, [cards] { return cards->pages(); }, ids, [guarded](const QString &id) { return guarded ? guarded->itemText(id) : QString(); },
+        [guarded](const QString &id) {
+            if (guarded) guarded->setCurrentItem(id);
+        });
+    picker->setCurrentItem(ids.contains(current_provider) ? current_provider : ids.value(0));
+    return api;
 }
 }
 
 QString quota_usage_text(SettingsDialog *dialog, const QString &provider_id, std::optional<qint64> usage) {
-    if (provider_id.isEmpty() || !dialog->translation_registry || !dialog->config_manager) return {};
-    std::unique_ptr<TranslationProvider> provider;
-    try {
-        provider = dialog->translation_registry->create(provider_id, {});
-    } catch (const std::invalid_argument &) {
-        return {};
-    }
-    if (provider->quota_limit_chars <= 0) return {};
-    const auto custom = dialog->config_manager->get_translation_quota_limit(provider_id);
-    const auto limit = custom > 0 ? custom : provider->quota_limit_chars;
-    const auto used = usage ? *usage : dialog->config_manager->get_translation_usage_chars(provider_id);
-    const auto text = dialog->config_manager->get_translation_quota_enabled(provider_id) ? dialog->tr_text("Used this month: %1 / %2 characters (quota guard on)")
-                                                                                        : dialog->tr_text("Used this month: %1 / %2 characters (quota guard off)");
+    const auto use = quota_use(dialog, provider_id, usage);
+    if (!use) return {};
+    const auto text = use->guarded ? dialog->tr_text("Used this month: %1 / %2 characters (quota guard on)") : dialog->tr_text("Used this month: %1 / %2 characters (quota guard off)");
     // Grouped with commas whatever the interface language.
     const QLocale grouping(QLocale::English, QLocale::UnitedStates);
-    return text.arg(grouping.toString(used), grouping.toString(limit));
+    return text.arg(grouping.toString(use->used), grouping.toString(use->limit));
+}
+
+void show_translation_provider(SettingsDialog *dialog, const QString &provider_id) {
+    auto *tabs = dialog->attr<SegmentedWidget>("translation_tabs");
+    auto *picker = dynamic_cast<ProviderPicker *>(dialog->attr_widget("translation_provider_picker"));
+    if (!tabs || !picker) return;
+    tabs->setCurrentItem(API_TAB);
+    picker->setCurrentItem(provider_id);
+    if (auto *scroll = qobject_cast<QScrollArea *>(tabs->parentWidget())) scroll->verticalScrollBar()->setValue(0);
 }
 
 QStringList speech_voice_choices(const SettingsDialog *dialog) {
@@ -564,141 +1303,79 @@ void reset_speech_voices(SettingsDialog *dialog) {
 
 QWidget *create_translation_page(SettingsDialog *dialog) {
     auto *config = dialog->config_manager;
-    auto *scroll = page_scroll_area(dialog);
-    scroll->setWidgetResizable(true);
-    scroll->setStyleSheet("QScrollArea { border: none; background: transparent; }");
-    auto *page = new QWidget;
-    set_own_style(page, "background: transparent;");
-    auto *layout = new QVBoxLayout(page);
-    layout->setContentsMargins(0, 0, dialog_scaled(10), 0);
-    layout->setSpacing(dialog_scaled(14));
-
     const auto service = create_default_translation_service();
     dialog->translation_registry = service->registry;
-    const auto providers = service->registry->available_providers();
     dialog->provider_field_widgets.emplace();
-
-    // ════ Translation service ════
-    // The provider's credentials and switches sit in this group. The provider also decides
-    // which translation options show, so this group comes first: whatever changes on a switch
-    // is below the provider row and never pushes the combo away.
-    auto *grp_engine = new SettingsCardGroup(dialog->tr_text("Translation Service"), page, "translate");
-    auto *engine_card = new SettingCard(FluentIcon::Application, dialog->tr_text("Translation Engine"), {}, grp_engine);
-    // The description shows the provider's declared hint and sign-up link, see update_provider_groups.
-    engine_card->contentLabel->setOpenExternalLinks(true);
-    dialog->set_attr("translation_notice_label", engine_card->contentLabel);
-    auto *provider_combo = new ComboBox(engine_card);
+    auto page = std::make_shared<TranslationPage>();
+    page->dialog = dialog;
+    page->providers = service->registry->available_providers();
     const QString current_provider = config->get_translation_provider();
-    int current_provider_index = 0;
-    for (int index = 0; index < static_cast<int>(providers.size()); ++index) {
-        // Brand names have no translation entry and come back unchanged; only names such as "Custom" change.
-        provider_combo->addItem(dialog->tr_text(providers[index].display_name.toUtf8().constData()), providers[index].provider_id);
-        if (providers[index].provider_id == current_provider) current_provider_index = index;
-    }
-    provider_combo->setCurrentIndex(current_provider_index);
-    dialog->set_attr("translation_provider_combo", provider_combo);
-    engine_card->addControl(provider_combo);
-    grp_engine->addSettingCard(engine_card);
 
-    auto *providers_host = new QWidget(grp_engine);
-    auto *providers_layout = new QVBoxLayout(providers_host);
-    providers_layout->setContentsMargins(0, 0, 0, 0);
-    providers_layout->setSpacing(0);
-    // One section per provider, rendered from its declaration. The host joins the group as a
-    // single card: one card per section would give each a separator, and with one provider
-    // visible at a time the others' lines would be left alone.
-    dialog->provider_sections.clear();
-    dialog->provider_status_labels.clear();
-    for (const auto &metadata : providers) {
-        auto *section = new ProviderSection(providers_host);
-        for (const auto &field : metadata.all_fields()) (*dialog->provider_field_widgets)[field.config_key] = build_field(dialog, section, field, metadata.provider_id);
-        build_test_row(dialog, section, metadata.provider_id);
-        providers_layout->addWidget(section);
-        dialog->provider_sections[metadata.provider_id] = section;
-    }
-    grp_engine->addSettingCard(providers_host);
-    layout->addWidget(grp_engine);
-    dialog->set_attr("translation_engine_group", grp_engine);
+    auto *tabs = new SegmentedWidget;
+    tabs->setLarge(true);
+    tabs->setFixedHeight(dialog_scaled(TAB_HEIGHT));
+    tabs->setIndicatorColor(ACCENT, ACCENT);
+    tabs->addItem(GENERAL_TAB, dialog->tr_text("General"));
+    tabs->addItem(API_TAB, dialog->tr_text("API Services"));
+    page->tabs = tabs;
+    dialog->set_attr("translation_tabs", tabs);
 
-    // ════ Translation options ════
-    auto *grp_opts = new SettingsCardGroup(dialog->tr_text("Translation Options"), page, "translate");
-    auto *lang_card = new SettingCard(FluentIcon::Language, dialog->tr_text("Target Language"), {}, grp_opts);
-    auto *target_combo = new ComboBox(lang_card);
-    std::vector<std::pair<QString, QString>> lang_options{{"", dialog->tr_text("Auto (System)")}};
-    lang_options.insert(lang_options.end(), translation_languages().begin(), translation_languages().end());
-    const QString current_lang = config->get_saved_translation_target_lang();
-    int current_index = 0;
-    for (int i = 0; i < static_cast<int>(lang_options.size()); ++i) {
-        target_combo->addItem(lang_options[i].second, lang_options[i].first);
-        if (lang_options[i].first == current_lang) current_index = i;
-    }
-    target_combo->setCurrentIndex(current_index);
-    dialog->set_attr("translation_target_combo", target_combo);
-    lang_card->addControl(target_combo);
-    grp_opts->addSettingCard(lang_card);
+    // The right inset keeps the cards, and the tab row above them, off the scroll bar.
+    const int right_inset = dialog_scaled(10);
+    auto *scroll = new TabbedScrollArea(dialog->content_stack, tabs, right_inset);
+    scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
+    scroll->setWidgetResizable(true);
+    scroll->setStyleSheet("QScrollArea { border: none; background: transparent; }");
+    page->scroll = scroll;
+    auto *content = new QWidget;
+    set_own_style(content, "background: transparent;");
+    auto *layout = new QVBoxLayout(content);
+    layout->setContentsMargins(0, 0, right_inset, 0);
+    layout->setSpacing(0);
 
-    auto *mode_card = new SettingCard(FluentIcon::Camera,dialog->tr_text("Screenshot Translation"),
-                                      dialog->tr_text("What the translate button on the capture and long screenshot toolbars does"), grp_opts);
-    auto *mode_combo = new ComboBox(mode_card);
-    // The labels follow SCREENSHOT_TRANSLATE_MODES.
-    const char *mode_labels[] = {"Replace the original text", "Side-by-side window"};
-    for (int i = 0; i < SCREENSHOT_TRANSLATE_MODES.size(); ++i) mode_combo->addItem(dialog->tr_text(mode_labels[i]), SCREENSHOT_TRANSLATE_MODES[i]);
-    mode_combo->setCurrentIndex(SCREENSHOT_TRANSLATE_MODES.indexOf(config->get_screenshot_translate_mode()));
-    dialog->set_attr("screenshot_translate_mode_combo", mode_combo);
-    mode_card->addControl(mode_combo);
-    grp_opts->addSettingCard(mode_card);
+    auto *switcher = new PageSwitcher(content);
+    switcher->add_page(build_general_tab(page, current_provider));
+    switcher->add_page(build_api_tab(page, current_provider));
+    layout->addWidget(switcher);
+    layout->addStretch();
+    const QStringList routes{GENERAL_TAB, API_TAB};
+    // Each tab opens at its top.
+    QObject::connect(tabs, &SegmentedWidget::currentItemChanged, switcher, [switcher, scroll, routes](const QString &route) {
+        switcher->set_current(routes.indexOf(route));
+        scroll->verticalScrollBar()->setValue(0);
+    });
+    const QPointer<SegmentedWidget> guarded_tabs(tabs);
+    link_pages(
+        switcher, [switcher] { return switcher->pages(); }, routes, [guarded_tabs](const QString &route) { return guarded_tabs ? guarded_tabs->itemText(route) : QString(); },
+        [guarded_tabs](const QString &route) {
+            if (guarded_tabs) guarded_tabs->setCurrentItem(route);
+        });
+    tabs->setCurrentItem(GENERAL_TAB);
 
-    auto *auto_close_card = new SwitchSettingCard(FluentIcon::Hide, dialog->tr_text("Close When Clicking Outside"),
-                                                  dialog->tr_text("The translation popup opened by the shortcut closes when you click outside it or switch windows"),
-                                                  grp_opts, "translate");
-    auto_close_card->setChecked(config->get_translation_popup_auto_close());
-    dialog->set_attr("translation_auto_close_toggle", auto_close_card);
-    grp_opts->addSettingCard(auto_close_card);
+    for (const auto &metadata : page->providers) page->views[metadata.provider_id].configured = pending_configured(dialog, metadata.provider_id);
+    apply_all(*page);
+    QObject::connect(page->engine_combo.data(), &QComboBox::currentIndexChanged, page->engine_combo.data(), [page] { apply_all(*page); });
 
-    // Only some providers support these two; each card shows by the provider's declared
-    // options (update_provider_groups). Each card brings its own separator, so the group adds none.
-    auto *switches = new ProviderSection(grp_opts, true);
-    dialog->set_attr("switch_options_section", switches);
-    auto *split_card = new SwitchSettingCard(FluentIcon::Alignment, dialog->tr_text("Ignore Line Breaks"), dialog->tr_text("Merge multi-line text for better translation"), switches,
-                                             "translate");
-    split_card->setChecked(config->get_translation_split_sentences());
-    dialog->set_attr("split_sentences_toggle", split_card);
-    switches->addSettingCard(split_card);
-    auto *preserve_card = new SwitchSettingCard(FluentIcon::Document, dialog->tr_text("Preserve Formatting"), dialog->tr_text("Keep original text formatting"), switches,
-                                                "translate");
-    preserve_card->setChecked(config->get_translation_preserve_formatting());
-    dialog->set_attr("preserve_formatting_toggle", preserve_card);
-    switches->addSettingCard(preserve_card);
-    // Keys match the options providers declare.
-    dialog->request_option_cards = {{"split_sentences", split_card}, {"preserve_formatting", preserve_card}};
-    grp_opts->addSettingCard(switches, false);
-    dialog->set_attr("translation_options_group", grp_opts);
-    layout->addWidget(grp_opts);
-
-    QObject::connect(provider_combo, &QComboBox::currentIndexChanged, dialog, [dialog] { update_provider_groups(dialog); });
-    update_provider_groups(dialog);
-
-    // ════ Read aloud ════
-    layout->addWidget(build_speech_group(dialog, page, {}));
     const auto categories = SpeechService::voice_categories();
     dialog->add_external_refresh([categories] { return installed_speech_voices(categories); }, [dialog](const std::vector<VoiceInfo> &voices) {
         if (auto *group = rebuild_speech_group(dialog, voices)) dialog->adopt_controls(group);
     });
     const auto file = config->settings().fileName();
     const auto format = config->settings().format();
+    const auto providers = page->providers;
+    const std::weak_ptr<TranslationPage> weak = page;
     dialog->add_external_refresh([file, format, providers] {
         QSettings settings(file, format);
         QMap<QString, qint64> usage;
         const auto prefix = "translation/usage/" + QDate::currentDate().toString("yyyyMM") + "/";
         for (const auto &provider : providers) usage[provider.provider_id] = settings.value(prefix + provider.provider_id, 0).toLongLong();
         return usage;
-    }, [dialog](const QMap<QString, qint64> &usage) {
+    }, [dialog, weak](const QMap<QString, qint64> &usage) {
         dialog->translation_usage = usage;
-        update_provider_groups(dialog);
+        if (const auto page = weak.lock()) apply_all(*page);
     });
 
-    layout->addStretch();
-    scroll->setWidget(page);
+    scroll->setWidget(content);
     return scroll;
 }
 }

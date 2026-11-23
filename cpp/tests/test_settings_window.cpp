@@ -113,6 +113,20 @@ QWidget *flash_over(QWidget *target) {
     return nullptr;
 }
 
+// A provider's chip on the translation page's API tab.
+QAbstractButton *provider_chip(SettingsDialog &dialog, const QString &provider_id) {
+    for (auto *button : dialog.attr_widget("translation_provider_picker")->findChildren<QAbstractButton *>())
+        if (button->property("provider_id").toString() == provider_id) return button;
+    return nullptr;
+}
+
+// The button captioned text in a provider's card.
+QPushButton *card_button(SettingsDialog &dialog, const QString &provider_id, const QString &text) {
+    for (auto *button : dialog.provider_sections.value(provider_id)->findChildren<QPushButton *>())
+        if (button->text() == text) return button;
+    return nullptr;
+}
+
 std::vector<HotkeyEdit *> slots_of(SettingsDialog &dialog, const QString &first_attr) {
     std::vector<HotkeyEdit *> edits;
     for (const auto &attr : global_hotkey_edit_attrs(first_attr)) edits.push_back(dialog.attr<HotkeyEdit>(attr));
@@ -1643,11 +1657,14 @@ private slots:
         QVERIFY(quota_usage_text(&dialog, "").isEmpty());
         QVERIFY(quota_usage_text(&dialog, "no-such-provider").isEmpty());
 
-        auto *combo = dialog.attr<QComboBox>("translation_provider_combo");
-        combo->setCurrentIndex(combo->findData("tencent"));
-        const auto text = dialog.attr<QLabel>("translation_notice_label")->text();
-        QVERIFY(text.contains("<br/>"));
-        QVERIFY(text.endsWith(quota_usage_text(&dialog, "tencent")));
+        // Under the hint of each quota provider's card, with a bar; other cards have neither.
+        for (const QString provider : {"tencent", "volcengine"}) {
+            auto *label = dialog.provider_sections.value(provider)->findChild<QLabel *>("ProviderQuota");
+            QVERIFY2(label, qPrintable(provider));
+            dialog.refresh_external_state();
+            QTRY_COMPARE(label->text(), quota_usage_text(&dialog, provider));
+        }
+        QVERIFY(!dialog.provider_sections.value("deepl")->findChild<QLabel *>("ProviderQuota"));
         config_->settings().remove("translation/usage");
         config_->settings().remove("translation/providers/volcengine");
     }
@@ -1665,13 +1682,148 @@ private slots:
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.show();
         dialog.on_nav_changed(4, "translation");
-        auto *label = dialog.attr<QLabel>("translation_notice_label");
+        auto *label = dialog.provider_sections.value("tencent")->findChild<QLabel *>("ProviderQuota");
+        QVERIFY(label);
         // Shown as soon as the page is built, before the background read returns.
         QVERIFY2(label->text().contains("500 / "), qPrintable(label->text()));
         dialog.hide();
         config_->add_translation_usage_chars("tencent", 1000);
         dialog.show();
         QTRY_VERIFY(label->text().contains("1,500 / "));
+    }
+
+    // The General tab holds what every provider shares; the API tab one card per provider, chosen
+    // by chips, with the provider's own switches and the general options only it uses.
+    void translationPageHasAGeneralAndAnApiTab() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.on_nav_changed(4, "translation");
+        auto *tabs = dialog.attr<SegmentedWidget>("translation_tabs");
+        QVERIFY(tabs);
+        QCOMPARE(tabs->currentItem(), QString("general"));
+        QCOMPARE(tabs->itemText("api"), settings_tr("API Services"));
+        auto *combo = dialog.attr<QComboBox>("translation_provider_combo");
+        auto *picker = dialog.attr_widget("translation_provider_picker");
+        QVERIFY(combo->isVisible());
+        QVERIFY(dialog.attr_widget("speech_group")->isVisible());
+        QVERIFY(dialog.attr_widget("translation_auto_close_toggle")->isVisible());
+        QVERIFY(!picker->isVisible());
+        // The tab row is not part of what scrolls.
+        auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+        QVERIFY(scroll && !scroll->widget()->isAncestorOf(tabs));
+        scroll->verticalScrollBar()->setValue(scroll->verticalScrollBar()->maximum());
+
+        tabs->setCurrentItem("api");
+        QVERIFY(!combo->isVisible());
+        QVERIFY(picker->isVisible());
+        QCOMPARE(scroll->verticalScrollBar()->value(), 0);
+        // A chip per provider; the language models in a group of their own.
+        const auto providers = dialog.translation_registry->available_providers();
+        for (const auto &meta : providers) QVERIFY2(provider_chip(dialog, meta.provider_id), qPrintable(meta.provider_id));
+        QVERIFY(provider_chip(dialog, "deepseek")->parentWidget() != provider_chip(dialog, "deepl")->parentWidget());
+        QCOMPARE(provider_chip(dialog, "custom_llm")->parentWidget(), provider_chip(dialog, "deepseek")->parentWidget());
+        QCOMPARE(provider_chip(dialog, "baidu")->parentWidget(), provider_chip(dialog, "deepl")->parentWidget());
+        // The engine's card comes first; a chip shows another.
+        const QString engine = combo->currentData().toString();
+        QVERIFY(provider_chip(dialog, engine)->isChecked());
+        QVERIFY(dialog.provider_sections.value(engine)->isVisible());
+        const QString other = engine == "amazon" ? "azure" : "amazon";
+        provider_chip(dialog, other)->click();
+        QVERIFY(dialog.provider_sections.value(other)->isVisible());
+        QVERIFY(!dialog.provider_sections.value(engine)->isVisible());
+        QCOMPARE(combo->currentData().toString(), engine);
+
+        // Ignore Line Breaks and Preserve Formatting are only in DeepL's card.
+        for (const char *attr : {"split_sentences_toggle", "preserve_formatting_toggle"}) {
+            QWidget *toggle = dialog.attr_widget(attr);
+            QVERIFY2(toggle && dialog.provider_sections.value("deepl")->isAncestorOf(toggle), attr);
+        }
+        int rows = 0;
+        for (auto *label : picker->parentWidget()->findChildren<QLabel *>()) rows += label->text() == settings_tr("Ignore Line Breaks");
+        QCOMPARE(rows, 1);
+    }
+
+    // Rarely changed settings are folded under Advanced; the settings needed to work are not.
+    void advancedFoldsTheRarelyChangedSettings() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.on_nav_changed(4, "translation");
+        show_translation_provider(&dialog, "custom_llm");
+        auto *card = dialog.provider_sections.value("custom_llm").data();
+        QVERIFY(card->isVisible());
+        QWidget *base_url = dialog.provider_field_widgets->value("custom_llm_base_url");
+        QWidget *temperature = dialog.provider_field_widgets->value("custom_llm_temperature");
+        QWidget *parallel = dialog.provider_field_widgets->value("custom_llm_parallel_requests");
+        QVERIFY(base_url->isVisible());
+        QVERIFY(!temperature->isVisible());
+        QVERIFY(!parallel->isVisible());
+        QAbstractButton *advanced = nullptr;
+        for (auto *button : card->findChildren<QAbstractButton *>())
+            if (button->text() == settings_tr("Advanced")) advanced = button;
+        QVERIFY(advanced);
+        advanced->click();
+        QVERIFY(temperature->isVisible());
+        QVERIFY(parallel->isVisible());
+        advanced->click();
+        QVERIFY(!temperature->isVisible());
+        // DeepL's Pro switch is needed to work, so it is not folded.
+        show_translation_provider(&dialog, "deepl");
+        QVERIFY(dialog.provider_field_widgets->value("deepl_use_pro")->isVisible());
+    }
+
+    // The engine row says whether the engine can translate, from what the form holds now, and its
+    // button opens the engine's card; Use This on another configured provider makes it the engine.
+    void theEngineStatusFollowsTheFormAndLeadsToTheCard() {
+        const QString provider = config_->get_translation_provider();
+        const auto restore = qScopeGuard([this, provider] {
+            config_->set_translation_provider(provider);
+            for (const char *key : {"deepl_api_key", "baidu_translate_appid", "baidu_translate_secret_key", "deepseek_api_key", "deepseek_model"})
+                config_->set_accessor_value(key, "");
+        });
+        for (const char *key : {"deepl_api_key", "baidu_translate_appid", "baidu_translate_secret_key", "deepseek_api_key", "deepseek_model"})
+            config_->set_accessor_value(key, "");
+        config_->set_translation_provider("deepl");
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.on_nav_changed(4, "translation");
+        auto *status = dialog.attr<SettingCard>("translation_engine_card")->contentLabel;
+        QVERIFY2(status->text().contains(settings_tr("Not configured yet")), qPrintable(status->text()));
+        auto *chip = provider_chip(dialog, "deepl");
+        QVERIFY(chip->property("current").toBool() && !chip->property("configured").toBool());
+        const auto edit = [&dialog](const char *key) { return qobject_cast<QLineEdit *>(dialog.provider_field_widgets->value(key).data()); };
+        edit("deepl_api_key")->setText("key:fx");
+        QVERIFY2(status->text().contains(settings_tr("Configured")), qPrintable(status->text()));
+        QVERIFY(chip->property("configured").toBool());
+        // A language model also names its model, the default one while the field is empty.
+        edit("deepseek_api_key")->setText("sk-test");
+        auto *combo = dialog.attr<QComboBox>("translation_provider_combo");
+        combo->setCurrentIndex(combo->findData("deepseek"));
+        QVERIFY2(status->text().contains(edit("deepseek_model")->placeholderText()), qPrintable(status->text()));
+        edit("deepseek_model")->setText("deepseek-chat");
+        QVERIFY2(status->text().contains("deepseek-chat"), qPrintable(status->text()));
+        QVERIFY(provider_chip(dialog, "deepseek")->property("current").toBool());
+        QVERIFY(!chip->property("current").toBool());
+
+        // The button opens the engine's card on the API tab.
+        dialog.attr<QPushButton>("translation_configure_button")->click();
+        QCOMPARE(dialog.attr<SegmentedWidget>("translation_tabs")->currentItem(), QString("api"));
+        QVERIFY(provider_chip(dialog, "deepseek")->isChecked());
+        QVERIFY(dialog.provider_sections.value("deepseek")->isVisible());
+        QPushButton *use = card_button(dialog, "deepseek", settings_tr("Use This"));
+        QVERIFY(use && !use->isVisible());
+
+        // Use This shows on a configured provider that is not the engine, and makes it the engine.
+        provider_chip(dialog, "baidu")->click();
+        use = card_button(dialog, "baidu", settings_tr("Use This"));
+        QVERIFY(use && !use->isVisible());
+        edit("baidu_translate_appid")->setText("app");
+        edit("baidu_translate_secret_key")->setText("secret");
+        QVERIFY(use->isVisible());
+        use->click();
+        QCOMPARE(combo->currentData().toString(), QString("baidu"));
+        QVERIFY(!use->isVisible());
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_translation_provider(), QString("baidu"));
     }
 
     void wizardNavigatesAcrossEveryPage() {
@@ -2579,6 +2731,70 @@ private slots:
         QVERIFY2(problems.isEmpty(), qPrintable(problems.join('\n')));
     }
 
+    // The translation page's tabs and every provider card in every language at the window's minimum
+    // width: the chips, the name with its tags and the buttons keep their whole text, wrapped text
+    // keeps every line, and nothing scrolls sideways.
+    void translationApiTabFitsEveryLanguageAtTheMinimumWidth() {
+        // Text widths need real fonts, which the offscreen platform does not have.
+        if (QGuiApplication::platformName() != "windows") QSKIP("needs -platform windows");
+        auto &scale = get_dialog_scale();
+        const int percent_before = scale.percent();
+        const QString language = I18nManager::get_current_language();
+        const QString engine = config_->get_translation_provider();
+        const auto restore = qScopeGuard([this, &scale, percent_before, language, engine] {
+            scale.set_percent(percent_before);
+            I18nManager::load_language(language);
+            config_->set_translation_provider(engine);
+            for (const char *key : {"baidu_translate_appid", "baidu_translate_secret_key"}) config_->set_accessor_value(key, "");
+        });
+        // With Google as the engine, Baidu filled in shows Use This.
+        config_->set_translation_provider("google");
+        QStringList problems;
+        const auto check = [&problems](QWidget *widget, const QString &where, const QString &name) {
+            if (!widget->isVisible()) return;
+            if (auto *label = qobject_cast<QLabel *>(widget); label && label->wordWrap()) {
+                if (label->height() < label->heightForWidth(label->width())) problems << QString("%1: \"%2\" is cut off").arg(where, name);
+            } else if (widget->width() < widget->sizeHint().width()) {
+                problems << QString("%1: \"%2\" is %3 wide, needs %4").arg(where, name).arg(widget->width()).arg(widget->sizeHint().width());
+            }
+        };
+        for (const int percent : {100, 150, 200}) {
+            scale.set_percent(percent);
+            for (const char *code : {"zh", "zh_TW", "en", "ja", "ko"}) {
+                QVERIFY(I18nManager::load_language(code));
+                SettingsDialog dialog(config_, config_->get_hotkey());
+                // Wider than any screen, so the minimum is not capped at this one's width.
+                dialog.fit_to_available({4000, dialog.height()});
+                dialog.resize(0, dialog.height());
+                dialog.show();
+                dialog.on_nav_changed(4, "translation");
+                qobject_cast<QLineEdit *>(dialog.provider_field_widgets->value("baidu_translate_appid").data())->setText("app");
+                qobject_cast<QLineEdit *>(dialog.provider_field_widgets->value("baidu_translate_secret_key").data())->setText("secret");
+                const QString at = QString("%1 at %2%").arg(code).arg(percent);
+                for (auto *button : dialog.attr_widget("translation_tabs")->findChildren<QPushButton *>()) check(button, at, button->text());
+                for (const auto &meta : dialog.translation_registry->available_providers()) {
+                    show_translation_provider(&dialog, meta.provider_id);
+                    QApplication::processEvents();
+                    const QString where = at + ", " + meta.provider_id;
+                    auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+                    QVERIFY(scroll);
+                    if (scroll->horizontalScrollBar()->maximum() > 0) problems << where + ": the page scrolls sideways";
+                    check(provider_chip(dialog, meta.provider_id), where, provider_chip(dialog, meta.provider_id)->text());
+                    QWidget *card = dialog.provider_sections.value(meta.provider_id);
+                    const QRect in_page(card->mapTo(scroll->viewport(), QPoint()), card->size());
+                    if (in_page.left() < 0 || in_page.right() >= scroll->viewport()->width()) problems << where + ": the card sticks out of the page";
+                    for (auto *label : card->findChildren<QLabel *>()) check(label, where, label->text());
+                    for (auto *button : card->findChildren<QPushButton *>()) check(button, where, button->text());
+                    for (auto *widget : card->findChildren<QWidget *>())
+                        if (widget->layout() && widget->isVisible() && widget->layout()->totalMinimumSize().width() > widget->width())
+                            problems << QString("%1: a %2 needs %3, has %4").arg(where, widget->metaObject()->className()).arg(widget->layout()->totalMinimumSize().width()).arg(widget->width());
+                }
+                QVERIFY2(card_button(dialog, "baidu", settings_tr("Use This"))->isVisibleTo(dialog.provider_sections.value("baidu")), qPrintable(at));
+            }
+        }
+        QVERIFY2(problems.isEmpty(), qPrintable(problems.join('\n')));
+    }
+
     // The clipboard theme menu marks the chosen swatch with an icon, not a ✓ character.
     void clipboardThemeMenuMarksTheChosenSwatch() {
         const auto restore = qScopeGuard([this, theme = config_->get_clipboard_theme()] { config_->set_clipboard_theme(theme); });
@@ -3053,41 +3269,39 @@ private slots:
         QVERIFY2(rows > 150, qPrintable(QString::number(rows)));
     }
 
-    // Another translation service's fields are hidden; they are not listed until it is chosen.
-    void searchLeavesOutRowsHiddenOnPurpose() {
+    // Every provider's card is listed under its name, folded rows included; a result opens the API
+    // tab on that card and unfolds Advanced, without changing the engine.
+    void searchReachesEveryProvidersCard() {
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.show();
         dialog.on_nav_changed(4, "translation");
         QCoreApplication::processEvents();
-        const auto lists = [&dialog](QWidget *section) {
-            const auto entries = dialog.search_entries();
-            return std::any_of(entries.begin(), entries.end(), [section](const SettingsSearchEntry &entry) { return entry.target && section->isAncestorOf(entry.target); });
+        const auto entries = dialog.search_entries();
+        const auto listed = [&entries](QWidget *inside) {
+            return std::count_if(entries.begin(), entries.end(), [inside](const SettingsSearchEntry &entry) { return entry.target && inside->isAncestorOf(entry.target); });
         };
-        QString hidden_provider;
-        int shown = 0;
-        for (auto it = dialog.provider_sections.begin(); it != dialog.provider_sections.end(); ++it) {
-            QWidget *section = it.value();
-            QVERIFY(section);
-            if (!section->isHidden()) {
-                ++shown;
-                QVERIFY2(lists(section), qPrintable(it.key()));
-                continue;
-            }
-            QVERIFY2(!lists(section), qPrintable(it.key()));
-            // A service with fields besides the connection test row.
-            if (hidden_provider.isEmpty() && section->findChildren<WhiteCard *>().size() > 1) hidden_provider = it.key();
-        }
-        QCOMPARE(shown, 1);
-        QVERIFY(!hidden_provider.isEmpty());
+        // Its name, at least one setting to work and the two pacing rows.
+        for (auto it = dialog.provider_sections.begin(); it != dialog.provider_sections.end(); ++it) QVERIFY2(listed(it.value()) >= 4, qPrintable(it.key()));
+        // The General tab's rows as well.
+        QVERIFY(listed(dialog.attr_widget("translation_options_group")) >= 4);
+
         auto *combo = dialog.attr<QComboBox>("translation_provider_combo");
-        const int before = combo->currentIndex();
-        const auto restore = qScopeGuard([&dialog, combo, before] {
-            combo->setCurrentIndex(before);
-            dialog.apply_settings();
-        });
-        combo->setCurrentIndex(combo->findData(hidden_provider));
-        QCoreApplication::processEvents();
-        QVERIFY(lists(dialog.provider_sections.value(hidden_provider)));
+        const QString engine = combo->currentData().toString();
+        const QString provider = engine == "amazon" ? "azure" : "amazon";
+        QWidget *card = dialog.provider_sections.value(provider);
+        QVERIFY(!card->isVisible());
+        const auto pacing = dialog.translation_registry->metadata(provider).pacing.front();
+        QWidget *edit = dialog.provider_field_widgets->value(pacing.config_key);
+        const auto found = std::find_if(entries.begin(), entries.end(), [edit](const SettingsSearchEntry &entry) { return entry.target && entry.target->isAncestorOf(edit); });
+        QVERIFY(found != entries.end());
+        QCOMPARE(found->title, settings_tr(pacing.label.toUtf8().constData()));
+        QVERIFY2(found->path.endsWith(" / " + provider_chip(dialog, provider)->text()), qPrintable(found->path));
+        dialog.show_search_result(*found);
+        QCOMPARE(dialog.attr<SegmentedWidget>("translation_tabs")->currentItem(), QString("api"));
+        QTRY_VERIFY(edit->isVisible());
+        QVERIFY(card->isVisible());
+        QVERIFY(provider_chip(dialog, provider)->isChecked());
+        QCOMPARE(combo->currentData().toString(), engine);
     }
 
     void searchKeysStayInTheField() {
@@ -3273,6 +3487,10 @@ private slots:
     void renderPagesForReview() {
         const QString out = qEnvironmentVariable("JIETUBA_SETTINGS_SHOTS");
         if (out.isEmpty()) QSKIP("JIETUBA_SETTINGS_SHOTS is not set.");
+        // JIETUBA_SETTINGS_SHOTS_LANGUAGE renders another interface language.
+        const QString language = I18nManager::get_current_language();
+        const auto restore_language = qScopeGuard([language] { I18nManager::load_language(language); });
+        if (const QString shown = qEnvironmentVariable("JIETUBA_SETTINGS_SHOTS_LANGUAGE"); !shown.isEmpty()) QVERIFY(I18nManager::load_language(shown));
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.setAttribute(Qt::WA_DontShowOnScreen);
         dialog.show();
@@ -3289,6 +3507,17 @@ private slots:
             QTest::qWait(200);
             QVERIFY(dialog.grab().save(QDir(out).filePath(QString("%1_%2_end.png").arg(index, 2, 10, QChar('0')).arg(route))));
         }
+        // The translation page's API tab, on a provider of each kind.
+        dialog.on_nav_changed(4, "translation");
+        for (const char *provider : {"deepl", "deepseek", "volcengine", "custom_llm"}) {
+            show_translation_provider(&dialog, provider);
+            QTest::qWait(200);
+            QVERIFY(dialog.grab().save(QDir(out).filePath(QString("04_translation_api_%1.png").arg(provider))));
+            // The whole card, below the window's height as well.
+            auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+            QVERIFY(scroll->widget()->grab().save(QDir(out).filePath(QString("04_translation_api_%1_full.png").arg(provider))));
+        }
+        dialog.attr<SegmentedWidget>("translation_tabs")->setCurrentItem("general");
         WelcomeWizard wizard(config_);
         wizard.setAttribute(Qt::WA_DontShowOnScreen);
         wizard.show();

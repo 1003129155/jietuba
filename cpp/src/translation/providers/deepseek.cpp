@@ -22,6 +22,7 @@ ProviderMetadata DeepSeekProvider::class_metadata() {
     ProviderMetadata metadata;
     metadata.provider_id = "deepseek";
     metadata.display_name = "DeepSeek";
+    metadata.language_model = true;
     metadata.credentials = {
         ProviderField::text("deepseek_api_key", "DeepSeek API Key", "sk-...", true),
         // Model names do change between generations; editable so a rename needs no release.

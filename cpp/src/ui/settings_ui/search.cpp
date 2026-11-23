@@ -29,8 +29,27 @@ namespace jietuba {
 namespace {
 const char *const ROW_TITLE = "_search_title";
 const char *const ROW_DESCRIPTION = "_search_description";
-const char *const STACK_TABS = "_search_tabs";
-const char *const STACK_ROUTES = "_search_routes";
+const char *const PAGE_LINK = "_search_pages";
+const char *const REVEALER = "_search_reveal";
+
+// How search reaches the pages of a container that shows one at a time.
+class PageLink : public QObject {
+public:
+    using QObject::QObject;
+    std::function<QList<QWidget *>()> pages;
+    QStringList routes;
+    std::function<QString(const QString &)> label;
+    std::function<void(const QString &)> select;
+};
+
+class Revealer : public QObject {
+public:
+    using QObject::QObject;
+    std::function<void()> reveal;
+};
+
+PageLink *page_link(const QWidget *container) { return container ? dynamic_cast<PageLink *>(container->property(PAGE_LINK).value<QObject *>()) : nullptr; }
+Revealer *revealer(const QWidget *widget) { return dynamic_cast<Revealer *>(widget->property(REVEALER).value<QObject *>()); }
 
 // Result list geometry at 100%.
 constexpr int POPUP_WIDTH = 480;
@@ -89,8 +108,6 @@ int kind_rank(SettingsSearchEntry::Kind kind) {
 // Hidden by code, not merely because an ancestor is.
 bool hidden_on_purpose(const QWidget *widget) { return widget->isHidden() && widget->testAttribute(Qt::WA_WState_ExplicitShowHide); }
 
-SegmentedWidget *stack_tabs(const QWidget *stack) { return qobject_cast<SegmentedWidget *>(stack->property(STACK_TABS).value<QObject *>()); }
-
 void add_entry(std::vector<SettingsSearchEntry> &out, const SettingsSearchEntry &page_entry, SettingsSearchEntry::Kind kind, const QString &title,
                const QString &description, const QStringList &path, QWidget *target, const QStringList &options = {}) {
     if (title.isEmpty()) return;
@@ -139,17 +156,16 @@ void visit(QWidget *child, const SettingsSearchEntry &page_entry, const QString 
 }
 
 void walk(QWidget *widget, const SettingsSearchEntry &page_entry, const QString &group, const QString &tab, std::vector<SettingsSearchEntry> &out) {
-    auto *stack = qobject_cast<QStackedWidget *>(widget);
-    if (SegmentedWidget *tabs = stack ? stack_tabs(stack) : nullptr) {
-        // Pages of other tabs are hidden by the stack and reachable through their tab. In tab
-        // order: showing a page raises it, which reorders the children.
-        const QStringList routes = stack->property(STACK_ROUTES).toStringList();
-        for (int index = 0; index < stack->count() && index < routes.size(); ++index) visit(stack->widget(index), page_entry, group, tabs->itemText(routes[index]), out);
+    if (PageLink *link = page_link(widget)) {
+        // Pages of other tabs are hidden and reachable through their tab. In tab order: showing
+        // a stack page raises it, which reorders the children.
+        const QList<QWidget *> pages = link->pages();
+        for (int index = 0; index < pages.size() && index < link->routes.size(); ++index) visit(pages[index], page_entry, group, link->label(link->routes[index]), out);
         return;
     }
     for (QObject *object : widget->children()) {
         auto *child = qobject_cast<QWidget *>(object);
-        if (child && !child->isWindow() && !hidden_on_purpose(child)) visit(child, page_entry, group, tab, out);
+        if (child && !child->isWindow() && (!hidden_on_purpose(child) || revealer(child))) visit(child, page_entry, group, tab, out);
     }
 }
 
@@ -383,8 +399,34 @@ void mark_search_row(QWidget *row, QLabel *title, QLabel *description) {
 
 void link_tabs(SegmentedWidget *tabs, QStackedWidget *stack, const QStringList &routes) {
     QObject::connect(tabs, &SegmentedWidget::currentItemChanged, stack, [stack, routes](const QString &route) { stack->setCurrentIndex(routes.indexOf(route)); });
-    stack->setProperty(STACK_TABS, QVariant::fromValue<QObject *>(tabs));
-    stack->setProperty(STACK_ROUTES, routes);
+    const QPointer<SegmentedWidget> guarded(tabs);
+    link_pages(
+        stack,
+        [stack] {
+            QList<QWidget *> pages;
+            for (int index = 0; index < stack->count(); ++index) pages.append(stack->widget(index));
+            return pages;
+        },
+        routes, [guarded](const QString &route) { return guarded ? guarded->itemText(route) : QString(); },
+        [guarded](const QString &route) {
+            if (guarded) guarded->setCurrentItem(route);
+        });
+}
+
+void link_pages(QWidget *container, std::function<QList<QWidget *>()> pages, const QStringList &routes, std::function<QString(const QString &)> label,
+                std::function<void(const QString &)> select) {
+    auto *link = new PageLink(container);
+    link->pages = std::move(pages);
+    link->routes = routes;
+    link->label = std::move(label);
+    link->select = std::move(select);
+    container->setProperty(PAGE_LINK, QVariant::fromValue<QObject *>(link));
+}
+
+void mark_search_revealable(QWidget *container, std::function<void()> reveal) {
+    auto *holder = new Revealer(container);
+    holder->reveal = std::move(reveal);
+    container->setProperty(REVEALER, QVariant::fromValue<QObject *>(holder));
 }
 
 SearchRowWidths search_row_widths(int row_width, const QString &title, const QString &tag) {
@@ -410,12 +452,11 @@ SearchRowWidths search_row_widths(int row_width, const QString &title, const QSt
 
 void reveal_settings_row(QWidget *target, QWidget *page) {
     for (QWidget *widget = target; widget && widget != page; widget = widget->parentWidget()) {
-        auto *stack = qobject_cast<QStackedWidget *>(widget->parentWidget());
-        SegmentedWidget *tabs = stack ? stack_tabs(stack) : nullptr;
-        if (!tabs) continue;
-        const QStringList routes = stack->property(STACK_ROUTES).toStringList();
-        const int index = stack->indexOf(widget);
-        if (index >= 0 && index < routes.size()) tabs->setCurrentItem(routes[index]);
+        if (Revealer *holder = revealer(widget); holder && hidden_on_purpose(widget)) holder->reveal();
+        PageLink *link = page_link(widget->parentWidget());
+        if (!link) continue;
+        const int index = link->pages().indexOf(widget);
+        if (index >= 0 && index < link->routes.size()) link->select(link->routes[index]);
     }
 }
 

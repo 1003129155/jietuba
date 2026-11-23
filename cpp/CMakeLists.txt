@@ -389,7 +389,8 @@ if(BUILD_TESTING)
     if(WIN32)
         # Whether texts fit needs real fonts.
         add_test(NAME settings_window_desktop COMMAND jietuba_settings_window_tests -o ${JIETUBA_TEST_REPORTS}/settings_window_desktop.txt,txt -platform windows
-                 readAloudGroupFitsEveryLanguageInTheNarrowestWindow everyPageFitsEveryLanguageAtTheMinimumWidth wizardMouseGridFitsEveryLanguage
+                 readAloudGroupFitsEveryLanguageInTheNarrowestWindow everyPageFitsEveryLanguageAtTheMinimumWidth translationApiTabFitsEveryLanguageAtTheMinimumWidth
+                 wizardMouseGridFitsEveryLanguage
                  longScreenshotMousePageFitsEveryLanguage fileNameDialogFitsEveryLanguageAndFollowsWindowScale fileNameDialogDoesNotMoveWhileTyping
                  fileNameDialogErrorsStayVisibleAndKeepPastedText)
         set_tests_properties(settings_window_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")

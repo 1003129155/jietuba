@@ -43,14 +43,20 @@ struct SettingsSearchEntry {
 std::vector<SettingsSearchEntry> rank_settings_search(const std::vector<SettingsSearchEntry> &entries, const QString &query);
 
 // Appends the groups and rows of a built page: setting cards, card groups and section cards, and
-// rows marked with mark_search_row. Rows hidden on purpose (another provider's fields) are left
-// out; rows on another tab of the page are kept and reached through reveal_settings_row.
+// rows marked with mark_search_row. Rows hidden on purpose are left out, unless their container
+// was marked revealable; rows on another tab of the page are kept and reached through reveal_settings_row.
 void collect_settings_entries(QWidget *page, const SettingsSearchEntry &page_entry, std::vector<SettingsSearchEntry> &out);
 
 // Makes a custom-layout row searchable by its title label.
 void mark_search_row(QWidget *row, QLabel *title, QLabel *description = nullptr);
 // Shows the stack page of the current tab; search switches tabs through this link.
 void link_tabs(SegmentedWidget *tabs, QStackedWidget *stack, const QStringList &routes);
+// Pages inside container of which one shows at a time, chosen by route: every page is searched,
+// labelled by label(route), and select(route) brings the page holding a result forward.
+void link_pages(QWidget *container, std::function<QList<QWidget *>()> pages, const QStringList &routes, std::function<QString(const QString &)> label,
+                std::function<void(const QString &)> select);
+// A container hidden on purpose whose rows are still searched; reveal shows it before a jump.
+void mark_search_revealable(QWidget *container, std::function<void()> reveal);
 
 // A result row's text in a list row_width wide: the title keeps its whole width, the location
 // tag takes what is left, dropping its leading parts first, and is left out below a few characters.
@@ -62,7 +68,8 @@ struct SearchRowWidths {
 };
 SearchRowWidths search_row_widths(int row_width, const QString &title, const QString &tag);
 
-// Switches the tabs between page and target to the ones holding target.
+// Switches the tabs between page and target to the ones holding target, and shows revealable
+// containers on the way.
 void reveal_settings_row(QWidget *target, QWidget *page);
 
 // Outlines target for a moment; the outline is a sibling over target and goes away by itself.

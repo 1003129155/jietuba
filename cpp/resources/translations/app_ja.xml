@@ -7730,4 +7730,56 @@ Replace it?</source>
         <translation>その他</translation>
     </message>
 </context>
+<context>
+    <name>SettingsDialog</name>
+    <!-- Translation page tabs and provider cards -->
+    <message>
+        <source>General</source>
+        <translation>一般</translation>
+    </message>
+    <message>
+        <source>API Services</source>
+        <translation>API サービス</translation>
+    </message>
+    <message>
+        <source>Translation API</source>
+        <translation>翻訳 API</translation>
+    </message>
+    <message>
+        <source>Large Language Models</source>
+        <translation>大規模言語モデル</translation>
+    </message>
+    <message>
+        <source>Use This</source>
+        <translation>これを使う</translation>
+    </message>
+    <message>
+        <source>In Use</source>
+        <translation>使用中</translation>
+    </message>
+    <message>
+        <source>Not Configured</source>
+        <translation>未設定</translation>
+    </message>
+    <message>
+        <source>Configured</source>
+        <translation>設定済み</translation>
+    </message>
+    <message>
+        <source>Not configured yet</source>
+        <translation>まだ設定されていません</translation>
+    </message>
+    <message>
+        <source>%1% used this month</source>
+        <translation>今月 %1% 使用済み</translation>
+    </message>
+    <message>
+        <source>Advanced</source>
+        <translation>詳細設定</translation>
+    </message>
+    <message>
+        <source>Configure API</source>
+        <translation>API を設定</translation>
+    </message>
+</context>
 </TS>

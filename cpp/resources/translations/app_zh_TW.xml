@@ -8104,4 +8104,56 @@ Replace it?</source>
         <translation>更多</translation>
     </message>
 </context>
+<context>
+    <name>SettingsDialog</name>
+    <!-- Translation page tabs and provider cards -->
+    <message>
+        <source>General</source>
+        <translation>一般</translation>
+    </message>
+    <message>
+        <source>API Services</source>
+        <translation>API 服務</translation>
+    </message>
+    <message>
+        <source>Translation API</source>
+        <translation>翻譯 API</translation>
+    </message>
+    <message>
+        <source>Large Language Models</source>
+        <translation>大型語言模型</translation>
+    </message>
+    <message>
+        <source>Use This</source>
+        <translation>設為目前</translation>
+    </message>
+    <message>
+        <source>In Use</source>
+        <translation>使用中</translation>
+    </message>
+    <message>
+        <source>Not Configured</source>
+        <translation>未設定</translation>
+    </message>
+    <message>
+        <source>Configured</source>
+        <translation>已設定</translation>
+    </message>
+    <message>
+        <source>Not configured yet</source>
+        <translation>尚未設定</translation>
+    </message>
+    <message>
+        <source>%1% used this month</source>
+        <translation>本月已用 %1%</translation>
+    </message>
+    <message>
+        <source>Advanced</source>
+        <translation>進階</translation>
+    </message>
+    <message>
+        <source>Configure API</source>
+        <translation>設定 API</translation>
+    </message>
+</context>
 </TS>

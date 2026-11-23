@@ -153,6 +153,7 @@ public:
     // Translation page state.
     std::shared_ptr<ProviderRegistry> translation_registry;
     std::optional<QMap<QString, QPointer<QWidget>>> provider_field_widgets;
+    // Each provider's card on the API tab, by provider id.
     QMap<QString, QPointer<QWidget>> provider_sections;
     QMap<QString, QPointer<QLabel>> provider_status_labels;
     // Reading voice choice per language key ("zh"); an empty item data is the automatic choice.
@@ -160,7 +161,6 @@ public:
     // Preferences include temporarily missing voices, independently of which rows are visible.
     QStringList speech_voice_preferences;
     QMap<QString, qint64> translation_usage;
-    QMap<QString, QPointer<QWidget>> request_option_cards;
 
     void change_save_dir();
     void open_save_dir();

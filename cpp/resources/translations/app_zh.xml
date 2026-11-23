@@ -7708,4 +7708,56 @@ Replace it?</source>
         <translation>更多</translation>
     </message>
 </context>
+<context>
+    <name>SettingsDialog</name>
+    <!-- Translation page tabs and provider cards -->
+    <message>
+        <source>General</source>
+        <translation>常规</translation>
+    </message>
+    <message>
+        <source>API Services</source>
+        <translation>翻译接口</translation>
+    </message>
+    <message>
+        <source>Translation API</source>
+        <translation>翻译 API</translation>
+    </message>
+    <message>
+        <source>Large Language Models</source>
+        <translation>大模型</translation>
+    </message>
+    <message>
+        <source>Use This</source>
+        <translation>设为当前</translation>
+    </message>
+    <message>
+        <source>In Use</source>
+        <translation>正在使用</translation>
+    </message>
+    <message>
+        <source>Not Configured</source>
+        <translation>未配置</translation>
+    </message>
+    <message>
+        <source>Configured</source>
+        <translation>已配置</translation>
+    </message>
+    <message>
+        <source>Not configured yet</source>
+        <translation>还没有配置</translation>
+    </message>
+    <message>
+        <source>%1% used this month</source>
+        <translation>本月已用 %1%</translation>
+    </message>
+    <message>
+        <source>Advanced</source>
+        <translation>高级</translation>
+    </message>
+    <message>
+        <source>Configure API</source>
+        <translation>配置 API</translation>
+    </message>
+</context>
 </TS>

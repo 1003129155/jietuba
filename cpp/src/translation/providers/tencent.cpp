@@ -36,8 +36,8 @@ ProviderMetadata TencentTranslateProvider::class_metadata() {
         ProviderField::text("tencent_translate_secret_key", "SecretKey", "Tencent Cloud API SecretKey, paired with the SecretId", true),
     };
     metadata.options = {
-        ProviderField::toggle("tencent_translate_quota_enabled", "Enable monthly quota guard", "Stop translation once the monthly free quota is reached"),
-        ProviderField::text("tencent_translate_quota_limit", "Monthly quota (characters)", "4990000"),
+        ProviderField::toggle("tencent_translate_quota_enabled", "Enable monthly quota guard", "Stop translation once the monthly free quota is reached").as_advanced(),
+        ProviderField::text("tencent_translate_quota_limit", "Monthly quota (characters)", "4990000").as_advanced(),
     };
     metadata.pacing = pacing_fields("tencent_translate", PACING);
     // The API refuses overuse with FailedOperation.NoFreeAmount until the account is

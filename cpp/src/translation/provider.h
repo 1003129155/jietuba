@@ -22,11 +22,18 @@ struct ProviderField {
     // Masked, always with a show/hide button.
     bool secret = false;
     QString description;
+    // Folded under "Advanced" in the settings: rarely changed once the service works.
+    bool advanced = false;
     static ProviderField text(const QString &key, const QString &label, const QString &placeholder = {}, bool secret = false) {
         return ProviderField{Text, key, label, placeholder, secret, {}};
     }
     static ProviderField model(const QString &key, const QString &label, const QString &placeholder = {}) { return ProviderField{Model, key, label, placeholder, false, {}}; }
     static ProviderField toggle(const QString &key, const QString &label, const QString &description = {}) { return ProviderField{Toggle, key, label, {}, false, description}; }
+    ProviderField as_advanced() const {
+        ProviderField field = *this;
+        field.advanced = true;
+        return field;
+    }
 };
 
 // How a caller with many texts may load a service: requests in flight at once, and the least
@@ -45,6 +52,8 @@ std::vector<ProviderField> pacing_fields(const QString &prefix, const RequestPac
 struct ProviderMetadata {
     QString provider_id;
     QString display_name;
+    // Listed with the large language models rather than the translation APIs.
+    bool language_model = false;
     std::vector<ProviderField> credentials;
     std::vector<ProviderField> options;
     // Request pacing; kept apart from options, which are the service's own settings.

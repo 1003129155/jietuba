@@ -108,6 +108,8 @@ void refresh_latest_log_label(SettingsDialog *dialog);
 // page_translation: this month's usage and the guard state of a provider declaring a free
 // quota; empty for other providers.
 QString quota_usage_text(SettingsDialog *dialog, const QString &provider_id, std::optional<qint64> usage = std::nullopt);
+// Opens the translation page's API tab on a provider's card; nothing until the page is built.
+void show_translation_provider(SettingsDialog *dialog, const QString &provider_id);
 // The voice preferences ("lang=token"), including voices currently not installed.
 QStringList speech_voice_choices(const SettingsDialog *dialog);
 // Selects each language's saved voice; a language without one, or whose voice is gone, shows Auto.

@@ -7668,4 +7668,56 @@ Replace it?</translation>
         <translation>More</translation>
     </message>
 </context>
+<context>
+    <name>SettingsDialog</name>
+    <!-- Translation page tabs and provider cards -->
+    <message>
+        <source>General</source>
+        <translation>General</translation>
+    </message>
+    <message>
+        <source>API Services</source>
+        <translation>API Services</translation>
+    </message>
+    <message>
+        <source>Translation API</source>
+        <translation>Translation API</translation>
+    </message>
+    <message>
+        <source>Large Language Models</source>
+        <translation>Large Language Models</translation>
+    </message>
+    <message>
+        <source>Use This</source>
+        <translation>Use This</translation>
+    </message>
+    <message>
+        <source>In Use</source>
+        <translation>In Use</translation>
+    </message>
+    <message>
+        <source>Not Configured</source>
+        <translation>Not Configured</translation>
+    </message>
+    <message>
+        <source>Configured</source>
+        <translation>Configured</translation>
+    </message>
+    <message>
+        <source>Not configured yet</source>
+        <translation>Not configured yet</translation>
+    </message>
+    <message>
+        <source>%1% used this month</source>
+        <translation>%1% used this month</translation>
+    </message>
+    <message>
+        <source>Advanced</source>
+        <translation>Advanced</translation>
+    </message>
+    <message>
+        <source>Configure API</source>
+        <translation>Configure API</translation>
+    </message>
+</context>
 </TS>
