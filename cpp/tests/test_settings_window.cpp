@@ -248,6 +248,40 @@ private slots:
         QCOMPARE(config_->get_screenshot_quality(), 85);
     }
 
+    // The PNG compression and PDF page size cards on the screenshot page: their choices, stored by the autosave and reset with the page.
+    void pngAndPdfCardsStoreAndReset() {
+        config_->set_png_compression("medium");
+        config_->set_pdf_page_size("image");
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.build_all_pages();
+        auto *png = dialog.attr<QComboBox>("png_compression_combo");
+        auto *pdf = dialog.attr<QComboBox>("pdf_page_size_combo");
+        QVERIFY(png && pdf);
+        QCOMPARE(png->count(), 3);
+        QCOMPARE(pdf->count(), 3);
+        QCOMPARE(png->currentData().toString(), QString("medium"));
+        QCOMPARE(pdf->currentData().toString(), QString("image"));
+        png->setCurrentIndex(png->findData("high"));
+        pdf->setCurrentIndex(pdf->findData("a4_landscape"));
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_png_compression(), QString("high"));
+        QCOMPARE(config_->get_pdf_page_size(), QString("a4_landscape"));
+        // A new window shows what was stored.
+        {
+            SettingsDialog again(config_, config_->get_hotkey());
+            again.build_all_pages();
+            QCOMPARE(again.attr<QComboBox>("png_compression_combo")->currentData().toString(), QString("high"));
+            QCOMPARE(again.attr<QComboBox>("pdf_page_size_combo")->currentData().toString(), QString("a4_landscape"));
+        }
+        dialog.on_nav_changed(1, "capture");
+        reset_page(dialog);
+        QCOMPARE(png->currentData().toString(), QString("medium"));
+        QCOMPARE(pdf->currentData().toString(), QString("image"));
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_png_compression(), QString("medium"));
+        QCOMPARE(config_->get_pdf_page_size(), QString("image"));
+    }
+
     void everyPageBuilds() {
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.build_all_pages();
@@ -1263,6 +1297,49 @@ private slots:
         }
     }
 
+    // The image quality, PNG compression and PDF page size cards in every language at the window's narrowest and largest scale:
+    // titles and captions keep their whole text, a combo shows its longest choice and the slider keeps its value.
+    void saveOptionCardsFitEveryLanguage() {
+        if (QGuiApplication::platformName() != "windows") QSKIP("needs desktop fonts");
+        const auto language = I18nManager::get_current_language();
+        const int scale = get_dialog_scale().percent();
+        const auto restore = qScopeGuard([&] { get_dialog_scale().set_percent(scale); I18nManager::load_language(language); });
+        for (const int percent : {100, 150, 200}) {
+            get_dialog_scale().set_percent(percent);
+            for (const auto *code : {"zh", "zh_TW", "en", "ja", "ko"}) {
+                QVERIFY(I18nManager::load_language(code));
+                SettingsDialog dialog(config_, config_->get_hotkey());
+                dialog.fit_to_available({4000, dialog.height()});
+                dialog.build_all_pages();
+                dialog.resize(0, dialog.height());
+                dialog.show();
+                dialog.on_nav_changed(1, "capture");
+                QApplication::processEvents();
+                for (const char *title : {"Image Quality", "PNG Compression", "PDF Page Size"}) {
+                    const QString where = QString("%1 at %2%%, %3").arg(code).arg(percent).arg(settings_tr(title));
+                    SettingCard *card = nullptr;
+                    for (auto *candidate : dialog.findChildren<SettingCard *>())
+                        if (candidate->titleLabel->text() == settings_tr(title)) card = candidate;
+                    QVERIFY2(card && card->isVisible(), qPrintable(where));
+                    QVERIFY2(card->width() >= card->layout()->totalMinimumSize().width(), qPrintable(where + ": the card is squeezed"));
+                    QVERIFY2(card->titleLabel->width() >= card->titleLabel->sizeHint().width(), qPrintable(where + ": the title is cut"));
+                    QVERIFY2(card->contentLabel->height() >= card->contentLabel->heightForWidth(card->contentLabel->width()), qPrintable(where + ": the caption is cut"));
+                    for (auto *combo : card->findChildren<ComboBox *>()) {
+                        const QFontMetrics metrics(combo->font());
+                        for (int index = 0; index < combo->count(); ++index) {
+                            const int needs = metrics.horizontalAdvance(combo->itemText(index)) + widget_scaled(combo, 2 * INPUT_PADDING_H + 18);
+                            QVERIFY2(combo->width() >= needs, qPrintable(QString("%1: %2 needs %3, has %4").arg(where, combo->itemText(index)).arg(needs).arg(combo->width())));
+                        }
+                    }
+                    for (auto *slider : card->findChildren<ValueSlider *>()) {
+                        QVERIFY2(slider->valueLabel()->width() >= slider->valueLabel()->sizeHint().width(), qPrintable(where + ": the value is cut"));
+                        QVERIFY2(slider->slider()->width() >= slider->slider()->minimumWidth(), qPrintable(where + ": the slider is squeezed"));
+                    }
+                }
+            }
+        }
+    }
+
     void globalLongScreenshotCanRebindClearAndTransfer() {
         QSettings settings(dir_.filePath("long-shortcut-save.ini"), QSettings::IniFormat);
         settings.clear();
@@ -1407,7 +1484,7 @@ private slots:
         // Settings no page shows stay out: the window could never show what was imported.
         for (const char *key : {"app/clipboard_window_width", "clipboard/starter_groups_seeded", "gif/fps", "app/save_dialog_quality"})
             QVERIFY2(!keys.contains(key), key);
-        QVERIFY(keys.contains("app/screenshot_quality"));
+        for (const char *key : {"app/screenshot_quality", "app/png_compression", "app/pdf_page_size"}) QVERIFY2(keys.contains(key), key);
         for (const auto &key : LOCAL_SETTING_PATHS()) QVERIFY2(!keys.contains(key), qPrintable(key));
         // A control a page edits by name has its setting imported.
         dialog.build_all_pages();

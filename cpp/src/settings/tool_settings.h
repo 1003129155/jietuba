@@ -181,6 +181,10 @@ public:
     void set_smart_selection_mode(const QString &mode);
     void set_screenshot_format(const QString &value) { store_screenshot_format(value.toUpper()); }
     void set_screenshot_quality(int value) { store_screenshot_quality(std::max(1, std::min(100, value))); }
+    QString get_png_compression() const;
+    void set_png_compression(const QString &value);
+    QString get_pdf_page_size() const;
+    void set_pdf_page_size(const QString &value);
     int get_save_dialog_quality() const;
     void set_save_dialog_quality(int value) { store_save_dialog_quality(std::clamp(value, 1, 100)); }
     QString get_ocr_engine() const;
@@ -310,6 +314,8 @@ inline const QStringList CAPTURE_ENGINE_CHOICES = {"auto", "mss", "hdr"};
 // OCR engines in settings-page order: auto prefers the system OCR, else PP-OCR; a named one never falls back.
 inline const QStringList OCR_ENGINES = {"auto", "oneocr", "ppocr_rust"};
 // Where the text recognition window opens, in settings-page order.
+inline const QStringList PNG_COMPRESSIONS = {"low", "medium", "high"};
+inline const QStringList PDF_PAGE_SIZES = {"image", "a4_portrait", "a4_landscape"};
 inline const QStringList OCR_RESULT_POSITIONS = {"region_screen", "primary_screen", "beside_region", "near_cursor", "last_position"};
 // The translate button, in settings-page order: paint the translation over the original text in
 // the capture, or close the capture and open the side-by-side window.

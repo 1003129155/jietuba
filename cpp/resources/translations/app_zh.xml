@@ -7234,6 +7234,38 @@ Make sure gifrecorder is installed correctly.</source>
         <translation>保存截图、钉图和剪贴板图片时使用。</translation>
     </message>
     <message>
+        <source>PNG Compression</source>
+        <translation>PNG 压缩</translation>
+    </message>
+    <message>
+        <source>A higher level makes smaller PNG files and saves more slowly.</source>
+        <translation>级别越高，PNG 文件越小，保存越慢。</translation>
+    </message>
+    <message>
+        <source>Low (Faster)</source>
+        <translation>低（保存更快）</translation>
+    </message>
+    <message>
+        <source>High (Smaller)</source>
+        <translation>高（文件更小）</translation>
+    </message>
+    <message>
+        <source>PDF Page Size</source>
+        <translation>PDF 页面大小</translation>
+    </message>
+    <message>
+        <source>A4 shrinks a wide image to fit and splits a long screenshot over several pages.</source>
+        <translation>A4 会缩小过宽的图片，并把长截图分到多页。</translation>
+    </message>
+    <message>
+        <source>A4 Portrait</source>
+        <translation>A4 纵向</translation>
+    </message>
+    <message>
+        <source>A4 Landscape</source>
+        <translation>A4 横向</translation>
+    </message>
+    <message>
         <source>Image Quality</source>
         <translation>图像质量</translation>
     </message>

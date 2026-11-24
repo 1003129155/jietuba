@@ -569,6 +569,14 @@ void ToolSettingsManager::set_smart_selection_mode(const QString &value) {
     set_smart_selection(mode != "off");
 }
 
+QString ToolSettingsManager::get_png_compression() const { return choice_value(stored_png_compression(), default_png_compression(), PNG_COMPRESSIONS); }
+
+void ToolSettingsManager::set_png_compression(const QString &value) { store_png_compression(choice_or_default(value, default_png_compression(), PNG_COMPRESSIONS)); }
+
+QString ToolSettingsManager::get_pdf_page_size() const { return choice_value(stored_pdf_page_size(), default_pdf_page_size(), PDF_PAGE_SIZES); }
+
+void ToolSettingsManager::set_pdf_page_size(const QString &value) { store_pdf_page_size(choice_or_default(value, default_pdf_page_size(), PDF_PAGE_SIZES)); }
+
 int ToolSettingsManager::get_save_dialog_quality() const {
     // Until the dialog stores one of its own it shows the quality it stored before it had its own.
     const bool own = qsettings.contains(app_setting_path("save_dialog_quality"));

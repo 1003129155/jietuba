@@ -202,6 +202,25 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     dialog->set_attr("screenshot_quality_slider", quality_slider);
     quality_card->addControl(quality_slider);
     grp_save->addSettingCard(quality_card);
+    // PNG and PDF options act on every save, the save dialog's too, so they do not follow the auto-save format.
+    auto *png_card = new SettingCard(FluentIcon::StopWatch, dialog->tr_text("PNG Compression"),
+                                     dialog->tr_text("A higher level makes smaller PNG files and saves more slowly."), grp_save);
+    auto *png_combo = new ComboBox(png_card);
+    for (const auto &[label, value] : {std::make_pair("Low (Faster)", "low"), std::make_pair("Medium", "medium"), std::make_pair("High (Smaller)", "high")})
+        png_combo->addItem(dialog->tr_text(label), QString(value));
+    png_combo->setCurrentIndex(std::max<int>(0, PNG_COMPRESSIONS.indexOf(config->get_png_compression())));
+    dialog->set_attr("png_compression_combo", png_combo);
+    png_card->addControl(png_combo);
+    grp_save->addSettingCard(png_card);
+    auto *pdf_card = new SettingCard(FluentIcon::Document, dialog->tr_text("PDF Page Size"),
+                                     dialog->tr_text("A4 shrinks a wide image to fit and splits a long screenshot over several pages."), grp_save);
+    auto *pdf_combo = new ComboBox(pdf_card);
+    for (const auto &[label, value] : {std::make_pair("Image Size", "image"), std::make_pair("A4 Portrait", "a4_portrait"), std::make_pair("A4 Landscape", "a4_landscape")})
+        pdf_combo->addItem(dialog->tr_text(label), QString(value));
+    pdf_combo->setCurrentIndex(std::max<int>(0, PDF_PAGE_SIZES.indexOf(config->get_pdf_page_size())));
+    dialog->set_attr("pdf_page_size_combo", pdf_combo);
+    pdf_card->addControl(pdf_combo);
+    grp_save->addSettingCard(pdf_card);
     dialog->save_filename_patterns = file_names::load(*config);
     auto *names_card = new SettingCard(FluentIcon::Document, dialog->tr_text("File Name Settings"),
                                       dialog->tr_text("Set file names for screenshots, long screenshots, GIFs and videos."), grp_save);

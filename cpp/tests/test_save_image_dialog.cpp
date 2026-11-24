@@ -225,6 +225,35 @@ private slots:
         QCOMPARE(next.current_quality(), 55);
     }
 
+    // The size the dialog estimates is the size it saves, for the PNG level and the PDF page of the settings.
+    void theEstimateUsesThePngLevelAndThePdfPage() {
+        const auto image = noisy_image();
+        for (const char *level : {"low", "high"}) {
+            config_->set_png_compression(level);
+            SaveOptions options;
+            options.png = QString(level) == "low" ? SaveOptions::PngCompression::Low : SaveOptions::PngCompression::High;
+            SaveImageDialog dialog(image, "level", config_);
+            select_format(dialog, "PNG");
+            const auto estimate = wait_encoded(dialog);
+            QCOMPARE(estimate, static_cast<qint64>(SaveService::encode_image(image, "PNG", options).size()));
+            const auto folder = dir_.filePath(QString("png_%1").arg(level));
+            dialog.directory_edit->setText(QDir::toNativeSeparators(folder));
+            dialog.save_button->click();
+            QCOMPARE(QFileInfo(folder + "/level.png").size(), estimate);
+        }
+        config_->set_pdf_page_size("a4_landscape");
+        SaveOptions pdf;
+        pdf.pdf_page = SaveOptions::PdfPageSize::A4Landscape;
+        SaveImageDialog dialog(image, "page", config_);
+        select_format(dialog, "PDF");
+        const auto estimate = wait_encoded(dialog);
+        QCOMPARE(estimate, static_cast<qint64>(SaveService::encode_image(image, "PDF", pdf).size()));
+        QVERIFY(estimate != static_cast<qint64>(SaveService::encode_image(image, "PDF", {}).size()));
+        dialog.directory_edit->setText(QDir::toNativeSeparators(dir_.filePath("pdf_page")));
+        dialog.save_button->click();
+        QCOMPARE(QFileInfo(dir_.filePath("pdf_page/page.pdf")).size(), estimate);
+    }
+
     void startsFromSettingsAndLosslessHasNoQuality() {
         settings_->setValue("app/screenshot_format", "PNG");
         SaveImageDialog dialog(noisy_image(), "screenshot_x", config_);

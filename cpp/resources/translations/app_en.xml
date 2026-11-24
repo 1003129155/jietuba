@@ -7185,6 +7185,38 @@ Make sure gifrecorder is installed correctly.</translation>
         <translation>Used when saving a screenshot, a pin or a clipboard image.</translation>
     </message>
     <message>
+        <source>PNG Compression</source>
+        <translation>PNG Compression</translation>
+    </message>
+    <message>
+        <source>A higher level makes smaller PNG files and saves more slowly.</source>
+        <translation>A higher level makes smaller PNG files and saves more slowly.</translation>
+    </message>
+    <message>
+        <source>Low (Faster)</source>
+        <translation>Low (Faster)</translation>
+    </message>
+    <message>
+        <source>High (Smaller)</source>
+        <translation>High (Smaller)</translation>
+    </message>
+    <message>
+        <source>PDF Page Size</source>
+        <translation>PDF Page Size</translation>
+    </message>
+    <message>
+        <source>A4 shrinks a wide image to fit and splits a long screenshot over several pages.</source>
+        <translation>A4 shrinks a wide image to fit and splits a long screenshot over several pages.</translation>
+    </message>
+    <message>
+        <source>A4 Portrait</source>
+        <translation>A4 Portrait</translation>
+    </message>
+    <message>
+        <source>A4 Landscape</source>
+        <translation>A4 Landscape</translation>
+    </message>
+    <message>
         <source>Image Quality</source>
         <translation>Image Quality</translation>
     </message>

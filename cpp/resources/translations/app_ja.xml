@@ -7247,6 +7247,38 @@ gifrecorder が正しくインストールされているか確認してくだ�
         <translation>スクリーンショット、ピン、クリップボードの画像を保存するときに使います。</translation>
     </message>
     <message>
+        <source>PNG Compression</source>
+        <translation>PNG 圧縮</translation>
+    </message>
+    <message>
+        <source>A higher level makes smaller PNG files and saves more slowly.</source>
+        <translation>レベルが高いほど PNG ファイルは小さくなり、保存は遅くなります。</translation>
+    </message>
+    <message>
+        <source>Low (Faster)</source>
+        <translation>低（高速）</translation>
+    </message>
+    <message>
+        <source>High (Smaller)</source>
+        <translation>高（軽量）</translation>
+    </message>
+    <message>
+        <source>PDF Page Size</source>
+        <translation>PDF のページサイズ</translation>
+    </message>
+    <message>
+        <source>A4 shrinks a wide image to fit and splits a long screenshot over several pages.</source>
+        <translation>A4 では幅の広い画像は縮小され、長いスクリーンショットは複数ページに分割されます。</translation>
+    </message>
+    <message>
+        <source>A4 Portrait</source>
+        <translation>A4 縦</translation>
+    </message>
+    <message>
+        <source>A4 Landscape</source>
+        <translation>A4 横</translation>
+    </message>
+    <message>
         <source>Image Quality</source>
         <translation>画像品質</translation>
     </message>

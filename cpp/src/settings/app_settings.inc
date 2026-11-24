@@ -135,6 +135,10 @@ SETTING(screenshot_save_path, "app/screenshot_save_path", QString, QDir::toNativ
 SETTING(screenshot_format, "app/screenshot_format", QString, "PNG", Import, Gen, Own)
 // JPG and WebP quality of every save that does not go through the save dialog.
 SETTING(screenshot_quality, "app/screenshot_quality", int, 85, Import, Gen, Own)
+// low / medium / high: zlib level 1 / 6 / 9 of every PNG written.
+SETTING(png_compression, "app/png_compression", QString, "medium", Import, Own, Own)
+// image / a4_portrait / a4_landscape: the page of a PDF written by a save.
+SETTING(pdf_page_size, "app/pdf_page_size", QString, "image", Import, Own, Own)
 // The save dialog's own quality; before it is first written it reads as screenshot_quality.
 SETTING(save_dialog_quality, "app/save_dialog_quality", int, 85, Internal, Own, Own)
 SETTING(save_filename_patterns, "app/save_filename_patterns", QStringList, {}, Import, Gen, Gen)

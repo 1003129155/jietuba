@@ -2,15 +2,19 @@
 #include "core/save.h"
 #include "settings/tool_settings.h"
 #include <QCoreApplication>
+#include <QBuffer>
 #include <QDir>
 #include <QFile>
 #include <QImage>
+#include <QImageWriter>
 #include <QPainter>
 #include <QRandomGenerator>
+#include <QRegularExpression>
 #include <QSemaphore>
 #include <QSettings>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QtEndian>
 
 using namespace jietuba;
 
@@ -38,6 +42,85 @@ SaveOptions with_quality(int quality) {
     options.quality = quality;
     return options;
 }
+
+SaveOptions png_options(SaveOptions::PngCompression compression) {
+    SaveOptions options;
+    options.png = compression;
+    return options;
+}
+
+SaveOptions pdf_options(SaveOptions::PdfPageSize page, int dpi = SaveOptions::DEFAULT_PDF_DPI) {
+    SaveOptions options;
+    options.pdf_page = page;
+    options.pdf_dpi = dpi;
+    return options;
+}
+
+// The zlib compression-level flag and the type of the first deflate block of a PNG's image data.
+struct DeflateHeader {
+    int level_flag = -1;
+    int block_type = -1;
+};
+
+DeflateHeader deflate_header(const QByteArray &png) {
+    qsizetype position = 8;
+    while (position + 8 <= png.size()) {
+        const auto length = qFromBigEndian<quint32>(png.constData() + position);
+        if (png.mid(position + 4, 4) == "IDAT") {
+            const auto *data = reinterpret_cast<const uchar *>(png.constData()) + position + 8;
+            return {data[1] >> 6, (data[2] >> 1) & 3};
+        }
+        position += 12 + length;
+    }
+    return {};
+}
+
+// The MediaBox size of every page, in points.
+QList<QSizeF> page_sizes(const QByteArray &pdf) {
+    static const QRegularExpression box(R"(/MediaBox\s*\[\s*[\d.]+\s+[\d.]+\s+([\d.]+)\s+([\d.]+)\s*\])");
+    QList<QSizeF> sizes;
+    const auto text = QString::fromLatin1(pdf);
+    for (auto it = box.globalMatch(text); it.hasNext();) {
+        const auto match = it.next();
+        sizes.append(QSizeF(match.captured(1).toDouble(), match.captured(2).toDouble()));
+    }
+    return sizes;
+}
+
+// Where each page draws its image: the rectangle in points from the top left of the page, in page order.
+// Qt writes a page's content as a scale to points, a scale and an offset in drawing units, then the image's own size.
+QList<QRectF> image_rects(const QByteArray &pdf) {
+    static const QRegularExpression stream(R"(stream\r?\n)");
+    static const QRegularExpression matrix(R"(([-\d.]+) 0 0 ([-\d.]+) 0 [-\d.]+ cm)");
+    static const QRegularExpression placed(R"(([-\d.]+) 0 0 ([-\d.]+) ([-\d.]+) ([-\d.]+) cm\s+([-\d.]+) 0 0 ([-\d.]+) 0 [-\d.]+ cm /\w+\s+Do)");
+    QList<QRectF> rects;
+    qsizetype from = 0;
+    while (true) {
+        const qsizetype begin = pdf.indexOf("stream", from);
+        if (begin < 0) break;
+        const qsizetype start = pdf.indexOf('\n', begin) + 1;
+        const qsizetype end = pdf.indexOf("endstream", start);
+        from = end + 9;
+        if (end < 0) break;
+        // qUncompress wants the expected size up front; it grows its buffer when that is too small.
+        QByteArray packed(4, '\0');
+        packed[2] = 0x10;
+        packed.append(pdf.mid(start, end - start));
+        const auto text = QString::fromLatin1(qUncompress(packed));
+        if (!text.contains(" Do")) continue;
+        const auto page = matrix.match(text);
+        const auto draw = placed.match(text);
+        if (!page.hasMatch() || !draw.hasMatch()) continue;
+        const double to_points = page.captured(1).toDouble();
+        const double scale = draw.captured(1).toDouble() * to_points;
+        rects.append(QRectF(draw.captured(3).toDouble() * to_points, draw.captured(4).toDouble() * to_points,
+                            draw.captured(5).toDouble() * scale, qAbs(draw.captured(6).toDouble()) * scale));
+    }
+    return rects;
+}
+
+bool near(double a, double b, double tolerance = 0.02) { return qAbs(a - b) <= tolerance; }
+bool near(const QRectF &a, const QRectF &b) { return near(a.x(), b.x()) && near(a.y(), b.y()) && near(a.width(), b.width()) && near(a.height(), b.height()); }
 
 QByteArray file_bytes(const QString &path) {
     QFile file(path);
@@ -158,6 +241,221 @@ private slots:
         QVERIFY(async_path);
         QVERIFY(done.tryAcquire(1, 10000));
         QCOMPARE(file_bytes(*async_path), SaveService::encode_image(image, "WEBP", with_quality(25)));
+    }
+
+    // QImageWriter reads a PNG compression c as zlib level c * 9 / 91, so the levels 1, 6 and 9 are asked for as 11, 61 and 91.
+    // Asking for 1, 6 and 9 would write every PNG with no compression at all.
+    void pngLevelsAreZlibLevels1And6And9() {
+        const auto image = screenshot_like(600, 400);
+        const auto low = SaveService::encode_image(image, "PNG", png_options(SaveOptions::PngCompression::Low));
+        const auto medium = SaveService::encode_image(image, "PNG", png_options(SaveOptions::PngCompression::Medium));
+        const auto high = SaveService::encode_image(image, "PNG", png_options(SaveOptions::PngCompression::High));
+        // The header zlib writes says which of its level groups was used: fastest (1), default (6), best (7 to 9).
+        QCOMPARE(deflate_header(low).level_flag, 0);
+        QCOMPARE(deflate_header(medium).level_flag, 2);
+        QCOMPARE(deflate_header(high).level_flag, 3);
+        // Level 0 stores the data as it is, level 1 does not.
+        QVERIFY(deflate_header(low).block_type != 0);
+        QByteArray stored_bytes;
+        QBuffer buffer(&stored_bytes);
+        buffer.open(QIODevice::WriteOnly);
+        QImageWriter writer(&buffer, "PNG");
+        writer.setCompression(1);
+        QVERIFY(writer.write(image));
+        QCOMPARE(deflate_header(stored_bytes).block_type, 0);
+        QVERIFY(low.size() * 3 < stored_bytes.size());
+        QVERIFY(high.size() <= medium.size());
+        QVERIFY(medium.size() <= low.size());
+        QVERIFY(high.size() < low.size());
+        // The default is what saving wrote before the setting existed.
+        QByteArray before;
+        QBuffer before_buffer(&before);
+        before_buffer.open(QIODevice::WriteOnly);
+        QVERIFY(image.save(&before_buffer, "PNG"));
+        QCOMPARE(medium, before);
+        for (const auto &bytes : {low, medium, high}) QCOMPARE(QImage::fromData(bytes, "PNG").convertToFormat(QImage::Format_RGB32), image);
+    }
+
+    void pngLevelLeavesTheOtherFormatsAlone() {
+        const auto image = screenshot_like();
+        SaveOptions low, high;
+        low.png = SaveOptions::PngCompression::Low;
+        high.png = SaveOptions::PngCompression::High;
+        for (const char *format : {"JPG", "WEBP", "BMP"}) QCOMPARE(SaveService::encode_image(image, format, low), SaveService::encode_image(image, format, high));
+        // A PDF carries a date and an id, so only what the PNG level could change is compared: the length.
+        QCOMPARE(SaveService::encode_image(image, "PDF", low).size(), SaveService::encode_image(image, "PDF", high).size());
+    }
+
+    void saveToPathWritesWhatEncodeImageReturns() {
+        const auto image = screenshot_like();
+        for (const auto level : {SaveOptions::PngCompression::Low, SaveOptions::PngCompression::High}) {
+            const auto options = png_options(level);
+            const auto path = dir_.filePath(QString("level%1.png").arg(int(level)));
+            QVERIFY(SaveService::save_qimage_to_path(image, path, "PNG", options));
+            QCOMPARE(file_bytes(path), SaveService::encode_image(image, "PNG", options));
+        }
+        const auto options = pdf_options(SaveOptions::PdfPageSize::A4Landscape);
+        const auto pdf = dir_.filePath("page.pdf");
+        QVERIFY(SaveService::save_qimage_to_path(image, pdf, "PDF", options));
+        const auto saved = file_bytes(pdf);
+        QCOMPARE(page_sizes(saved), page_sizes(SaveService::encode_image(image, "PDF", options)));
+        QCOMPARE(saved.size(), SaveService::encode_image(image, "PDF", options).size());
+        QVERIFY(!SaveService::save_qimage_to_path(image, dir_.filePath("x.bad"), "INVALID", {}));
+    }
+
+    void optionsReadThePngLevelAndThePdfPage() {
+        QCOMPARE(SaveOptions::from_settings(*config_).png, SaveOptions::PngCompression::Medium);
+        QCOMPARE(SaveOptions::from_settings(*config_).pdf_page, SaveOptions::PdfPageSize::Image);
+        config_->set_png_compression("low");
+        config_->set_pdf_page_size("a4_portrait");
+        QCOMPARE(SaveOptions::from_settings(*config_).png, SaveOptions::PngCompression::Low);
+        QCOMPARE(SaveOptions::from_settings(*config_).pdf_page, SaveOptions::PdfPageSize::A4Portrait);
+        config_->set_png_compression("HIGH");
+        config_->set_pdf_page_size("a4_landscape");
+        QCOMPARE(SaveOptions::from_settings(*config_).png, SaveOptions::PngCompression::High);
+        QCOMPARE(SaveOptions::from_settings(*config_).pdf_page, SaveOptions::PdfPageSize::A4Landscape);
+        // A value no choice matches reads as the default, from a file edited by hand or imported from a newer version.
+        settings_->setValue("app/png_compression", "extreme");
+        settings_->setValue("app/pdf_page_size", "letter");
+        QCOMPARE(config_->get_png_compression(), QString("medium"));
+        QCOMPARE(config_->get_pdf_page_size(), QString("image"));
+        QCOMPARE(SaveOptions::from_settings(*config_).png, SaveOptions::PngCompression::Medium);
+        config_->set_png_compression("extreme");
+        config_->set_pdf_page_size("letter");
+        QCOMPARE(config_->get_png_compression(), QString("medium"));
+        QCOMPARE(config_->get_pdf_page_size(), QString("image"));
+    }
+
+    // The page of an image-sized PDF is the image's pixels at the PDF's dpi, in points.
+    void imageSizedPageIsThePixelsAtTheDpi() {
+        auto pages = SaveService::pdf_layout(QSize(600, 400), pdf_options(SaveOptions::PdfPageSize::Image));
+        QCOMPARE(pages.size(), 1);
+        QVERIFY(near(pages[0].page.width(), 144) && near(pages[0].page.height(), 96));
+        QVERIFY(near(pages[0].target, QRectF(0, 0, 144, 96)));
+        QCOMPARE(pages[0].source_y, 0);
+        QCOMPARE(pages[0].source_rows, 400);
+        pages = SaveService::pdf_layout(QSize(600, 400), pdf_options(SaveOptions::PdfPageSize::Image, 150));
+        QVERIFY(near(pages[0].page.width(), 288) && near(pages[0].page.height(), 192));
+        // Below 72 dpi the drawing space is still 72.
+        pages = SaveService::pdf_layout(QSize(600, 400), pdf_options(SaveOptions::PdfPageSize::Image, 10));
+        QVERIFY(near(pages[0].page.width(), 600));
+        QVERIFY(SaveService::pdf_layout(QSize(), pdf_options(SaveOptions::PdfPageSize::A4Portrait)).isEmpty());
+        QVERIFY(SaveService::pdf_layout(QSize(0, 40), pdf_options(SaveOptions::PdfPageSize::Image)).isEmpty());
+    }
+
+    // A4 is 595.28 x 841.89 pt; with a 10 mm (28.35 pt) margin the printable area is 538.58 x 785.20 pt.
+    // Images are measured at 96 dpi, 0.75 pt a pixel, and only ever shrunk.
+    void smallImageOnA4KeepsItsSizeAndIsCentred() {
+        const auto portrait = SaveService::pdf_layout(QSize(100, 50), pdf_options(SaveOptions::PdfPageSize::A4Portrait));
+        QCOMPARE(portrait.size(), 1);
+        QVERIFY(near(portrait[0].page.width(), 595.276) && near(portrait[0].page.height(), 841.890));
+        // (538.583 - 75) / 2 + 28.346 and (785.197 - 37.5) / 2 + 28.346
+        QVERIFY(near(portrait[0].target, QRectF(260.138, 402.195, 75, 37.5)));
+        QCOMPARE(portrait[0].source_y, 0);
+        QCOMPARE(portrait[0].source_rows, 50);
+        const auto landscape = SaveService::pdf_layout(QSize(1000, 300), pdf_options(SaveOptions::PdfPageSize::A4Landscape));
+        QCOMPARE(landscape.size(), 1);
+        QVERIFY(near(landscape[0].page.width(), 841.890) && near(landscape[0].page.height(), 595.276));
+        // (785.197 - 750) / 2 + 28.346 and (538.583 - 225) / 2 + 28.346
+        QVERIFY(near(landscape[0].target, QRectF(45.945, 185.138, 750, 225)));
+    }
+
+    void wideImageOnA4ShrinksToThePrintableWidth() {
+        const auto pages = SaveService::pdf_layout(QSize(1440, 300), pdf_options(SaveOptions::PdfPageSize::A4Portrait));
+        QCOMPARE(pages.size(), 1);
+        // 1440 px are 1080 pt; 538.583 / 1080 = 0.49869 of that is 112.20 pt high.
+        QVERIFY(near(pages[0].target, QRectF(28.346, 28.346 + (785.197 - 112.205) / 2, 538.583, 112.205)));
+    }
+
+    void tallImageOnA4IsCutIntoPagesOfTheSameWidth() {
+        // 720 px are 540 pt, shrunk to 538.583: 0.748031 pt a pixel, so 785.197 pt hold 1049 rows.
+        const auto pages = SaveService::pdf_layout(QSize(720, 4000), pdf_options(SaveOptions::PdfPageSize::A4Portrait));
+        QCOMPARE(pages.size(), 4);
+        const int rows[] = {1049, 1049, 1049, 853};
+        for (int index = 0; index < 4; ++index) {
+            QCOMPARE(pages[index].source_y, 1049 * index);
+            QCOMPARE(pages[index].source_rows, rows[index]);
+            QVERIFY(near(pages[index].target.x(), 28.346));
+            QVERIFY(near(pages[index].target.y(), 28.346));
+            QVERIFY(near(pages[index].target.width(), 538.583));
+            QVERIFY(near(pages[index].target.height(), rows[index] * 0.748031));
+        }
+        // 900 px stay 675 pt wide on a landscape page, where 538.583 pt hold 718 rows.
+        const auto landscape = SaveService::pdf_layout(QSize(900, 2000), pdf_options(SaveOptions::PdfPageSize::A4Landscape));
+        QCOMPARE(landscape.size(), 3);
+        QCOMPARE(landscape[2].source_y, 1436);
+        QCOMPARE(landscape[2].source_rows, 564);
+        QVERIFY(near(landscape[0].target, QRectF(83.445, 28.346, 675, 718 * 0.75)));
+        QVERIFY(near(landscape[2].target.height(), 564 * 0.75));
+    }
+
+    // 1046 rows are 784.5 pt, which fits the 785.2 pt of a page; one row more does not.
+    void theLastRowThatFitsStaysOnOnePage() {
+        QCOMPARE(SaveService::pdf_layout(QSize(100, 1046), pdf_options(SaveOptions::PdfPageSize::A4Portrait)).size(), 1);
+        const auto two = SaveService::pdf_layout(QSize(100, 1047), pdf_options(SaveOptions::PdfPageSize::A4Portrait));
+        QCOMPARE(two.size(), 2);
+        QCOMPARE(two[1].source_y, 1046);
+        QCOMPARE(two[1].source_rows, 1);
+    }
+
+    void pdfFilesHaveTheLaidOutPages() {
+        // Qt writes the page size in whole points.
+        auto pdf = SaveService::encode_image(screenshot_like(600, 400), "PDF", pdf_options(SaveOptions::PdfPageSize::Image));
+        QCOMPARE(page_sizes(pdf), QList<QSizeF>{QSizeF(144, 96)});
+        pdf = SaveService::encode_image(screenshot_like(100, 50), "PDF", pdf_options(SaveOptions::PdfPageSize::A4Portrait));
+        QCOMPARE(page_sizes(pdf), QList<QSizeF>{QSizeF(595, 842)});
+        auto rects = image_rects(pdf);
+        QCOMPARE(rects.size(), 1);
+        QVERIFY2(near(rects[0], QRectF(260.138, 402.195, 75, 37.5)), qPrintable(QString("%1 %2 %3 %4").arg(rects[0].x()).arg(rects[0].y()).arg(rects[0].width()).arg(rects[0].height())));
+        pdf = SaveService::encode_image(screenshot_like(1000, 300), "PDF", pdf_options(SaveOptions::PdfPageSize::A4Landscape));
+        QCOMPARE(page_sizes(pdf), QList<QSizeF>{QSizeF(842, 595)});
+        rects = image_rects(pdf);
+        QCOMPARE(rects.size(), 1);
+        QVERIFY(near(rects[0], QRectF(45.945, 185.138, 750, 225)));
+        // The long image makes four pages of one size, each with its slice drawn at the top of the margin.
+        pdf = SaveService::encode_image(screenshot_like(720, 4000), "PDF", pdf_options(SaveOptions::PdfPageSize::A4Portrait));
+        QCOMPARE(page_sizes(pdf), QList<QSizeF>(4, QSizeF(595, 842)));
+        rects = image_rects(pdf);
+        QCOMPARE(rects.size(), 4);
+        for (const auto &rect : rects) QVERIFY(near(rect.x(), 28.346) && near(rect.y(), 28.346) && near(rect.width(), 538.583));
+        QVERIFY(near(rects[0].height(), 1049 * 0.748031));
+        QVERIFY(near(rects[3].height(), 853 * 0.748031));
+        QVERIFY(!pdf.contains("/DCTDecode"));
+        // Each page holds its rows, not a second copy of the whole image.
+        QVERIFY(pdf.size() < SaveService::encode_image(screenshot_like(720, 4000), "PDF", pdf_options(SaveOptions::PdfPageSize::Image)).size() * 3 / 2);
+    }
+
+    // An image-sized page has a longest side the PDF format allows; an A4 page scales and splits, so it has none.
+    void onlyImageSizedPdfPagesLimitTheLongestSide() {
+        QCOMPARE(SaveService::format_for_size("PDF", 70000, 100, pdf_options(SaveOptions::PdfPageSize::Image)), QString("PNG"));
+        QCOMPARE(SaveService::format_for_size("PDF", 60000, 100, pdf_options(SaveOptions::PdfPageSize::Image)), QString("PDF"));
+        QCOMPARE(SaveService::format_for_size("PDF", 150, 140000, pdf_options(SaveOptions::PdfPageSize::Image, 150)), QString("PNG"));
+        QCOMPARE(SaveService::format_for_size("PDF", 70000, 100, pdf_options(SaveOptions::PdfPageSize::A4Portrait)), QString("PDF"));
+        QCOMPARE(SaveService::format_for_size("PDF", 100, 90000, pdf_options(SaveOptions::PdfPageSize::A4Landscape)), QString("PDF"));
+        QCOMPARE(SaveService::format_for_size("JPG", 70000, 100, pdf_options(SaveOptions::PdfPageSize::A4Portrait)), QString("PNG"));
+        QCOMPARE(SaveService::format_for_size("WEBP", 100, 20000, {}), QString("PNG"));
+        QCOMPARE(SaveService::format_for_size("PNG", 100, 200000, {}), QString("PNG"));
+    }
+
+    // The auto-save writes the level and the page the settings name.
+    void autoSaveUsesThePngLevelAndThePdfPage() {
+        const auto image = screenshot_like(600, 400);
+        config_->set_screenshot_save_enabled(true);
+        config_->set_screenshot_format("PNG");
+        config_->set_png_compression("high");
+        auto delivery = deliver_screenshot(image, config_, false, "capture");
+        QVERIFY(delivery && delivery->join(10.0));
+        auto path = only_file(dir_.filePath("shots"));
+        QVERIFY(path.endsWith(".png"));
+        QCOMPARE(deflate_header(file_bytes(path)).level_flag, 3);
+        QDir(dir_.filePath("shots")).removeRecursively();
+        config_->set_screenshot_format("PDF");
+        config_->set_pdf_page_size("a4_landscape");
+        delivery = deliver_screenshot(image, config_, false, "capture");
+        QVERIFY(delivery && delivery->join(10.0));
+        path = only_file(dir_.filePath("shots"));
+        QVERIFY(path.endsWith(".pdf"));
+        QCOMPARE(page_sizes(file_bytes(path)), QList<QSizeF>{QSizeF(842, 595)});
     }
 };
 

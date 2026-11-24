@@ -7235,6 +7235,38 @@ gifrecorder가 올바르게 설치되었는지 확인하세요.</translation>
         <translation>스크린샷, 고정 이미지, 클립보드 이미지를 저장할 때 사용합니다.</translation>
     </message>
     <message>
+        <source>PNG Compression</source>
+        <translation>PNG 압축</translation>
+    </message>
+    <message>
+        <source>A higher level makes smaller PNG files and saves more slowly.</source>
+        <translation>단계가 높을수록 PNG 파일은 작아지고 저장은 느려집니다.</translation>
+    </message>
+    <message>
+        <source>Low (Faster)</source>
+        <translation>낮음(빠름)</translation>
+    </message>
+    <message>
+        <source>High (Smaller)</source>
+        <translation>높음(작게)</translation>
+    </message>
+    <message>
+        <source>PDF Page Size</source>
+        <translation>PDF 페이지 크기</translation>
+    </message>
+    <message>
+        <source>A4 shrinks a wide image to fit and splits a long screenshot over several pages.</source>
+        <translation>A4는 너비가 큰 이미지를 줄여 맞추고, 긴 스크린샷은 여러 페이지로 나눕니다.</translation>
+    </message>
+    <message>
+        <source>A4 Portrait</source>
+        <translation>A4 세로</translation>
+    </message>
+    <message>
+        <source>A4 Landscape</source>
+        <translation>A4 가로</translation>
+    </message>
+    <message>
         <source>Image Quality</source>
         <translation>이미지 품질</translation>
     </message>
