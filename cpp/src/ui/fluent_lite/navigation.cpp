@@ -117,6 +117,8 @@ public:
     bool expandable() const { return expandable_; }
     // The arrow points down when folded and up when unfolded; it turns when animated.
     void setExpanded(bool expanded, bool animate) {
+        expanded_ = expanded;
+        update();
         turn_.stop();
         const qreal end = expanded ? 180 : 0;
         if (animate && isVisible() && angle_ != end) {
@@ -133,7 +135,8 @@ public:
     QSize sizeHint() const override { return QSize(text_left() + QFontMetrics(row_font()).horizontalAdvance(text()) + right_room(), row_height()); }
     QSize minimumSizeHint() const override { return QSize(0, row_height()); }
 protected:
-    bool current() const override { return isChecked() && !sub_active_; }
+    // Folded, the current sub-item is hidden, so the item marks the page itself.
+    bool current() const override { return isChecked() && (!sub_active_ || !expanded_); }
     int right_room() const { return expandable_ ? arrow_width() : text_right_pad(); }
     void mousePressEvent(QMouseEvent *event) override {
         if (expandable_ && event->button() == Qt::LeftButton && arrow_rect().contains(event->position().toPoint())) {
@@ -185,6 +188,7 @@ protected:
 private:
     bool sub_active_ = false;
     bool expandable_ = false;
+    bool expanded_ = false;
     bool arrow_pressed_ = false;
     qreal angle_ = 0;
     QVariantAnimation turn_;
@@ -349,8 +353,15 @@ QPushButton *NavigationInterface::addItem(const QString &route_key, const IconSo
     // Labels are visible already; a tooltip only when it adds context.
     if (!tooltip.isEmpty()) button->setToolTip(tooltip);
     button->on_arrow = [this, route_key] { emit arrowClicked(route_key); };
-    connect(button, &QPushButton::clicked, this, [this, route_key] { setCurrentItem(route_key); });
-    if (on_click) connect(button, &QPushButton::clicked, this, [on_click] { on_click(); });
+    connect(button, &QPushButton::clicked, this, [this, route_key, button, on_click] {
+        // The open page's row folds and unfolds like its arrow; the page is already shown.
+        if (current_ == route_key && button->expandable()) {
+            emit arrowClicked(route_key);
+            return;
+        }
+        setCurrentItem(route_key);
+        if (on_click) on_click();
+    });
     group_->addButton(button);
     items_[route_key] = button;
     icons_[route_key] = icon;

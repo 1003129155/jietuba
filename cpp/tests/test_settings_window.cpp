@@ -4357,6 +4357,51 @@ private slots:
         }
     }
 
+    // Clicked again, the row of the page shown folds it and then unfolds it, like its arrow; the
+    // page stays. Another page's row still opens that page.
+    void clickingTheOpenPagesRowFoldsAndUnfoldsIt() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 750);
+        dialog.show();
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        QVERIFY(nav);
+        QTRY_VERIFY(nav->isExpanded("shortcuts"));
+        auto *item = nav->widget("capture");
+        const QPoint on_text(dialog_scaled(60), item->height() / 2);
+        QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, on_text);
+        QCOMPARE(dialog.content_stack->currentIndex(), 1);
+        QTRY_VERIFY(nav->subItemCount("capture") > 1);
+        QVERIFY(nav->isExpanded("capture"));
+        QTRY_VERIFY(!nav->animating());
+
+        // The current page's mark: a group's row while unfolded, the page's own row while folded.
+        const auto row_marked = [item] {
+            const QColor bar = item->grab().toImage().pixelColor(1, item->height() / 2);
+            const QColor accent = css_color(ACCENT);
+            return std::abs(bar.red() - accent.red()) + std::abs(bar.green() - accent.green()) + std::abs(bar.blue() - accent.blue()) < 8;
+        };
+        QCOMPARE(nav->currentSubRoute(), QString("capture"));
+        QVERIFY(!row_marked());
+
+        QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, on_text);
+        QVERIFY(!nav->isExpanded("capture"));
+        QCOMPARE(dialog.content_stack->currentIndex(), 1);
+        QVERIFY(item->isChecked());
+        QTRY_VERIFY(!nav->animating());
+        QVERIFY(!nav->subItem("capture", 0)->isVisible());
+        QVERIFY(row_marked());
+        QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, on_text);
+        QVERIFY(nav->isExpanded("capture"));
+        QCOMPARE(dialog.content_stack->currentIndex(), 1);
+        QTRY_VERIFY(!nav->animating());
+        QVERIFY(nav->subItem("capture", 0)->isVisible());
+        QVERIFY(!row_marked());
+
+        QTest::mouseClick(nav->widget("pin"), Qt::LeftButton, Qt::NoModifier, on_text);
+        QCOMPARE(dialog.content_stack->currentIndex(), 11);
+        QTRY_VERIFY(nav->isExpanded("pin"));
+    }
+
     void foldingMovesTheHeightOfTheListAndEndsAtItsNaturalSize() {
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.resize(1050, 900);
