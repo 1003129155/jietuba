@@ -7690,8 +7690,12 @@ Replace it?</source>
         <translation>대상 언어</translation>
     </message>
     <message>
-        <source>More</source>
-        <translation>더보기</translation>
+        <source>Expand</source>
+        <translation>펼치기</translation>
+    </message>
+    <message>
+        <source>Collapse</source>
+        <translation>접기</translation>
     </message>
 </context>
 <context>

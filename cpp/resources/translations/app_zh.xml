@@ -7680,8 +7680,12 @@ Replace it?</source>
         <translation>译为</translation>
     </message>
     <message>
-        <source>More</source>
-        <translation>更多</translation>
+        <source>Expand</source>
+        <translation>展开</translation>
+    </message>
+    <message>
+        <source>Collapse</source>
+        <translation>收起</translation>
     </message>
 </context>
 <context>

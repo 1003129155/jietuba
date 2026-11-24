@@ -8061,8 +8061,12 @@ Replace it?</source>
         <translation>譯為</translation>
     </message>
     <message>
-        <source>More</source>
-        <translation>更多</translation>
+        <source>Expand</source>
+        <translation>展開</translation>
+    </message>
+    <message>
+        <source>Collapse</source>
+        <translation>收合</translation>
     </message>
 </context>
 <context>

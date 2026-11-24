@@ -7702,8 +7702,12 @@ Replace it?</source>
         <translation>翻訳先</translation>
     </message>
     <message>
-        <source>More</source>
-        <translation>その他</translation>
+        <source>Expand</source>
+        <translation>展開</translation>
+    </message>
+    <message>
+        <source>Collapse</source>
+        <translation>折りたたむ</translation>
     </message>
 </context>
 <context>

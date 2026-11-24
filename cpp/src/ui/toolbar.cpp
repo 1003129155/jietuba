@@ -658,6 +658,10 @@ TranslationPanel *Toolbar::ensure_translation_panel() {
         translation_panel = new TranslationPanel(parentWidget());
         make_floating(translation_panel);
         translation_panel->hide();
+        // It widens and narrows as its folded part slides, and must stay on screen meanwhile.
+        connect(translation_panel, &TranslationPanel::resized, this, [this] {
+            if (translation_panel->isVisible()) sync_panel_position(translation_panel);
+        });
     }
     return translation_panel;
 }

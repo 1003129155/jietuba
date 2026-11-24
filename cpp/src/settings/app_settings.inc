@@ -311,6 +311,8 @@ SETTING(translation_popup_auto_close, "app/translation_popup_auto_close", bool, 
 // What the capture and long screenshot toolbars' translate button does: one of SCREENSHOT_TRANSLATE_MODES.
 SETTING(screenshot_translate_mode, "translation/screenshot_mode", QString, "compare", Import, Own, Own)
 SETTING(translation_on_top, "app/translation_on_top", bool, true, Internal, Gen, Gen)
+// The capture's translation panel opens with the part behind its arrow shown.
+SETTING(translation_panel_expanded, "app/translation_panel_expanded", bool, false, Internal, Gen, Gen)
 SETTING(speech_voices, "speech/voices", QStringList, {}, Import, Gen, Gen)
 SETTING(speech_rate, "speech/rate", int, 0, Import, Gen, Gen)
 SETTING(speech_volume, "speech/volume", int, 100, Import, Gen, Gen)

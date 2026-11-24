@@ -630,6 +630,53 @@ private slots:
         toolbar.hide();
     }
 
+    // The arrow slides the service out and folds it back; the next panel opens the same way.
+    void theTranslationPanelSlidesTheServiceOutAndRemembersIt() {
+        config_->set_translation_panel_expanded(false);
+        TranslationPanel panel;
+        panel.set_providers({{"deepl", "DeepL API"}, {"baidu", "Baidu"}}, "baidu");
+        panel.show();
+        QVERIFY(!panel.expanded());
+        QVERIFY(!panel.service_combo->isVisible());
+        const int folded = panel.width();
+        QCOMPARE(panel.expand_btn->geometry().right(), folded - 1 - scaled(TranslationPanel::BASE_MARGIN_H));
+
+        QTest::mouseClick(panel.expand_btn, Qt::LeftButton);
+        QVERIFY(panel.expanded());
+        QVERIFY(config_->get_translation_panel_expanded());
+        bool between = false;
+        for (int i = 0; i < 60 && panel.sliding(); ++i) {
+            between = between || (panel.width() > folded && panel.width() < folded + panel.service_combo->width());
+            QTest::qWait(5);
+        }
+        QVERIFY(between);
+        QTRY_VERIFY(!panel.sliding());
+        QVERIFY(panel.service_combo->isVisible());
+        // The service sits whole between the language and the arrow.
+        const QRect service(panel.service_combo->mapTo(&panel, QPoint(0, 0)), panel.service_combo->size());
+        QVERIFY(service.left() > panel.language_combo->geometry().right());
+        QVERIFY(service.right() < panel.expand_btn->geometry().left());
+        const int unfolded = panel.width();
+        QCOMPARE(unfolded, folded + panel.service_combo->width() + 2 * scaled(TranslationPanel::BASE_SPACING) + 1);
+
+        // Opened unfolded, without sliding.
+        {
+            TranslationPanel next;
+            next.set_providers({{"deepl", "DeepL API"}, {"baidu", "Baidu"}}, "baidu");
+            next.show();
+            QVERIFY(next.expanded() && !next.sliding());
+            QCOMPARE(next.width(), unfolded);
+        }
+
+        QTest::mouseClick(panel.expand_btn, Qt::LeftButton);
+        QVERIFY(!config_->get_translation_panel_expanded());
+        QTRY_VERIFY(!panel.sliding());
+        QCOMPARE(panel.width(), folded);
+        QVERIFY(!panel.service_combo->isVisible());
+        TranslationPanel next;
+        QVERIFY(!next.expanded());
+    }
+
     void theTranslationPanelReportsItsChoicesAndFollowsThePanelScale() {
         const auto restore = qScopeGuard([] {
             get_dialog_scale().set_percent(100);
@@ -659,19 +706,27 @@ private slots:
         QCOMPARE(original.count(), 1);
         panel.language_combo->setCurrentIndex(panel.language_combo->findData("KO"));
         QCOMPARE(language.last().first().toString(), QString("KO"));
-        // The service is chosen from "...": a heading, then the services with the current one checked.
-        const auto actions = panel.more_menu->actions();
-        QCOMPARE(actions.size(), 3);
-        QVERIFY(!actions[0]->isEnabled());
-        QVERIFY(!actions[1]->isChecked());
-        QVERIFY(actions[2]->isChecked());
-        actions[1]->trigger();
+        // The service list behind the arrow holds the services with the current one chosen.
+        QCOMPARE(panel.service_combo->count(), 2);
+        QCOMPARE(panel.service_combo->currentText(), QString("Baidu"));
+        panel.service_combo->setCurrentIndex(0);
+        QCOMPARE(provider.count(), 1);
         QCOMPARE(provider.last().first().toString(), QString("deepl"));
         QCOMPARE(panel.provider(), QString("deepl"));
-        QVERIFY(panel.more_menu->actions()[1]->isChecked());
-        QVERIFY(!panel.more_menu->actions()[2]->isChecked());
         QVERIFY(!panel.view_toggle->toolTip().isEmpty());
-        QVERIFY(!panel.more_btn->toolTip().isEmpty());
+        QVERIFY(!panel.service_combo->toolTip().isEmpty());
+        const QString expand_tip = panel.expand_btn->toolTip();
+        QVERIFY(!expand_tip.isEmpty());
+        panel.set_expanded(true);
+        QVERIFY(!panel.expand_btn->toolTip().isEmpty() && panel.expand_btn->toolTip() != expand_tip);
+        panel.set_expanded(false);
+        QTRY_VERIFY(!panel.sliding());
+        // A long custom model name is cut rather than widening the panel without end.
+        panel.set_providers({{"custom_llm", QString(80, 'W')}}, "custom_llm");
+        QCOMPARE(panel.service_combo->width(), scaled(TranslationPanel::BASE_SERVICE_MAX_WIDTH));
+        QCOMPARE(panel.provider(), QString("custom_llm"));
+        QCOMPARE(provider.count(), 1);
+        panel.set_providers({{"deepl", "DeepL API"}, {"baidu", "Baidu"}}, "baidu");
 
         // The language list holds the longest name whole, whatever is chosen.
         int longest = 0;
@@ -687,7 +742,7 @@ private slots:
         get_ui_scale().set_percent(150);
         panel.apply_scale();
         QCOMPARE(panel.view_toggle->height(), SegmentedToggle::BASE_HEIGHT * 3 / 2);
-        QCOMPARE(panel.more_btn->width(), TranslationPanel::BASE_BTN * 3 / 2);
+        QCOMPARE(panel.expand_btn->width(), TranslationPanel::BASE_BTN * 3 / 2);
         QVERIFY(panel.language_combo->width() > normal_language * 13 / 10);
         QVERIFY(panel.sizeHint().width() > normal.width());
     }
@@ -722,24 +777,19 @@ private slots:
                 int longest = 0;
                 for (const auto &[language_code, name] : translation_languages()) longest = std::max(longest, panel.language_combo->fontMetrics().horizontalAdvance(name));
                 QVERIFY2(panel.language_combo->width() - scaled(PillComboBox::BASE_PADDING_LEFT) - scaled(PillComboBox::BASE_ARROW_COLUMN) >= longest, where("a language name is cut"));
-                for (QWidget *part : std::initializer_list<QWidget *>{panel.view_toggle, panel.into_label, panel.language_combo, panel.more_btn})
+                for (QWidget *part : std::initializer_list<QWidget *>{panel.view_toggle, panel.into_label, panel.language_combo, panel.expand_btn})
                     QVERIFY2(panel.rect().contains(part->geometry()), where(QString("the bar is %1 wide").arg(panel.width())));
                 QVERIFY2(panel.width() <= scaled(420), where(QString("the bar is %1 wide").arg(panel.width())));
+                // Unfolded, the service list and the arrow are inside it too.
+                panel.set_providers({{"deepl", "DeepL API"}, {"amazon", "Amazon Translate"}}, "deepl");
+                panel.set_expanded(true);
+                QTRY_VERIFY(!panel.sliding());
+                const QRect service(panel.service_combo->mapTo(&panel, QPoint(0, 0)), panel.service_combo->size());
+                QVERIFY2(panel.rect().contains(service) && panel.rect().contains(panel.expand_btn->geometry()), where("the unfolded bar"));
+                QVERIFY2(service.right() < panel.expand_btn->geometry().left(), where("the service runs under the arrow"));
+                panel.set_expanded(false);
             }
         }
-    }
-
-    // The service menu opens on white, like the panels' lists.
-    void theTranslationPanelMenuOpensOnWhite() {
-        TranslationPanel panel;
-        panel.set_providers({{"deepl", "DeepL API"}, {"baidu", "Baidu"}}, "baidu");
-        panel.show();
-        panel.more_btn->click();
-        QTRY_VERIFY(panel.more_menu->isVisible());
-        const QImage menu = panel.more_menu->grab().toImage();
-        const QColor inside(menu.pixelColor(menu.width() / 2, menu.height() - 3));
-        QVERIFY2(inside.alpha() == 255 && inside.lightness() > 240, qPrintable(inside.name(QColor::HexArgb)));
-        panel.more_menu->hide();
     }
 
     void uncommonToolbarPanelsStayAbsentUntilUsed() {
@@ -1405,6 +1455,7 @@ private slots:
         panels.push_back(std::make_unique<WatermarkSettingsPanel>());
         auto translation = std::make_unique<TranslationPanel>();
         translation->set_providers({{"deepl", "DeepL API"}, {"baidu", "Baidu"}}, "baidu");
+        translation->set_expanded(true);
         panels.push_back(std::move(translation));
         int checked = 0;
         for (const auto &panel : panels) {

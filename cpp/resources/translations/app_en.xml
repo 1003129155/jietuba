@@ -7640,8 +7640,12 @@ Replace it?</translation>
         <translation>To</translation>
     </message>
     <message>
-        <source>More</source>
-        <translation>More</translation>
+        <source>Expand</source>
+        <translation>Expand</translation>
+    </message>
+    <message>
+        <source>Collapse</source>
+        <translation>Collapse</translation>
     </message>
 </context>
 <context>
