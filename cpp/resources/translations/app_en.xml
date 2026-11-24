@@ -6160,18 +6160,6 @@ Replace: move the current data there; the data already in that folder will be de
 <context>
     <name>ScrollCaptureWindow</name>
     <message>
-        <source>Translation</source>
-        <translation>Translation</translation>
-    </message>
-    <message>
-        <source>Translation failed</source>
-        <translation>Translation failed</translation>
-    </message>
-    <message>
-        <source>Nothing to translate: the text is already in the target language.</source>
-        <translation>Nothing to translate: the text is already in the target language.</translation>
-    </message>
-    <message>
         <source>Nothing to translate yet</source>
         <translation>Nothing to translate yet</translation>
     </message>

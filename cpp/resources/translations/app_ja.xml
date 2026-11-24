@@ -6249,18 +6249,6 @@ Replace: move the current data there; the data already in that folder will be de
 <context>
     <name>ScrollCaptureWindow</name>
     <message>
-        <source>Translation</source>
-        <translation>翻訳</translation>
-    </message>
-    <message>
-        <source>Translation failed</source>
-        <translation>翻訳に失敗しました</translation>
-    </message>
-    <message>
-        <source>Nothing to translate: the text is already in the target language.</source>
-        <translation>翻訳する内容がありません。テキストはすでに翻訳先の言語です。</translation>
-    </message>
-    <message>
         <source>Nothing to translate yet</source>
         <translation>まだ翻訳できる内容がありません</translation>
     </message>

@@ -6610,18 +6610,6 @@ Replace: move the current data there; the data already in that folder will be de
 <context>
     <name>ScrollCaptureWindow</name>
     <message>
-        <source>Translation</source>
-        <translation>翻譯</translation>
-    </message>
-    <message>
-        <source>Translation failed</source>
-        <translation>翻譯失敗</translation>
-    </message>
-    <message>
-        <source>Nothing to translate: the text is already in the target language.</source>
-        <translation>沒有需要翻譯的內容：文字已是目標語言。</translation>
-    </message>
-    <message>
         <source>Nothing to translate yet</source>
         <translation>還沒有可翻譯的內容</translation>
     </message>

@@ -6237,18 +6237,6 @@ Replace: move the current data there; the data already in that folder will be de
 <context>
     <name>ScrollCaptureWindow</name>
     <message>
-        <source>Translation</source>
-        <translation>번역</translation>
-    </message>
-    <message>
-        <source>Translation failed</source>
-        <translation>번역에 실패했습니다</translation>
-    </message>
-    <message>
-        <source>Nothing to translate: the text is already in the target language.</source>
-        <translation>번역할 내용이 없습니다. 텍스트가 이미 대상 언어입니다.</translation>
-    </message>
-    <message>
         <source>Nothing to translate yet</source>
         <translation>아직 번역할 내용이 없습니다</translation>
     </message>
