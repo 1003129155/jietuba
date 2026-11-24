@@ -266,9 +266,8 @@ void QuickCaptureController::on_failure(const QString &message) {
     log_error("Quick capture failed: " + message, "QuickCapture");
     cancel();
     if (closed_) return;
-    if (auto *tray = main_app->tray_icon)
-        tray->showMessage(QApplication::translate("SettingsDialog", "Global Mouse Shortcuts"), QApplication::translate("SettingsDialog", "Capture failed. Please try again."),
-                          QSystemTrayIcon::Warning);
+    main_app->show_tray_message(QApplication::translate("SettingsDialog", "Global Mouse Shortcuts"), QApplication::translate("SettingsDialog", "Capture failed. Please try again."),
+                                QSystemTrayIcon::Warning);
 }
 
 void QuickCaptureController::close() {

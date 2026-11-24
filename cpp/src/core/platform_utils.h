@@ -25,6 +25,17 @@ double get_system_dpi(double fallback = 96.0);
 
 // Taskbar grouping; must run before QApplication is created.
 void set_app_user_model_id(const QString &app_id = "jietuba.app");
+// The Start menu shortcut carrying app_id, from which Windows takes the name and icon in the header
+// of a desktop program's notifications (otherwise the bare ID and no icon). Creates or repoints the
+// shortcut named name in folder, and removes the program's shortcuts under other_names (an earlier
+// language); a shortcut there without app_id is left alone.
+void ensure_start_menu_shortcut(const QString &folder, const QString &name, const QStringList &other_names, const QString &program,
+                                const QString &app_id = "jietuba.app");
+// The AppUserModelID a shortcut carries; empty when it has none or cannot be read.
+QString shortcut_app_id(const QString &path);
+// A one-line notification on the application's tray icon, with no title and no large icon (Qt adds
+// one to every message). False when the icon's window is not found.
+bool show_one_line_tray_message(const QString &text, int timeout_ms = 10000);
 
 // Processes. PIDs are recycled, so (creation time, image name) identifies a process.
 constexpr unsigned PROCESS_TERMINATE = 0x0001;

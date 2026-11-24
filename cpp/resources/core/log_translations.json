@@ -888,5 +888,6 @@
 "已钉住剪贴板中的 {count} 个文件": "Pinned {count} file(s) from the clipboard",
 "动图复制失败: {file_path}": "Could not copy the animation: {file_path}",
 "文字识别发现表格: {rows} 行 {columns} 列": "Text recognition found a table: {rows} rows, {columns} columns",
-"文字识别完成并直接复制表格: {rows} 行 {columns} 列": "Recognized and copied a table directly: {rows} rows, {columns} columns"
+"文字识别完成并直接复制表格: {rows} 行 {columns} 列": "Recognized and copied a table directly: {rows} rows, {columns} columns",
+"无法创建开始菜单快捷方式: {path}": "Could not create the Start menu shortcut: {path}"
 }

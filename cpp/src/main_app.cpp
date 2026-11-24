@@ -8,7 +8,10 @@
 #include "gif/composer.h"
 #include "gif/record_window.h"
 #include "pin/pin_manager.h"
+#include "core/constants.h"
+#include "core/crash_handler.h"
 #include "core/elevation.h"
+#include "core/package_identity.h"
 #include "core/game_mode_monitor.h"
 #include "ui/settings_ui/dialog.h"
 #include "ui/welcome/wizard.h"
@@ -41,8 +44,11 @@
 #include "ui/toast.h"
 #include "ui/tray_menu.h"
 #include <QCursor>
+#include <QDir>
 #include <QFile>
 #include <QGuiApplication>
+#include <QStandardPaths>
+#include <thread>
 #include <QMenu>
 #include <QPainter>
 #include <QScreen>
@@ -129,6 +135,7 @@ MainApp::MainApp(int &argc, char **argv) : app(std::make_unique<QApplication>(ar
     }
     I18nManager::load_language(saved_lang);
     log_info(T("语言设置: {lang_name}", {{"lang_name", I18nManager::get_current_language_name()}}), "I18n");
+    update_notification_identity();
     // Updates the tray menu and other UI on language switches.
     connect(I18nManager::instance().language_signals(), &I18nSignals::language_changed, this, &MainApp::on_language_changed);
 
@@ -236,6 +243,7 @@ void MainApp::on_about_to_quit() {
 void MainApp::on_language_changed(const QString &lang_code) {
     log_debug(T("语言已切换到: {lang_code}，更新 UI", {{"lang_code", lang_code}}), "I18n");
     update_tray_menu();
+    update_notification_identity();
     // The settings window is preloaded, so it is rebuilt to pick up the translations.
     // A switch made by the settings window itself rebuilds it once that save is done.
     if (settings_window && !settings_window->saving()) recreate_settings_window();
@@ -356,7 +364,36 @@ void MainApp::setup_tray() {
     tray_icon->setToolTip(tr_text("jietuba - Click to screenshot"));
     tray_icon->setContextMenu(create_tray_menu(this));
     connect(tray_icon, &QSystemTrayIcon::activated, this, &MainApp::on_tray_activated);
+    connect(tray_icon, &QSystemTrayIcon::messageClicked, this, [this] {
+        if (auto click = std::exchange(tray_message_click_, {})) click();
+    });
     tray_icon->show();
+}
+
+void MainApp::show_tray_line(const QString &text, std::function<void()> on_click) {
+    if (!tray_icon) return;
+    tray_message_click_ = std::move(on_click);
+    if (!show_one_line_tray_message(text)) tray_icon->showMessage({}, text, QSystemTrayIcon::NoIcon);
+}
+
+void MainApp::update_notification_identity() {
+    // The Store package names its notifications itself; tests must not touch the Start menu.
+    if (is_packaged() || !test_sandbox_dir().isEmpty()) return;
+    const QString folder = QStandardPaths::writableLocation(QStandardPaths::ApplicationsLocation);
+    const QString name = tr_text("jietuba");
+    QStringList others{QString::fromUtf8("截图吧"), QString::fromUtf8("截圖吧"), QStringLiteral("jietuba")};
+    others.removeAll(name);
+    const QString program = QDir::toNativeSeparators(QCoreApplication::applicationFilePath());
+    // Shell link files go through COM and the disk; start-up does not wait for them.
+    std::thread([folder, name, others, program] {
+        run_thread_guarded("StartMenuShortcut", [&] { ensure_start_menu_shortcut(folder, name, others, program); });
+    }).detach();
+}
+
+void MainApp::show_tray_message(const QString &title, const QString &text, QSystemTrayIcon::MessageIcon icon, std::function<void()> on_click) {
+    if (!tray_icon) return;
+    tray_message_click_ = std::move(on_click);
+    tray_icon->showMessage(title, text, icon);
 }
 
 void MainApp::on_tray_activated(QSystemTrayIcon::ActivationReason reason) {

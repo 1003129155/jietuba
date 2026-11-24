@@ -2467,6 +2467,10 @@ Replace it?</source>
 <context>
     <name>MainApp</name>
     <message>
+        <source>jietuba</source>
+        <translation>截圖吧</translation>
+    </message>
+    <message>
         <source>jietuba - Click to screenshot</source>
         <translation>截圖吧 - 點擊截圖</translation>
     </message>

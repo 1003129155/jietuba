@@ -2483,6 +2483,10 @@ Replace it?</source>
 <context>
     <name>MainApp</name>
     <message>
+        <source>jietuba</source>
+        <translation>jietuba</translation>
+    </message>
+    <message>
         <source>jietuba - Click to screenshot</source>
         <translation>jietuba - スクリーンショット</translation>
     </message>

@@ -6,9 +6,12 @@
 #include "core/global_hotkey.h"
 #include "core/i18n.h"
 #include "core/logger.h"
+#include "core/platform_utils.h"
 #include "settings/tool_settings.h"
+#include <QCoreApplication>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -384,6 +387,32 @@ private slots:
         auto &store = get_tool_settings_manager()->qsettings.settings();
         QCOMPARE(store.format(), QSettings::IniFormat);
         QVERIFY(QDir::toNativeSeparators(store.fileName()).startsWith(sandbox));
+    }
+
+    // The shortcut that names the program on its notifications carries its app ID, follows the
+    // language, and leaves other programs' shortcuts alone.
+    void startMenuShortcutCarriesTheAppIdAndFollowsTheLanguage() {
+        QTemporaryDir dir;
+        const QString program = QCoreApplication::applicationFilePath();
+        const QString foreign = QDir(dir.path()).filePath("jietuba.lnk");
+        ensure_start_menu_shortcut(dir.path(), "jietuba", {}, program, "someone.else");
+        QCOMPARE(shortcut_app_id(foreign), QString("someone.else"));
+
+        const QString simplified = QDir(dir.path()).filePath(QString::fromUtf8("截图吧.lnk"));
+        ensure_start_menu_shortcut(dir.path(), QString::fromUtf8("截图吧"), {"jietuba"}, program, "jietuba.test");
+        QCOMPARE(shortcut_app_id(simplified), QString("jietuba.test"));
+        QVERIFY(QFileInfo::exists(foreign));
+
+        const QString traditional = QDir(dir.path()).filePath(QString::fromUtf8("截圖吧.lnk"));
+        ensure_start_menu_shortcut(dir.path(), QString::fromUtf8("截圖吧"), {QString::fromUtf8("截图吧"), "jietuba"}, program, "jietuba.test");
+        QVERIFY(!QFileInfo::exists(simplified));
+        QCOMPARE(shortcut_app_id(traditional), QString("jietuba.test"));
+        QCOMPARE(shortcut_app_id(foreign), QString("someone.else"));
+
+        // A shortcut of that name belonging to something else is not taken over.
+        ensure_start_menu_shortcut(dir.path(), "jietuba", {}, program, "jietuba.test");
+        QCOMPARE(shortcut_app_id(foreign), QString("someone.else"));
+        QVERIFY(shortcut_app_id(QDir(dir.path()).filePath("missing.lnk")).isEmpty());
     }
 private:
     static void set_language(const QString &language) {

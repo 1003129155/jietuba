@@ -9,6 +9,7 @@
 #include <optional>
 #include <QRectF>
 #include <QSystemTrayIcon>
+#include <functional>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -90,6 +91,10 @@ public:
     QString update_busy_reason() override;
     std::pair<bool, QString> prepare_for_update() override;
     void cancel_update_preparation() override;
+    // A tray balloon; on_click runs when this balloon, not an earlier one, is clicked.
+    void show_tray_message(const QString &title, const QString &text, QSystemTrayIcon::MessageIcon icon, std::function<void()> on_click = {});
+    // A one-line balloon under the program's name and icon (the Start menu shortcut gives Windows both).
+    void show_tray_line(const QString &text, std::function<void()> on_click = {});
     void setup_pin_tray_updates();
     // Creates the capture window once the screen is captured.
     void on_capture_ready(const QImage &image, const QRectF &rect, std::shared_ptr<SystemCursor> cursor = nullptr);
@@ -157,7 +162,10 @@ private:
     // Rebuilds the cached clipboard manager window after a window scale change.
     void recreate_clipboard_manage_dialog();
     void on_clipboard_item_received(const clipboard::ClipboardItem &item);
+    // The Start menu shortcut that names the program, in the interface language, on its notifications.
+    void update_notification_identity();
 
+    std::function<void()> tray_message_click_;
     bool capture_pending_ = false;
     // The pending capture is for recording.
     bool record_pending_ = false;

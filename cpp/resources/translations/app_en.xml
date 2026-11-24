@@ -2418,6 +2418,10 @@ Replace it?</translation>
 <!-- ========== Main App (Tray Menu) ========== -->
 <context>
     <name>MainApp</name>
+    <message>
+        <source>jietuba</source>
+        <translation>jietuba</translation>
+    </message>
     <message><source>jietuba - Click to screenshot</source><translation>jietuba - Click to screenshot</translation></message>
     <message><source>Screenshot</source><translation>Screenshot</translation></message>
     <message><source>Translation</source><translation>Translation</translation></message>
