@@ -894,5 +894,12 @@
 "自动检查更新失败: {reason}": "Automatic update check failed: {reason}",
 "后台下载更新没有完成": "The background update download did not finish",
 "更新 {version} 已下载，下次启动时安装": "Update {version} downloaded; it will be installed at the next start",
-"无法创建开始菜单快捷方式: {path}": "Could not create the Start menu shortcut: {path}"
+"无法创建开始菜单快捷方式: {path}": "Could not create the Start menu shortcut: {path}",
+"--pin 后面的路径不合法，整批丢弃": "A path after --pin is not valid; the whole batch is discarded",
+"无法写入资源管理器右键菜单项: .{ext}": "Could not write the Explorer right-click entry: .{ext}",
+"资源管理器右键菜单已更新 (模式 {mode})": "Explorer right-click entry updated (mode {mode})",
+"无法写入资源管理器菜单的偏好文件": "Could not write the Explorer menu preference file",
+"已钉住资源管理器传来的 {count} 个文件": "Pinned {count} files handed over by Explorer",
+"旧实例没有及时释放主实例锁，照常启动": "The old instance did not release the primary instance lock in time; starting anyway",
+"正在运行的实例没有响应钉图请求，由本进程接管": "The running instance did not answer the pin request; this process takes over"
 }

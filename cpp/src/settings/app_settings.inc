@@ -369,6 +369,8 @@ SETTING(pin_hover_buttons, "pin/hover_buttons", bool, false, Import, Gen, Gen)
 SETTING(pin_clipboard_image, "pin/clipboard_image", bool, true, Import, Gen, Gen)
 SETTING(pin_clipboard_text, "pin/clipboard_text", bool, true, Import, Gen, Gen)
 SETTING(pin_clipboard_file, "pin/clipboard_file", bool, true, Import, Gen, Gen)
+// off, images or images_text: which files Explorer's right-click menu offers to pin (core/explorer_menu).
+SETTING(explorer_context_menu, "app/explorer_context_menu", QString, "off", Import, Gen, Gen)
 SETTING(pin_text_formatting, "pin/text_formatting", bool, true, Import, Gen, Gen)
 // Pinning what an open pin already shows shakes that pin instead of opening another.
 SETTING(pin_point_out_repeats, "pin/point_out_repeats", bool, true, Import, Gen, Gen)

@@ -12,7 +12,10 @@
 #include "core/constants.h"
 #include "core/crash_handler.h"
 #include "core/elevation.h"
+#include "core/explorer_menu.h"
 #include "core/package_identity.h"
+#include "core/pin_inbox.h"
+#include "core/pin_request_queue.h"
 #include "core/game_mode_monitor.h"
 #include "ui/settings_ui/dialog.h"
 #include "ui/welcome/wizard.h"
@@ -248,6 +251,8 @@ void MainApp::on_language_changed(const QString &lang_code) {
     log_debug(T("语言已切换到: {lang_code}，更新 UI", {{"lang_code", lang_code}}), "I18n");
     update_tray_menu();
     update_notification_identity();
+    // The Explorer entry's text is in the interface language.
+    sync_explorer_menu();
     // The settings window is preloaded, so it is rebuilt to pick up the translations.
     // A switch made by the settings window itself rebuilds it once that save is done.
     if (settings_window && !settings_window->saving()) recreate_settings_window();
@@ -550,6 +555,7 @@ void MainApp::on_settings_accepted(SettingsDialog *accepted_window) {
     if (saved.contains("clipboard_enabled_toggle")) set_clipboard_monitoring_enabled(config_manager->get_clipboard_enabled());
     if (accepted_window->hotkeys_saved()) update_hotkey(true);
     if (saved.contains("capture_engine_combo")) apply_capture_engine(config_manager->get_capture_engine());
+    if (saved.contains("explorer_context_menu")) sync_explorer_menu();
     if (saved.contains("translation_target_combo") && TranslationManager::has_instance())
         TranslationManager::instance()->apply_target_lang(config_manager->get_translation_target_lang());
     if (clipboard_window) {
@@ -606,6 +612,14 @@ void MainApp::recreate_settings_window(std::optional<bool> reopen) {
     settings_window->restore_view_state(view);
     open_settings();
 }
+
+void MainApp::accept_pin_requests(PinInbox &inbox, const QStringList &initial_files) {
+    pin_requests_ = new PinRequestQueue([](const QStringList &files) { clipboard::pin_explorer_files(files, QCursor::pos()); }, PinRequestQueue::QUIET_MS, this);
+    if (!initial_files.isEmpty()) pin_requests_->add(initial_files);
+    inbox.set_handler([this](const QStringList &files) { pin_requests_->add(files); });
+}
+
+void MainApp::sync_explorer_menu() { explorer_menu::sync(*config_manager); }
 
 void MainApp::open_settings() {
     if (update_preparing) return;

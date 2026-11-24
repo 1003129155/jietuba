@@ -2,9 +2,11 @@
 #include "clipboard/controllers/clipboard_controller.h"
 #include "clipboard/controllers/context_menu_controller.h"
 #include "clipboard/core/manager.h"
+#include "core/explorer_menu.h"
 #include "core/i18n.h"
 #include "core/logger.h"
 #include "core/platform_utils.h"
+#include "core/text_file.h"
 #include "pin/pin_animation.h"
 #include "pin/pin_file_card.h"
 #include "pin/pin_manager.h"
@@ -198,9 +200,11 @@ void place_image_pin(const QImage &image, QWidget *clipboard_window, std::option
 // longer exist.
 class PinBatch : public QObject {
 public:
-    PinBatch(const QStringList &card_files, const QList<Piece> &pieces, bool cards, const QSize &card_limit, const QPoint &origin, bool pinned)
+    // empty_text is the toast when nothing could be pinned; the clipboard's wording when empty.
+    PinBatch(const QStringList &card_files, const QList<Piece> &pieces, bool cards, const QSize &card_limit, const QPoint &origin, bool pinned,
+             const QString &empty_text = {})
         : QObject(qApp), pieces_(pieces), opened_(pieces.size() + (card_files.isEmpty() ? 0 : 1)), cards_(cards), card_limit_(card_limit), origin_(origin),
-          pinned_(pinned) {
+          pinned_(pinned), empty_text_(empty_text) {
         // Below the UI thread and on half the cores, so neither the pins nor other programs wait for this.
         pool_.setThreadPriority(QThread::LowPriority);
         pool_.setMaxThreadCount(std::max(1, QThread::idealThreadCount() / 2));
@@ -307,7 +311,8 @@ private:
             return;
         }
         if (!undecoded_.isEmpty()) new PinBatch(undecoded_, {}, false, card_limit_, origin_ + QPoint(CASCADE_STEP, CASCADE_STEP) * placed_, true);
-        if (placed_ == 0 && pointed_ == 0 && undecoded_.isEmpty() && !pinned_ && !declined_) show_toast(i18n_tr("Nothing on the clipboard to pin", "MainApp"));
+        if (placed_ == 0 && pointed_ == 0 && undecoded_.isEmpty() && !pinned_ && !declined_)
+            show_toast(empty_text_.isEmpty() ? i18n_tr("Nothing on the clipboard to pin", "MainApp") : empty_text_);
         deleteLater();
     }
     QThreadPool pool_;
@@ -318,6 +323,7 @@ private:
     QPoint origin_;
     // Something else from the same press was pinned already.
     bool pinned_;
+    QString empty_text_;
     int next_ = 0, placed_ = 0, pointed_ = 0;
     bool scheduled_ = false;
     // The answer about small pictures, once asked; declined_ when one was left out for it.
@@ -331,14 +337,14 @@ QSize card_limit(const QScreen *screen) { return screen ? screen->availableGeome
 
 // card_files on one card, then a pin per piece, from origin down and right. Asks first when there
 // are many pictures. True when anything is being pinned or the user declined.
-bool start_batch(const QStringList &card_files, const QList<Piece> &pieces, bool cards, const QPoint &origin, QWidget *parent) {
+bool start_batch(const QStringList &card_files, const QList<Piece> &pieces, bool cards, const QPoint &origin, QWidget *parent, const QString &empty_text = {}) {
     if (card_files.isEmpty() && pieces.isEmpty()) return false;
     const auto pictures = std::count_if(pieces.begin(), pieces.end(), [](const Piece &piece) { return piece.kind != Piece::Text; });
     if (pictures > MANY_PICTURES &&
         !show_confirm_dialog(parent, pin_tr("Pin Many Images"), pin_tr("Pin %1 images at once? So many windows may slow the computer down.").arg(pictures)))
         return true;
     const auto *screen = target_screen(nullptr, origin);
-    new PinBatch(card_files, pieces, cards, card_limit(screen), origin, false);
+    new PinBatch(card_files, pieces, cards, card_limit(screen), origin, false, empty_text);
     return true;
 }
 
@@ -423,6 +429,32 @@ bool create_pin_from_text(const QString &text, const QString &html, QWidget *cli
         get_pin_manager()->create_text_pin(std::move(content), position, get_tool_settings_manager());
     });
     return true;
+}
+
+bool pin_explorer_files(const QStringList &files, const QPoint &origin, qint64 text_limit) {
+    QList<Piece> pieces;
+    for (const auto &file : files) {
+        const QString suffix = QFileInfo(file).suffix().toLower();
+        if (explorer_menu::is_image_extension(suffix)) {
+            if (QFileInfo(file).isFile()) pieces.append({Piece::PictureFile, file});
+        } else if (explorer_menu::is_text_extension(suffix) && QFileInfo(file).isFile()) {
+            auto loaded = load_text_file(file, QStringConverter::System, text_limit);
+            if (!loaded || loaded->text.trimmed().isEmpty()) continue;
+            if (loaded->truncated) {
+                const QString note = pin_tr("[Only the first 64 KB of the file is shown]");
+                loaded->text += QStringLiteral("\n\n") + note;
+                if (!loaded->html.isEmpty()) loaded->html += "<p>" + note.toHtmlEscaped() + "</p>";
+            }
+            pieces.append({Piece::Text, loaded->text, loaded->html});
+        }
+    }
+    const QString none = pin_tr("None of the selected files could be pinned");
+    if (pieces.isEmpty()) {
+        show_toast(none);
+        return false;
+    }
+    log_debug(T("已钉住资源管理器传来的 {count} 个文件", {{"count", static_cast<int>(pieces.size())}}), "Clipboard");
+    return start_batch({}, pieces, false, origin, nullptr, none);
 }
 
 bool pin_latest_clipboard_image(std::optional<QPoint> center) {

@@ -2187,6 +2187,14 @@ Replace it?</translation>
         <source>This pin is only %1 × %2 pixels. Pin it anyway?</source>
         <translation>This pin is only %1 × %2 pixels. Pin it anyway?</translation>
     </message>
+    <message>
+        <source>None of the selected files could be pinned</source>
+        <translation>None of the selected files could be pinned</translation>
+    </message>
+    <message>
+        <source>[Only the first 64 KB of the file is shown]</source>
+        <translation>[Only the first 64 KB of the file is shown]</translation>
+    </message>
 </context>
 
 <!-- ========== Pin Click-Through Bar ========== -->
@@ -2755,6 +2763,30 @@ Replace it?</translation>
     <message>
         <source>Youdao AI Cloud Console</source>
         <translation>Youdao AI Cloud Console</translation>
+    </message>
+    <message>
+        <source>File Explorer</source>
+        <translation>File Explorer</translation>
+    </message>
+    <message>
+        <source>Right-Click Menu</source>
+        <translation>Right-Click Menu</translation>
+    </message>
+    <message>
+        <source>Right-click files in File Explorer and choose "Pin to Screen with jietuba". Windows 11 lists it under Show more options.</source>
+        <translation>Right-click files in File Explorer and choose "Pin to Screen with jietuba". Windows 11 lists it under Show more options.</translation>
+    </message>
+    <message>
+        <source>Right-click files in File Explorer and choose "Pin to Screen with jietuba".</source>
+        <translation>Right-click files in File Explorer and choose "Pin to Screen with jietuba".</translation>
+    </message>
+    <message>
+        <source>Images</source>
+        <translation>Images</translation>
+    </message>
+    <message>
+        <source>Images and Text Files</source>
+        <translation>Images and Text Files</translation>
     </message>
 </context>
 <!-- ========== Clipboard Window ========== -->
@@ -7738,6 +7770,13 @@ Replace it?</translation>
     <message>
         <source>Configure API</source>
         <translation>Configure API</translation>
+    </message>
+</context>
+<context>
+    <name>ExplorerMenu</name>
+    <message>
+        <source>Pin to Screen with jietuba</source>
+        <translation>Pin to Screen with jietuba</translation>
     </message>
 </context>
 </TS>

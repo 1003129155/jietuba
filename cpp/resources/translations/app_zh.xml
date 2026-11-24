@@ -2208,6 +2208,14 @@ Replace it?</source>
         <source>This pin is only %1 × %2 pixels. Pin it anyway?</source>
         <translation>这个钉图只有 %1 × %2 像素，仍要钉到屏幕上吗？</translation>
     </message>
+    <message>
+        <source>None of the selected files could be pinned</source>
+        <translation>所选文件都无法钉到屏幕</translation>
+    </message>
+    <message>
+        <source>[Only the first 64 KB of the file is shown]</source>
+        <translation>[只显示了文件的前 64 KB]</translation>
+    </message>
 </context>
 
 <!-- ========== Pin Click-Through Bar ========== -->
@@ -2822,6 +2830,30 @@ Replace it?</source>
     <message>
         <source>Youdao AI Cloud Console</source>
         <translation>有道智云控制台</translation>
+    </message>
+    <message>
+        <source>File Explorer</source>
+        <translation>资源管理器</translation>
+    </message>
+    <message>
+        <source>Right-Click Menu</source>
+        <translation>右键菜单</translation>
+    </message>
+    <message>
+        <source>Right-click files in File Explorer and choose "Pin to Screen with jietuba". Windows 11 lists it under Show more options.</source>
+        <translation>在资源管理器里右键文件，选「用截图吧钉到屏幕」。Windows 11 里在「显示更多选项」中。</translation>
+    </message>
+    <message>
+        <source>Right-click files in File Explorer and choose "Pin to Screen with jietuba".</source>
+        <translation>在资源管理器里右键文件，选「用截图吧钉到屏幕」。</translation>
+    </message>
+    <message>
+        <source>Images</source>
+        <translation>图片</translation>
+    </message>
+    <message>
+        <source>Images and Text Files</source>
+        <translation>图片和文本文件</translation>
     </message>
 </context>
 
@@ -7787,6 +7819,13 @@ Replace it?</source>
     <message>
         <source>Configure API</source>
         <translation>配置 API</translation>
+    </message>
+</context>
+<context>
+    <name>ExplorerMenu</name>
+    <message>
+        <source>Pin to Screen with jietuba</source>
+        <translation>用截图吧钉到屏幕</translation>
     </message>
 </context>
 </TS>

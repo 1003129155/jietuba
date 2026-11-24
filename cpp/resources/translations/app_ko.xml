@@ -1664,6 +1664,30 @@ Replace it?</source>
         <source>Configure</source>
         <translation>설정</translation>
     </message>
+    <message>
+        <source>File Explorer</source>
+        <translation>파일 탐색기</translation>
+    </message>
+    <message>
+        <source>Right-Click Menu</source>
+        <translation>오른쪽 클릭 메뉴</translation>
+    </message>
+    <message>
+        <source>Right-click files in File Explorer and choose "Pin to Screen with jietuba". Windows 11 lists it under Show more options.</source>
+        <translation>파일 탐색기에서 파일을 마우스 오른쪽 버튼으로 클릭하고 "jietuba로 화면에 고정"을 선택합니다. Windows 11에서는 "추가 옵션 표시" 안에 있습니다.</translation>
+    </message>
+    <message>
+        <source>Right-click files in File Explorer and choose "Pin to Screen with jietuba".</source>
+        <translation>파일 탐색기에서 파일을 마우스 오른쪽 버튼으로 클릭하고 "jietuba로 화면에 고정"을 선택합니다.</translation>
+    </message>
+    <message>
+        <source>Images</source>
+        <translation>이미지</translation>
+    </message>
+    <message>
+        <source>Images and Text Files</source>
+        <translation>이미지 및 텍스트 파일</translation>
+    </message>
 </context>
 
 <context>
@@ -2221,6 +2245,14 @@ Replace it?</source>
     <message>
         <source>This pin is only %1 × %2 pixels. Pin it anyway?</source>
         <translation>이 이미지는 %1 × %2 픽셀밖에 되지 않습니다. 그래도 고정할까요?</translation>
+    </message>
+    <message>
+        <source>None of the selected files could be pinned</source>
+        <translation>선택한 파일을 고정할 수 없습니다</translation>
+    </message>
+    <message>
+        <source>[Only the first 64 KB of the file is shown]</source>
+        <translation>[파일의 처음 64 KB만 표시됩니다]</translation>
     </message>
 </context>
 
@@ -7788,6 +7820,13 @@ Replace it?</source>
     <message>
         <source>Configure API</source>
         <translation>API 설정</translation>
+    </message>
+</context>
+<context>
+    <name>ExplorerMenu</name>
+    <message>
+        <source>Pin to Screen with jietuba</source>
+        <translation>jietuba로 화면에 고정</translation>
     </message>
 </context>
 </TS>

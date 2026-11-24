@@ -395,12 +395,18 @@ if(BUILD_TESTING)
                  readAloudGroupFitsEveryLanguageInTheNarrowestWindow everyPageFitsEveryLanguageAtTheMinimumWidth translationApiTabFitsEveryLanguageAtTheMinimumWidth
                  wizardMouseGridFitsEveryLanguage wizardFinishPageFitsEveryLanguage
                  longScreenshotMousePageFitsEveryLanguage fileNameDialogFitsEveryLanguageAndFollowsWindowScale fileNameDialogDoesNotMoveWhileTyping
-                 fileNameDialogErrorsStayVisibleAndKeepPastedText saveOptionCardsFitEveryLanguage)
+                 fileNameDialogErrorsStayVisibleAndKeepPastedText saveOptionCardsFitEveryLanguage explorerMenuCardFitsEveryLanguageAtEveryScale)
         set_tests_properties(settings_window_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
         add_test(NAME settings_nav_desktop COMMAND jietuba_settings_window_tests -o ${JIETUBA_TEST_REPORTS}/settings_nav_desktop.txt,txt -platform windows
                  navigationFitsEveryLanguageAtEveryScale)
         set_tests_properties(settings_nav_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
     endif()
+    # Explorer's right-click entry: command line, hand-over to the running instance, registry verbs
+    # under a throwaway key, the packaged build's preference file.
+    qt_add_executable(jietuba_explorer_menu_tests tests/test_explorer_menu.cpp)
+    target_link_libraries(jietuba_explorer_menu_tests PRIVATE jietuba_lib Qt6::Test)
+    add_test(NAME explorer_menu COMMAND jietuba_explorer_menu_tests -o ${JIETUBA_TEST_REPORTS}/explorer_menu.txt,txt)
+    set_tests_properties(explorer_menu PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     qt_add_executable(jietuba_data_folder_tests tests/test_data_folder.cpp)
     target_link_libraries(jietuba_data_folder_tests PRIVATE jietuba_lib Qt6::Test)
     add_test(NAME data_folder COMMAND jietuba_data_folder_tests -o ${JIETUBA_TEST_REPORTS}/data_folder.txt,txt)

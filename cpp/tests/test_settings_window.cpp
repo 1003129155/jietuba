@@ -5,6 +5,7 @@
 #include "settings/data_folder.h"
 #include "core/elevation.h"
 #include "core/i18n.h"
+#include "core/package_identity.h"
 #include "core/resource_manager.h"
 #include "ocr/ocr_manager.h"
 #include "ocr/ppocr_models.h"
@@ -741,8 +742,9 @@ private slots:
         QCOMPARE(toggle->isChecked(), default_value);
     }
 
-    // The hotkey's kinds have a group of their own, second to last above the pin keys, one switch
-    // each; formatting, which the clipboard window's pins follow too, stays with the behaviour.
+    // The hotkey's kinds have a group of their own, third to last, one switch each, with the
+    // Explorer entry's group and the pin keys after it; formatting, which the clipboard window's
+    // pins follow too, stays with the behaviour.
     void pinClipboardKindsAndFormattingSaveAndReset() {
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.show();
@@ -761,7 +763,7 @@ private slots:
         QVERIFY(own && group_of(text) == own && group_of(files) == own);
         auto groups = own->parentWidget()->findChildren<SettingCardGroup *>(Qt::FindDirectChildrenOnly);
         std::sort(groups.begin(), groups.end(), [](QWidget *a, QWidget *b) { return a->y() < b->y(); });
-        QCOMPARE(groups.indexOf(own), groups.size() - 2);
+        QCOMPARE(groups.indexOf(own), groups.size() - 3);
         QVERIFY(!groups.last()->findChildren<QPushButton *>().isEmpty());
         QVERIFY(group_of(formatting) == group_of(dialog.attr_widget("pin_auto_toolbar_toggle")));
         // Stacked, one row per kind.
@@ -796,6 +798,71 @@ private slots:
         QVERIFY(config_->get_pin_clipboard_file());
         QVERIFY(config_->get_pin_text_formatting());
         dialog.hide();
+    }
+
+    // The Explorer entry's group follows the clipboard hotkey's; its choice saves and resets with the page.
+    void explorerMenuChoiceSavesAndResets() {
+        config_->set_explorer_context_menu("off");
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.on_nav_changed(11, "pin");
+        auto *combo = qobject_cast<QComboBox *>(dialog.behavior_control("explorer_context_menu"));
+        QVERIFY(combo);
+        QStringList modes;
+        for (int i = 0; i < combo->count(); ++i) modes << combo->itemData(i).toString();
+        QCOMPARE(modes, QStringList({"off", "images", "images_text"}));
+        QCOMPARE(combo->itemText(0), settings_tr("Off"));
+        QCOMPARE(combo->itemText(1), settings_tr("Images"));
+        QCOMPARE(combo->itemText(2), settings_tr("Images and Text Files"));
+        QCOMPARE(combo->currentData().toString(), QString("off"));
+        const auto group_of = [](QWidget *widget) -> SettingCardGroup * {
+            for (QWidget *w = widget; w; w = w->parentWidget())
+                if (auto *group = qobject_cast<SettingCardGroup *>(w)) return group;
+            return nullptr;
+        };
+        auto *own = group_of(combo);
+        QVERIFY(own);
+        QCOMPARE(own->titleLabel->text(), settings_tr("File Explorer"));
+        auto groups = own->parentWidget()->findChildren<SettingCardGroup *>(Qt::FindDirectChildrenOnly);
+        std::sort(groups.begin(), groups.end(), [](QWidget *a, QWidget *b) { return a->y() < b->y(); });
+        QCOMPARE(groups[groups.indexOf(own) - 1]->titleLabel->text(), settings_tr("Pin from Clipboard"));
+        // Nothing is written until the choice changes.
+        QVERIFY(dialog.apply_settings());
+        QVERIFY(dialog.saved_keys().isEmpty());
+        combo->setCurrentIndex(combo->findData(QString("images_text")));
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_explorer_context_menu(), QString("images_text"));
+        QVERIFY(dialog.saved_keys().contains("explorer_context_menu"));
+        {
+            SettingsDialog again(config_, config_->get_hotkey());
+            again.on_nav_changed(11, "pin");
+            auto *loaded = qobject_cast<QComboBox *>(again.behavior_control("explorer_context_menu"));
+            QVERIFY(loaded);
+            QCOMPARE(loaded->currentData().toString(), QString("images_text"));
+        }
+        reset_page(dialog);
+        QCOMPARE(combo->currentData().toString(), QString("off"));
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_explorer_context_menu(), QString("off"));
+        QVERIFY(dialog.saved_keys().contains("explorer_context_menu"));
+        dialog.hide();
+    }
+
+    // Windows 11 hides a registry entry under "Show more options"; the packaged build's entry is on the first level.
+    void explorerMenuCardTellsWhereTheEntryIsPerBuild() {
+        const auto description = [this](bool packaged) {
+            set_packaged_for_test(packaged);
+            SettingsDialog dialog(config_, config_->get_hotkey());
+            dialog.on_nav_changed(11, "pin");
+            for (QWidget *w = dialog.behavior_control("explorer_context_menu"); w; w = w->parentWidget())
+                if (auto *card = qobject_cast<SettingCard *>(w)) return card->contentLabel->text();
+            return QString();
+        };
+        const auto restore = qScopeGuard([] { set_packaged_for_test(std::nullopt); });
+        const QString portable = description(false), packaged = description(true);
+        QCOMPARE(portable, settings_tr("Right-click files in File Explorer and choose \"Pin to Screen with jietuba\". Windows 11 lists it under Show more options."));
+        QCOMPARE(packaged, settings_tr("Right-click files in File Explorer and choose \"Pin to Screen with jietuba\"."));
+        QVERIFY(portable != packaged);
     }
 
     void captureEngineComboLoadsSavesAndResets() {
@@ -2989,6 +3056,54 @@ private slots:
                 }
             }
         }
+        QVERIFY2(problems.isEmpty(), qPrintable(problems.join('\n')));
+    }
+
+    // The Explorer entry's card in every language, at every window scale and the minimum width: the
+    // title and description keep their lines and the dropdown shows each choice whole.
+    void explorerMenuCardFitsEveryLanguageAtEveryScale() {
+        // Text widths need real fonts, which the offscreen platform does not have.
+        if (QGuiApplication::platformName() != "windows") QSKIP("needs -platform windows");
+        auto &scale = get_dialog_scale();
+        const int percent_before = scale.percent();
+        const QString language = I18nManager::get_current_language();
+        const auto restore = qScopeGuard([&scale, percent_before, language] {
+            set_packaged_for_test(std::nullopt);
+            scale.set_percent(percent_before);
+            I18nManager::load_language(language);
+        });
+        QStringList problems;
+        for (const bool packaged : {false, true})
+            for (const int percent : {100, 150, 200}) {
+                scale.set_percent(percent);
+                set_packaged_for_test(packaged);
+                for (const char *code : {"zh", "zh_TW", "en", "ja", "ko"}) {
+                    QVERIFY(I18nManager::load_language(code));
+                    SettingsDialog dialog(config_, config_->get_hotkey());
+                    dialog.fit_to_available({4000, dialog.height()});
+                    dialog.build_all_pages();
+                    dialog.resize(0, dialog.height());
+                    dialog.show();
+                    dialog.on_nav_changed(11, "pin");
+                    QApplication::processEvents();
+                    const QString where = QString("%1 at %2%%3").arg(code).arg(percent).arg(packaged ? ", packaged" : "");
+                    auto *combo = qobject_cast<QComboBox *>(dialog.behavior_control("explorer_context_menu"));
+                    QVERIFY(combo);
+                    SettingCard *card = nullptr;
+                    for (QWidget *w = combo; w && !card; w = w->parentWidget()) card = qobject_cast<SettingCard *>(w);
+                    QVERIFY(card);
+                    if (combo->width() < combo->sizeHint().width()) problems << where + ": the dropdown is narrower than its content";
+                    const QFontMetrics metrics(combo->font());
+                    for (int i = 0; i < combo->count(); ++i)
+                        if (metrics.horizontalAdvance(combo->itemText(i)) > combo->width()) problems << where + ": " + combo->itemText(i) + " does not fit the dropdown";
+                    if (card->titleLabel->width() < card->titleLabel->sizeHint().width()) problems << where + ": the title is cut";
+                    if (card->layout()->totalMinimumSize().width() > card->width()) problems << where + ": the card needs more width than it has";
+                    // A description that wraps keeps every line.
+                    auto *label = card->contentLabel;
+                    if (label->wordWrap() && label->height() < label->heightForWidth(label->width())) problems << where + ": the description loses lines";
+                    if (dialog.width() != dialog.minimumWidth()) problems << where + ": the window grew";
+                }
+            }
         QVERIFY2(problems.isEmpty(), qPrintable(problems.join('\n')));
     }
 
