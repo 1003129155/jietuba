@@ -77,35 +77,32 @@ private:
 }
 
 UploadTargetDialog::UploadTargetDialog(const upload::Target &initial, const std::vector<upload::Target> &others, bool is_new, QWidget *parent)
-    : FrostedFramelessDialog(parent), initial_(initial), others_(others) {
+    : FluentDialog(parent), initial_(initial), others_(others) {
     setObjectName("upload_target_dialog");
-    scale_dialog_font(*this);
-    auto *title_bar = new FluentTitleBar(this);
-    configure_dialog_control(*title_bar);
-    setTitleBar(title_bar);
-    title_bar->maxBtn->hide();
-    title_bar->minBtn->hide();
     setWindowTitle(is_new ? tr_text("Add Upload Target") : tr_text("Edit Upload Target"));
     setResizeEnabled(false);
 
-    scroll = new QScrollArea(this);
+    scroll = new QScrollArea(FluentDialog::body());
     scroll->setObjectName("upload_target_scroll");
     scroll->setFrameShape(QFrame::NoFrame);
     scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     scroll->setWidgetResizable(true);
     scroll->setStyleSheet("QScrollArea { background: transparent; border: none; } QScrollArea > QWidget > QWidget { background: transparent; }" +
                           scrollbar_qss(this));
-    auto *body = new QWidget(scroll);
-    auto *outer = new QVBoxLayout(body);
-    outer->setContentsMargins(0, 0, dialog_scaled(8), 0);
-    outer->setSpacing(dialog_scaled(8));
+    auto *content = new QWidget(scroll);
+    auto *outer = new QVBoxLayout(content);
+    outer->setContentsMargins(0, 0, 0, 0);
+    outer->setSpacing(0);
+    auto *body = new DialogPanel(content);
+    outer->addWidget(body);
     // Captions beside their fields keep the dialog short enough to show the link preview without scrolling.
-    auto *form = new QGridLayout;
+    auto *form = new QGridLayout(body);
+    form->setContentsMargins(dialog_scaled(16), dialog_scaled(14), dialog_scaled(16), dialog_scaled(10));
     form->setHorizontalSpacing(dialog_scaled(12));
     form->setVerticalSpacing(dialog_scaled(8));
     form->setColumnStretch(1, 1);
-    outer->addLayout(form);
-    scroll->setWidget(body);
+    scroll->setWidget(content);
+    FluentDialog::bodyLayout()->addWidget(scroll, 1);
 
     const auto danger = QString("color: %1; font-size: %2px; background: transparent;").arg(ui_tokens(this).danger).arg(dialog_scaled(12));
     // The text fields by the target field each one edits.
@@ -191,17 +188,7 @@ UploadTargetDialog::UploadTargetDialog(const upload::Target &initial, const std:
     cancel_button = new PushButton(tr_text("Cancel"), this);
     cancel_button->setObjectName("upload_cancel");
     cancel_button->setAutoDefault(false);
-    auto *buttons = new QHBoxLayout;
-    buttons->setSpacing(dialog_scaled(10));
-    buttons->addWidget(test_button);
-    buttons->addStretch(1);
-    buttons->addWidget(save_button);
-    buttons->addWidget(cancel_button);
-    auto *root = new QVBoxLayout(this);
-    root->setContentsMargins(dialog_scaled(20), title_bar->height() + dialog_scaled(8), dialog_scaled(12), dialog_scaled(16));
-    root->setSpacing(dialog_scaled(12));
-    root->addWidget(scroll, 1);
-    root->addLayout(buttons);
+    setFooterButtons({test_button}, {save_button, cancel_button});
 
     // The fields take the target; a new one starts from the first provider.
     filling_ = true;
@@ -245,15 +232,14 @@ UploadTargetDialog::UploadTargetDialog(const upload::Target &initial, const std:
     connect(cancel_button, &QPushButton::clicked, this, &QDialog::reject);
     connect(test_button, &QPushButton::clicked, this, &UploadTargetDialog::run_test);
 
-    configure_dialog_controls(*this);
+    finish_controls();
     test_label->setFixedHeight(test_label->fontMetrics().height() * 3 + dialog_scaled(4));
     refresh_preview();
 
     const auto *shown_on = screen() ? screen() : QGuiApplication::primaryScreen();
     const auto available = shown_on->availableGeometry().size();
     const int width = std::min(dialog_scaled(600), available.width() - dialog_scaled(40));
-    const int wanted = body->sizeHint().height() + root->contentsMargins().top() + root->contentsMargins().bottom() + buttons->sizeHint().height() + root->spacing();
-    setFixedSize(width, std::min(wanted, available.height() - dialog_scaled(60)));
+    setFixedSize(width, std::min(height_showing(scroll, width), available.height() - dialog_scaled(60)));
 }
 
 upload::Target UploadTargetDialog::target() const {

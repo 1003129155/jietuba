@@ -880,24 +880,9 @@ bool ColorPickerDialog::filter_picking_event(QEvent *event) {
     }
 }
 
+// The caption on the window background and the body on the settings window's content layer.
 void ColorPickerDialog::paintEvent(QPaintEvent *) {
-    // A tinted caption band over the plain body.
-    QPainter painter(this);
-    painter.setRenderHint(QPainter::Antialiasing);
-    painter.setCompositionMode(QPainter::CompositionMode_Source);
-    painter.fillRect(rect(), Qt::transparent);
-    painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
-    const auto &t = ui_tokens(this);
-    QPainterPath frame;
-    frame.addRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), frosted_corner_radius_, frosted_corner_radius_);
-    painter.fillPath(frame, css_color(t.popup_background));
-    painter.save();
-    painter.setClipRect(QRect(0, 0, width(), caption_bar_->height()));
-    painter.fillPath(frame, css_color(t.window));
-    painter.restore();
-    painter.setPen(QPen(css_color(t.window_border), 1));
-    painter.setBrush(Qt::NoBrush);
-    painter.drawPath(frame);
+    paint_dialog_frame(this, frosted_corner_radius_, QRect(0, caption_bar_->height(), width(), height() - caption_bar_->height()), ui_tokens(this).layer);
 }
 
 void ColorPickerDialog::showEvent(QShowEvent *event) {

@@ -398,7 +398,8 @@ if(BUILD_TESTING)
                  readAloudGroupFitsEveryLanguageInTheNarrowestWindow everyPageFitsEveryLanguageAtTheMinimumWidth translationApiTabFitsEveryLanguageAtTheMinimumWidth
                  wizardMouseGridFitsEveryLanguage wizardFinishPageFitsEveryLanguage
                  longScreenshotMousePageFitsEveryLanguage fileNameDialogFitsEveryLanguageAndFollowsWindowScale fileNameDialogDoesNotMoveWhileTyping
-                 fileNameDialogErrorsStayVisibleAndKeepPastedText saveOptionCardsFitEveryLanguage explorerMenuCardFitsEveryLanguageAtEveryScale)
+                 fileNameDialogErrorsStayVisibleAndKeepPastedText saveOptionCardsFitEveryLanguage explorerMenuCardFitsEveryLanguageAtEveryScale
+                 settingsStyleDialogsFitEveryLanguage)
         set_tests_properties(settings_window_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
         add_test(NAME settings_nav_desktop COMMAND jietuba_settings_window_tests -o ${JIETUBA_TEST_REPORTS}/settings_nav_desktop.txt,txt -platform windows
                  navigationFitsEveryLanguageAtEveryScale)

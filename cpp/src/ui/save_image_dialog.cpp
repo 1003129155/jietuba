@@ -147,7 +147,7 @@ QIcon plus_icon(const QColor &color) {
 QString normalized_folder(const QString &path) { return QDir::cleanPath(QDir::fromNativeSeparators(path.trimmed())); }
 
 int confirm(QWidget *parent, const QString &title, const QString &message) {
-    const std::vector<DialogButton> buttons = {{0, tr_text("Cancel"), QDialogButtonBox::RejectRole}, {1, tr_text("OK"), QDialogButtonBox::AcceptRole, true}};
+    const std::vector<DialogButton> buttons = {{0, tr_text("Cancel"), QDialogButtonBox::RejectRole}, {1, tr_text("OK"), QDialogButtonBox::AcceptRole}};
     return show_custom_confirm_dialog(parent, title, message, buttons).toInt();
 }
 }

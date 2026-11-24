@@ -50,31 +50,33 @@ void DraggableRow::set_dragging(bool dragging) {
     update();
 }
 
+// Each row is a settings card; the dragged one takes the accent backing.
 void DraggableRow::paintEvent(QPaintEvent *) {
-    if (!dragging_) return;
+    const auto &t = ui_tokens(this);
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
-    painter.setPen(Qt::NoPen);
-    painter.setBrush(QColor(ui_tokens(this).accent_soft));
-    painter.drawRoundedRect(rect(), dialog_scaled(8), dialog_scaled(8));
+    painter.setPen(QPen(css_color(dragging_ ? t.accent : t.card_border), 1.0));
+    painter.setBrush(css_color(dragging_ ? t.accent_soft : t.card));
+    const int radius = dialog_scaled(4);
+    painter.drawRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), radius, radius);
     painter.end();
 }
 
 ReorderableRowList::ReorderableRowList(QWidget *parent) : QScrollArea(parent) {
-    card_ = new SimpleCardWidget;
-    layout_ = new QVBoxLayout(card_);
-    layout_->setContentsMargins(dialog_scaled(6), dialog_scaled(6), dialog_scaled(6), dialog_scaled(6));
-    layout_->setSpacing(0);
+    rows_widget_ = new QWidget;
+    layout_ = new QVBoxLayout(rows_widget_);
+    layout_->setContentsMargins(0, 0, 0, 0);
+    layout_->setSpacing(dialog_scaled(4));
     layout_->setAlignment(Qt::AlignTop);
     setWidgetResizable(true);
     setFrameShape(QFrame::NoFrame);
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    setStyleSheet("QScrollArea { border: none; background: transparent; }");
-    setWidget(card_);
+    setStyleSheet("QScrollArea { border: none; background: transparent; } QScrollArea > QWidget > QWidget { background: transparent; }" + scrollbar_qss(this));
+    setWidget(rows_widget_);
 }
 
 DraggableRow *ReorderableRowList::add_row(DraggableRow *row, int index) {
-    row->setParent(card_);
+    row->setParent(rows_widget_);
     connect(row->grip, &DragGrip::pressed, row, [row] { row->set_dragging(true); });
     connect(row->grip, &DragGrip::dragged, this, [this, row](int global_y) { drag_row(row, global_y); });
     connect(row->grip, &DragGrip::released, row, [row] { row->set_dragging(false); });
@@ -111,7 +113,7 @@ void ReorderableRowList::place(DraggableRow *row, int index) {
 }
 
 void ReorderableRowList::drag_row(DraggableRow *row, int global_y) {
-    const int y = card_->mapFromGlobal(QPoint(0, global_y)).y();
+    const int y = rows_widget_->mapFromGlobal(QPoint(0, global_y)).y();
     int index = 0;
     for (auto *other : rows())
         if (other != row && other->geometry().center().y() < y) ++index;

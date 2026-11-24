@@ -1,5 +1,5 @@
 #pragma once
-#include "ui/fluent_lite/frameless.h"
+#include "ui/fluent_lite/fluent_dialog.h"
 #include "upload/s3_target.h"
 #include <QMap>
 #include <vector>
@@ -15,7 +15,7 @@ class PrimaryPushButton;
 
 // Edits one upload target. Mistakes are shown beside their field when Save or Test is pressed, and the link a
 // screenshot would get follows the fields while they are typed.
-class UploadTargetDialog : public FrostedFramelessDialog {
+class UploadTargetDialog : public FluentDialog {
     Q_OBJECT
 public:
     // others are the targets it is saved beside (for the name check).

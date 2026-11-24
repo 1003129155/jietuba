@@ -15,6 +15,7 @@
 #include "core/ui_scale.h"
 #include "core/updater_process.h"
 #include "ui/color_picker_dialog.h"
+#include "ui/dialogs.h"
 #include "ui/fluent_lite/buttons.h"
 #include "ui/fluent_lite/cards.h"
 #include "ui/fluent_lite/inputs.h"
@@ -30,7 +31,11 @@
 #include "ui/settings_ui/components.h"
 #include "ui/settings_ui/pages.h"
 #include "ui/settings_ui/search.h"
+#include "ui/settings_ui/color_format_dialog.h"
+#include "ui/settings_ui/ppocr_model_dialog.h"
+#include "ui/settings_ui/special_paste_dialog.h"
 #include "ui/settings_ui/upload_target_dialog.h"
+#include "ui/toolbar_layout_dialog.h"
 #include "upload/s3_target.h"
 #include "ui/toolbar_layout.h"
 #include "ui/welcome/demo_paint.h"
@@ -91,7 +96,7 @@ void answer_next(bool yes) {
             modal->reject();
             return;
         }
-        for (auto *box : modal->findChildren<QDialogButtonBox *>())
+        for (auto *box : modal->findChildren<jietuba::DialogButtonRow *>())
             for (auto *button : box->buttons())
                 if (box->buttonRole(button) == QDialogButtonBox::YesRole || box->buttonRole(button) == QDialogButtonBox::AcceptRole) {
                     button->click();
@@ -4130,6 +4135,69 @@ private slots:
         // Closing saves every page; the finish page would write the Run key and the desktop.
         wizard.hide();
     }
+    // Saves the dialogs opened from the settings window, light and dark, when JIETUBA_SETTINGS_SHOTS names a folder.
+    void renderDialogsForReview() {
+        const QString out = qEnvironmentVariable("JIETUBA_SETTINGS_SHOTS");
+        if (out.isEmpty()) QSKIP("JIETUBA_SETTINGS_SHOTS is not set.");
+        const QString language = I18nManager::get_current_language();
+        const auto mode = get_ui_theme()->mode();
+        const auto restore = qScopeGuard([language, mode] {
+            I18nManager::load_language(language);
+            get_ui_theme()->set_mode(ui_theme_mode_value(mode), false);
+        });
+        const auto save = [&out](QWidget &widget, const QString &name) {
+            widget.setAttribute(Qt::WA_DontShowOnScreen);
+            widget.show();
+            QTest::qWait(100);
+            QVERIFY(widget.grab().save(QDir(out).filePath(name + ".png")));
+            widget.hide();
+        };
+        for (const char *theme : {"light", "dark"}) {
+            get_ui_theme()->set_mode(theme, false);
+            for (const char *lang : {"zh", "en", "ja"}) {
+                QVERIFY(I18nManager::load_language(lang));
+                FileNameDialog names(file_names::defaults());
+                save(names, QString("dialog_filename_%1_%2").arg(lang, theme));
+                StandardDialog confirm(nullptr, settings_tr("Reset This Page"), settings_tr("Restore the default settings of this page?"));
+                confirm.button_box->addButton(i18n_tr("Yes", "StandardDialog"), QDialogButtonBox::YesRole);
+                confirm.button_box->addButton(i18n_tr("No", "StandardDialog"), QDialogButtonBox::NoRole);
+                save(confirm, QString("dialog_confirm_%1_%2").arg(lang, theme));
+            }
+            QVERIFY(I18nManager::load_language("zh"));
+            FileNameDialog broken(file_names::defaults());
+            broken.findChild<QLineEdit *>("filename_rule_5")->setText("bad?");
+            save(broken, QString("dialog_filename_error_%1").arg(theme));
+            StandardDialog choice(nullptr, settings_tr("Existing Clipboard Data"),
+                                  settings_tr("The selected folder already contains clipboard data.\n"
+                                              "Use That Data: switch to it and leave the current data where it is.\n"
+                                              "Replace: move the current data there; the data already in that folder will be deleted."));
+            choice.button_box->addButton(settings_tr("Use That Data"), QDialogButtonBox::AcceptRole);
+            choice.button_box->addButton(settings_tr("Replace"), QDialogButtonBox::DestructiveRole);
+            choice.button_box->addButton(settings_tr("Cancel"), QDialogButtonBox::RejectRole);
+            save(choice, QString("dialog_choice_%1").arg(theme));
+            StandardDialog info(nullptr, settings_tr("Log"), settings_tr("No log files yet. Please start and use the app first."));
+            info.button_box->addButton(i18n_tr("OK", "StandardDialog"), QDialogButtonBox::AcceptRole);
+            save(info, QString("dialog_info_%1").arg(theme));
+            ColorFormatDialog formats(color_formats::default_formats());
+            save(formats, QString("dialog_color_formats_%1").arg(theme));
+            SpecialPasteDialog paste(special_paste::default_entries());
+            save(paste, QString("dialog_special_paste_%1").arg(theme));
+            PpocrModelDialog models;
+            save(models, QString("dialog_models_%1").arg(theme));
+            PpocrImportForm import_form;
+            save(import_form, QString("dialog_model_import_%1").arg(theme));
+            upload::Target blank;
+            blank.id = "new";
+            UploadTargetDialog upload_dialog(blank, {}, true);
+            save(upload_dialog, QString("dialog_upload_%1").arg(theme));
+            QMap<QString, QIcon> icons;
+            for (const auto &key : toolbar_layout::default_order()) icons[key] = QIcon();
+            ToolbarLayoutDialog toolbar(toolbar_layout::default_layout(), icons);
+            save(toolbar, QString("dialog_toolbar_%1").arg(theme));
+            ColorPickerDialog picker(QColor(230, 153, 60));
+            save(picker, QString("dialog_color_picker_%1").arg(theme));
+        }
+    }
     void fileNameRulesValidateAndSaveWithoutOverwriting() {
         QTemporaryDir temp;
         QSettings settings(temp.filePath("names.ini"), QSettings::IniFormat);
@@ -4593,6 +4661,103 @@ private slots:
         QVERIFY(large.name_edit->height() > edit_height);
         QVERIFY(large.save_button->width() > button_width);
         QVERIFY(large.height() <= large.screen()->availableGeometry().height());
+    }
+
+    // The dialogs in the settings window's look grow with the window scale and ignore the panel scale.
+    void settingsStyleDialogsFollowTheWindowScale() {
+        const auto restore = qScopeGuard([] {
+            get_dialog_scale().set_percent(100);
+            get_ui_scale().set_percent(100);
+        });
+        QMap<QString, QIcon> icons;
+        for (const auto &key : toolbar_layout::default_order()) icons[key] = QIcon();
+        const std::vector<std::pair<const char *, std::function<std::unique_ptr<QDialog>()>>> dialogs = {
+            {"colour formats", [] { return std::make_unique<ColorFormatDialog>(color_formats::default_formats()); }},
+            {"special paste", [] { return std::make_unique<SpecialPasteDialog>(special_paste::default_entries()); }},
+            {"model import", [] { return std::make_unique<PpocrImportForm>(); }},
+            {"toolbar layout", [icons] { return std::make_unique<ToolbarLayoutDialog>(toolbar_layout::default_layout(), icons); }},
+            {"message", [] { return std::make_unique<StandardDialog>(nullptr, "Title", "Message"); }},
+        };
+        // A dialog that does not size itself takes its size hint when shown.
+        const auto width_of = [](const std::unique_ptr<QDialog> &dialog) { return dialog->testAttribute(Qt::WA_Resized) ? dialog->width() : dialog->sizeHint().width(); };
+        for (const auto &[name, make] : dialogs) {
+            get_dialog_scale().set_percent(100);
+            get_ui_scale().set_percent(100);
+            const int width = width_of(make());
+            get_ui_scale().set_percent(150);
+            QVERIFY2(width_of(make()) == width, name);
+            get_ui_scale().set_percent(100);
+            get_dialog_scale().set_percent(150);
+            QVERIFY2(width_of(make()) >= width * 1.49, name);
+        }
+    }
+
+    // Needs real fonts: the dialogs in the settings window's look show every text whole in every language.
+    void settingsStyleDialogsFitEveryLanguage() {
+        if (QGuiApplication::platformName() != "windows") QSKIP("needs desktop fonts");
+        const auto language = I18nManager::get_current_language();
+        const auto restore = qScopeGuard([language] {
+            get_dialog_scale().set_percent(100);
+            I18nManager::load_language(language);
+        });
+        QMap<QString, QIcon> icons;
+        for (const auto &key : toolbar_layout::default_order()) icons[key] = QIcon();
+        QStringList problems;
+        for (const QString lang : {"zh", "zh_TW", "en", "ja", "ko"}) {
+            QVERIFY(I18nManager::load_language(lang));
+            for (const int percent : {100, 150}) {
+                get_dialog_scale().set_percent(percent);
+                std::vector<std::unique_ptr<QDialog>> dialogs;
+                dialogs.push_back(std::make_unique<ColorFormatDialog>(color_formats::default_formats()));
+                dialogs.push_back(std::make_unique<SpecialPasteDialog>(special_paste::default_entries()));
+                dialogs.push_back(std::make_unique<PpocrImportForm>());
+                dialogs.push_back(std::make_unique<ToolbarLayoutDialog>(toolbar_layout::default_layout(), icons));
+                auto choice = std::make_unique<StandardDialog>(nullptr, settings_tr("Existing Clipboard Data"), settings_tr("Clipboard module not available"));
+                choice->button_box->addButton(settings_tr("Use That Data"), QDialogButtonBox::AcceptRole);
+                choice->button_box->addButton(settings_tr("Replace"), QDialogButtonBox::DestructiveRole);
+                choice->button_box->addButton(settings_tr("Cancel"), QDialogButtonBox::RejectRole);
+                dialogs.push_back(std::move(choice));
+                for (auto &dialog : dialogs) {
+                    dialog->setAttribute(Qt::WA_DontShowOnScreen);
+                    dialog->show();
+                    QApplication::processEvents();
+                    const auto where = QString("%1 %2%% %3").arg(lang).arg(percent).arg(dialog->windowTitle());
+                    for (auto *button : dialog->findChildren<QPushButton *>())
+                        if (button->isVisible() && button->width() < button->sizeHint().width()) problems << where + ": " + button->text();
+                    for (auto *combo : dialog->findChildren<QComboBox *>())
+                        if (combo->isVisible() && combo->width() < combo->minimumSizeHint().width()) problems << where + ": " + combo->currentText();
+                    for (auto *label : dialog->findChildren<QLabel *>()) {
+                        if (!label->isVisible() || label->wordWrap() || label->text().isEmpty()) continue;
+                        if (label->width() < label->sizeHint().width()) problems << where + ": " + label->text();
+                    }
+                    if (dialog->width() > dialog->screen()->availableGeometry().width()) problems << where + ": wider than the screen";
+                }
+            }
+        }
+        QVERIFY2(problems.isEmpty(), qPrintable(problems.join('\n')));
+    }
+
+    // A message names the dialog in a large title; its buttons share the footer, the accepting one drawn as primary.
+    void messageDialogButtonsShareTheFooter() {
+        StandardDialog dialog(nullptr, "Reset", "Restore the defaults?");
+        auto *no = dialog.button_box->addButton("No, keep the current settings", QDialogButtonBox::NoRole);
+        auto *yes = dialog.button_box->addButton("Yes", QDialogButtonBox::YesRole);
+        dialog.show();
+        QApplication::processEvents();
+        QCOMPARE(dialog.title_label->text(), QString("Reset"));
+        QVERIFY(dialog.title_label->font().pixelSize() > dialog.label->font().pixelSize() || dialog.title_label->height() > dialog.label->height());
+        // Yes comes first whatever the order added, as in the platform's message boxes.
+        QCOMPARE(dialog.button_box->buttons(), (QList<QAbstractButton *>{yes, no}));
+        QVERIFY(qobject_cast<PrimaryPushButton *>(yes));
+        QVERIFY(!qobject_cast<PrimaryPushButton *>(no));
+        QVERIFY(yes->isDefault());
+        QVERIFY(!no->isDefault());
+        QCOMPARE(yes->width(), no->width());
+        QVERIFY(no->width() >= no->sizeHint().width());
+        QVERIFY(yes->x() < no->x());
+        dialog.setWindowTitle("Renamed");
+        QCOMPARE(dialog.title_label->text(), QString("Renamed"));
+        QCOMPARE(dialog.button_box->buttonRole(no), QDialogButtonBox::NoRole);
     }
 
     // Targets are added, edited and deleted from the page; the default and the list follow at once.

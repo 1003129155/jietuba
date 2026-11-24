@@ -1,3 +1,4 @@
+#include "ui/fluent_lite/fluent_dialog.h"
 #include "save_dialog_answerer.h"
 #include "scripted_translation.h"
 #include "pool_block.h"
@@ -892,7 +893,7 @@ private slots:
         QVERIFY(window->session_active());
         QTimer::singleShot(0, this, [] {
             auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
-            auto *box = dialog ? dialog->findChild<QDialogButtonBox *>() : nullptr;
+            auto *box = dialog ? dialog->findChild<jietuba::DialogButtonRow *>() : nullptr;
             if (!box) return;
             for (auto *button : box->buttons())
                 if (box->buttonRole(button) == QDialogButtonBox::YesRole) button->click();
@@ -1694,7 +1695,9 @@ private slots:
         QTRY_COMPARE(saved_files().size(), 1);
         QDialog *warning = nullptr;
         QTRY_VERIFY_WITH_TIMEOUT((warning = visible_window<QDialog>()), 10000);
-        QVERIFY(warning->findChild<QLabel *>()->text().contains(i18n_tr("Upload failed: network error", "CloudUpload")));
+        auto *message = qobject_cast<StandardDialog *>(warning);
+        QVERIFY(message);
+        QVERIFY(message->label->text().contains(i18n_tr("Upload failed: network error", "CloudUpload")));
         warning->close();
         for (auto *widget : QApplication::topLevelWidgets())
             if (qobject_cast<Toast *>(widget)) widget->close();

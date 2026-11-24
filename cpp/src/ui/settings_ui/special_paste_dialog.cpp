@@ -32,7 +32,7 @@ public:
         column->addWidget(name);
         column->addWidget(description);
         auto *layout = new QHBoxLayout(this);
-        layout->setContentsMargins(dialog_scaled(8), dialog_scaled(6), dialog_scaled(8), dialog_scaled(6));
+        layout->setContentsMargins(dialog_scaled(10), dialog_scaled(10), dialog_scaled(16), dialog_scaled(10));
         layout->setSpacing(dialog_scaled(10));
         layout->addWidget(grip);
         layout->addWidget(check);
@@ -43,11 +43,8 @@ public:
 };
 }
 
-SpecialPasteDialog::SpecialPasteDialog(const QList<special_paste::Entry> &entries, QWidget *parent) : QDialog(parent) {
-    scale_dialog_font(*this);
+SpecialPasteDialog::SpecialPasteDialog(const QList<special_paste::Entry> &entries, QWidget *parent) : FluentDialog(parent) {
     setWindowTitle(tr_text("Manage Special Paste"));
-    setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowCloseButtonHint);
-    setStyleSheet(QString("QDialog { background: %1; }").arg(ui_tokens(this).window));
 
     tabs = new SegmentedWidget(this);
     tabs->addItem("text", tr_text("Text"));
@@ -55,39 +52,28 @@ SpecialPasteDialog::SpecialPasteDialog(const QList<special_paste::Entry> &entrie
     stack_ = new QStackedWidget(this);
     for (const QString kind : {"text", "file"}) {
         auto *row_list = new ReorderableRowList(this);
-        row_list->setStyleSheet(row_list->styleSheet() + scrollbar_qss(this));
         stack_->addWidget(row_list);
         lists_.insert(kind, row_list);
     }
     connect(tabs, &SegmentedWidget::currentItemChanged, this, [this](const QString &kind) { stack_->setCurrentWidget(lists_.value(kind)); });
     tabs->setCurrentItem("text");
 
-    auto *hint = new CaptionLabel(
-        tr_text("Check the items to show in the menu. Drag the handle to reorder them. Uncheck all items to hide Special Paste for that type."), this);
+    bodyLayout()->addWidget(tabs);
+    bodyLayout()->addSpacing(dialog_scaled(8));
+    bodyLayout()->addWidget(stack_, 1);
+    bodyLayout()->addSpacing(dialog_scaled(8));
+    bodyLayout()->addWidget(dialog_hint(body(), tr_text("Check the items to show in the menu. Drag the handle to reorder them. Uncheck all items to hide Special Paste for that type.")));
     reset_button = new TransparentPushButton(tr_text("Restore defaults"), this);
     connect(reset_button, &QPushButton::clicked, this, [this] { fill(special_paste::default_entries()); });
     auto *ok_button = new PrimaryPushButton(tr_text("OK"), this);
+    ok_button->setDefault(true);
     connect(ok_button, &QPushButton::clicked, this, &QDialog::accept);
     auto *cancel_button = new PushButton(tr_text("Cancel"), this);
     connect(cancel_button, &QPushButton::clicked, this, &QDialog::reject);
-
-    auto *buttons = new QHBoxLayout;
-    buttons->setSpacing(dialog_scaled(8));
-    buttons->addWidget(reset_button);
-    buttons->addStretch(1);
-    buttons->addWidget(ok_button);
-    buttons->addWidget(cancel_button);
-
-    auto *root = new QVBoxLayout(this);
-    root->setContentsMargins(dialog_scaled(16), dialog_scaled(16), dialog_scaled(16), dialog_scaled(14));
-    root->setSpacing(dialog_scaled(10));
-    root->addWidget(tabs);
-    root->addWidget(stack_, 1);
-    root->addWidget(hint);
-    root->addLayout(buttons);
+    setFooterButtons({reset_button}, {ok_button, cancel_button});
 
     fill(entries);
-    configure_dialog_controls(*this);
+    finish_controls();
     QScreen *screen = parentWidget() ? parentWidget()->screen() : QApplication::primaryScreen();
     int height = dialog_scaled(760);
     if (screen) height = std::min(height, screen->availableGeometry().height() - dialog_scaled(40));

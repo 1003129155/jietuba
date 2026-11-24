@@ -1,6 +1,6 @@
 #pragma once
 #include "settings/color_formats.h"
-#include <QDialog>
+#include "ui/fluent_lite/fluent_dialog.h"
 
 // The magnifier's colour format manager. Formats are a fixed set of presets: checked ones
 // join the magnifier's cycle (Shift switches, C copies the shown one) and the order decides
@@ -9,7 +9,7 @@
 namespace jietuba {
 class ReorderableRowList;
 
-class ColorFormatDialog : public QDialog {
+class ColorFormatDialog : public FluentDialog {
     Q_OBJECT
 public:
     explicit ColorFormatDialog(const QVector<color_formats::ColorFormat> &formats, QWidget *parent = nullptr);

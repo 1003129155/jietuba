@@ -1,4 +1,5 @@
 #pragma once
+#include "ui/fluent_lite/fluent_dialog.h"
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QLabel>
@@ -19,14 +20,24 @@ std::pair<QString, QString> get_save_file_name(QWidget *parent, const QString &c
 QString get_existing_directory(QWidget *parent, const QString &caption = {}, const QString &directory = {});
 
 // Replacement for QMessageBox that neither steals global focus nor stays on top
-// of unrelated windows.
-class StandardDialog : public QDialog {
+// of unrelated windows. Drawn like a WinUI content dialog: the title large at the top
+// left, the message below it and the buttons sharing a footer on the window background.
+class StandardDialog : public FrostedFramelessDialog {
     Q_OBJECT
 public:
     StandardDialog(QWidget *parent, const QString &title, const QString &message);
+    // The title, the message and whatever a caller adds below them.
+    QVBoxLayout *content_layout() const { return content_layout_; }
+    QSize sizeHint() const override;
+    QLabel *title_label;
     QLabel *label;
-    QDialogButtonBox *button_box;
+    DialogButtonRow *button_box;
     QVariant result_action;
+protected:
+    void paintEvent(QPaintEvent *event) override;
+private:
+    QWidget *content_;
+    QVBoxLayout *content_layout_;
 };
 
 QDialog *track_modeless_dialog(QDialog *dialog);
@@ -35,7 +46,6 @@ struct DialogButton {
     QVariant id;
     QString text;
     QDialogButtonBox::ButtonRole role;
-    bool is_default = false;
 };
 // Returns the id of the clicked button (the reject-role id when closed).
 QVariant show_custom_confirm_dialog(QWidget *parent, const QString &title, const QString &message, const std::vector<DialogButton> &buttons_config);

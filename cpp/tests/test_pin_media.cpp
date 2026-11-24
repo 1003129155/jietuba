@@ -1,3 +1,4 @@
+#include "ui/fluent_lite/fluent_dialog.h"
 #include "clipboard/ui/windows/pin_window.h"
 #include "clipboard/core/manager.h"
 #include "pin/pin_animation.h"
@@ -291,7 +292,7 @@ private slots:
             ++small_pin_asked_;
             if (!small_pin_answer_) return dialog->reject();
             // Closing is a no; only the yes button answers yes.
-            auto *box = dialog->findChild<QDialogButtonBox *>();
+            auto *box = dialog->findChild<jietuba::DialogButtonRow *>();
             for (auto *button : box->buttons())
                 if (box->buttonRole(button) == QDialogButtonBox::YesRole) button->click();
         });

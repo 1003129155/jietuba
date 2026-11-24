@@ -367,7 +367,7 @@ QThread *change_clipboard_data_location(QWidget *parent, std::function<void(cons
                         "Replace: move the current data there; the data already in that folder will be deleted."),
             {{"use", settings_tr("Use That Data"), QDialogButtonBox::AcceptRole},
              {"replace", settings_tr("Replace"), QDialogButtonBox::DestructiveRole},
-             {"cancel", settings_tr("Cancel"), QDialogButtonBox::RejectRole, true}});
+             {"cancel", settings_tr("Cancel"), QDialogButtonBox::RejectRole}});
         if (choice.toString() == "use") switch_clipboard_data_location(parent, current_db_path, target_dir, on_changed);
         if (choice.toString() != "replace") return nullptr;
     }

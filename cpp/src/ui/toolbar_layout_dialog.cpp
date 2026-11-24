@@ -46,7 +46,7 @@ ToolbarLayoutRow::ToolbarLayoutRow(const QString &key, const QIcon &icon, QWidge
     configure_dialog_control(*combo);
     for (const auto &[mode, text] : MODE_NAMES) combo->addItem(tld_tr(text), mode);
     auto *layout = new QHBoxLayout(this);
-    layout->setContentsMargins(dialog_scaled(8), dialog_scaled(3), dialog_scaled(8), dialog_scaled(3));
+    layout->setContentsMargins(dialog_scaled(10), dialog_scaled(8), dialog_scaled(16), dialog_scaled(8));
     layout->setSpacing(dialog_scaled(10));
     layout->addWidget(grip);
     layout->addWidget(icon_label);
@@ -62,39 +62,27 @@ void ToolbarLayoutRow::set_mode(const QString &mode) { combo->setCurrentIndex(co
 
 ToolbarLayoutDialog::ToolbarLayoutDialog(const QJsonArray &layout, const QMap<QString, QIcon> &icons, QWidget *parent,
                                          const toolbar_layout::LayoutProfile &profile)
-    : QDialog(parent), profile_(profile) {
-    scale_dialog_font(*this);
+    : FluentDialog(parent), profile_(profile) {
     setWindowTitle(tld_tr("Customize Toolbar"));
     // Opened from the full-screen topmost capture window, so it stays on top too.
-    setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowCloseButtonHint | Qt::WindowStaysOnTopHint);
-    setStyleSheet(QString("QDialog { background: %1; }").arg(ui_tokens(this).window));
-    list_ = new ReorderableRowList(this);
+    setStaysOnTop();
+    list_ = new ReorderableRowList(body());
     // Locked buttons get no disabled row; only adjustable buttons have one.
     for (const auto &key : profile.order)
         if (!profile.locked.contains(key)) rows_[key] = new ToolbarLayoutRow(key, icons.value(key));
-    auto *hint = new CaptionLabel(tld_tr("Drag the handle to reorder. Use the drop-down to change visibility."), this);
-    configure_dialog_control(*hint);
+    bodyLayout()->addWidget(list_, 1);
+    bodyLayout()->addSpacing(dialog_scaled(8));
+    bodyLayout()->addWidget(dialog_hint(body(), tld_tr("Drag the handle to reorder. Use the drop-down to change visibility.")));
     auto *reset_btn = new TransparentPushButton(tld_tr("Restore defaults"), this);
-    configure_dialog_control(*reset_btn);
     connect(reset_btn, &QPushButton::clicked, this, [this] { fill(toolbar_layout::default_layout(profile_)); });
     auto *ok_btn = new PrimaryPushButton(tld_tr("OK"), this);
-    configure_dialog_control(*ok_btn);
+    ok_btn->setDefault(true);
     connect(ok_btn, &QPushButton::clicked, this, &QDialog::accept);
     auto *cancel_btn = new PushButton(tld_tr("Cancel"), this);
-    configure_dialog_control(*cancel_btn);
     connect(cancel_btn, &QPushButton::clicked, this, &QDialog::reject);
-    auto *buttons = new QHBoxLayout;
-    buttons->addWidget(reset_btn);
-    buttons->addStretch(1);
-    buttons->addWidget(ok_btn);
-    buttons->addWidget(cancel_btn);
-    auto *root = new QVBoxLayout(this);
-    root->setContentsMargins(dialog_scaled(16), dialog_scaled(16), dialog_scaled(16), dialog_scaled(14));
-    root->setSpacing(dialog_scaled(10));
-    root->addWidget(list_, 1);
-    root->addWidget(hint);
-    root->addLayout(buttons);
+    setFooterButtons({reset_btn}, {ok_btn, cancel_btn});
     fill(layout);
+    finish_controls();
     fit_height_to_rows();
 }
 
@@ -126,19 +114,10 @@ void ToolbarLayoutDialog::fill(const QJsonArray &layout) {
 }
 
 void ToolbarLayoutDialog::fit_height_to_rows() {
-    int content_height = list_->content_height();
-    list_->setFixedHeight(content_height);
-    int desired_height = sizeHint().height();
     auto *screen = parentWidget() ? parentWidget()->screen() : QApplication::primaryScreen();
-    if (screen) {
-        const int max_height = std::max(dialog_scaled(360), screen->availableGeometry().height() - dialog_scaled(40));
-        if (desired_height > max_height) {
-            const int non_list_height = desired_height - content_height;
-            content_height = std::max(dialog_scaled(180), max_height - non_list_height);
-            list_->setFixedHeight(content_height);
-            desired_height = non_list_height + content_height;
-        }
-    }
-    resize(dialog_scaled(480), desired_height);
+    const int limit = screen ? std::max(dialog_scaled(360), screen->availableGeometry().height() - dialog_scaled(40)) : QWIDGETSIZE_MAX;
+    // Japanese button names beside the visibility combo need the room.
+    const int width = dialog_scaled(560);
+    resize(width, std::min(height_showing(list_, width), limit));
 }
 }

@@ -40,23 +40,13 @@ qint64 files_size(const QJsonArray &files) {
 
 }
 
-// One row: name, languages/size/state, and one action button (download or delete) on the right.
+// One card: name, languages/size/state, and one action button (download or delete) on the right.
 // The row being downloaded shows a progress bar, the bytes so far and the speed, and a cancel button.
-class ModelRow : public QWidget {
+class ModelRow : public DialogCard {
 public:
-    ModelRow(const QString &title, const QString &detail, QString action, bool downloading, QWidget *parent) : QWidget(parent) {
-        title_label = new BodyLabel(title, this);
-        detail_label = new CaptionLabel(detail, this);
-        detail_label->setWordWrap(true);
-        auto *text = new QVBoxLayout;
-        text->setContentsMargins(0, 0, 0, 0);
-        text->setSpacing(dialog_scaled(2));
-        text->addWidget(title_label);
-        text->addWidget(detail_label);
-        auto *layout = new QHBoxLayout(this);
-        layout->setContentsMargins(dialog_scaled(10), dialog_scaled(6), dialog_scaled(10), dialog_scaled(6));
-        layout->setSpacing(dialog_scaled(10));
-        layout->addLayout(text, 1);
+    ModelRow(const QString &title, const QString &detail, QString action, bool downloading, QWidget *parent) : DialogCard(title, parent) {
+        title_label = titleLabel;
+        detail_label = addCaption(detail);
         if (downloading) {
             action = tr_text("Cancel");
             progress = new QProgressBar(this);
@@ -69,11 +59,11 @@ public:
             column->setSpacing(dialog_scaled(2));
             column->addWidget(progress);
             column->addWidget(progress_label);
-            layout->addLayout(column);
+            controlLayout->addLayout(column);
         }
         if (!action.isEmpty()) {
             button = new PushButton(action, this);
-            layout->addWidget(button, 0, Qt::AlignVCenter);
+            addControl(button);
         }
     }
     void set_progress(qint64 received, qint64 total, std::optional<double> speed) {
@@ -98,29 +88,30 @@ QString ppocr_language_names(const QStringList &codes) {
     return shown.join(tr_text(", "));
 }
 
-PpocrModelDialog::PpocrModelDialog(QWidget *parent, ModelDownloads *downloads) : QDialog(parent), downloads_(downloads ? downloads : model_downloads()) {
-    scale_dialog_font(*this);
+PpocrModelDialog::PpocrModelDialog(QWidget *parent, ModelDownloads *downloads) : FluentDialog(parent), downloads_(downloads ? downloads : model_downloads()) {
     setWindowTitle(tr_text("Manage PP-OCR Models"));
-    setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowCloseButtonHint);
-    setStyleSheet(QString("QDialog { background: %1; }").arg(ui_tokens(this).window));
 
     connect(this, &PpocrModelDialog::import_done, this, &PpocrModelDialog::on_imported, Qt::QueuedConnection);
 
     rows_ = new QWidget(this);
     rows_layout_ = new QVBoxLayout(rows_);
     rows_layout_->setContentsMargins(0, 0, 0, 0);
-    rows_layout_->setSpacing(dialog_scaled(2));
-    scroll_ = new QScrollArea(this);
+    rows_layout_->setSpacing(dialog_scaled(4));
+    scroll_ = new QScrollArea(body());
     scroll_->setWidgetResizable(true);
     scroll_->setFrameShape(QFrame::NoFrame);
+    scroll_->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    scroll_->setStyleSheet("QScrollArea { background: transparent; border: none; } QScrollArea > QWidget > QWidget { background: transparent; }" +
+                           scrollbar_qss(this));
     scroll_->setWidget(rows_);
 
-    status_ = new CaptionLabel(QString(), this);
+    status_ = new CaptionLabel(QString(), body());
     status_->setWordWrap(true);
 
-    auto *hint = new CaptionLabel(tr_text("Models are stored in the models folder next to the program. Recognition uses the model selected on the settings page."), this);
-    hint->setWordWrap(true);
-    configure_dialog_control(*hint);
+    bodyLayout()->addWidget(scroll_, 1);
+    bodyLayout()->addSpacing(dialog_scaled(8));
+    bodyLayout()->addWidget(status_);
+    bodyLayout()->addWidget(dialog_hint(body(), tr_text("Models are stored in the models folder next to the program. Recognition uses the model selected on the settings page.")));
 
     add_btn_ = new PushButton(tr_text("Add Local Model..."), this);
     connect(add_btn_, &QPushButton::clicked, this, &PpocrModelDialog::add_local);
@@ -128,37 +119,19 @@ PpocrModelDialog::PpocrModelDialog(QWidget *parent, ModelDownloads *downloads) :
     connect(folder_btn, &QPushButton::clicked, this, &PpocrModelDialog::open_folder);
     auto *close_btn = new PrimaryPushButton(tr_text("Close"), this);
     connect(close_btn, &QPushButton::clicked, this, &PpocrModelDialog::reject);
-    auto *buttons = new QHBoxLayout;
-    buttons->setSpacing(dialog_scaled(8));
-    buttons->addWidget(add_btn_);
-    buttons->addWidget(folder_btn);
-    buttons->addStretch(1);
-    buttons->addWidget(close_btn);
+    setFooterButtons({add_btn_, folder_btn}, {close_btn});
 
-    auto *root = new QVBoxLayout(this);
-    root->setContentsMargins(dialog_scaled(16), dialog_scaled(16), dialog_scaled(16), dialog_scaled(14));
-    root->setSpacing(dialog_scaled(10));
-    root->addWidget(scroll_, 1);
-    root->addWidget(status_);
-    root->addWidget(hint);
-    root->addLayout(buttons);
-
-    configure_dialog_controls(*this);
+    finish_controls();
     subscribe();
     fit_height();
 }
 
 // No scroll bar while the rows fit; the list scrolls only past the screen's available height.
 void PpocrModelDialog::fit_height() {
-    auto *root = layout();
-    const auto margins = root->contentsMargins();
-    int others = margins.top() + margins.bottom() + root->spacing() * (root->count() - 1);
-    for (int i = 0; i < root->count(); ++i)
-        if (root->itemAt(i)->widget() != scroll_) others += root->itemAt(i)->sizeHint().height();
     const QScreen *screen = this->screen() ? this->screen() : QGuiApplication::primaryScreen();
     const int limit = screen->availableGeometry().height() - dialog_scaled(80);
-    // Rows hint taller than they lay out; their minimum leaves no gap at the bottom.
-    resize(dialog_scaled(560), std::min(others + rows_layout_->minimumSize().height(), limit));
+    const int width = dialog_scaled(600);
+    resize(width, std::min(height_showing(scroll_, width), limit));
 }
 
 void PpocrModelDialog::fill() {
@@ -281,7 +254,7 @@ void PpocrModelDialog::subscribe() {
 
 void PpocrModelDialog::showEvent(QShowEvent *event) {
     if (!subscribed_) subscribe();
-    QDialog::showEvent(event);
+    FluentDialog::showEvent(event);
 }
 
 void PpocrModelDialog::done(int result) {
@@ -363,20 +336,20 @@ void PpocrModelDialog::reject() {
     QDialog::reject();
 }
 
-PpocrImportForm::PpocrImportForm(QWidget *parent) : QDialog(parent) {
-    scale_dialog_font(*this);
+PpocrImportForm::PpocrImportForm(QWidget *parent) : FluentDialog(parent) {
     setWindowTitle(tr_text("Add Local Model"));
-    setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowCloseButtonHint);
-    setStyleSheet(QString("QDialog { background: %1; }").arg(ui_tokens(this).window));
-    name_ = new LineEdit(this);
-    det_ = new LineEdit(this);
-    rec_ = new LineEdit(this);
-    dict_ = new LineEdit(this);
+    auto *panel = new DialogPanel(body());
+    name_ = new LineEdit(panel);
+    det_ = new LineEdit(panel);
+    rec_ = new LineEdit(panel);
+    dict_ = new LineEdit(panel);
     dict_->setPlaceholderText(tr_text("Optional: only if the recognition model has no built-in dictionary"));
     const QString onnx = tr_text("ONNX models (*.onnx)");
-    auto *grid = new QGridLayout;
-    grid->setHorizontalSpacing(dialog_scaled(8));
-    grid->setVerticalSpacing(dialog_scaled(8));
+    auto *grid = new QGridLayout(panel);
+    grid->setContentsMargins(dialog_scaled(16), dialog_scaled(14), dialog_scaled(16), dialog_scaled(14));
+    grid->setHorizontalSpacing(dialog_scaled(12));
+    grid->setVerticalSpacing(dialog_scaled(10));
+    grid->setColumnStretch(1, 1);
     const std::tuple<QString, QLineEdit *, QString> rows[] = {
         {tr_text("Name"), name_, {}},
         {tr_text("Detection model"), det_, onnx},
@@ -385,32 +358,27 @@ PpocrImportForm::PpocrImportForm(QWidget *parent) : QDialog(parent) {
     };
     int index = 0;
     for (const auto &[label, edit, filter] : rows) {
-        grid->addWidget(new BodyLabel(label, this), index, 0);
+        grid->addWidget(new BodyLabel(label, panel), index, 0);
         grid->addWidget(edit, index, 1);
         if (!filter.isEmpty()) {
-            auto *browse_btn = new PushButton(tr_text("Browse..."), this);
+            auto *browse_btn = new PushButton(tr_text("Browse..."), panel);
             connect(browse_btn, &QPushButton::clicked, this, [this, edit = edit, filter = filter] { browse(edit, filter); });
             grid->addWidget(browse_btn, index, 2);
         }
         ++index;
     }
+    bodyLayout()->addWidget(panel);
+    bodyLayout()->addStretch(1);
     ok_ = new PrimaryPushButton(tr_text("Add"), this);
+    ok_->setDefault(true);
     connect(ok_, &QPushButton::clicked, this, &QDialog::accept);
     auto *cancel = new PushButton(tr_text("Cancel"), this);
     connect(cancel, &QPushButton::clicked, this, &QDialog::reject);
-    auto *buttons = new QHBoxLayout;
-    buttons->addStretch(1);
-    buttons->addWidget(ok_);
-    buttons->addWidget(cancel);
-    auto *root = new QVBoxLayout(this);
-    root->setContentsMargins(dialog_scaled(16), dialog_scaled(16), dialog_scaled(16), dialog_scaled(14));
-    root->setSpacing(dialog_scaled(12));
-    root->addLayout(grid);
-    root->addLayout(buttons);
+    setFooterButtons({}, {ok_, cancel});
     for (auto *edit : {name_, det_, rec_}) connect(edit, &QLineEdit::textChanged, this, &PpocrImportForm::update_ok);
-    configure_dialog_controls(*this);
+    finish_controls();
     update_ok();
-    resize(dialog_scaled(560), sizeHint().height());
+    resize(dialog_scaled(600), sizeHint().height());
 }
 
 QString PpocrImportForm::name() const { return name_->text().trimmed(); }

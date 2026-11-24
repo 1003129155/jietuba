@@ -315,8 +315,11 @@ private slots:
         QVERIFY(!show_confirm_dialog(&parent, "Delete", "Delete this item?"));
         on_next_modal([](QWidget *modal) { button_with_text(modal, "Yes")->click(); });
         QVERIFY(show_confirm_dialog(&parent, "Delete", "Delete this item?"));
+        // Enter answers with the button drawn as the primary one.
+        on_next_modal([](QWidget *modal) { QTest::keyClick(modal, Qt::Key_Return); });
+        QVERIFY(show_confirm_dialog(&parent, "Delete", "Delete this item?"));
 
-        const std::vector<DialogButton> buttons = {{"save", "Save", QDialogButtonBox::AcceptRole, true}, {"cancel", "Cancel", QDialogButtonBox::RejectRole}};
+        const std::vector<DialogButton> buttons = {{"save", "Save", QDialogButtonBox::AcceptRole}, {"cancel", "Cancel", QDialogButtonBox::RejectRole}};
         on_next_modal([](QWidget *modal) { static_cast<QDialog *>(modal)->reject(); });
         QCOMPARE(show_custom_confirm_dialog(&parent, "Save", "Save changes?", buttons), QVariant("cancel"));
         on_next_modal([](QWidget *modal) { button_with_text(modal, "Save")->click(); });
