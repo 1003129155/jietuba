@@ -43,6 +43,10 @@ constexpr int SAME_RUN_COLOR = 14;
 constexpr int PLAIN_TOLERANCE = 24;
 // A pixel this close per channel to a blend of the page and the ink colour is ink.
 constexpr int INK_BLEND_TOLERANCE = 40;
+// Room taken beside a block ends where the page steps by more than this from one pixel to the
+// next: a gradient changes a little at a time, the edge of a button or a bubble all at once, even
+// one within PLAIN_TOLERANCE of the page.
+constexpr int EDGE_STEP = 8;
 
 int channel_distance(QRgb a, QRgb b) {
     return std::max({std::abs(qRed(a) - qRed(b)), std::abs(qGreen(a) - qGreen(b)), std::abs(qBlue(a) - qBlue(b))});
@@ -341,8 +345,12 @@ int room_beside(const QImage &source, const QRect &block, const QColor &backgrou
     int room = 0;
     for (; room < limit; ++room) {
         const int x = right ? block.right() + 1 + room : block.left() - 1 - room;
+        const int previous = right ? x - 1 : x + 1;
         bool plain = true;
-        for (int y = block.top(); y <= block.bottom() && plain; y += 2) plain = channel_distance(source.pixel(x, y), page) <= PLAIN_TOLERANCE;
+        for (int y = block.top(); y <= block.bottom() && plain; y += 2) {
+            const QRgb pixel = source.pixel(x, y);
+            plain = channel_distance(pixel, page) <= PLAIN_TOLERANCE && (room == 0 || channel_distance(pixel, source.pixel(previous, y)) <= EDGE_STEP);
+        }
         if (!plain) break;
     }
     // Not right up against whatever stopped it.

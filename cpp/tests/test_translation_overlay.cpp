@@ -872,6 +872,24 @@ private slots:
         }
     }
 
+    // A light grey button on a white page is close enough in colour to pass for the page, but the
+    // step at its edge ends the room a label's translation runs on into.
+    void theRoomBesideALabelEndsAtTheEdgeOfAButton() {
+        const QRect box(160, 40, 30, 16);
+        const QRect button(box.right() + 24, box.top() - 6, 120, box.height() + 12);
+        QImage source(400, 80, QImage::Format_ARGB32_Premultiplied);
+        source.fill(Qt::white);
+        {
+            QPainter painter(&source);
+            painter.fillRect(button, QColor(238, 238, 238));
+        }
+        const auto planned = plan_overlay_block(source, {line_block("Esc", "Touche d'echappement", QRectF(box))}, 0, "FR");
+        QVERIFY(planned.has_value());
+        QVERIFY2(planned->cover.right() < button.left(), qPrintable(QString::number(planned->cover.right())));
+        QVERIFY(planned->line_rects.first().right() < button.left());
+        QVERIFY(planned->line_rects.first().left() < box.left());
+    }
+
     // Two labels with blank page between them both run on into it; the second keeps clear of the
     // first's translation, as painting them all does.
     void aTranslationKeepsClearOfThoseBeforeIt() {
