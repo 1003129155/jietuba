@@ -129,6 +129,8 @@ public:
     bool isExpanded() const { return expanded_; }
     void setExpanded(bool expanded);
     QAbstractButton *arrow() const { return arrow_; }
+    // Hidden while folded.
+    QWidget *body() const { return body_; }
     Q_INVOKABLE void _apply_theme();
 signals:
     // The expander's height changed.
@@ -151,6 +153,8 @@ public:
     // A SubSwitchSettingCard joins the card before it as an expander; any other card stands alone.
     void addSettingCard(QWidget *card);
     void addSettingCards(const QList<QWidget *> &cards);
+    // The expander a header became once switch rows joined it, if any.
+    SettingExpander *expander(QWidget *header) const { return expanders_.value(header); }
     // Shows or hides a card; an expander's header takes its rows along.
     void setCardVisible(QWidget *card, bool visible);
     void adjustSize();

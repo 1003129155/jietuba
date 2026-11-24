@@ -470,6 +470,37 @@ Replace it?</source>
         <translation>나중에 그린 항목을 포함해 텍스트를 다른 주석보다 위에 유지합니다.</translation>
     </message>
     <message>
+        <source>Select After Drawing</source>
+        <translation>그린 후 선택</translation>
+    </message>
+    <message>
+        <source>Select a new annotation right away, so the wheel or its handles adjust it. For tools turned off, the wheel sizes the next annotation instead.</source>
+        <translation>새로 그린 주석을 바로 선택해 휠이나 핸들로 바로 조정할 수 있습니다. 끈 도구는 선택하지 않고 휠로 다음 주석의 크기를 조정합니다.</translation>
+    </message>
+    <message>
+        <source>All On</source>
+        <translation>모두 켬</translation>
+    </message>
+    <message>
+        <source>All Off</source>
+        <translation>모두 끔</translation>
+    </message>
+    <message>
+        <source>Off: %1</source>
+        <translation>끔: %1</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n Off</source>
+        <translation>
+            <numerusform>%n개 끔</numerusform>
+            <numerusform>%n개 끔</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Spotlight</source>
+        <translation>스포트라이트</translation>
+    </message>
+    <message>
         <source>Automatically Wrap Text</source>
         <translation>텍스트 자동 줄 바꿈</translation>
     </message>

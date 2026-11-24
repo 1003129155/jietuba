@@ -471,6 +471,36 @@ Replace it?</source>
         <translation>让文字保持在其他标注上方，包括之后绘制的标注。</translation>
     </message>
     <message>
+        <source>Select After Drawing</source>
+        <translation>画完自动选中</translation>
+    </message>
+    <message>
+        <source>Select a new annotation right away, so the wheel or its handles adjust it. For tools turned off, the wheel sizes the next annotation instead.</source>
+        <translation>画完立即选中刚画的标注，可直接用滚轮或手柄调整。关掉的工具画完不选中，滚轮调整的是下一个标注的大小。</translation>
+    </message>
+    <message>
+        <source>All On</source>
+        <translation>全部开启</translation>
+    </message>
+    <message>
+        <source>All Off</source>
+        <translation>全部关闭</translation>
+    </message>
+    <message>
+        <source>Off: %1</source>
+        <translation>已关闭：%1</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n Off</source>
+        <translation>
+            <numerusform>已关闭 %n 个</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Spotlight</source>
+        <translation>聚光灯</translation>
+    </message>
+    <message>
         <source>Automatically Wrap Text</source>
         <translation>文字自动换行</translation>
     </message>

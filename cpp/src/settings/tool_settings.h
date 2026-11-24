@@ -320,6 +320,20 @@ inline const QStringList OCR_PUNCTUATION_MODES = {"keep", "halfwidth", "fullwidt
 inline const QList<int> SHIFT_LINE_ANGLES = {90, 45, 30, 15, 0};
 // The registry default, for tools that run without a settings manager.
 inline constexpr int DEFAULT_SHIFT_LINE_ANGLE = 45;
+// Tools whose new annotation can be left unselected, in toolbar order, with their settings-page
+// labels; each has the setting auto_select_<tool id>. Text is always selected, since that is where typing goes.
+struct AutoSelectTool {
+    const char *tool_id;
+    const char *label;
+};
+inline constexpr AutoSelectTool AUTO_SELECT_TOOLS[] = {{"highlighter", "Highlighter"}, {"mosaic", "Mosaic"}, {"spotlight", "Spotlight"}, {"arrow", "Arrow"},
+                                                       {"number", "Number"},           {"rect", "Rectangle"}, {"ellipse", "Ellipse"}};
+inline QString auto_select_setting(const QString &tool_id) { return "auto_select_" + tool_id; }
+inline bool has_auto_select_setting(const QString &tool_id) {
+    for (const auto &tool : AUTO_SELECT_TOOLS)
+        if (tool_id == QLatin1String(tool.tool_id)) return true;
+    return false;
+}
 
 // (config key, tool id, label, default key) of an annotation tool shortcut.
 struct ToolShortcut {

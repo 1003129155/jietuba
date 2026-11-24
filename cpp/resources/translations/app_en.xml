@@ -471,6 +471,37 @@ Replace it?</translation>
         <translation>Keep text above other annotations, including ones drawn later.</translation>
     </message>
     <message>
+        <source>Select After Drawing</source>
+        <translation>Select After Drawing</translation>
+    </message>
+    <message>
+        <source>Select a new annotation right away, so the wheel or its handles adjust it. For tools turned off, the wheel sizes the next annotation instead.</source>
+        <translation>Select a new annotation right away, so the wheel or its handles adjust it. For tools turned off, the wheel sizes the next annotation instead.</translation>
+    </message>
+    <message>
+        <source>All On</source>
+        <translation>All On</translation>
+    </message>
+    <message>
+        <source>All Off</source>
+        <translation>All Off</translation>
+    </message>
+    <message>
+        <source>Off: %1</source>
+        <translation>Off: %1</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n Off</source>
+        <translation>
+            <numerusform>%n Off</numerusform>
+            <numerusform>%n Off</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Spotlight</source>
+        <translation>Spotlight</translation>
+    </message>
+    <message>
         <source>Automatically Wrap Text</source>
         <translation>Automatically Wrap Text</translation>
     </message>

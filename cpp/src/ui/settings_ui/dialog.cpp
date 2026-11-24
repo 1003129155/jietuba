@@ -742,7 +742,9 @@ void SettingsDialog::reset_appearance_page() {
 }
 
 void SettingsDialog::reset_quick_actions_page() {
-    refresh_behavior_controls(true, {}, std::set<QString>{"capture_fullscreen_crosshair", "capture_include_cursor"});
+    std::set<QString> keys{"capture_fullscreen_crosshair", "capture_include_cursor"};
+    for (const auto &tool : AUTO_SELECT_TOOLS) keys.insert(auto_select_setting(tool.tool_id));
+    refresh_behavior_controls(true, {}, keys);
     const auto &defaults = config_manager->app_defaults();
     for (const auto &[attr_name, key] : {std::make_pair("ocr_copy_directly_toggle", "ocr_copy_directly"), std::make_pair("barcode_copy_single_toggle", "barcode_copy_single"),
                                          std::make_pair("cross_tool_selection_toggle", "cross_tool_selection"), std::make_pair("text_always_on_top_toggle", "text_always_on_top")})

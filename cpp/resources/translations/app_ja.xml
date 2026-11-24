@@ -473,6 +473,36 @@ Replace it?</source>
         <translation>後から描画したものを含め、テキストを他の注釈より前面に保ちます。</translation>
     </message>
     <message>
+        <source>Select After Drawing</source>
+        <translation>描画後に選択</translation>
+    </message>
+    <message>
+        <source>Select a new annotation right away, so the wheel or its handles adjust it. For tools turned off, the wheel sizes the next annotation instead.</source>
+        <translation>描いた注釈をすぐに選択し、ホイールやハンドルでそのまま調整できます。オフにしたツールでは選択せず、ホイールで次の注釈のサイズを変えます。</translation>
+    </message>
+    <message>
+        <source>All On</source>
+        <translation>すべてオン</translation>
+    </message>
+    <message>
+        <source>All Off</source>
+        <translation>すべてオフ</translation>
+    </message>
+    <message>
+        <source>Off: %1</source>
+        <translation>オフ：%1</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n Off</source>
+        <translation>
+            <numerusform>%n 個オフ</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Spotlight</source>
+        <translation>スポットライト</translation>
+    </message>
+    <message>
         <source>Automatically Wrap Text</source>
         <translation>テキストを自動で折り返す</translation>
     </message>

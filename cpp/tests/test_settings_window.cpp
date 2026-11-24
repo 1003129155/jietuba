@@ -741,6 +741,52 @@ private slots:
         dialog.hide();
     }
 
+    // Select After Drawing folds its switch rows, one per tool, into a single row whose summary names
+    // what is off; each tool saves on its own and the screenshot page resets them.
+    void autoSelectRowsFoldSummarizeSaveAndReset() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.on_nav_changed(1, "capture");
+        auto *summary = dialog.attr<QLabel>("auto_select_summary");
+        QList<SwitchSettingCard *> rows;
+        for (const auto &tool : AUTO_SELECT_TOOLS) rows << dialog.attr<SwitchSettingCard>(auto_select_setting(tool.tool_id) + "_toggle");
+        QVERIFY(summary && !rows.contains(nullptr));
+        auto *number = dialog.attr<SwitchSettingCard>("auto_select_number_toggle");
+        auto *rect = dialog.attr<SwitchSettingCard>("auto_select_rect_toggle");
+        auto *expander = qobject_cast<SettingExpander *>(number->parentWidget()->parentWidget());
+        QVERIFY(expander && !expander->isExpanded());
+        QVERIFY(summary->isVisible() && !number->isVisible());
+        expander->arrow()->click();
+        QVERIFY(number->isVisible());
+
+        for (auto *row : rows) QVERIFY(row->isChecked());
+        QCOMPARE(summary->text(), settings_tr("All On"));
+        number->setChecked(false);
+        QCOMPARE(summary->text(), settings_tr("Off: %1").arg(settings_tr("Number")));
+        rect->setChecked(false);
+        QCOMPARE(summary->text(), QCoreApplication::translate("SettingsDialog", "%n Off", nullptr, 2));
+        QVERIFY(dialog.apply_settings());
+        QVERIFY(!config_->get_auto_select_number());
+        QVERIFY(!config_->get_auto_select_rect());
+        QVERIFY(config_->get_auto_select_arrow() && config_->get_auto_select_ellipse());
+        {
+            SettingsDialog again(config_, config_->get_hotkey());
+            again.on_nav_changed(1, "capture");
+            QVERIFY(!again.attr<SwitchSettingCard>("auto_select_number_toggle")->isChecked());
+            QCOMPARE(again.attr<QLabel>("auto_select_summary")->text(), QCoreApplication::translate("SettingsDialog", "%n Off", nullptr, 2));
+        }
+        for (auto *row : rows) row->setChecked(false);
+        QCOMPARE(summary->text(), settings_tr("All Off"));
+        // Sized for its longest text from the start, so the control column never cuts it short.
+        QVERIFY(summary->width() >= summary->sizeHint().width());
+        reset_page(dialog);
+        for (auto *row : rows) QVERIFY(row->isChecked());
+        QCOMPARE(summary->text(), settings_tr("All On"));
+        QVERIFY(dialog.apply_settings());
+        QVERIFY(config_->get_auto_select_number());
+        dialog.hide();
+    }
+
     void captureEngineComboLoadsSavesAndResets() {
         config_->set_capture_engine("hdr");
         SettingsDialog dialog(config_, config_->get_hotkey());
