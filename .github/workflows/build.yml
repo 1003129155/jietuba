@@ -160,12 +160,20 @@ jobs:
           name: ${{ matrix.variant == 'full' && 'jietuba_pp' || 'jietuba_lite' }}-cpp-arm64
           path: build/arm64
 
+      - name: Download Explorer command DLLs
+        if: env.IDENTITY_NAME != ''
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: explorer_command-*
+          path: command
+
       - name: Build .msixbundle
         if: env.IDENTITY_NAME != ''
         shell: powershell
         run: |
           foreach ($arch in 'x64', 'arm64') {
             .\cpp\scripts\package_msix.ps1 -ExeDir "build\$arch" -Variant '${{ matrix.variant }}' -Arch $arch `
+              -CommandDll "command\explorer_command-$arch\jietuba_explorer_command.dll" `
               -IdentityName $env:IDENTITY_NAME -Publisher $env:PUBLISHER -PublisherDisplayName $env:PUBLISHER_DISPLAY_NAME `
               -DisplayName $env:DISPLAY_NAME -OutDir msix
           }

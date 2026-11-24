@@ -116,6 +116,14 @@ jobs:
           name: ${{ matrix.variant == 'full' && 'jietuba_pp' || 'jietuba_lite' }}-cpp-${{ matrix.arch }}
           path: cpp/dist/Release-static${{ matrix.arch == 'arm64' && '-arm64' || '' }}${{ matrix.variant == 'full' && '-full' || '' }}/
           if-no-files-found: error
+      # The Explorer command DLL (explorer_command/) is the same for both packages and ships only inside
+      # the Store package, so it is not in the zip folders above; the msix job takes it from here.
+      - if: matrix.variant == 'lite'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: explorer_command-${{ matrix.arch }}
+          path: cpp/build/static${{ matrix.arch == 'arm64' && '-arm64' || '' }}/Release/jietuba_explorer_command.dll
+          if-no-files-found: error
 
   smoke:
     # Each exe starts on its own architecture; ARM64 cannot run on the x64 build machine.

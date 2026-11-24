@@ -214,6 +214,9 @@ if(JIETUBA_UPDATES)
     qt_add_resources(jietuba_cpp jietuba_updater PREFIX /updater BASE ${JIETUBA_UPDATER_DIR} FILES ${JIETUBA_UPDATER_EXE})
 endif()
 
+# The packaged build's Explorer command (a COM DLL with a static runtime, no Qt).
+add_subdirectory(explorer_command)
+
 include(CTest)
 if(BUILD_TESTING)
     # QtTest output never reaches ctest's pipe; each test also writes its report here, read by
@@ -522,6 +525,14 @@ if(BUILD_TESTING)
     target_link_libraries(jietuba_http_provider_tests PRIVATE jietuba_lib Qt6::Test Qt6::Network)
     add_test(NAME http_providers COMMAND jietuba_http_provider_tests -o ${JIETUBA_TEST_REPORTS}/http_providers.txt,txt)
     set_tests_properties(http_providers PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    # The packaged Explorer command's logic, the manifest it is registered by and its package script.
+    qt_add_executable(jietuba_explorer_command_tests tests/test_explorer_command.cpp)
+    target_link_libraries(jietuba_explorer_command_tests PRIVATE jietuba_lib jietuba_explorer_command_core Qt6::Test)
+    target_compile_definitions(jietuba_explorer_command_tests PRIVATE JIETUBA_CPP_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+        JIETUBA_EXPLORER_COMMAND_DLL="$<TARGET_FILE:jietuba_explorer_command>")
+    add_dependencies(jietuba_explorer_command_tests jietuba_explorer_command)
+    add_test(NAME explorer_command COMMAND jietuba_explorer_command_tests -o ${JIETUBA_TEST_REPORTS}/explorer_command.txt,txt)
+    set_tests_properties(explorer_command PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     qt_add_executable(jietuba_logger_tests tests/test_logger.cpp)
     target_link_libraries(jietuba_logger_tests PRIVATE jietuba_lib Qt6::Test)
     add_test(NAME logger COMMAND jietuba_logger_tests -o ${JIETUBA_TEST_REPORTS}/logger.txt,txt)

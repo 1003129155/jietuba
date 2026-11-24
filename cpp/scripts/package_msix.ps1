@@ -11,6 +11,8 @@ param(
     [string]$PublisherDisplayName = '',
     [string]$DisplayName = '',
     [Parameter(Mandatory)][string]$OutDir,
+    # The Explorer command (explorer_command/, built beside the exe); defaults to the folder of the exe.
+    [string]$CommandDll = '',
     [string]$MakeAppx = ''
 )
 $ErrorActionPreference = 'Stop'
@@ -18,6 +20,8 @@ $root = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $exe = if ($Variant -eq 'full') { 'jietuba_pp.exe' } else { 'jietuba_lite.exe' }
 $ExeDir = (Resolve-Path -LiteralPath $ExeDir).Path
 if (-not (Test-Path -LiteralPath (Join-Path $ExeDir $exe))) { throw "$exe is not in $ExeDir" }
+if (-not $CommandDll) { $CommandDll = Join-Path $ExeDir 'jietuba_explorer_command.dll' }
+if (-not (Test-Path -LiteralPath $CommandDll)) { throw "The Explorer command DLL is missing: $CommandDll" }
 
 if (-not $Version) { $Version = (Get-Content -LiteralPath (Join-Path $root 'VERSION') -Raw).Trim() }
 # The Store reserves the fourth part for itself and requires it to be 0.
@@ -35,12 +39,15 @@ if (-not $Publisher -or -not $PublisherDisplayName) { throw '-Publisher and -Pub
 if (-not $DisplayName) { $DisplayName = if ($Variant -eq 'full') { 'Jietuba PP' } else { 'Jietuba Lite' } }
 
 . (Join-Path $PSScriptRoot 'msix_common.ps1')
+. (Join-Path $PSScriptRoot 'explorer_menu_manifest.ps1')
 $MakeAppx = Find-MakeAppx $MakeAppx
 
 $stage = Join-Path $OutDir "stage-$Variant-$Arch"
 if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse -Force }
 New-Item -ItemType Directory -Path $stage -Force | Out-Null
 Copy-Item -Path (Join-Path $ExeDir '*') -Destination $stage -Recurse
+# Beside the exe: the command finds the exe by the DLL's own folder.
+Copy-Item -LiteralPath $CommandDll -Destination (Join-Path $stage $script:ExplorerCommandDllName) -Force
 
 # Tile and store logos drawn from the application icon.
 Add-Type -AssemblyName System.Drawing
@@ -75,6 +82,7 @@ $source.Dispose()
 
 function Escape-Xml([string]$text) { [System.Security.SecurityElement]::Escape($text) }
 $manifest = Get-Content -LiteralPath (Join-Path $root 'cpp\packaging\msix\AppxManifest.xml.in') -Raw -Encoding UTF8
+$manifest = Expand-ExplorerMenuManifest $manifest (Join-Path $root 'cpp') $Variant
 $values = @{
     IDENTITY_NAME = $IdentityName; PUBLISHER = $Publisher; VERSION = $msixVersion; ARCH = $Arch
     DISPLAY_NAME = $DisplayName; PUBLISHER_DISPLAY_NAME = $PublisherDisplayName; EXE = $exe
@@ -82,6 +90,7 @@ $values = @{
 }
 foreach ($key in $values.Keys) { $manifest = $manifest.Replace("@$key@", (Escape-Xml $values[$key])) }
 if ($manifest -match '@[A-Z_]+@') { throw "Unfilled manifest field: $($Matches[0])" }
+$null = [xml]$manifest
 [System.IO.File]::WriteAllText((Join-Path $stage 'AppxManifest.xml'), $manifest, (New-Object System.Text.UTF8Encoding($false)))
 
 New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
