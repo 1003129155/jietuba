@@ -41,7 +41,9 @@
 #include "core/word_boundaries.h"
 #include "settings/tool_settings.h"
 #include "canvas/undo.h"
+#include "ui/toast.h"
 #include "ui/toolbar_layout.h"
+#include "upload/s3_target.h"
 #include "ui/toolbar_layout_dialog.h"
 #include "ui/arrow_settings_panel.h"
 #include "ui/mosaic_settings_panel.h"
@@ -1663,7 +1665,7 @@ private slots:
     void theMenuOffersEveryEntryWithStateAndShortcuts() {
         auto *pin = make_pin();
         const QStringList want = {
-            "Copy (CTRL+C)", "Save as", "Translate (Text Recognition)", "Pin as text (T)", "Reset size", "Image transform",
+            "Copy (CTRL+C)", "Save as", "Upload", "Translate (Text Recognition)", "Pin as text (T)", "Reset size", "Image transform",
             "  Rotate right", "  Rotate left", "  Flip horizontal", "  Flip vertical", "  -", "  Reset transform", "-",
             "[ ] Toolbar (SPACE)", "[ ] Hide annotations (H)", "[x] Always on top", "[ ] Mouse click-through",
             "[ ] Lock (L)", "[x] Border", "[ ] Text selection (P)",
@@ -1774,6 +1776,78 @@ private slots:
         // Redrawn on a low-priority worker, which a fully loaded runner starves for seconds.
         QTRY_COMPARE_WITH_TIMEOUT(background->pixmap().deviceIndependentSize(), QSizeF(pin->size()), 15000);
         QVERIFY(same_pixels(pin->get_current_image(), content->render(pin->orig_size(), pin->devicePixelRatioF())));
+    }
+
+    // Upload is an entry of the menu, a button folded into the toolbar's "..." and a key. Without a default target each
+    // only says so and the pin stays; with one the pin stays as well while the image goes (here to a closed port).
+    void aPinUploadsFromItsMenuToolbarAndKey() {
+        const auto reset = qScopeGuard([this] {
+            config_->set_inapp_shortcut("inapp_upload", "");
+            config_->set_upload_targets("");
+            config_->set_upload_default_target("");
+            PinShortcutController::instance()->reload_bindings();
+        });
+        config_->set_upload_targets("");
+        config_->set_upload_default_target("");
+        config_->set_inapp_shortcut("inapp_upload", "ctrl+u");
+        auto *pin = make_pin();
+        const QPointer<PinWindow> alive(pin);
+        PinShortcutController::instance()->reload_bindings();
+        QCursor::setPos(pin->mapToGlobal(QPoint(30, 20)));
+        const auto toasts = [] {
+            int shown = 0;
+            for (auto *widget : QApplication::topLevelWidgets())
+                if (qobject_cast<Toast *>(widget) && widget->isVisible()) ++shown;
+            return shown;
+        };
+        const auto close_toasts = [] {
+            for (auto *widget : QApplication::topLevelWidgets())
+                if (qobject_cast<Toast *>(widget)) widget->close();
+        };
+        close_toasts();
+        // The entry names its key.
+        QVERIFY(pin_menu(pin).contains("Upload (CTRL+U)"));
+        pin_menu(pin, "Upload");
+        QCOMPARE(toasts(), 1);
+        QVERIFY(alive && alive->isVisible());
+        close_toasts();
+        pin->toggle_toolbar();
+        QVERIFY(pin->toolbar && pin->toolbar->upload_btn);
+        QVERIFY(toolbar_layout::PIN.default_more.contains("upload"));
+        QVERIFY(pin->toolbar->upload_btn->parentWidget() != pin->toolbar || pin->toolbar->upload_btn->isHidden());
+        pin->toolbar->upload_btn->click();
+        QCOMPARE(toasts(), 1);
+        close_toasts();
+        press_key(pin, Qt::Key_U, Qt::ControlModifier);
+        QCOMPARE(toasts(), 1);
+        QVERIFY(alive && alive->isVisible());
+        close_toasts();
+        // A text pin offers it too; the thumbnail menu stays short.
+        QVERIFY(pin_menu(make_text_pin("some text")).contains("Upload (CTRL+U)"));
+        pin->toggle_thumbnail_mode();
+        QVERIFY(!pin_menu(pin).contains("Upload (CTRL+U)"));
+        pin->toggle_thumbnail_mode();
+        // With a target the pin stays and its image goes: the warning of a failed upload shows.
+        upload::Target target;
+        target.id = "t1";
+        target.name = "Closed port";
+        target.endpoint = "http://127.0.0.1:1";
+        target.region = "us-east-1";
+        target.bucket = "b";
+        target.access_key_id = "AKID";
+        target.secret_access_key = "secret";
+        config_->set_upload_targets(upload::serialize_targets({target}));
+        config_->set_upload_default_target("t1");
+        pin->upload_image();
+        QVERIFY(alive && alive->isVisible());
+        QDialog *warning = nullptr;
+        QTRY_VERIFY_WITH_TIMEOUT(([&] {
+            for (auto *widget : QApplication::topLevelWidgets())
+                if (auto *dialog = qobject_cast<QDialog *>(widget); dialog && dialog->isVisible()) warning = dialog;
+            return warning != nullptr;
+        }()), 10000);
+        warning->close();
+        close_toasts();
     }
 
     void aThumbnailMenuKeepsOnlySevenEntries() {
@@ -2614,7 +2688,7 @@ private slots:
         QVERIFY(pin->thumbnail_mode());
         press_key(pin, Qt::Key_R);
         QVERIFY(!pin->thumbnail_mode());
-        const QStringList want = {"Copy text (CTRL+C)", "Copy plain text", "Copy image", "Save as", "Translate", "Reset size", "-", "[ ] Toolbar (SPACE)",
+        const QStringList want = {"Copy text (CTRL+C)", "Copy plain text", "Copy image", "Save as", "Upload", "Translate", "Reset size", "-", "[ ] Toolbar (SPACE)",
                                   "[ ] Hide annotations (H)", "[x] Always on top", "[ ] Mouse click-through", "[ ] Lock (L)", "[x] Border",
                                   "[x] Text selection (P)", "[ ] Thumbnail mode (R)", "-", "Close (ESC)"};
         QCOMPARE(pin_menu(pin), want);

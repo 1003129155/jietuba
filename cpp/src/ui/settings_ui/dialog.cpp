@@ -752,7 +752,8 @@ void SettingsDialog::reset_quick_actions_page() {
 
 void SettingsDialog::reset_screenshot_settings_page() {
     const auto &defaults = config_manager->app_defaults();
-    refresh_behavior_controls(true, {}, std::set<QString>{"recording_hide_toolbar_in_captures"});
+    // Targets and the default are not reset: they hold keys that would be lost.
+    refresh_behavior_controls(true, {}, std::set<QString>{"recording_hide_toolbar_in_captures", "upload_link_format"});
     if (auto *combo = attr<QComboBox>("capture_engine_combo")) combo->setCurrentIndex(CAPTURE_ENGINE_CHOICES.indexOf(defaults.value("capture_engine").toString()));
     if (auto *combo = attr<QComboBox>("smart_mode_combo"))
         combo->setCurrentIndex(SMART_SELECTION_MODES.indexOf(defaults.value("smart_selection").toBool() ? defaults.value("smart_selection_mode").toString() : QString("off")));
@@ -1429,6 +1430,7 @@ void SettingsDialog::refresh_settings() {
     if (auto *slider = attr<ValueSlider>("screenshot_quality_slider")) slider->setValue(std::clamp(config_manager->get_screenshot_quality(), 1, 100));
     select_data(attr<QComboBox>("png_compression_combo"), config_manager->get_png_compression());
     select_data(attr<QComboBox>("pdf_page_size_combo"), config_manager->get_pdf_page_size());
+    if (has_attr("upload_group")) refresh_upload_group(this);
     for (const auto &[attr_name, key] : {std::make_pair("magnifier_enabled_toggle", "magnifier_enabled"), std::make_pair("magnifier_grid_toggle", "magnifier_grid"),
                                          std::make_pair("magnifier_selection_toggle", "magnifier_selection"), std::make_pair("magnifier_hint_toggle", "magnifier_hint")})
         if (auto *toggle = attr_widget(attr_name)) set_checked(toggle, config_manager->get_app_setting(key).toBool());
@@ -1574,6 +1576,12 @@ void SettingsDialog::load_imported_settings(const QVariantMap &values) {
         }
         config_manager = config;
     }
+    // The upload targets have no control of their own to fill: the list is read again from what was just written.
+    for (const char *key : {"upload_targets", "upload_default_target"}) {
+        const QVariant value = values.value(ToolSettingsManager::app_setting_path(key));
+        if (value.typeId() == QMetaType::QString) config_manager->set_app_setting(key, value.toString());
+    }
+    if (has_attr("upload_group")) refresh_upload_group(this);
     // No control shows the toolbar layouts. Absent from the file, or not text (edited by hand):
     // the current layout stays.
     for (const auto &key : toolbar_layout::setting_keys()) {

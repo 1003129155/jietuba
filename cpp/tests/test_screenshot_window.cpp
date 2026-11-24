@@ -56,6 +56,7 @@
 #include "text_recognition/result_window.h"
 #include "translation/overlay_translation_session.h"
 #include "translation/translation_manager.h"
+#include "upload/s3_target.h"
 #include <QClipboard>
 #include <QMimeData>
 #include <QApplication>
@@ -1626,6 +1627,77 @@ private slots:
         toolbar->quick_save_btn->click();
         QVERIFY(!window->session_active());
         QCOMPARE(saved_files().size(), 1);
+    }
+
+    // The upload button is folded into "..." by default, beside quick save. With no default target the button and
+    // the key only say so: the capture stays.
+    void theUploadButtonIsFoldedAndAsksForATargetFirst() {
+        namespace tl = toolbar_layout;
+        QCOMPARE(tl::SCREENSHOT.default_mode("upload"), tl::MORE);
+        QCOMPARE(tl::PIN.default_mode("upload"), tl::MORE);
+        QCOMPARE(tl::default_order().indexOf("upload"), tl::default_order().indexOf("quick_save") + 1);
+        QCOMPARE(tl::PIN.order.indexOf("upload"), tl::PIN.order.indexOf("save") + 1);
+        config_->set_inapp_shortcut("inapp_upload", "ctrl+u");
+        const auto close_toasts = [] {
+            for (auto *widget : QApplication::topLevelWidgets())
+                if (qobject_cast<Toast *>(widget)) widget->close();
+        };
+        const auto asks = [&] {
+            auto *toast = visible_window<Toast>();
+            if (!toast) return false;
+            // Offscreen fonts measure wide, so the tail may be elided.
+            QString shown = toast->label->text();
+            shown.remove(QChar(0x2026));
+            return QString(i18n_tr("Add an upload target in Settings first", "CloudUpload")).startsWith(shown) && shown.size() > 8;
+        };
+        auto *window = open_with_selection();
+        auto *toolbar = window->toolbar;
+        QVERIFY(toolbar->upload_btn->parentWidget() != toolbar || toolbar->upload_btn->isHidden());
+        QVERIFY(!toolbar->upload_btn->icon().isNull());
+        close_toasts();
+        toolbar->upload_btn->click();
+        QVERIFY(window->session_active());
+        QVERIFY(asks());
+        close_toasts();
+        const auto binding = load_inapp_bindings().value("inapp_upload");
+        QCOMPARE(binding.first, int(Qt::Key_U));
+        QTest::keyClick(window, Qt::Key(binding.first), binding.second);
+        QVERIFY(window->session_active());
+        QVERIFY(asks());
+        QVERIFY(saved_files().isEmpty());
+        // Without a selection the key is not taken.
+        close_toasts();
+        window = open();
+        QTest::keyClick(window, Qt::Key(binding.first), binding.second);
+        QVERIFY(window->session_active());
+        QVERIFY(!visible_window<Toast>());
+        config_->set_inapp_shortcut("inapp_upload", "");
+    }
+
+    // An upload ends the capture and saves it as any capture is saved; the unreachable address makes the upload
+    // itself fail, which opens its warning.
+    void anUploadClosesTheCaptureAndAutoSavesIt() {
+        upload::Target target;
+        target.id = "t1";
+        target.name = "Closed port";
+        target.endpoint = "http://127.0.0.1:1";
+        target.region = "us-east-1";
+        target.bucket = "b";
+        target.access_key_id = "AKID";
+        target.secret_access_key = "secret";
+        config_->set_upload_targets(upload::serialize_targets({target}));
+        config_->set_upload_default_target("t1");
+        config_->set_screenshot_save_enabled(true);
+        auto *window = open_with_selection();
+        window->toolbar->upload_btn->click();
+        QVERIFY(!window->session_active());
+        QTRY_COMPARE(saved_files().size(), 1);
+        QDialog *warning = nullptr;
+        QTRY_VERIFY_WITH_TIMEOUT((warning = visible_window<QDialog>()), 10000);
+        QVERIFY(warning->findChild<QLabel *>()->text().contains(i18n_tr("Upload failed: network error", "CloudUpload")));
+        warning->close();
+        for (auto *widget : QApplication::topLevelWidgets())
+            if (qobject_cast<Toast *>(widget)) widget->close();
     }
 
     // A host for the external pen latency measurement: with JIETUBA_CANVAS_BENCH=<base path> it opens a

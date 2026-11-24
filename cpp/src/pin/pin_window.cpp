@@ -30,6 +30,7 @@
 #include "tools/controller.h"
 #include "tools/cursor_manager.h"
 #include "translation/overlay_translation_session.h"
+#include "upload/upload_service.h"
 #include "ui/dialogs.h"
 #include "ui/save_image_dialog.h"
 #include "ui/translation_panel.h"
@@ -1516,6 +1517,20 @@ void PinWindow::save_image() {
             if (outcome != SaveImageDialog::Outcome::CLASSIC) return;
         }
         save_image_with_system_dialog();
+    });
+}
+
+void PinWindow::upload_image() {
+    auto &config = *(config_manager ? config_manager : get_tool_settings_manager());
+    if (!upload::default_target(config)) {
+        upload::show_no_target_hint();
+        return;
+    }
+    when_pixels_ready([this, &config] {
+        with_edit_paused([this, &config] {
+            const QImage image = animation_ ? animation_->current_frame() : get_current_image();
+            upload::start_upload(image, config, upload::Source::Pin);
+        });
     });
 }
 

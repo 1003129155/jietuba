@@ -258,6 +258,8 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
 
     layout->addWidget(page_hint(view, dialog->tr_text("💡 Hint: Even with auto-save off, it will be copied to clipboard.")));
 
+    add_upload_group(dialog, view, layout);
+
     add_quick_actions_group(dialog, view, layout);
 
     // ── Smart selection ──

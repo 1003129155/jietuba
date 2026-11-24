@@ -8201,4 +8201,310 @@ Replace it?</source>
         <translation>用截圖吧釘到螢幕</translation>
     </message>
 </context>
+<context>
+    <name>CloudUpload</name>
+    <message>
+        <source>Upload timed out</source>
+        <translation>上傳逾時</translation>
+    </message>
+    <message>
+        <source>Upload failed: network error</source>
+        <translation>上傳失敗：網路錯誤</translation>
+    </message>
+    <message>
+        <source>Upload failed: the image could not be encoded</source>
+        <translation>上傳失敗：圖片編碼失敗</translation>
+    </message>
+    <message>
+        <source>Upload failed: HTTP %1</source>
+        <translation>上傳失敗：HTTP %1</translation>
+    </message>
+    <message>
+        <source>Upload failed: HTTP %1, %2</source>
+        <translation>上傳失敗：HTTP %1，%2</translation>
+    </message>
+    <message>
+        <source>Check the access key, the secret key and the region.</source>
+        <translation>請檢查 Access Key、Secret Key 和區域。</translation>
+    </message>
+    <message>
+        <source>The access key ID is not known to this service.</source>
+        <translation>該服務不認識這個 Access Key ID。</translation>
+    </message>
+    <message>
+        <source>Check that this key may write to the bucket.</source>
+        <translation>請檢查該金鑰是否有寫入儲存桶的權限。</translation>
+    </message>
+    <message>
+        <source>The bucket does not exist.</source>
+        <translation>儲存桶不存在。</translation>
+    </message>
+    <message>
+        <source>Check the date and time of this computer.</source>
+        <translation>請檢查本機的日期和時間。</translation>
+    </message>
+    <message>
+        <source>The region or the endpoint is wrong.</source>
+        <translation>區域或服務端點不對。</translation>
+    </message>
+    <message>
+        <source>Add an upload target in Settings first</source>
+        <translation>先在設定裡新增上傳設定</translation>
+    </message>
+    <message>
+        <source>Uploading...</source>
+        <translation>正在上傳…</translation>
+    </message>
+    <message>
+        <source>Uploaded, link copied</source>
+        <translation>已上傳，連結已複製</translation>
+    </message>
+    <message>
+        <source>Upload</source>
+        <translation>上傳</translation>
+    </message>
+    <message>
+        <source>Test upload succeeded</source>
+        <translation>測試上傳成功</translation>
+    </message>
+</context>
+<context>
+    <name>UploadTargetDialog</name>
+    <message>
+        <source>Add Upload Target</source>
+        <translation>新增上傳設定</translation>
+    </message>
+    <message>
+        <source>Edit Upload Target</source>
+        <translation>編輯上傳設定</translation>
+    </message>
+    <message>
+        <source>AWS S3</source>
+        <translation>AWS S3</translation>
+    </message>
+    <message>
+        <source>Cloudflare R2</source>
+        <translation>Cloudflare R2</translation>
+    </message>
+    <message>
+        <source>Alibaba Cloud OSS</source>
+        <translation>阿里雲 OSS</translation>
+    </message>
+    <message>
+        <source>Tencent Cloud COS</source>
+        <translation>騰訊雲 COS</translation>
+    </message>
+    <message>
+        <source>MinIO or other</source>
+        <translation>MinIO 或其他</translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation>名稱</translation>
+    </message>
+    <message>
+        <source>Service</source>
+        <translation>服務商</translation>
+    </message>
+    <message>
+        <source>Endpoint</source>
+        <translation>服務端點</translation>
+    </message>
+    <message>
+        <source>Region</source>
+        <translation>區域</translation>
+    </message>
+    <message>
+        <source>Bucket</source>
+        <translation>儲存桶</translation>
+    </message>
+    <message>
+        <source>Access Key ID</source>
+        <translation>Access Key ID</translation>
+    </message>
+    <message>
+        <source>Secret Access Key</source>
+        <translation>Secret Access Key</translation>
+    </message>
+    <message>
+        <source>Path Prefix</source>
+        <translation>路徑前綴</translation>
+    </message>
+    <message>
+        <source>Addressing</source>
+        <translation>定址方式</translation>
+    </message>
+    <message>
+        <source>Public Address (optional)</source>
+        <translation>公開存取位址（選填）</translation>
+    </message>
+    <message>
+        <source>Link Preview</source>
+        <translation>連結預覽</translation>
+    </message>
+    <message>
+        <source>Path-style</source>
+        <translation>路徑式</translation>
+    </message>
+    <message>
+        <source>Virtual-hosted</source>
+        <translation>虛擬主機式</translation>
+    </message>
+    <message>
+        <source>Test Upload</source>
+        <translation>測試上傳</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>儲存</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <source>Fill in the endpoint and the bucket to see the link.</source>
+        <translation>填好服務端點和儲存桶後顯示連結。</translation>
+    </message>
+    <message>
+        <source>Uploading...</source>
+        <translation>正在上傳…</translation>
+    </message>
+    <message>
+        <source>Test upload succeeded: %1</source>
+        <translation>測試上傳成功：%1</translation>
+    </message>
+    <message>
+        <source>Enter a name.</source>
+        <translation>請填寫名稱。</translation>
+    </message>
+    <message>
+        <source>This name is already used.</source>
+        <translation>這個名稱已被使用。</translation>
+    </message>
+    <message>
+        <source>Enter the service endpoint.</source>
+        <translation>請填寫服務端點。</translation>
+    </message>
+    <message>
+        <source>The endpoint must be an http:// or https:// address without account, query or fragment.</source>
+        <translation>服務端點必須是 http:// 或 https:// 位址，不可含帳號、查詢參數和片段。</translation>
+    </message>
+    <message>
+        <source>Enter the region (Cloudflare R2 uses auto).</source>
+        <translation>請填寫區域（Cloudflare R2 填 auto）。</translation>
+    </message>
+    <message>
+        <source>The region can only contain letters, digits, dots, hyphens and underscores.</source>
+        <translation>區域只能包含字母、數字、點、連字號和底線。</translation>
+    </message>
+    <message>
+        <source>Enter the bucket name.</source>
+        <translation>請填寫儲存桶名稱。</translation>
+    </message>
+    <message>
+        <source>The bucket name cannot contain '/' or spaces.</source>
+        <translation>儲存桶名稱不能含有 / 或空格。</translation>
+    </message>
+    <message>
+        <source>Enter the access key ID.</source>
+        <translation>請填寫 Access Key ID。</translation>
+    </message>
+    <message>
+        <source>The access key ID cannot contain spaces.</source>
+        <translation>Access Key ID 不能含有空格。</translation>
+    </message>
+    <message>
+        <source>Enter the secret access key.</source>
+        <translation>請填寫 Secret Access Key。</translation>
+    </message>
+    <message>
+        <source>The secret access key cannot contain spaces.</source>
+        <translation>Secret Access Key 不能含有空格。</translation>
+    </message>
+    <message>
+        <source>The public address must be an http:// or https:// address.</source>
+        <translation>公開存取位址必須是 http:// 或 https:// 位址。</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Upload</source>
+        <translation>上傳</translation>
+    </message>
+    <message>
+        <source>Default Upload Target</source>
+        <translation>預設上傳目標</translation>
+    </message>
+    <message>
+        <source>The target the upload buttons and the upload shortcut send to.</source>
+        <translation>上傳按鈕和上傳快速鍵使用的目標。</translation>
+    </message>
+    <message>
+        <source>Upload Targets</source>
+        <translation>上傳設定</translation>
+    </message>
+    <message>
+        <source>S3-compatible storage such as AWS S3, Cloudflare R2, Alibaba Cloud OSS, Tencent Cloud COS or MinIO.</source>
+        <translation>相容 S3 的儲存服務，如 AWS S3、Cloudflare R2、阿里雲 OSS、騰訊雲 COS 或 MinIO。</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>新增</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>刪除</translation>
+    </message>
+    <message>
+        <source>Link Format</source>
+        <translation>連結格式</translation>
+    </message>
+    <message>
+        <source>What is copied after an upload.</source>
+        <translation>上傳後複製到剪貼簿的內容。</translation>
+    </message>
+    <message>
+        <source>Link</source>
+        <translation>連結</translation>
+    </message>
+    <message>
+        <source>Markdown</source>
+        <translation>Markdown</translation>
+    </message>
+    <message>
+        <source>HTML</source>
+        <translation>HTML</translation>
+    </message>
+    <message>
+        <source>Delete Upload Target</source>
+        <translation>刪除上傳設定</translation>
+    </message>
+    <message>
+        <source>Delete the upload target "%1"?</source>
+        <translation>刪除上傳設定「%1」？</translation>
+    </message>
+</context>
+<context>
+    <name>Toolbar</name>
+    <message>
+        <source>Upload to cloud storage</source>
+        <translation>上傳到雲端儲存</translation>
+    </message>
+</context>
+<context>
+    <name>ToolbarLayoutDialog</name>
+    <message>
+        <source>Upload</source>
+        <translation>上傳</translation>
+    </message>
+</context>
+<context>
+    <name>PinWindow</name>
+    <message>
+        <source>Upload</source>
+        <translation>上傳</translation>
+    </message>
+</context>
 </TS>

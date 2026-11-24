@@ -22,6 +22,7 @@
 #include "translation/overlay_translation_session.h"
 #include "translation/service.h"
 #include "translation/translation_manager.h"
+#include "upload/upload_service.h"
 #include "ui/dialogs.h"
 #include "ui/save_image_dialog.h"
 #include "ui/toast.h"
@@ -69,18 +70,20 @@ void ActionTools::finish_when_ready(const QRectF &selection_rect, std::function<
     });
 }
 
-void ActionTools::copy_save_and_close(bool close_after) {
+void ActionTools::copy_save_and_close(bool close_after, bool as_link) {
     temporarily_exit_editing();
     const auto selection_rect = scene->selection_model->rect();
     remember_last_region(selection_rect);
-    const auto finish = [this, selection_rect, close_after] {
+    const auto finish = [this, selection_rect, close_after, as_link] {
         const auto image = export_service.export_image(selection_rect);
         // The image is in hand, so the window can go before the rest.
         if (parent_window && close_after) parent_window->hide();
         QImage original;
         if (has_annotations(scene->get_drawing_items_in_rect(selection_rect))) original = export_service.export_base_image_only(selection_rect);
-        deliver_screenshot(image, config_manager, true, "capture", {}, original, save_service);
-        log_debug(T("已交给后台复制到剪贴板"), "Action");
+        // An upload leaves the clipboard to the link.
+        deliver_screenshot(image, config_manager, !as_link, "capture", {}, original, save_service);
+        if (as_link) upload::start_upload(image, save_service->config_manager, upload::Source::Screenshot);
+        else log_debug(T("已交给后台复制到剪贴板"), "Action");
         if (parent_window && close_after) cleanup_and_close();
     };
     if (close_after) finish_when_ready(selection_rect, finish);
@@ -137,6 +140,14 @@ void ActionTools::handle_quick_save() {
             show_warning_dialog(nullptr, action_tr("Save Failed"), failure_detail);
         }
     });
+}
+
+void ActionTools::handle_upload() {
+    if (!upload::default_target(save_service->config_manager)) {
+        upload::show_no_target_hint();
+        return;
+    }
+    copy_save_and_close(true, true);
 }
 
 void ActionTools::save_image_interactively(QWidget *parent, const QImage &image, const QString &base_name, ToolSettingsManager *config,
@@ -213,6 +224,8 @@ bool ActionTools::handle_capture_action(const QString &action) {
         handle_save();
     } else if (action == "quick_save") {
         handle_quick_save();
+    } else if (action == "upload") {
+        handle_upload();
     } else {
         return false;
     }

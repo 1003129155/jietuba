@@ -403,6 +403,9 @@ if(BUILD_TESTING)
         add_test(NAME settings_nav_desktop COMMAND jietuba_settings_window_tests -o ${JIETUBA_TEST_REPORTS}/settings_nav_desktop.txt,txt -platform windows
                  navigationFitsEveryLanguageAtEveryScale)
         set_tests_properties(settings_nav_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
+        add_test(NAME upload_desktop COMMAND jietuba_settings_window_tests -o ${JIETUBA_TEST_REPORTS}/upload_desktop.txt,txt -platform windows
+                 uploadGroupAndDialogFitEveryLanguage)
+        set_tests_properties(upload_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
     endif()
     # Explorer's right-click entry: command line, hand-over to the running instance, registry verbs
     # under a throwaway key, the packaged build's preference file.
@@ -533,6 +536,11 @@ if(BUILD_TESTING)
     add_dependencies(jietuba_explorer_command_tests jietuba_explorer_command)
     add_test(NAME explorer_command COMMAND jietuba_explorer_command_tests -o ${JIETUBA_TEST_REPORTS}/explorer_command.txt,txt)
     set_tests_properties(explorer_command PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    # Cloud upload: the signature, addresses and keys, and the whole exchange against a local server.
+    qt_add_executable(jietuba_upload_tests tests/test_upload.cpp)
+    target_link_libraries(jietuba_upload_tests PRIVATE jietuba_lib Qt6::Test Qt6::Network)
+    add_test(NAME upload COMMAND jietuba_upload_tests -o ${JIETUBA_TEST_REPORTS}/upload.txt,txt)
+    set_tests_properties(upload PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     qt_add_executable(jietuba_logger_tests tests/test_logger.cpp)
     target_link_libraries(jietuba_logger_tests PRIVATE jietuba_lib Qt6::Test)
     add_test(NAME logger COMMAND jietuba_logger_tests -o ${JIETUBA_TEST_REPORTS}/logger.txt,txt)

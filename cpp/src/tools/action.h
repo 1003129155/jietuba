@@ -36,6 +36,9 @@ public:
     void handle_save(bool close_after = true);
     // Straight into the save folder without asking, whether or not auto-save is on.
     void handle_quick_save();
+    // Auto-saves as a capture does, puts a link to the uploaded image on the clipboard instead of the image, and
+    // closes. With no default upload target it only says so and leaves the capture open.
+    void handle_upload();
     // A pin window gets the clean base image plus the annotations as vector items,
     // so they stay editable; the composite still goes to the clipboard.
     void handle_pin(bool close_after = true);
@@ -66,7 +69,7 @@ public:
     std::shared_ptr<SaveService> save_service;
 private:
     // Export -> clipboard -> auto save -> close.
-    void copy_save_and_close(bool close_after = true);
+    void copy_save_and_close(bool close_after = true, bool as_link = false);
     // Runs finish now, or, while a smart erase in the selection still rebuilds its pixels, hands the
     // window over and runs it once they are in.
     void finish_when_ready(const QRectF &selection_rect, std::function<void()> finish);

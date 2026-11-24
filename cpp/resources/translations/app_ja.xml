@@ -7841,4 +7841,310 @@ Replace it?</source>
         <translation>jietuba で画面にピン留め</translation>
     </message>
 </context>
+<context>
+    <name>CloudUpload</name>
+    <message>
+        <source>Upload timed out</source>
+        <translation>アップロードがタイムアウトしました</translation>
+    </message>
+    <message>
+        <source>Upload failed: network error</source>
+        <translation>アップロード失敗: ネットワークエラー</translation>
+    </message>
+    <message>
+        <source>Upload failed: the image could not be encoded</source>
+        <translation>アップロード失敗: 画像をエンコードできません</translation>
+    </message>
+    <message>
+        <source>Upload failed: HTTP %1</source>
+        <translation>アップロード失敗: HTTP %1</translation>
+    </message>
+    <message>
+        <source>Upload failed: HTTP %1, %2</source>
+        <translation>アップロード失敗: HTTP %1, %2</translation>
+    </message>
+    <message>
+        <source>Check the access key, the secret key and the region.</source>
+        <translation>アクセスキー、シークレットキー、リージョンを確認してください。</translation>
+    </message>
+    <message>
+        <source>The access key ID is not known to this service.</source>
+        <translation>このサービスはそのアクセスキー ID を認識できません。</translation>
+    </message>
+    <message>
+        <source>Check that this key may write to the bucket.</source>
+        <translation>このキーにバケットへの書き込み権限があるか確認してください。</translation>
+    </message>
+    <message>
+        <source>The bucket does not exist.</source>
+        <translation>バケットが存在しません。</translation>
+    </message>
+    <message>
+        <source>Check the date and time of this computer.</source>
+        <translation>このコンピューターの日付と時刻を確認してください。</translation>
+    </message>
+    <message>
+        <source>The region or the endpoint is wrong.</source>
+        <translation>リージョンまたはエンドポイントが正しくありません。</translation>
+    </message>
+    <message>
+        <source>Add an upload target in Settings first</source>
+        <translation>先に設定でアップロード先を追加してください</translation>
+    </message>
+    <message>
+        <source>Uploading...</source>
+        <translation>アップロード中…</translation>
+    </message>
+    <message>
+        <source>Uploaded, link copied</source>
+        <translation>アップロードしました。リンクをコピーしました</translation>
+    </message>
+    <message>
+        <source>Upload</source>
+        <translation>アップロード</translation>
+    </message>
+    <message>
+        <source>Test upload succeeded</source>
+        <translation>テストアップロードに成功しました</translation>
+    </message>
+</context>
+<context>
+    <name>UploadTargetDialog</name>
+    <message>
+        <source>Add Upload Target</source>
+        <translation>アップロード先を追加</translation>
+    </message>
+    <message>
+        <source>Edit Upload Target</source>
+        <translation>アップロード先を編集</translation>
+    </message>
+    <message>
+        <source>AWS S3</source>
+        <translation>AWS S3</translation>
+    </message>
+    <message>
+        <source>Cloudflare R2</source>
+        <translation>Cloudflare R2</translation>
+    </message>
+    <message>
+        <source>Alibaba Cloud OSS</source>
+        <translation>Alibaba Cloud OSS</translation>
+    </message>
+    <message>
+        <source>Tencent Cloud COS</source>
+        <translation>Tencent Cloud COS</translation>
+    </message>
+    <message>
+        <source>MinIO or other</source>
+        <translation>MinIO またはその他</translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation>名前</translation>
+    </message>
+    <message>
+        <source>Service</source>
+        <translation>サービス</translation>
+    </message>
+    <message>
+        <source>Endpoint</source>
+        <translation>エンドポイント</translation>
+    </message>
+    <message>
+        <source>Region</source>
+        <translation>リージョン</translation>
+    </message>
+    <message>
+        <source>Bucket</source>
+        <translation>バケット</translation>
+    </message>
+    <message>
+        <source>Access Key ID</source>
+        <translation>アクセスキー ID</translation>
+    </message>
+    <message>
+        <source>Secret Access Key</source>
+        <translation>シークレットアクセスキー</translation>
+    </message>
+    <message>
+        <source>Path Prefix</source>
+        <translation>パスのプレフィックス</translation>
+    </message>
+    <message>
+        <source>Addressing</source>
+        <translation>アドレス指定</translation>
+    </message>
+    <message>
+        <source>Public Address (optional)</source>
+        <translation>公開アドレス（任意）</translation>
+    </message>
+    <message>
+        <source>Link Preview</source>
+        <translation>リンクのプレビュー</translation>
+    </message>
+    <message>
+        <source>Path-style</source>
+        <translation>パススタイル</translation>
+    </message>
+    <message>
+        <source>Virtual-hosted</source>
+        <translation>バーチャルホスト形式</translation>
+    </message>
+    <message>
+        <source>Test Upload</source>
+        <translation>テストアップロード</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>保存</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
+        <source>Fill in the endpoint and the bucket to see the link.</source>
+        <translation>エンドポイントとバケットを入力するとリンクが表示されます。</translation>
+    </message>
+    <message>
+        <source>Uploading...</source>
+        <translation>アップロード中…</translation>
+    </message>
+    <message>
+        <source>Test upload succeeded: %1</source>
+        <translation>テストアップロードに成功しました: %1</translation>
+    </message>
+    <message>
+        <source>Enter a name.</source>
+        <translation>名前を入力してください。</translation>
+    </message>
+    <message>
+        <source>This name is already used.</source>
+        <translation>この名前は既に使われています。</translation>
+    </message>
+    <message>
+        <source>Enter the service endpoint.</source>
+        <translation>エンドポイントを入力してください。</translation>
+    </message>
+    <message>
+        <source>The endpoint must be an http:// or https:// address without account, query or fragment.</source>
+        <translation>エンドポイントは、アカウント・クエリ・フラグメントを含まない http:// または https:// のアドレスにしてください。</translation>
+    </message>
+    <message>
+        <source>Enter the region (Cloudflare R2 uses auto).</source>
+        <translation>リージョンを入力してください（Cloudflare R2 は auto）。</translation>
+    </message>
+    <message>
+        <source>The region can only contain letters, digits, dots, hyphens and underscores.</source>
+        <translation>リージョンには英数字、ドット、ハイフン、アンダースコアのみ使えます。</translation>
+    </message>
+    <message>
+        <source>Enter the bucket name.</source>
+        <translation>バケット名を入力してください。</translation>
+    </message>
+    <message>
+        <source>The bucket name cannot contain '/' or spaces.</source>
+        <translation>バケット名に / や空白は使えません。</translation>
+    </message>
+    <message>
+        <source>Enter the access key ID.</source>
+        <translation>アクセスキー ID を入力してください。</translation>
+    </message>
+    <message>
+        <source>The access key ID cannot contain spaces.</source>
+        <translation>アクセスキー ID に空白は使えません。</translation>
+    </message>
+    <message>
+        <source>Enter the secret access key.</source>
+        <translation>シークレットアクセスキーを入力してください。</translation>
+    </message>
+    <message>
+        <source>The secret access key cannot contain spaces.</source>
+        <translation>シークレットアクセスキーに空白は使えません。</translation>
+    </message>
+    <message>
+        <source>The public address must be an http:// or https:// address.</source>
+        <translation>公開アドレスは http:// または https:// のアドレスにしてください。</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Upload</source>
+        <translation>アップロード</translation>
+    </message>
+    <message>
+        <source>Default Upload Target</source>
+        <translation>既定のアップロード先</translation>
+    </message>
+    <message>
+        <source>The target the upload buttons and the upload shortcut send to.</source>
+        <translation>アップロードボタンとアップロードのショートカットが送信する先です。</translation>
+    </message>
+    <message>
+        <source>Upload Targets</source>
+        <translation>アップロード先</translation>
+    </message>
+    <message>
+        <source>S3-compatible storage such as AWS S3, Cloudflare R2, Alibaba Cloud OSS, Tencent Cloud COS or MinIO.</source>
+        <translation>AWS S3、Cloudflare R2、Alibaba Cloud OSS、Tencent Cloud COS、MinIO などの S3 互換ストレージです。</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>追加</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>削除</translation>
+    </message>
+    <message>
+        <source>Link Format</source>
+        <translation>リンクの形式</translation>
+    </message>
+    <message>
+        <source>What is copied after an upload.</source>
+        <translation>アップロード後にコピーされる内容です。</translation>
+    </message>
+    <message>
+        <source>Link</source>
+        <translation>リンク</translation>
+    </message>
+    <message>
+        <source>Markdown</source>
+        <translation>Markdown</translation>
+    </message>
+    <message>
+        <source>HTML</source>
+        <translation>HTML</translation>
+    </message>
+    <message>
+        <source>Delete Upload Target</source>
+        <translation>アップロード先を削除</translation>
+    </message>
+    <message>
+        <source>Delete the upload target "%1"?</source>
+        <translation>アップロード先「%1」を削除しますか？</translation>
+    </message>
+</context>
+<context>
+    <name>Toolbar</name>
+    <message>
+        <source>Upload to cloud storage</source>
+        <translation>クラウドストレージにアップロード</translation>
+    </message>
+</context>
+<context>
+    <name>ToolbarLayoutDialog</name>
+    <message>
+        <source>Upload</source>
+        <translation>アップロード</translation>
+    </message>
+</context>
+<context>
+    <name>PinWindow</name>
+    <message>
+        <source>Upload</source>
+        <translation>アップロード</translation>
+    </message>
+</context>
 </TS>
