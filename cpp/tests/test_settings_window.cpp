@@ -5187,6 +5187,59 @@ private slots:
         QCOMPARE(nav->currentSubRoute(), QString("capture"));
     }
 
+    // Scrolled to the bottom, a list folding above the rows pulls the scroll position up with the
+    // content: every paint shows the rows at the scroll position that goes with them, so none of
+    // them moves back and forth.
+    void foldingInAScrolledNavigationMovesEveryRowOneWay() {
+        struct PaintSpy : QObject {
+            std::function<void()> on_paint;
+            bool eventFilter(QObject *, QEvent *event) override {
+                if (event->type() == QEvent::Paint && on_paint) on_paint();
+                return false;
+            }
+        };
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 600);
+        dialog.show();
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        QScrollArea *area = nav->scrollArea();
+        // The log page's list is built first, so only folding moves the rows below.
+        dialog.on_nav_changed(5, "log");
+        QTRY_VERIFY(nav->subItemCount("log") > 0);
+        dialog.on_nav_changed(1, "capture");
+        QTRY_VERIFY(nav->subItemCount("capture") > 1);
+        QTRY_VERIFY(!nav->animating());
+        auto *bar = area->verticalScrollBar();
+        QVERIFY(bar->maximum() > 0);
+        bar->setValue(bar->maximum());
+
+        const QStringList routes{"shortcuts", "mouse", "capture", "pin", "screen_annotation", "clipboard", "translation", "appearance", "log", "other"};
+        QHash<QString, QList<int>> tops;
+        PaintSpy spy;
+        spy.on_paint = [&] {
+            for (const auto &route : routes) {
+                auto &seen = tops[route];
+                const int y = nav->widget(route)->mapTo(area->viewport(), QPoint()).y();
+                if (seen.isEmpty() || seen.last() != y) seen << y;
+            }
+        };
+        area->viewport()->installEventFilter(&spy);
+        for (const auto &route : routes) nav->widget(route)->installEventFilter(&spy);
+        dialog.on_nav_changed(5, "log");
+        QTRY_VERIFY(!nav->animating());
+        QTest::qWait(50);
+        spy.on_paint = nullptr;
+
+        QVERIFY(tops["pin"].size() > 3);
+        for (const auto &route : routes) {
+            const auto &seen = tops[route];
+            QStringList trail;
+            for (const int y : seen) trail << QString::number(y);
+            for (int i = 2; i < seen.size(); ++i)
+                QVERIFY2((seen[i] > seen[i - 1]) == (seen[1] > seen[0]), qPrintable(route + ": " + trail.join(' ')));
+        }
+    }
+
     void clickingASubItemOfAnotherPageOpensItAndScrollsToTheGroup() {
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.resize(1050, 600);
