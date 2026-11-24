@@ -109,7 +109,7 @@ SettingsCardGroup *build_group(SettingsDialog *dialog, QWidget *view) {
 
     auto *default_card = new SettingCard(upload_icon(), dialog->tr_text("Default Upload Target"),
                                          dialog->tr_text("The target the upload buttons and the upload shortcut send to."), group);
-    std::vector<std::pair<QString, QVariant>> choices = {{dialog->tr_text("None"), QString()}};
+    std::vector<std::pair<QString, QVariant>> choices = {{dialog->tr_text("Not Configured"), QString()}};
     for (const auto &target : targets) choices.emplace_back(target.name, target.id);
     auto *default_combo = choice_combo(dialog, default_card, DEFAULT_KEY, choices);
     default_combo->setObjectName("upload_default_combo");

@@ -1,3 +1,4 @@
+#include "annotation/annotation_toolbar.h"
 #include "canvas/items/watermark_item.h"
 #include "core/qt_utils.h"
 #include "core/i18n.h"
@@ -7,6 +8,7 @@
 #include "pin/pin_toolbar.h"
 #include "settings/color_formats.h"
 #include "settings/tool_settings.h"
+#include "stitch/scroll_toolbar.h"
 #include "ui/base_settings_panel.h"
 #include "ui/busy_ring.h"
 #include "ui/dialogs.h"
@@ -477,6 +479,29 @@ private slots:
         toolbar.set_translation_busy(false);
         QVERIFY(ring->isHidden());
         QVERIFY(!ring->progress());
+    }
+
+    void captureAndAnnotationTooltipsUseShortLabels() {
+        XmlTranslator translator;
+        QVERIFY(translator.load_from_xml(":/translations/app_zh.xml"));
+        QVERIFY(QCoreApplication::installTranslator(&translator));
+        const auto uninstall = qScopeGuard([&translator] { QCoreApplication::removeTranslator(&translator); });
+        Toolbar toolbar;
+        PinToolbar pin_toolbar(nullptr, config_);
+        FloatingToolbar scroll_toolbar;
+        AnnotationToolbar annotation_toolbar(nullptr);
+
+        const auto recognize_text = QStringLiteral("文字识别");
+        QCOMPARE(toolbar.text_recognize_btn->toolTip(), recognize_text);
+        QCOMPARE(pin_toolbar.text_recognize_btn->toolTip(), recognize_text);
+        QCOMPARE(scroll_toolbar.ocr_btn->toolTip(), recognize_text);
+        QCOMPARE(toolbar.long_screenshot_btn->toolTip(), QStringLiteral("长截图"));
+        QCOMPARE(toolbar.quick_save_btn->toolTip(), QStringLiteral("快捷保存（不弹窗）"));
+        QCOMPARE(toolbar.screenshot_translate_btn->toolTip(), QStringLiteral("截图翻译"));
+        QCOMPARE(toolbar.scan_code_btn->toolTip(), QStringLiteral("扫码"));
+        QCOMPARE(toolbar.gif_btn->toolTip(), QStringLiteral("录屏"));
+        QCOMPARE(annotation_toolbar.board_btn->toolTip(), QStringLiteral("切换白板"));
+        QCOMPARE(annotation_toolbar.highlight_btn->toolTip(), QStringLiteral("高亮光标和点击位置"));
     }
 
     void theToolbarFoldsHidesAndRereadsItsLayout() {

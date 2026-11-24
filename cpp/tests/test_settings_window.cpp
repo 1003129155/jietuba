@@ -4765,8 +4765,7 @@ private slots:
         target.id = "a";
         target.name = "Cloudflare R2 team screenshots";
         target.endpoint = "https://0123456789abcdef.r2.cloudflarestorage.com";
-        config_->set_upload_targets(upload::serialize_targets({target}));
-        config_->set_upload_default_target("a");
+        const auto targets = upload::serialize_targets({target});
         QStringList problems;
         for (const int percent : {100, 150, 200}) {
             scale.set_percent(percent);
@@ -4774,12 +4773,24 @@ private slots:
                 QVERIFY(I18nManager::load_language(code));
                 const QString where = QString("%1 at %2%").arg(code).arg(percent);
                 {
+                    config_->set_upload_targets("");
+                    config_->set_upload_default_target("");
                     SettingsDialog dialog(config_, config_->get_hotkey());
                     dialog.fit_to_available({4000, dialog.height()});
                     dialog.build_all_pages();
                     dialog.resize(0, dialog.height());
                     dialog.show();
                     dialog.on_nav_changed(1, "capture");
+                    auto *default_combo = dialog.attr<QComboBox>("upload_default_combo");
+                    QVERIFY(default_combo);
+                    QCOMPARE(default_combo->count(), 1);
+                    if (qstrcmp(code, "zh") == 0) QCOMPARE(default_combo->currentText(), QString::fromUtf8("未配置"));
+                    QApplication::processEvents();
+                    if (default_combo->width() < default_combo->sizeHint().width())
+                        problems << where + ": combo " + default_combo->currentText() + " is cut";
+                    config_->set_upload_targets(targets);
+                    config_->set_upload_default_target(target.id);
+                    dialog.refresh_settings();
                     QApplication::processEvents();
                     auto *group = dialog.attr<QWidget>("upload_group");
                     QVERIFY(group);

@@ -186,15 +186,15 @@ void Toolbar::init_ui() {
 
     const int wide = BASE_WIDE_WIDTH;
     const int tool = BASE_BTN_WIDTH;
-    long_screenshot_btn = add_button("long_screenshot", QString::fromUtf8("svg/长截图.svg"), "Long screenshot (scroll)", wide, [this] { emit long_screenshot_clicked(); });
+    long_screenshot_btn = add_button("long_screenshot", QString::fromUtf8("svg/长截图.svg"), "Long screenshot", wide, [this] { emit long_screenshot_clicked(); });
     save_btn = add_button("save", QString::fromUtf8("svg/下载.svg"), "Save to file", wide, [this] { emit save_clicked(); });
-    quick_save_btn = add_button("quick_save", QString::fromUtf8("svg/快速保存.svg"), "Quick save: straight to the save folder, no dialog", wide, [this] { emit quick_save_clicked(); });
+    quick_save_btn = add_button("quick_save", QString::fromUtf8("svg/快速保存.svg"), "Quick save without a dialog", wide, [this] { emit quick_save_clicked(); });
     upload_btn = add_button("upload", QString::fromUtf8("svg/上传.svg"), "Upload to cloud storage", wide, [this] { emit upload_clicked(); });
-    screenshot_translate_btn = add_button("screenshot_translate", QString::fromUtf8("svg/翻译.svg"), "Screenshot translate (OCR + Translate)", wide,
+    screenshot_translate_btn = add_button("screenshot_translate", QString::fromUtf8("svg/翻译.svg"), "Translate screenshot", wide,
                                           [this] { emit screenshot_translate_clicked(); });
-    text_recognize_btn = add_button("text_recognize", QString::fromUtf8("svg/文字识别.svg"), "Recognize text (OCR)", wide, [this] { emit text_recognize_clicked(); });
-    scan_code_btn = add_button("scan_code", QString::fromUtf8("svg/扫码.svg"), "Scan QR code / barcode", wide, [this] { emit scan_code_clicked(); });
-    gif_btn = add_button("gif", "svg/gif.svg", "GIF / Video recording", wide, [this] { emit gif_record_clicked(); });
+    text_recognize_btn = add_button("text_recognize", QString::fromUtf8("svg/文字识别.svg"), "Recognize text", wide, [this] { emit text_recognize_clicked(); });
+    scan_code_btn = add_button("scan_code", QString::fromUtf8("svg/扫码.svg"), "Scan code", wide, [this] { emit scan_code_clicked(); });
+    gif_btn = add_button("gif", "svg/gif.svg", "Screen recording", wide, [this] { emit gif_record_clicked(); });
     // Copy is laid out only in pin windows; the capture layout has no copy button.
     copy_btn = add_button("copy", "svg/copy.svg", "Copy image", wide, [this] { emit copy_clicked(); });
 

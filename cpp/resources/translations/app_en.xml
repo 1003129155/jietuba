@@ -1750,16 +1750,16 @@ Replace it?</translation>
         <translation>Spotlight (dim outside the box)</translation>
     </message>
     <message>
-        <source>Long screenshot (scroll)</source>
-        <translation>Long screenshot (scroll)</translation>
+        <source>Long screenshot</source>
+        <translation>Long screenshot</translation>
     </message>
     <message>
         <source>Save to file</source>
         <translation>Save to file</translation>
     </message>
     <message>
-        <source>Quick save: straight to the save folder, no dialog</source>
-        <translation>Quick save: straight to the save folder, no dialog</translation>
+        <source>Quick save without a dialog</source>
+        <translation>Quick save without a dialog</translation>
     </message>
     <message>
         <source>Copy image</source>
@@ -1806,16 +1806,16 @@ Replace it?</translation>
         <translation>Redo</translation>
     </message>
     <message>
-        <source>Screenshot translate (OCR + Translate)</source>
-        <translation>Screenshot translate (OCR + Translate)</translation>
+        <source>Translate screenshot</source>
+        <translation>Translate screenshot</translation>
     </message>
     <message>
-        <source>Recognize text (OCR)</source>
-        <translation>Recognize text (OCR)</translation>
+        <source>Recognize text</source>
+        <translation>Recognize text</translation>
     </message>
     <message>
-        <source>Scan QR code / barcode</source>
-        <translation>Scan QR code / barcode</translation>
+        <source>Scan code</source>
+        <translation>Scan code</translation>
     </message>
     <message>
         <source>Recognizing...</source>
@@ -1886,8 +1886,8 @@ Replace it?</translation>
         <translation>Drag to move</translation>
     </message>
     <message>
-        <source>GIF / Video recording</source>
-        <translation>GIF / Video recording</translation>
+        <source>Screen recording</source>
+        <translation>Screen recording</translation>
     </message>
     <message>
         <source>Pass through: the mouse works the windows below (Esc)</source>
@@ -1906,12 +1906,12 @@ Replace it?</translation>
         <translation>Exit screen annotation</translation>
     </message>
     <message>
-        <source>Whiteboard: click to cover the screen with white, click again to remove</source>
-        <translation>Whiteboard: click to cover the screen with white, click again to remove</translation>
+        <source>Toggle whiteboard</source>
+        <translation>Toggle whiteboard</translation>
     </message>
     <message>
-        <source>Cursor highlight: a light around the pointer and a ring for every click</source>
-        <translation>Cursor highlight: a light around the pointer and a ring for every click</translation>
+        <source>Highlight cursor and clicks</source>
+        <translation>Highlight cursor and clicks</translation>
     </message>
 </context>
 
@@ -2325,8 +2325,8 @@ Replace it?</translation>
         <translation>Save to file</translation>
     </message>
     <message>
-        <source>Recognize text (OCR)</source>
-        <translation>Recognize text (OCR)</translation>
+        <source>Recognize text</source>
+        <translation>Recognize text</translation>
     </message>
     <message>
         <source>Finish and save</source>

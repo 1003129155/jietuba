@@ -1769,16 +1769,16 @@ Replace it?</source>
         <translation>聚光灯（压暗框外区域）</translation>
     </message>
     <message>
-        <source>Long screenshot (scroll)</source>
-        <translation>长截图（滚动）</translation>
+        <source>Long screenshot</source>
+        <translation>长截图</translation>
     </message>
     <message>
         <source>Save to file</source>
         <translation>保存到文件</translation>
     </message>
     <message>
-        <source>Quick save: straight to the save folder, no dialog</source>
-        <translation>快捷保存：不弹窗，直接存到保存文件夹</translation>
+        <source>Quick save without a dialog</source>
+        <translation>快捷保存（不弹窗）</translation>
     </message>
     
     <message>
@@ -1826,16 +1826,16 @@ Replace it?</source>
         <translation>重做</translation>
     </message>
     <message>
-        <source>Screenshot translate (OCR + Translate)</source>
-        <translation>截图翻译（OCR + 翻译）</translation>
+        <source>Translate screenshot</source>
+        <translation>截图翻译</translation>
     </message>
     <message>
-        <source>Recognize text (OCR)</source>
-        <translation>文字识别（OCR）</translation>
+        <source>Recognize text</source>
+        <translation>文字识别</translation>
     </message>
     <message>
-        <source>Scan QR code / barcode</source>
-        <translation>扫码（二维码 / 条形码）</translation>
+        <source>Scan code</source>
+        <translation>扫码</translation>
     </message>
     <message>
         <source>Recognizing...</source>
@@ -1906,8 +1906,8 @@ Replace it?</source>
         <translation>拖动以移动</translation>
     </message>
     <message>
-        <source>GIF / Video recording</source>
-        <translation>GIF / 视频录制</translation>
+        <source>Screen recording</source>
+        <translation>录屏</translation>
     </message>
     <message>
         <source>Pass through: the mouse works the windows below (Esc)</source>
@@ -1926,12 +1926,12 @@ Replace it?</source>
         <translation>退出屏幕标注</translation>
     </message>
     <message>
-        <source>Whiteboard: click to cover the screen with white, click again to remove</source>
-        <translation>白板：点一下铺上白色背景，再点一下取消</translation>
+        <source>Toggle whiteboard</source>
+        <translation>切换白板</translation>
     </message>
     <message>
-        <source>Cursor highlight: a light around the pointer and a ring for every click</source>
-        <translation>光标高亮：指针周围发光，每次点击出现涟漪</translation>
+        <source>Highlight cursor and clicks</source>
+        <translation>高亮光标和点击位置</translation>
     </message>
 </context>
 
@@ -2345,8 +2345,8 @@ Replace it?</source>
         <translation>保存到文件</translation>
     </message>
     <message>
-        <source>Recognize text (OCR)</source>
-        <translation>文字识别（OCR）</translation>
+        <source>Recognize text</source>
+        <translation>文字识别</translation>
     </message>
     <message>
         <source>Finish and save</source>

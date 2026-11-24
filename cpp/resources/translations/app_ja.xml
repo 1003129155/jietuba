@@ -1835,16 +1835,16 @@ Replace it?</source>
         <translation>スポットライト（枠の外を暗くする）</translation>
     </message>
     <message>
-        <source>Long screenshot (scroll)</source>
-        <translation>スクロールキャプチャ（スクロール）</translation>
+        <source>Long screenshot</source>
+        <translation>スクロールキャプチャ</translation>
     </message>
     <message>
         <source>Save to file</source>
         <translation>ファイルに保存</translation>
     </message>
     <message>
-        <source>Quick save: straight to the save folder, no dialog</source>
-        <translation>クイック保存：ダイアログなしで保存フォルダに保存</translation>
+        <source>Quick save without a dialog</source>
+        <translation>クイック保存（ダイアログなし）</translation>
     </message>
     
 
@@ -1893,16 +1893,16 @@ Replace it?</source>
         <translation>やり直す</translation>
     </message>
     <message>
-        <source>Screenshot translate (OCR + Translate)</source>
-        <translation>スクリーンショット翻訳（OCR + 翻訳）</translation>
+        <source>Translate screenshot</source>
+        <translation>スクショ翻訳</translation>
     </message>
     <message>
-        <source>Recognize text (OCR)</source>
-        <translation>文字認識（OCR）</translation>
+        <source>Recognize text</source>
+        <translation>文字認識</translation>
     </message>
     <message>
-        <source>Scan QR code / barcode</source>
-        <translation>コードをスキャン（QR コード / バーコード）</translation>
+        <source>Scan code</source>
+        <translation>コードスキャン</translation>
     </message>
     <message>
         <source>Recognizing...</source>
@@ -1973,8 +1973,8 @@ Replace it?</source>
         <translation>ドラッグして移動</translation>
     </message>
     <message>
-        <source>GIF / Video recording</source>
-        <translation>GIF / 動画録画</translation>
+        <source>Screen recording</source>
+        <translation>画面録画</translation>
     </message>
     <message>
         <source>Pass through: the mouse works the windows below (Esc)</source>
@@ -1993,12 +1993,12 @@ Replace it?</source>
         <translation>画面注釈を終了</translation>
     </message>
     <message>
-        <source>Whiteboard: click to cover the screen with white, click again to remove</source>
-        <translation>ホワイトボード：クリックで画面を白で覆い、もう一度クリックで解除</translation>
+        <source>Toggle whiteboard</source>
+        <translation>ホワイトボード切り替え</translation>
     </message>
     <message>
-        <source>Cursor highlight: a light around the pointer and a ring for every click</source>
-        <translation>カーソルハイライト：ポインターの周りを光らせ、クリックごとに波紋を表示</translation>
+        <source>Highlight cursor and clicks</source>
+        <translation>カーソルとクリック位置を強調</translation>
     </message>
 </context>
 
@@ -2380,8 +2380,8 @@ Replace it?</source>
         <translation>ファイルに保存</translation>
     </message>
     <message>
-        <source>Recognize text (OCR)</source>
-        <translation>文字認識（OCR）</translation>
+        <source>Recognize text</source>
+        <translation>文字認識</translation>
     </message>
     <message>
         <source>Auto scroll (move the mouse to stop)</source>

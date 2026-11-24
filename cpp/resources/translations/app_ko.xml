@@ -1809,16 +1809,16 @@ Replace it?</source>
         <translation>스포트라이트(상자 바깥 어둡게)</translation>
     </message>
     <message>
-        <source>Long screenshot (scroll)</source>
-        <translation>긴 스크린샷(스크롤)</translation>
+        <source>Long screenshot</source>
+        <translation>긴 스크린샷</translation>
     </message>
     <message>
         <source>Save to file</source>
         <translation>파일로 저장</translation>
     </message>
     <message>
-        <source>Quick save: straight to the save folder, no dialog</source>
-        <translation>빠른 저장: 대화 상자 없이 저장 폴더에 바로 저장</translation>
+        <source>Quick save without a dialog</source>
+        <translation>빠른 저장(대화 상자 없음)</translation>
     </message>
     <message>
         <source>Copy image</source>
@@ -1865,16 +1865,16 @@ Replace it?</source>
         <translation>다시 실행</translation>
     </message>
     <message>
-        <source>Screenshot translate (OCR + Translate)</source>
-        <translation>스크린샷 번역 (OCR + 번역)</translation>
+        <source>Translate screenshot</source>
+        <translation>스크린샷 번역</translation>
     </message>
     <message>
-        <source>Recognize text (OCR)</source>
-        <translation>텍스트 인식(OCR)</translation>
+        <source>Recognize text</source>
+        <translation>텍스트 인식</translation>
     </message>
     <message>
-        <source>Scan QR code / barcode</source>
-        <translation>코드 스캔 (QR 코드 / 바코드)</translation>
+        <source>Scan code</source>
+        <translation>코드 스캔</translation>
     </message>
     <message>
         <source>Recognizing...</source>
@@ -1945,8 +1945,8 @@ Replace it?</source>
         <translation>드래그하여 이동</translation>
     </message>
     <message>
-        <source>GIF / Video recording</source>
-        <translation>GIF / 동영상 녹화</translation>
+        <source>Screen recording</source>
+        <translation>화면 녹화</translation>
     </message>
     <message>
         <source>Pass through: the mouse works the windows below (Esc)</source>
@@ -1965,12 +1965,12 @@ Replace it?</source>
         <translation>화면 주석 종료</translation>
     </message>
     <message>
-        <source>Whiteboard: click to cover the screen with white, click again to remove</source>
-        <translation>화이트보드: 클릭하면 화면을 흰색으로 덮고, 다시 클릭하면 해제</translation>
+        <source>Toggle whiteboard</source>
+        <translation>화이트보드 전환</translation>
     </message>
     <message>
-        <source>Cursor highlight: a light around the pointer and a ring for every click</source>
-        <translation>커서 강조: 포인터 주위에 빛을 비추고 클릭마다 물결을 표시</translation>
+        <source>Highlight cursor and clicks</source>
+        <translation>커서와 클릭 위치 강조</translation>
     </message>
 </context>
 
@@ -2384,8 +2384,8 @@ Replace it?</source>
         <translation>파일로 저장</translation>
     </message>
     <message>
-        <source>Recognize text (OCR)</source>
-        <translation>텍스트 인식(OCR)</translation>
+        <source>Recognize text</source>
+        <translation>텍스트 인식</translation>
     </message>
     <message>
         <source>Finish and save</source>
