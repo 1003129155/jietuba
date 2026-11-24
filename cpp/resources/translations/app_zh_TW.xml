@@ -3083,10 +3083,11 @@ Replace it?</source>
         <source>Max Display Lines</source>
         <translation>最多顯示行數</translation>
     </message>
-    <message>
+    <message numerus="yes">
         <source>%n line(s)</source>
         <translation>
-            </translation>
+            <numerusform>%n行</numerusform>
+        </translation>
     </message>
     <message>
         <source>Add Content</source>

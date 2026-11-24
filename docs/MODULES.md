@@ -562,13 +562,12 @@ The interface texts in several languages, in `cpp/resources/translations/`.
 translations/
 ├── app_zh.xml / app_en.xml  # Chinese / English source files
 ├── app_ja.xml / app_ko.xml  # Japanese / Korean source files
-├── app_zh_TW.xml            # Traditional Chinese (Taiwan) source file
-└── app_*.qm                 # compiled Qt binaries (e.g. app_zh.qm)
+└── app_zh_TW.xml            # Traditional Chinese (Taiwan) source file
 ```
 
 </details>
 
-`.xml` = editable source files, `.qm` = compiled Qt runtime files. When adding or changing UI text, add an entry with the same context to all five `.xml` files (use real line breaks in multi-line text), then run `scripts/compile_translations.py`. Log texts are edited directly in `resources/core/log_translations.json`.
+The `.xml` files are embedded as they are and read at startup; nothing is compiled from them. When adding or changing UI text, add an entry with the same context to all five `.xml` files (use real line breaks in multi-line text). Log texts are edited directly in `resources/core/log_translations.json`.
 
 ---
 

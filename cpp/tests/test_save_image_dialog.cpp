@@ -1,3 +1,4 @@
+#include "core/i18n.h"
 #include "core/save.h"
 #include "settings/tool_settings.h"
 #include "ui/dialogs.h"
@@ -340,8 +341,8 @@ private slots:
         for (const int percent : {100, 150, 200}) {
             get_dialog_scale().set_percent(percent);
             for (const char *language : {"zh", "zh_TW", "en", "ja", "ko"}) {
-                QTranslator translator;
-                QVERIFY(translator.load(QString(":/translations/app_%1.qm").arg(language)));
+                XmlTranslator translator;
+                QVERIFY(translator.load_from_xml(QString(":/translations/app_%1.xml").arg(language)));
                 QCoreApplication::installTranslator(&translator);
                 SaveImageDialog dialog(noisy_image(), "shot", config_);
                 QCoreApplication::removeTranslator(&translator);
@@ -662,8 +663,8 @@ private slots:
             {"en", "Save Image"}, {"zh", QString::fromUtf8("保存图片")}, {"zh_TW", QString::fromUtf8("儲存圖片")},
             {"ja", QString::fromUtf8("画像を保存")}, {"ko", QString::fromUtf8("이미지 저장")}};
         for (const auto &[language, title] : languages) {
-            QTranslator translator;
-            QVERIFY(translator.load(QString(":/translations/app_%1.qm").arg(language)));
+            XmlTranslator translator;
+            QVERIFY(translator.load_from_xml(QString(":/translations/app_%1.xml").arg(language)));
             QCoreApplication::installTranslator(&translator);
             SaveImageDialog dialog(noisy_image(), "shot", config_);
             QCoreApplication::removeTranslator(&translator);

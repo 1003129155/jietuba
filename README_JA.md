@@ -215,7 +215,7 @@ ctest --test-dir build\msvc -C Release --output-on-failure -E "_desktop$|_window
 │   │   ├── ui/              # UI コンポーネント、キャプチャ画面、ツールバー、設定画面
 │   │   └── video/           # MP4 録画子プロセス
 │   ├── native/              # rust_libs の C インターフェース（静的リンク）
-│   ├── resources/           # 既定設定、UI 翻訳（XML と .qm）、ログ文言
+│   ├── resources/           # 既定設定、UI 翻訳（XML）、ログ文言
 │   ├── scripts/             # ビルド、Qt SDK の準備、翻訳のコンパイル
 │   └── tests/               # QtTest のテストと照合データ
 │

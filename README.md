@@ -215,7 +215,7 @@ Releases are made by [build.yml](.github/workflows/build.yml): the tag must be `
 │   │   ├── ui/              # UI components, capture window, toolbar, settings window
 │   │   └── video/           # MP4 recording worker
 │   ├── native/              # C interface to rust_libs, linked statically
-│   ├── resources/           # Default settings, UI translations (XML and .qm), log messages
+│   ├── resources/           # Default settings, UI translations (XML), log messages
 │   ├── scripts/             # Build, Qt SDK setup, translation compiling
 │   └── tests/               # QtTest tests and reference data
 │

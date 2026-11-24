@@ -21,10 +21,10 @@ list(REMOVE_ITEM JIETUBA_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 
 add_library(jietuba_lib STATIC ${JIETUBA_SOURCES} resources/settings.qrc)
 set_target_properties(jietuba_lib PROPERTIES AUTORCC ON)
-# The .qm files are compiled from resources/translations/*.xml by scripts/compile_translations.py.
-file(GLOB JIETUBA_QM_FILES CONFIGURE_DEPENDS resources/translations/*.qm)
+# The interface catalogs are embedded as they are edited; XmlTranslator reads them.
+file(GLOB JIETUBA_TRANSLATION_FILES CONFIGURE_DEPENDS resources/translations/*.xml)
 qt_add_resources(jietuba_lib "jietuba_runtime_resources" PREFIX "/" BASE resources
-    FILES resources/core/log_translations.json ${JIETUBA_QM_FILES})
+    FILES resources/core/log_translations.json ${JIETUBA_TRANSLATION_FILES})
 # The repository's svg/ is embedded as :/svg.
 file(GLOB_RECURSE JIETUBA_SVG_FILES CONFIGURE_DEPENDS ${JIETUBA_REPO_ROOT}/svg/*.svg ${JIETUBA_REPO_ROOT}/svg/*.json)
 qt_add_resources(jietuba_lib "jietuba_svg_resources" PREFIX "/" BASE ${JIETUBA_REPO_ROOT}

@@ -11,7 +11,6 @@
 
 # 二进制文件不做行尾转换
 *.whl binary
-*.qm binary
 *.png binary
 *.jpg binary
 *.ico binary

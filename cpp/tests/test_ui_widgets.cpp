@@ -1276,7 +1276,8 @@ private slots:
         QCOMPARE(strict.text(), QString("ctrl+a"));
     }
 
-    // XML catalogs: per-context lookups, a shared fallback, and untranslated entries kept as source.
+    // XML catalogs: per-context lookups, a shared fallback, untranslated entries kept as source, and
+    // plural messages picking their form by count.
     void xmlTranslationsLoadAndFallBack() {
         QTemporaryDir dir;
         QFile file(dir.filePath("app_xx.xml"));
@@ -1290,6 +1291,10 @@ private slots:
 </context>
 <context><name>Second</name>
   <message><source>Only here</source><translation>Seulement ici</translation></message>
+  <message numerus="yes"><source>%n file(s)</source><translation>
+      <numerusform>%n fichier</numerusform>
+      <numerusform>%n fichiers</numerusform>
+  </translation></message>
 </context>
 </TS>)");
         file.close();
@@ -1302,6 +1307,9 @@ private slots:
         QCOMPARE(translator.translate("First", "Close"), QString("Close"));
         QCOMPARE(translator.translate("Elsewhere", "Only here"), QString("Seulement ici"));
         QCOMPARE(translator.translate("First", "Missing"), QString());
+        QCOMPARE(translator.translate("Second", "%n file(s)", nullptr, 1), QString("%n fichier"));
+        QCOMPARE(translator.translate("Second", "%n file(s)", nullptr, 3), QString("%n fichiers"));
+        QCOMPARE(translator.translate("Second", "%n file(s)"), QString("%n fichier"));
         QVERIFY(!translator.load_from_xml(dir.filePath("missing.xml")));
         QFile broken(dir.filePath("broken.xml"));
         QVERIFY(broken.open(QIODevice::WriteOnly));
@@ -1323,6 +1331,21 @@ private slots:
         QCOMPARE(QCoreApplication::translate("SettingsDialog", "Language"), QString::fromUtf8("語言"));
         QCOMPARE(QCoreApplication::translate("SaveImageDialog", "Save Image"), QString::fromUtf8("儲存圖片"));
         I18nManager::load_language(previous);
+    }
+
+    // Every embedded catalog loads, and a count reads naturally in each language.
+    void everyEmbeddedCatalogLoadsWithItsPlurals() {
+        const std::vector<std::tuple<QString, QString, QString>> languages = {
+            {"en", "1 line", "3 lines"}, {"zh", QString::fromUtf8("1行"), QString::fromUtf8("3行")}, {"zh_TW", QString::fromUtf8("1行"), QString::fromUtf8("3行")},
+            {"ja", QString::fromUtf8("1行"), QString::fromUtf8("3行")}, {"ko", QString::fromUtf8("1줄"), QString::fromUtf8("3줄")}};
+        for (const auto &[language, one, three] : languages) {
+            XmlTranslator translator;
+            QVERIFY2(translator.load_from_xml(QString(":/translations/app_%1.xml").arg(language)), qPrintable(language));
+            QCoreApplication::installTranslator(&translator);
+            const auto uninstall = qScopeGuard([&translator] { QCoreApplication::removeTranslator(&translator); });
+            QCOMPARE(QCoreApplication::translate("ClipboardWindow", "%n line(s)", nullptr, 1), one);
+            QCOMPARE(QCoreApplication::translate("ClipboardWindow", "%n line(s)", nullptr, 3), three);
+        }
     }
 
     // Every catalog carries the same sources, so a switch never drops a line back to English.

@@ -1476,8 +1476,8 @@ private slots:
             {"PinWindow", "Pin Too Small"}, {"PinWindow", "This pin is only %1 × %2 pixels. Pin it anyway?"},
         };
         for (const char *language : {"zh", "zh_TW", "en", "ja", "ko"}) {
-            QTranslator translator;
-            QVERIFY(translator.load(QString(":/translations/app_%1.qm").arg(language)));
+            XmlTranslator translator;
+            QVERIFY(translator.load_from_xml(QString(":/translations/app_%1.xml").arg(language)));
             for (const auto &[context, text] : texts)
                 QVERIFY2(!translator.translate(context, text).isEmpty(), qPrintable(QString("%1 %2: %3").arg(language, context, text)));
             // Side by side in the clipboard menu, putting an item on the screen and at the top of the list read apart.

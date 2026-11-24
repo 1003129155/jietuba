@@ -235,8 +235,8 @@ private slots:
             {"ja", QString::fromUtf8("PP-OCR に必要な ONNX Runtime がインストールされていません")},
             {"ko", QString::fromUtf8("PP-OCR에 필요한 ONNX Runtime이 설치되어 있지 않습니다")}};
         for (const auto &[language, expected] : languages) {
-            QTranslator translator;
-            QVERIFY(translator.load(QString(":/translations/app_%1.qm").arg(language)));
+            XmlTranslator translator;
+            QVERIFY(translator.load_from_xml(QString(":/translations/app_%1.xml").arg(language)));
             QCoreApplication::installTranslator(&translator);
             const auto uninstall = qScopeGuard([&translator] { QCoreApplication::removeTranslator(&translator); });
             auto *window = show_text_recognition(blank_image());

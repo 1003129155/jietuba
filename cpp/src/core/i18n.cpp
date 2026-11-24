@@ -14,25 +14,39 @@ bool XmlTranslator::load_from_xml(const QString &xml_path) {
         return false;
     }
     translations_.clear();
+    counts_plural_ = true;
     QXmlStreamReader xml(&file);
-    QString context, source, translation;
-    bool has_source = false, has_translation = false, unfinished = false;
+    QString context, source;
+    QStringList forms;
+    bool has_source = false, has_translation = false, unfinished = false, in_translation = false;
     while (!xml.atEnd()) {
         xml.readNext();
         if (xml.isStartElement()) {
             const auto name = xml.name();
-            if (name == QLatin1String("context")) { context.clear(); }
+            if (name == QLatin1String("TS")) {
+                const auto language = xml.attributes().value("language");
+                counts_plural_ = !(language.startsWith(QLatin1String("zh")) || language.startsWith(QLatin1String("ja")) || language.startsWith(QLatin1String("ko")));
+            }
+            else if (name == QLatin1String("context")) { context.clear(); }
             else if (name == QLatin1String("name") && xml.namespaceUri().isEmpty()) { context = xml.readElementText(); translations_[context]; }
-            else if (name == QLatin1String("message")) { source.clear(); translation.clear(); has_source = has_translation = unfinished = false; }
+            else if (name == QLatin1String("message")) { source.clear(); forms.clear(); has_source = has_translation = unfinished = false; }
             else if (name == QLatin1String("source")) { source = xml.readElementText(); has_source = true; }
             else if (name == QLatin1String("translation")) {
                 unfinished = xml.attributes().value("type") == QLatin1String("unfinished");
-                translation = xml.readElementText(); has_translation = true;
+                has_translation = true;
+                in_translation = true;
             }
-        } else if (xml.isEndElement() && xml.name() == QLatin1String("message")) {
-            if (has_source && has_translation) {
+            else if (name == QLatin1String("numerusform") && in_translation) { forms.append(xml.readElementText()); }
+        } else if (xml.isCharacters() && in_translation && !xml.isWhitespace()) {
+            // A plain translation is the element's own text; a plural one holds a form per element.
+            if (forms.isEmpty()) forms.append(QString());
+            forms.last() += xml.text();
+        } else if (xml.isEndElement()) {
+            if (xml.name() == QLatin1String("translation")) in_translation = false;
+            else if (xml.name() == QLatin1String("message") && has_source && has_translation) {
+                forms.removeAll(QString());
                 // Empty or unfinished translations use the source text.
-                translations_[context][source] = translation.isEmpty() || unfinished ? source : translation;
+                translations_[context][source] = forms.isEmpty() || unfinished ? QStringList{source} : forms;
             }
         }
     }
@@ -43,13 +57,14 @@ bool XmlTranslator::load_from_xml(const QString &xml_path) {
     return true;
 }
 
-QString XmlTranslator::translate(const char *context, const char *source_text, const char *, int) const {
+QString XmlTranslator::translate(const char *context, const char *source_text, const char *, int n) const {
     const auto source = QString::fromUtf8(source_text);
+    const auto pick = [this, n](const QStringList &forms) { return forms.value(counts_plural_ && n >= 0 && n != 1 && forms.size() > 1 ? 1 : 0); };
     if (const auto found = translations_.constFind(QString::fromUtf8(context)); found != translations_.constEnd())
-        if (const auto text = found->constFind(source); text != found->constEnd()) return *text;
+        if (const auto text = found->constFind(source); text != found->constEnd()) return pick(*text);
     // Some translations are shared across contexts.
     for (const auto &table : translations_)
-        if (const auto text = table.constFind(source); text != table.constEnd()) return *text;
+        if (const auto text = table.constFind(source); text != table.constEnd()) return pick(*text);
     return {};
 }
 
@@ -69,7 +84,7 @@ const QMap<QString, QString> &I18nManager::LANGUAGES() {
 }
 
 QStringList I18nManager::get_translations_dirs() {
-    // Compiled catalogs are embedded; a translations folder next to the exe can override them.
+    // The catalogs are embedded; a translations folder next to the exe can override them.
     return {QDir(QCoreApplication::applicationDirPath()).filePath("translations"), ":/translations"};
 }
 
@@ -85,26 +100,13 @@ bool I18nManager::load_language(const QString &lang_code) {
     }
     auto &self = instance();
     if (self.translator_) QCoreApplication::removeTranslator(self.translator_);
-    QString qm_file, xml_file;
+    QString xml_file;
     for (const auto &dir : get_translations_dirs()) {
-        const auto qm = QDir(dir).filePath(QString("app_%1.qm").arg(lang_code));
         const auto xml = QDir(dir).filePath(QString("app_%1.xml").arg(lang_code));
-        if (qm_file.isEmpty() && QFile::exists(qm)) qm_file = qm;
-        if (xml_file.isEmpty() && QFile::exists(xml)) xml_file = xml;
-    }
-    if (!qm_file.isEmpty()) {
-        auto *qt_translator = new QTranslator;
-        if (qt_translator->load(qm_file)) {
-            delete self.translator_;
-            self.translator_ = qt_translator;
-            QCoreApplication::installTranslator(self.translator_);
-            current_lang_ = lang_code;
-            log_info(T("已加载语言 (QM): {lang_name} ({lang_code})", {{"lang_name", LANGUAGES().value(lang_code)}, {"lang_code", lang_code}}), "I18n");
-            emit self.signals_->language_changed(lang_code);
-            return true;
+        if (QFile::exists(xml)) {
+            xml_file = xml;
+            break;
         }
-        delete qt_translator;
-        log_warning(T("QM 文件加载失败，尝试 XML: {qm_file}", {{"qm_file", qm_file}}), "I18n");
     }
     auto *xml_translator = new XmlTranslator;
     delete self.translator_;

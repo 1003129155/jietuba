@@ -14,15 +14,20 @@ signals:
     void language_changed(const QString &lang_code);
 };
 
-// Loads Qt Linguist .ts XML; used when no compiled .qm is available.
+// The interface catalogs, Qt Linguist .ts XML read as shipped: nothing is compiled from them.
 class XmlTranslator : public QTranslator {
 public:
     using QTranslator::QTranslator;
     bool load_from_xml(const QString &xml_path);
+    // A plural message picks its form by n and the catalog's language; QCoreApplication::translate
+    // then puts n in place of %n.
     QString translate(const char *context, const char *source_text, const char *disambiguation = nullptr, int n = -1) const override;
     bool isEmpty() const override { return translations_.isEmpty(); }
 private:
-    QHash<QString, QHash<QString, QString>> translations_;
+    // One form, or a plural message's forms in the catalog's order.
+    QHash<QString, QHash<QString, QStringList>> translations_;
+    // Whether the catalog's language tells one from many; Chinese, Japanese and Korean do not.
+    bool counts_plural_ = true;
 };
 
 class I18nManager {
@@ -57,7 +62,7 @@ std::function<QString(const char *)> make_tr(const char *context);
 }
 
 // Gives a class tr() with the Python class name as its translation context, so
-// the shipped .qm files (keyed by Python class names) apply unchanged. Placed
+// the shipped catalogs (keyed by Python class names) apply unchanged. Placed
 // after Q_OBJECT it hides QObject::tr, whose context would include the namespace.
 #define JIETUBA_TR_CONTEXT(Context) \
 public: \
