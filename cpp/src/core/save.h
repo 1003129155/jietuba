@@ -65,7 +65,8 @@ public:
     static std::pair<int, QByteArray> encode_within(const QImage &image, QString image_format, qint64 max_bytes, const SaveOptions &options);
     // Resized to size with smooth filtering; the image itself when size is empty or unchanged.
     static QImage scale_for_save(const QImage &image, const QSize &size);
-    static QImage flatten_for_pdf(const QImage &image);
+    // Rows first_row on (rows of them, or all the rest) on white, without alpha.
+    static QImage flatten_for_pdf(const QImage &image, int first_row = 0, int rows = -1);
     // The pages a PDF of an image this big gets. An image-sized page holds all of it. An A4 page keeps a 10 mm
     // margin and the image at 96 dpi, shrunk (never enlarged) to the page's width; what is taller than a page
     // is cut into pages of the same width, each from the top, the last one holding what is left.

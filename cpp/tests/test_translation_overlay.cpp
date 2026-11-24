@@ -1001,7 +1001,7 @@ private slots:
         QCOMPARE(shown.pixelColor(239, 69), QColor(9, 190, 120));
         QCOMPARE(shown.pixelColor(130, 40), source.pixelColor(130, 40));
         // Whatever samples the picture still reads the picture.
-        QCOMPARE(scene.background->image(), source);
+        QCOMPARE(scene.background->image().convertToFormat(source.format()), source);
         scene.background->set_overlay_visible(false);
         QVERIFY(!scene.background->overlay_visible());
         QCOMPARE(differing_pixels(rendered(scene), source.convertToFormat(QImage::Format_RGB32), QRect(0, 0, 320, 120)), 0);
@@ -1058,7 +1058,7 @@ private slots:
         // picture underneath, are as they were.
         QVERIFY(differing_pixels(rendered(scene), plain, settings_box) > 0);
         QCOMPARE(differing_pixels(rendered(scene), plain, cancel_box), 0);
-        QCOMPARE(scene.background->image(), source);
+        QCOMPARE(scene.background->image().convertToFormat(source.format()), source);
 
         session.set_original_shown(true);
         QCOMPARE(differing_pixels(rendered(scene), plain, plain.rect()), 0);
@@ -1364,6 +1364,45 @@ private slots:
         QTRY_VERIFY(!session.busy());
         asked.sort();
         QCOMPARE(asked, QStringList({"Apply", "Cancel"}));
+    }
+
+    // Another language chosen after a run's thread ended, before the session heard it end,
+    // starts at once instead of waiting for an end that was already told.
+    void anotherLanguageChosenAsARunEndsStillTranslates() {
+        const auto source = page(QSize(400, 260), Qt::white, Qt::black, {{"Settings", QRectF(60, 50, 220, 24)}});
+        CanvasScene scene(source, QRectF(0, 0, 400, 260));
+        QTemporaryDir dir;
+        QSettings settings(dir.filePath("settings.ini"), QSettings::IniFormat);
+        ToolSettingsManager config(settings);
+        std::atomic<QThread *> worker = nullptr;
+        set_recognizer_for_test([&worker](const QImage &) {
+            worker = QThread::currentThread();
+            return result_of({line("Settings", QRectF(20, 20, 220, 24))});
+        });
+        const auto restore = qScopeGuard([] { set_recognizer_for_test({}); });
+        std::mutex mutex;
+        QStringList asked;
+        OverlayTranslationSession session(&scene, &config);
+        session.make_service = [&] {
+            return scripted_service([&](const QString &text) {
+                const std::lock_guard lock(mutex);
+                asked << text;
+                return translated_as(QString::fromUtf8("译") + text);
+            });
+        };
+        QVERIFY(session.show(QRectF(40, 30, 300, 200)));
+        // No events are processed here, so what the thread posts as it ends waits in the queue.
+        QDeadlineTimer deadline(10000);
+        while (!worker && !deadline.hasExpired()) QThread::msleep(1);
+        QVERIFY(worker.load());
+        QVERIFY(worker.load()->wait(10000));
+        QVERIFY(session.busy());
+
+        session.set_target_language(config.get_translation_target_lang() == "JA" ? "KO" : "JA");
+        QTRY_VERIFY(!session.busy());
+        QCOMPARE(asked, QStringList({"Settings", "Settings"}));
+        QCOMPARE(session.blocks().size(), 1);
+        QCOMPARE(session.blocks()[0].translated, QString::fromUtf8("译Settings"));
     }
 
     // Moving the selection takes the layer off at once, and the translation follows when the

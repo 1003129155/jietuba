@@ -133,12 +133,13 @@ void SaveService::cleanup_failed_placeholder(const QString &path) {
     const QFileInfo file(path);
     if (file.exists() && file.size() == 0) QFile::remove(path);
 }
-QImage SaveService::flatten_for_pdf(const QImage &image) {
-    if (!image.hasAlphaChannel()) return image.convertToFormat(QImage::Format_RGB32);
-    QImage flattened(image.size(), QImage::Format_RGB32);
+QImage SaveService::flatten_for_pdf(const QImage &image, int first_row, int rows) {
+    const QRect band(0, first_row, image.width(), rows < 0 ? image.height() - first_row : rows);
+    if (!image.hasAlphaChannel()) return (band == image.rect() ? image : image.copy(band)).convertToFormat(QImage::Format_RGB32);
+    QImage flattened(band.size(), QImage::Format_RGB32);
     flattened.fill(0xffffffff);
     QPainter painter(&flattened);
-    painter.drawImage(0, 0, image);
+    painter.drawImage(QPoint(0, 0), image, band);
     painter.end();
     return flattened;
 }
@@ -170,8 +171,7 @@ QList<PdfPageSlice> SaveService::pdf_layout(const QSize &size, const SaveOptions
     return pages;
 }
 bool SaveService::save_pdf(const QImage &image, QIODevice *device, const SaveOptions &options) {
-    const auto flattened = flatten_for_pdf(image);
-    const auto pages = pdf_layout(flattened.size(), options);
+    const auto pages = pdf_layout(image.size(), options);
     if (pages.isEmpty()) return false;
     QPdfWriter writer(device);
     const int dpi = std::max(72, options.pdf_dpi);
@@ -196,7 +196,8 @@ bool SaveService::save_pdf(const QImage &image, QIODevice *device, const SaveOpt
         const QRectF target = image_sized ? QRectF(0, 0, writer.width(), writer.height())
                                           : QRectF(slice.target.x() * dots_per_point, slice.target.y() * dots_per_point,
                                                    slice.target.width() * dots_per_point, slice.target.height() * dots_per_point);
-        painter.drawImage(target, flattened, QRectF(0, slice.source_y, flattened.width(), slice.source_rows));
+        // Flattened a page at a time: a long image is not copied whole for its pages.
+        painter.drawImage(target, flatten_for_pdf(image, slice.source_y, slice.source_rows));
     }
     painter.end();
     return true;
@@ -288,7 +289,6 @@ std::pair<bool, std::optional<QString>> SaveService::save_qimage(const QImage &i
 std::optional<QString> SaveService::save_qimage_async(const QImage &image, QString directory, QString prefix,
     QString suffix, QString format, const SaveOptions &options, std::function<void(bool, QString)> callback) const {
     if (image.isNull()) return std::nullopt;
-    auto copy = image.copy();
     QString path;
     try {
         path = compose_path(directory, prefix, suffix, format);
@@ -299,9 +299,11 @@ std::optional<QString> SaveService::save_qimage_async(const QImage &image, QStri
     }
     // As in Python, callback executes on the worker thread. No borrowed service
     // or config pointer crosses the boundary; cancellation/lifecycle remains explicit.
-    QThreadPool::globalInstance()->start(QRunnable::create([copy = std::move(copy), path, format, options, callback = std::move(callback)] {
+    // The pixels are shared, not copied: the worker only reads them, and a change on this side detaches.
+    // So the image must own its pixels, not wrap a buffer that is freed while the worker runs.
+    QThreadPool::globalInstance()->start(QRunnable::create([image, path, format, options, callback = std::move(callback)] {
         try {
-            const auto success = save_qimage_to_path(copy, path, format, options);
+            const auto success = save_qimage_to_path(image, path, format, options);
             if (callback) callback(success, path);
         } catch (...) {
             // Python's background-task wrapper captures worker exceptions.

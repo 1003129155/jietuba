@@ -360,6 +360,25 @@ private slots:
         QVERIFY(near(landscape[0].target, QRectF(45.945, 185.138, 750, 225)));
     }
 
+    // A page's rows are flattened on their own, onto white, as they are in the whole image.
+    void aPageOfRowsFlattensLikeTheWholeImage() {
+        QImage image(3, 4, QImage::Format_ARGB32);
+        for (int y = 0; y < 4; ++y)
+            for (int x = 0; x < 3; ++x) image.setPixel(x, y, qRgba(60 * y, 80 * x, 200, y == 2 ? 0 : 255));
+        const auto band = SaveService::flatten_for_pdf(image, 1, 2);
+        QCOMPARE(band.size(), QSize(3, 2));
+        QCOMPARE(band.format(), QImage::Format_RGB32);
+        QCOMPARE(band, SaveService::flatten_for_pdf(image).copy(0, 1, 3, 2));
+        QCOMPARE(band.pixel(0, 0), qRgb(60, 0, 200));
+        QCOMPARE(band.pixel(1, 1), qRgb(255, 255, 255));
+        QImage opaque(3, 4, QImage::Format_RGB888);
+        opaque.fill(QColor(10, 20, 30));
+        const auto last_row = SaveService::flatten_for_pdf(opaque, 3, 1);
+        QCOMPARE(last_row.size(), QSize(3, 1));
+        QCOMPARE(last_row.format(), QImage::Format_RGB32);
+        QCOMPARE(last_row.pixel(2, 0), qRgb(10, 20, 30));
+    }
+
     void wideImageOnA4ShrinksToThePrintableWidth() {
         const auto pages = SaveService::pdf_layout(QSize(1440, 300), pdf_options(SaveOptions::PdfPageSize::A4Portrait));
         QCOMPARE(pages.size(), 1);

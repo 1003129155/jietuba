@@ -3212,6 +3212,83 @@ private slots:
         QVERIFY(!called);
     }
 
+    // A pin keeps its picture beside the pixmap it shows, in one copy whatever format the picture came in,
+    // as a long screenshot comes in RGB888 and a capture in premultiplied ARGB; a picture with
+    // transparency keeps its own copy, which premultiplying would change.
+    void aPinHoldsItsPictureOnce() {
+        QImage picture(64, 48, QImage::Format_RGB32);
+        for (int y = 0; y < picture.height(); ++y)
+            for (int x = 0; x < picture.width(); ++x) picture.setPixel(x, y, qRgb(x * 4, y * 5, 90));
+        const auto pinned = [this](const QImage &image) {
+            auto *pin = new PinWindow(image, QPoint(100, 100), config_);
+            pins_.append(pin);
+            return pin;
+        };
+        const auto held_once = [](PinWindow *pin) { return pin->base_pixmap().toImage().constBits() == pin->canvas->scene->background->image().constBits(); };
+        for (const auto format : {QImage::Format_RGB32, QImage::Format_RGB888, QImage::Format_ARGB32_Premultiplied}) {
+            auto *pin = pinned(picture.convertToFormat(format));
+            QVERIFY2(held_once(pin), qPrintable(QString::number(format)));
+            QCOMPARE(pin->canvas->scene->background->image().convertToFormat(QImage::Format_RGB32), picture);
+        }
+        QImage clear(16, 16, QImage::Format_ARGB32);
+        clear.fill(qRgba(200, 100, 50, 3));
+        auto *pin = pinned(clear);
+        QVERIFY(!held_once(pin));
+        QCOMPARE(pin->canvas->scene->background->image(), clear);
+    }
+
+    // With nothing drawn on it a pin hands recognition its picture itself, shared and turned as shown;
+    // a drawing goes into what is recognized, unless the drawings are hidden.
+    void recognitionSharesThePictureUnlessSomethingIsDrawnOnIt() {
+        QImage picture(240, 160, QImage::Format_RGB32);
+        for (int y = 0; y < picture.height(); ++y)
+            for (int x = 0; x < picture.width(); ++x) picture.setPixel(x, y, qRgb(x, y, (x + y) & 0xFF));
+        auto *pin = new PinWindow(picture, QPoint(100, 100), config_);
+        pins_.append(pin);
+        const auto pixels = [](const QImage &image) { return image.convertToFormat(QImage::Format_RGB32); };
+        const auto shared = [pin](const QImage &image) { return image.constBits() == pin->canvas->scene->background->image().constBits(); };
+
+        auto recognized = pin->recognition_image();
+        QVERIFY(shared(recognized));
+        QCOMPARE(pixels(recognized), pixels(pin->get_current_image()));
+
+        pin->rotate_image_cw();
+        recognized = pin->recognition_image();
+        QCOMPARE(recognized.size(), QSize(160, 240));
+        QCOMPARE(pixels(recognized), pixels(pin->get_current_image()));
+        pin->rotate_image_ccw();
+
+        auto *drawing = pin->canvas->scene->addRect(QRectF(10, 10, 50, 30), QPen(Qt::red), QBrush(Qt::red));
+        recognized = pin->recognition_image();
+        QVERIFY(!shared(recognized));
+        QCOMPARE(recognized.pixelColor(20, 20), QColor(Qt::red));
+        QCOMPARE(pixels(recognized), pixels(pin->get_current_image()));
+        pin->set_annotations_hidden(true);
+        QVERIFY(shared(pin->recognition_image()));
+        pin->set_annotations_hidden(false);
+        delete drawing;
+    }
+
+    // A recognition still running when its pin closes ends on its own, and its thread is deleted then.
+    void aRecognitionLeftByAClosedPinIsDeletedWhenItEnds() {
+        std::atomic_bool entered = false, hold = true;
+        StandInEngine engine([&entered, &hold](const QImage &) {
+            entered = true;
+            while (hold) QThread::msleep(5);
+            return ocr_result({{box(10, 10, 100, 20), "hello pin", 0.9}});
+        });
+        const auto release = qScopeGuard([&hold] { hold = false; });
+        auto *pin = make_pin();
+        QVERIFY(pin->ocr_manager()->recognize_then([](bool, const QString &) {}));
+        QTRY_VERIFY(entered.load());
+        const QPointer<PinOcrThread> thread = pin->ocr_manager()->ocr_thread.data();
+        QVERIFY(thread);
+        pin->close_window();
+        QVERIFY(thread && thread->isRunning());
+        hold = false;
+        QTRY_VERIFY(thread.isNull());
+    }
+
     // Callers waiting on a recognition share one run and all hear its text; the automatic run after
     // that does not recognize again.
     void waitingCallbacksShareOneStandInRecognition() {

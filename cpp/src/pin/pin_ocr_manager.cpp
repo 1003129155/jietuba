@@ -181,6 +181,8 @@ void PinOCRManager::cleanup() {
             QObject::disconnect(ocr_thread, &QThread::finished, nullptr, nullptr);
             ocr_thread->setParent(nullptr);
             QObject::connect(ocr_thread, &QThread::finished, ocr_thread, &QObject::deleteLater);
+            // It may have ended between isRunning() and the connection.
+            if (ocr_thread->isFinished()) ocr_thread->deleteLater();
         } else {
             ocr_thread->deleteLater();
         }

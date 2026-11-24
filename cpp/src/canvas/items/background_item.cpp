@@ -33,6 +33,7 @@ QImage reduce(const QImage &rgba, int block) {
 BackgroundItem::BackgroundItem(const QImage &image, const QRectF &scene_rect) : scene_rect_(scene_rect), image_size_(image.size()), cached_image_(image) {
     setZValue(0);
     setPixmap(QPixmap::fromImage(image));
+    hold_pixels_once();
     // Scene coordinates via offset; boundingRect() stays in pixmap-local (0, 0, w, h).
     setOffset(scene_rect_.topLeft());
     setAcceptedMouseButtons(Qt::NoButton);
@@ -57,6 +58,16 @@ void BackgroundItem::update_image(const QImage &image, const QPixmap &pixmap) {
     reduced_cache_key_.reset();
     reduced_cache_image_ = QImage();
     setPixmap(pixmap);
+    hold_pixels_once();
+}
+
+void BackgroundItem::hold_pixels_once() {
+    // Converting to the pixmap's format is lossless only without alpha: premultiplying loses colour
+    // where alpha is low, so an image with transparency keeps its own copy. Painting on the pixmap
+    // copies before writing, but QPixmap::scroll() writes the shared pixels in place: never scroll it.
+    if (pixmap().hasAlphaChannel()) return;
+    const auto shown = pixmap().toImage();
+    if (shown.size() == cached_image_.size() && shown.constBits() != cached_image_.constBits()) cached_image_ = shown;
 }
 
 void BackgroundItem::set_image_source(std::function<QImage()> source) {

@@ -584,6 +584,24 @@ private slots:
         QVERIFY(report->message.contains("link"));
     }
 
+    // Once encoded the pixels are let go: a slow upload holds only the file.
+    void thePixelsAreLetGoWhileTheFileGoesOut() {
+        if (QGuiApplication::platformName() != "offscreen") QSKIP("writes the clipboard; run offscreen");
+        configureService();
+        QImage image(64, 64, QImage::Format_RGB32);
+        image.fill(Qt::red);
+        Reply slow;
+        slow.delay_ms = 1000;
+        server_->queue(slow);
+        std::optional<Report> report;
+        QVERIFY(start_upload(image, *config_, Source::Screenshot, [&report](const Report &result) { report = result; }));
+        QTRY_COMPARE_WITH_TIMEOUT(server_->exchanges().size(), 1, 10000);
+        QVERIFY(!report);
+        QVERIFY(image.isDetached());
+        QTRY_VERIFY_WITH_TIMEOUT(report.has_value(), 10000);
+        QVERIFY(report->outcome.ok());
+    }
+
     void aPinIsNamedAsAPinAndTheFormatsFollowTheSettings() {
         if (QGuiApplication::platformName() != "offscreen") QSKIP("writes the clipboard; run offscreen");
         configureService("html");

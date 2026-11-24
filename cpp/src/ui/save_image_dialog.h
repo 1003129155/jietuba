@@ -1,4 +1,5 @@
 #pragma once
+#include "core/save.h"
 #include "ui/fluent_lite/frameless.h"
 #include <QFrame>
 #include <QImage>
@@ -21,7 +22,6 @@ namespace jietuba {
 class LineEdit;
 class PushButton;
 class SegmentedWidget;
-struct SaveOptions;
 class ToolSettingsManager;
 
 // Whether interactive saves open SaveImageDialog rather than the system Save As dialog.
@@ -238,6 +238,8 @@ protected:
 private:
     struct Encoded {
         QImage scaled, decoded;
+        QByteArray file;
+        SaveOptions options;
         qint64 bytes = -1;
         // Chosen under a size limit; -1 without one.
         int quality = -1;
@@ -260,6 +262,8 @@ private:
     void choose_directory();
     void switch_to_classic();
     void accept_save();
+    // Writes the bytes of the latest encode to saving_path_ and closes, or says it failed.
+    void write_save();
     void apply_theme();
     void place(QWidget *parent);
     QImage image_;
@@ -272,6 +276,12 @@ private:
     bool updating_size_ = false;
     bool updating_quality_ = false;
     qint64 encoded_bytes_ = -1;
+    // What the latest settings encode to, which Save writes; empty until that encode is in.
+    QByteArray encoded_file_;
+    SaveOptions encoded_options_;
+    // Save was pressed while encoding: the settings are held until the encode comes in.
+    bool saving_ = false;
+    QString saving_path_;
     QString saved_path_;
     bool classic_ = false;
     QWidget *panel_;

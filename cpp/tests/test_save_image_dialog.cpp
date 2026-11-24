@@ -367,8 +367,49 @@ private slots:
         dialog.directory_edit->setText(QDir::toNativeSeparators(dir_.filePath("early")));
         QVERIFY(dialog.encoded_bytes() < 0);
         dialog.save_button->click();
+        QTRY_COMPARE(dialog.result(), static_cast<int>(QDialog::Accepted));
         const auto size = QFileInfo(dir_.filePath("early/early.jpg")).size();
         QVERIFY(size > 0 && size <= dialog.size_limit_bytes());
+    }
+
+    // The PNG level comes from the settings: changed there while the dialog is open, Save encodes again
+    // with it instead of writing the bytes of the earlier estimate.
+    void aSettingChangedMeanwhileIsWhatSaveWrites() {
+        config_->set_png_compression("low");
+        SaveImageDialog dialog(noisy_image(), "later", config_);
+        select_format(dialog, "PNG");
+        const auto low = wait_encoded(dialog);
+        config_->set_png_compression("high");
+        SaveOptions high;
+        high.png = SaveOptions::PngCompression::High;
+        const auto expected = static_cast<qint64>(SaveService::encode_image(noisy_image(), "PNG", high).size());
+        QVERIFY(expected != low);
+        const auto path = dir_.filePath("later/later.png");
+        dialog.directory_edit->setText(QDir::toNativeSeparators(QFileInfo(path).absolutePath()));
+        dialog.save_button->click();
+        QTRY_COMPARE(dialog.result(), static_cast<int>(QDialog::Accepted));
+        QCOMPARE(QFileInfo(path).size(), expected);
+        QCOMPARE(dialog.encoded_bytes(), expected);
+    }
+
+    // Save pressed before the estimate is in waits for that encode, with the settings locked, and
+    // writes its bytes instead of encoding again on the UI thread.
+    void saveBeforeTheEstimateWaitsForIt() {
+        SaveImageDialog dialog(noisy_image(), "waiting", config_);
+        select_format(dialog, "PNG");
+        const auto path = dir_.filePath("waiting/waiting.png");
+        dialog.directory_edit->setText(QDir::toNativeSeparators(QFileInfo(path).absolutePath()));
+        QVERIFY(dialog.encoded_bytes() < 0);
+        dialog.save_button->click();
+        QVERIFY(!QFileInfo::exists(path));
+        QVERIFY(!dialog.format_combo->isEnabled());
+        QVERIFY(!dialog.save_button->isEnabled());
+        QCOMPARE(dialog.result(), static_cast<int>(QDialog::Rejected));
+        QTRY_COMPARE(dialog.result(), static_cast<int>(QDialog::Accepted));
+        QVERIFY(dialog.encoded_bytes() > 0);
+        QCOMPARE(QFileInfo(path).size(), dialog.encoded_bytes());
+        QCOMPARE(QImage(path).size(), QSize(320, 200));
+        QCOMPARE(QDir::fromNativeSeparators(dialog.saved_path()), path);
     }
 
     // The offscreen screen (800 high) is shorter than the panel at 200%. Row heights need real
@@ -539,7 +580,7 @@ private slots:
         QCOMPARE(QFileInfo(path).size(), qint64(4));
         answer_next_dialog("Yes");
         dialog.save_button->click();
-        QCOMPARE(dialog.result(), static_cast<int>(QDialog::Accepted));
+        QTRY_COMPARE(dialog.result(), static_cast<int>(QDialog::Accepted));
         QCOMPARE(QImage(path).size(), QSize(320, 200));
     }
 

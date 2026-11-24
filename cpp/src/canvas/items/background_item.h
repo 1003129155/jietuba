@@ -42,6 +42,9 @@ public:
     void set_display_overlay(const QPixmap &layer, const QPoint &position, const QSize &display_size);
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
 private:
+    // When the pixmap took a converted copy of the image, its pixels serve as the image too, so the
+    // picture is held once rather than in two formats.
+    void hold_pixels_once();
     QRectF scene_rect_;
     QSize image_size_;
     QImage cached_image_;

@@ -361,11 +361,10 @@ QByteArray build_dibv5(const QImage &image) {
     u32(4);                  // bV5Intent = LCS_GM_IMAGES
     u32(0); u32(0); u32(0);  // profile data, profile size, reserved
     Q_ASSERT(header.size() == 124);
-    // Flipped vertically for bottom-up rows.
-    const auto flipped = img.flipped(Qt::Vertical);
     QByteArray result = header;
     result.reserve(124 + static_cast<qsizetype>(pixel_size));
-    for (int y = 0; y < h; ++y) result.append(reinterpret_cast<const char *>(flipped.constScanLine(y)), static_cast<qsizetype>(stride));
+    // Bottom-up rows, copied from the last one up rather than from a flipped copy of the whole image.
+    for (int y = h - 1; y >= 0; --y) result.append(reinterpret_cast<const char *>(img.constScanLine(y)), static_cast<qsizetype>(stride));
     return result;
 }
 

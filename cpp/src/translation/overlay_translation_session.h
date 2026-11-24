@@ -146,6 +146,8 @@ private:
     QPointer<OverlayTranslationWorker> worker_;
     // A stopped run whose thread has not ended yet, and whether a run waits for it.
     QPointer<OverlayTranslationWorker> stopping_;
+    // How many workers were stopped.
+    quint64 retired_ = 0;
     bool run_waiting_ = false;
     // recognize() was asked and has not answered; an answer for an earlier count is dropped.
     bool recognizing_ = false;

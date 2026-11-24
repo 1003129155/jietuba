@@ -34,7 +34,7 @@ void run_background(QObject *owner, std::function<Finished()> work, std::functio
     };
     try {
         background_tasks::start_thread(
-            [work, post] {
+            [work = std::move(work), post] {
                 Finished finished;
                 try {
                     finished = work();
@@ -77,9 +77,11 @@ bool start_upload(const QImage &image, ToolSettingsManager &config, Source sourc
     const QPointer<Toast> toast(new Toast(upload_tr("Uploading...")));
     run_background(
         nullptr,
-        [target = *target, image, settings, stem, random, now] {
+        [target = *target, image = QImage(image), settings, stem, random, now]() mutable {
             Finished finished;
             const auto encoded = encode_for_upload(image, settings);
+            // The upload may take long; it needs only the file.
+            image = QImage();
             if (encoded.bytes.isEmpty()) {
                 finished.outcome.kind = PutOutcome::EncodeFailed;
                 return finished;

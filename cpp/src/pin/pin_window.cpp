@@ -1235,6 +1235,18 @@ void PinWindow::stop_overlay_translation() {
 
 QImage PinWindow::recognition_image() {
     auto *background = canvas && canvas->scene ? canvas->scene->background : nullptr;
+    // With nothing drawn over the picture it is what the pin shows: shared rather than drawn again,
+    // which on a long image costs a full-size copy and time on the UI thread.
+    const double dpr = devicePixelRatioF();
+    const QSize drawn(static_cast<int>(orig_size_.width() * dpr), static_cast<int>(orig_size_.height() * dpr));
+    if (background && !text_content_ && !file_card_ && !animation_ && background->image_size() == drawn) {
+        const auto items = canvas->scene->items();
+        const bool alone = annotations_hidden_ || std::none_of(items.cbegin(), items.cend(), [background](QGraphicsItem *item) { return item != background && item->isVisible(); });
+        if (alone) {
+            const auto image = background->image();
+            return image_transform_ ? image_transform_->transform_image(image) : image;
+        }
+    }
     const bool layered = background && background->overlay_visible();
     if (layered) background->set_overlay_visible(false);
     auto image = get_current_image();

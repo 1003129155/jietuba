@@ -47,6 +47,9 @@ namespace jietuba {
 namespace {
 QString tr_text(const char *text) { return i18n_tr(text, "SaveImageDialog"); }
 
+// What a save takes from the settings rather than from the dialog, whose quality is its own.
+bool same_from_settings(const SaveOptions &a, const SaveOptions &b) { return a.png == b.png && a.pdf_page == b.pdf_page && a.pdf_dpi == b.pdf_dpi; }
+
 // (stored value, label); the stored value is SaveService's format name.
 const std::vector<std::pair<QString, QString>> &FORMATS() {
     static const std::vector<std::pair<QString, QString>> formats{{"PNG", ".PNG"}, {"JPG", ".JPG"}, {"WEBP", ".WEBP"}, {"BMP", ".BMP"}, {"PDF", ".PDF"}};
@@ -1095,6 +1098,7 @@ void SaveImageDialog::show_size() {
 void SaveImageDialog::schedule_encode() {
     ++generation_;
     encoded_bytes_ = -1;
+    encoded_file_.clear();
     // Started first: a pending encode is not a failed one.
     encode_timer_.start(ENCODE_DELAY_MS);
     preview->set_loading(true);
@@ -1104,6 +1108,7 @@ void SaveImageDialog::schedule_encode() {
 
 SaveImageDialog::Encoded SaveImageDialog::encode(const QImage &image, const QSize &size, const QString &format, const SaveOptions &options, qint64 limit_bytes) {
     Encoded result;
+    result.options = options;
     result.scaled = SaveService::scale_for_save(image, size);
     QByteArray bytes;
     if (limit_bytes > 0) {
@@ -1113,6 +1118,7 @@ SaveImageDialog::Encoded SaveImageDialog::encode(const QImage &image, const QSiz
         bytes = SaveService::encode_image(result.scaled, format, options);
     }
     if (bytes.isEmpty()) return result;
+    result.file = bytes;
     result.bytes = bytes.size();
     if (SaveService::format_has_quality(format)) result.decoded = QImage::fromData(bytes, format.toLatin1().constData());
     return result;
@@ -1148,6 +1154,8 @@ void SaveImageDialog::on_encoded(int generation, const Encoded &result) {
         preview->set_encoded(result.decoded);
         preview->set_loading(false);
         encoded_bytes_ = result.bytes;
+        encoded_file_ = result.file;
+        encoded_options_ = result.options;
         if (result.quality > 0) {
             updating_quality_ = true;
             quality_slider->setValue(result.quality);
@@ -1157,6 +1165,7 @@ void SaveImageDialog::on_encoded(int generation, const Encoded &result) {
         update_status();
         update_save_enabled();
         emit encode_finished(result.bytes);
+        if (saving_) write_save();
     }
     if (encode_pending_) {
         encode_pending_ = false;
@@ -1177,10 +1186,9 @@ void SaveImageDialog::update_save_enabled() {
     if (problem.isEmpty() && !ToolSettingsManager::is_absolute_save_path(directory)) problem = tr_text("Choose a full folder path.");
     name_hint->setText(problem);
     name_hint->setVisible(!problem.isEmpty());
-    // Saving while encoding is allowed: Save encodes again itself. Only a finished
-    // encode that failed blocks it.
+    // Saving while encoding is allowed: Save waits for it. Only a finished encode that failed blocks it.
     const bool encode_failed = encoded_bytes_ < 0 && !encoding_ && !encode_timer_.isActive();
-    save_button->setEnabled(problem.isEmpty() && !encode_failed);
+    save_button->setEnabled(problem.isEmpty() && !encode_failed && !saving_);
 }
 
 void SaveImageDialog::choose_directory() {
@@ -1212,20 +1220,41 @@ void SaveImageDialog::accept_save() {
     if (QFileInfo::exists(path) &&
         !show_confirm_dialog(this, tr_text("Replace File"), tr_text("%1 already exists.\nReplace it?").arg(QFileInfo(path).fileName())))
         return;
-    const auto image = SaveService::scale_for_save(image_, target_size());
-    const qint64 limit = size_limit_bytes();
-    // The slider holds the fitted quality once the latest encode is in; before that it is found here.
-    auto options = current_options();
-    if (limit > 0 && encoded_bytes_ < 0) options.quality = SaveService::encode_within(image, current_format(), limit, options).first;
-    if (!SaveService::save_qimage_to_path(image, path, current_format(), options)) {
-        show_warning_dialog(this, tr_text("Save Failed"), QDir::toNativeSeparators(path));
+    saving_path_ = path;
+    // The PNG level and the PDF page come from the settings, which may have changed since that encode.
+    if (!encoded_file_.isEmpty() && !same_from_settings(encoded_options_, current_options())) schedule_encode();
+    if (!encoded_file_.isEmpty()) {
+        write_save();
         return;
     }
-    config_->set_save_dialog_last_dir(QDir::toNativeSeparators(directory));
+    // Waits for the encode under way rather than encoding again here, which holds the window for
+    // seconds on a large image; the settings are locked meanwhile.
+    saving_ = true;
+    panel_->setEnabled(false);
+    update_save_enabled();
+    if (encode_timer_.isActive()) {
+        encode_timer_.stop();
+        start_encode();
+    }
+}
+
+void SaveImageDialog::write_save() {
+    saving_ = false;
+    panel_->setEnabled(true);
+    QFile file(saving_path_);
+    const bool written = !encoded_file_.isEmpty() && file.open(QIODevice::WriteOnly) && file.write(encoded_file_) == encoded_file_.size();
+    file.close();
+    if (!written) {
+        SaveService::cleanup_failed_placeholder(saving_path_);
+        update_save_enabled();
+        show_warning_dialog(this, tr_text("Save Failed"), QDir::toNativeSeparators(saving_path_));
+        return;
+    }
+    config_->set_save_dialog_last_dir(QDir::toNativeSeparators(QFileInfo(saving_path_).absolutePath()));
     config_->set_save_dialog_format(current_format());
     // A fitted quality is not the user's choice for the next save.
-    if (limit <= 0) config_->set_save_dialog_quality(current_quality());
-    saved_path_ = QDir::toNativeSeparators(path);
+    if (size_limit_bytes() <= 0) config_->set_save_dialog_quality(current_quality());
+    saved_path_ = QDir::toNativeSeparators(saving_path_);
     accept();
 }
 

@@ -243,8 +243,14 @@ void OverlayTranslationSession::retire_worker() {
     // waiting run may start.
     disconnect(worker, nullptr, this, nullptr);
     worker->abort();
-    stopping_ = worker;
-    connect(worker, &QThread::finished, this, &OverlayTranslationSession::start_waiting_run);
+    // Only the latest worker stopped starts a waiting run. Counted, because stopping_ empties when
+    // the worker is deleted, which can come before its finished does.
+    const auto ticket = ++retired_;
+    connect(worker, &QThread::finished, this, [this, ticket] {
+        if (ticket == retired_) start_waiting_run();
+    });
+    // Checked after connecting: a thread that already ended has nothing left to wait for.
+    stopping_ = worker->isFinished() ? nullptr : worker;
 }
 
 void OverlayTranslationSession::start_waiting_run() {
