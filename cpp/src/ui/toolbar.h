@@ -207,8 +207,10 @@ protected:
     void paintEvent(QPaintEvent *event) override;
     bool eventFilter(QObject *watched, QEvent *event) override;
     void moveEvent(QMoveEvent *event) override;
-    // The capture hides the toolbar while dragging the selection or starting a session.
+    // The capture hides the toolbar while dragging the selection or starting a session. The
+    // translation panel goes and comes back with it.
     void hideEvent(QHideEvent *event) override;
+    void showEvent(QShowEvent *event) override;
     // The host window: the parent in a capture; pin toolbars are top-levels and override this.
     virtual QWidget *host_window() const { return parentWidget(); }
     // Re-anchors after a size change; pin toolbars override.

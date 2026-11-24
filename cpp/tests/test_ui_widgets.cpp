@@ -607,6 +607,29 @@ private slots:
         toolbar.hide();
     }
 
+    // The capture hides the toolbar while the selection is dragged: the translation panel goes
+    // with it and comes back under it, unless the translate button had closed it.
+    void theTranslationPanelHidesAndShowsWithTheToolbar() {
+        Toolbar toolbar;
+        toolbar.show();
+        toolbar.set_translation_shown(true);
+        auto *panel = toolbar.translation_panel;
+        QVERIFY(panel->isVisible());
+        toolbar.hide();
+        QVERIFY(!panel->isVisible());
+        toolbar.move(toolbar.pos() + QPoint(40, 30));
+        toolbar.show();
+        QTRY_VERIFY(panel->isVisible());
+        QCOMPARE(panel->mapToGlobal(QPoint(0, 0)).x(), toolbar.mapToGlobal(QPoint(0, 0)).x());
+        toolbar.toggle_translation_panel();
+        QVERIFY(!panel->isVisible());
+        toolbar.hide();
+        toolbar.show();
+        QTest::qWait(30);
+        QVERIFY(!panel->isVisible());
+        toolbar.hide();
+    }
+
     void theTranslationPanelReportsItsChoicesAndFollowsThePanelScale() {
         const auto restore = qScopeGuard([] {
             get_dialog_scale().set_percent(100);

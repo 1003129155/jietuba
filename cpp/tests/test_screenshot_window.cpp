@@ -47,6 +47,7 @@
 #include "ui/toast.h"
 #include "ui/toolbar_layout.h"
 #include "ui/toolbar_layout_dialog.h"
+#include "ui/translation_panel.h"
 #include "barcode/result_window.h"
 #include "text_recognition/recognizer.h"
 #include "text_recognition/result_window.h"
@@ -1183,6 +1184,29 @@ private slots:
             if (qobject_cast<QDialog *>(widget) && widget->isVisible()) warning = widget;
         QVERIFY(warning);
         warning->close();
+    }
+
+    // Moving the selection hides the toolbar and the translation panel under it; both come back
+    // at the new place on release.
+    void theTranslationPanelHidesWhileTheSelectionIsDragged() {
+        auto *window = open_with_selection();
+        window->toolbar->set_translation_shown(true);
+        auto *panel = window->toolbar->translation_panel;
+        QVERIFY(panel && panel->isVisible());
+        const QPoint offset = panel->pos() - window->toolbar->pos();
+        const QPoint toolbar_before = window->toolbar->pos();
+        send_mouse(window, QEvent::MouseButtonPress, Qt::LeftButton, QPoint(150, 115), Qt::LeftButton);
+        send_mouse(window, QEvent::MouseMove, Qt::NoButton, QPoint(170, 125), Qt::LeftButton);
+        QVERIFY(window->scene->selection_model->is_dragging());
+        QVERIFY(!window->toolbar->isVisible());
+        QVERIFY(!panel->isVisible());
+        send_mouse(window, QEvent::MouseMove, Qt::NoButton, QPoint(190, 135), Qt::LeftButton);
+        send_mouse(window, QEvent::MouseButtonRelease, Qt::LeftButton, QPoint(190, 135), Qt::NoButton);
+        QCOMPARE(window->scene->selection_model->rect(), QRectF(90, 60, 200, 150));
+        QVERIFY(window->toolbar->isVisible());
+        QTRY_VERIFY(panel->isVisible());
+        QVERIFY(window->toolbar->pos() != toolbar_before);
+        QCOMPARE(panel->pos() - window->toolbar->pos(), offset);
     }
 
     // ---- The capture toolbar's panels, placement and layout ----

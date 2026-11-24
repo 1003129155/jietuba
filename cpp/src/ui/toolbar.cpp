@@ -962,6 +962,13 @@ void Toolbar::moveEvent(QMoveEvent *event) {
 void Toolbar::hideEvent(QHideEvent *event) {
     QWidget::hideEvent(event);
     hide_more_popup();
+    if (translation_panel) translation_panel->hide();
+}
+
+void Toolbar::showEvent(QShowEvent *event) {
+    QWidget::showEvent(event);
+    // Queued: the host places the bar right after showing it, and the panel goes under it there.
+    if (translation_shown_) QTimer::singleShot(0, this, [this] { sync_translation_panel(); });
 }
 
 void Toolbar::sync_all_panels_position() {
