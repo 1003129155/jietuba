@@ -50,9 +50,8 @@ PageOutline::PageOutline(NavigationInterface *navigation, QObject *parent) : QOb
 }
 
 void PageOutline::set_page(QScrollArea *scroll, const QString &route_key) {
-    if (route_key != route_ && !route_.isEmpty() && automatic_.remove(route_)) navigation_->setExpanded(route_, false);
     route_ = route_key;
-    if (!route_.isEmpty()) visit(route_);
+    unfold_only(route_);
     if (scroll == scroll_.data()) {
         schedule_refresh();
         return;
@@ -80,17 +79,16 @@ void PageOutline::set_page(QScrollArea *scroll, const QString &route_key) {
     schedule_refresh();
 }
 
-void PageOutline::visit(const QString &route_key) {
-    if (navigation_->isExpanded(route_key)) return;
-    navigation_->setExpanded(route_key, true);
-    automatic_.insert(route_key);
+void PageOutline::unfold_only(const QString &route_key) {
+    if (!unfolded_.isEmpty() && unfolded_ != route_key) navigation_->setExpanded(unfolded_, false);
+    unfolded_ = route_key;
+    if (!route_key.isEmpty() && !navigation_->isExpanded(route_key)) navigation_->setExpanded(route_key, true);
 }
 
 void PageOutline::toggle(const QString &route_key) {
     if (navigation_->isExpanded(route_key)) {
-        manual_.remove(route_key);
-        automatic_.remove(route_key);
         navigation_->setExpanded(route_key, false);
+        if (unfolded_ == route_key) unfolded_.clear();
         return;
     }
     if (route_key == route_) {
@@ -105,9 +103,7 @@ void PageOutline::toggle(const QString &route_key) {
         navigation_->setSubItems(route_key, titles);
     }
     if (navigation_->subItemCount(route_key) == 0) return;
-    manual_.insert(route_key);
-    automatic_.remove(route_key);
-    navigation_->setExpanded(route_key, true);
+    unfold_only(route_key);
 }
 
 void PageOutline::sub_item_clicked(const QString &route_key, int index) {

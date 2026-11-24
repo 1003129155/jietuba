@@ -1,7 +1,6 @@
 #pragma once
 #include <QObject>
 #include <QPointer>
-#include <QSet>
 #include <QString>
 #include <QVariantAnimation>
 #include <functional>
@@ -18,9 +17,8 @@ class NavigationInterface;
 // items, keeps the current one in step with the scroll position of the page shown and scrolls to
 // a group on request.
 //
-// Which pages are unfolded: the page shown unfolds itself and folds again when left, unless the
-// user unfolded it with its arrow, which then stays until the user folds it. A page the user
-// folded while on it stays folded until it is opened again.
+// At most one page is unfolded: opening a page or unfolding one with its arrow folds the one
+// before. A page the user folded while on it stays folded until it is opened again.
 class PageOutline : public QObject {
     Q_OBJECT
 public:
@@ -43,8 +41,6 @@ public:
     int group_count() const { return static_cast<int>(groups_.size()); }
     int current_group() const { return current_; }
     bool animating() const { return animation_.state() == QAbstractAnimation::Running; }
-    // The pages the user unfolded by hand.
-    const QSet<QString> &manually_unfolded() const { return manual_; }
     // Where the group's top sits after scrolling to it, at 100% scale.
     static constexpr int TOP_MARGIN = 12;
     // How far below that line a group's top may still be to count as current: its title has reached the top
@@ -68,7 +64,8 @@ private:
     void update_current();
     void schedule_refresh();
     void stop_animation();
-    void visit(const QString &route_key);
+    // Unfolds route_key, or nothing when it is empty, and folds the page unfolded before.
+    void unfold_only(const QString &route_key);
     void toggle(const QString &route_key);
     void sub_item_clicked(const QString &route_key, int index);
 
@@ -83,8 +80,7 @@ private:
     // The group chosen by a click or a search jump; kept until the page is scrolled by other means.
     int locked_ = -1;
     bool scrolling_by_outline_ = false;
-    // Unfolded by the user's arrow, or by opening the page.
-    QSet<QString> manual_, automatic_;
+    QString unfolded_;
     // The group clicked under another page, scrolled to once that page is shown.
     QString pending_title_;
     int animation_from_ = 0;

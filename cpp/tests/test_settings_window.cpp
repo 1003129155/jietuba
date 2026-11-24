@@ -5004,60 +5004,61 @@ private slots:
         }
     }
 
-    // The page opened unfolds itself and folds again when left; one unfolded with its arrow stays until folded with it.
-    void openingAPageUnfoldsItAndLeavingFoldsItUnlessTheUserUnfoldedIt() {
+    // At most one page is unfolded: opening a page or unfolding one with its arrow folds the one before.
+    void onlyOnePageIsUnfoldedAtATime() {
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.resize(1050, 750);
         dialog.show();
         auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
         QVERIFY(nav);
-        QTRY_VERIFY(nav->isExpanded("shortcuts"));
+        const auto unfolded = [nav] {
+            QStringList open;
+            for (const auto *route : {"shortcuts", "mouse", "capture", "pin", "screen_annotation", "clipboard", "translation", "appearance", "log", "other"})
+                if (nav->isExpanded(route)) open << route;
+            return open;
+        };
+        QTRY_COMPARE(unfolded(), QStringList{"shortcuts"});
         dialog.on_nav_changed(1, "capture");
+        QCOMPARE(unfolded(), QStringList{"capture"});
         QTRY_VERIFY(nav->subItemCount("capture") > 1);
-        QVERIFY(nav->isExpanded("capture"));
-        QTRY_VERIFY(!nav->isExpanded("shortcuts"));
         QTRY_VERIFY(!nav->animating());
         QVERIFY(nav->subItem("shortcuts", 0) == nullptr || !nav->subItem("shortcuts", 0)->isVisible());
 
         // An arrow unfolds a page that was never opened, building it; the window stays on its page.
         const int before = dialog.content_stack->currentIndex();
-        QVERIFY(!nav->isExpanded("clipboard"));
         emit nav->arrowClicked("clipboard");
-        QVERIFY(nav->isExpanded("clipboard"));
+        QCOMPARE(unfolded(), QStringList{"clipboard"});
         QCOMPARE(dialog.content_stack->currentIndex(), before);
         QVERIFY(nav->subItemCount("clipboard") > 1);
         QTRY_VERIFY(!nav->animating());
         QVERIFY(nav->subItem("clipboard", 0)->isVisible());
-        QVERIFY(dialog.page_outline()->manually_unfolded().contains("clipboard"));
+        QVERIFY(!nav->subItem("capture", 0)->isVisible());
 
-        // Leaving folds what opening unfolded, not what the user did.
+        // Opening a page folds one unfolded by its arrow too.
         dialog.on_nav_changed(11, "pin");
-        QTRY_VERIFY(!nav->isExpanded("capture"));
-        QTRY_VERIFY(nav->isExpanded("pin"));
-        QVERIFY(nav->isExpanded("clipboard"));
-        dialog.on_nav_changed(2, "clipboard");
-        QVERIFY(nav->isExpanded("clipboard"));
-        QTRY_VERIFY(!nav->isExpanded("pin"));
+        QCOMPARE(unfolded(), QStringList{"pin"});
+        // Folded and unfolded again by clicks on its row, the page shown is still folded when left.
+        auto *item = nav->widget("pin");
+        const QPoint on_text(dialog_scaled(60), item->height() / 2);
+        QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, on_text);
+        QVERIFY(unfolded().isEmpty());
+        QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, on_text);
+        QCOMPARE(unfolded(), QStringList{"pin"});
         dialog.on_nav_changed(5, "log");
-        QTRY_VERIFY(nav->isExpanded("log"));
-        QVERIFY(nav->isExpanded("clipboard"));
-        // The arrow folds it again, also from another page.
-        emit nav->arrowClicked("clipboard");
-        QVERIFY(!nav->isExpanded("clipboard"));
-        QTRY_VERIFY(!nav->animating());
-        QVERIFY(!nav->subItem("clipboard", 0)->isVisible());
+        QCOMPARE(unfolded(), QStringList{"log"});
 
         // A page folded by the user while on it stays folded until it is opened again.
         emit nav->arrowClicked("log");
-        QVERIFY(!nav->isExpanded("log"));
+        QVERIFY(unfolded().isEmpty());
         dialog.page_outline()->refresh();
         QTest::qWait(30);
-        QVERIFY(!nav->isExpanded("log"));
+        QVERIFY(unfolded().isEmpty());
         dialog.on_nav_changed(1, "capture");
-        QTRY_VERIFY(nav->isExpanded("capture"));
+        QCOMPARE(unfolded(), QStringList{"capture"});
         dialog.on_nav_changed(5, "log");
-        QTRY_VERIFY(nav->isExpanded("log"));
-        QTRY_VERIFY(!nav->isExpanded("capture"));
+        QCOMPARE(unfolded(), QStringList{"log"});
+        QTRY_VERIFY(!nav->animating());
+        QVERIFY(!nav->subItem("capture", 0)->isVisible());
     }
 
     void theArrowOnlyUnfoldsAndTheRestOfTheItemOpensThePage() {
@@ -5080,7 +5081,7 @@ private slots:
             QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, QPoint(width - dialog_scaled(12), item->height() / 2));
             QVERIFY2(nav->isExpanded("capture"), qPrintable(where));
             QVERIFY2(dialog.content_stack->currentIndex() == 0, qPrintable(where));
-            QVERIFY2(nav->isExpanded("shortcuts"), qPrintable(where));
+            QVERIFY2(!nav->isExpanded("shortcuts"), qPrintable(where));
             QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, QPoint(width - dialog_scaled(12), item->height() / 2));
             QVERIFY2(!nav->isExpanded("capture"), qPrintable(where));
             QVERIFY2(dialog.content_stack->currentIndex() == 0, qPrintable(where));
@@ -5212,8 +5213,8 @@ private slots:
         auto *bar = scroll->verticalScrollBar();
         QCOMPARE(bar->value(), std::clamp(group_top_of(scroll, groups[index]) - dialog_scaled(PageOutline::TOP_MARGIN), 0, bar->maximum()));
         QCOMPARE(nav->currentSubItem(), index);
-        // The page left behind is not highlighted and, opened by a click, was folded; the pin page stays unfolded by the user's arrow.
-        QTRY_VERIFY(!nav->isExpanded("shortcuts"));
+        // The page left behind is not highlighted and stays folded; the pin page is the one unfolded.
+        QVERIFY(!nav->isExpanded("shortcuts"));
         QVERIFY(nav->isExpanded("pin"));
     }
 
@@ -5289,7 +5290,7 @@ private slots:
         }
     }
 
-    // Every item and group title is shown whole in each language, with every page unfolded at once:
+    // Every item and group title is shown whole in each language, with each page unfolded in turn:
     // long ones wrap, none is cut or pushes the window wider, and an item's text stops before its arrow.
     void navigationFitsEveryLanguageAtEveryScale() {
         if (QGuiApplication::platformName() != "windows") QSKIP("needs desktop fonts");
@@ -5306,10 +5307,10 @@ private slots:
                 auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
                 const int beside_text = dialog_scaled(12 + 16 + 12) + dialog_scaled(12);
                 const QStringList routes{"shortcuts", "mouse", "capture", "pin", "screen_annotation", "clipboard", "translation", "appearance", "log", "other"};
-                for (const auto &route : routes)
-                    if (!nav->isExpanded(route)) emit nav->arrowClicked(route);
-                QTest::qWait(400);
                 for (const auto &route : routes) {
+                    if (!nav->isExpanded(route)) emit nav->arrowClicked(route);
+                    QTRY_VERIFY(!nav->animating());
+                    QApplication::processEvents();
                     const auto where = [&](const QString &text) { return qPrintable(QString("%1 at %2%%, %3: %4").arg(code).arg(percent).arg(route, text)); };
                     auto *item = nav->widget(route);
                     // The item's size hint holds its text and the room for the arrow.
