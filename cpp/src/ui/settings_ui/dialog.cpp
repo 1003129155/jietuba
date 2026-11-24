@@ -1,6 +1,7 @@
 #include "ui/settings_ui/dialog.h"
 #include "core/file_names.h"
 #include "clipboard/ui/theme/themes.h"
+#include "core/auto_update.h"
 #include "core/i18n.h"
 #include "core/logger.h"
 #include "core/elevation.h"
@@ -785,6 +786,7 @@ void SettingsDialog::reset_misc_page() {
     if (auto *toggle = attr_widget("autostart_toggle")) set_checked(toggle, defaults.value("autostart_enabled").toBool());
     if (auto *toggle = attr_widget("run_as_admin_toggle")) set_checked(toggle, defaults.value("run_as_admin").toBool());
     if (auto *toggle = attr_widget("show_main_window_toggle")) set_checked(toggle, defaults.value("show_main_window").toBool());
+    if (auto *toggle = attr_widget("auto_update_toggle")) set_checked(toggle, defaults.value("auto_update").toBool());
 }
 
 void SettingsDialog::reset_translation_page() {
@@ -976,6 +978,10 @@ void SettingsDialog::save_changes(QSet<QString> changed) {
     // that prompt is the confirmation.
     if (attr_widget("autostart_toggle") && has_any({"autostart_toggle", "run_as_admin_toggle"})) apply_startup();
     if (auto *toggle = attr_widget("show_main_window_toggle"); toggle && has("show_main_window_toggle")) config_manager->set_show_main_window(checked_of(toggle));
+    if (auto *toggle = attr_widget("auto_update_toggle"); toggle && has("auto_update_toggle")) {
+        config_manager->set_auto_update(checked_of(toggle));
+        if (auto *updater = qobject_cast<AutoUpdater *>(qApp->property("_auto_updater").value<QObject *>())) updater->set_enabled(checked_of(toggle));
+    }
     if (auto *toggle = attr_widget("pin_auto_toolbar_toggle"); toggle && has("pin_auto_toolbar_toggle")) config_manager->set_pin_auto_toolbar(checked_of(toggle));
 
     // Interface language.
@@ -1244,7 +1250,7 @@ QVariantMap SettingsDialog::snapshot_settings() const {
                              "save_toggle", "screenshot_pin_save_toggle", "clipboard_file_reference_toggle", "screenshot_save_original_toggle", "watermark_auto_toggle",
                              "magnifier_enabled_toggle", "magnifier_grid_toggle", "magnifier_selection_toggle", "magnifier_hint_toggle", "ocr_enable_toggle", "ocr_grayscale_toggle",
                              "ocr_upscale_toggle", "split_sentences_toggle", "preserve_formatting_toggle", "translation_auto_close_toggle", "log_toggle", "clipboard_enabled_toggle",
-                             "autostart_toggle", "run_as_admin_toggle", "show_main_window_toggle", "pin_auto_toolbar_toggle", "info_hide_on_drag_toggle",
+                             "autostart_toggle", "run_as_admin_toggle", "show_main_window_toggle", "auto_update_toggle", "pin_auto_toolbar_toggle", "info_hide_on_drag_toggle",
                              "preload_screenshot_toggle", "preload_toolbar_toggle", "preload_ocr_toggle", "preload_settings_toggle", "preload_clipboard_toggle"})
         if (auto *widget = attr_widget(name)) snap[name] = checked_of(widget);
     // Combos.
@@ -1439,6 +1445,7 @@ void SettingsDialog::refresh_settings() {
     if (auto *toggle = attr_widget("autostart_toggle")) set_checked(toggle, config_manager->get_autostart_enabled());
     if (auto *toggle = attr_widget("run_as_admin_toggle")) set_checked(toggle, config_manager->get_run_as_admin());
     if (auto *toggle = attr_widget("show_main_window_toggle")) set_checked(toggle, config_manager->get_show_main_window());
+    if (auto *toggle = attr_widget("auto_update_toggle")) set_checked(toggle, config_manager->get_auto_update());
     if (auto *toggle = attr_widget("pin_auto_toolbar_toggle")) set_checked(toggle, config_manager->get_pin_auto_toolbar());
     select_data(attr<QComboBox>("language_combo"), config_manager->get_language("ja"));
 

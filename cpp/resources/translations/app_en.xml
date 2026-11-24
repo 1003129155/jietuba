@@ -2422,6 +2422,14 @@ Replace it?</translation>
         <source>jietuba</source>
         <translation>jietuba</translation>
     </message>
+    <message>
+        <source>Updated to %1</source>
+        <translation>Updated to %1</translation>
+    </message>
+    <message>
+        <source>Version %1 downloaded, installs at the next start</source>
+        <translation>Version %1 downloaded, installs at the next start</translation>
+    </message>
     <message><source>jietuba - Click to screenshot</source><translation>jietuba - Click to screenshot</translation></message>
     <message><source>Screenshot</source><translation>Screenshot</translation></message>
     <message><source>Translation</source><translation>Translation</translation></message>
@@ -4840,8 +4848,20 @@ You can tweak more options in Settings anytime.</translation>
         <translation>Launch at Startup</translation>
     </message>
     <message>
-        <source>开机后在检测更新后启动。</source>
-        <translation>Checks for updates then starts silently in the background.</translation>
+        <source>开机后在后台静默启动。</source>
+        <translation>Starts silently in the background after you sign in.</translation>
+    </message>
+    <message>
+        <source>自动更新</source>
+        <translation>Automatic Updates</translation>
+    </message>
+    <message>
+        <source>开机自启和更新</source>
+        <translation>Startup and Updates</translation>
+    </message>
+    <message>
+        <source>在后台下载新版本，下次启动时安装。</source>
+        <translation>Downloads new versions in the background and installs them at the next start.</translation>
     </message>
     <message>
         <source>启动时显示主界面</source>
@@ -5312,6 +5332,18 @@ You can tweak more options in Settings anytime.</translation>
     <message><source>Success</source><translation>Success</translation></message>
     <!-- Misc page group headers -->
     <message><source>Startup</source><translation>Startup</translation></message>
+    <message>
+        <source>Updates</source>
+        <translation>Updates</translation>
+    </message>
+    <message>
+        <source>Automatic Updates</source>
+        <translation>Automatic Updates</translation>
+    </message>
+    <message>
+        <source>Downloads new versions in the background and installs them the next time the program starts.</source>
+        <translation>Downloads new versions in the background and installs them the next time the program starts.</translation>
+    </message>
     <message><source>Show Magnifier</source><translation>Show Magnifier</translation></message>
     <message><source>Follows the cursor while selecting, and picks the color under it.</source><translation>Follows the cursor while selecting, and picks the color under it.</translation></message>
     <message><source>Pixel Grid</source><translation>Pixel Grid</translation></message>

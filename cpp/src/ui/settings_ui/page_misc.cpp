@@ -3,6 +3,7 @@
 #include "core/i18n.h"
 #include "core/package_identity.h"
 #include "core/platform_utils.h"
+#include "core/updater_process.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
 #include "settings/data_folder.h"
@@ -121,6 +122,18 @@ QWidget *create_misc_page(SettingsDialog *dialog) {
     dialog->set_attr("show_main_window_toggle", show_card);
     grp_startup->addSettingCard(show_card);
     layout->addWidget(grp_startup);
+
+    // ════ Updates ════ Builds that cannot replace their own program (the Store's, those without the
+    // helper) have none.
+    if (updater_bundled()) {
+        auto *grp_update = new SettingsCardGroup(dialog->tr_text("Updates"), view);
+        auto *update_card = new SwitchSettingCard(FluentIcon::Sync, dialog->tr_text("Automatic Updates"),
+                                                  dialog->tr_text("Downloads new versions in the background and installs them the next time the program starts."), grp_update);
+        update_card->setChecked(config->get_auto_update());
+        dialog->set_attr("auto_update_toggle", update_card);
+        grp_update->addSettingCard(update_card);
+        layout->addWidget(grp_update);
+    }
 
     // ════ Operation ════
     auto *grp_ops = new SettingsCardGroup(dialog->tr_text("Operation"), view);

@@ -2462,6 +2462,14 @@ Replace it?</source>
         <translation>jietuba</translation>
     </message>
     <message>
+        <source>Updated to %1</source>
+        <translation>%1(으)로 업데이트했습니다</translation>
+    </message>
+    <message>
+        <source>Version %1 downloaded, installs at the next start</source>
+        <translation>%1 다운로드 완료, 다음 시작 시 설치</translation>
+    </message>
+    <message>
         <source>jietuba - Click to screenshot</source>
         <translation>jietuba - 클릭하여 스크린샷</translation>
     </message>
@@ -4918,8 +4926,20 @@ This action cannot be undone.</source>
         <translation>시작 시 실행</translation>
     </message>
     <message>
-        <source>开机后在检测更新后启动。</source>
-        <translation>부팅 후 업데이트를 확인한 다음 시작합니다.</translation>
+        <source>开机后在后台静默启动。</source>
+        <translation>부팅 후 백그라운드에서 조용히 시작합니다.</translation>
+    </message>
+    <message>
+        <source>自动更新</source>
+        <translation>자동 업데이트</translation>
+    </message>
+    <message>
+        <source>开机自启和更新</source>
+        <translation>시작 및 업데이트</translation>
+    </message>
+    <message>
+        <source>在后台下载新版本，下次启动时安装。</source>
+        <translation>새 버전을 백그라운드에서 다운로드하고 다음 시작 시 설치합니다.</translation>
     </message>
     <message>
         <source>启动时显示主界面</source>
@@ -5390,6 +5410,18 @@ This action cannot be undone.</source>
     <message><source>Success</source><translation>성공</translation></message>
     <!-- Misc page group headers -->
     <message><source>Startup</source><translation>시작</translation></message>
+    <message>
+        <source>Updates</source>
+        <translation>업데이트</translation>
+    </message>
+    <message>
+        <source>Automatic Updates</source>
+        <translation>자동 업데이트</translation>
+    </message>
+    <message>
+        <source>Downloads new versions in the background and installs them the next time the program starts.</source>
+        <translation>새 버전을 백그라운드에서 다운로드하고 다음에 프로그램을 시작할 때 설치합니다.</translation>
+    </message>
     <message><source>Show Magnifier</source><translation>돋보기 표시</translation></message>
     <message><source>Follows the cursor while selecting, and picks the color under it.</source><translation>선택 중 커서를 따라다니며 커서 아래의 색을 추출합니다.</translation></message>
     <message><source>Pixel Grid</source><translation>픽셀 격자</translation></message>

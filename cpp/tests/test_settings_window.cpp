@@ -12,6 +12,7 @@
 #include "settings/tool_settings.h"
 #include "translation/speech_service.h"
 #include "core/ui_scale.h"
+#include "core/updater_process.h"
 #include "ui/color_picker_dialog.h"
 #include "ui/fluent_lite/cards.h"
 #include "ui/fluent_lite/inputs.h"
@@ -2162,6 +2163,104 @@ private slots:
         QVERIFY(again.findChildren<WelcomeToggleSwitch *>().last()->isChecked());
     }
 
+    // Automatic updates share the autostart card on the finish page, on unless turned off, and only
+    // in builds that can replace their own program.
+    void wizardFinishPageStoresTheAutoUpdate() {
+        const auto restore = qScopeGuard([this] {
+            set_helper_source_for_test({});
+            config_->set_app_setting("auto_update", true);
+        });
+        {
+            FinishPage page(config_);
+            QCOMPARE(page.findChild<WelcomeToggleSwitch *>("autoUpdateSwitch") != nullptr, updater_bundled());
+        }
+        set_helper_source_for_test(QCoreApplication::applicationFilePath());
+        FinishPage page(config_);
+        auto *toggle = page.findChild<WelcomeToggleSwitch *>("autoUpdateSwitch");
+        QVERIFY(toggle);
+        QVERIFY(toggle->isChecked());
+        // Still four cards: the autostart card holds both switches.
+        QCOMPARE(page.findChildren<WelcomeToggleSwitch *>().size(), 5);
+        QCOMPARE(toggle->parentWidget()->objectName(), QString("SettingRow"));
+        toggle->setChecked(false);
+        page.save_preferences();
+        QVERIFY(!config_->get_auto_update());
+        FinishPage again(config_);
+        QVERIFY(!again.findChild<WelcomeToggleSwitch *>("autoUpdateSwitch")->isChecked());
+    }
+
+    // The settings window has the same switch on the misc page.
+    void settingsAutoUpdateSwitchNeedsTheUpdaterHelper() {
+        const auto restore = qScopeGuard([this] {
+            set_helper_source_for_test({});
+            config_->set_app_setting("auto_update", true);
+        });
+        {
+            SettingsDialog dialog(config_, config_->get_hotkey());
+            dialog.build_all_pages();
+            QCOMPARE(dialog.has_attr("auto_update_toggle"), updater_bundled());
+        }
+        set_helper_source_for_test(QCoreApplication::applicationFilePath());
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.build_all_pages();
+        auto *card = dialog.attr<SwitchSettingCard>("auto_update_toggle");
+        QVERIFY(card);
+        QVERIFY(card->isChecked());
+        card->setChecked(false);
+        QVERIFY(dialog.apply_settings());
+        QVERIFY(!config_->get_auto_update());
+    }
+
+    // The finish page with the update switch: every card fits its panel and every text keeps its
+    // full size in every language.
+    void wizardFinishPageFitsEveryLanguage() {
+        if (QGuiApplication::platformName() != "windows") QSKIP("Needs desktop fonts.");
+        const QString language = I18nManager::get_current_language();
+        const int scale = get_dialog_scale().percent();
+        const QString saved_language = config_->get_language();
+        set_helper_source_for_test(QCoreApplication::applicationFilePath());
+        const auto restore = qScopeGuard([&] {
+            set_helper_source_for_test({});
+            get_dialog_scale().set_percent(scale);
+            config_->set_language(saved_language);
+            I18nManager::load_language(language);
+        });
+        QStringList problems;
+        for (int percent : {100, 150, 200}) {
+            get_dialog_scale().set_percent(percent);
+            for (const QString &lang : {QString("zh"), QString("zh_TW"), QString("en"), QString("ja"), QString("ko")}) {
+                config_->set_language(lang);
+                WelcomeWizard wizard(config_);
+                wizard.setAttribute(Qt::WA_DontShowOnScreen);
+                wizard.show();
+                wizard.go_to_page(WelcomeWizard::PAGE_COUNT - 1);
+                QTest::qWait(80);
+                auto *page = wizard.findChild<FinishPage *>();
+                QVERIFY(page);
+                QVERIFY(page->findChild<WelcomeToggleSwitch *>("autoUpdateSwitch")->isVisible());
+                const QString where = QString("%1 %2%").arg(lang).arg(percent);
+                const QString out = qEnvironmentVariable("JIETUBA_SETTINGS_SHOTS");
+                if (!out.isEmpty() && percent == 100) QVERIFY(wizard.grab().save(QDir(out).filePath(QString("finish_%1.png").arg(lang))));
+                // A layout given less than it needs squeezes its cards and cuts their texts.
+                auto *panel = page->findChild<QFrame *>("ContentPanel");
+                QVERIFY(panel);
+                const int needed = panel->layout()->totalHeightForWidth(panel->width());
+                if (needed > panel->height()) problems << QString("%1: cards need %2, panel has %3").arg(where).arg(needed).arg(panel->height());
+                for (auto *label : page->findChildren<QLabel *>()) {
+                    if (!label->isVisible()) continue;
+                    if (!page->rect().contains(QRect(label->mapTo(page, QPoint()), label->size()))) problems << QString("%1: %2 leaves the page").arg(where, label->text());
+                    const int height = label->wordWrap() ? label->heightForWidth(label->width()) : label->sizeHint().height();
+                    if (label->height() < height)
+                        problems << QString("%1: %2 needs height %3, has %4 at width %5").arg(where, label->text()).arg(height).arg(label->height()).arg(label->width());
+                    if (!label->wordWrap() && label->width() < label->sizeHint().width())
+                        problems << QString("%1: %2 needs width %3, has %4").arg(where, label->text()).arg(label->sizeHint().width()).arg(label->width());
+                }
+                wizard.hide();
+            }
+        }
+        QVERIFY2(problems.isEmpty(), qPrintable(problems.join('\n')));
+    }
+
     // The wizard's steps, buttons and pages respond and paint; nothing here closes or finishes
     // it, since the finish page writes the Run key and the desktop shortcut.
     void wizardStepsButtonsAndPagesWork() {
@@ -2687,7 +2786,10 @@ private slots:
         auto &scale = get_dialog_scale();
         const int percent_before = scale.percent();
         const QString language = I18nManager::get_current_language();
+        // With the updater helper, so the update switch is measured too.
+        set_helper_source_for_test(QCoreApplication::applicationFilePath());
         const auto restore = qScopeGuard([&scale, percent_before, language] {
+            set_helper_source_for_test({});
             scale.set_percent(percent_before);
             I18nManager::load_language(language);
         });

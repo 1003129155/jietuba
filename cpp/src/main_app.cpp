@@ -8,6 +8,7 @@
 #include "gif/composer.h"
 #include "gif/record_window.h"
 #include "pin/pin_manager.h"
+#include "core/auto_update.h"
 #include "core/constants.h"
 #include "core/crash_handler.h"
 #include "core/elevation.h"
@@ -164,6 +165,9 @@ MainApp::MainApp(int &argc, char **argv) : app(std::make_unique<QApplication>(ar
     update_controller = new UpdateController(this, this);
     app->setProperty("_update_controller", QVariant::fromValue<QObject *>(update_controller));
     connect(app.get(), &QCoreApplication::aboutToQuit, update_controller, &UpdateController::cancel);
+    auto_updater = new AutoUpdater(config_manager, update_controller, this);
+    app->setProperty("_auto_updater", QVariant::fromValue<QObject *>(auto_updater));
+    connect(auto_updater, &AutoUpdater::update_ready, this, &MainApp::notify_update_ready);
 
     set_trim_busy_check([this] { return capture_busy(); });
 
@@ -368,6 +372,9 @@ void MainApp::setup_tray() {
         if (auto click = std::exchange(tray_message_click_, {})) click();
     });
     tray_icon->show();
+    // A little later, so Windows has picked up a Start menu shortcut written at this start.
+    if (auto_updater && !auto_updater->updated_from().isEmpty())
+        QTimer::singleShot(3000, this, [this] { show_tray_line(tr_text("Updated to %1").replace("%1", APP_VERSION)); });
 }
 
 void MainApp::show_tray_line(const QString &text, std::function<void()> on_click) {
@@ -394,6 +401,15 @@ void MainApp::show_tray_message(const QString &title, const QString &text, QSyst
     if (!tray_icon) return;
     tray_message_click_ = std::move(on_click);
     tray_icon->showMessage(title, text, icon);
+}
+
+void MainApp::notify_update_ready(const ReleaseInfo &release) {
+    if (!tray_icon || capture_busy() || update_preparing || (screenshot_window && screenshot_window->isVisible())) {
+        QTimer::singleShot(30000, this, [this, release] { notify_update_ready(release); });
+        return;
+    }
+    show_tray_line(tr_text("Version %1 downloaded, installs at the next start").replace("%1", version_text(release.tag_name)),
+                   [this, release] { update_controller->present(release); });
 }
 
 void MainApp::on_tray_activated(QSystemTrayIcon::ActivationReason reason) {

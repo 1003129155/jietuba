@@ -19,7 +19,7 @@ C++ 版的单文件构建（`cpp/CMakeLists.txt`）自动构建并内嵌更新�
 
 ## 命令与协议
 
-- `check --install-exe PATH --current-version VERSION --variant full|lite`：检查新版本。
+- `check --install-exe PATH --current-version VERSION --variant full|lite`：检查新版本。结果带 GitHub 的 `published_at`，应用据此推迟自动安装。
 - `download --install-exe PATH --current-version VERSION --variant full|lite --release-file PATH`：下载检查结果中固定的 Release 和资产。
 - `apply --install-exe PATH --current-version VERSION --variant full|lite --transaction ID --parent-pid PID [--failure-message TEXT]`：准备安装并等待应用授权退出。`--failure-message` 是交接后失败时原生提示的正文，由应用按界面语言传入。
 - `recover --install-exe PATH --transaction ID`：关闭应用后恢复指定事务。

@@ -322,6 +322,12 @@ SETTING(log_retention_days, "app/log_retention_days", int, 7, Import, Gen, Gen)
 SETTING(autostart_enabled, "app/autostart_enabled", bool, true, Local, Gen, Gen)
 SETTING(run_as_admin, "app/run_as_admin", bool, false, Local, Gen, Gen)
 SETTING(show_main_window, "app/show_main_window", bool, false, Import, Gen, Gen)
+// Downloads a release in the background two days after it is public and installs it at the next start (core/auto_update).
+SETTING(auto_update, "app/auto_update", bool, true, Import, Gen, Gen)
+// A release that did not install on its own; automatic updates leave it to a manual update.
+SETTING(auto_update_failed_version, "app/auto_update_failed_version", QString, "", Internal, Gen, Gen)
+// The version that last started, to say so after an update.
+SETTING(last_run_version, "app/last_run_version", QString, "", Internal, Gen, Gen)
 SETTING(has_run_before, "app/has_run_before", bool, false, Local, Gen, Gen)
 SETTING(welcome_wizard_done, "app/welcome_wizard_done", QString, "", Local, Gen, Gen)
 SETTING(language, "app/language", QString, "en", Import, Gen, Gen)

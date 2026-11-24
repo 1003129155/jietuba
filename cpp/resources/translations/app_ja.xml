@@ -2487,6 +2487,14 @@ Replace it?</source>
         <translation>jietuba</translation>
     </message>
     <message>
+        <source>Updated to %1</source>
+        <translation>%1 に更新しました</translation>
+    </message>
+    <message>
+        <source>Version %1 downloaded, installs at the next start</source>
+        <translation>%1 をダウンロードしました。次回起動時にインストールします</translation>
+    </message>
+    <message>
         <source>jietuba - Click to screenshot</source>
         <translation>jietuba - スクリーンショット</translation>
     </message>
@@ -4927,8 +4935,20 @@ This action cannot be undone.</source>
         <translation>スタートアップ起動</translation>
     </message>
     <message>
-        <source>开机后在检测更新后启动。</source>
-        <translation>PC の起動後、更新を確認してから起動します。</translation>
+        <source>开机后在后台静默启动。</source>
+        <translation>PC の起動後、バックグラウンドで静かに起動します。</translation>
+    </message>
+    <message>
+        <source>自动更新</source>
+        <translation>自動更新</translation>
+    </message>
+    <message>
+        <source>开机自启和更新</source>
+        <translation>スタートアップと更新</translation>
+    </message>
+    <message>
+        <source>在后台下载新版本，下次启动时安装。</source>
+        <translation>新しいバージョンをバックグラウンドでダウンロードし、次回の起動時にインストールします。</translation>
     </message>
     <message>
         <source>启动时显示主界面</source>
@@ -5398,6 +5418,18 @@ This action cannot be undone.</source>
     <message><source>Success</source><translation>成功</translation></message>
     <!-- その他ページのグループヘッダー -->
     <message><source>Startup</source><translation>起動</translation></message>
+    <message>
+        <source>Updates</source>
+        <translation>更新</translation>
+    </message>
+    <message>
+        <source>Automatic Updates</source>
+        <translation>自動更新</translation>
+    </message>
+    <message>
+        <source>Downloads new versions in the background and installs them the next time the program starts.</source>
+        <translation>新しいバージョンをバックグラウンドでダウンロードし、次回プログラムを起動したときにインストールします。</translation>
+    </message>
     <message><source>Show Magnifier</source><translation>拡大鏡を表示</translation></message>
     <message><source>Follows the cursor while selecting, and picks the color under it.</source><translation>選択中にカーソルに追従し、カーソル下の色を取得できます。</translation></message>
     <message><source>Pixel Grid</source><translation>ピクセルグリッド</translation></message>

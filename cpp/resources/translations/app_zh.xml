@@ -2444,6 +2444,14 @@ Replace it?</source>
         <translation>截图吧</translation>
     </message>
     <message>
+        <source>Updated to %1</source>
+        <translation>已更新到 %1</translation>
+    </message>
+    <message>
+        <source>Version %1 downloaded, installs at the next start</source>
+        <translation>新版本 %1 已下载，下次启动时安装</translation>
+    </message>
+    <message>
         <source>jietuba - Click to screenshot</source>
         <translation>截图吧 - 单击截图</translation>
     </message>
@@ -4927,8 +4935,20 @@ This action cannot be undone.</source>
         <translation>开机自启</translation>
     </message>
     <message>
-        <source>开机后在检测更新后启动。</source>
-        <translation>开机后在检测更新后启动。</translation>
+        <source>开机后在后台静默启动。</source>
+        <translation>开机后在后台静默启动。</translation>
+    </message>
+    <message>
+        <source>自动更新</source>
+        <translation>自动更新</translation>
+    </message>
+    <message>
+        <source>开机自启和更新</source>
+        <translation>开机自启和更新</translation>
+    </message>
+    <message>
+        <source>在后台下载新版本，下次启动时安装。</source>
+        <translation>在后台下载新版本，下次启动时安装。</translation>
     </message>
     <message>
         <source>启动时显示主界面</source>
@@ -5380,6 +5400,18 @@ This action cannot be undone.</source>
     <message><source>Success</source><translation>成功</translation></message>
     <!-- 杂项页分组标题 -->
     <message><source>Startup</source><translation>启动</translation></message>
+    <message>
+        <source>Updates</source>
+        <translation>更新</translation>
+    </message>
+    <message>
+        <source>Automatic Updates</source>
+        <translation>自动更新</translation>
+    </message>
+    <message>
+        <source>Downloads new versions in the background and installs them the next time the program starts.</source>
+        <translation>在后台下载新版本，下次启动程序时安装。</translation>
+    </message>
     <message><source>Show Magnifier</source><translation>显示放大镜</translation></message>
     <message><source>Follows the cursor while selecting, and picks the color under it.</source><translation>选区时跟随光标显示，并可取光标下的颜色。</translation></message>
     <message><source>Pixel Grid</source><translation>像素网格线</translation></message>

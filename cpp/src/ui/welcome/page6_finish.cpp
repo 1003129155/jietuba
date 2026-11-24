@@ -1,15 +1,18 @@
+#include "core/auto_update.h"
 #include "core/constants.h"
 #include "core/crash_handler.h"
 #include "core/elevation.h"
 #include "core/logger.h"
 #include "core/package_identity.h"
 #include "core/platform_utils.h"
+#include "core/updater_process.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
 #include "settings/tool_settings.h"
 #include "core/resource_manager.h"
 #include "ui/welcome/demo_paint.h"
 #include "ui/welcome/pages.h"
+#include <QApplication>
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
@@ -220,7 +223,8 @@ void FinishPage::build_controls(QVBoxLayout *layout) {
     autostart_switch_ = new WelcomeToggleSwitch;
     autostart_switch_->setChecked(config_->get_autostart_enabled());
     QWidget *row = nullptr;
-    std::tie(row, autostart_lbl_, autostart_desc_) = make_setting_row_with_refs(welcome_tr("开机自启"), autostart_switch_, welcome_tr("开机后在检测更新后启动。"));
+    if (updater_bundled()) row = make_startup_update_card();
+    else std::tie(row, autostart_lbl_, autostart_desc_) = make_setting_row_with_refs(welcome_tr("开机自启"), autostart_switch_, welcome_tr("开机后在后台静默启动。"));
     layout->addWidget(row);
     row->setVisible(!is_packaged());
     // Show the main window at start.
@@ -241,6 +245,45 @@ void FinishPage::build_controls(QVBoxLayout *layout) {
     std::tie(row, game_pause_lbl_, game_pause_desc_) =
         make_setting_row_with_refs(welcome_tr("玩游戏时暂停热键"), game_pause_switch_, welcome_tr("游戏在前台时暂停全局快捷键和鼠标快捷键，离开游戏后恢复。托盘菜单里也能切换。"));
     layout->addWidget(row);
+}
+
+QWidget *FinishPage::make_startup_update_card() {
+    // The page has no height left for a fifth card: the two switches take the line a description
+    // would, so this card is as tall as the others. Their descriptions become tooltips.
+    auto *card = new QWidget;
+    card->setObjectName("SettingRow");
+    card->setProperty("welcomeSettingRow", true);
+    auto *column = new QVBoxLayout(card);
+    column->setContentsMargins(dialog_scaled(14), dialog_scaled(11), dialog_scaled(12), dialog_scaled(11));
+    column->setSpacing(dialog_scaled(2));
+    startup_title_ = new QLabel(welcome_tr("开机自启和更新"), card);
+    set_welcome_label_style(startup_title_, "primary", 14, 600);
+    column->addWidget(startup_title_);
+    auto_update_switch_ = new WelcomeToggleSwitch;
+    auto_update_switch_->setObjectName("autoUpdateSwitch");
+    auto_update_switch_->setChecked(config_->get_auto_update());
+    autostart_lbl_ = new QLabel(welcome_tr("开机自启"), card);
+    auto_update_lbl_ = new QLabel(welcome_tr("自动更新"), card);
+    // Two halves; the second switch lines up with the other cards' switches.
+    auto *switches = new QHBoxLayout;
+    switches->setSpacing(dialog_scaled(8));
+    switches->addWidget(autostart_lbl_);
+    switches->addStretch();
+    switches->addWidget(autostart_switch_);
+    switches->addSpacing(dialog_scaled(24));
+    switches->addWidget(auto_update_lbl_);
+    switches->addStretch();
+    switches->addWidget(auto_update_switch_);
+    column->addLayout(switches);
+    for (QLabel *label : {autostart_lbl_, auto_update_lbl_}) set_welcome_label_style(label, "primary", 13, 400);
+    retranslate_startup_tooltips();
+    return card;
+}
+
+void FinishPage::retranslate_startup_tooltips() {
+    if (!auto_update_switch_) return;
+    for (QWidget *widget : std::initializer_list<QWidget *>{autostart_lbl_, autostart_switch_}) widget->setToolTip(welcome_tr("开机后在后台静默启动。"));
+    for (QWidget *widget : std::initializer_list<QWidget *>{auto_update_lbl_, auto_update_switch_}) widget->setToolTip(welcome_tr("在后台下载新版本，下次启动时安装。"));
 }
 
 void FinishPage::create_desktop_shortcut() {
@@ -270,8 +313,11 @@ void FinishPage::create_desktop_shortcut() {
 void FinishPage::retranslate() {
     title_label->setText(page_title());
     subtitle_label->setText(page_subtitle());
+    if (startup_title_) startup_title_->setText(welcome_tr("开机自启和更新"));
     autostart_lbl_->setText(welcome_tr("开机自启"));
-    if (autostart_desc_) autostart_desc_->setText(welcome_tr("开机后在检测更新后启动。"));
+    if (autostart_desc_) autostart_desc_->setText(welcome_tr("开机后在后台静默启动。"));
+    if (auto_update_lbl_) auto_update_lbl_->setText(welcome_tr("自动更新"));
+    retranslate_startup_tooltips();
     show_main_lbl_->setText(welcome_tr("启动时显示主界面"));
     if (show_main_desc_) show_main_desc_->setText(welcome_tr("每次启动时自动打开设置面板。"));
     desktop_lbl_->setText(welcome_tr("快捷方式"));
@@ -284,6 +330,11 @@ void FinishPage::save_preferences() {
     config_->set_welcome_wizard_done("1");
     config_->set_show_main_window(show_main_switch_->isChecked());
     config_->set_pause_hotkeys_in_games(game_pause_switch_->isChecked());
+    if (auto_update_switch_) {
+        config_->set_auto_update(auto_update_switch_->isChecked());
+        // The wizard opened again from the settings changes a schedule that is already running.
+        if (auto *updater = qobject_cast<AutoUpdater *>(qApp->property("_auto_updater").value<QObject *>())) updater->set_enabled(auto_update_switch_->isChecked());
+    }
 }
 
 void FinishPage::save() {

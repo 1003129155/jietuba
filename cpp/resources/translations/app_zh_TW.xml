@@ -2471,6 +2471,14 @@ Replace it?</source>
         <translation>截圖吧</translation>
     </message>
     <message>
+        <source>Updated to %1</source>
+        <translation>已更新到 %1</translation>
+    </message>
+    <message>
+        <source>Version %1 downloaded, installs at the next start</source>
+        <translation>新版本 %1 已下載，下次啟動時安裝</translation>
+    </message>
+    <message>
         <source>jietuba - Click to screenshot</source>
         <translation>截圖吧 - 點擊截圖</translation>
     </message>
@@ -4986,8 +4994,20 @@ This action cannot be undone.</source>
         <translation>開機自動啟動</translation>
     </message>
     <message>
-        <source>开机后在检测更新后启动。</source>
-        <translation>開機後在檢測更新後啟動。</translation>
+        <source>开机后在后台静默启动。</source>
+        <translation>開機後在背景靜默啟動。</translation>
+    </message>
+    <message>
+        <source>自动更新</source>
+        <translation>自動更新</translation>
+    </message>
+    <message>
+        <source>开机自启和更新</source>
+        <translation>開機自啟和更新</translation>
+    </message>
+    <message>
+        <source>在后台下载新版本，下次启动时安装。</source>
+        <translation>在背景下載新版本，下次啟動時安裝。</translation>
     </message>
     <message>
         <source>启动时显示主界面</source>
@@ -5574,6 +5594,18 @@ This action cannot be undone.</source>
     <message>
         <source>Startup</source>
         <translation>啟動</translation>
+    </message>
+    <message>
+        <source>Updates</source>
+        <translation>更新</translation>
+    </message>
+    <message>
+        <source>Automatic Updates</source>
+        <translation>自動更新</translation>
+    </message>
+    <message>
+        <source>Downloads new versions in the background and installs them the next time the program starts.</source>
+        <translation>在背景下載新版本，下次啟動程式時安裝。</translation>
     </message>
     <message>
         <source>Show Magnifier</source>

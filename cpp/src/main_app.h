@@ -21,6 +21,7 @@ namespace clipboard {
 class ClipboardManager;
 class ClipboardWindow;
 }
+class AutoUpdater;
 class DisplayChangeWatcher;
 class GameModeMonitor;
 class GifRecordWindow;
@@ -130,6 +131,7 @@ public:
     bool screen_annotation_running_ = false;
     bool update_preparing = false;
     UpdateController *update_controller = nullptr;
+    AutoUpdater *auto_updater = nullptr;
 
 signals:
     // Each recorded clipboard item, on the GUI thread.
@@ -162,6 +164,9 @@ private:
     // Rebuilds the cached clipboard manager window after a window scale change.
     void recreate_clipboard_manage_dialog();
     void on_clipboard_item_received(const clipboard::ClipboardItem &item);
+    // A downloaded release: the tray says it installs at the next start, and a click installs it now.
+    // Waits while a capture is open, so the balloon does not cover it.
+    void notify_update_ready(const ReleaseInfo &release);
     // The Start menu shortcut that names the program, in the interface language, on its notifications.
     void update_notification_identity();
 

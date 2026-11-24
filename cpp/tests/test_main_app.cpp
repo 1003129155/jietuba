@@ -5,6 +5,7 @@
 #include "capture/capture_service.h"
 #include "clipboard/core/manager.h"
 #include "clipboard/ui/windows/clipboard_window.h"
+#include "core/auto_update.h"
 #include "core/background_tasks.h"
 #include "core/constants.h"
 #include "core/game_mode_monitor.h"
@@ -25,6 +26,7 @@
 #include "ui/screenshot_window.h"
 #include "ui/settings_ui/dialog.h"
 #include "ui/toolbar.h"
+#include "ui/update_dialog.h"
 #include "ui/welcome/wizard.h"
 #include <QClipboard>
 #include <QCursor>
@@ -182,6 +184,24 @@ private slots:
         QCOMPARE(main_app_->tray_icon, icon);
         QVERIFY(!create_fallback_app_icon().isNull());
         QVERIFY(!create_app_icon().isNull());
+    }
+
+    // A release downloaded in the background is announced in the tray; clicking that balloon, and
+    // not one shown after it, opens the update window.
+    void aDownloadedUpdateIsAnnouncedInTheTray() {
+        auto *controller = main_app_->update_controller;
+        const auto close = qScopeGuard([controller] {
+            if (controller->dialog) controller->dialog->hide();
+        });
+        const ReleaseInfo release{"release-99.0.0", "99.0.0", "notes", "https://example.com", true, "jietuba_lite-release-99.0.0-x64.zip", "x64", QJsonObject{}};
+        emit main_app_->auto_updater->update_ready(release);
+        main_app_->show_tray_message("other", "other", QSystemTrayIcon::Information);
+        emit main_app_->tray_icon->messageClicked();
+        QVERIFY(!controller->dialog);
+        emit main_app_->auto_updater->update_ready(release);
+        emit main_app_->tray_icon->messageClicked();
+        QTRY_VERIFY(controller->dialog && controller->dialog->isVisible());
+        QCOMPARE(controller->release->tag_name, QString("release-99.0.0"));
     }
 
     void startingAScreenshotCapturesIntoANewWindow() {

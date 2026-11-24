@@ -889,5 +889,12 @@
 "动图复制失败: {file_path}": "Could not copy the animation: {file_path}",
 "文字识别发现表格: {rows} 行 {columns} 列": "Text recognition found a table: {rows} rows, {columns} columns",
 "文字识别完成并直接复制表格: {rows} 行 {columns} 列": "Recognized and copied a table directly: {rows} rows, {columns} columns",
+"自动更新到 {version} 没有完成，这个版本不再自动安装: {reason}": "The automatic update to {version} did not finish; that version will not be installed automatically: {reason}",
+"启动时安装已下载的更新 {version}": "Installing the downloaded update {version} at startup",
+"新版本 {version} 发布未满两天，暂不自动下载": "Version {version} was released less than two days ago; it is not downloaded automatically yet",
+"开始在后台下载更新 {version}": "Downloading update {version} in the background",
+"自动检查更新失败: {reason}": "Automatic update check failed: {reason}",
+"后台下载更新没有完成": "The background update download did not finish",
+"更新 {version} 已下载，下次启动时安装": "Update {version} downloaded; it will be installed at the next start",
 "无法创建开始菜单快捷方式: {path}": "Could not create the Start menu shortcut: {path}"
 }

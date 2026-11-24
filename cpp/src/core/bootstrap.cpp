@@ -5,6 +5,7 @@
 #include "ui/welcome/wizard.h"
 #include "capture/capture_service.h"
 #include "capture/msaa_element_finder.h"
+#include "core/auto_update.h"
 #include "core/crash_handler.h"
 #include "core/drag_out.h"
 #include "core/elevation.h"
@@ -166,6 +167,9 @@ PreloadManager::PreloadManager(MainApp *app) : app_(app), config_(app->config_ma
 
 void PreloadManager::build_and_start() {
     auto *cfg = config_;
+    // Before anything else, a release downloaded in the last run replaces the program; start-up
+    // goes on only when that install does not happen.
+    steps_.push_back([this] { return app_->auto_updater->install_pending([this] { QTimer::singleShot(0, app_, [this] { run_next(); }); }); });
     if (cfg->get_preload_screenshot() && cfg->get_smart_selection_mode() == "element")
         prepare_point_detection();
     // Entry points come first and preloading follows: a capture during preloading costs
@@ -200,8 +204,12 @@ void PreloadManager::build_and_start() {
         preload_settings();
         return false;
     });
-    // Last: the main UI and a working-set trim, always.
+    // Last: the main UI, the update schedule (after the wizard's choice) and a working-set trim, always.
     steps_.push_back([this] { return show_main_window_on_start(); });
+    steps_.push_back([this] {
+        app_->auto_updater->start();
+        return false;
+    });
     steps_.push_back([] {
         request_trim_working_set(1000);
         return false;
