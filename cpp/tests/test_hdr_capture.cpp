@@ -80,6 +80,20 @@ private slots:
                               GetSystemMetrics(SM_CYVIRTUALSCREEN)));
         QCOMPARE(image.size(), rect.size().toSize());
     }
+    // Pixels no display covers, as between monitors of different heights, come back opaque black rather
+    // than with the zero alpha GDI leaves there. Past the right edge of the virtual desktop is such a place.
+    void gdiPixelsNoDisplayCoversAreOpaqueBlack() {
+        const int right = GetSystemMetrics(SM_XVIRTUALSCREEN) + GetSystemMetrics(SM_CXVIRTUALSCREEN);
+        const auto image = CaptureService("mss").capture_region(QRect(right - 20, GetSystemMetrics(SM_YVIRTUALSCREEN), 40, 30));
+        QCOMPARE(image.size(), QSize(40, 30));
+        for (int y = 0; y < image.height(); ++y) {
+            const auto *row = reinterpret_cast<const quint32 *>(image.constScanLine(y));
+            for (int x = 0; x < image.width(); ++x) {
+                QVERIFY2(qAlpha(row[x]) == 255, qPrintable(QString("alpha %1 at (%2, %3)").arg(qAlpha(row[x])).arg(x).arg(y)));
+                if (x >= 20) QCOMPARE(row[x], 0xff000000u);
+            }
+        }
+    }
     void engineChoiceFollowsSettingAndDisplays() {
         QVERIFY(uses_hdr_engine("hdr"));
         QVERIFY(!uses_hdr_engine("mss"));

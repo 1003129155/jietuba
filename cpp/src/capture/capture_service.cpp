@@ -40,6 +40,13 @@ QImage grab_gdi(int left, int top, int width, int height) {
     DeleteDC(memdc);
     ReleaseDC(nullptr, srcdc);
     if (lines != height) throw std::runtime_error("gdi32.GetDIBits() failed.");
+    // GDI leaves the alpha byte undefined: 0 where no display covers the virtual desktop. RGB32
+    // promises 0xff, and drawing copies the byte as it is, so those gaps would turn transparent
+    // in pins and saved files; they are opaque black, as the DXGI path composes them.
+    for (int y = 0; y < height; ++y) {
+        auto *row = reinterpret_cast<quint32 *>(image.scanLine(y));
+        for (int x = 0; x < width; ++x) row[x] |= 0xff000000u;
+    }
     return image;
 }
 
