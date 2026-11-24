@@ -10,6 +10,15 @@
 #include <algorithm>
 
 namespace jietuba {
+namespace {
+bool drawn_alike(const std::optional<OverlayPaintedBlock> &a, const std::optional<OverlayPaintedBlock> &b) {
+    if (a.has_value() != b.has_value()) return false;
+    if (!a) return true;
+    return a->background_region == b->background_region && a->background == b->background && a->foreground == b->foreground && a->font == b->font &&
+           a->lines == b->lines && a->line_origins == b->line_origins && a->text_to_image == b->text_to_image;
+}
+}
+
 OverlayTranslationSession::OverlayTranslationSession(CanvasScene *scene, ToolSettingsManager *config, QObject *parent)
     : QObject(parent), scene_(scene), config_(config) {
     make_service = [] { return create_default_translation_service(); };
@@ -91,8 +100,12 @@ bool OverlayTranslationSession::adopt(const QRectF &selection, const QVector<Ove
     planned_.fill(std::nullopt, blocks_.size());
     dirty_.clear();
     unplaced_.clear();
-    for (int index = 0; index < blocks_.size(); ++index)
-        if (!blocks_[index].translated.isEmpty()) planned_[index] = plan_overlay_block(source_, blocks_, index, target_lang_);
+    QVector<QRectF> placed;
+    for (int index = 0; index < blocks_.size(); ++index) {
+        if (blocks_[index].translated.isEmpty()) continue;
+        planned_[index] = plan_overlay_block(source_, blocks_, index, target_lang_, nullptr, placed);
+        if (planned_[index]) placed += overlay_text_ink(*planned_[index]);
+    }
     original_shown_ = original_shown;
     if (!shown_) {
         shown_ = true;
@@ -263,16 +276,27 @@ void OverlayTranslationSession::clear_translations() {
 void OverlayTranslationSession::flush() {
     flush_timer_.stop();
     if (dirty_.isEmpty()) return;
-    QRegion changed;
-    for (const int index : std::as_const(dirty_)) {
-        if (index >= planned_.size()) continue;
-        if (planned_[index]) changed += planned_[index]->background_region;
-        bool does_not_fit = false;
-        planned_[index] = plan_overlay_block(source_, blocks_, index, target_lang_, &does_not_fit);
-        if (does_not_fit) unplaced_.insert(index);
-        if (planned_[index]) changed += planned_[index]->background_region;
-    }
+    // Each translation keeps clear of those before it in reading order, so from the first block
+    // that changed on, every translation is placed again in that order.
+    const int first = *std::min_element(dirty_.cbegin(), dirty_.cend());
     dirty_.clear();
+    QVector<QRectF> placed;
+    for (int index = 0; index < first && index < planned_.size(); ++index)
+        if (planned_[index]) placed += overlay_text_ink(*planned_[index]);
+    QRegion changed;
+    for (int index = std::max(0, first); index < planned_.size() && index < blocks_.size(); ++index) {
+        std::optional<OverlayPaintedBlock> plan;
+        bool does_not_fit = false;
+        if (!blocks_[index].translated.isEmpty()) plan = plan_overlay_block(source_, blocks_, index, target_lang_, &does_not_fit, placed);
+        if (does_not_fit) unplaced_.insert(index);
+        else unplaced_.remove(index);
+        if (plan) placed += overlay_text_ink(*plan);
+        if (!drawn_alike(plan, planned_[index])) {
+            if (planned_[index]) changed += planned_[index]->background_region;
+            if (plan) changed += plan->background_region;
+        }
+        planned_[index] = std::move(plan);
+    }
     repaint_layer(changed);
     notify();
 }

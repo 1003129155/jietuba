@@ -80,9 +80,14 @@ struct OverlayPaintedBlock {
 
 // Where and how block index is repainted, sampled from source; nullopt for a blank
 // translation, unchanged text, a block outside the image or a translation that does not fit.
-// does_not_fit distinguishes the last case from a block that needs no result.
+// does_not_fit distinguishes the last case from a block that needs no result. placed is the ink
+// of the translations already placed, which this one keeps clear of: those of the blocks before
+// it, so that the page comes out the same whatever order the translations arrive in.
 std::optional<OverlayPaintedBlock> plan_overlay_block(const QImage &source, const QVector<OverlayTextBlock> &blocks, int index, const QString &target_lang,
-                                                    bool *does_not_fit = nullptr);
+                                                    bool *does_not_fit = nullptr, const QVector<QRectF> &placed = {});
+
+// The ink of each line of a planned translation, in image pixels.
+QVector<QRectF> overlay_text_ink(const OverlayPaintedBlock &entry);
 
 // Every cover, then every text, so no cover hides a neighbour's translation. With clip, only
 // the pixels inside it are touched.

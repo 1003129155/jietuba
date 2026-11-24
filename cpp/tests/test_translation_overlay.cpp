@@ -67,6 +67,21 @@ OverlayTextBlock block_of(const QString &source, const QString &translated, cons
     return block;
 }
 
+OverlayTextBlock line_block(const QString &source, const QString &translated, const QRectF &rect) {
+    auto block = block_of(source, translated, rect, rect.height());
+    block.line_texts = {source};
+    block.line_rects = {rect};
+    return block;
+}
+
+bool inks_meet(const OverlayPaintedBlock &a, const OverlayPaintedBlock &b) {
+    const auto others = overlay_text_ink(b);
+    for (const auto &one : overlay_text_ink(a))
+        for (const auto &two : others)
+            if (one.intersects(two)) return true;
+    return false;
+}
+
 // A page of one colour with the given lines already written on it, so the overlay has real
 // background and ink to sample.
 QImage page(const QSize &size, const QColor &background, const QColor &ink, const QVector<QPair<QString, QRectF>> &texts) {
@@ -857,6 +872,30 @@ private slots:
         }
     }
 
+    // Two labels with blank page between them both run on into it; the second keeps clear of the
+    // first's translation, as painting them all does.
+    void aTranslationKeepsClearOfThoseBeforeIt() {
+        const QVector<OverlayTextBlock> blocks{line_block("Esc", "Touche d'echappement", QRectF(20, 30, 30, 16)),
+                                               line_block("Tab", "Touche de tabulation", QRectF(200, 30, 30, 16)),
+                                               line_block("OK", "OK", QRectF(300, 30, 30, 16))};
+        QImage source(400, 80, QImage::Format_ARGB32_Premultiplied);
+        source.fill(Qt::white);
+        const auto first = plan_overlay_block(source, blocks, 0, "FR");
+        const auto alone = plan_overlay_block(source, blocks, 1, "FR");
+        const auto second = plan_overlay_block(source, blocks, 1, "FR", nullptr, overlay_text_ink(*first));
+        QVERIFY(first && alone && second);
+        QVERIFY(inks_meet(*first, *alone));
+        QVERIFY(!inks_meet(*first, *second));
+        QVERIFY(second->font.pixelSize() < alone->font.pixelSize());
+
+        int painted = 0;
+        const auto whole = paint_translations(source, blocks, "FR", &painted);
+        QCOMPARE(painted, 2);
+        QImage expected = source.convertToFormat(whole.format());
+        paint_overlay_blocks(expected, {*first, *second});
+        QCOMPARE(whole, expected);
+    }
+
     // The translation is a layer on the background, not a change to its pixels.
     void theBackgroundCarriesALayerItCanTakeOff() {
         const auto source = page(QSize(320, 120), Qt::white, QColor(20, 20, 20), {{"Hello world", QRectF(10, 10, 260, 18)}});
@@ -1424,6 +1463,56 @@ private slots:
         for (const auto &entry : session.planned())
             if (entry) painted.append(*entry);
         QCOMPARE(painted.size(), 12);
+        QImage whole(source.size(), QImage::Format_ARGB32_Premultiplied);
+        whole.fill(Qt::transparent);
+        paint_overlay_blocks(whole, painted);
+        QCOMPARE(scene.background->overlay(), whole);
+    }
+
+    // A paragraph the service fails at first comes in after the others. It is still placed before
+    // them, as reading order and drawing everything at once have it, and they move out of its way.
+    void aReplyComingInLateIsPlacedInReadingOrder() {
+        const QVector<QPair<QString, QRectF>> texts{{"Esc", QRectF(20, 30, 30, 16)}, {"Tab", QRectF(200, 30, 30, 16)}, {"OK", QRectF(300, 30, 30, 16)}};
+        const auto source = page(QSize(400, 80), Qt::white, Qt::black, texts);
+        CanvasScene scene(source, QRectF(0, 0, 400, 80));
+        set_recognizer_for_test([&](const QImage &) {
+            QVector<OcrLine> lines;
+            for (const auto &text : texts) lines.append(line(text.first, text.second));
+            return result_of(lines);
+        });
+        const auto restore = qScopeGuard([] { set_recognizer_for_test({}); });
+        std::atomic_int esc_asked = 0;
+        OverlayTranslationSession session(&scene, nullptr);
+        session.set_flush_interval(1);
+        session.make_service = [&] {
+            return scripted_service([&](const QString &text) {
+                if (text == "Esc" && esc_asked++ == 0) return TranslationResult::failure(TranslationErrorCode::INVALID_REQUEST, "busy");
+                if (text == "Esc") return translated_as("Touche d'echappement");
+                return translated_as(text == "Tab" ? QString("Touche de tabulation") : text);
+            });
+        };
+        QVERIFY(session.show(scene.sceneRect()));
+        QTRY_VERIFY(!session.busy());
+        QCOMPARE(session.blocks().size(), 3);
+        QVERIFY(session.blocks()[0].translated.isEmpty());
+        QVERIFY(session.planned()[1].has_value());
+
+        QVERIFY(session.show(scene.sceneRect()));
+        QTRY_VERIFY(!session.busy());
+        QCOMPARE(esc_asked.load(), 2);
+        QVERIFY(session.planned()[0] && session.planned()[1]);
+        QVERIFY(!inks_meet(*session.planned()[0], *session.planned()[1]));
+        QVector<QRectF> placed;
+        QVector<OverlayPaintedBlock> painted;
+        for (int index = 0; index < session.blocks().size(); ++index) {
+            const auto expected = plan_overlay_block(scene.background->image(), session.blocks(), index, "ZH", nullptr, placed);
+            QCOMPARE(session.planned()[index].has_value(), expected.has_value());
+            if (!expected) continue;
+            QCOMPARE(session.planned()[index]->font.pixelSize(), expected->font.pixelSize());
+            QCOMPARE(session.planned()[index]->line_origins, expected->line_origins);
+            placed += overlay_text_ink(*expected);
+            painted.append(*expected);
+        }
         QImage whole(source.size(), QImage::Format_ARGB32_Premultiplied);
         whole.fill(Qt::transparent);
         paint_overlay_blocks(whole, painted);

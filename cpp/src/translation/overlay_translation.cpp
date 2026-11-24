@@ -738,7 +738,7 @@ QVector<OverlayTextBlock> group_overlay_blocks(const OcrResult &result) {
 }
 
 std::optional<OverlayPaintedBlock> plan_overlay_block(const QImage &source, const QVector<OverlayTextBlock> &blocks, int index, const QString &target_lang,
-                                                    bool *does_not_fit) {
+                                                    bool *does_not_fit, const QVector<QRectF> &placed) {
     if (does_not_fit) *does_not_fit = false;
     if (source.isNull() || index < 0 || index >= blocks.size()) return std::nullopt;
     const QRect bounds(QPoint(0, 0), source.size());
@@ -767,6 +767,9 @@ std::optional<OverlayPaintedBlock> plan_overlay_block(const QImage &source, cons
     QVector<QRect> other_text;
     for (int other = 0; other < blocks.size(); ++other)
         if (other != index) other_text.append(blocks[other].rect.toAlignedRect());
+    // The translations placed before this one are kept clear of like the original text.
+    auto obstacles = other_text;
+    for (const auto &rect : placed) obstacles.append(rect.toAlignedRect());
     OverlayPaintedBlock entry;
     entry.area = area;
     const PixelSource pixels{source};
@@ -775,12 +778,20 @@ std::optional<OverlayPaintedBlock> plan_overlay_block(const QImage &source, cons
     entry.cover = ink_cover(source, block_rect, entry.background, entry.foreground, other_text, std::max(1, static_cast<int>(std::lround(line_height / 4))));
     if (entry.cover.isEmpty()) return std::nullopt;
     entry.text = text;
-    if (!lay_out(entry, block, family, other_text,
-                 [&](int wanted, bool right) { return room_beside(source, block_rect, entry.background, other_text, wanted, right); })) {
+    if (!lay_out(entry, block, family, obstacles,
+                 [&](int wanted, bool right) { return room_beside(source, block_rect, entry.background, obstacles, wanted, right); })) {
         if (does_not_fit) *does_not_fit = true;
         return std::nullopt;
     }
     return entry;
+}
+
+QVector<QRectF> overlay_text_ink(const OverlayPaintedBlock &entry) {
+    QVector<QRectF> ink;
+    const QFontMetricsF metrics(entry.font);
+    for (qsizetype line = 0; line < entry.lines.size() && line < entry.line_origins.size(); ++line)
+        ink.append(entry.text_to_image.mapRect(metrics.tightBoundingRect(entry.lines[line]).translated(entry.line_origins[line])));
+    return ink;
 }
 
 namespace {
@@ -789,10 +800,15 @@ QVector<OverlayPaintedBlock> plan_blocks(const QImage &source, const QVector<Ove
     QVector<OverlayPaintedBlock> painted;
     painted.reserve(blocks.size());
     if (unplaced) unplaced->clear();
+    QVector<QRectF> placed;
     for (int index = 0; index < blocks.size(); ++index) {
         bool does_not_fit = false;
-        if (const auto entry = plan_overlay_block(source, blocks, index, target_lang, &does_not_fit)) painted.append(*entry);
-        else if (unplaced && does_not_fit) unplaced->append(index);
+        if (const auto entry = plan_overlay_block(source, blocks, index, target_lang, &does_not_fit, placed)) {
+            painted.append(*entry);
+            placed += overlay_text_ink(*entry);
+        } else if (unplaced && does_not_fit) {
+            unplaced->append(index);
+        }
     }
     return painted;
 }
