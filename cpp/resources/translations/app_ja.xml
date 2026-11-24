@@ -1729,7 +1729,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Scan QR code / barcode</source>
-        <translation>コードをスキャン（QR コード / バーコード）</translation>
+        <translation>コードをスキャン</translation>
     </message>
     <message>
         <source>File Name Settings</source>
