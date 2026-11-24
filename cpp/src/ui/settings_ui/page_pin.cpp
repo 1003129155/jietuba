@@ -203,15 +203,15 @@ QWidget *create_pin_page(SettingsDialog *dialog) {
     auto *view = new QWidget;
     set_own_style(view, "background: transparent;");
     auto *layout = new QVBoxLayout(view);
-    layout->setContentsMargins(0, 0, dialog_scaled(10), 0);
+    layout->setContentsMargins(0, 0, dialog_scaled(10), page_bottom_margin());
     layout->setSpacing(dialog_scaled(14));
     const std::pair<const char *, void (*)(SettingsDialog *, SettingsCardGroup *)> sections[] = {
-        {"Behavior", build_behavior_section},
+        {"General", build_behavior_section},
         {"Zoom and Size", build_zoom_section},
         {"Appearance", build_appearance_section},
         {"Mouse Click-Through", build_click_through_section},
         {"Lock", build_lock_section},
-        {"Pin Clipboard Image", build_hotkey_section},
+        {"Pin from Clipboard", build_hotkey_section},
         {"Shortcuts", build_shortcuts_section},
     };
     for (const auto &[title, build] : sections) {

@@ -169,7 +169,10 @@ void MouseShortcutPage::build_controls(QVBoxLayout *layout) {
             combo->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
             combo->setMinimumContentsLength(3);
         }
-        editor->modifiers->setFixedWidth(dialog_scaled(88));
+        // Two editors share a row of the wizard, too narrow for the longest gestures beside a chevron.
+        editor->modifiers->setChevronVisible(false);
+        editor->gesture->setChevronVisible(false);
+        editor->modifiers->setFixedWidth(dialog_scaled(84));
         if (auto *row_layout = qobject_cast<QHBoxLayout *>(editor->layout())) {
             row_layout->setSpacing(dialog_scaled(6));
             row_layout->setStretchFactor(editor->modifiers, 0);

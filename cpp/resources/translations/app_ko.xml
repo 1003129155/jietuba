@@ -60,10 +60,6 @@
         <translation>앞으로 버튼 드래그</translation>
     </message>
     <message>
-        <source>Hold modifier keys and drag the mouse</source>
-        <translation>보조 키를 누른 채 마우스로 드래그</translation>
-    </message>
-    <message>
         <source>Capture failed. Please try again.</source>
         <translation>캡처에 실패했습니다. 다시 시도하세요.</translation>
     </message>
@@ -88,10 +84,6 @@
         <translation>번역</translation>
     </message>
     <message>
-        <source>Log Settings</source>
-        <translation>로그 설정</translation>
-    </message>
-    <message>
         <source>Other</source>
         <translation>기타</translation>
     </message>
@@ -106,34 +98,6 @@
 
     <!-- Page Titles -->
     <message>
-        <source>Shortcut Settings</source>
-        <translation>단축키 설정</translation>
-    </message>
-    <message>
-        <source>Capture Settings</source>
-        <translation>캡처 설정</translation>
-    </message>
-    <message>
-        <source>Clipboard Settings</source>
-        <translation>클립보드 설정</translation>
-    </message>
-    <message>
-        <source>Appearance Settings</source>
-        <translation>모양 설정</translation>
-    </message>
-    <message>
-        <source>Translation Settings</source>
-        <translation>번역 설정</translation>
-    </message>
-    <message>
-        <source>Other Settings</source>
-        <translation>기타 설정</translation>
-    </message>
-    <message>
-        <source>Software Information</source>
-        <translation>소프트웨어 정보</translation>
-    </message>
-    <message>
         <source>Developer Options</source>
         <translation>개발자 옵션</translation>
     </message>
@@ -143,12 +107,12 @@
         <translation>스마트 선택</translation>
     </message>
     <message>
-        <source>Save Settings</source>
-        <translation>저장 설정</translation>
+        <source>Saving</source>
+        <translation>저장</translation>
     </message>
     <message>
-        <source>OCR Settings</source>
-        <translation>OCR 설정</translation>
+        <source>Text Recognition</source>
+        <translation>텍스트 인식</translation>
     </message>
 
     <!-- Setup Wizard -->
@@ -269,6 +233,10 @@
     <message>
         <source>Latest Log</source>
         <translation>최신 로그</translation>
+    </message>
+    <message>
+        <source>Log Folder</source>
+        <translation>로그 폴더</translation>
     </message>
     
     <!-- Hotkey Page -->
@@ -848,6 +816,10 @@ Replace it?</source>
         <translation>언어</translation>
     </message>
     <message>
+        <source>Display Language</source>
+        <translation>표시 언어</translation>
+    </message>
+    <message>
         <source>Select display language. Restart required after change.</source>
         <translation>표시 언어를 선택합니다. 변경 후에는 재시작이 필요합니다.</translation>
     </message>
@@ -856,8 +828,8 @@ Replace it?</source>
         <translation>💡 팁: 백그라운드 시작 상태에서도 시스템 트레이에서 조작할 수 있습니다.</translation>
     </message>
     <message>
-        <source>Settings Backup</source>
-        <translation>설정 백업</translation>
+        <source>Backup</source>
+        <translation>백업</translation>
     </message>
     <message>
         <source>Settings File</source>
@@ -984,10 +956,6 @@ Replace it?</source>
     <message>
         <source>Optional, use default if empty</source>
         <translation>선택사항, 비어있으면 기본값 사용</translation>
-    </message>
-    <message>
-        <source>Translation Options</source>
-        <translation>번역 옵션</translation>
     </message>
     <message>
         <source>Target Language</source>
@@ -1361,10 +1329,6 @@ Replace it?</source>
         <translation>텍스트 선택 전환</translation>
     </message>
     <message>
-        <source>Behavior</source>
-        <translation>동작</translation>
-    </message>
-    <message>
         <source>Mouse Click-Through</source>
         <translation>마우스 클릭 통과</translation>
     </message>
@@ -1545,14 +1509,6 @@ Replace it?</source>
         <translation>화면 주석</translation>
     </message>
     <message>
-        <source>Screen Annotation Settings</source>
-        <translation>화면 주석 설정</translation>
-    </message>
-    <message>
-        <source>Start and End</source>
-        <translation>시작과 종료</translation>
-    </message>
-    <message>
         <source>Toolbar</source>
         <translation>도구 모음</translation>
     </message>
@@ -1661,8 +1617,8 @@ Replace it?</source>
         <translation>클릭할 때마다 물결이 퍼집니다. 왼쪽 버튼은 노란색, 오른쪽 버튼은 파란색입니다.</translation>
     </message>
     <message>
-        <source>Pin Clipboard Image</source>
-        <translation>클립보드 고정</translation>
+        <source>Pin from Clipboard</source>
+        <translation>클립보드에서 고정</translation>
     </message>
     <message>
         <source>Volcengine machine translation: about 2M free characters/month. Overuse is billed at pay-as-you-go rates, so a local quota guard (default on) prevents surprise charges.</source>
@@ -1671,10 +1627,6 @@ Replace it?</source>
     <message>
         <source>Volcengine Console</source>
         <translation>Volcano Engine 콘솔</translation>
-    </message>
-    <message>
-        <source>Pin Settings</source>
-        <translation>고정 설정</translation>
     </message>
     <message>
         <source>Window Scale</source>
@@ -1695,10 +1647,6 @@ Replace it?</source>
     <message>
         <source>Could not move the settings file: %1</source>
         <translation>설정 파일을 옮길 수 없습니다: %1</translation>
-    </message>
-    <message>
-        <source>Unassigned buttons and the wheel pass through. A double-click binding also captures single clicks of that button.</source>
-        <translation>지정하지 않은 버튼과 휠 입력은 아래 창으로 전달됩니다. 더블 클릭을 지정하면 해당 버튼의 한 번 클릭도 가로챕니다.</translation>
     </message>
     <message>
         <source>Long Screenshot Shortcuts</source>
@@ -5378,8 +5326,7 @@ This action cannot be undone.</source>
 <context>
     <name>SettingsDialog</name>
     <!-- Clipboard page group headers -->
-    <message><source>Basic Settings</source><translation>기본 설정</translation></message>
-    <message><source>Data</source><translation>데이터</translation></message>
+    <message><source>History</source><translation>기록</translation></message>
     <message><source>Warning</source><translation>경고</translation></message>
     <message><source>Folder does not exist</source><translation>폴더가 존재하지 않습니다</translation></message>
     <message><source>Error</source><translation>오류</translation></message>
@@ -5395,7 +5342,6 @@ This action cannot be undone.</source>
     <message><source>Shortcut Hint</source><translation>단축키 안내</translation></message>
     <message><source>Show the switch-format and copy-color shortcuts under the readings. Off makes the magnifier shorter.</source><translation>수치 아래에 형식 전환과 색 복사 단축키를 표시합니다. 끄면 돋보기가 조금 짧아집니다.</translation></message>
     <message><source>Magnifier</source><translation>돋보기</translation></message>
-    <message><source>Operation</source><translation>동작</translation></message>
     <!-- About page -->
     <message><source>Features</source><translation>기능</translation></message>
     <message><source>OCR text recognition · Long screenshot · Pin window · Clipboard manager · DeepL translation</source><translation>OCR 텍스트 인식 · 긴 스크린샷 · 고정 창 · 클립보드 관리자 · DeepL 번역</translation></message>
@@ -6036,24 +5982,12 @@ Replace: move the current data there; the data already in that folder will be de
 </context>
 <context>
     <name>SettingsDialog</name>
-    <message>
-        <source>Works anytime</source>
-        <translation>언제든지 실행됩니다</translation>
-    </message>
-    <message>
-        <source>Only in screenshot, pin and clipboard windows</source>
-        <translation>스크린샷, 고정 창, 클립보드 창에서만 작동</translation>
-    </message>
-    <message>
-        <source>Only in the corresponding window</source>
-        <translation>해당 창 안에서만 작동</translation>
-    </message>
 </context>
 <context>
     <name>SettingsDialog</name>
     <message>
-        <source>Quick Actions</source>
-        <translation>빠른 동작</translation>
+        <source>Annotation</source>
+        <translation>주석</translation>
     </message>
     <message>
         <source>Copy Recognized Text Directly</source>
@@ -7574,10 +7508,11 @@ Replace it?</source>
 </context>
   <context>
     <name>ShortcutTabs</name>
-    <message><source>Screenshot</source><translation>캡처</translation></message>
-    <message><source>Long Screenshot</source><translation>스크롤 캡처</translation></message>
-    <message><source>Pin</source><translation>고정</translation></message>
-    <message><source>Clipboard</source><translation>클립보드</translation></message>
+    <message><source>Global Mouse Shortcuts</source><translation>전역 마우스 단축키</translation></message>
+    <message><source>Screenshot Window</source><translation>캡처 화면</translation></message>
+    <message><source>Long Screenshot Window</source><translation>스크롤 캡처 화면</translation></message>
+    <message><source>Pinned Window</source><translation>고정 창</translation></message>
+    <message><source>Clipboard Window</source><translation>클립보드 창</translation></message>
     <message><source>Annotation Tools</source><translation>주석 도구</translation></message>
   </context>
 <context>

@@ -4,7 +4,7 @@
 #include <QWidget>
 
 namespace jietuba {
-// Animated on/off switch; 46x26 at 100%, following the window scale.
+// Animated on/off switch; 40x20 at 100%, following the window scale.
 class SwitchButton : public QWidget {
     Q_OBJECT
     Q_PROPERTY(double progress READ progress WRITE set_progress)
@@ -26,6 +26,8 @@ protected:
     void mouseReleaseEvent(QMouseEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
     void paintEvent(QPaintEvent *event) override;
+    void enterEvent(QEnterEvent *event) override;
+    void leaveEvent(QEvent *event) override;
 private:
     void animate();
     bool checked_ = false;

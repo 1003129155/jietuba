@@ -61,10 +61,6 @@
         <translation>鼠标前进键拖拽</translation>
     </message>
     <message>
-        <source>Hold modifier keys and drag the mouse</source>
-        <translation>按住修饰键拖动鼠标</translation>
-    </message>
-    <message>
         <source>Capture failed. Please try again.</source>
         <translation>截图失败，请重试。</translation>
     </message>
@@ -89,10 +85,6 @@
         <translation>翻译</translation>
     </message>
     <message>
-        <source>Log Settings</source>
-        <translation>日志设置</translation>
-    </message>
-    <message>
         <source>Other</source>
         <translation>其他</translation>
     </message>
@@ -107,34 +99,6 @@
 
     <!-- Page Titles -->
     <message>
-        <source>Shortcut Settings</source>
-        <translation>快捷键设置</translation>
-    </message>
-    <message>
-        <source>Capture Settings</source>
-        <translation>截图设定</translation>
-    </message>
-    <message>
-        <source>Clipboard Settings</source>
-        <translation>剪贴板设置</translation>
-    </message>
-    <message>
-        <source>Appearance Settings</source>
-        <translation>外观设置</translation>
-    </message>
-    <message>
-        <source>Translation Settings</source>
-        <translation>翻译设置</translation>
-    </message>
-    <message>
-        <source>Other Settings</source>
-        <translation>其他设置</translation>
-    </message>
-    <message>
-        <source>Software Information</source>
-        <translation>软件信息</translation>
-    </message>
-    <message>
         <source>Developer Options</source>
         <translation>开发者选项</translation>
     </message>
@@ -144,12 +108,12 @@
         <translation>智能选区</translation>
     </message>
     <message>
-        <source>Save Settings</source>
-        <translation>截图保存</translation>
+        <source>Saving</source>
+        <translation>保存</translation>
     </message>
     <message>
-        <source>OCR Settings</source>
-        <translation>OCR设置</translation>
+        <source>Text Recognition</source>
+        <translation>文字识别</translation>
     </message>
 
     <!-- Setup Wizard -->
@@ -270,6 +234,10 @@
     <message>
         <source>Latest Log</source>
         <translation>最新日志</translation>
+    </message>
+    <message>
+        <source>Log Folder</source>
+        <translation>日志文件夹</translation>
     </message>
     
     <!-- Hotkey Page -->
@@ -849,6 +817,10 @@ Replace it?</source>
         <translation>语言</translation>
     </message>
     <message>
+        <source>Display Language</source>
+        <translation>界面语言</translation>
+    </message>
+    <message>
         <source>Select display language. Restart required after change.</source>
         <translation>选择显示语言。更改后需要重启。</translation>
     </message>
@@ -857,8 +829,8 @@ Replace it?</source>
         <translation>💡 提示: 即使后台启动，也可以通过系统托盘操作。</translation>
     </message>
     <message>
-        <source>Settings Backup</source>
-        <translation>设置备份</translation>
+        <source>Backup</source>
+        <translation>备份</translation>
     </message>
     <message>
         <source>Settings File</source>
@@ -1017,10 +989,6 @@ Replace it?</source>
     <message>
         <source>LLM translation: better with context and idioms, but slower, billed per token, and may refuse some content</source>
         <translation>大模型翻译：更懂上下文和习惯用法，但更慢、按 token 计费，且可能拒绝部分内容</translation>
-    </message>
-    <message>
-        <source>Translation Options</source>
-        <translation>翻译选项</translation>
     </message>
     <message>
         <source>Target Language</source>
@@ -1362,10 +1330,6 @@ Replace it?</source>
         <translation>切换文字选择</translation>
     </message>
     <message>
-        <source>Behavior</source>
-        <translation>行为</translation>
-    </message>
-    <message>
         <source>Mouse Click-Through</source>
         <translation>鼠标穿透</translation>
     </message>
@@ -1546,14 +1510,6 @@ Replace it?</source>
         <translation>屏幕标注</translation>
     </message>
     <message>
-        <source>Screen Annotation Settings</source>
-        <translation>屏幕标注设置</translation>
-    </message>
-    <message>
-        <source>Start and End</source>
-        <translation>开始与结束</translation>
-    </message>
-    <message>
         <source>Toolbar</source>
         <translation>工具栏</translation>
     </message>
@@ -1676,10 +1632,6 @@ Replace it?</source>
     <message>
         <source>Could not move the settings file: %1</source>
         <translation>无法移动设置文件：%1</translation>
-    </message>
-    <message>
-        <source>Unassigned buttons and the wheel pass through. A double-click binding also captures single clicks of that button.</source>
-        <translation>未绑定的鼠标键和滚轮正常穿透。绑定双击后，该鼠标键的单击也会被接管。</translation>
     </message>
     <message>
         <source>Long Screenshot Shortcuts</source>
@@ -2738,7 +2690,7 @@ Replace it?</source>
 <!-- ========== Translation Settings ========== -->
 <context>
     <name>SettingsDialog</name>
-    <message><source>Pin Clipboard Image</source><translation>生成钉图</translation></message>
+    <message><source>Pin from Clipboard</source><translation>从剪贴板钉图</translation></message>
     <message>
         <source>Get your API key from DeepL website (free tier available)</source>
         <translation>从Deepl网站获取API密钥（有免费版）</translation>
@@ -5368,8 +5320,7 @@ This action cannot be undone.</source>
 <context>
     <name>SettingsDialog</name>
     <!-- 剪贴板页分组标题 -->
-    <message><source>Basic Settings</source><translation>基本设置</translation></message>
-    <message><source>Data</source><translation>数据管理</translation></message>
+    <message><source>History</source><translation>历史记录</translation></message>
     <message><source>Warning</source><translation>警告</translation></message>
     <message><source>Folder does not exist</source><translation>文件夹不存在</translation></message>
     <message><source>Error</source><translation>错误</translation></message>
@@ -5385,8 +5336,6 @@ This action cannot be undone.</source>
     <message><source>Shortcut Hint</source><translation>快捷键提示</translation></message>
     <message><source>Show the switch-format and copy-color shortcuts under the readings. Off makes the magnifier shorter.</source><translation>在数值下方显示切换格式和复制颜色的快捷键。关掉后放大镜会变矮一些。</translation></message>
     <message><source>Magnifier</source><translation>放大镜</translation></message>
-    <message><source>Pin Settings</source><translation>钉图设定</translation></message>
-    <message><source>Operation</source><translation>操作</translation></message>
     <!-- 关于页 -->
     <message><source>Features</source><translation>功能特色</translation></message>
     <message><source>OCR text recognition · Long screenshot · Pin window · Clipboard manager · DeepL translation</source><translation>OCR文字识别 · 长截图 · 钉图窗口 · 剪贴板管理 · DeepL翻译</translation></message>
@@ -6035,24 +5984,12 @@ Replace: move the current data there; the data already in that folder will be de
 </context>
 <context>
     <name>SettingsDialog</name>
-    <message>
-        <source>Works anytime</source>
-        <translation>在任何时候都能触发</translation>
-    </message>
-    <message>
-        <source>Only in screenshot, pin and clipboard windows</source>
-        <translation>只在截图、钉图和剪贴板窗口里生效</translation>
-    </message>
-    <message>
-        <source>Only in the corresponding window</source>
-        <translation>只在对应窗口内生效</translation>
-    </message>
 </context>
 <context>
     <name>SettingsDialog</name>
     <message>
-        <source>Quick Actions</source>
-        <translation>快捷行为</translation>
+        <source>Annotation</source>
+        <translation>标注</translation>
     </message>
     <message>
         <source>Copy Recognized Text Directly</source>
@@ -7561,10 +7498,11 @@ Replace it?</source>
 </context>
   <context>
     <name>ShortcutTabs</name>
-    <message><source>Screenshot</source><translation>截图</translation></message>
-    <message><source>Long Screenshot</source><translation>长截图</translation></message>
-    <message><source>Pin</source><translation>钉图</translation></message>
-    <message><source>Clipboard</source><translation>剪贴板</translation></message>
+    <message><source>Global Mouse Shortcuts</source><translation>全局鼠标快捷键</translation></message>
+    <message><source>Screenshot Window</source><translation>截图窗口</translation></message>
+    <message><source>Long Screenshot Window</source><translation>长截图窗口</translation></message>
+    <message><source>Pinned Window</source><translation>钉图窗口</translation></message>
+    <message><source>Clipboard Window</source><translation>剪贴板窗口</translation></message>
     <message><source>Annotation Tools</source><translation>标注工具</translation></message>
   </context>
 <context>
@@ -7717,7 +7655,7 @@ Replace it?</source>
     </message>
     <message>
         <source>API Services</source>
-        <translation>翻译接口</translation>
+        <translation>接口</translation>
     </message>
     <message>
         <source>Translation API</source>

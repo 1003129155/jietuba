@@ -4,6 +4,7 @@
 #include "core/ui_theme.h"
 #include "settings/tool_settings.h"
 #include "ui/fluent_lite/inputs.h"
+#include "ui/fluent_lite/labels.h"
 #include "ui/settings_ui/dialog.h"
 #include "ui/settings_ui/search.h"
 #include <QAbstractScrollArea>
@@ -42,7 +43,7 @@ public:
         connect(get_ui_theme(), &UIThemeManager::theme_changed, this, [this] { update(); });
     }
 protected:
-    void paintEvent(QPaintEvent *) override { QPainter(this).fillRect(rect(), css_color(get_ui_theme()->tokens().separator)); }
+    void paintEvent(QPaintEvent *) override { QPainter(this).fillRect(rect(), css_color(get_ui_theme()->tokens().divider)); }
 };
 
 QString suffix_of(const QString &extra) { return extra.trimmed().isEmpty() ? QString() : " " + extra.trimmed(); }
@@ -92,11 +93,11 @@ QString theme_text_style(int font_size, bool bold, const QString &extra) {
     const QString weight = bold ? " font-weight: 600;" : "";
     return QString("font-size: %1px; color: %2; background: transparent;%3%4")
         .arg(dialog_scaled(font_size))
-        .arg(get_ui_theme()->tokens().text, weight, suffix_of(extra));
+        .arg(get_ui_theme()->tokens().fg, weight, suffix_of(extra));
 }
 
 QString theme_caption_style(int font_size, const QString &extra) {
-    return QString("font-size: %1px; color: %2; background: transparent;%3").arg(dialog_scaled(font_size)).arg(get_ui_theme()->tokens().text_muted, suffix_of(extra));
+    return QString("font-size: %1px; color: %2; background: transparent;%3").arg(dialog_scaled(font_size)).arg(get_ui_theme()->tokens().fg_muted, suffix_of(extra));
 }
 
 void apply_theme_text_style(QWidget *widget, int font_size, bool bold, const QString &extra, bool caption) {
@@ -154,7 +155,7 @@ void SettingsCardGroup::refreshHeight() {
     sync_control_column();
     // Both bounds are fixed: with only a minimum, the card container would take all the
     // surplus height the page gives the group and spread it between cards.
-    setFixedHeight(cardLayout->heightForWidth(width()) + dialog_scaled(46));
+    setFixedHeight(cardLayout->heightForWidth(width()) + header_height());
 }
 
 void SettingsCardGroup::showEvent(QShowEvent *event) {
@@ -175,10 +176,7 @@ void adjust_button_width(QPushButton *button, int min_width, int horizontal_padd
     button->setMinimumWidth(std::max(dialog_scaled(min_width), content_width));
 }
 
-WhiteCard::WhiteCard(QWidget *parent) : QFrame(parent) {
-    setFrameShape(QFrame::NoFrame);
-    setAttribute(Qt::WA_StyledBackground, false);
-}
+WhiteCard::WhiteCard(QWidget *parent) : CardSurface(parent) { setAttribute(Qt::WA_StyledBackground, false); }
 
 QSize WhiteCard::minimumSizeHint() const { return QSize(0, std::max(minimumHeight(), layout() ? layout()->minimumSize().height() : 0)); }
 
@@ -191,17 +189,17 @@ ToggleSwitch::ToggleSwitch(QWidget *parent) : SwitchButton(parent) {
 SectionCard::SectionCard(const IconSource &icon, const QString &title, const QString &caption, QWidget *parent) : QFrame(parent) {
     setFrameShape(QFrame::NoFrame);
     bodyLayout = new QVBoxLayout(this);
-    bodyLayout->setContentsMargins(dialog_scaled(20), 0, dialog_scaled(20), dialog_scaled(4));
+    bodyLayout->setContentsMargins(dialog_scaled(16), 0, dialog_scaled(16), dialog_scaled(4));
     bodyLayout->setSpacing(0);
 
     auto *header = new QWidget(this);
-    header->setFixedHeight(dialog_scaled(50));
+    header->setFixedHeight(dialog_scaled(52));
     auto *header_layout = new QHBoxLayout(header);
     header_layout->setContentsMargins(0, 0, 0, 0);
-    header_layout->setSpacing(dialog_scaled(10));
-    header_layout->addWidget(new IconBadge(icon, QString(), header, 20, 19, false));
+    header_layout->setSpacing(dialog_scaled(12));
+    header_layout->addWidget(new IconBadge(icon, QString(), header, 20, 20, false));
     titleLabel = new QLabel(title, header);
-    apply_theme_text_style(titleLabel, 15, true);
+    apply_theme_text_style(titleLabel, 14, true);
     header_layout->addWidget(titleLabel);
     if (!caption.isEmpty()) {
         captionLabel = new QLabel(caption, header);
@@ -221,11 +219,27 @@ void SectionCard::paintEvent(QPaintEvent *) {
     const auto &t = get_ui_theme()->tokens();
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
-    painter.setPen(css_color(t.border));
-    painter.setBrush(css_color(t.surface));
-    const int radius = dialog_scaled(15);
+    painter.setPen(css_color(t.card_border));
+    painter.setBrush(css_color(t.card));
+    const int radius = dialog_scaled(4);
     painter.drawRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), radius, radius);
 }
+
+QWidget *page_hint(QWidget *parent, const QString &text) {
+    auto *row = new QWidget(parent);
+    auto *layout = new QHBoxLayout(row);
+    layout->setContentsMargins(dialog_scaled(4), 0, 0, 0);
+    layout->setSpacing(dialog_scaled(8));
+    layout->addWidget(new IconBadge(FluentIcon::Info, {}, row, 16, 14), 0, Qt::AlignTop);
+    QString shown = text;
+    shown.remove(QString::fromUcs4(U"💡"));
+    auto *label = new CaptionLabel(shown.trimmed(), row);
+    label->setWordWrap(true);
+    layout->addWidget(label, 1);
+    return row;
+}
+
+int page_bottom_margin() { return dialog_scaled(24); }
 
 void add_separated_row(QVBoxLayout *layout, QWidget *widget) {
     layout->addWidget(new Separator(widget->parentWidget()));

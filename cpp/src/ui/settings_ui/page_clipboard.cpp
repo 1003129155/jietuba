@@ -499,11 +499,11 @@ QWidget *create_clipboard_page(SettingsDialog *dialog) {
     auto *view = new QWidget;
     set_own_style(view, "background: transparent;");
     auto *layout = new QVBoxLayout(view);
-    layout->setContentsMargins(0, 0, dialog_scaled(10), 0);
+    layout->setContentsMargins(0, 0, dialog_scaled(10), page_bottom_margin());
     layout->setSpacing(dialog_scaled(14));
 
     // ════ Basic settings ════
-    auto *grp_basic = new SettingsCardGroup(dialog->tr_text("Basic Settings"), view, "clipboard");
+    auto *grp_basic = new SettingsCardGroup(dialog->tr_text("General"), view, "clipboard");
     auto *enabled_card = new SwitchSettingCard(FluentIcon::Paste, dialog->tr_text("Enable Clipboard Manager"), dialog->tr_text("Monitor and manage clipboard history"), grp_basic);
     enabled_card->setChecked(dialog->config_manager->get_clipboard_enabled());
     dialog->set_attr("clipboard_enabled_toggle", enabled_card);
@@ -532,7 +532,7 @@ QWidget *create_clipboard_page(SettingsDialog *dialog) {
     layout->addWidget(grp_basic);
 
     // ════ Data ════
-    auto *grp_data = new SettingsCardGroup(dialog->tr_text("Data"), view, "clipboard");
+    auto *grp_data = new SettingsCardGroup(dialog->tr_text("History"), view, "clipboard");
     auto *storage_card = new SettingCard(FluentIcon::Folder, dialog->tr_text("Data Storage Location"), get_clipboard_db_path(dialog), grp_data);
     dialog->set_attr("_clipboard_storage_card", storage_card);
     auto *change_folder_btn = new PushButton(dialog->tr_text("Change"), storage_card);
@@ -633,12 +633,8 @@ QWidget *create_clipboard_page(SettingsDialog *dialog) {
     grp_special_paste->addSettingCard(special_paste_card);
     layout->addWidget(grp_special_paste);
 
-    auto *hint = new CaptionLabel(dialog->tr_text("💡 Hint: Set clipboard hotkey in Shortcuts settings."), view);
-    hint->setStyleSheet("padding: 5px;");
-    layout->addWidget(hint);
-    auto *appearance_hint = new CaptionLabel(dialog->tr_text("💡 The clipboard window's theme, font size and opacity are on the Appearance page."), view);
-    appearance_hint->setStyleSheet("padding: 5px;");
-    layout->addWidget(appearance_hint);
+    layout->addWidget(page_hint(view, dialog->tr_text("💡 Hint: Set clipboard hotkey in Shortcuts settings.")));
+    layout->addWidget(page_hint(view, dialog->tr_text("💡 The clipboard window's theme, font size and opacity are on the Appearance page.")));
 
     layout->addStretch();
     scroll->setWidget(view);

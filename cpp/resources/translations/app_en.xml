@@ -61,10 +61,6 @@
         <translation>Forward Button Drag</translation>
     </message>
     <message>
-        <source>Hold modifier keys and drag the mouse</source>
-        <translation>Hold modifier keys and drag the mouse</translation>
-    </message>
-    <message>
         <source>Capture failed. Please try again.</source>
         <translation>Capture failed. Please try again.</translation>
     </message>
@@ -89,10 +85,6 @@
         <translation>Translation</translation>
     </message>
     <message>
-        <source>Log Settings</source>
-        <translation>Log Settings</translation>
-    </message>
-    <message>
         <source>Other</source>
         <translation>Other</translation>
     </message>
@@ -107,34 +99,6 @@
 
     <!-- Page Titles -->
     <message>
-        <source>Shortcut Settings</source>
-        <translation>Shortcut Settings</translation>
-    </message>
-    <message>
-        <source>Capture Settings</source>
-        <translation>Capture Settings</translation>
-    </message>
-    <message>
-        <source>Clipboard Settings</source>
-        <translation>Clipboard Settings</translation>
-    </message>
-    <message>
-        <source>Appearance Settings</source>
-        <translation>Appearance Settings</translation>
-    </message>
-    <message>
-        <source>Translation Settings</source>
-        <translation>Translation Settings</translation>
-    </message>
-    <message>
-        <source>Other Settings</source>
-        <translation>Other Settings</translation>
-    </message>
-    <message>
-        <source>Software Information</source>
-        <translation>Software Information</translation>
-    </message>
-    <message>
         <source>Developer Options</source>
         <translation>Developer Options</translation>
     </message>
@@ -144,12 +108,12 @@
         <translation>Smart Selection</translation>
     </message>
     <message>
-        <source>Save Settings</source>
-        <translation>Save Settings</translation>
+        <source>Saving</source>
+        <translation>Saving</translation>
     </message>
     <message>
-        <source>OCR Settings</source>
-        <translation>OCR Settings</translation>
+        <source>Text Recognition</source>
+        <translation>Text Recognition</translation>
     </message>
 
     <!-- Setup Wizard -->
@@ -270,6 +234,10 @@
     <message>
         <source>Latest Log</source>
         <translation>Latest Log</translation>
+    </message>
+    <message>
+        <source>Log Folder</source>
+        <translation>Log Folder</translation>
     </message>
     
     <!-- Hotkey Page -->
@@ -849,6 +817,10 @@ Replace it?</translation>
         <translation>Language</translation>
     </message>
     <message>
+        <source>Display Language</source>
+        <translation>Display Language</translation>
+    </message>
+    <message>
         <source>Select display language. Restart required after change.</source>
         <translation>Select display language. Restart required after change.</translation>
     </message>
@@ -857,8 +829,8 @@ Replace it?</translation>
         <translation>💡 Hint: Even with background startup, you can operate from system tray.</translation>
     </message>
     <message>
-        <source>Settings Backup</source>
-        <translation>Settings Backup</translation>
+        <source>Backup</source>
+        <translation>Backup</translation>
     </message>
     <message>
         <source>Settings File</source>
@@ -985,10 +957,6 @@ Replace it?</translation>
     <message>
         <source>Optional, use default if empty</source>
         <translation>Optional, use default if empty</translation>
-    </message>
-    <message>
-        <source>Translation Options</source>
-        <translation>Translation Options</translation>
     </message>
     <message>
         <source>Target Language</source>
@@ -1238,10 +1206,6 @@ Replace it?</translation>
         <translation>Toggle Text Selection</translation>
     </message>
     <message>
-        <source>Behavior</source>
-        <translation>Behavior</translation>
-    </message>
-    <message>
         <source>Mouse Click-Through</source>
         <translation>Mouse Click-Through</translation>
     </message>
@@ -1420,14 +1384,6 @@ Replace it?</translation>
     <message>
         <source>Screen Annotation</source>
         <translation>Screen Annotation</translation>
-    </message>
-    <message>
-        <source>Screen Annotation Settings</source>
-        <translation>Screen Annotation Settings</translation>
-    </message>
-    <message>
-        <source>Start and End</source>
-        <translation>Start and End</translation>
     </message>
     <message>
         <source>Toolbar</source>
@@ -1656,10 +1612,6 @@ Replace it?</translation>
     <message>
         <source>Could not move the settings file: %1</source>
         <translation>Could not move the settings file: %1</translation>
-    </message>
-    <message>
-        <source>Unassigned buttons and the wheel pass through. A double-click binding also captures single clicks of that button.</source>
-        <translation>Unassigned buttons and the wheel pass through. A double-click binding also captures single clicks of that button.</translation>
     </message>
     <message>
         <source>Long Screenshot Shortcuts</source>
@@ -2671,7 +2623,7 @@ Replace it?</translation>
 <!-- ========== Translation Settings ========== -->
 <context>
     <name>SettingsDialog</name>
-    <message><source>Pin Clipboard Image</source><translation>Create Pin Image</translation></message>
+    <message><source>Pin from Clipboard</source><translation>Pin from Clipboard</translation></message>
     <message>
         <source>Get your API key from DeepL website (free tier available)</source>
         <translation>Get your API key from DeepL website (free tier available)</translation>
@@ -5300,8 +5252,7 @@ You can tweak more options in Settings anytime.</translation>
 <context>
     <name>SettingsDialog</name>
     <!-- Clipboard page group headers -->
-    <message><source>Basic Settings</source><translation>Basic Settings</translation></message>
-    <message><source>Data</source><translation>Data</translation></message>
+    <message><source>History</source><translation>History</translation></message>
     <message><source>Warning</source><translation>Warning</translation></message>
     <message><source>Folder does not exist</source><translation>Folder does not exist</translation></message>
     <message><source>Error</source><translation>Error</translation></message>
@@ -5317,8 +5268,6 @@ You can tweak more options in Settings anytime.</translation>
     <message><source>Shortcut Hint</source><translation>Shortcut Hint</translation></message>
     <message><source>Show the switch-format and copy-color shortcuts under the readings. Off makes the magnifier shorter.</source><translation>Show the switch-format and copy-color shortcuts under the readings. Off makes the magnifier shorter.</translation></message>
     <message><source>Magnifier</source><translation>Magnifier</translation></message>
-    <message><source>Pin Settings</source><translation>Pin Settings</translation></message>
-    <message><source>Operation</source><translation>Operation</translation></message>
     <!-- About page -->
     <message><source>Features</source><translation>Features</translation></message>
     <message><source>OCR text recognition · Long screenshot · Pin window · Clipboard manager · DeepL translation</source><translation>OCR text recognition · Long screenshot · Pin window · Clipboard manager · DeepL translation</translation></message>
@@ -5956,24 +5905,12 @@ Replace: move the current data there; the data already in that folder will be de
 </context>
 <context>
     <name>SettingsDialog</name>
-    <message>
-        <source>Works anytime</source>
-        <translation>Works anytime</translation>
-    </message>
-    <message>
-        <source>Only in screenshot, pin and clipboard windows</source>
-        <translation>Only in screenshot, pin and clipboard windows</translation>
-    </message>
-    <message>
-        <source>Only in the corresponding window</source>
-        <translation>Only in the corresponding window</translation>
-    </message>
 </context>
 <context>
     <name>SettingsDialog</name>
     <message>
-        <source>Quick Actions</source>
-        <translation>Quick Actions</translation>
+        <source>Annotation</source>
+        <translation>Annotation</translation>
     </message>
     <message>
         <source>Copy Recognized Text Directly</source>
@@ -7521,10 +7458,11 @@ Replace it?</translation>
 </context>
   <context>
     <name>ShortcutTabs</name>
-    <message><source>Screenshot</source><translation>Screenshot</translation></message>
-    <message><source>Long Screenshot</source><translation>Long Screenshot</translation></message>
-    <message><source>Pin</source><translation>Pin</translation></message>
-    <message><source>Clipboard</source><translation>Clipboard</translation></message>
+    <message><source>Global Mouse Shortcuts</source><translation>Global Mouse Shortcuts</translation></message>
+    <message><source>Screenshot Window</source><translation>Screenshot Window</translation></message>
+    <message><source>Long Screenshot Window</source><translation>Long Capture Window</translation></message>
+    <message><source>Pinned Window</source><translation>Pinned Window</translation></message>
+    <message><source>Clipboard Window</source><translation>Clipboard Window</translation></message>
     <message><source>Annotation Tools</source><translation>Annotation Tools</translation></message>
   </context>
 <context>

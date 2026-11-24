@@ -98,7 +98,7 @@ QWidget *create_misc_page(SettingsDialog *dialog) {
     auto *view = new QWidget;
     set_own_style(view, "background: transparent;");
     auto *layout = new QVBoxLayout(view);
-    layout->setContentsMargins(0, 0, dialog_scaled(10), 0);
+    layout->setContentsMargins(0, 0, dialog_scaled(10), page_bottom_margin());
     layout->setSpacing(dialog_scaled(14));
 
     // ════ Startup ════
@@ -123,8 +123,8 @@ QWidget *create_misc_page(SettingsDialog *dialog) {
     layout->addWidget(grp_startup);
 
     // ════ Operation ════
-    auto *grp_ops = new SettingsCardGroup(dialog->tr_text("Operation"), view);
-    auto *lang_card = new SettingCard(FluentIcon::Language, dialog->tr_text("Language"), dialog->tr_text("Select display language. Restart required after change."), grp_ops);
+    auto *grp_ops = new SettingsCardGroup(dialog->tr_text("Language"), view);
+    auto *lang_card = new SettingCard(FluentIcon::Language, dialog->tr_text("Display Language"), dialog->tr_text("Select display language. Restart required after change."), grp_ops);
     auto *language_combo = new ComboBox(lang_card);
     for (const auto &[code, name] : I18nManager::language_items()) language_combo->addItem(name, code);
     if (const int index = language_combo->findData(config->get_language("ja")); index >= 0) language_combo->setCurrentIndex(index);
@@ -134,7 +134,7 @@ QWidget *create_misc_page(SettingsDialog *dialog) {
     layout->addWidget(grp_ops);
 
     // ════ Settings backup ════
-    auto *grp_backup = new SettingsCardGroup(dialog->tr_text("Settings Backup"), view);
+    auto *grp_backup = new SettingsCardGroup(dialog->tr_text("Backup"), view);
     // The settings file itself is the backup, so there is no export.
     const auto file_text = [dialog] {
         return QDir::toNativeSeparators(data_location().settings_file()) + "\n" +
@@ -158,9 +158,7 @@ QWidget *create_misc_page(SettingsDialog *dialog) {
     grp_backup->addSettingCard(import_card);
     layout->addWidget(grp_backup);
 
-    auto *hint = new CaptionLabel(dialog->tr_text("💡 Hint: Even with background startup, you can operate from system tray."), view);
-    hint->setStyleSheet(QString("padding: %1px;").arg(dialog_scaled(5)));
-    layout->addWidget(hint);
+    layout->addWidget(page_hint(view, dialog->tr_text("💡 Hint: Even with background startup, you can operate from system tray.")));
     layout->addStretch();
     scroll->setWidget(view);
     return scroll;

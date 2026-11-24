@@ -6,11 +6,11 @@
 #include "ui/settings_ui/dialog.h"
 #include "ui/settings_ui/pages.h"
 
-// The screenshot page's "Quick Actions" group: how annotating behaves.
+// The screenshot page's "Annotation" group: how annotating behaves.
 namespace jietuba {
 void add_quick_actions_group(SettingsDialog *dialog, QWidget *view, QVBoxLayout *layout) {
     auto *config = dialog->config_manager;
-    auto *grp_capture = new SettingsCardGroup(dialog->tr_text("Quick Actions"), view, "capture");
+    auto *grp_capture = new SettingsCardGroup(dialog->tr_text("Annotation"), view, "capture");
     const auto add = [&](FluentIcon icon, const char *title, const char *content, bool checked) {
         auto *card = new SwitchSettingCard(icon, dialog->tr_text(title), dialog->tr_text(content), grp_capture);
         card->setChecked(checked);

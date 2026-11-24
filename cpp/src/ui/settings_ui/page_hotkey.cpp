@@ -6,16 +6,15 @@
 #include "settings/tool_settings.h"
 #include "ui/dialogs.h"
 #include "ui/fluent_lite/inputs.h"
-#include "ui/fluent_lite/segmented.h"
 #include "ui/hotkey_edit.h"
 #include "ui/inapp_key_edit.h"
 #include "ui/key_chip.h"
 #include "ui/settings_ui/components.h"
 #include "ui/settings_ui/dialog.h"
+#include "ui/settings_ui/group_rows.h"
 #include "ui/settings_ui/pages.h"
 #include "ui/settings_ui/search.h"
 #include <QGridLayout>
-#include <QStackedWidget>
 #include <functional>
 
 namespace jietuba {
@@ -94,7 +93,6 @@ const std::vector<GlobalRow> &GLOBAL_HOTKEY_ROWS() {
     return rows;
 }
 
-constexpr int INAPP_ROW_HEIGHT = 44;
 // In-app chips line up with the global ones, which have a status icon to their right.
 constexpr int STATUS_COLUMN = STATUS_GAP + STATUS_SIZE;
 
@@ -130,12 +128,10 @@ void refresh_inapp_shadow_states(SettingsDialog *dialog) {
     }
 }
 
-QWidget *global_row(QWidget *parent, const QString &title, const QString &tone, FluentIcon icon, const std::vector<HotkeyEdit *> &editors) {
-    auto *row = new QWidget(parent);
-    auto *layout = new QHBoxLayout(row);
-    layout->setContentsMargins(0, dialog_scaled(8), 0, dialog_scaled(8));
-    layout->setSpacing(dialog_scaled(14));
-    layout->addWidget(new IconBadge(icon, tone, row, 28, 16));
+QWidget *global_row(QWidget *parent, const QString &title, const QString &, FluentIcon icon, const std::vector<HotkeyEdit *> &editors) {
+    auto *row = new WhiteCard(parent);
+    auto *layout = card_row_layout(row);
+    layout->addWidget(new IconBadge(icon, QString(), row, 20, 20, false));
     layout->addWidget(row_label(row, title), 1);
     // Column by column: the first two slots keep their old column, the added ones go to its right.
     auto *grid = new QGridLayout;
@@ -150,12 +146,9 @@ QWidget *global_row(QWidget *parent, const QString &title, const QString &tone, 
 }
 
 QWidget *inapp_row(QWidget *parent, const IconSource &icon, const QString &title, QWidget *editor) {
-    auto *row = new QWidget(parent);
-    row->setFixedHeight(dialog_scaled(INAPP_ROW_HEIGHT));
-    auto *layout = new QHBoxLayout(row);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(dialog_scaled(14));
-    layout->addWidget(new IconBadge(std::holds_alternative<std::monostate>(icon) ? icon : icon_ref(icon), QString(), row));
+    auto *row = new WhiteCard(parent);
+    auto *layout = card_row_layout(row);
+    layout->addWidget(new IconBadge(std::holds_alternative<std::monostate>(icon) ? icon : icon_ref(icon), QString(), row, 20, 20, false));
     layout->addWidget(row_label(row, title), 1);
     // The width sits on an outer slot: ComboBox resets its minimum width on every restyle,
     // so a fixed width on it would shrink back to the content.
@@ -402,11 +395,11 @@ QWidget *create_hotkey_page(SettingsDialog *dialog) {
     auto *view = new QWidget;
     set_own_style(view, "background: transparent;");
     auto *layout = new QVBoxLayout(view);
-    layout->setContentsMargins(0, 0, dialog_scaled(10), 0);
-    layout->setSpacing(dialog_scaled(12));
+    layout->setContentsMargins(0, 0, dialog_scaled(10), page_bottom_margin());
+    layout->setSpacing(dialog_scaled(14));
 
     // ════ Global hotkeys ════
-    auto *grp_global = new SectionCard(ResourceManager::get_icon_path(QString::fromUtf8("热键.svg")), dialog->tr_text("Global Hotkeys"), dialog->tr_text("Works anytime"), view);
+    auto *grp_global = new SettingsCardGroup(dialog->tr_text("Global Hotkeys"), view);
     for (const auto &row : GLOBAL_HOTKEY_ROWS()) {
         auto values = dialog->config_manager->get_global_hotkeys(row.function);
         if (row.function == "screenshot") values[0] = dialog->current_hotkey;
@@ -418,7 +411,7 @@ QWidget *create_hotkey_page(SettingsDialog *dialog) {
             dialog->set_attr(names[slot], edit);
             editors.push_back(edit);
         }
-        grp_global->addRow(global_row(grp_global, dialog->tr_text(row.title), row.tone, row.icon, editors));
+        grp_global->addSettingCard(global_row(grp_global, dialog->tr_text(row.title), row.tone, row.icon, editors));
     }
 
     // Conflicts are checked once every editor exists, so initialisation never sees half the
@@ -432,26 +425,14 @@ QWidget *create_hotkey_page(SettingsDialog *dialog) {
     validate_global_hotkey_edits(dialog);
     layout->addWidget(grp_global);
 
-    // ════ In-app shortcuts ════
-    auto *grp_inapp = new SectionCard(FluentIcon::Layout, dialog->tr_text("In-App Shortcuts"), dialog->tr_text("Only in screenshot, pin and clipboard windows"), view);
+    // ════ In-app shortcuts: one group per window ════
     dialog->inapp_edits.clear();
     dialog->inapp_groups.clear();
 
-    auto *tab_switch = new SegmentedWidget(grp_inapp);
-    tab_switch->setLarge(true);
-    tab_switch->setFixedHeight(dialog_scaled(44));
-    tab_switch->setIndicatorColor(ACCENT, ACCENT);
-
-    auto *stack = new QStackedWidget(grp_inapp);
-    stack->setObjectName("InAppShortcutStack");
-    stack->setStyleSheet("#InAppShortcutStack { background: transparent; border: none; }");
-
-    const auto build_tab = [dialog](const std::vector<InAppKey> &keys_list, const QString &group_name, const std::vector<std::function<QWidget *(QWidget *)>> &extra_rows = {},
-                                    bool allow_mouse = true, const QSet<QString> &text_input_keys = {}) {
-        auto *page = new QWidget;
-        auto *vbox = new QVBoxLayout(page);
-        vbox->setContentsMargins(0, 0, 0, 0);
-        vbox->setSpacing(0);
+    const auto build_group = [dialog, view](const QString &title, const std::vector<InAppKey> &keys_list, const QString &group_name,
+                                                          const std::vector<std::function<QWidget *(QWidget *)>> &extra_rows = {}, bool allow_mouse = true,
+                                                          const QSet<QString> &text_input_keys = {}) {
+        auto *group = new SettingsCardGroup(title, view);
         for (const auto &key : keys_list) {
             auto *edit = new InAppKeyEdit(nullptr, allow_mouse && key.cfg_key != "inapp_pin_reset_size", !text_input_keys.contains(key.cfg_key));
             QString value = dialog->config_manager->get_inapp_shortcut(key.cfg_key);
@@ -460,11 +441,10 @@ QWidget *create_hotkey_page(SettingsDialog *dialog) {
             edit->setText(reserved_free(value));
             dialog->inapp_edits.emplace_back(key.cfg_key, edit);
             dialog->inapp_groups[key.cfg_key] = group_name;
-            add_separated_row(vbox, inapp_row(page, inapp_icon(key.cfg_key), dialog->tr_text(key.label), edit));
+            group->addSettingCard(inapp_row(group, inapp_icon(key.cfg_key), dialog->tr_text(key.label), edit));
         }
-        for (const auto &build_row : extra_rows) add_separated_row(vbox, build_row(page));
-        vbox->addStretch(1);
-        return page;
+        for (const auto &build_row : extra_rows) group->addSettingCard(build_row(group));
+        return group;
     };
 
     // Cursor nudge keys.
@@ -475,17 +455,13 @@ QWidget *create_hotkey_page(SettingsDialog *dialog) {
     dialog->set_attr("cursor_move_combo", cursor_move_combo);
     if (const int idx = cursor_move_combo->findData(dialog->config_manager->get_inapp_cursor_move_mode()); idx >= 0) cursor_move_combo->setCurrentIndex(idx);
 
-    auto *screenshot_tab = build_tab(SCREENSHOT_KEYS, "screenshot",
-                                     {[dialog, cursor_move_combo](QWidget *page) { return inapp_row(page, CURSOR_MOVE_ICON, dialog->tr_text("Cursor Move Keys"), cursor_move_combo); }});
-    auto *tools_tab = build_tab(TOOL_KEYS(), "screenshot");
-    auto *pin_tab = build_tab(PIN_KEYS, "pin");
-    stack->addWidget(screenshot_tab);
-    stack->addWidget(tools_tab);
-    stack->addWidget(pin_tab);
-    QStringList routes{"screenshot", "tools", "pin"};
-    tab_switch->addItem("screenshot", i18n_tr("Screenshot", "ShortcutTabs"));
-    tab_switch->addItem("tools", i18n_tr("Annotation Tools", "ShortcutTabs"));
-    tab_switch->addItem("pin", i18n_tr("Pin", "ShortcutTabs"));
+    layout->addWidget(build_group(i18n_tr("Screenshot Window", "ShortcutTabs"), SCREENSHOT_KEYS, "screenshot",
+                                  {[dialog, cursor_move_combo](QWidget *group) { return inapp_row(group, CURSOR_MOVE_ICON, dialog->tr_text("Cursor Move Keys"), cursor_move_combo); }}));
+    layout->addWidget(build_group(i18n_tr("Annotation Tools", "ShortcutTabs"), TOOL_KEYS(), "screenshot"));
+    auto *grp_pin = build_group(i18n_tr("Pinned Window", "ShortcutTabs"), PIN_KEYS, "pin");
+    // The pin page's "Edit" button scrolls to this group.
+    dialog->set_attr("inapp_pin_group", grp_pin);
+    layout->addWidget(grp_pin);
 
     // Direct pick keys are not configured one by one, only which set; conflicts count them in the clipboard group.
     auto *clipboard_pick_combo = new ComboBox;
@@ -500,24 +476,9 @@ QWidget *create_hotkey_page(SettingsDialog *dialog) {
     auto keys = CLIPBOARD_KEYS;
     keys.insert(keys.end(), CLIPBOARD_EDITOR_KEYS.begin(), CLIPBOARD_EDITOR_KEYS.end());
     keys.insert(keys.end(), CLIPBOARD_SEARCH_KEYS.begin(), CLIPBOARD_SEARCH_KEYS.end());
-    stack->addWidget(build_tab(keys, "clipboard",
-                               {[dialog, clipboard_pick_combo](QWidget *page) { return inapp_row(page, FluentIcon::Paste, dialog->tr_text("Direct Pick Keys"), clipboard_pick_combo); }},
-                               false, editor_keys));
-    routes.append("clipboard");
-    tab_switch->addItem("clipboard", i18n_tr("Clipboard", "ShortcutTabs"));
-
-    link_tabs(tab_switch, stack, routes);
-    tab_switch->setCurrentItem("screenshot");
-    // The pin page's "Edit" button switches to the pin tab here.
-    dialog->inapp_shortcut_tabs = tab_switch;
-
-    auto *tab_row = new QWidget(grp_inapp);
-    auto *tab_row_layout = new QHBoxLayout(tab_row);
-    tab_row_layout->setContentsMargins(0, 0, 0, dialog_scaled(10));
-    tab_row_layout->addWidget(tab_switch);
-    tab_row_layout->addStretch(1);
-    grp_inapp->addWidget(tab_row);
-    grp_inapp->addWidget(stack);
+    layout->addWidget(build_group(i18n_tr("Clipboard Window", "ShortcutTabs"), keys, "clipboard",
+                                  {[dialog, clipboard_pick_combo](QWidget *group) { return inapp_row(group, FluentIcon::Paste, dialog->tr_text("Direct Pick Keys"), clipboard_pick_combo); }},
+                                  false, editor_keys));
 
     // Conflict detection.
     for (const auto &[cfg_key, edit] : dialog->inapp_edits) {
@@ -532,7 +493,6 @@ QWidget *create_hotkey_page(SettingsDialog *dialog) {
         QObject::connect(clipboard_pick_combo, &QComboBox::currentIndexChanged, dialog, [dialog] { on_pick_mode_changed(dialog); });
     }
 
-    layout->addWidget(grp_inapp);
     layout->addStretch();
     scroll->setWidget(view);
     return scroll;

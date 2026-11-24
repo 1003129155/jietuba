@@ -9,13 +9,11 @@
 class QToolButton;
 class QLabel;
 class QListWidget;
-class QStackedWidget;
 
 // Settings search. Entries are read from the built pages, so a setting is found by the text it
 // shows and a new row needs no extra declaration.
 namespace jietuba {
 class LineEdit;
-class SegmentedWidget;
 class SettingsSearchPopup;
 
 // A navigation page, a group of settings or one setting row.
@@ -30,8 +28,6 @@ struct SettingsSearchEntry {
     QString path;
     // A combo box's choices, so a setting is also found by a value it offers.
     QStringList options;
-    // The feature hue of its page.
-    QString tone;
     // The widget to scroll to and outline; empty for a page.
     QPointer<QWidget> target;
 };
@@ -49,8 +45,6 @@ void collect_settings_entries(QWidget *page, const SettingsSearchEntry &page_ent
 
 // Makes a custom-layout row searchable by its title label.
 void mark_search_row(QWidget *row, QLabel *title, QLabel *description = nullptr);
-// Shows the stack page of the current tab; search switches tabs through this link.
-void link_tabs(SegmentedWidget *tabs, QStackedWidget *stack, const QStringList &routes);
 // Pages inside container of which one shows at a time, chosen by route: every page is searched,
 // labelled by label(route), and select(route) brings the page holding a result forward.
 void link_pages(QWidget *container, std::function<QList<QWidget *>()> pages, const QStringList &routes, std::function<QString(const QString &)> label,

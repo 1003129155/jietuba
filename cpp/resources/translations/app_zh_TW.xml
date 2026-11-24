@@ -57,10 +57,6 @@
         <translation>滑鼠前進鍵拖曳</translation>
     </message>
     <message>
-        <source>Hold modifier keys and drag the mouse</source>
-        <translation>按住修飾鍵拖曳滑鼠</translation>
-    </message>
-    <message>
         <source>Capture failed. Please try again.</source>
         <translation>截圖失敗，請重試。</translation>
     </message>
@@ -85,10 +81,6 @@
         <translation>翻譯</translation>
     </message>
     <message>
-        <source>Log Settings</source>
-        <translation>日誌設定</translation>
-    </message>
-    <message>
         <source>Other</source>
         <translation>其他</translation>
     </message>
@@ -101,34 +93,6 @@
         <translation>開發者</translation>
     </message>
     <message>
-        <source>Shortcut Settings</source>
-        <translation>快速鍵設定</translation>
-    </message>
-    <message>
-        <source>Capture Settings</source>
-        <translation>截圖設定</translation>
-    </message>
-    <message>
-        <source>Clipboard Settings</source>
-        <translation>剪貼簿設定</translation>
-    </message>
-    <message>
-        <source>Appearance Settings</source>
-        <translation>外觀設定</translation>
-    </message>
-    <message>
-        <source>Translation Settings</source>
-        <translation>翻譯設定</translation>
-    </message>
-    <message>
-        <source>Other Settings</source>
-        <translation>其他設定</translation>
-    </message>
-    <message>
-        <source>Software Information</source>
-        <translation>軟體資訊</translation>
-    </message>
-    <message>
         <source>Developer Options</source>
         <translation>開發者選項</translation>
     </message>
@@ -137,12 +101,12 @@
         <translation>智慧選區</translation>
     </message>
     <message>
-        <source>Save Settings</source>
-        <translation>截圖儲存</translation>
+        <source>Saving</source>
+        <translation>儲存</translation>
     </message>
     <message>
-        <source>OCR Settings</source>
-        <translation>OCR設定</translation>
+        <source>Text Recognition</source>
+        <translation>文字辨識</translation>
     </message>
     <message>
         <source>Setup Wizard</source>
@@ -255,6 +219,10 @@
     <message>
         <source>Latest Log</source>
         <translation>最新日誌</translation>
+    </message>
+    <message>
+        <source>Log Folder</source>
+        <translation>日誌資料夾</translation>
     </message>
     <message>
         <source>Global Hotkeys</source>
@@ -851,6 +819,10 @@ Replace it?</source>
         <translation>語言</translation>
     </message>
     <message>
+        <source>Display Language</source>
+        <translation>介面語言</translation>
+    </message>
+    <message>
         <source>Select display language. Restart required after change.</source>
         <translation>選擇顯示語言。更改後需要重新啟動。</translation>
     </message>
@@ -859,8 +831,8 @@ Replace it?</source>
         <translation>💡 提示: 即使背景啟動，也可以透過系統匣操作。</translation>
     </message>
     <message>
-        <source>Settings Backup</source>
-        <translation>設定備份</translation>
+        <source>Backup</source>
+        <translation>備份</translation>
     </message>
     <message>
         <source>Settings File</source>
@@ -1017,10 +989,6 @@ Replace it?</source>
     <message>
         <source>LLM translation: better with context and idioms, but slower, billed per token, and may refuse some content</source>
         <translation>大模型翻譯：更懂上下文和習慣用法，但更慢、按 token 計費，且可能拒絕部分內容</translation>
-    </message>
-    <message>
-        <source>Translation Options</source>
-        <translation>翻譯選項</translation>
     </message>
     <message>
         <source>Target Language</source>
@@ -1371,10 +1339,6 @@ Replace it?</source>
         <translation>切換文字選擇</translation>
     </message>
     <message>
-        <source>Behavior</source>
-        <translation>行為</translation>
-    </message>
-    <message>
         <source>Mouse Click-Through</source>
         <translation>滑鼠穿透</translation>
     </message>
@@ -1555,14 +1519,6 @@ Replace it?</source>
         <translation>螢幕標註</translation>
     </message>
     <message>
-        <source>Screen Annotation Settings</source>
-        <translation>螢幕標註設定</translation>
-    </message>
-    <message>
-        <source>Start and End</source>
-        <translation>開始與結束</translation>
-    </message>
-    <message>
         <source>Toolbar</source>
         <translation>工具列</translation>
     </message>
@@ -1685,10 +1641,6 @@ Replace it?</source>
     <message>
         <source>Could not move the settings file: %1</source>
         <translation>無法移動設定檔：%1</translation>
-    </message>
-    <message>
-        <source>Unassigned buttons and the wheel pass through. A double-click binding also captures single clicks of that button.</source>
-        <translation>未綁定的滑鼠按鍵與滾輪正常穿透。綁定雙擊後，也會接管該按鍵的單擊。</translation>
     </message>
     <message>
         <source>Long Screenshot Shortcuts</source>
@@ -2769,8 +2721,8 @@ Replace it?</source>
 <context>
     <name>SettingsDialog</name>
     <message>
-        <source>Pin Clipboard Image</source>
-        <translation>生成釘圖</translation>
+        <source>Pin from Clipboard</source>
+        <translation>從剪貼簿釘圖</translation>
     </message>
     <message>
         <source>Get your API key from DeepL website (free tier available)</source>
@@ -5544,12 +5496,8 @@ This action cannot be undone.</source>
 <context>
     <name>SettingsDialog</name>
     <message>
-        <source>Basic Settings</source>
-        <translation>基本設定</translation>
-    </message>
-    <message>
-        <source>Data</source>
-        <translation>資料管理</translation>
+        <source>History</source>
+        <translation>歷史記錄</translation>
     </message>
     <message>
         <source>Warning</source>
@@ -5606,14 +5554,6 @@ This action cannot be undone.</source>
     <message>
         <source>Magnifier</source>
         <translation>放大鏡</translation>
-    </message>
-    <message>
-        <source>Pin Settings</source>
-        <translation>釘圖設定</translation>
-    </message>
-    <message>
-        <source>Operation</source>
-        <translation>操作</translation>
     </message>
     <message>
         <source>Features</source>
@@ -6422,24 +6362,12 @@ Replace: move the current data there; the data already in that folder will be de
 </context>
 <context>
     <name>SettingsDialog</name>
-    <message>
-        <source>Works anytime</source>
-        <translation>在任何時候都能觸發</translation>
-    </message>
-    <message>
-        <source>Only in screenshot, pin and clipboard windows</source>
-        <translation>只在截圖、釘圖和剪貼簿視窗裡生效</translation>
-    </message>
-    <message>
-        <source>Only in the corresponding window</source>
-        <translation>僅在對應視窗內生效</translation>
-    </message>
 </context>
 <context>
     <name>SettingsDialog</name>
     <message>
-        <source>Quick Actions</source>
-        <translation>快捷行為</translation>
+        <source>Annotation</source>
+        <translation>標註</translation>
     </message>
     <message>
         <source>Copy Recognized Text Directly</source>
@@ -7957,10 +7885,11 @@ Replace it?</source>
 </context>
   <context>
     <name>ShortcutTabs</name>
-    <message><source>Screenshot</source><translation>截圖</translation></message>
-    <message><source>Long Screenshot</source><translation>長截圖</translation></message>
-    <message><source>Pin</source><translation>釘圖</translation></message>
-    <message><source>Clipboard</source><translation>剪貼簿</translation></message>
+    <message><source>Global Mouse Shortcuts</source><translation>全域滑鼠快速鍵</translation></message>
+    <message><source>Screenshot Window</source><translation>截圖視窗</translation></message>
+    <message><source>Long Screenshot Window</source><translation>長截圖視窗</translation></message>
+    <message><source>Pinned Window</source><translation>釘圖視窗</translation></message>
+    <message><source>Clipboard Window</source><translation>剪貼簿視窗</translation></message>
     <message><source>Annotation Tools</source><translation>標註工具</translation></message>
   </context>
 <context>

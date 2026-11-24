@@ -20,10 +20,10 @@ QWidget *create_about_page(SettingsDialog *dialog) {
     auto *view = new QWidget;
     set_own_style(view, "background: transparent;");
     auto *layout = new QVBoxLayout(view);
-    layout->setContentsMargins(0, dialog_scaled(20), dialog_scaled(10), dialog_scaled(20));
-    layout->setSpacing(dialog_scaled(16));
+    layout->setContentsMargins(0, 0, dialog_scaled(10), page_bottom_margin());
+    layout->setSpacing(dialog_scaled(14));
 
-    auto *group = new SettingsCardGroup(dialog->tr_text("About"), view);
+    auto *group = new SettingsCardGroup(dialog->tr_text("Application"), view);
     auto *name_card = new SettingCard(FluentIcon::Application, dialog->tr_text("Version"), APP_VERSION, group);
     // Builds without the bundled updater helper (JIETUBA_UPDATES off) offer no update check.
     if (updater_bundled()) {
@@ -80,12 +80,12 @@ QWidget *create_about_page(SettingsDialog *dialog) {
     auto *license_card = new SettingCard(FluentIcon::Document, dialog->tr_text("Licenses"), "MIT", group);
     auto *details_btn = new HyperlinkButton("", dialog->tr_text("Details"), license_card);
     QObject::connect(details_btn, &QPushButton::clicked, dialog, [dialog] { show_text_dialog(dialog, dialog->tr_text("MIT License"), dialog->tr_text("MIT License Text")); });
-    license_card->addControl(details_btn, Qt::AlignLeft);
+    license_card->addControl(details_btn, Qt::AlignRight);
     group->addSettingCard(license_card);
 
     auto *github_card = new SettingCard(FluentIcon::GitHub, dialog->tr_text("Source Code"), "github.com/1003129155/jietuba", group);
     auto *link_btn = new HyperlinkButton(PROJECT_GITHUB_URL, dialog->tr_text("Open GitHub"), github_card);
-    github_card->addControl(link_btn, Qt::AlignLeft);
+    github_card->addControl(link_btn, Qt::AlignRight);
     group->addSettingCard(github_card);
 
     layout->addWidget(group);
