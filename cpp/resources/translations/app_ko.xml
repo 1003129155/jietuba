@@ -2027,6 +2027,18 @@ Replace it?</source>
         <translation>번역(텍스트 인식)</translation>
     </message>
     <message>
+        <source>Show original image</source>
+        <translation>원본 이미지 표시</translation>
+    </message>
+    <message>
+        <source>Show translation</source>
+        <translation>번역 표시</translation>
+    </message>
+    <message>
+        <source>Stop translating</source>
+        <translation>번역 중지</translation>
+    </message>
+    <message>
         <source>OCR recognition could not be started</source>
         <translation>텍스트 인식을 시작할 수 없습니다</translation>
     </message>

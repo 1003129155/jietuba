@@ -1992,6 +1992,18 @@ Replace it?</translation>
         <translation>Translate (Text Recognition)</translation>
     </message>
     <message>
+        <source>Show original image</source>
+        <translation>Show original image</translation>
+    </message>
+    <message>
+        <source>Show translation</source>
+        <translation>Show translation</translation>
+    </message>
+    <message>
+        <source>Stop translating</source>
+        <translation>Stop translating</translation>
+    </message>
+    <message>
         <source>OCR recognition could not be started</source>
         <translation>OCR recognition could not be started</translation>
     </message>

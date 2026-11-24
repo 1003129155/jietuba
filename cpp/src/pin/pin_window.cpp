@@ -22,14 +22,17 @@
 #include "pin/pin_file_card.h"
 #include "pin/pin_file_selection.h"
 #include "pin/pin_manager.h"
+#include "pin/pin_overlay_translation.h"
 #include "pin/pin_shortcut.h"
 #include "pin/pin_text_content.h"
 #include "pin/pin_toolbar.h"
 #include "settings/tool_settings.h"
 #include "tools/controller.h"
 #include "tools/cursor_manager.h"
+#include "translation/overlay_translation_session.h"
 #include "ui/dialogs.h"
 #include "ui/save_image_dialog.h"
+#include "ui/translation_panel.h"
 #include "ui/arrow_settings_panel.h"
 #include "ui/mosaic_settings_panel.h"
 #include "ui/number_settings_panel.h"
@@ -228,6 +231,7 @@ PinWindow::PinWindow(const QImage &image, const QPoint &position, ToolSettingsMa
     setMouseTracking(true);
     orig_size_ = image.size();
     display_scaler_ = std::make_shared<PinDisplayScaler>();
+    translation_scaler_ = std::make_shared<PinDisplayScaler>();
     win_opacity_ = opacity_setting("pin_default_opacity");
     if (win_opacity_ < 1.0) setWindowOpacity(win_opacity_);
     // Zoom percentage hint.
@@ -515,6 +519,7 @@ void PinWindow::refresh_background_for_scale() {
     const auto target_size = std::make_pair(tw, th);
     if (last_background_scale_size_ == target_size) return;
     last_background_scale_size_ = target_size;
+    refresh_translation_for_scale();
     // An image still being scaled for an earlier size is dropped.
     const auto ticket = ++display_ticket_;
     // Frames go up as they are and the view scales them while drawing: resampling every frame
@@ -1160,8 +1165,12 @@ void PinWindow::show_toolbar() {
     if (!toolbar) {
         toolbar = new PinToolbar(this, config_manager);
         if (canvas) canvas->connect_toolbar(toolbar, view);
+        connect(toolbar, &Toolbar::screenshot_translate_clicked, this, &PinWindow::on_translate_clicked);
+        if (overlay_translation_) overlay_translation_->bind_toolbar(toolbar);
         log_debug(T("创建工具栏，信号已由 PinCanvas 连接"), "PinWindow");
     }
+    // A list of files has no text to translate.
+    if (toolbar->screenshot_translate_btn) toolbar->screenshot_translate_btn->setEnabled(recognizable());
     toolbar->show();
 }
 
@@ -1179,6 +1188,10 @@ void PinWindow::hide_toolbar() {
 
 void PinWindow::on_translate_clicked() {
     if (!translation_helper_ || !recognizable()) return;
+    if (!text_only() && config_manager && config_manager->get_screenshot_translate_mode() != "compare") {
+        start_overlay_translation();
+        return;
+    }
     if (text_only()) {
         translation_helper_->translate_text(text_content_->text());
         return;
@@ -1191,6 +1204,59 @@ void PinWindow::on_translate_clicked() {
         // may load models): the same "panel first, recognize after" feel as capture translation.
         QTimer::singleShot(0, this, &PinWindow::start_ocr_for_translation);
     }
+}
+
+PinOverlayTranslation *PinWindow::ensure_overlay_translation() {
+    if (is_closed_ || !recognizable() || text_only() || !canvas) return nullptr;
+    if (!overlay_translation_) overlay_translation_ = std::make_unique<PinOverlayTranslation>(this, config_manager);
+    return overlay_translation_.get();
+}
+
+bool PinWindow::start_overlay_translation() {
+    auto *translation = ensure_overlay_translation();
+    if (!translation) return false;
+    translation->translate();
+    return true;
+}
+
+void PinWindow::adopt_translation(const QVector<OverlayTextBlock> &blocks, bool original_shown, bool go_on) {
+    if (blocks.isEmpty()) return;
+    if (auto *translation = ensure_overlay_translation()) translation->adopt(blocks, original_shown, go_on);
+}
+
+void PinWindow::toggle_translation_original() {
+    if (overlay_translation_ && overlay_translation_->shown()) overlay_translation_->set_original_shown(!overlay_translation_->original_shown());
+}
+
+void PinWindow::stop_overlay_translation() {
+    if (overlay_translation_) overlay_translation_->stop();
+}
+
+QImage PinWindow::recognition_image() {
+    auto *background = canvas && canvas->scene ? canvas->scene->background : nullptr;
+    const bool layered = background && background->overlay_visible();
+    if (layered) background->set_overlay_visible(false);
+    auto image = get_current_image();
+    if (layered) background->set_overlay_visible(true);
+    return image;
+}
+
+void PinWindow::refresh_translation_for_scale() {
+    auto *background = canvas && canvas->scene ? canvas->scene->background : nullptr;
+    if (!background || !overlay_translation_ || !last_background_scale_size_ || orig_size_.isEmpty()) return;
+    const QImage layer = background->overlay();
+    const QSize shown(last_background_scale_size_->first, last_background_scale_size_->second);
+    // At 100% the layer is drawn as it is; while a run goes on it keeps changing and is stretched.
+    if (layer.isNull() || shown == orig_size_ || overlay_translation_->busy()) return;
+    const double sx = double(shown.width()) / orig_size_.width(), sy = double(shown.height()) / orig_size_.height();
+    const auto region = overlay_translation_->session()->region();
+    const QPoint position(static_cast<int>(python_round(region.x() * sx)), static_cast<int>(python_round(region.y() * sy)));
+    const QSize size(std::max(1, static_cast<int>(python_round(layer.width() * sx))), std::max(1, static_cast<int>(python_round(layer.height() * sy))));
+    const auto ticket = ++translation_ticket_;
+    translation_scaler_->request(layer, size, this, [this, ticket, position, shown](QPixmap pixmap) {
+        if (is_closed_ || ticket != translation_ticket_ || !canvas || !canvas->scene) return;
+        canvas->scene->background->set_display_overlay(pixmap, position, shown);
+    });
 }
 
 void PinWindow::start_ocr_for_translation() {
@@ -1221,6 +1287,9 @@ void PinWindow::show_context_menu(const QPoint &global_pos) {
     state.has_formatting = text_content_ && text_content_->has_formatting();
     state.formatted = text_formatted();
     state.annotations_hidden = annotations_hidden_;
+    state.translation_shown = overlay_translation_ && overlay_translation_->shown();
+    state.translation_busy = overlay_translation_ && overlay_translation_->busy();
+    state.translation_original_shown = overlay_translation_ && overlay_translation_->original_shown();
     if (animation_) {
         state.content = PinMenuState::Content::Animation;
         state.animation_paused = animation_->paused();
@@ -1666,6 +1735,9 @@ void PinWindow::cleanup() {
     folder_drop_.reset();
     if (hover_controls) hover_controls->stop();
     if (display_scaler_) display_scaler_->cancel();
+    if (translation_scaler_) translation_scaler_->cancel();
+    // Its requests stop and its sweep goes before the scene it draws on.
+    overlay_translation_.reset();
     if (zoom_hide_timer_) zoom_hide_timer_->stop();
     if (click_through_bar_) {
         click_through_bar_->close();
@@ -1688,6 +1760,7 @@ void PinWindow::cleanup() {
         close_panel(toolbar->text_panel);
         close_panel(toolbar->mosaic_panel);
         close_panel(toolbar->watermark_panel);
+        close_panel(toolbar->translation_panel);
         if (auto *popup = toolbar->more_popup()) {
             popup->close();
             popup->deleteLater();

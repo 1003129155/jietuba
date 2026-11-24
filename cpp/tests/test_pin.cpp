@@ -1,4 +1,5 @@
 #include "save_dialog_answerer.h"
+#include "scripted_translation.h"
 #include "ocr/ocr_manager.h"
 #include "canvas/items/background_item.h"
 #include "canvas/items/arrow_item.h"
@@ -13,8 +14,13 @@
 #include "canvas/smart_edit_controller.h"
 #include "tools/controller.h"
 #include "tools/number.h"
+#include "translation/overlay_translation.h"
+#include "translation/overlay_translation_session.h"
 #include "translation/translation_dialog.h"
 #include "translation/translation_manager.h"
+#include "pin/pin_overlay_translation.h"
+#include "ui/translation_panel.h"
+#include "ui/translation_sweep.h"
 #include "ocr/ocr_line_geometry.h"
 #include "pin/ocr_text_layout.h"
 #include "pin/pin_border_overlay.h"
@@ -227,6 +233,18 @@ struct StandInEngine {
     explicit StandInEngine(std::function<OcrResult(const QImage &)> recognize) { set_recognizer_for_test(std::move(recognize)); }
     ~StandInEngine() { set_recognizer_for_test({}); }
 };
+
+QDialog *visible_dialog() {
+    for (auto *widget : QApplication::topLevelWidgets())
+        if (auto *dialog = qobject_cast<QDialog *>(widget); dialog && dialog->isVisible()) return dialog;
+    return nullptr;
+}
+
+bool sweep_on_screen() {
+    for (auto *widget : QApplication::topLevelWidgets())
+        if (dynamic_cast<TranslationSweepWindow *>(widget) && widget->isVisible()) return true;
+    return false;
+}
 
 struct RecordingTranslator : SelectionTranslator {
     QStringList texts;
@@ -3809,6 +3827,160 @@ private slots:
         QCOMPARE(QImageReader(out.filePath("typed.png")).format(), QByteArray("png"));
         pin->copy_to_clipboard();
         QVERIFY(wait_for_clipboard_writes(10.0));
+    }
+
+    // In overlay mode the translation is laid over the pin's own text, as on a capture. The pin's
+    // text is recognized once; while it runs a band sweeps over the pin, following it, and mosaic,
+    // smart erase and selecting text wait. The original is a switch away, and the text to select
+    // follows what is shown.
+    void inOverlayModeAPinTranslatesItsOwnText() {
+        config_->set_screenshot_translate_mode("overlay");
+        // Recognizing on its own after pinning as well: still once.
+        config_->set_ocr_enabled(true);
+        std::atomic_int runs = 0;
+        StandInEngine engine([&runs](const QImage &) {
+            ++runs;
+            return ocr_result({{box(20, 20, 160, 24), "Settings", 0.9}, {box(20, 70, 160, 24), "Cancel", 0.9}});
+        });
+        std::atomic_bool hold = true;
+        const auto release = qScopeGuard([&hold] { hold = false; });
+        auto *pin = make_pin(QSize(240, 120));
+        pin->show();
+        auto *translation = pin->ensure_overlay_translation();
+        QVERIFY(translation);
+        translation->session()->make_service = [&hold] {
+            return scripted_service([&hold](const QString &text) {
+                while (hold) QThread::msleep(5);
+                return translated_as(QString::fromUtf8("译") + text);
+            });
+        };
+        const auto original = pin->get_current_image();
+        pin->show_toolbar();
+        QVERIFY(pin->toolbar->mosaic_btn->isEnabled());
+        pin_menu(pin, "Translate");
+        QVERIFY(translation->shown());
+        QVERIFY(translation->busy());
+        QVERIFY(!pin->toolbar->mosaic_btn->isEnabled());
+        QTRY_VERIFY(translation->sweep() && translation->sweep()->isVisible());
+        QCOMPARE(translation->sweep()->geometry(), translation->sweep_area());
+        QVERIFY(translation->sweep()->windowFlags() & Qt::WindowTransparentForInput);
+        pin->move(pin->pos() + QPoint(30, 10));
+        QCOMPARE(translation->sweep()->geometry(), translation->sweep_area());
+        QVERIFY(pin->geometry().contains(translation->sweep()->geometry()));
+        // Still running: the menu stops it or shows the original.
+        QVERIFY(pin_menu(pin).contains("Stop translating"));
+
+        hold = false;
+        QTRY_VERIFY(!translation->busy());
+        QVERIFY(!sweep_on_screen());
+        QVERIFY(pin->toolbar->mosaic_btn->isEnabled());
+        QTest::qWait(400);
+        QCOMPARE(runs.load(), 1);
+        const auto translated = pin->get_current_image();
+        QVERIFY(!same_pixels(translated, original));
+        QVERIFY(pin->text_selection());
+        QCOMPARE(pin->text_selection()->layout().all_text("\n"), QString::fromUtf8("译Settings\n译Cancel"));
+
+        // The toolbar's panel switches it too; it goes and comes back with the toolbar.
+        pin->show_toolbar();
+        QVERIFY(pin->toolbar->translation_panel->isVisible());
+        pin->hide_toolbar();
+        QVERIFY(!pin->toolbar->translation_panel->isVisible());
+        pin->show_toolbar();
+        QVERIFY(pin->toolbar->translation_panel->isVisible());
+
+        const auto entries = pin_menu(pin, "Show original image");
+        QVERIFY(entries.contains("Show original image"));
+        QVERIFY(!entries.contains("Stop translating"));
+        QVERIFY(!entries.contains("Translate (Text Recognition)"));
+        QVERIFY(translation->original_shown());
+        QVERIFY(same_pixels(pin->get_current_image(), original));
+        QCOMPARE(pin->text_selection()->layout().all_text("\n"), QString("Settings\nCancel"));
+        QVERIFY(pin->toolbar->translation_panel->original_shown());
+        pin_menu(pin, "Show translation");
+        QVERIFY(!translation->original_shown());
+        QVERIFY(same_pixels(pin->get_current_image(), translated));
+        QCOMPARE(runs.load(), 1);
+    }
+
+    // Nothing to translate leaves the pin as it was, with the reason shown, to try again.
+    void aPinTranslationThatFindsNoTextLeavesThePinAsItWas() {
+        config_->set_screenshot_translate_mode("overlay");
+        StandInEngine engine([](const QImage &) { return ocr_result({}); });
+        auto *pin = make_pin();
+        pin->show();
+        auto *translation = pin->ensure_overlay_translation();
+        translation->session()->make_service = [] { return scripted_service([](const QString &text) { return translated_as(text); }); };
+        const auto original = pin->get_current_image();
+        QVERIFY(pin->start_overlay_translation());
+        QDialog *reason = nullptr;
+        QTRY_VERIFY((reason = visible_dialog()));
+        reason->close();
+        QVERIFY(!translation->shown());
+        QVERIFY(!translation->busy());
+        QVERIFY(same_pixels(pin->get_current_image(), original));
+        QVERIFY(pin_menu(pin).contains("Translate (Text Recognition)"));
+    }
+
+    // A translation made on the capture goes on with the pin, as it was shown there, without
+    // asking for anything; asked to go on, only what is missing is sent.
+    void aPinGoesOnWithTheTranslationItWasGiven() {
+        config_->set_screenshot_translate_mode("overlay");
+        std::atomic_int asked = 0;
+        const auto service = [&asked] {
+            return scripted_service([&asked](const QString &text) {
+                ++asked;
+                return translated_as(QString::fromUtf8("译") + text);
+            });
+        };
+        auto blocks = group_overlay_blocks(ocr_result({{box(20, 20, 160, 24), "Settings", 0.9}, {box(20, 70, 160, 24), "Cancel", 0.9}}));
+        QCOMPARE(blocks.size(), 2);
+        blocks[0].translated = QString::fromUtf8("译") + blocks[0].source;
+
+        auto *pin = make_pin(QSize(240, 120));
+        pin->show();
+        pin->ensure_overlay_translation()->session()->make_service = service;
+        const auto original = pin->get_current_image();
+        pin->adopt_translation(blocks, false, false);
+        auto *translation = pin->overlay_translation();
+        QVERIFY(translation->shown());
+        QVERIFY(!translation->busy());
+        QVERIFY(!same_pixels(pin->get_current_image(), original));
+        QCOMPARE(asked.load(), 0);
+
+        auto *going_on = make_pin(QSize(240, 120));
+        going_on->show();
+        going_on->ensure_overlay_translation()->session()->make_service = service;
+        going_on->adopt_translation(blocks, true, true);
+        QVERIFY(going_on->overlay_translation()->busy());
+        QTRY_VERIFY(!going_on->overlay_translation()->busy());
+        QCOMPARE(asked.load(), 1);
+        QVERIFY(going_on->overlay_translation()->original_shown());
+        QVERIFY(same_pixels(going_on->get_current_image(), original));
+    }
+
+    // Closing a pin mid-translation stops it at once and takes the sweep with it.
+    void closingAPinStopsItsTranslation() {
+        config_->set_screenshot_translate_mode("overlay");
+        StandInEngine engine([](const QImage &) { return ocr_result({{box(20, 20, 160, 24), "Settings", 0.9}}); });
+        std::atomic_bool hold = true;
+        const auto release = qScopeGuard([&hold] { hold = false; });
+        auto *pin = make_pin();
+        pin->show();
+        auto *translation = pin->ensure_overlay_translation();
+        translation->session()->make_service = [&hold] {
+            return scripted_service([&hold](const QString &text) {
+                while (hold) QThread::msleep(5);
+                return translated_as(text);
+            });
+        };
+        QVERIFY(pin->start_overlay_translation());
+        QTRY_VERIFY(sweep_on_screen());
+        pin->close_window();
+        flush_deletes();
+        QVERIFY(!sweep_on_screen());
+        hold = false;
+        QTest::qWait(50);
     }
 };
 

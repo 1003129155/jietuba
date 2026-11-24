@@ -1,10 +1,12 @@
 #include "translation/overlay_translation_session.h"
 #include "canvas/items/background_item.h"
 #include "canvas/scene.h"
+#include "core/i18n.h"
 #include "core/ui_scale.h"
 #include "core/logger.h"
 #include "settings/tool_settings.h"
 #include "translation/overlay_translation_worker.h"
+#include <QPainter>
 #include <algorithm>
 
 namespace jietuba {
@@ -16,7 +18,10 @@ OverlayTranslationSession::OverlayTranslationSession(CanvasScene *scene, ToolSet
     connect(&flush_timer_, &QTimer::timeout, this, &OverlayTranslationSession::flush);
 }
 
-OverlayTranslationSession::~OverlayTranslationSession() { cancel(); }
+OverlayTranslationSession::~OverlayTranslationSession() {
+    dirty_.clear();
+    cancel();
+}
 
 QRect OverlayTranslationSession::region_of(const QRectF &selection) const {
     if (!scene_ || !scene_->background) return {};
@@ -25,7 +30,7 @@ QRect OverlayTranslationSession::region_of(const QRectF &selection) const {
     const auto origin = scene_->sceneRect().topLeft();
     const QRect wanted(static_cast<int>(python_round(selection.x() - origin.x())), static_cast<int>(python_round(selection.y() - origin.y())),
                        static_cast<int>(python_round(selection.width())), static_cast<int>(python_round(selection.height())));
-    return wanted.intersected(QRect(QPoint(0, 0), scene_->background->pixmap().size()));
+    return wanted.intersected(QRect(QPoint(0, 0), scene_->background->image_size()));
 }
 
 QList<QPair<QString, QString>> OverlayTranslationSession::providers() const {
@@ -54,7 +59,8 @@ bool OverlayTranslationSession::show(const QRectF &selection) {
     if (region != region_) {
         cancel();
         region_ = region;
-        source_ = background.copy(region);
+        // The whole picture is shared, not copied: a long one is large.
+        source_ = region == background.rect() ? background : background.copy(region);
         dark_ = mostly_dark(source_, source_.rect());
         blocks_.clear();
         clear_translations();
@@ -64,9 +70,35 @@ bool OverlayTranslationSession::show(const QRectF &selection) {
         shown_ = true;
         emit shown_changed(true);
     }
-    apply_layer();
+    show_layer(false);
     const bool missing = std::any_of(blocks_.cbegin(), blocks_.cend(), [](const OverlayTextBlock &block) { return block.translated.isEmpty(); });
     if (!busy() && (blocks_.isEmpty() || missing)) run();
+    notify();
+    return true;
+}
+
+bool OverlayTranslationSession::adopt(const QRectF &selection, const QVector<OverlayTextBlock> &blocks, bool original_shown) {
+    if (!scene_ || !scene_->background || blocks.isEmpty()) return false;
+    const auto background = scene_->background->image();
+    const auto region = region_of(selection);
+    if (background.isNull() || region.isEmpty()) return false;
+    cancel();
+    region_ = region;
+    source_ = region == background.rect() ? background : background.copy(region);
+    dark_ = mostly_dark(source_, source_.rect());
+    target_lang_ = config_ ? config_->get_translation_request_params().value("target_lang", "ZH").toString() : QString("ZH");
+    blocks_ = blocks;
+    planned_.fill(std::nullopt, blocks_.size());
+    dirty_.clear();
+    unplaced_.clear();
+    for (int index = 0; index < blocks_.size(); ++index)
+        if (!blocks_[index].translated.isEmpty()) planned_[index] = plan_overlay_block(source_, blocks_, index, target_lang_);
+    original_shown_ = original_shown;
+    if (!shown_) {
+        shown_ = true;
+        emit shown_changed(true);
+    }
+    apply_layer();
     notify();
     return true;
 }
@@ -87,10 +119,16 @@ void OverlayTranslationSession::suspend() {
     notify();
 }
 
+void OverlayTranslationSession::stop() {
+    if (!busy()) return;
+    cancel();
+    notify();
+}
+
 void OverlayTranslationSession::set_original_shown(bool shown) {
     if (original_shown_ == shown) return;
     original_shown_ = shown;
-    apply_layer();
+    show_layer(false);
     notify();
 }
 
@@ -126,6 +164,32 @@ void OverlayTranslationSession::run() {
         return;
     }
     run_waiting_ = false;
+    if (blocks_.isEmpty() && recognize) {
+        recognizing_ = true;
+        const auto generation = ++recognition_;
+        const QPointer<OverlayTranslationSession> self(this);
+        recognize([self, generation](const QVector<OverlayTextBlock> &blocks, const QString &error) {
+            if (self && self->recognizing_ && self->recognition_ == generation) self->on_recognized(blocks, error);
+        });
+        return;
+    }
+    start_worker();
+}
+
+void OverlayTranslationSession::on_recognized(const QVector<OverlayTextBlock> &blocks, const QString &error) {
+    recognizing_ = false;
+    if (blocks.isEmpty()) {
+        notify();
+        emit failed(error.isEmpty() ? i18n_tr("No text was recognized in the selection.", "OverlayTranslation") : error);
+        return;
+    }
+    blocks_ = blocks;
+    planned_.fill(std::nullopt, blocks_.size());
+    start_worker();
+    notify();
+}
+
+void OverlayTranslationSession::start_worker() {
     const auto params = config_ ? config_->get_translation_request_params() : QVariantMap{{"target_lang", "ZH"}};
     target_lang_ = params.value("target_lang", "ZH").toString();
     service_ = make_service();
@@ -177,8 +241,14 @@ void OverlayTranslationSession::start_waiting_run() {
 }
 
 void OverlayTranslationSession::cancel() {
+    // Replies already in are drawn rather than lost.
+    if (!dirty_.isEmpty()) flush();
     retire_worker();
     run_waiting_ = false;
+    if (recognizing_) {
+        recognizing_ = false;
+        ++recognition_;
+    }
 }
 
 void OverlayTranslationSession::clear_translations() {
@@ -193,14 +263,17 @@ void OverlayTranslationSession::clear_translations() {
 void OverlayTranslationSession::flush() {
     flush_timer_.stop();
     if (dirty_.isEmpty()) return;
+    QRegion changed;
     for (const int index : std::as_const(dirty_)) {
         if (index >= planned_.size()) continue;
+        if (planned_[index]) changed += planned_[index]->background_region;
         bool does_not_fit = false;
         planned_[index] = plan_overlay_block(source_, blocks_, index, target_lang_, &does_not_fit);
         if (does_not_fit) unplaced_.insert(index);
+        if (planned_[index]) changed += planned_[index]->background_region;
     }
     dirty_.clear();
-    apply_layer();
+    repaint_layer(changed);
     notify();
 }
 
@@ -209,14 +282,44 @@ void OverlayTranslationSession::apply_layer() {
     QVector<OverlayPaintedBlock> painted;
     for (const auto &entry : std::as_const(planned_))
         if (entry) painted.append(*entry);
-    QImage layer;
+    // The background lets go of the old layer first, so it is not kept beside the new one.
+    scene_->background->set_overlay(QImage(), region_.topLeft());
+    layer_ = QImage();
     if (!painted.isEmpty()) {
-        layer = QImage(source_.size(), QImage::Format_ARGB32_Premultiplied);
-        layer.fill(Qt::transparent);
-        paint_overlay_blocks(layer, painted);
+        layer_ = QImage(source_.size(), QImage::Format_ARGB32_Premultiplied);
+        layer_.fill(Qt::transparent);
+        paint_overlay_blocks(layer_, painted);
     }
-    scene_->background->set_overlay(layer, region_.topLeft());
+    show_layer(true);
+}
+
+void OverlayTranslationSession::repaint_layer(const QRegion &changed) {
+    if (!scene_ || !scene_->background || changed.isEmpty()) return;
+    // Each block paints only inside its background region, so the blocks there, covers first,
+    // give the same pixels as drawing the whole layer.
+    QVector<OverlayPaintedBlock> painted;
+    for (const auto &entry : std::as_const(planned_))
+        if (entry && entry->background_region.intersects(changed)) painted.append(*entry);
+    if (layer_.isNull()) {
+        if (painted.isEmpty()) return;
+        layer_ = QImage(source_.size(), QImage::Format_ARGB32_Premultiplied);
+        layer_.fill(Qt::transparent);
+    } else {
+        // Painting a layer the background still holds would copy all of it.
+        scene_->background->set_overlay(QImage(), region_.topLeft());
+        QPainter clear(&layer_);
+        clear.setCompositionMode(QPainter::CompositionMode_Clear);
+        for (const auto &rect : changed) clear.fillRect(rect, Qt::transparent);
+    }
+    paint_overlay_blocks(layer_, painted, changed);
+    show_layer(true);
+}
+
+void OverlayTranslationSession::show_layer(bool changed) {
+    if (!scene_ || !scene_->background) return;
+    if (changed) scene_->background->set_overlay(layer_, region_.topLeft());
     scene_->background->set_overlay_visible(shown_ && !original_shown_);
+    if (changed) emit layer_changed();
 }
 
 OverlayTranslationWait OverlayTranslationSession::waiting() const {

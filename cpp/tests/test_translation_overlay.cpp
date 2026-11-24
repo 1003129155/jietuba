@@ -1,3 +1,4 @@
+#include "scripted_translation.h"
 #include "canvas/items/background_item.h"
 #include "canvas/scene.h"
 #include "core/export.h"
@@ -97,34 +98,6 @@ int differing_pixels(const QImage &left, const QImage &right, const QRect &area)
             if (left.pixel(x, y) != right.pixel(x, y)) ++count;
     return count;
 }
-
-// A translation service whose answer to each text the test decides.
-using Script = std::function<TranslationResult(const QString &)>;
-
-class ScriptedProvider : public TranslationProvider {
-public:
-    explicit ScriptedProvider(Script script) : script_(std::move(script)) { parallel_requests = 2; }
-    QString provider_id() const override { return "scripted"; }
-    QString display_name() const override { return "Scripted"; }
-    bool is_configured() const override { return true; }
-    TranslationResult translate(const TranslationRequest &request) override { return script_(request.text); }
-private:
-    Script script_;
-};
-
-class ScriptedConfig : public TranslationConfig {
-public:
-    QString get_translation_provider() const override { return "scripted"; }
-    QVariantMap get_translation_provider_config(const QString &) const override { return {}; }
-};
-
-std::shared_ptr<TranslationService> scripted_service(const Script &script) {
-    auto registry = std::make_shared<ProviderRegistry>();
-    registry->register_provider("scripted", [script](const ProviderConfig &) { return std::make_unique<ScriptedProvider>(script); }, std::nullopt, "Scripted");
-    return std::make_shared<TranslationService>(registry, std::make_shared<ScriptedConfig>());
-}
-
-TranslationResult translated_as(const QString &text) { return TranslationResult{true, text, {}, std::nullopt, {}}; }
 
 // What the scene shows, layer and all.
 QImage rendered(CanvasScene &scene) {
@@ -779,7 +752,7 @@ private slots:
         const auto source = page(QSize(320, 160), Qt::white, Qt::black, texts);
         set_recognizer_for_test([&](const QImage &) { return result_of({line("Settings", texts[0].second), line("Cancel", texts[1].second)}); });
         const auto restore = qScopeGuard([] { set_recognizer_for_test({}); });
-        const auto run = [&](const Script &script) {
+        const auto run = [&](const TranslationScript &script) {
             OverlayTranslationWorker worker(source, {{"target_lang", "zh-Hans"}}, scripted_service(script));
             QSignalSpy finished(&worker, &OverlayTranslationWorker::finished_signal);
             worker.start();
@@ -1380,6 +1353,193 @@ private slots:
         QVERIFY(details->isVisible());
         QVERIFY(details->isReadOnly());
         QCOMPARE(details->toPlainText(), QString("Reset\n") + full);
+    }
+
+    // A zoomed pin shows its picture resampled under a compensating transform; the layer stays in
+    // image pixels over its text, stretched until a copy resampled for that zoom is given.
+    void aLayerStaysOverItsTextWhenTheBackgroundIsShownScaled() {
+        QImage source(400, 200, QImage::Format_RGB32);
+        source.fill(Qt::white);
+        CanvasScene scene(source, QRectF(0, 0, 400, 200));
+        QImage layer(400, 200, QImage::Format_ARGB32_Premultiplied);
+        layer.fill(Qt::transparent);
+        {
+            QPainter painter(&layer);
+            painter.fillRect(QRect(200, 100, 80, 40), Qt::red);
+        }
+        scene.background->set_overlay(layer, QPoint(0, 0));
+        scene.background->set_display_pixmap(QPixmap::fromImage(source.scaled(200, 100)), QTransform::fromScale(2, 2));
+        auto image = rendered(scene);
+        QCOMPARE(image.pixelColor(240, 120), QColor(Qt::red));
+        QCOMPARE(image.pixelColor(150, 50), QColor(Qt::white));
+        QCOMPARE(image.pixelColor(320, 170), QColor(Qt::white));
+
+        QImage half(200, 100, QImage::Format_ARGB32_Premultiplied);
+        half.fill(Qt::transparent);
+        {
+            QPainter painter(&half);
+            painter.fillRect(QRect(100, 50, 40, 20), Qt::blue);
+        }
+        scene.background->set_display_overlay(QPixmap::fromImage(half), QPoint(0, 0), QSize(200, 100));
+        QCOMPARE(rendered(scene).pixelColor(240, 120), QColor(Qt::blue));
+        // A copy for another size is not drawn, and a new layer drops it.
+        scene.background->set_display_overlay(QPixmap::fromImage(half), QPoint(0, 0), QSize(100, 50));
+        QCOMPARE(rendered(scene).pixelColor(240, 120), QColor(Qt::red));
+        scene.background->set_display_overlay(QPixmap::fromImage(half), QPoint(0, 0), QSize(200, 100));
+        scene.background->set_overlay(layer, QPoint(0, 0));
+        QCOMPARE(rendered(scene).pixelColor(240, 120), QColor(Qt::red));
+        // Drawn as it is again once the picture is shown at its own size.
+        scene.background->set_display_pixmap(QPixmap::fromImage(source), QTransform());
+        QCOMPARE(rendered(scene).pixelColor(240, 120), QColor(Qt::red));
+        QCOMPARE(rendered(scene).pixelColor(150, 50), QColor(Qt::white));
+    }
+
+    // The layer is drawn again only where replies land, and ends as drawing it whole would.
+    void aLayerDrawnAsRepliesComeMatchesOneDrawnWhole() {
+        QVector<QPair<QString, QRectF>> texts;
+        QVector<OcrLine> lines;
+        for (int index = 0; index < 12; ++index) {
+            const QRectF box(30 + (index % 2) * 180, 20 + (index / 2) * 46, 160, 22);
+            const auto text = QString("Item %1").arg(index);
+            texts.append({text, box});
+            lines.append(line(text, box));
+        }
+        const auto source = page(QSize(400, 300), Qt::white, Qt::black, texts);
+        CanvasScene scene(source, QRectF(0, 0, 400, 300));
+        set_recognizer_for_test([&](const QImage &) { return result_of(lines); });
+        const auto restore = qScopeGuard([] { set_recognizer_for_test({}); });
+        OverlayTranslationSession session(&scene, nullptr);
+        session.set_flush_interval(1);
+        session.make_service = [] {
+            return scripted_service([](const QString &text) {
+                QThread::msleep(15);
+                return translated_as(QString::fromUtf8("译文") + text + QString::fromUtf8("比原文长一些"));
+            });
+        };
+        QSignalSpy layers(&session, &OverlayTranslationSession::layer_changed);
+        QVERIFY(session.show(scene.sceneRect()));
+        QTRY_VERIFY(!session.busy());
+        QVERIFY2(layers.count() > 2, "the layer was drawn in one go");
+        QVector<OverlayPaintedBlock> painted;
+        for (const auto &entry : session.planned())
+            if (entry) painted.append(*entry);
+        QCOMPARE(painted.size(), 12);
+        QImage whole(source.size(), QImage::Format_ARGB32_Premultiplied);
+        whole.fill(Qt::transparent);
+        paint_overlay_blocks(whole, painted);
+        QCOMPARE(scene.background->overlay(), whole);
+    }
+
+    // A picture whose text is read elsewhere is not recognized again: the session asks its own
+    // recognizer and is busy until it answers. No paragraphs end the run with the reason given,
+    // and an answer for a run already stopped is dropped.
+    void aSessionCanTakeItsParagraphsFromElsewhere() {
+        const QRect settings_box(60, 50, 220, 24);
+        const auto source = page(QSize(400, 260), Qt::white, Qt::black, {{"Settings", QRectF(settings_box)}});
+        const auto plain = source.convertToFormat(QImage::Format_RGB32);
+        std::atomic_int recognitions = 0;
+        set_recognizer_for_test([&](const QImage &) {
+            ++recognitions;
+            return result_of({});
+        });
+        const auto restore = qScopeGuard([] { set_recognizer_for_test({}); });
+        const auto blocks = group_overlay_blocks(result_of({line("Settings", QRectF(settings_box))}));
+        const auto service = [] { return scripted_service([](const QString &text) { return translated_as(QString::fromUtf8("译") + text); }); };
+
+        CanvasScene scene(source, QRectF(0, 0, 400, 260));
+        OverlayTranslationSession session(&scene, nullptr);
+        session.make_service = service;
+        OverlayTranslationSession::RecognizeDone answer;
+        int asked = 0;
+        session.recognize = [&](const OverlayTranslationSession::RecognizeDone &done) {
+            ++asked;
+            answer = done;
+        };
+        QVERIFY(session.show(scene.sceneRect()));
+        QVERIFY(session.busy());
+        QCOMPARE(asked, 1);
+        QCOMPARE(session.waiting().rect, scene.sceneRect());
+        answer(blocks, {});
+        QTRY_VERIFY(!session.busy());
+        QCOMPARE(recognitions.load(), 0);
+        QVERIFY(differing_pixels(rendered(scene), plain, settings_box) > 0);
+
+        CanvasScene empty_scene(source, QRectF(0, 0, 400, 260));
+        OverlayTranslationSession empty(&empty_scene, nullptr);
+        empty.make_service = service;
+        empty.recognize = [](const OverlayTranslationSession::RecognizeDone &done) { done({}, "nothing here"); };
+        QSignalSpy failed(&empty, &OverlayTranslationSession::failed);
+        QVERIFY(empty.show(empty_scene.sceneRect()));
+        QVERIFY(!empty.busy());
+        QCOMPARE(failed.count(), 1);
+        QCOMPARE(failed.first().first().toString(), QString("nothing here"));
+
+        CanvasScene late_scene(source, QRectF(0, 0, 400, 260));
+        OverlayTranslationSession late(&late_scene, nullptr);
+        late.make_service = service;
+        OverlayTranslationSession::RecognizeDone late_answer;
+        late.recognize = [&](const OverlayTranslationSession::RecognizeDone &done) { late_answer = done; };
+        QVERIFY(late.show(late_scene.sceneRect()));
+        late.stop();
+        QVERIFY(!late.busy());
+        late_answer(blocks, {});
+        QVERIFY(!late.busy());
+        QVERIFY(late.blocks().isEmpty());
+        QCOMPARE(recognitions.load(), 0);
+    }
+
+    // Paragraphs translated elsewhere are laid over the picture with nothing asked for, showing the
+    // original if that is what showed there. Stopping a run keeps what came back so far.
+    void aSessionAdoptsTranslationsAndStoppingKeepsThem() {
+        const QRect settings_box(60, 50, 220, 24), cancel_box(60, 120, 220, 24);
+        const auto source = page(QSize(400, 260), Qt::white, Qt::black, {{"Settings", QRectF(settings_box)}, {"Cancel", QRectF(cancel_box)}});
+        const auto plain = source.convertToFormat(QImage::Format_RGB32);
+        const auto recognized = result_of({line("Settings", QRectF(settings_box)), line("Cancel", QRectF(cancel_box))});
+        std::atomic_int asked = 0;
+        std::atomic_bool release = false;
+        const auto service = [&] {
+            return scripted_service([&](const QString &text) {
+                ++asked;
+                while (text == "Cancel" && !release) QThread::msleep(5);
+                return translated_as(QString::fromUtf8("译") + text);
+            });
+        };
+        auto blocks = group_overlay_blocks(recognized);
+        QCOMPARE(blocks.size(), 2);
+        for (auto &block : blocks) block.translated = QString::fromUtf8("译") + block.source;
+
+        CanvasScene scene(source, QRectF(0, 0, 400, 260));
+        OverlayTranslationSession session(&scene, nullptr);
+        session.make_service = service;
+        QVERIFY(session.adopt(scene.sceneRect(), blocks, true));
+        QVERIFY(session.shown());
+        QVERIFY(!session.busy());
+        QCOMPARE(differing_pixels(rendered(scene), plain, plain.rect()), 0);
+        session.set_original_shown(false);
+        QVERIFY(differing_pixels(rendered(scene), plain, settings_box) > 0);
+        QVERIFY(differing_pixels(rendered(scene), plain, cancel_box) > 0);
+        QCOMPARE(asked.load(), 0);
+        QVERIFY(!session.adopt(scene.sceneRect(), {}, false));
+
+        set_recognizer_for_test([&](const QImage &) { return recognized; });
+        const auto restore = qScopeGuard([&] {
+            release = true;
+            set_recognizer_for_test({});
+        });
+        CanvasScene running_scene(source, QRectF(0, 0, 400, 260));
+        OverlayTranslationSession running(&running_scene, nullptr);
+        running.set_flush_interval(1);
+        running.make_service = service;
+        QVERIFY(running.show(running_scene.sceneRect()));
+        QTRY_VERIFY(differing_pixels(rendered(running_scene), plain, settings_box) > 0);
+        QVERIFY(running.busy());
+        running.stop();
+        QVERIFY(!running.busy());
+        QVERIFY(running.shown());
+        QVERIFY(differing_pixels(rendered(running_scene), plain, settings_box) > 0);
+        QCOMPARE(differing_pixels(rendered(running_scene), plain, cancel_box), 0);
+        release = true;
+        QTest::qWait(50);
     }
 };
 

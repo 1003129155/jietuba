@@ -545,6 +545,7 @@ private slots:
         QVERIFY(popup && popup->isVisible());
         QCOMPARE(toolbar.spotlight_btn->parentWidget(), popup);
         QCOMPARE(toolbar.watermark_btn->parentWidget(), popup);
+        QCOMPARE(toolbar.screenshot_translate_btn->parentWidget(), popup);
     }
 
     void pinAndScreenshotLayoutsAreSeparate() {
@@ -555,8 +556,8 @@ private slots:
         QCOMPARE(row.first(), QString("text"));
         QCOMPARE(row.last(), QString("more"));
         QVERIFY(!row.contains("mosaic"));
-        for (const char *key : {"pen", "save", "spotlight", "watermark"}) QVERIFY2(row.contains(key), key);
-        for (const char *key : {"screenshot_translate", "long_screenshot", "confirm"}) QVERIFY2(!row.contains(key), key);
+        for (const char *key : {"pen", "save", "spotlight", "watermark", "screenshot_translate"}) QVERIFY2(row.contains(key), key);
+        for (const char *key : {"long_screenshot", "confirm"}) QVERIFY2(!row.contains(key), key);
         Toolbar toolbar;
         const auto screenshot_row = toolbar_row(toolbar);
         QVERIFY(!screenshot_row.contains("pen"));

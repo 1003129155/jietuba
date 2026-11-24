@@ -27,6 +27,8 @@ public:
     void cancel() { cancelled_ = true; }
     std::optional<OcrResult> result;
     OcrTextLayout layout;
+    // The recognized line boxes in the pin's image pixels, without their characters.
+    std::optional<OcrResult> image_lines;
 protected:
     void run() override;
 private:
@@ -56,6 +58,16 @@ public:
     bool recognize_then(Callback callback);
     // Puts recognized text on the pin, replacing what it showed.
     void load_text(OcrTextLayout layout);
+    // What recognition found, in the pin's image pixels: the line boxes and the layout as loaded.
+    // Null before, and for text that was not recognized.
+    const OcrResult *recognized_lines() const { return recognized_lines_ ? &*recognized_lines_ : nullptr; }
+    const OcrTextLayout *recognized_layout() const { return recognized_layout_ ? &*recognized_layout_ : nullptr; }
+    // Selecting and copying use layout in place of what was recognized, which stays as it is.
+    void show_layout(const OcrTextLayout &layout);
+    // Text cannot be selected while a translation is being laid over it.
+    void set_translating(bool translating);
+    // Called each time recognized text is loaded.
+    std::function<void()> text_loaded;
     // Safely releases everything when the window closes.
     void cleanup();
     void set_enabled(bool enabled);
@@ -84,5 +96,8 @@ private:
     bool text_selection_enabled_;
     bool temporary_enabled_ = true;
     bool drawing_ = false;
+    bool translating_ = false;
+    std::optional<OcrResult> recognized_lines_;
+    std::optional<OcrTextLayout> recognized_layout_;
 };
 }

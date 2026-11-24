@@ -2013,6 +2013,18 @@ Replace it?</source>
         <translation>翻译（文字识别）</translation>
     </message>
     <message>
+        <source>Show original image</source>
+        <translation>显示原图</translation>
+    </message>
+    <message>
+        <source>Show translation</source>
+        <translation>显示译文</translation>
+    </message>
+    <message>
+        <source>Stop translating</source>
+        <translation>停止翻译</translation>
+    </message>
+    <message>
         <source>OCR recognition could not be started</source>
         <translation>无法启动文字识别</translation>
     </message>

@@ -84,8 +84,9 @@ struct OverlayPaintedBlock {
 std::optional<OverlayPaintedBlock> plan_overlay_block(const QImage &source, const QVector<OverlayTextBlock> &blocks, int index, const QString &target_lang,
                                                     bool *does_not_fit = nullptr);
 
-// Every cover, then every text, so no cover hides a neighbour's translation.
-void paint_overlay_blocks(QImage &target, const QVector<OverlayPaintedBlock> &painted);
+// Every cover, then every text, so no cover hides a neighbour's translation. With clip, only
+// the pixels inside it are touched.
+void paint_overlay_blocks(QImage &target, const QVector<OverlayPaintedBlock> &painted, const QRegion &clip = {});
 
 // Whether the pixels of image in rect are mostly dark.
 bool mostly_dark(const QImage &image, const QRect &rect);

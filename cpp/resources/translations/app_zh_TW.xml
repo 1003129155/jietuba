@@ -2015,6 +2015,18 @@ Replace it?</source>
         <translation>翻譯（文字辨識）</translation>
     </message>
     <message>
+        <source>Show original image</source>
+        <translation>顯示原圖</translation>
+    </message>
+    <message>
+        <source>Show translation</source>
+        <translation>顯示譯文</translation>
+    </message>
+    <message>
+        <source>Stop translating</source>
+        <translation>停止翻譯</translation>
+    </message>
+    <message>
         <source>OCR recognition could not be started</source>
         <translation>無法啟動文字辨識</translation>
     </message>

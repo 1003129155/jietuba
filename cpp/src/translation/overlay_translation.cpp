@@ -798,16 +798,17 @@ QVector<OverlayPaintedBlock> plan_blocks(const QImage &source, const QVector<Ove
 }
 }
 
-void paint_overlay_blocks(QImage &target, const QVector<OverlayPaintedBlock> &painted) {
+void paint_overlay_blocks(QImage &target, const QVector<OverlayPaintedBlock> &painted, const QRegion &clip) {
     QPainter painter(&target);
     painter.setRenderHint(QPainter::Antialiasing);
     painter.setRenderHint(QPainter::TextAntialiasing);
+    if (!clip.isEmpty()) painter.setClipRegion(clip);
     // Every cover first: a padded one must not paint over a neighbour drawn before it.
     for (const auto &entry : painted)
         for (const auto &rect : entry.background_region) painter.fillRect(rect, entry.background);
     for (const auto &entry : painted) {
         painter.save();
-        painter.setClipRegion(entry.background_region);
+        painter.setClipRegion(entry.background_region, clip.isEmpty() ? Qt::ReplaceClip : Qt::IntersectClip);
         if (!entry.text_to_image.isIdentity()) painter.setWorldTransform(entry.text_to_image);
         painter.setPen(entry.foreground);
         painter.setFont(entry.font);

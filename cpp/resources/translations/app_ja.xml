@@ -2056,6 +2056,18 @@ Replace it?</source>
         <translation>翻訳（テキスト認識）</translation>
     </message>
     <message>
+        <source>Show original image</source>
+        <translation>元画像を表示</translation>
+    </message>
+    <message>
+        <source>Show translation</source>
+        <translation>翻訳を表示</translation>
+    </message>
+    <message>
+        <source>Stop translating</source>
+        <translation>翻訳を停止</translation>
+    </message>
+    <message>
         <source>OCR recognition could not be started</source>
         <translation>テキスト認識を開始できませんでした</translation>
     </message>

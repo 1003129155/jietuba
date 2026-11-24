@@ -51,6 +51,8 @@ void PinToolbar::setVisible(bool visible) {
         if (parent_pin_window) position_near_window(parent_pin_window);
     }
     Toolbar::setVisible(visible);
+    // The toolbar comes and goes with the pointer; a translation's panel comes back with it.
+    if (visible) sync_translation_panel();
 }
 
 void PinToolbar::enterEvent(QEnterEvent *event) {
