@@ -181,6 +181,8 @@ public:
     void set_smart_selection_mode(const QString &mode);
     void set_screenshot_format(const QString &value) { store_screenshot_format(value.toUpper()); }
     void set_screenshot_quality(int value) { store_screenshot_quality(std::max(1, std::min(100, value))); }
+    int get_save_dialog_quality() const;
+    void set_save_dialog_quality(int value) { store_save_dialog_quality(std::clamp(value, 1, 100)); }
     QString get_ocr_engine() const;
     void set_ocr_engine(const QString &value);
     // One of SHIFT_LINE_ANGLES; anything else reads as the default.

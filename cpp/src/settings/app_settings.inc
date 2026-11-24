@@ -133,7 +133,10 @@ SETTING(screenshot_save_original_enabled, "app/screenshot_save_original_enabled"
 // Absolute paths seldom exist on another computer: the save, dialog, log and clipboard database folders stay Local.
 SETTING(screenshot_save_path, "app/screenshot_save_path", QString, QDir::toNativeSeparators(QDir::homePath() + "/Pictures/jietuba_photos"), Local, Own, Own)
 SETTING(screenshot_format, "app/screenshot_format", QString, "PNG", Import, Gen, Own)
-SETTING(screenshot_quality, "app/screenshot_quality", int, 85, Internal, Gen, Own)
+// JPG and WebP quality of every save that does not go through the save dialog.
+SETTING(screenshot_quality, "app/screenshot_quality", int, 85, Import, Gen, Own)
+// The save dialog's own quality; before it is first written it reads as screenshot_quality.
+SETTING(save_dialog_quality, "app/save_dialog_quality", int, 85, Internal, Own, Own)
 SETTING(save_filename_patterns, "app/save_filename_patterns", QStringList, {}, Import, Gen, Gen)
 SETTING(save_dialog_style, "app/save_dialog_style", QString, "modern", Import, Gen, Gen)
 SETTING(save_dialog_format, "app/save_dialog_format", QString, "", Internal, Gen, Gen)

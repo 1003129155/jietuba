@@ -2,6 +2,7 @@
 #include "core/file_names.h"
 #include "core/logger.h"
 #include "settings/tool_settings.h"
+#include <algorithm>
 #include <QBuffer>
 #include <QDateTime>
 #include <QDir>
@@ -27,6 +28,12 @@
 #endif
 
 namespace jietuba {
+SaveOptions SaveOptions::from_settings(const ToolSettingsManager &config) {
+    SaveOptions options;
+    options.quality = std::clamp(config.get_screenshot_quality(), 1, 100);
+    return options;
+}
+
 QString SaveService::get_default_directory() const { return config_manager.get_screenshot_save_path(); }
 
 // Given only a file name, the dialog opens in the process working directory (the install directory when packaged).
@@ -47,9 +54,9 @@ QString SaveService::normalize_format(QString format) {
     format = format.toUpper();
     return format == "JPEG" ? "JPG" : format;
 }
-QString SaveService::format_for_size(QString format, int width, int height, int dpi) {
+QString SaveService::format_for_size(QString format, int width, int height, const SaveOptions &options) {
     format = normalize_format(format);
-    const qint64 limit = format == "JPG" ? 65500 : format == "WEBP" ? 16383 : format == "PDF" ? qint64(200) * dpi : -1;
+    const qint64 limit = format == "JPG" ? 65500 : format == "WEBP" ? 16383 : format == "PDF" ? qint64(200) * options.pdf_dpi : -1;
     return limit != -1 && std::max(width, height) > limit ? "PNG" : format;
 }
 QString SaveService::claim_first_free(const QString &stem, const QString &ext) {
@@ -102,10 +109,10 @@ QImage SaveService::flatten_for_pdf(const QImage &image) {
     painter.end();
     return flattened;
 }
-bool SaveService::save_pdf(const QImage &image, QIODevice *device, int dpi) {
+bool SaveService::save_pdf(const QImage &image, QIODevice *device, const SaveOptions &options) {
     const auto flattened = flatten_for_pdf(image);
     QPdfWriter writer(device);
-    dpi = std::max(72, dpi);
+    const int dpi = std::max(72, options.pdf_dpi);
     writer.setResolution(dpi);
     writer.setPageSize(QPageSize(QSizeF(flattened.width() * 72.0 / dpi, flattened.height() * 72.0 / dpi), QPageSize::Point, "Screenshot"));
     writer.setPageMargins(QMarginsF(0, 0, 0, 0), QPageLayout::Point);
@@ -118,7 +125,7 @@ bool SaveService::save_pdf(const QImage &image, QIODevice *device, int dpi) {
     painter.end();
     return true;
 }
-bool SaveService::save_qimage_to_path(const QImage &image, const QString &path, QString format, int dpi, int quality) {
+bool SaveService::save_qimage_to_path(const QImage &image, const QString &path, QString format, const SaveOptions &options) {
     if (image.isNull()) return false;
     if (format.isEmpty()) {
         const auto dot = QFileInfo(path).fileName().lastIndexOf('.');
@@ -127,23 +134,23 @@ bool SaveService::save_qimage_to_path(const QImage &image, const QString &path, 
     format = normalize_format(format);
     if (format == "PDF") {
         QFile file(path);
-        const bool success = file.open(QIODevice::WriteOnly) && save_pdf(image, &file, dpi);
+        const bool success = file.open(QIODevice::WriteOnly) && save_pdf(image, &file, options);
         file.close();
         if (!success) cleanup_failed_placeholder(path);
         return success;
     }
-    const bool success = image.save(path, format.toLatin1().constData(), format_has_quality(format) ? quality : -1);
+    const bool success = image.save(path, format.toLatin1().constData(), format_has_quality(format) ? options.quality : -1);
     if (!success) cleanup_failed_placeholder(path);
     return success;
 }
-QByteArray SaveService::encode_image(const QImage &image, QString format, int quality, int dpi) {
+QByteArray SaveService::encode_image(const QImage &image, QString format, const SaveOptions &options) {
     if (image.isNull()) return {};
     format = normalize_format(format);
     QByteArray bytes;
     QBuffer buffer(&bytes);
     buffer.open(QIODevice::WriteOnly);
-    const bool success = format == "PDF" ? save_pdf(image, &buffer, dpi)
-                                         : image.save(&buffer, format.toLatin1().constData(), format_has_quality(format) ? quality : -1);
+    const bool success = format == "PDF" ? save_pdf(image, &buffer, options)
+                                         : image.save(&buffer, format.toLatin1().constData(), format_has_quality(format) ? options.quality : -1);
     buffer.close();
     return success ? bytes : QByteArray();
 }
@@ -151,12 +158,14 @@ bool SaveService::format_has_quality(QString format) {
     format = normalize_format(format);
     return format == "JPG" || format == "WEBP";
 }
-std::pair<int, QByteArray> SaveService::encode_within(const QImage &image, QString format, qint64 max_bytes) {
+std::pair<int, QByteArray> SaveService::encode_within(const QImage &image, QString format, qint64 max_bytes, const SaveOptions &options) {
     int low = 1, high = 100, best = -1;
+    SaveOptions probe = options;
     QByteArray best_bytes, lowest_bytes;
     while (low <= high) {
         const int quality = (low + high) / 2;
-        auto bytes = encode_image(image, format, quality);
+        probe.quality = quality;
+        auto bytes = encode_image(image, format, probe);
         if (bytes.isEmpty()) return {quality, {}};
         if (bytes.size() <= max_bytes) {
             best = quality;
@@ -168,14 +177,15 @@ std::pair<int, QByteArray> SaveService::encode_within(const QImage &image, QStri
         }
     }
     if (best > 0) return {best, best_bytes};
-    return {1, lowest_bytes.isEmpty() ? encode_image(image, format, 1) : lowest_bytes};
+    probe.quality = 1;
+    return {1, lowest_bytes.isEmpty() ? encode_image(image, format, probe) : lowest_bytes};
 }
 QImage SaveService::scale_for_save(const QImage &image, const QSize &size) {
     if (image.isNull() || size.isEmpty() || size == image.size()) return image;
     return image.scaled(size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
 }
 std::pair<bool, std::optional<QString>> SaveService::save_qimage(const QImage &image, QString directory,
-    QString prefix, QString suffix, QString format, int dpi, QString target) const {
+    QString prefix, QString suffix, QString format, const SaveOptions &options, QString target) const {
     if (image.isNull()) return {false, std::nullopt};
     if (target.isEmpty()) {
         // An unwritable folder or an exhausted name pool is a failed save, not a crash:
@@ -187,10 +197,10 @@ std::pair<bool, std::optional<QString>> SaveService::save_qimage(const QImage &i
             return {false, std::nullopt};
         }
     }
-    return {save_qimage_to_path(image, target, format, dpi), target};
+    return {save_qimage_to_path(image, target, format, options), target};
 }
 std::optional<QString> SaveService::save_qimage_async(const QImage &image, QString directory, QString prefix,
-    QString suffix, QString format, int dpi, std::function<void(bool, QString)> callback) const {
+    QString suffix, QString format, const SaveOptions &options, std::function<void(bool, QString)> callback) const {
     if (image.isNull()) return std::nullopt;
     auto copy = image.copy();
     QString path;
@@ -203,9 +213,9 @@ std::optional<QString> SaveService::save_qimage_async(const QImage &image, QStri
     }
     // As in Python, callback executes on the worker thread. No borrowed service
     // or config pointer crosses the boundary; cancellation/lifecycle remains explicit.
-    QThreadPool::globalInstance()->start(QRunnable::create([copy = std::move(copy), path, format, dpi, callback = std::move(callback)] {
+    QThreadPool::globalInstance()->start(QRunnable::create([copy = std::move(copy), path, format, options, callback = std::move(callback)] {
         try {
-            const auto success = save_qimage_to_path(copy, path, format, dpi);
+            const auto success = save_qimage_to_path(copy, path, format, options);
             if (callback) callback(success, path);
         } catch (...) {
             // Python's background-task wrapper captures worker exceptions.
@@ -214,7 +224,7 @@ std::optional<QString> SaveService::save_qimage_async(const QImage &image, QStri
     }));
     return path;
 }
-std::optional<QString> SaveService::save_beside(const QImage &image, const QString &saved, const QString &tag) {
+std::optional<QString> SaveService::save_beside(const QImage &image, const QString &saved, const QString &tag, const SaveOptions &options) {
     if (image.isNull() || saved.isEmpty()) return std::nullopt;
     const auto filename = QFileInfo(saved).fileName();
     const int dot = filename.lastIndexOf('.');
@@ -229,6 +239,6 @@ std::optional<QString> SaveService::save_beside(const QImage &image, const QStri
         log_warning(T("保存失败: 无法为原图确定文件名 ({e})", {{"e", QString::fromUtf8(error.what())}}), "Save");
         return std::nullopt;
     }
-    return save_qimage_to_path(image, target) ? std::optional<QString>(target) : std::nullopt;
+    return save_qimage_to_path(image, target, {}, options) ? std::optional<QString>(target) : std::nullopt;
 }
 }

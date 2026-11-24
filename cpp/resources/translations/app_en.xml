@@ -7185,6 +7185,14 @@ Make sure gifrecorder is installed correctly.</translation>
         <translation>Used when saving a screenshot, a pin or a clipboard image.</translation>
     </message>
     <message>
+        <source>Image Quality</source>
+        <translation>Image Quality</translation>
+    </message>
+    <message>
+        <source>Only affects JPG and WebP, in saves that do not open the save dialog.</source>
+        <translation>Only affects JPG and WebP, in saves that do not open the save dialog.</translation>
+    </message>
+    <message>
         <source>Modern (with preview)</source>
         <translation>Modern (with preview)</translation>
     </message>

@@ -7247,6 +7247,14 @@ gifrecorder が正しくインストールされているか確認してくだ�
         <translation>スクリーンショット、ピン、クリップボードの画像を保存するときに使います。</translation>
     </message>
     <message>
+        <source>Image Quality</source>
+        <translation>画像品質</translation>
+    </message>
+    <message>
+        <source>Only affects JPG and WebP, in saves that do not open the save dialog.</source>
+        <translation>JPG と WebP にのみ影響し、保存ダイアログを開かない保存で使われます。</translation>
+    </message>
+    <message>
         <source>Modern (with preview)</source>
         <translation>モダン（プレビュー付き）</translation>
     </message>

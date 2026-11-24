@@ -193,6 +193,15 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     dialog->set_attr("screenshot_format_combo", format_combo);
     fmt_card->addControl(format_combo);
     grp_save->addSettingCard(fmt_card);
+    // The save dialog keeps a quality of its own, so this is the quality of every other way of saving.
+    auto *quality_card = new SettingCard(FluentIcon::Filter, dialog->tr_text("Image Quality"),
+                                         dialog->tr_text("Only affects JPG and WebP, in saves that do not open the save dialog."), grp_save);
+    auto *quality_slider = new ValueSlider(quality_card);
+    quality_slider->setRange(1, 100);
+    quality_slider->setValue(std::clamp(config->get_screenshot_quality(), 1, 100));
+    dialog->set_attr("screenshot_quality_slider", quality_slider);
+    quality_card->addControl(quality_slider);
+    grp_save->addSettingCard(quality_card);
     dialog->save_filename_patterns = file_names::load(*config);
     auto *names_card = new SettingCard(FluentIcon::Document, dialog->tr_text("File Name Settings"),
                                       dialog->tr_text("Set file names for screenshots, long screenshots, GIFs and videos."), grp_save);

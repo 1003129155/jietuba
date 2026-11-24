@@ -768,6 +768,7 @@ void SettingsDialog::reset_screenshot_settings_page() {
     if (auto *combo = attr<QComboBox>("screenshot_format_combo"))
         combo->setCurrentIndex(std::max<int>(0, QStringList{"PNG", "JPG", "BMP", "WEBP", "PDF"}.indexOf(defaults.value("screenshot_format").toString().toUpper())));
     select_data(attr<QComboBox>("save_dialog_style_combo"), defaults.value("save_dialog_style"));
+    if (auto *slider = attr<ValueSlider>("screenshot_quality_slider")) slider->setValue(defaults.value("screenshot_quality").toInt());
     if (save_filename_patterns) save_filename_patterns = file_names::defaults();
     if (magnifier_color_formats) magnifier_color_formats = color_formats::default_formats();
     fill_ocr_engines(this, defaults.value("ocr_engine").toString(), defaults.value("ppocr_model").toString());
@@ -934,6 +935,7 @@ void SettingsDialog::save_changes(QSet<QString> changed) {
     if (auto *label = attr_widget("save_path_lbl"); label && has("save_path_lbl")) config_manager->set_screenshot_save_path(text_of(label));
     if (auto *combo = attr<QComboBox>("screenshot_format_combo"); combo && has("screenshot_format_combo")) config_manager->set_screenshot_format(combo->currentData().toString());
     if (auto *combo = attr<QComboBox>("save_dialog_style_combo"); combo && has("save_dialog_style_combo")) config_manager->set_save_dialog_style(combo->currentData().toString());
+    if (auto *slider = attr<ValueSlider>("screenshot_quality_slider"); slider && has("screenshot_quality_slider")) config_manager->set_screenshot_quality(slider->value());
 
     // 3.5 Magnifier.
     for (const auto &[attr_name, key] : {std::make_pair("magnifier_enabled_toggle", "magnifier_enabled"), std::make_pair("magnifier_grid_toggle", "magnifier_grid"),
@@ -1276,6 +1278,7 @@ QVariantMap SettingsDialog::snapshot_settings() const {
         if (auto *spin = attr<QSpinBox>(name)) snap[name] = spin->value();
         else if (auto *double_spin = attr<QDoubleSpinBox>(name)) snap[name] = double_spin->value();
     }
+    if (auto *slider = attr<ValueSlider>("screenshot_quality_slider")) snap["screenshot_quality_slider"] = slider->value();
     // In-app shortcuts.
     for (const auto &[cfg_key, edit] : inapp_edits) snap["inapp_" + cfg_key] = edit->text();
     // Colours.
@@ -1419,6 +1422,7 @@ void SettingsDialog::refresh_settings() {
     if (auto *combo = attr<QComboBox>("screenshot_format_combo"))
         combo->setCurrentIndex(std::max<int>(0, QStringList{"PNG", "JPG", "BMP", "WEBP", "PDF"}.indexOf(config_manager->get_screenshot_format().toUpper())));
     select_data(attr<QComboBox>("save_dialog_style_combo"), config_manager->get_save_dialog_style());
+    if (auto *slider = attr<ValueSlider>("screenshot_quality_slider")) slider->setValue(std::clamp(config_manager->get_screenshot_quality(), 1, 100));
     for (const auto &[attr_name, key] : {std::make_pair("magnifier_enabled_toggle", "magnifier_enabled"), std::make_pair("magnifier_grid_toggle", "magnifier_grid"),
                                          std::make_pair("magnifier_selection_toggle", "magnifier_selection"), std::make_pair("magnifier_hint_toggle", "magnifier_hint")})
         if (auto *toggle = attr_widget(attr_name)) set_checked(toggle, config_manager->get_app_setting(key).toBool());

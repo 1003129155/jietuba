@@ -1,7 +1,9 @@
 #pragma once
 #include <QComboBox>
 #include <QDoubleSpinBox>
+#include <QLabel>
 #include <QLineEdit>
+#include <QSlider>
 #include <QSpinBox>
 #include <QTextEdit>
 
@@ -53,6 +55,24 @@ class SpinBox : public QSpinBox {
 public:
     explicit SpinBox(QWidget *parent = nullptr);
     Q_INVOKABLE void _apply_theme();
+};
+
+// A horizontal slider with its value beside it, for a setting card's control column.
+class ValueSlider : public QWidget {
+    Q_OBJECT
+public:
+    explicit ValueSlider(QWidget *parent = nullptr);
+    int value() const { return slider_->value(); }
+    void setValue(int value) { slider_->setValue(value); }
+    void setRange(int minimum, int maximum);
+    QSlider *slider() const { return slider_; }
+    QLabel *valueLabel() const { return value_label_; }
+    Q_INVOKABLE void _apply_theme();
+signals:
+    void valueChanged(int value);
+private:
+    QSlider *slider_;
+    QLabel *value_label_;
 };
 
 class DoubleSpinBox : public QDoubleSpinBox {

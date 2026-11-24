@@ -7234,6 +7234,14 @@ Make sure gifrecorder is installed correctly.</source>
         <translation>保存截图、钉图和剪贴板图片时使用。</translation>
     </message>
     <message>
+        <source>Image Quality</source>
+        <translation>图像质量</translation>
+    </message>
+    <message>
+        <source>Only affects JPG and WebP, in saves that do not open the save dialog.</source>
+        <translation>只影响 JPG 和 WebP，且只用于不打开保存对话框的保存。</translation>
+    </message>
+    <message>
         <source>Modern (with preview)</source>
         <translation>现代（带预览）</translation>
     </message>

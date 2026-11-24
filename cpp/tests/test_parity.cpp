@@ -330,7 +330,7 @@ private slots:
         for (const auto &v : fixtures_["save_formats"].toArray()) {
             const auto row = v.toObject();
             QCOMPARE(SaveService::format_for_size(row["format"].toString(), row["width"].toInt(),
-                row["height"].toInt(), row["dpi"].toInt()), row["expected"].toString());
+                row["height"].toInt(), SaveOptions{.pdf_dpi = row["dpi"].toInt()}), row["expected"].toString());
         }
         for (const auto &v : fixtures_["pdf_flatten"].toArray()) {
             const auto row = v.toObject();
@@ -356,15 +356,15 @@ private slots:
         QCOMPARE(SaveService::claim_first_free(stem, ".png"), stem + "_2.png");
         QImage image(24, 16, QImage::Format_ARGB32);
         image.fill(Qt::red);
-        const auto result = service.save_qimage(image, temp.path(), "prefix", "suffix", "PNG");
+        const auto result = service.save_qimage(image, temp.path(), "prefix", "suffix", "PNG", {});
         QVERIFY(result.first);
         QVERIFY(result.second);
         QCOMPARE(QImage(*result.second).pixelColor(10, 10), QColor(Qt::red));
-        const auto original = SaveService::save_beside(image, *result.second, "original");
+        const auto original = SaveService::save_beside(image, *result.second, "original", {});
         QVERIFY(original);
         QVERIFY(original->endsWith("_original.png"));
         const auto placeholder = SaveService::claim_first_free(temp.filePath("bad"), ".bad");
-        QVERIFY(!SaveService::save_qimage_to_path(image, placeholder, "INVALID"));
+        QVERIFY(!SaveService::save_qimage_to_path(image, placeholder, "INVALID", {}));
         QVERIFY(!QFile::exists(placeholder));
         QFile keep(temp.filePath("nonempty.bad"));
         QVERIFY(keep.open(QIODevice::WriteOnly));
@@ -372,23 +372,23 @@ private slots:
         keep.close();
         SaveService::cleanup_failed_placeholder(keep.fileName());
         QVERIFY(QFile::exists(keep.fileName()));
-        QVERIFY(!service.save_qimage(QImage()).second);
+        QVERIFY(!service.save_qimage(QImage(), {}, {}, {}, "PNG", {}).second);
         // An unwritable save folder fails like any other save instead of throwing out of the
         // confirm handler, where nothing above catches.
         QFile blocker(temp.filePath("not-a-folder"));
         QVERIFY(blocker.open(QIODevice::WriteOnly));
         blocker.close();
         const auto unwritable = blocker.fileName() + "/sub";
-        const auto failed = service.save_qimage(image, unwritable, "prefix", {}, "PNG");
+        const auto failed = service.save_qimage(image, unwritable, "prefix", {}, "PNG", {});
         QVERIFY(!failed.first);
         QVERIFY(!failed.second);
-        QVERIFY(!service.save_qimage_async(image, unwritable, "prefix", {}, "PNG"));
+        QVERIFY(!service.save_qimage_async(image, unwritable, "prefix", {}, "PNG", {}));
         // The side copy of an already saved file never takes the caller down with it.
-        QVERIFY(!SaveService::save_beside(image, temp.filePath("missing-dir/original.png"), "original"));
+        QVERIFY(!SaveService::save_beside(image, temp.filePath("missing-dir/original.png"), "original", {}));
         QSemaphore ready;
         bool success = false;
         QString callbackPath;
-        const auto asyncPath = service.save_qimage_async(image, temp.path(), "async", {}, "PNG", 300,
+        const auto asyncPath = service.save_qimage_async(image, temp.path(), "async", {}, "PNG", SaveOptions{},
             [&](bool value, const QString &path) { success = value; callbackPath = path; ready.release(); });
         QVERIFY(asyncPath);
         QVERIFY(ready.tryAcquire(1, 5000));
@@ -396,7 +396,7 @@ private slots:
         QCOMPARE(callbackPath, *asyncPath);
         QCOMPARE(QImage(*asyncPath).size(), image.size());
         const auto pdf = temp.filePath("capture.pdf");
-        QVERIFY(SaveService::save_qimage_to_path(image, pdf, "PDF", 300));
+        QVERIFY(SaveService::save_qimage_to_path(image, pdf, "PDF", SaveOptions{}));
         QFile pdfFile(pdf);
         QVERIFY(pdfFile.open(QIODevice::ReadOnly));
         QVERIFY(pdfFile.readAll().startsWith("%PDF-"));
@@ -409,7 +409,7 @@ private slots:
         image.fill(QColor(30, 120, 200));
         for (const char *format : {"PNG", "JPG", "BMP", "WEBP"}) {
             const auto path = temp.filePath(QString("shot.%1").arg(QString(format).toLower()));
-            QVERIFY2(SaveService::save_qimage_to_path(image, path, format), format);
+            QVERIFY2(SaveService::save_qimage_to_path(image, path, format, {}), format);
             QCOMPARE(QImage(path).size(), image.size());
         }
         const auto readable = QImageReader::supportedImageFormats();

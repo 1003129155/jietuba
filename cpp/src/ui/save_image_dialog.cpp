@@ -814,7 +814,7 @@ SaveImageDialog::SaveImageDialog(const QImage &image, const QString &base_name, 
     quality_row->setSpacing(dialog_scaled(8));
     quality_slider = new QSlider(Qt::Horizontal, panel_);
     quality_slider->setRange(1, 100);
-    quality_slider->setValue(std::clamp(static_cast<int>(config_->get_screenshot_quality()), 1, 100));
+    quality_slider->setValue(config_->get_save_dialog_quality());
     quality_value = new QLabel(panel_);
     quality_value->setObjectName("hint");
     quality_value->setMinimumWidth(QFontMetrics(quality_value->font()).horizontalAdvance("100") + dialog_scaled(6));
@@ -986,6 +986,12 @@ QString SaveImageDialog::current_format() const { return format_combo->currentDa
 
 int SaveImageDialog::current_quality() const { return quality_slider->value(); }
 
+SaveOptions SaveImageDialog::current_options() const {
+    auto options = SaveOptions::from_settings(*config_);
+    options.quality = current_quality();
+    return options;
+}
+
 qint64 SaveImageDialog::size_limit_bytes() const {
     if (!size_limit_check->isChecked() || !SaveService::format_has_quality(current_format())) return 0;
     return qint64(size_limit_spin->value()) * 1000;
@@ -1096,15 +1102,15 @@ void SaveImageDialog::schedule_encode() {
     update_save_enabled();
 }
 
-SaveImageDialog::Encoded SaveImageDialog::encode(const QImage &image, const QSize &size, const QString &format, int quality, qint64 limit_bytes) {
+SaveImageDialog::Encoded SaveImageDialog::encode(const QImage &image, const QSize &size, const QString &format, const SaveOptions &options, qint64 limit_bytes) {
     Encoded result;
     result.scaled = SaveService::scale_for_save(image, size);
     QByteArray bytes;
     if (limit_bytes > 0) {
-        std::tie(result.quality, bytes) = SaveService::encode_within(result.scaled, format, limit_bytes);
+        std::tie(result.quality, bytes) = SaveService::encode_within(result.scaled, format, limit_bytes, options);
         result.over_limit = !bytes.isEmpty() && bytes.size() > limit_bytes;
     } else {
-        bytes = SaveService::encode_image(result.scaled, format, quality);
+        bytes = SaveService::encode_image(result.scaled, format, options);
     }
     if (bytes.isEmpty()) return result;
     result.bytes = bytes.size();
@@ -1122,10 +1128,10 @@ void SaveImageDialog::start_encode() {
     encoding_ = true;
     const int generation = generation_;
     QPointer<SaveImageDialog> guard(this);
-    QThreadPool::globalInstance()->start([guard, generation, image = image_, size = target_size(), format = current_format(), quality = current_quality(), limit = size_limit_bytes()] {
+    QThreadPool::globalInstance()->start([guard, generation, image = image_, size = target_size(), format = current_format(), options = current_options(), limit = size_limit_bytes()] {
         Encoded result;
         try {
-            result = encode(image, size, format, quality, limit);
+            result = encode(image, size, format, options, limit);
         } catch (const std::exception &error) {
             log_warning(T("保存预览编码失败: {e}", {{"e", QString::fromLocal8Bit(error.what())}}), "SaveImageDialog");
         }
@@ -1209,16 +1215,16 @@ void SaveImageDialog::accept_save() {
     const auto image = SaveService::scale_for_save(image_, target_size());
     const qint64 limit = size_limit_bytes();
     // The slider holds the fitted quality once the latest encode is in; before that it is found here.
-    int quality = current_quality();
-    if (limit > 0 && encoded_bytes_ < 0) quality = SaveService::encode_within(image, current_format(), limit).first;
-    if (!SaveService::save_qimage_to_path(image, path, current_format(), SaveService::DEFAULT_PDF_DPI, quality)) {
+    auto options = current_options();
+    if (limit > 0 && encoded_bytes_ < 0) options.quality = SaveService::encode_within(image, current_format(), limit, options).first;
+    if (!SaveService::save_qimage_to_path(image, path, current_format(), options)) {
         show_warning_dialog(this, tr_text("Save Failed"), QDir::toNativeSeparators(path));
         return;
     }
     config_->set_save_dialog_last_dir(QDir::toNativeSeparators(directory));
     config_->set_save_dialog_format(current_format());
     // A fitted quality is not the user's choice for the next save.
-    if (limit <= 0) config_->set_screenshot_quality(current_quality());
+    if (limit <= 0) config_->set_save_dialog_quality(current_quality());
     saved_path_ = QDir::toNativeSeparators(path);
     accept();
 }

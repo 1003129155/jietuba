@@ -1535,10 +1535,11 @@ void PinWindow::save_image_with_system_dialog() {
         image_format = match.hasMatch() ? match.captured(1).toUpper() : QString("PNG");
         file_path = file_path + "." + image_format.toLower();
     }
-    when_pixels_ready([this, file_path, image_format] {
-        with_edit_paused([this, file_path, image_format] {
+    const auto options = save_service.options();
+    when_pixels_ready([this, file_path, image_format, options] {
+        with_edit_paused([this, file_path, image_format, options] {
             const auto image = get_current_image();
-            if (SaveService::save_qimage_to_path(image, file_path, image_format)) log_info(T("保存成功: {file_path}", {{"file_path", file_path}}), "PinWindow");
+            if (SaveService::save_qimage_to_path(image, file_path, image_format, options)) log_info(T("保存成功: {file_path}", {{"file_path", file_path}}), "PinWindow");
             else log_error(T("保存失败: {file_path}", {{"file_path", file_path}}), "PinWindow");
         });
     });
@@ -1659,8 +1660,9 @@ PinWindow::DragOut PinWindow::prepare_drag_out(const QPoint &global_pos) {
         // window that takes drops. The file for Explorer, in the format auto-save uses, is encoded off the UI thread meanwhile.
         const QImage image = get_current_image();
         content.image = ready_value(image);
-        const QString format = SaveService::format_for_size(config_manager ? config_manager->get_screenshot_format() : QString("PNG"), image.width(), image.height());
-        const auto encoded = prepare_in_background([image, format] { return SaveService::encode_image(image, format); });
+        const auto options = SaveOptions::from_settings(config_manager ? *config_manager : *get_tool_settings_manager());
+        const QString format = SaveService::format_for_size(config_manager ? config_manager->get_screenshot_format() : QString("PNG"), image.width(), image.height(), options);
+        const auto encoded = prepare_in_background([image, format, options] { return SaveService::encode_image(image, format, options); });
         content.made_files = {{base_name + "." + format.toLower(), [encoded](const QString &path) {
                                    const QByteArray bytes = encoded.get();
                                    QFile file(path);

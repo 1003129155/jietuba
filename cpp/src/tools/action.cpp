@@ -119,7 +119,8 @@ void ActionTools::handle_quick_save() {
     remember_last_region(rect);
     finish_when_ready(rect, [this, rect] {
         const auto image = export_service.export_image(rect);
-        const auto [success, path] = save_service->save_qimage(image, config_manager->get_screenshot_save_path(), "", "", config_manager->get_screenshot_format());
+        const auto [success, path] = save_service->save_qimage(image, config_manager->get_screenshot_save_path(), "", "", config_manager->get_screenshot_format(),
+                                                               save_service->options());
         // A path comes back even when the write failed, so it doubles as the detail line;
         // no path at all means the folder or the file name was the problem.
         const auto failure_detail = path ? *path : action_tr("Cannot create the save folder or reserve a file name.");
@@ -151,7 +152,7 @@ void ActionTools::save_image_interactively(QWidget *parent, const QImage &image,
     if (file_path.isEmpty()) return;
     const auto image_format = format_from_save_path(file_path, selected_filter);
     if (QFileInfo(file_path).suffix().isEmpty()) file_path = file_path + "." + image_format.toLower();
-    if (SaveService::save_qimage_to_path(image, file_path, image_format)) log_info(T("已保存到: {file_path}", {{"file_path", file_path}}), "Action");
+    if (SaveService::save_qimage_to_path(image, file_path, image_format, service->options())) log_info(T("已保存到: {file_path}", {{"file_path", file_path}}), "Action");
     else show_warning_dialog(parent, action_tr("Save Failed"), file_path);
 }
 
@@ -227,7 +228,8 @@ void ActionTools::save_original_beside(const QRectF &selection_rect, const QStri
     if (!has_annotations(scene->get_drawing_items_in_rect(selection_rect))) return;
     const auto original = export_service.export_base_image_only(selection_rect);
     const auto suffix = file_names::load(*config_manager).at(file_names::OriginalSuffix);
-    background_tasks::start_thread([original, saved_path, suffix] { SaveService::save_beside(original, saved_path, suffix); }, "SaveOriginal");
+    background_tasks::start_thread([original, saved_path, suffix, options = save_service->options()] { SaveService::save_beside(original, saved_path, suffix, options); },
+                                   "SaveOriginal");
 }
 
 void ActionTools::handle_screenshot_translate() {

@@ -7235,6 +7235,14 @@ gifrecorder가 올바르게 설치되었는지 확인하세요.</translation>
         <translation>스크린샷, 고정 이미지, 클립보드 이미지를 저장할 때 사용합니다.</translation>
     </message>
     <message>
+        <source>Image Quality</source>
+        <translation>이미지 품질</translation>
+    </message>
+    <message>
+        <source>Only affects JPG and WebP, in saves that do not open the save dialog.</source>
+        <translation>JPG와 WebP에만 영향을 주며, 저장 대화 상자를 거치지 않는 저장에 사용됩니다.</translation>
+    </message>
+    <message>
         <source>Modern (with preview)</source>
         <translation>모던(미리 보기 포함)</translation>
     </message>

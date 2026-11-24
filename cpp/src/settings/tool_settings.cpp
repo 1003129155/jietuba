@@ -569,6 +569,12 @@ void ToolSettingsManager::set_smart_selection_mode(const QString &value) {
     set_smart_selection(mode != "off");
 }
 
+int ToolSettingsManager::get_save_dialog_quality() const {
+    // Until the dialog stores one of its own it shows the quality it stored before it had its own.
+    const bool own = qsettings.contains(app_setting_path("save_dialog_quality"));
+    return std::clamp(own ? stored_save_dialog_quality().toInt() : get_screenshot_quality(), 1, 100);
+}
+
 QString ToolSettingsManager::get_ocr_engine() const { return choice_value(stored_ocr_engine(), default_ocr_engine(), OCR_ENGINES); }
 
 void ToolSettingsManager::set_ocr_engine(const QString &value) { store_ocr_engine(choice_or_default(value, default_ocr_engine(), OCR_ENGINES)); }

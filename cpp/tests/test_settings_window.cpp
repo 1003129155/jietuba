@@ -225,6 +225,29 @@ private slots:
         config_->set_clipboard_hotkey("");
     }
 
+    // The image quality slider on the screenshot page: it shows the stored quality, a change is stored by
+    // the autosave, and resetting the page brings the default back.
+    void imageQualityCardStoresAndResets() {
+        config_->set_screenshot_quality(70);
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.build_all_pages();
+        auto *slider = dialog.attr<ValueSlider>("screenshot_quality_slider");
+        QVERIFY(slider);
+        QCOMPARE(slider->slider()->minimum(), 1);
+        QCOMPARE(slider->slider()->maximum(), 100);
+        QCOMPARE(slider->value(), 70);
+        QCOMPARE(slider->valueLabel()->text(), QString("70"));
+        slider->setValue(42);
+        QCOMPARE(slider->valueLabel()->text(), QString("42"));
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_screenshot_quality(), 42);
+        dialog.on_nav_changed(1, "capture");
+        reset_page(dialog);
+        QCOMPARE(slider->value(), config_->app_defaults().value("screenshot_quality").toInt());
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_screenshot_quality(), 85);
+    }
+
     void everyPageBuilds() {
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.build_all_pages();
@@ -1382,8 +1405,9 @@ private slots:
         QVERIFY(keys.contains("app/screenshot_toolbar_layout"));
         QVERIFY(keys.contains("pin/toolbar_layout"));
         // Settings no page shows stay out: the window could never show what was imported.
-        for (const char *key : {"app/clipboard_window_width", "clipboard/starter_groups_seeded", "gif/fps", "app/screenshot_quality"})
+        for (const char *key : {"app/clipboard_window_width", "clipboard/starter_groups_seeded", "gif/fps", "app/save_dialog_quality"})
             QVERIFY2(!keys.contains(key), key);
+        QVERIFY(keys.contains("app/screenshot_quality"));
         for (const auto &key : LOCAL_SETTING_PATHS()) QVERIFY2(!keys.contains(key), qPrintable(key));
         // A control a page edits by name has its setting imported.
         dialog.build_all_pages();
@@ -3836,22 +3860,22 @@ private slots:
         SaveService service(config);
         QImage image(2, 2, QImage::Format_RGB32);
         image.fill(Qt::red);
-        const auto first = service.save_qimage(image);
+        const auto first = service.save_qimage(image, {}, {}, {}, "PNG", {});
         QVERIFY(first.first);
         QCOMPARE(QFileInfo(*first.second).fileName(), QString("shot.png"));
-        const auto second = service.save_qimage(image);
+        const auto second = service.save_qimage(image, {}, {}, {}, "PNG", {});
         QVERIFY(second.first);
         QCOMPARE(QFileInfo(*second.second).fileName(), QString("shot_1.png"));
         QCOMPARE(QImage(*first.second).pixelColor(0, 0), QColor(Qt::red));
-        const auto pin = service.save_qimage(image, {}, "pinned");
+        const auto pin = service.save_qimage(image, {}, "pinned", {}, "PNG", {});
         QVERIFY(pin.first);
         QCOMPARE(QFileInfo(*pin.second).fileName(), QString("pin.png"));
-        const auto long_shot = service.save_qimage(image, {}, "horizontal");
+        const auto long_shot = service.save_qimage(image, {}, "horizontal", {}, "PNG", {});
         QVERIFY(long_shot.first);
         QCOMPARE(QFileInfo(*long_shot.second).fileName(), QString("article_horizontal.png"));
         QCOMPARE(file_names::stem(config, file_names::Gif), QString("animation"));
         QCOMPARE(file_names::stem(config, file_names::Video), QString("video"));
-        const auto original = SaveService::save_beside(image, *first.second, file_names::load(config).at(file_names::OriginalSuffix));
+        const auto original = SaveService::save_beside(image, *first.second, file_names::load(config).at(file_names::OriginalSuffix), {});
         QVERIFY(original);
         QCOMPARE(QFileInfo(*original).fileName(), QString("shot_source.png"));
         rules[0] = "../bad";
