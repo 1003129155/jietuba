@@ -21,6 +21,7 @@ namespace jietuba {
 class LineEdit;
 class PushButton;
 class SegmentedWidget;
+struct SaveOptions;
 class ToolSettingsManager;
 
 // Whether interactive saves open SaveImageDialog rather than the system Save As dialog.
@@ -188,6 +189,8 @@ public:
     QString target_path() const;
     QString current_format() const;
     int current_quality() const;
+    // What a save with the dialog's choices writes: the settings' options with the dialog's quality.
+    SaveOptions current_options() const;
     // The byte limit the quality is chosen under; 0 when off or the format has no quality.
     qint64 size_limit_bytes() const;
     QSize target_size() const;
@@ -240,7 +243,7 @@ private:
         int quality = -1;
         bool over_limit = false;
     };
-    static Encoded encode(const QImage &image, const QSize &size, const QString &format, int quality, qint64 limit_bytes);
+    static Encoded encode(const QImage &image, const QSize &size, const QString &format, const SaveOptions &options, qint64 limit_bytes);
     void schedule_encode();
     void start_encode();
     void on_encoded(int generation, const Encoded &result);

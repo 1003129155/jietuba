@@ -39,6 +39,10 @@ QWidget *create_developer_page(SettingsDialog *dialog);
 QWidget *create_about_page(SettingsDialog *dialog);
 // The quick actions group, laid out on the screenshot page.
 void add_quick_actions_group(SettingsDialog *dialog, QWidget *view, QVBoxLayout *layout);
+// The upload group (page_upload), laid out on the screenshot page: the default target, the targets and the link format.
+void add_upload_group(SettingsDialog *dialog, QWidget *view, QVBoxLayout *layout);
+// Builds the group again from the settings, after they were read from somewhere else (a refresh or an import).
+void refresh_upload_group(SettingsDialog *dialog);
 QWidget *create_mouse_page(SettingsDialog *dialog);
 QWidget *create_pin_page(SettingsDialog *dialog);
 QWidget *create_screen_annotation_page(SettingsDialog *dialog);

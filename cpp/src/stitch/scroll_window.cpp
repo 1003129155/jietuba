@@ -1464,8 +1464,9 @@ void ScrollCaptureWindow::on_quick_save() {
     const QPointer<ScrollCaptureWindow> guard(this);
     std::optional<QString> path;
     try {
-        path = SaveService(*config).save_qimage_async(image, config->get_screenshot_save_path(), file_prefix(), "", config->get_screenshot_format(),
-        SaveService::DEFAULT_PDF_DPI, [guard](bool ok, QString path) {
+        const SaveService service(*config);
+        path = service.save_qimage_async(image, config->get_screenshot_save_path(), file_prefix(), "", config->get_screenshot_format(),
+        service.options(), [guard](bool ok, QString path) {
             QMetaObject::invokeMethod(qApp, [guard, ok, path] {
                 if (!guard || !guard->stitcher_) return;
                 guard->quick_saving_ = false;

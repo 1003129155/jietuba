@@ -2238,6 +2238,14 @@ Replace it?</source>
         <source>This pin is only %1 × %2 pixels. Pin it anyway?</source>
         <translation>这个钉图只有 %1 × %2 像素，仍要钉到屏幕上吗？</translation>
     </message>
+    <message>
+        <source>None of the selected files could be pinned</source>
+        <translation>所选文件都无法钉到屏幕</translation>
+    </message>
+    <message>
+        <source>[Only the first 64 KB of the file is shown]</source>
+        <translation>[只显示了文件的前 64 KB]</translation>
+    </message>
 </context>
 
 <!-- ========== Pin Click-Through Bar ========== -->
@@ -2852,6 +2860,30 @@ Replace it?</source>
     <message>
         <source>Youdao AI Cloud Console</source>
         <translation>有道智云控制台</translation>
+    </message>
+    <message>
+        <source>File Explorer</source>
+        <translation>资源管理器</translation>
+    </message>
+    <message>
+        <source>Right-Click Menu</source>
+        <translation>右键菜单</translation>
+    </message>
+    <message>
+        <source>Right-click files in File Explorer and choose "Pin to Screen with jietuba". Windows 11 lists it under Show more options.</source>
+        <translation>在资源管理器里右键文件，选「用截图吧钉到屏幕」。Windows 11 里在「显示更多选项」中。</translation>
+    </message>
+    <message>
+        <source>Right-click files in File Explorer and choose "Pin to Screen with jietuba".</source>
+        <translation>在资源管理器里右键文件，选「用截图吧钉到屏幕」。</translation>
+    </message>
+    <message>
+        <source>Images</source>
+        <translation>图片</translation>
+    </message>
+    <message>
+        <source>Images and Text Files</source>
+        <translation>图片和文本文件</translation>
     </message>
 </context>
 
@@ -7264,6 +7296,46 @@ Make sure gifrecorder is installed correctly.</source>
         <translation>保存截图、钉图和剪贴板图片时使用。</translation>
     </message>
     <message>
+        <source>PNG Compression</source>
+        <translation>PNG 压缩</translation>
+    </message>
+    <message>
+        <source>A higher level makes smaller PNG files and saves more slowly.</source>
+        <translation>级别越高，PNG 文件越小，保存越慢。</translation>
+    </message>
+    <message>
+        <source>Low (Faster)</source>
+        <translation>低（保存更快）</translation>
+    </message>
+    <message>
+        <source>High (Smaller)</source>
+        <translation>高（文件更小）</translation>
+    </message>
+    <message>
+        <source>PDF Page Size</source>
+        <translation>PDF 页面大小</translation>
+    </message>
+    <message>
+        <source>A4 shrinks a wide image to fit and splits a long screenshot over several pages.</source>
+        <translation>A4 会缩小过宽的图片，并把长截图分到多页。</translation>
+    </message>
+    <message>
+        <source>A4 Portrait</source>
+        <translation>A4 纵向</translation>
+    </message>
+    <message>
+        <source>A4 Landscape</source>
+        <translation>A4 横向</translation>
+    </message>
+    <message>
+        <source>Image Quality</source>
+        <translation>图像质量</translation>
+    </message>
+    <message>
+        <source>Only affects JPG and WebP, in saves that do not open the save dialog.</source>
+        <translation>只影响 JPG 和 WebP，且只用于不打开保存对话框的保存。</translation>
+    </message>
+    <message>
         <source>Modern (with preview)</source>
         <translation>现代（带预览）</translation>
     </message>
@@ -7777,6 +7849,319 @@ Replace it?</source>
     <message>
         <source>Configure API</source>
         <translation>配置 API</translation>
+    </message>
+</context>
+<context>
+    <name>ExplorerMenu</name>
+    <message>
+        <source>Pin to Screen with jietuba</source>
+        <translation>用截图吧钉到屏幕</translation>
+    </message>
+</context>
+<context>
+    <name>CloudUpload</name>
+    <message>
+        <source>Upload timed out</source>
+        <translation>上传超时</translation>
+    </message>
+    <message>
+        <source>Upload failed: network error</source>
+        <translation>上传失败：网络错误</translation>
+    </message>
+    <message>
+        <source>Upload failed: the image could not be encoded</source>
+        <translation>上传失败：图片编码失败</translation>
+    </message>
+    <message>
+        <source>Upload failed: HTTP %1</source>
+        <translation>上传失败：HTTP %1</translation>
+    </message>
+    <message>
+        <source>Upload failed: HTTP %1, %2</source>
+        <translation>上传失败：HTTP %1，%2</translation>
+    </message>
+    <message>
+        <source>Check the access key, the secret key and the region.</source>
+        <translation>请检查 Access Key、Secret Key 和区域。</translation>
+    </message>
+    <message>
+        <source>The access key ID is not known to this service.</source>
+        <translation>该服务不认识这个 Access Key ID。</translation>
+    </message>
+    <message>
+        <source>Check that this key may write to the bucket.</source>
+        <translation>请检查该密钥是否有写入存储桶的权限。</translation>
+    </message>
+    <message>
+        <source>The bucket does not exist.</source>
+        <translation>存储桶不存在。</translation>
+    </message>
+    <message>
+        <source>Check the date and time of this computer.</source>
+        <translation>请检查本机的日期和时间。</translation>
+    </message>
+    <message>
+        <source>The region or the endpoint is wrong.</source>
+        <translation>区域或服务端点不对。</translation>
+    </message>
+    <message>
+        <source>Add an upload target in Settings first</source>
+        <translation>先在设置里添加上传配置</translation>
+    </message>
+    <message>
+        <source>Uploading...</source>
+        <translation>正在上传…</translation>
+    </message>
+    <message>
+        <source>Uploaded, link copied</source>
+        <translation>已上传，链接已复制</translation>
+    </message>
+    <message>
+        <source>Upload</source>
+        <translation>上传</translation>
+    </message>
+    <message>
+        <source>Test upload succeeded</source>
+        <translation>测试上传成功</translation>
+    </message>
+</context>
+<context>
+    <name>UploadTargetDialog</name>
+    <message>
+        <source>Add Upload Target</source>
+        <translation>添加上传配置</translation>
+    </message>
+    <message>
+        <source>Edit Upload Target</source>
+        <translation>编辑上传配置</translation>
+    </message>
+    <message>
+        <source>AWS S3</source>
+        <translation>AWS S3</translation>
+    </message>
+    <message>
+        <source>Cloudflare R2</source>
+        <translation>Cloudflare R2</translation>
+    </message>
+    <message>
+        <source>Alibaba Cloud OSS</source>
+        <translation>阿里云 OSS</translation>
+    </message>
+    <message>
+        <source>Tencent Cloud COS</source>
+        <translation>腾讯云 COS</translation>
+    </message>
+    <message>
+        <source>MinIO or other</source>
+        <translation>MinIO 或其他</translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation>名称</translation>
+    </message>
+    <message>
+        <source>Service</source>
+        <translation>服务商</translation>
+    </message>
+    <message>
+        <source>Endpoint</source>
+        <translation>服务端点</translation>
+    </message>
+    <message>
+        <source>Region</source>
+        <translation>区域</translation>
+    </message>
+    <message>
+        <source>Bucket</source>
+        <translation>存储桶</translation>
+    </message>
+    <message>
+        <source>Access Key ID</source>
+        <translation>Access Key ID</translation>
+    </message>
+    <message>
+        <source>Secret Access Key</source>
+        <translation>Secret Access Key</translation>
+    </message>
+    <message>
+        <source>Path Prefix</source>
+        <translation>路径前缀</translation>
+    </message>
+    <message>
+        <source>Addressing</source>
+        <translation>寻址方式</translation>
+    </message>
+    <message>
+        <source>Public Address (optional)</source>
+        <translation>公开访问地址（可选）</translation>
+    </message>
+    <message>
+        <source>Link Preview</source>
+        <translation>链接预览</translation>
+    </message>
+    <message>
+        <source>Path-style</source>
+        <translation>路径式</translation>
+    </message>
+    <message>
+        <source>Virtual-hosted</source>
+        <translation>虚拟主机式</translation>
+    </message>
+    <message>
+        <source>Test Upload</source>
+        <translation>测试上传</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>保存</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <source>Fill in the endpoint and the bucket to see the link.</source>
+        <translation>填好服务端点和存储桶后显示链接。</translation>
+    </message>
+    <message>
+        <source>Uploading...</source>
+        <translation>正在上传…</translation>
+    </message>
+    <message>
+        <source>Test upload succeeded: %1</source>
+        <translation>测试上传成功：%1</translation>
+    </message>
+    <message>
+        <source>Enter a name.</source>
+        <translation>请填写名称。</translation>
+    </message>
+    <message>
+        <source>This name is already used.</source>
+        <translation>这个名称已被使用。</translation>
+    </message>
+    <message>
+        <source>Enter the service endpoint.</source>
+        <translation>请填写服务端点。</translation>
+    </message>
+    <message>
+        <source>The endpoint must be an http:// or https:// address without account, query or fragment.</source>
+        <translation>服务端点必须是 http:// 或 https:// 地址，不带账号、查询参数和片段。</translation>
+    </message>
+    <message>
+        <source>Enter the region (Cloudflare R2 uses auto).</source>
+        <translation>请填写区域（Cloudflare R2 填 auto）。</translation>
+    </message>
+    <message>
+        <source>The region can only contain letters, digits, dots, hyphens and underscores.</source>
+        <translation>区域只能包含字母、数字、点、连字符和下划线。</translation>
+    </message>
+    <message>
+        <source>Enter the bucket name.</source>
+        <translation>请填写存储桶名称。</translation>
+    </message>
+    <message>
+        <source>The bucket name cannot contain '/' or spaces.</source>
+        <translation>存储桶名称不能含有 / 或空格。</translation>
+    </message>
+    <message>
+        <source>Enter the access key ID.</source>
+        <translation>请填写 Access Key ID。</translation>
+    </message>
+    <message>
+        <source>The access key ID cannot contain spaces.</source>
+        <translation>Access Key ID 不能含有空格。</translation>
+    </message>
+    <message>
+        <source>Enter the secret access key.</source>
+        <translation>请填写 Secret Access Key。</translation>
+    </message>
+    <message>
+        <source>The secret access key cannot contain spaces.</source>
+        <translation>Secret Access Key 不能含有空格。</translation>
+    </message>
+    <message>
+        <source>The public address must be an http:// or https:// address.</source>
+        <translation>公开访问地址必须是 http:// 或 https:// 地址。</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Upload</source>
+        <translation>上传</translation>
+    </message>
+    <message>
+        <source>Default Upload Target</source>
+        <translation>默认上传目标</translation>
+    </message>
+    <message>
+        <source>The target the upload buttons and the upload shortcut send to.</source>
+        <translation>上传按钮和上传快捷键使用的目标。</translation>
+    </message>
+    <message>
+        <source>Upload Targets</source>
+        <translation>上传配置</translation>
+    </message>
+    <message>
+        <source>S3-compatible storage such as AWS S3, Cloudflare R2, Alibaba Cloud OSS, Tencent Cloud COS or MinIO.</source>
+        <translation>兼容 S3 的存储，如 AWS S3、Cloudflare R2、阿里云 OSS、腾讯云 COS 或 MinIO。</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>添加</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>删除</translation>
+    </message>
+    <message>
+        <source>Link Format</source>
+        <translation>链接格式</translation>
+    </message>
+    <message>
+        <source>What is copied after an upload.</source>
+        <translation>上传后复制到剪贴板的内容。</translation>
+    </message>
+    <message>
+        <source>Link</source>
+        <translation>链接</translation>
+    </message>
+    <message>
+        <source>Markdown</source>
+        <translation>Markdown</translation>
+    </message>
+    <message>
+        <source>HTML</source>
+        <translation>HTML</translation>
+    </message>
+    <message>
+        <source>Delete Upload Target</source>
+        <translation>删除上传配置</translation>
+    </message>
+    <message>
+        <source>Delete the upload target "%1"?</source>
+        <translation>删除上传配置“%1”？</translation>
+    </message>
+</context>
+<context>
+    <name>Toolbar</name>
+    <message>
+        <source>Upload to cloud storage</source>
+        <translation>上传到云存储</translation>
+    </message>
+</context>
+<context>
+    <name>ToolbarLayoutDialog</name>
+    <message>
+        <source>Upload</source>
+        <translation>上传</translation>
+    </message>
+</context>
+<context>
+    <name>PinWindow</name>
+    <message>
+        <source>Upload</source>
+        <translation>上传</translation>
     </message>
 </context>
 </TS>

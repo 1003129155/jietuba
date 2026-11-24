@@ -120,7 +120,8 @@ HttpCancellationScope::HttpCancellationScope(HttpCancellation *cancellation) : p
 
 HttpCancellationScope::~HttpCancellationScope() { current_cancellation = previous_; }
 
-HttpResponse http_request(const QString &method, const QString &url, const HttpHeaders &headers, const QByteArray &body, double timeout_seconds) {
+HttpResponse http_request(const QString &method, const QString &url, const HttpHeaders &headers, const QByteArray &body, double timeout_seconds,
+                          const HttpOptions &options) {
     const HttpCancellation *cancellation = current_cancellation;
     if (cancellation && cancellation->cancelled()) return failure(ERROR_WINHTTP_OPERATION_CANCELLED);
     const auto wide_url = url.toStdWString();
@@ -155,6 +156,10 @@ HttpResponse http_request(const QString &method, const QString &url, const HttpH
         return failure(error);
     }
     const AsyncRequest request{handle, completion};
+    if (!options.follow_redirects) {
+        DWORD policy = WINHTTP_OPTION_REDIRECT_POLICY_NEVER;
+        WinHttpSetOption(handle, WINHTTP_OPTION_REDIRECT_POLICY, &policy, sizeof policy);
+    }
     const auto step = [&](auto &&start) -> DWORD {
         completion.error = 0;
         if (!start()) return GetLastError();

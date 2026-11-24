@@ -64,6 +64,7 @@ SETTING(inapp_translate, "inapp/inapp_translate", QString, "shift+c", Import, Ge
 SETTING(inapp_text_recognize, "inapp/inapp_text_recognize", QString, "shift+t", Import, Gen, Gen)
 SETTING(inapp_save, "inapp/inapp_save", QString, "ctrl+s", Import, Gen, Gen)
 SETTING(inapp_quick_save, "inapp/inapp_quick_save", QString, "ctrl+shift+s", Import, Gen, Gen)
+SETTING(inapp_upload, "inapp/inapp_upload", QString, "", Import, Gen, Gen)
 SETTING(inapp_clipboard_quick_edit, "inapp/inapp_clipboard_quick_edit", QString, "tab", Import, Gen, Gen)
 SETTING(inapp_clipboard_edit_save, "inapp/inapp_clipboard_edit_save", QString, "ctrl+enter", Import, Gen, Gen)
 SETTING(inapp_clipboard_edit_save_paste, "inapp/inapp_clipboard_edit_save_paste", QString, "ctrl+shift+enter", Import, Gen, Gen)
@@ -141,7 +142,14 @@ SETTING(screenshot_save_original_enabled, "app/screenshot_save_original_enabled"
 // Absolute paths seldom exist on another computer: the save, dialog, log and clipboard database folders stay Local.
 SETTING(screenshot_save_path, "app/screenshot_save_path", QString, QDir::toNativeSeparators(QDir::homePath() + "/Pictures/jietuba_photos"), Local, Own, Own)
 SETTING(screenshot_format, "app/screenshot_format", QString, "PNG", Import, Gen, Own)
-SETTING(screenshot_quality, "app/screenshot_quality", int, 85, Internal, Gen, Own)
+// JPG and WebP quality of every save that does not go through the save dialog.
+SETTING(screenshot_quality, "app/screenshot_quality", int, 85, Import, Gen, Own)
+// low / medium / high: zlib level 1 / 6 / 9 of every PNG written.
+SETTING(png_compression, "app/png_compression", QString, "medium", Import, Own, Own)
+// image / a4_portrait / a4_landscape: the page of a PDF written by a save.
+SETTING(pdf_page_size, "app/pdf_page_size", QString, "image", Import, Own, Own)
+// The save dialog's own quality; before it is first written it reads as screenshot_quality.
+SETTING(save_dialog_quality, "app/save_dialog_quality", int, 85, Internal, Own, Own)
 SETTING(save_filename_patterns, "app/save_filename_patterns", QStringList, {}, Import, Gen, Gen)
 SETTING(save_dialog_style, "app/save_dialog_style", QString, "modern", Import, Gen, Gen)
 SETTING(save_dialog_format, "app/save_dialog_format", QString, "", Internal, Gen, Gen)
@@ -151,6 +159,10 @@ SETTING(save_dialog_aspect_locked, "app/save_dialog_aspect_locked", bool, false,
 SETTING(save_dialog_size_limited, "app/save_dialog_size_limited", bool, false, Internal, Gen, Gen)
 SETTING(save_dialog_size_limit_kb, "app/save_dialog_size_limit_kb", int, 200, Internal, Gen, Gen)
 SETTING(clipboard_file_reference_enabled, "app/clipboard_file_reference_enabled", bool, true, Import, Gen, Gen)
+// Cloud upload: the targets as a JSON array (upload/s3_target.h), the id of the one the upload buttons use, and the copied link's form.
+SETTING(upload_targets, "upload/targets", QString, "", Import, Gen, Gen)
+SETTING(upload_default_target, "upload/default_target", QString, "", Import, Gen, Gen)
+SETTING(upload_link_format, "upload/link_format", QString, "url", Import, Gen, Gen)
 SETTING(screenshot_rounded_enabled, "app/screenshot_rounded_enabled", bool, false, Internal, Gen, Gen)
 SETTING(screenshot_rounded_radius, "app/screenshot_rounded_radius", int, 16, Internal, Gen, Gen)
 SETTING(screenshot_border_enabled, "app/screenshot_border_enabled", bool, false, Internal, Gen, Gen)
@@ -370,6 +382,8 @@ SETTING(pin_hover_buttons, "pin/hover_buttons", bool, false, Import, Gen, Gen)
 SETTING(pin_clipboard_image, "pin/clipboard_image", bool, true, Import, Gen, Gen)
 SETTING(pin_clipboard_text, "pin/clipboard_text", bool, true, Import, Gen, Gen)
 SETTING(pin_clipboard_file, "pin/clipboard_file", bool, true, Import, Gen, Gen)
+// off, images or images_text: which files Explorer's right-click menu offers to pin (core/explorer_menu).
+SETTING(explorer_context_menu, "app/explorer_context_menu", QString, "off", Import, Gen, Gen)
 SETTING(pin_text_formatting, "pin/text_formatting", bool, true, Import, Gen, Gen)
 // Pinning what an open pin already shows shakes that pin instead of opening another.
 SETTING(pin_point_out_repeats, "pin/point_out_repeats", bool, true, Import, Gen, Gen)

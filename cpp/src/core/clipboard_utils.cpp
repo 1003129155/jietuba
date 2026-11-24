@@ -177,14 +177,14 @@ void enqueue_clipboard_job(std::function<void()> job) {
 }
 
 void start_save(const std::shared_ptr<Delivery> &delivery, const QImage &image, const std::shared_ptr<SaveService> &save_service,
-                const SaveKwargs &save_kwargs, const QString &target_path, const QImage &original) {
+                const SaveKwargs &save_kwargs, const SaveOptions &options, const QString &target_path, const QImage &original) {
     const auto original_suffix = file_names::load(save_service->config_manager).at(file_names::OriginalSuffix);
-    auto worker = [delivery, image, save_service, save_kwargs, target_path, original, original_suffix] {
+    auto worker = [delivery, image, save_service, save_kwargs, options, target_path, original, original_suffix] {
         const auto started = std::chrono::steady_clock::now();
         try {
             const auto [save_ok, saved_path] = save_service->save_qimage(image, save_kwargs.directory, save_kwargs.prefix, {},
-                                                                         save_kwargs.image_format, SaveService::DEFAULT_PDF_DPI, target_path);
-            if (save_ok && !original.isNull() && saved_path) SaveService::save_beside(original, *saved_path, original_suffix);
+                                                                         save_kwargs.image_format, options, target_path);
+            if (save_ok && !original.isNull() && saved_path) SaveService::save_beside(original, *saved_path, original_suffix, options);
             log_debug(T("图像投递: 后台保存完成 save={save_ok} {ms:.1f}ms",
                         {{"save_ok", save_ok}, {"ms", std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count()}}), "Clipboard");
         } catch (const std::exception &e) {
@@ -267,6 +267,8 @@ std::shared_ptr<Delivery> deliver_image_async(const QImage &image, bool copy_to_
 #else
     const bool windows = true;
 #endif
+    // Read here, on the caller's thread; the saves below run on worker threads.
+    const SaveOptions options = save_service ? save_service->options() : SaveOptions{};
     if (!copy_to_clipboard || !windows) {
         if (copy_to_clipboard) {
             log_debug(T("图像投递: 非 Windows 平台，剪贴板仍走主线程回退"), "Clipboard");
@@ -274,13 +276,13 @@ std::shared_ptr<Delivery> deliver_image_async(const QImage &image, bool copy_to_
         }
         if (!save_service) return nullptr;
         auto delivery = std::make_shared<Delivery>(1);
-        start_save(delivery, image, save_service, save_kwargs, QString(), original);
+        start_save(delivery, image, save_service, save_kwargs, options, QString(), original);
         return delivery;
     }
     auto delivery = std::make_shared<Delivery>(save_service ? 2 : 1);
     const bool reserve = save_service && write_file_reference;
     ensure_main_thread_clipboard();
-    enqueue_clipboard_job([delivery, image, save_service, save_kwargs, reserve, original] {
+    enqueue_clipboard_job([delivery, image, save_service, save_kwargs, options, reserve, original] {
         // This part counts as done however the job ends.
         struct PartDone {
             Delivery &delivery;
@@ -295,7 +297,7 @@ std::shared_ptr<Delivery> deliver_image_async(const QImage &image, bool copy_to_
                 log_warning(T("图像投递: 预留保存路径失败，剪贴板不写入文件路径 ({exc})", {{"exc", exception_text(e)}}), "Clipboard");
             }
         }
-        if (save_service) start_save(delivery, image, save_service, save_kwargs, target_path, original);
+        if (save_service) start_save(delivery, image, save_service, save_kwargs, options, target_path, original);
         copy_image_to_clipboard(image, target_path);
     });
     return delivery;
@@ -320,7 +322,7 @@ std::shared_ptr<Delivery> deliver_screenshot(const QImage &image, ToolSettingsMa
         if (!save_service) save_service = std::make_shared<SaveService>(*config_manager);
         save_kwargs.directory = config_manager->get_screenshot_save_path();
         save_kwargs.prefix = file_prefix.isEmpty() && trigger == "pin" ? QString("pinned") : file_prefix;
-        save_kwargs.image_format = SaveService::format_for_size(config_manager->get_screenshot_format(), image.width(), image.height());
+        save_kwargs.image_format = SaveService::format_for_size(config_manager->get_screenshot_format(), image.width(), image.height(), save_service->options());
         // A file path exists only once auto-save writes the file, so this switch is read only then.
         write_file_reference = config_manager->get_clipboard_file_reference_enabled();
         if (!config_manager->get_screenshot_save_original_enabled()) original = QImage();

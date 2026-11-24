@@ -62,7 +62,7 @@ ScreenshotShortcutHandler::ScreenshotShortcutHandler(ScreenshotWindow *window) :
         "inapp_confirm", "inapp_pin", "inapp_undo", "inapp_redo",
         "inapp_delete", "inapp_restore_last_region",
         "inapp_zoom_in", "inapp_zoom_out", "inapp_translate",
-        "inapp_text_recognize", "inapp_save", "inapp_quick_save",
+        "inapp_text_recognize", "inapp_save", "inapp_quick_save", "inapp_upload",
     };
     for (const auto &entry : ANNOTATION_TOOL_SHORTCUTS()) {
         tool_shortcuts_.emplace_back(entry.config_key, entry.tool_id);
@@ -168,7 +168,7 @@ bool ScreenshotShortcutHandler::handle_key(QInputEvent *event) {
         }
     }
     // Held down, the repeats are consumed: the first press already ends the capture.
-    for (const auto &[cfg_key, action] : {std::pair{"inapp_save", "save"}, std::pair{"inapp_quick_save", "quick_save"}}) {
+    for (const auto &[cfg_key, action] : {std::pair{"inapp_save", "save"}, std::pair{"inapp_quick_save", "quick_save"}, std::pair{"inapp_upload", "upload"}}) {
         if (!match(event, cfg_key) || !w->scene || !w->scene->selection_model->is_confirmed()) continue;
         if (!event_is_auto_repeat(event)) w->action_handler->handle_capture_action(action);
         return true;
@@ -518,6 +518,9 @@ void ScreenshotWindow::connect_toolbar_signals() {
     });
     connect(toolbar, &Toolbar::quick_save_clicked, this, [this] {
         if (action_handler) action_handler->handle_quick_save();
+    });
+    connect(toolbar, &Toolbar::upload_clicked, this, [this] {
+        if (action_handler) action_handler->handle_upload();
     });
     connect(toolbar, &Toolbar::pin_clicked, this, [this] {
         if (action_handler) action_handler->handle_pin();

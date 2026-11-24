@@ -214,6 +214,9 @@ if(JIETUBA_UPDATES)
     qt_add_resources(jietuba_cpp jietuba_updater PREFIX /updater BASE ${JIETUBA_UPDATER_DIR} FILES ${JIETUBA_UPDATER_EXE})
 endif()
 
+# The packaged build's Explorer command (a COM DLL with a static runtime, no Qt).
+add_subdirectory(explorer_command)
+
 include(CTest)
 if(BUILD_TESTING)
     # QtTest output never reaches ctest's pipe; each test also writes its report here, read by
@@ -395,12 +398,21 @@ if(BUILD_TESTING)
                  readAloudGroupFitsEveryLanguageInTheNarrowestWindow everyPageFitsEveryLanguageAtTheMinimumWidth translationApiTabFitsEveryLanguageAtTheMinimumWidth
                  wizardMouseGridFitsEveryLanguage wizardFinishPageFitsEveryLanguage
                  longScreenshotMousePageFitsEveryLanguage fileNameDialogFitsEveryLanguageAndFollowsWindowScale fileNameDialogDoesNotMoveWhileTyping
-                 fileNameDialogErrorsStayVisibleAndKeepPastedText)
+                 fileNameDialogErrorsStayVisibleAndKeepPastedText saveOptionCardsFitEveryLanguage explorerMenuCardFitsEveryLanguageAtEveryScale)
         set_tests_properties(settings_window_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
         add_test(NAME settings_nav_desktop COMMAND jietuba_settings_window_tests -o ${JIETUBA_TEST_REPORTS}/settings_nav_desktop.txt,txt -platform windows
                  navigationFitsEveryLanguageAtEveryScale)
         set_tests_properties(settings_nav_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
+        add_test(NAME upload_desktop COMMAND jietuba_settings_window_tests -o ${JIETUBA_TEST_REPORTS}/upload_desktop.txt,txt -platform windows
+                 uploadGroupAndDialogFitEveryLanguage)
+        set_tests_properties(upload_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
     endif()
+    # Explorer's right-click entry: command line, hand-over to the running instance, registry verbs
+    # under a throwaway key, the packaged build's preference file.
+    qt_add_executable(jietuba_explorer_menu_tests tests/test_explorer_menu.cpp)
+    target_link_libraries(jietuba_explorer_menu_tests PRIVATE jietuba_lib Qt6::Test)
+    add_test(NAME explorer_menu COMMAND jietuba_explorer_menu_tests -o ${JIETUBA_TEST_REPORTS}/explorer_menu.txt,txt)
+    set_tests_properties(explorer_menu PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     qt_add_executable(jietuba_data_folder_tests tests/test_data_folder.cpp)
     target_link_libraries(jietuba_data_folder_tests PRIVATE jietuba_lib Qt6::Test)
     add_test(NAME data_folder COMMAND jietuba_data_folder_tests -o ${JIETUBA_TEST_REPORTS}/data_folder.txt,txt)
@@ -466,6 +478,10 @@ if(BUILD_TESTING)
         add_test(NAME save_image_dialog_desktop COMMAND jietuba_save_image_dialog_tests -o ${JIETUBA_TEST_REPORTS}/save_image_dialog_desktop.txt,txt -platform windows theSizeLimitRowFitsEveryLanguage)
         set_tests_properties(save_image_dialog_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
     endif()
+    qt_add_executable(jietuba_save_options_tests tests/test_save_options.cpp)
+    target_link_libraries(jietuba_save_options_tests PRIVATE jietuba_lib Qt6::Test)
+    add_test(NAME save_options COMMAND jietuba_save_options_tests -o ${JIETUBA_TEST_REPORTS}/save_options.txt,txt)
+    set_tests_properties(save_options PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     # The PP-OCR pack is not in the repository; the PP-OCR cases copy it from this folder when set.
     # CI names it in the environment.
     set(JIETUBA_PPOCR_MODELS "$ENV{JIETUBA_PPOCR_MODELS}" CACHE PATH "Folder holding the PP-OCR pack (models and onnxruntime.dll) for the OCR tests")
@@ -512,6 +528,19 @@ if(BUILD_TESTING)
     target_link_libraries(jietuba_http_provider_tests PRIVATE jietuba_lib Qt6::Test Qt6::Network)
     add_test(NAME http_providers COMMAND jietuba_http_provider_tests -o ${JIETUBA_TEST_REPORTS}/http_providers.txt,txt)
     set_tests_properties(http_providers PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    # The packaged Explorer command's logic, the manifest it is registered by and its package script.
+    qt_add_executable(jietuba_explorer_command_tests tests/test_explorer_command.cpp)
+    target_link_libraries(jietuba_explorer_command_tests PRIVATE jietuba_lib jietuba_explorer_command_core Qt6::Test)
+    target_compile_definitions(jietuba_explorer_command_tests PRIVATE JIETUBA_CPP_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+        JIETUBA_EXPLORER_COMMAND_DLL="$<TARGET_FILE:jietuba_explorer_command>")
+    add_dependencies(jietuba_explorer_command_tests jietuba_explorer_command)
+    add_test(NAME explorer_command COMMAND jietuba_explorer_command_tests -o ${JIETUBA_TEST_REPORTS}/explorer_command.txt,txt)
+    set_tests_properties(explorer_command PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    # Cloud upload: the signature, addresses and keys, and the whole exchange against a local server.
+    qt_add_executable(jietuba_upload_tests tests/test_upload.cpp)
+    target_link_libraries(jietuba_upload_tests PRIVATE jietuba_lib Qt6::Test Qt6::Network)
+    add_test(NAME upload COMMAND jietuba_upload_tests -o ${JIETUBA_TEST_REPORTS}/upload.txt,txt)
+    set_tests_properties(upload PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     qt_add_executable(jietuba_logger_tests tests/test_logger.cpp)
     target_link_libraries(jietuba_logger_tests PRIVATE jietuba_lib Qt6::Test)
     add_test(NAME logger COMMAND jietuba_logger_tests -o ${JIETUBA_TEST_REPORTS}/logger.txt,txt)

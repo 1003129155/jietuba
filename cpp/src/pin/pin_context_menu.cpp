@@ -137,6 +137,8 @@ void PinContextMenu::add_menu_items(QMenu *menu, const PinMenuState &state) {
         add(menu, shortcut_text(pin_tr("Copy"), "inapp_copy_pin"), [win] { win->copy_to_clipboard(); });
     }
     add(menu, pin_tr("Save as"), [win] { win->save_image(); });
+    // The thumbnail menu stays the short one, and a list of files has no picture to upload.
+    if (!is_files && !is_thumbnail) add(menu, shortcut_text(pin_tr("Upload"), "inapp_upload"), [win] { win->upload_image(); });
     if (is_animation) {
         auto *animation = win->animation();
         menu->addSeparator();

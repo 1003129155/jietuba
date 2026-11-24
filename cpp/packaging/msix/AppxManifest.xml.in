@@ -2,8 +2,11 @@
 <Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
          xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
          xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+         xmlns:desktop4="http://schemas.microsoft.com/appx/manifest/desktop/windows10/4"
+         xmlns:desktop5="http://schemas.microsoft.com/appx/manifest/desktop/windows10/5"
+         xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
          xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-         IgnorableNamespaces="uap desktop rescap">
+         IgnorableNamespaces="uap desktop desktop4 desktop5 com rescap">
   <Identity Name="@IDENTITY_NAME@" Publisher="@PUBLISHER@" Version="@VERSION@" ProcessorArchitecture="@ARCH@" />
   <Properties>
     <DisplayName>@DISPLAY_NAME@</DisplayName>
@@ -33,6 +36,22 @@
         <desktop:Extension Category="windows.startupTask" Executable="@EXE@" EntryPoint="Windows.FullTrustApplication">
           <desktop:StartupTask TaskId="JietubaStartup" Enabled="false" DisplayName="@DISPLAY_NAME@" />
         </desktop:Extension>
+        <!-- The Explorer command: a COM server in the package's surrogate process, so "pin to screen" shows in
+             the first level of the Windows 11 menu. It reads the user's choice from LocalState (see
+             explorer_menu_contract.h); the extension list and the CLSID come from the C++ headers when the
+             package is built (scripts/explorer_menu_manifest.ps1). -->
+        <com:Extension Category="windows.comServer">
+          <com:ComServer>
+            <com:SurrogateServer DisplayName="@DISPLAY_NAME@">
+              <com:Class Id="@EXPLORER_COMMAND_CLSID@" Path="@EXPLORER_COMMAND_DLL@" ThreadingModel="STA" />
+            </com:SurrogateServer>
+          </com:ComServer>
+        </com:Extension>
+        <desktop4:Extension Category="windows.fileExplorerContextMenus">
+          <desktop4:FileExplorerContextMenus>
+@EXPLORER_ITEM_TYPES@
+          </desktop4:FileExplorerContextMenus>
+        </desktop4:Extension>
       </Extensions>
     </Application>
   </Applications>

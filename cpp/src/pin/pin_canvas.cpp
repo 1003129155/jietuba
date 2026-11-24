@@ -281,6 +281,7 @@ void PinCanvas::connect_toolbar(PinToolbar *toolbar, CanvasView *view) {
     // Saving and copying stay with the window.
     connect(toolbar, &Toolbar::save_clicked, parent_window, &PinWindow::save_image);
     connect(toolbar, &Toolbar::copy_clicked, parent_window, &PinWindow::copy_to_clipboard);
+    connect(toolbar, &Toolbar::upload_clicked, parent_window, &PinWindow::upload_image);
     undo_stack->print_stack_status();
 }
 

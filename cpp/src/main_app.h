@@ -26,6 +26,8 @@ class DisplayChangeWatcher;
 class GameModeMonitor;
 class GifRecordWindow;
 class HotkeySystem;
+class PinInbox;
+class PinRequestQueue;
 class PreloadManager;
 class QuickCaptureController;
 class ScreenAnnotation;
@@ -68,6 +70,12 @@ public:
     // A capture whose selection opens the recording window.
     void start_screen_recording();
     void open_settings();
+    // Files to pin: those on this process's command line and the ones other processes hand over
+    // through inbox (Explorer's menu entry). Pinned in batches at the cursor.
+    void accept_pin_requests(PinInbox &inbox, const QStringList &initial_files);
+    // Makes Explorer's right-click entry match the setting, the interface language and this
+    // executable's place.
+    void sync_explorer_menu();
     // Opens the settings window on one page (SettingsDialog::on_nav_changed's index and route).
     void open_settings_page(int stack_index, const QString &route_key);
     void open_translator();
@@ -176,6 +184,7 @@ private:
     bool record_pending_ = false;
     QPointer<ScreenshotCountdown> screenshot_countdown_;
     DisplayChangeWatcher *display_watcher_ = nullptr;
+    PinRequestQueue *pin_requests_ = nullptr;
     std::unique_ptr<PreloadManager> preloader_;
 };
 }

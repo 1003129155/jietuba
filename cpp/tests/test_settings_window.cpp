@@ -5,6 +5,7 @@
 #include "settings/data_folder.h"
 #include "core/elevation.h"
 #include "core/i18n.h"
+#include "core/package_identity.h"
 #include "core/resource_manager.h"
 #include "ocr/ocr_manager.h"
 #include "ocr/ppocr_models.h"
@@ -14,6 +15,7 @@
 #include "core/ui_scale.h"
 #include "core/updater_process.h"
 #include "ui/color_picker_dialog.h"
+#include "ui/fluent_lite/buttons.h"
 #include "ui/fluent_lite/cards.h"
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/labels.h"
@@ -28,6 +30,8 @@
 #include "ui/settings_ui/components.h"
 #include "ui/settings_ui/pages.h"
 #include "ui/settings_ui/search.h"
+#include "ui/settings_ui/upload_target_dialog.h"
+#include "upload/s3_target.h"
 #include "ui/toolbar_layout.h"
 #include "ui/welcome/demo_paint.h"
 #include "ui/welcome/pages.h"
@@ -96,6 +100,30 @@ void answer_next(bool yes) {
         modal->accept();
     });
     timer->start(20);
+}
+
+// Runs act on the upload target dialog once it opens; the dialog is closed afterwards if act left it open.
+void drive_upload_dialog(std::function<void(UploadTargetDialog *)> act) {
+    auto *timer = new QTimer;
+    QElapsedTimer waited;
+    waited.start();
+    QObject::connect(timer, &QTimer::timeout, [timer, act, waited] {
+        auto *dialog = qobject_cast<UploadTargetDialog *>(QApplication::activeModalWidget());
+        if (!dialog && waited.elapsed() < 3000) return;
+        timer->stop();
+        timer->deleteLater();
+        if (!dialog) return;
+        act(dialog);
+        if (dialog->isVisible()) dialog->reject();
+    });
+    timer->start(20);
+}
+
+void fill_upload_target(UploadTargetDialog *dialog, const QString &name, const QString &bucket) {
+    dialog->name_edit->setText(name);
+    dialog->bucket_edit->setText(bucket);
+    dialog->access_key_edit->setText("AKID");
+    dialog->secret_edit->setText("secret");
 }
 
 // Clicks "Reset This Page" and confirms its question.
@@ -223,6 +251,63 @@ private slots:
         // the defaults (Ctrl+1, Ctrl+2); a rarely used one keeps these tests independent of it.
         config_->set_hotkey("ctrl+alt+shift+f10");
         config_->set_clipboard_hotkey("");
+    }
+
+    // The image quality slider on the screenshot page: it shows the stored quality, a change is stored by
+    // the autosave, and resetting the page brings the default back.
+    void imageQualityCardStoresAndResets() {
+        config_->set_screenshot_quality(70);
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.build_all_pages();
+        auto *slider = dialog.attr<ValueSlider>("screenshot_quality_slider");
+        QVERIFY(slider);
+        QCOMPARE(slider->slider()->minimum(), 1);
+        QCOMPARE(slider->slider()->maximum(), 100);
+        QCOMPARE(slider->value(), 70);
+        QCOMPARE(slider->valueLabel()->text(), QString("70"));
+        slider->setValue(42);
+        QCOMPARE(slider->valueLabel()->text(), QString("42"));
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_screenshot_quality(), 42);
+        dialog.on_nav_changed(1, "capture");
+        reset_page(dialog);
+        QCOMPARE(slider->value(), config_->app_defaults().value("screenshot_quality").toInt());
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_screenshot_quality(), 85);
+    }
+
+    // The PNG compression and PDF page size cards on the screenshot page: their choices, stored by the autosave and reset with the page.
+    void pngAndPdfCardsStoreAndReset() {
+        config_->set_png_compression("medium");
+        config_->set_pdf_page_size("image");
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.build_all_pages();
+        auto *png = dialog.attr<QComboBox>("png_compression_combo");
+        auto *pdf = dialog.attr<QComboBox>("pdf_page_size_combo");
+        QVERIFY(png && pdf);
+        QCOMPARE(png->count(), 3);
+        QCOMPARE(pdf->count(), 3);
+        QCOMPARE(png->currentData().toString(), QString("medium"));
+        QCOMPARE(pdf->currentData().toString(), QString("image"));
+        png->setCurrentIndex(png->findData("high"));
+        pdf->setCurrentIndex(pdf->findData("a4_landscape"));
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_png_compression(), QString("high"));
+        QCOMPARE(config_->get_pdf_page_size(), QString("a4_landscape"));
+        // A new window shows what was stored.
+        {
+            SettingsDialog again(config_, config_->get_hotkey());
+            again.build_all_pages();
+            QCOMPARE(again.attr<QComboBox>("png_compression_combo")->currentData().toString(), QString("high"));
+            QCOMPARE(again.attr<QComboBox>("pdf_page_size_combo")->currentData().toString(), QString("a4_landscape"));
+        }
+        dialog.on_nav_changed(1, "capture");
+        reset_page(dialog);
+        QCOMPARE(png->currentData().toString(), QString("medium"));
+        QCOMPARE(pdf->currentData().toString(), QString("image"));
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_png_compression(), QString("medium"));
+        QCOMPARE(config_->get_pdf_page_size(), QString("image"));
     }
 
     void everyPageBuilds() {
@@ -684,8 +769,9 @@ private slots:
         QCOMPARE(toggle->isChecked(), default_value);
     }
 
-    // The hotkey's kinds have a group of their own, second to last above the pin keys, one switch
-    // each; formatting, which the clipboard window's pins follow too, stays with the behaviour.
+    // The hotkey's kinds have a group of their own, third to last, one switch each, with the
+    // Explorer entry's group and the pin keys after it; formatting, which the clipboard window's
+    // pins follow too, stays with the behaviour.
     void pinClipboardKindsAndFormattingSaveAndReset() {
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.show();
@@ -704,7 +790,7 @@ private slots:
         QVERIFY(own && group_of(text) == own && group_of(files) == own);
         auto groups = own->parentWidget()->findChildren<SettingCardGroup *>(Qt::FindDirectChildrenOnly);
         std::sort(groups.begin(), groups.end(), [](QWidget *a, QWidget *b) { return a->y() < b->y(); });
-        QCOMPARE(groups.indexOf(own), groups.size() - 2);
+        QCOMPARE(groups.indexOf(own), groups.size() - 3);
         QVERIFY(!groups.last()->findChildren<QPushButton *>().isEmpty());
         QVERIFY(group_of(formatting) == group_of(dialog.attr_widget("pin_auto_toolbar_toggle")));
         // Stacked, one row per kind.
@@ -785,6 +871,71 @@ private slots:
         QVERIFY(dialog.apply_settings());
         QVERIFY(config_->get_auto_select_number());
         dialog.hide();
+    }
+
+    // The Explorer entry's group follows the clipboard hotkey's; its choice saves and resets with the page.
+    void explorerMenuChoiceSavesAndResets() {
+        config_->set_explorer_context_menu("off");
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.on_nav_changed(11, "pin");
+        auto *combo = qobject_cast<QComboBox *>(dialog.behavior_control("explorer_context_menu"));
+        QVERIFY(combo);
+        QStringList modes;
+        for (int i = 0; i < combo->count(); ++i) modes << combo->itemData(i).toString();
+        QCOMPARE(modes, QStringList({"off", "images", "images_text"}));
+        QCOMPARE(combo->itemText(0), settings_tr("Off"));
+        QCOMPARE(combo->itemText(1), settings_tr("Images"));
+        QCOMPARE(combo->itemText(2), settings_tr("Images and Text Files"));
+        QCOMPARE(combo->currentData().toString(), QString("off"));
+        const auto group_of = [](QWidget *widget) -> SettingCardGroup * {
+            for (QWidget *w = widget; w; w = w->parentWidget())
+                if (auto *group = qobject_cast<SettingCardGroup *>(w)) return group;
+            return nullptr;
+        };
+        auto *own = group_of(combo);
+        QVERIFY(own);
+        QCOMPARE(own->titleLabel->text(), settings_tr("File Explorer"));
+        auto groups = own->parentWidget()->findChildren<SettingCardGroup *>(Qt::FindDirectChildrenOnly);
+        std::sort(groups.begin(), groups.end(), [](QWidget *a, QWidget *b) { return a->y() < b->y(); });
+        QCOMPARE(groups[groups.indexOf(own) - 1]->titleLabel->text(), settings_tr("Pin from Clipboard"));
+        // Nothing is written until the choice changes.
+        QVERIFY(dialog.apply_settings());
+        QVERIFY(dialog.saved_keys().isEmpty());
+        combo->setCurrentIndex(combo->findData(QString("images_text")));
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_explorer_context_menu(), QString("images_text"));
+        QVERIFY(dialog.saved_keys().contains("explorer_context_menu"));
+        {
+            SettingsDialog again(config_, config_->get_hotkey());
+            again.on_nav_changed(11, "pin");
+            auto *loaded = qobject_cast<QComboBox *>(again.behavior_control("explorer_context_menu"));
+            QVERIFY(loaded);
+            QCOMPARE(loaded->currentData().toString(), QString("images_text"));
+        }
+        reset_page(dialog);
+        QCOMPARE(combo->currentData().toString(), QString("off"));
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_explorer_context_menu(), QString("off"));
+        QVERIFY(dialog.saved_keys().contains("explorer_context_menu"));
+        dialog.hide();
+    }
+
+    // Windows 11 hides a registry entry under "Show more options"; the packaged build's entry is on the first level.
+    void explorerMenuCardTellsWhereTheEntryIsPerBuild() {
+        const auto description = [this](bool packaged) {
+            set_packaged_for_test(packaged);
+            SettingsDialog dialog(config_, config_->get_hotkey());
+            dialog.on_nav_changed(11, "pin");
+            for (QWidget *w = dialog.behavior_control("explorer_context_menu"); w; w = w->parentWidget())
+                if (auto *card = qobject_cast<SettingCard *>(w)) return card->contentLabel->text();
+            return QString();
+        };
+        const auto restore = qScopeGuard([] { set_packaged_for_test(std::nullopt); });
+        const QString portable = description(false), packaged = description(true);
+        QCOMPARE(portable, settings_tr("Right-click files in File Explorer and choose \"Pin to Screen with jietuba\". Windows 11 lists it under Show more options."));
+        QCOMPARE(packaged, settings_tr("Right-click files in File Explorer and choose \"Pin to Screen with jietuba\"."));
+        QVERIFY(portable != packaged);
     }
 
     void captureEngineComboLoadsSavesAndResets() {
@@ -1286,6 +1437,49 @@ private slots:
         }
     }
 
+    // The image quality, PNG compression and PDF page size cards in every language at the window's narrowest and largest scale:
+    // titles and captions keep their whole text, a combo shows its longest choice and the slider keeps its value.
+    void saveOptionCardsFitEveryLanguage() {
+        if (QGuiApplication::platformName() != "windows") QSKIP("needs desktop fonts");
+        const auto language = I18nManager::get_current_language();
+        const int scale = get_dialog_scale().percent();
+        const auto restore = qScopeGuard([&] { get_dialog_scale().set_percent(scale); I18nManager::load_language(language); });
+        for (const int percent : {100, 150, 200}) {
+            get_dialog_scale().set_percent(percent);
+            for (const auto *code : {"zh", "zh_TW", "en", "ja", "ko"}) {
+                QVERIFY(I18nManager::load_language(code));
+                SettingsDialog dialog(config_, config_->get_hotkey());
+                dialog.fit_to_available({4000, dialog.height()});
+                dialog.build_all_pages();
+                dialog.resize(0, dialog.height());
+                dialog.show();
+                dialog.on_nav_changed(1, "capture");
+                QApplication::processEvents();
+                for (const char *title : {"Image Quality", "PNG Compression", "PDF Page Size"}) {
+                    const QString where = QString("%1 at %2%%, %3").arg(code).arg(percent).arg(settings_tr(title));
+                    SettingCard *card = nullptr;
+                    for (auto *candidate : dialog.findChildren<SettingCard *>())
+                        if (candidate->titleLabel->text() == settings_tr(title)) card = candidate;
+                    QVERIFY2(card && card->isVisible(), qPrintable(where));
+                    QVERIFY2(card->width() >= card->layout()->totalMinimumSize().width(), qPrintable(where + ": the card is squeezed"));
+                    QVERIFY2(card->titleLabel->width() >= card->titleLabel->sizeHint().width(), qPrintable(where + ": the title is cut"));
+                    QVERIFY2(card->contentLabel->height() >= card->contentLabel->heightForWidth(card->contentLabel->width()), qPrintable(where + ": the caption is cut"));
+                    for (auto *combo : card->findChildren<ComboBox *>()) {
+                        const QFontMetrics metrics(combo->font());
+                        for (int index = 0; index < combo->count(); ++index) {
+                            const int needs = metrics.horizontalAdvance(combo->itemText(index)) + widget_scaled(combo, 2 * INPUT_PADDING_H + 18);
+                            QVERIFY2(combo->width() >= needs, qPrintable(QString("%1: %2 needs %3, has %4").arg(where, combo->itemText(index)).arg(needs).arg(combo->width())));
+                        }
+                    }
+                    for (auto *slider : card->findChildren<ValueSlider *>()) {
+                        QVERIFY2(slider->valueLabel()->width() >= slider->valueLabel()->sizeHint().width(), qPrintable(where + ": the value is cut"));
+                        QVERIFY2(slider->slider()->width() >= slider->slider()->minimumWidth(), qPrintable(where + ": the slider is squeezed"));
+                    }
+                }
+            }
+        }
+    }
+
     void globalLongScreenshotCanRebindClearAndTransfer() {
         QSettings settings(dir_.filePath("long-shortcut-save.ini"), QSettings::IniFormat);
         settings.clear();
@@ -1428,8 +1622,9 @@ private slots:
         QVERIFY(keys.contains("app/screenshot_toolbar_layout"));
         QVERIFY(keys.contains("pin/toolbar_layout"));
         // Settings no page shows stay out: the window could never show what was imported.
-        for (const char *key : {"app/clipboard_window_width", "clipboard/starter_groups_seeded", "gif/fps", "app/screenshot_quality"})
+        for (const char *key : {"app/clipboard_window_width", "clipboard/starter_groups_seeded", "gif/fps", "app/save_dialog_quality"})
             QVERIFY2(!keys.contains(key), key);
+        for (const char *key : {"app/screenshot_quality", "app/png_compression", "app/pdf_page_size"}) QVERIFY2(keys.contains(key), key);
         for (const auto &key : LOCAL_SETTING_PATHS()) QVERIFY2(!keys.contains(key), qPrintable(key));
         // A control a page edits by name has its setting imported.
         dialog.build_all_pages();
@@ -2937,6 +3132,54 @@ private slots:
         QVERIFY2(problems.isEmpty(), qPrintable(problems.join('\n')));
     }
 
+    // The Explorer entry's card in every language, at every window scale and the minimum width: the
+    // title and description keep their lines and the dropdown shows each choice whole.
+    void explorerMenuCardFitsEveryLanguageAtEveryScale() {
+        // Text widths need real fonts, which the offscreen platform does not have.
+        if (QGuiApplication::platformName() != "windows") QSKIP("needs -platform windows");
+        auto &scale = get_dialog_scale();
+        const int percent_before = scale.percent();
+        const QString language = I18nManager::get_current_language();
+        const auto restore = qScopeGuard([&scale, percent_before, language] {
+            set_packaged_for_test(std::nullopt);
+            scale.set_percent(percent_before);
+            I18nManager::load_language(language);
+        });
+        QStringList problems;
+        for (const bool packaged : {false, true})
+            for (const int percent : {100, 150, 200}) {
+                scale.set_percent(percent);
+                set_packaged_for_test(packaged);
+                for (const char *code : {"zh", "zh_TW", "en", "ja", "ko"}) {
+                    QVERIFY(I18nManager::load_language(code));
+                    SettingsDialog dialog(config_, config_->get_hotkey());
+                    dialog.fit_to_available({4000, dialog.height()});
+                    dialog.build_all_pages();
+                    dialog.resize(0, dialog.height());
+                    dialog.show();
+                    dialog.on_nav_changed(11, "pin");
+                    QApplication::processEvents();
+                    const QString where = QString("%1 at %2%%3").arg(code).arg(percent).arg(packaged ? ", packaged" : "");
+                    auto *combo = qobject_cast<QComboBox *>(dialog.behavior_control("explorer_context_menu"));
+                    QVERIFY(combo);
+                    SettingCard *card = nullptr;
+                    for (QWidget *w = combo; w && !card; w = w->parentWidget()) card = qobject_cast<SettingCard *>(w);
+                    QVERIFY(card);
+                    if (combo->width() < combo->sizeHint().width()) problems << where + ": the dropdown is narrower than its content";
+                    const QFontMetrics metrics(combo->font());
+                    for (int i = 0; i < combo->count(); ++i)
+                        if (metrics.horizontalAdvance(combo->itemText(i)) > combo->width()) problems << where + ": " + combo->itemText(i) + " does not fit the dropdown";
+                    if (card->titleLabel->width() < card->titleLabel->sizeHint().width()) problems << where + ": the title is cut";
+                    if (card->layout()->totalMinimumSize().width() > card->width()) problems << where + ": the card needs more width than it has";
+                    // A description that wraps keeps every line.
+                    auto *label = card->contentLabel;
+                    if (label->wordWrap() && label->height() < label->heightForWidth(label->width())) problems << where + ": the description loses lines";
+                    if (dialog.width() != dialog.minimumWidth()) problems << where + ": the window grew";
+                }
+            }
+        QVERIFY2(problems.isEmpty(), qPrintable(problems.join('\n')));
+    }
+
     // The translation page's tabs and every provider card in every language at the window's minimum
     // width: the chips, the name with its tags and the buttons keep their whole text, wrapped text
     // keeps every line, and nothing scrolls sideways.
@@ -3882,22 +4125,22 @@ private slots:
         SaveService service(config);
         QImage image(2, 2, QImage::Format_RGB32);
         image.fill(Qt::red);
-        const auto first = service.save_qimage(image);
+        const auto first = service.save_qimage(image, {}, {}, {}, "PNG", {});
         QVERIFY(first.first);
         QCOMPARE(QFileInfo(*first.second).fileName(), QString("shot.png"));
-        const auto second = service.save_qimage(image);
+        const auto second = service.save_qimage(image, {}, {}, {}, "PNG", {});
         QVERIFY(second.first);
         QCOMPARE(QFileInfo(*second.second).fileName(), QString("shot_1.png"));
         QCOMPARE(QImage(*first.second).pixelColor(0, 0), QColor(Qt::red));
-        const auto pin = service.save_qimage(image, {}, "pinned");
+        const auto pin = service.save_qimage(image, {}, "pinned", {}, "PNG", {});
         QVERIFY(pin.first);
         QCOMPARE(QFileInfo(*pin.second).fileName(), QString("pin.png"));
-        const auto long_shot = service.save_qimage(image, {}, "horizontal");
+        const auto long_shot = service.save_qimage(image, {}, "horizontal", {}, "PNG", {});
         QVERIFY(long_shot.first);
         QCOMPARE(QFileInfo(*long_shot.second).fileName(), QString("article_horizontal.png"));
         QCOMPARE(file_names::stem(config, file_names::Gif), QString("animation"));
         QCOMPARE(file_names::stem(config, file_names::Video), QString("video"));
-        const auto original = SaveService::save_beside(image, *first.second, file_names::load(config).at(file_names::OriginalSuffix));
+        const auto original = SaveService::save_beside(image, *first.second, file_names::load(config).at(file_names::OriginalSuffix), {});
         QVERIFY(original);
         QCOMPARE(QFileInfo(*original).fileName(), QString("shot_source.png"));
         rules[0] = "../bad";
@@ -4163,6 +4406,414 @@ private slots:
 
 
 
+    // A new target starts from the first provider; a mistake shows beside its own field, and the link a screenshot
+    // would get follows the fields.
+    void uploadDialogChecksFieldsBesideThemAndPreviewsTheLink() {
+        upload::Target existing;
+        existing.id = "old";
+        existing.name = "Main";
+        upload::Target blank;
+        blank.id = "new";
+        UploadTargetDialog dialog(blank, {existing}, true);
+        QCOMPARE(dialog.endpoint_edit->text(), QString("https://s3.us-east-1.amazonaws.com"));
+        QCOMPARE(dialog.region_edit->text(), QString("us-east-1"));
+        QCOMPARE(dialog.addressing_combo->currentData().toString(), QString("virtual"));
+        const auto shown = [&dialog](const char *field) {
+            auto *label = dialog.errors.value(field);
+            return label && !label->isHidden() && !label->text().isEmpty();
+        };
+        QVERIFY(!dialog.validate_fields());
+        QVERIFY(shown("name") && shown("bucket") && shown("access_key_id") && shown("secret_access_key"));
+        QVERIFY(!shown("endpoint") && !shown("region") && !shown("public_url"));
+        QCOMPARE(dialog.errors.value("name")->text(), i18n_tr("Enter a name.", "UploadTargetDialog"));
+        // A name used by another target in any letter case, an endpoint that is no http address, a bucket with a slash.
+        dialog.name_edit->setText("main");
+        dialog.endpoint_edit->setText("ftp://x");
+        dialog.bucket_edit->setText("a/b");
+        QVERIFY(!dialog.validate_fields());
+        QVERIFY(shown("name") && shown("endpoint") && shown("bucket"));
+        QCOMPARE(dialog.errors.value("name")->text(), i18n_tr("This name is already used.", "UploadTargetDialog"));
+        // Editing a field stops showing what was said about it.
+        dialog.name_edit->setText("Other");
+        QVERIFY(!shown("name") && shown("endpoint"));
+        dialog.endpoint_edit->setText("  https://s3.us-east-1.amazonaws.com ");
+        dialog.bucket_edit->setText(" my-bucket ");
+        dialog.access_key_edit->setText("AKID");
+        dialog.secret_edit->setText("secret");
+        QVERIFY(dialog.validate_fields());
+        const auto target = dialog.target();
+        QCOMPARE(target.id, QString("new"));
+        QCOMPARE(target.name, QString("Other"));
+        QCOMPARE(target.endpoint, QString("https://s3.us-east-1.amazonaws.com"));
+        QCOMPARE(target.bucket, QString("my-bucket"));
+        QCOMPARE(target.access_key_id, QString("AKID"));
+        QCOMPARE(target.addressing, upload::Addressing::Virtual);
+        // The preview is the link of an example name, with the prefix, and follows the addressing and the public address.
+        const int year = QDate::currentDate().year();
+        QCOMPARE(dialog.preview_text(), QString("https://my-bucket.s3.us-east-1.amazonaws.com/Screenshot-1a2b3c4d.png"));
+        dialog.prefix_edit->setText("shots/{yyyy}");
+        QCOMPARE(dialog.preview_text(), QString("https://my-bucket.s3.us-east-1.amazonaws.com/shots/%1/Screenshot-1a2b3c4d.png").arg(year));
+        dialog.addressing_combo->setCurrentIndex(0);
+        QCOMPARE(dialog.preview_text(), QString("https://s3.us-east-1.amazonaws.com/my-bucket/shots/%1/Screenshot-1a2b3c4d.png").arg(year));
+        dialog.addressing_combo->setCurrentIndex(1);
+        dialog.bucket_edit->setText("my.bucket");
+        QVERIFY2(dialog.preview_text().startsWith("https://s3.us-east-1.amazonaws.com/my.bucket/"), qPrintable(dialog.preview_text()));
+        dialog.public_edit->setText("https://cdn.test/img/");
+        QCOMPARE(dialog.preview_text(), QString("https://cdn.test/img/shots/%1/Screenshot-1a2b3c4d.png").arg(year));
+        dialog.public_edit->setText("cdn.test");
+        QVERIFY(!dialog.validate_fields());
+        QVERIFY(shown("public_url"));
+        QVERIFY(!dialog.preview_text().startsWith("http"));
+    }
+
+    // Picking a provider fills its endpoint, region and addressing; the region of a provider that carries it in the
+    // endpoint carries it along until the endpoint is changed by hand.
+    void uploadDialogProvidersFillTheirTemplates() {
+        upload::Target blank;
+        blank.id = "new";
+        UploadTargetDialog dialog(blank, {}, true);
+        const auto pick = [&dialog](int index) {
+            dialog.preset_combo->setCurrentIndex(index);
+            emit dialog.preset_combo->activated(index);
+        };
+        pick(2);
+        QCOMPARE(dialog.endpoint_edit->text(), QString("https://s3.oss-cn-hangzhou.aliyuncs.com"));
+        QCOMPARE(dialog.region_edit->text(), QString("cn-hangzhou"));
+        QCOMPARE(dialog.addressing_combo->currentData().toString(), QString("virtual"));
+        pick(3);
+        QCOMPARE(dialog.endpoint_edit->text(), QString("https://cos.ap-guangzhou.myqcloud.com"));
+        QCOMPARE(dialog.region_edit->text(), QString("ap-guangzhou"));
+        pick(1);
+        QCOMPARE(dialog.endpoint_edit->text(), QString("https://<ACCOUNT_ID>.r2.cloudflarestorage.com"));
+        QCOMPARE(dialog.region_edit->text(), QString("auto"));
+        QCOMPARE(dialog.addressing_combo->currentData().toString(), QString("path"));
+        // The R2 template is not an address until the account id is put in.
+        QVERIFY(!dialog.validate_fields());
+        QVERIFY(!dialog.errors.value("endpoint")->isHidden());
+        dialog.endpoint_edit->setText("https://0123abcd.r2.cloudflarestorage.com");
+        QVERIFY(dialog.errors.value("endpoint")->isHidden());
+        pick(4);
+        QCOMPARE(dialog.endpoint_edit->text(), QString("http://localhost:9000"));
+        QCOMPARE(dialog.region_edit->text(), QString("us-east-1"));
+        QCOMPARE(dialog.addressing_combo->currentData().toString(), QString("path"));
+        pick(0);
+        QCOMPARE(dialog.endpoint_edit->text(), QString("https://s3.us-east-1.amazonaws.com"));
+        dialog.region_edit->setText("eu-west-1");
+        emit dialog.region_edit->textEdited("eu-west-1");
+        QCOMPARE(dialog.endpoint_edit->text(), QString("https://s3.eu-west-1.amazonaws.com"));
+        dialog.endpoint_edit->setText("https://custom.example.com");
+        dialog.region_edit->setText("ap-1");
+        emit dialog.region_edit->textEdited("ap-1");
+        QCOMPARE(dialog.endpoint_edit->text(), QString("https://custom.example.com"));
+        // An existing target shows what it holds and the provider its endpoint belongs to.
+        upload::Target saved;
+        saved.id = "s";
+        saved.name = "Oss";
+        saved.endpoint = "https://s3.oss-cn-beijing.aliyuncs.com";
+        saved.region = "cn-beijing";
+        saved.bucket = "b";
+        saved.access_key_id = "AK";
+        saved.secret_access_key = "SK";
+        saved.addressing = upload::Addressing::Virtual;
+        UploadTargetDialog edit(saved, {}, false);
+        QCOMPARE(edit.preset_combo->currentIndex(), 2);
+        QCOMPARE(edit.name_edit->text(), QString("Oss"));
+        QCOMPARE(edit.endpoint_edit->text(), saved.endpoint);
+        QCOMPARE(edit.addressing_combo->currentData().toString(), QString("virtual"));
+        QCOMPARE(edit.secret_edit->echoMode(), QLineEdit::Password);
+        QVERIFY(edit.validate_fields());
+        saved.endpoint = "https://storage.internal.example";
+        UploadTargetDialog other(saved, {}, false);
+        QCOMPARE(other.preset_combo->currentIndex(), 4);
+        // An endpoint carrying the account is still the provider's, by its domain.
+        saved.endpoint = "https://0123456789abcdef.r2.cloudflarestorage.com";
+        UploadTargetDialog r2(saved, {}, false);
+        QCOMPARE(r2.preset_combo->currentIndex(), 1);
+    }
+
+    void uploadDialogFollowsTheWindowScaleAndNotThePanelScale() {
+        const auto restore = qScopeGuard([] {
+            get_dialog_scale().set_percent(100);
+            get_ui_scale().set_percent(100);
+        });
+        upload::Target blank;
+        blank.id = "new";
+        get_dialog_scale().set_percent(100);
+        get_ui_scale().set_percent(100);
+        UploadTargetDialog normal(blank, {}, true);
+        normal.show();
+        QCOMPARE(normal.width(), 600);
+        const int edit_height = normal.name_edit->height();
+        const int button_width = normal.save_button->width();
+        get_ui_scale().set_percent(200);
+        UploadTargetDialog panels(blank, {}, true);
+        panels.show();
+        QCOMPARE(panels.width(), normal.width());
+        QCOMPARE(panels.name_edit->height(), edit_height);
+        get_ui_scale().set_percent(100);
+        get_dialog_scale().set_percent(150);
+        UploadTargetDialog large(blank, {}, true);
+        large.show();
+        // The offscreen screen is narrower than 900 plus its margins, so the width is the screen's.
+        QVERIFY(large.width() > normal.width());
+        QVERIFY(large.name_edit->height() > edit_height);
+        QVERIFY(large.save_button->width() > button_width);
+        QVERIFY(large.height() <= large.screen()->availableGeometry().height());
+    }
+
+    // Targets are added, edited and deleted from the page; the default and the list follow at once.
+    void uploadGroupAddsEditsAndDeletesTargets() {
+        const auto reset = qScopeGuard([this] {
+            config_->set_upload_targets("");
+            config_->set_upload_default_target("");
+            config_->set_upload_link_format("url");
+        });
+        config_->set_upload_targets("");
+        config_->set_upload_default_target("");
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.on_nav_changed(1, "capture");
+        const auto combo = [&dialog] { return dialog.attr<QComboBox>("upload_default_combo"); };
+        const auto stored = [this] { return upload::parse_targets(config_->get_upload_targets()); };
+        QVERIFY(combo());
+        QCOMPARE(combo()->count(), 1);
+        QCOMPARE(combo()->currentData().toString(), QString());
+        const auto add = [&](const QString &name, const QString &bucket, int items) {
+            drive_upload_dialog([&](UploadTargetDialog *editor) {
+                fill_upload_target(editor, name, bucket);
+                editor->save_button->click();
+            });
+            dialog.findChild<QPushButton *>("upload_add_button")->click();
+            QTRY_COMPARE(combo()->count(), items);
+        };
+        add("Main", "bucket-one", 2);
+        QCOMPARE(stored().size(), size_t(1));
+        const QString first = stored()[0].id;
+        QVERIFY(!first.isEmpty());
+        // The first target added is the default.
+        QCOMPARE(config_->get_upload_default_target(), first);
+        QCOMPARE(combo()->currentData().toString(), first);
+        QCOMPARE(combo()->itemText(1), QString("Main"));
+        auto *card = dialog.findChild<SettingCard *>("upload_target_" + first);
+        QVERIFY(card);
+        QCOMPARE(card->titleLabel->text(), QString("Main"));
+        // The bucket and the host, which may break after its dots.
+        QCOMPARE(card->contentLabel->text().remove(QChar(0x200B)), QString::fromUtf8("bucket-one · s3.us-east-1.amazonaws.com"));
+        add("Second", "bucket-two", 3);
+        QCOMPARE(stored().size(), size_t(2));
+        const QString second = stored()[1].id;
+        QCOMPARE(stored()[1].bucket, QString("bucket-two"));
+        QCOMPARE(config_->get_upload_default_target(), first);
+        QCOMPARE(combo()->currentData().toString(), first);
+        // Editing shows what was saved; a name another target has stays refused.
+        drive_upload_dialog([&](UploadTargetDialog *editor) {
+            QCOMPARE(editor->name_edit->text(), QString("Second"));
+            QCOMPARE(editor->bucket_edit->text(), QString("bucket-two"));
+            QCOMPARE(editor->secret_edit->text(), QString("secret"));
+            editor->name_edit->setText("MAIN");
+            editor->save_button->click();
+            QVERIFY(editor->isVisible());
+            QVERIFY(!editor->errors.value("name")->isHidden());
+        });
+        dialog.findChild<QPushButton *>("upload_edit_" + second)->click();
+        QCOMPARE(stored()[1].name, QString("Second"));
+        drive_upload_dialog([&](UploadTargetDialog *editor) {
+            editor->name_edit->setText("Renamed");
+            editor->prefix_edit->setText("p/{dd}");
+            editor->save_button->click();
+        });
+        dialog.findChild<QPushButton *>("upload_edit_" + second)->click();
+        QTRY_COMPARE(combo()->itemText(2), QString("Renamed"));
+        QCOMPARE(stored()[1].path_prefix, QString("p/{dd}"));
+        QCOMPARE(stored()[1].id, second);
+        QCOMPARE(dialog.findChild<SettingCard *>("upload_target_" + second)->titleLabel->text(), QString("Renamed"));
+        // Cancelling changes nothing.
+        drive_upload_dialog([](UploadTargetDialog *editor) {
+            editor->name_edit->setText("Never saved");
+            editor->cancel_button->click();
+        });
+        dialog.findChild<QPushButton *>("upload_edit_" + second)->click();
+        QCOMPARE(stored()[1].name, QString("Renamed"));
+        // A delete is asked about first.
+        answer_next(false);
+        dialog.findChild<QPushButton *>("upload_delete_" + second)->click();
+        QCOMPARE(stored().size(), size_t(2));
+        answer_next(true);
+        dialog.findChild<QPushButton *>("upload_delete_" + second)->click();
+        QTRY_COMPARE(combo()->count(), 2);
+        QCOMPARE(stored().size(), size_t(1));
+        QCOMPARE(config_->get_upload_default_target(), first);
+        // Deleting the default clears it.
+        answer_next(true);
+        dialog.findChild<QPushButton *>("upload_delete_" + first)->click();
+        QTRY_COMPARE(combo()->count(), 1);
+        QVERIFY(stored().empty());
+        QCOMPARE(config_->get_upload_default_target(), QString());
+        QCOMPARE(combo()->currentData().toString(), QString());
+        QVERIFY(!dialog.findChild<SettingCard *>("upload_target_" + first));
+    }
+
+    // The default and the link format are chosen in their combos and saved like any setting; the page's reset keeps
+    // the targets, whose keys would be lost.
+    void uploadGroupSavesTheDefaultAndTheLinkFormat() {
+        const auto reset = qScopeGuard([this] {
+            config_->set_upload_targets("");
+            config_->set_upload_default_target("");
+            config_->set_upload_link_format("url");
+        });
+        upload::Target a, b;
+        a.id = "a";
+        a.name = "A";
+        a.endpoint = "http://localhost:9000";
+        b = a;
+        b.id = "b";
+        b.name = "B";
+        config_->set_upload_targets(upload::serialize_targets({a, b}));
+        config_->set_upload_default_target("a");
+        config_->set_upload_link_format("url");
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.on_nav_changed(1, "capture");
+        auto *targets = dialog.attr<QComboBox>("upload_default_combo");
+        QCOMPARE(targets->count(), 3);
+        QCOMPARE(targets->currentData().toString(), QString("a"));
+        targets->setCurrentIndex(targets->findData("b"));
+        auto *format = dialog.attr<QComboBox>("upload_format_combo");
+        QCOMPARE(format->count(), 3);
+        QCOMPARE(format->currentData().toString(), QString("url"));
+        format->setCurrentIndex(format->findData("markdown"));
+        dialog.apply_settings();
+        QCOMPARE(config_->get_upload_default_target(), QString("b"));
+        QCOMPARE(config_->get_upload_link_format(), QString("markdown"));
+        reset_page(dialog);
+        dialog.apply_settings();
+        QCOMPARE(config_->get_upload_link_format(), QString("url"));
+        QCOMPARE(upload::parse_targets(config_->get_upload_targets()).size(), size_t(2));
+        QCOMPARE(config_->get_upload_default_target(), QString("b"));
+    }
+
+    // What changed in the settings from outside, or came from an imported file, shows in the list.
+    void uploadGroupFollowsTheSettingsReadFromElsewhere() {
+        const auto reset = qScopeGuard([this] {
+            config_->set_upload_targets("");
+            config_->set_upload_default_target("");
+        });
+        config_->set_upload_targets("");
+        config_->set_upload_default_target("");
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.on_nav_changed(1, "capture");
+        upload::Target a, b;
+        a.id = "a";
+        a.name = "A";
+        a.endpoint = "http://localhost:9000";
+        b = a;
+        b.id = "b";
+        b.name = "B";
+        config_->set_upload_targets(upload::serialize_targets({a, b}));
+        config_->set_upload_default_target("b");
+        dialog.refresh_settings();
+        auto *combo = dialog.attr<QComboBox>("upload_default_combo");
+        QCOMPARE(combo->count(), 3);
+        QCOMPARE(combo->currentData().toString(), QString("b"));
+        QVERIFY(dialog.findChild<SettingCard *>("upload_target_a"));
+        QVERIFY(dialog.findChild<SettingCard *>("upload_target_b"));
+        // An import writes the list and the default, and the window shows them.
+        upload::Target c = a;
+        c.id = "c";
+        c.name = "C";
+        dialog.load_imported_settings({{"upload/targets", upload::serialize_targets({c})}, {"upload/default_target", "c"}});
+        QCOMPARE(config_->get_upload_default_target(), QString("c"));
+        QCOMPARE(upload::parse_targets(config_->get_upload_targets()).size(), size_t(1));
+        combo = dialog.attr<QComboBox>("upload_default_combo");
+        QCOMPARE(combo->count(), 2);
+        QCOMPARE(combo->currentData().toString(), QString("c"));
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QVERIFY(!dialog.findChild<SettingCard *>("upload_target_a"));
+        QVERIFY(dialog.findChild<SettingCard *>("upload_target_c"));
+    }
+
+    // The upload shortcut is a row of the screenshot window's keys, empty by default, saved like the others.
+    void uploadShortcutHasARowAndSavesWithTheOtherKeys() {
+        const auto reset = qScopeGuard([this] { config_->set_inapp_shortcut("inapp_upload", ""); });
+        config_->set_inapp_shortcut("inapp_upload", "");
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.on_nav_changed(0, "shortcuts");
+        auto *edit = dialog.inapp_edit("inapp_upload");
+        QVERIFY(edit);
+        QCOMPARE(edit->text(), QString());
+        QCOMPARE(dialog.inapp_groups.value("inapp_upload"), QString("screenshot"));
+        edit->setText("ctrl+u");
+        dialog.apply_settings();
+        QCOMPARE(config_->get_inapp_shortcut("inapp_upload"), QString("ctrl+u"));
+    }
+
+    // The upload group and its dialog in every language and scale: needs real fonts.
+    void uploadGroupAndDialogFitEveryLanguage() {
+        if (QGuiApplication::platformName() != "windows") QSKIP("needs -platform windows");
+        auto &scale = get_dialog_scale();
+        const int percent_before = scale.percent();
+        const QString language = I18nManager::get_current_language();
+        const auto restore = qScopeGuard([this, &scale, percent_before, language] {
+            scale.set_percent(percent_before);
+            I18nManager::load_language(language);
+            config_->set_upload_targets("");
+            config_->set_upload_default_target("");
+        });
+        upload::Target target;
+        target.id = "a";
+        target.name = "Cloudflare R2 team screenshots";
+        target.endpoint = "https://0123456789abcdef.r2.cloudflarestorage.com";
+        config_->set_upload_targets(upload::serialize_targets({target}));
+        config_->set_upload_default_target("a");
+        QStringList problems;
+        for (const int percent : {100, 150, 200}) {
+            scale.set_percent(percent);
+            for (const char *code : {"zh", "zh_TW", "en", "ja", "ko"}) {
+                QVERIFY(I18nManager::load_language(code));
+                const QString where = QString("%1 at %2%").arg(code).arg(percent);
+                {
+                    SettingsDialog dialog(config_, config_->get_hotkey());
+                    dialog.fit_to_available({4000, dialog.height()});
+                    dialog.build_all_pages();
+                    dialog.resize(0, dialog.height());
+                    dialog.show();
+                    dialog.on_nav_changed(1, "capture");
+                    QApplication::processEvents();
+                    auto *group = dialog.attr<QWidget>("upload_group");
+                    QVERIFY(group);
+                    for (auto *widget : group->findChildren<QWidget *>()) {
+                        if (!widget->isVisible()) continue;
+                        if (auto *button = qobject_cast<QPushButton *>(widget); button && button->width() < button->sizeHint().width())
+                            problems << where + ": button " + button->text() + " is cut";
+                        if (!widget->layout()) continue;
+                        const int needs = widget->layout()->totalMinimumSize().width();
+                        if (needs > widget->width()) problems << QString("%1: %2 needs %3, has %4").arg(where, widget->metaObject()->className()).arg(needs).arg(widget->width());
+                    }
+                    auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+                    if (scroll->horizontalScrollBar()->maximum() > 0) problems << where + ": the page scrolls sideways";
+                }
+                UploadTargetDialog editor(target, {}, false);
+                editor.show();
+                QApplication::processEvents();
+                for (auto *button : editor.findChildren<QPushButton *>())
+                    if (button->width() < button->sizeHint().width()) problems << where + ": dialog button " + button->text() + " is cut";
+                for (auto *label : editor.findChildren<QLabel *>()) {
+                    if (!label->isVisible() || label->wordWrap()) continue;
+                    if (label->width() < label->sizeHint().width() && label->objectName() != "upload_preview") problems << where + ": label " + label->text() + " is cut";
+                }
+                for (auto *box : editor.findChildren<QComboBox *>())
+                    if (box->width() < box->sizeHint().width()) problems << where + ": combo " + box->currentText() + " is cut";
+                editor.validate_fields();
+                if (editor.scroll->horizontalScrollBar()->maximum() > 0) problems << where + ": the dialog scrolls sideways";
+                if (editor.scroll->widget()->width() > editor.scroll->viewport()->width()) problems << where + ": the form is wider than its view";
+                if (editor.height() > editor.screen()->availableGeometry().height()) problems << where + ": the dialog is taller than the screen";
+            }
+        }
+        QVERIFY2(problems.isEmpty(), qPrintable(problems.join('\n')));
+    }
+
     // The second navigation level: the pages' groups, listed under their items.
     void outlineListsTheGroupsOfThePageInOrder() {
         SettingsDialog dialog(config_, config_->get_hotkey());
@@ -4177,7 +4828,7 @@ private slots:
         QStringList titles;
         for (auto *group : groups) titles << group_title_of(group);
         QCOMPARE(nav->subItemTitles("capture"), titles);
-        QCOMPARE(titles.size(), 8);
+        QCOMPARE(titles.size(), 9);
 
         // A hidden group is not listed, and comes back when shown.
         groups[1]->hide();

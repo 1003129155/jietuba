@@ -48,10 +48,15 @@ private:
     HttpCancellation *previous_;
 };
 
+struct HttpOptions {
+    // False hands a 3xx answer back as it is, so a signed request is never re-sent elsewhere.
+    bool follow_redirects = true;
+};
+
 // timeout_seconds applies to resolving, connecting, sending and each receive. A cancelled
 // exchange is a network error ([WinError 12017]).
 HttpResponse http_request(const QString &method, const QString &url, const HttpHeaders &headers = {}, const QByteArray &body = {},
-                          double timeout_seconds = 30);
+                          double timeout_seconds = 30, const HttpOptions &options = {});
 
 // urllib.parse.urlencode: UTF-8, spaces as '+', everything but letters, digits and "_.-~" escaped.
 QString python_urlencode(const std::vector<std::pair<QString, QString>> &query);

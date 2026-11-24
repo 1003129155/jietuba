@@ -1721,6 +1721,30 @@ Replace it?</source>
         <source>Configure</source>
         <translation>設定</translation>
     </message>
+    <message>
+        <source>File Explorer</source>
+        <translation>エクスプローラー</translation>
+    </message>
+    <message>
+        <source>Right-Click Menu</source>
+        <translation>右クリックメニュー</translation>
+    </message>
+    <message>
+        <source>Right-click files in File Explorer and choose "Pin to Screen with jietuba". Windows 11 lists it under Show more options.</source>
+        <translation>エクスプローラーでファイルを右クリックし、「jietuba で画面にピン留め」を選びます。Windows 11 では「その他のオプションを表示」の中にあります。</translation>
+    </message>
+    <message>
+        <source>Right-click files in File Explorer and choose "Pin to Screen with jietuba".</source>
+        <translation>エクスプローラーでファイルを右クリックし、「jietuba で画面にピン留め」を選びます。</translation>
+    </message>
+    <message>
+        <source>Images</source>
+        <translation>画像</translation>
+    </message>
+    <message>
+        <source>Images and Text Files</source>
+        <translation>画像とテキスト</translation>
+    </message>
 </context>
 
 <context>
@@ -2280,6 +2304,14 @@ Replace it?</source>
     <message>
         <source>This pin is only %1 × %2 pixels. Pin it anyway?</source>
         <translation>この画像は %1 × %2 ピクセルしかありません。それでもピン留めしますか？</translation>
+    </message>
+    <message>
+        <source>None of the selected files could be pinned</source>
+        <translation>選択したファイルはどれもピン留めできませんでした</translation>
+    </message>
+    <message>
+        <source>[Only the first 64 KB of the file is shown]</source>
+        <translation>[ファイルの先頭 64 KB のみ表示しています]</translation>
     </message>
 </context>
 
@@ -7277,6 +7309,46 @@ gifrecorder が正しくインストールされているか確認してくだ�
         <translation>スクリーンショット、ピン、クリップボードの画像を保存するときに使います。</translation>
     </message>
     <message>
+        <source>PNG Compression</source>
+        <translation>PNG 圧縮</translation>
+    </message>
+    <message>
+        <source>A higher level makes smaller PNG files and saves more slowly.</source>
+        <translation>レベルが高いほど PNG ファイルは小さくなり、保存は遅くなります。</translation>
+    </message>
+    <message>
+        <source>Low (Faster)</source>
+        <translation>低（高速）</translation>
+    </message>
+    <message>
+        <source>High (Smaller)</source>
+        <translation>高（軽量）</translation>
+    </message>
+    <message>
+        <source>PDF Page Size</source>
+        <translation>PDF のページサイズ</translation>
+    </message>
+    <message>
+        <source>A4 shrinks a wide image to fit and splits a long screenshot over several pages.</source>
+        <translation>A4 では幅の広い画像は縮小され、長いスクリーンショットは複数ページに分割されます。</translation>
+    </message>
+    <message>
+        <source>A4 Portrait</source>
+        <translation>A4 縦</translation>
+    </message>
+    <message>
+        <source>A4 Landscape</source>
+        <translation>A4 横</translation>
+    </message>
+    <message>
+        <source>Image Quality</source>
+        <translation>画像品質</translation>
+    </message>
+    <message>
+        <source>Only affects JPG and WebP, in saves that do not open the save dialog.</source>
+        <translation>JPG と WebP にのみ影響し、保存ダイアログを開かない保存で使われます。</translation>
+    </message>
+    <message>
         <source>Modern (with preview)</source>
         <translation>モダン（プレビュー付き）</translation>
     </message>
@@ -7790,6 +7862,319 @@ Replace it?</source>
     <message>
         <source>Configure API</source>
         <translation>API を設定</translation>
+    </message>
+</context>
+<context>
+    <name>ExplorerMenu</name>
+    <message>
+        <source>Pin to Screen with jietuba</source>
+        <translation>jietuba で画面にピン留め</translation>
+    </message>
+</context>
+<context>
+    <name>CloudUpload</name>
+    <message>
+        <source>Upload timed out</source>
+        <translation>アップロードがタイムアウトしました</translation>
+    </message>
+    <message>
+        <source>Upload failed: network error</source>
+        <translation>アップロード失敗: ネットワークエラー</translation>
+    </message>
+    <message>
+        <source>Upload failed: the image could not be encoded</source>
+        <translation>アップロード失敗: 画像をエンコードできません</translation>
+    </message>
+    <message>
+        <source>Upload failed: HTTP %1</source>
+        <translation>アップロード失敗: HTTP %1</translation>
+    </message>
+    <message>
+        <source>Upload failed: HTTP %1, %2</source>
+        <translation>アップロード失敗: HTTP %1, %2</translation>
+    </message>
+    <message>
+        <source>Check the access key, the secret key and the region.</source>
+        <translation>アクセスキー、シークレットキー、リージョンを確認してください。</translation>
+    </message>
+    <message>
+        <source>The access key ID is not known to this service.</source>
+        <translation>このサービスはそのアクセスキー ID を認識できません。</translation>
+    </message>
+    <message>
+        <source>Check that this key may write to the bucket.</source>
+        <translation>このキーにバケットへの書き込み権限があるか確認してください。</translation>
+    </message>
+    <message>
+        <source>The bucket does not exist.</source>
+        <translation>バケットが存在しません。</translation>
+    </message>
+    <message>
+        <source>Check the date and time of this computer.</source>
+        <translation>このコンピューターの日付と時刻を確認してください。</translation>
+    </message>
+    <message>
+        <source>The region or the endpoint is wrong.</source>
+        <translation>リージョンまたはエンドポイントが正しくありません。</translation>
+    </message>
+    <message>
+        <source>Add an upload target in Settings first</source>
+        <translation>先に設定でアップロード先を追加してください</translation>
+    </message>
+    <message>
+        <source>Uploading...</source>
+        <translation>アップロード中…</translation>
+    </message>
+    <message>
+        <source>Uploaded, link copied</source>
+        <translation>アップロードしました。リンクをコピーしました</translation>
+    </message>
+    <message>
+        <source>Upload</source>
+        <translation>アップロード</translation>
+    </message>
+    <message>
+        <source>Test upload succeeded</source>
+        <translation>テストアップロードに成功しました</translation>
+    </message>
+</context>
+<context>
+    <name>UploadTargetDialog</name>
+    <message>
+        <source>Add Upload Target</source>
+        <translation>アップロード先を追加</translation>
+    </message>
+    <message>
+        <source>Edit Upload Target</source>
+        <translation>アップロード先を編集</translation>
+    </message>
+    <message>
+        <source>AWS S3</source>
+        <translation>AWS S3</translation>
+    </message>
+    <message>
+        <source>Cloudflare R2</source>
+        <translation>Cloudflare R2</translation>
+    </message>
+    <message>
+        <source>Alibaba Cloud OSS</source>
+        <translation>Alibaba Cloud OSS</translation>
+    </message>
+    <message>
+        <source>Tencent Cloud COS</source>
+        <translation>Tencent Cloud COS</translation>
+    </message>
+    <message>
+        <source>MinIO or other</source>
+        <translation>MinIO またはその他</translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation>名前</translation>
+    </message>
+    <message>
+        <source>Service</source>
+        <translation>サービス</translation>
+    </message>
+    <message>
+        <source>Endpoint</source>
+        <translation>エンドポイント</translation>
+    </message>
+    <message>
+        <source>Region</source>
+        <translation>リージョン</translation>
+    </message>
+    <message>
+        <source>Bucket</source>
+        <translation>バケット</translation>
+    </message>
+    <message>
+        <source>Access Key ID</source>
+        <translation>アクセスキー ID</translation>
+    </message>
+    <message>
+        <source>Secret Access Key</source>
+        <translation>シークレットアクセスキー</translation>
+    </message>
+    <message>
+        <source>Path Prefix</source>
+        <translation>パスのプレフィックス</translation>
+    </message>
+    <message>
+        <source>Addressing</source>
+        <translation>アドレス指定</translation>
+    </message>
+    <message>
+        <source>Public Address (optional)</source>
+        <translation>公開アドレス（任意）</translation>
+    </message>
+    <message>
+        <source>Link Preview</source>
+        <translation>リンクのプレビュー</translation>
+    </message>
+    <message>
+        <source>Path-style</source>
+        <translation>パススタイル</translation>
+    </message>
+    <message>
+        <source>Virtual-hosted</source>
+        <translation>バーチャルホスト形式</translation>
+    </message>
+    <message>
+        <source>Test Upload</source>
+        <translation>テストアップロード</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>保存</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>キャンセル</translation>
+    </message>
+    <message>
+        <source>Fill in the endpoint and the bucket to see the link.</source>
+        <translation>エンドポイントとバケットを入力するとリンクが表示されます。</translation>
+    </message>
+    <message>
+        <source>Uploading...</source>
+        <translation>アップロード中…</translation>
+    </message>
+    <message>
+        <source>Test upload succeeded: %1</source>
+        <translation>テストアップロードに成功しました: %1</translation>
+    </message>
+    <message>
+        <source>Enter a name.</source>
+        <translation>名前を入力してください。</translation>
+    </message>
+    <message>
+        <source>This name is already used.</source>
+        <translation>この名前は既に使われています。</translation>
+    </message>
+    <message>
+        <source>Enter the service endpoint.</source>
+        <translation>エンドポイントを入力してください。</translation>
+    </message>
+    <message>
+        <source>The endpoint must be an http:// or https:// address without account, query or fragment.</source>
+        <translation>エンドポイントは、アカウント・クエリ・フラグメントを含まない http:// または https:// のアドレスにしてください。</translation>
+    </message>
+    <message>
+        <source>Enter the region (Cloudflare R2 uses auto).</source>
+        <translation>リージョンを入力してください（Cloudflare R2 は auto）。</translation>
+    </message>
+    <message>
+        <source>The region can only contain letters, digits, dots, hyphens and underscores.</source>
+        <translation>リージョンには英数字、ドット、ハイフン、アンダースコアのみ使えます。</translation>
+    </message>
+    <message>
+        <source>Enter the bucket name.</source>
+        <translation>バケット名を入力してください。</translation>
+    </message>
+    <message>
+        <source>The bucket name cannot contain '/' or spaces.</source>
+        <translation>バケット名に / や空白は使えません。</translation>
+    </message>
+    <message>
+        <source>Enter the access key ID.</source>
+        <translation>アクセスキー ID を入力してください。</translation>
+    </message>
+    <message>
+        <source>The access key ID cannot contain spaces.</source>
+        <translation>アクセスキー ID に空白は使えません。</translation>
+    </message>
+    <message>
+        <source>Enter the secret access key.</source>
+        <translation>シークレットアクセスキーを入力してください。</translation>
+    </message>
+    <message>
+        <source>The secret access key cannot contain spaces.</source>
+        <translation>シークレットアクセスキーに空白は使えません。</translation>
+    </message>
+    <message>
+        <source>The public address must be an http:// or https:// address.</source>
+        <translation>公開アドレスは http:// または https:// のアドレスにしてください。</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Upload</source>
+        <translation>アップロード</translation>
+    </message>
+    <message>
+        <source>Default Upload Target</source>
+        <translation>既定のアップロード先</translation>
+    </message>
+    <message>
+        <source>The target the upload buttons and the upload shortcut send to.</source>
+        <translation>アップロードボタンとアップロードのショートカットが送信する先です。</translation>
+    </message>
+    <message>
+        <source>Upload Targets</source>
+        <translation>アップロード先</translation>
+    </message>
+    <message>
+        <source>S3-compatible storage such as AWS S3, Cloudflare R2, Alibaba Cloud OSS, Tencent Cloud COS or MinIO.</source>
+        <translation>AWS S3、Cloudflare R2、Alibaba Cloud OSS、Tencent Cloud COS、MinIO などの S3 互換ストレージです。</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>追加</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>削除</translation>
+    </message>
+    <message>
+        <source>Link Format</source>
+        <translation>リンクの形式</translation>
+    </message>
+    <message>
+        <source>What is copied after an upload.</source>
+        <translation>アップロード後にコピーされる内容です。</translation>
+    </message>
+    <message>
+        <source>Link</source>
+        <translation>リンク</translation>
+    </message>
+    <message>
+        <source>Markdown</source>
+        <translation>Markdown</translation>
+    </message>
+    <message>
+        <source>HTML</source>
+        <translation>HTML</translation>
+    </message>
+    <message>
+        <source>Delete Upload Target</source>
+        <translation>アップロード先を削除</translation>
+    </message>
+    <message>
+        <source>Delete the upload target "%1"?</source>
+        <translation>アップロード先「%1」を削除しますか？</translation>
+    </message>
+</context>
+<context>
+    <name>Toolbar</name>
+    <message>
+        <source>Upload to cloud storage</source>
+        <translation>クラウドストレージにアップロード</translation>
+    </message>
+</context>
+<context>
+    <name>ToolbarLayoutDialog</name>
+    <message>
+        <source>Upload</source>
+        <translation>アップロード</translation>
+    </message>
+</context>
+<context>
+    <name>PinWindow</name>
+    <message>
+        <source>Upload</source>
+        <translation>アップロード</translation>
     </message>
 </context>
 </TS>

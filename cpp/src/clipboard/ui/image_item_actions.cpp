@@ -1,6 +1,7 @@
 #include "clipboard/ui/image_item_actions.h"
 #include "clipboard/core/manager.h"
 #include "core/save.h"
+#include "settings/tool_settings.h"
 #include "ui/dialogs.h"
 #include "ui/save_image_dialog.h"
 #include <QCoreApplication>
@@ -51,7 +52,7 @@ void save_image_item_as(QWidget *parent, ClipboardManager &manager, const std::o
     if (file_path.isEmpty()) return;
     const QString image_format = format_from_save_filter(file_path, selected_filter);
     if (extension_of(file_path).isEmpty()) file_path = file_path + "." + image_format.toLower();
-    if (!SaveService::save_qimage_to_path(image, file_path, image_format)) show_warning_dialog(parent, tr_window("Save Failed"), tr_window("Failed to save image."));
+    if (!SaveService::save_qimage_to_path(image, file_path, image_format, SaveOptions::from_settings(*get_tool_settings_manager()))) show_warning_dialog(parent, tr_window("Save Failed"), tr_window("Failed to save image."));
 }
 
 QString format_from_save_filter(const QString &file_path, const QString &selected_filter) {

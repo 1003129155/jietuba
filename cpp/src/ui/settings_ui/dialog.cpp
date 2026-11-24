@@ -754,7 +754,8 @@ void SettingsDialog::reset_quick_actions_page() {
 
 void SettingsDialog::reset_screenshot_settings_page() {
     const auto &defaults = config_manager->app_defaults();
-    refresh_behavior_controls(true, {}, std::set<QString>{"recording_hide_toolbar_in_captures"});
+    // Targets and the default are not reset: they hold keys that would be lost.
+    refresh_behavior_controls(true, {}, std::set<QString>{"recording_hide_toolbar_in_captures", "upload_link_format"});
     if (auto *combo = attr<QComboBox>("capture_engine_combo")) combo->setCurrentIndex(CAPTURE_ENGINE_CHOICES.indexOf(defaults.value("capture_engine").toString()));
     if (auto *combo = attr<QComboBox>("smart_mode_combo"))
         combo->setCurrentIndex(SMART_SELECTION_MODES.indexOf(defaults.value("smart_selection").toBool() ? defaults.value("smart_selection_mode").toString() : QString("off")));
@@ -770,6 +771,9 @@ void SettingsDialog::reset_screenshot_settings_page() {
     if (auto *combo = attr<QComboBox>("screenshot_format_combo"))
         combo->setCurrentIndex(std::max<int>(0, QStringList{"PNG", "JPG", "BMP", "WEBP", "PDF"}.indexOf(defaults.value("screenshot_format").toString().toUpper())));
     select_data(attr<QComboBox>("save_dialog_style_combo"), defaults.value("save_dialog_style"));
+    if (auto *slider = attr<ValueSlider>("screenshot_quality_slider")) slider->setValue(defaults.value("screenshot_quality").toInt());
+    select_data(attr<QComboBox>("png_compression_combo"), defaults.value("png_compression"));
+    select_data(attr<QComboBox>("pdf_page_size_combo"), defaults.value("pdf_page_size"));
     if (save_filename_patterns) save_filename_patterns = file_names::defaults();
     if (magnifier_color_formats) magnifier_color_formats = color_formats::default_formats();
     fill_ocr_engines(this, defaults.value("ocr_engine").toString(), defaults.value("ppocr_model").toString());
@@ -936,6 +940,9 @@ void SettingsDialog::save_changes(QSet<QString> changed) {
     if (auto *label = attr_widget("save_path_lbl"); label && has("save_path_lbl")) config_manager->set_screenshot_save_path(text_of(label));
     if (auto *combo = attr<QComboBox>("screenshot_format_combo"); combo && has("screenshot_format_combo")) config_manager->set_screenshot_format(combo->currentData().toString());
     if (auto *combo = attr<QComboBox>("save_dialog_style_combo"); combo && has("save_dialog_style_combo")) config_manager->set_save_dialog_style(combo->currentData().toString());
+    if (auto *slider = attr<ValueSlider>("screenshot_quality_slider"); slider && has("screenshot_quality_slider")) config_manager->set_screenshot_quality(slider->value());
+    if (auto *combo = attr<QComboBox>("png_compression_combo"); combo && has("png_compression_combo")) config_manager->set_png_compression(combo->currentData().toString());
+    if (auto *combo = attr<QComboBox>("pdf_page_size_combo"); combo && has("pdf_page_size_combo")) config_manager->set_pdf_page_size(combo->currentData().toString());
 
     // 3.5 Magnifier.
     for (const auto &[attr_name, key] : {std::make_pair("magnifier_enabled_toggle", "magnifier_enabled"), std::make_pair("magnifier_grid_toggle", "magnifier_grid"),
@@ -1266,7 +1273,7 @@ QVariantMap SettingsDialog::snapshot_settings() const {
                              "preload_screenshot_toggle", "preload_toolbar_toggle", "preload_ocr_toggle", "preload_settings_toggle", "preload_clipboard_toggle"})
         if (auto *widget = attr_widget(name)) snap[name] = checked_of(widget);
     // Combos.
-    for (const char *name : {"screenshot_format_combo", "save_dialog_style_combo", "shift_line_angle_combo", "ocr_result_position_combo", "translation_provider_combo", "translation_target_combo",
+    for (const char *name : {"screenshot_format_combo", "png_compression_combo", "pdf_page_size_combo", "save_dialog_style_combo", "shift_line_angle_combo", "ocr_result_position_combo", "translation_provider_combo", "translation_target_combo",
                              "screenshot_translate_mode_combo", "log_level_combo", "language_combo", "engine_combo", "cursor_move_combo", "clipboard_pick_combo", "log_retention_combo", "_ui_theme_combo",
                              "_ui_scale_combo", "_dialog_scale_combo", "_selection_border_combo", "_selection_handle_combo", "_selection_handle_size_combo",
                              "_color_picker_style_combo", "smart_mode_combo", "capture_engine_combo"})
@@ -1278,6 +1285,7 @@ QVariantMap SettingsDialog::snapshot_settings() const {
         if (auto *spin = attr<QSpinBox>(name)) snap[name] = spin->value();
         else if (auto *double_spin = attr<QDoubleSpinBox>(name)) snap[name] = double_spin->value();
     }
+    if (auto *slider = attr<ValueSlider>("screenshot_quality_slider")) snap["screenshot_quality_slider"] = slider->value();
     // In-app shortcuts.
     for (const auto &[cfg_key, edit] : inapp_edits) snap["inapp_" + cfg_key] = edit->text();
     // Colours.
@@ -1421,6 +1429,10 @@ void SettingsDialog::refresh_settings() {
     if (auto *combo = attr<QComboBox>("screenshot_format_combo"))
         combo->setCurrentIndex(std::max<int>(0, QStringList{"PNG", "JPG", "BMP", "WEBP", "PDF"}.indexOf(config_manager->get_screenshot_format().toUpper())));
     select_data(attr<QComboBox>("save_dialog_style_combo"), config_manager->get_save_dialog_style());
+    if (auto *slider = attr<ValueSlider>("screenshot_quality_slider")) slider->setValue(std::clamp(config_manager->get_screenshot_quality(), 1, 100));
+    select_data(attr<QComboBox>("png_compression_combo"), config_manager->get_png_compression());
+    select_data(attr<QComboBox>("pdf_page_size_combo"), config_manager->get_pdf_page_size());
+    if (has_attr("upload_group")) refresh_upload_group(this);
     for (const auto &[attr_name, key] : {std::make_pair("magnifier_enabled_toggle", "magnifier_enabled"), std::make_pair("magnifier_grid_toggle", "magnifier_grid"),
                                          std::make_pair("magnifier_selection_toggle", "magnifier_selection"), std::make_pair("magnifier_hint_toggle", "magnifier_hint")})
         if (auto *toggle = attr_widget(attr_name)) set_checked(toggle, config_manager->get_app_setting(key).toBool());
@@ -1566,6 +1578,12 @@ void SettingsDialog::load_imported_settings(const QVariantMap &values) {
         }
         config_manager = config;
     }
+    // The upload targets have no control of their own to fill: the list is read again from what was just written.
+    for (const char *key : {"upload_targets", "upload_default_target"}) {
+        const QVariant value = values.value(ToolSettingsManager::app_setting_path(key));
+        if (value.typeId() == QMetaType::QString) config_manager->set_app_setting(key, value.toString());
+    }
+    if (has_attr("upload_group")) refresh_upload_group(this);
     // No control shows the toolbar layouts. Absent from the file, or not text (edited by hand):
     // the current layout stays.
     for (const auto &key : toolbar_layout::setting_keys()) {

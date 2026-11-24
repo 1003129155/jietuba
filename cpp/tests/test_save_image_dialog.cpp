@@ -36,6 +36,12 @@
 using namespace jietuba;
 
 namespace {
+SaveOptions quality_options(int quality) {
+    SaveOptions options;
+    options.quality = quality;
+    return options;
+}
+
 // Gradients plus noise, so lossy formats change size with quality.
 QImage noisy_image(int width = 320, int height = 200) {
     QImage image(width, height, QImage::Format_ARGB32);
@@ -123,26 +129,26 @@ private slots:
         const auto image = noisy_image();
         qint64 previous = 0;
         for (int quality : {30, 60, 90}) {
-            const auto bytes = SaveService::encode_image(image, "JPG", quality);
+            const auto bytes = SaveService::encode_image(image, "JPG", quality_options(quality));
             QVERIFY(bytes.size() > previous);
             previous = bytes.size();
             const auto path = dir_.filePath(QString("q%1.jpg").arg(quality));
-            QVERIFY(SaveService::save_qimage_to_path(image, path, "JPG", SaveService::DEFAULT_PDF_DPI, quality));
+            QVERIFY(SaveService::save_qimage_to_path(image, path, "JPG", quality_options(quality)));
             QFile file(path);
             QVERIFY(file.open(QIODevice::ReadOnly));
             QCOMPARE(file.readAll(), bytes);
         }
-        QVERIFY(SaveService::encode_image(image, "WEBP", 30).size() < SaveService::encode_image(image, "WEBP", 90).size());
+        QVERIFY(SaveService::encode_image(image, "WEBP", quality_options(30)).size() < SaveService::encode_image(image, "WEBP", quality_options(90)).size());
         // Lossless formats ignore the quality.
-        QCOMPARE(SaveService::encode_image(image, "PNG", 10), SaveService::encode_image(image, "PNG", 90));
-        QCOMPARE(SaveService::encode_image(image, "BMP", 10), SaveService::encode_image(image, "BMP", -1));
-        QVERIFY(SaveService::encode_image(image, "PDF").startsWith("%PDF-"));
+        QCOMPARE(SaveService::encode_image(image, "PNG", quality_options(10)), SaveService::encode_image(image, "PNG", quality_options(90)));
+        QCOMPARE(SaveService::encode_image(image, "BMP", quality_options(10)), SaveService::encode_image(image, "BMP", quality_options(-1)));
+        QVERIFY(SaveService::encode_image(image, "PDF", {}).startsWith("%PDF-"));
         const auto pdf = dir_.filePath("page.pdf");
-        QVERIFY(SaveService::save_qimage_to_path(image, pdf, "PDF"));
-        QCOMPARE(QFileInfo(pdf).size(), static_cast<qint64>(SaveService::encode_image(image, "PDF").size()));
-        QVERIFY(SaveService::encode_image(QImage(), "PNG").isEmpty());
+        QVERIFY(SaveService::save_qimage_to_path(image, pdf, "PDF", {}));
+        QCOMPARE(QFileInfo(pdf).size(), static_cast<qint64>(SaveService::encode_image(image, "PDF", {}).size()));
+        QVERIFY(SaveService::encode_image(QImage(), "PNG", {}).isEmpty());
         // A JPG side is limited to 65535 pixels.
-        QVERIFY(SaveService::encode_image(QImage(70000, 1, QImage::Format_RGB32), "JPG").isEmpty());
+        QVERIFY(SaveService::encode_image(QImage(70000, 1, QImage::Format_RGB32), "JPG", {}).isEmpty());
     }
 
     // Expected values come from encode_image at each quality, searched here one by one.
@@ -150,7 +156,7 @@ private slots:
         const auto image = noisy_image();
         for (const QString format : {"JPG", "WEBP"}) {
             std::vector<qint64> sizes(101);
-            for (int quality = 1; quality <= 100; ++quality) sizes[quality] = SaveService::encode_image(image, format, quality).size();
+            for (int quality = 1; quality <= 100; ++quality) sizes[quality] = SaveService::encode_image(image, format, quality_options(quality)).size();
             for (const int target : {20, 55, 90}) {
                 const qint64 limit = sizes[target];
                 // WebP sizes do not always grow with quality: the search may stop short of the best
@@ -159,16 +165,16 @@ private slots:
                 for (int quality = 1; quality <= 100; ++quality)
                     if (sizes[quality] <= limit) best = quality;
                 while (run < 100 && sizes[run + 1] <= limit) ++run;
-                const auto [quality, bytes] = SaveService::encode_within(image, format, limit);
+                const auto [quality, bytes] = SaveService::encode_within(image, format, limit, {});
                 QVERIFY2(bytes.size() <= limit, qPrintable(format));
-                QCOMPARE(bytes, SaveService::encode_image(image, format, quality));
+                QCOMPARE(bytes, SaveService::encode_image(image, format, quality_options(quality)));
                 QVERIFY2(quality >= run && quality <= best, qPrintable(QString("%1: %2 not in [%3, %4]").arg(format).arg(quality).arg(run).arg(best)));
                 if (format == "JPG") QCOMPARE(quality, best);
             }
-            const auto [lowest, too_big] = SaveService::encode_within(image, format, 100);
+            const auto [lowest, too_big] = SaveService::encode_within(image, format, 100, {});
             QCOMPARE(lowest, 1);
-            QCOMPARE(too_big, SaveService::encode_image(image, format, 1));
-            QCOMPARE(SaveService::encode_within(image, format, sizes[100]).first, 100);
+            QCOMPARE(too_big, SaveService::encode_image(image, format, quality_options(1)));
+            QCOMPARE(SaveService::encode_within(image, format, sizes[100], {}).first, 100);
         }
     }
 
@@ -195,6 +201,59 @@ private slots:
         VERIFY_STANDARD_CAPTION(tag_name);
     }
 
+    // The dialog keeps its own quality: it opens on the screenshot quality until it has stored one,
+    // and what it stores never moves the quality of the saves that skip it.
+    void theDialogKeepsItsOwnQuality() {
+        config_->set_screenshot_quality(33);
+        QVERIFY(!settings_->contains("app/save_dialog_quality"));
+        {
+            SaveImageDialog dialog(noisy_image(), "shot", config_);
+            QCOMPARE(dialog.current_quality(), 33);
+            select_format(dialog, "JPG");
+            dialog.quality_slider->setValue(55);
+            const auto bytes = wait_encoded(dialog);
+            QCOMPARE(bytes, static_cast<qint64>(SaveService::encode_image(noisy_image(), "JPG", quality_options(55)).size()));
+            dialog.directory_edit->setText(QDir::toNativeSeparators(dir_.filePath("own_quality")));
+            dialog.save_button->click();
+            QCOMPARE(QFileInfo(dir_.filePath("own_quality/shot.jpg")).size(), bytes);
+        }
+        QCOMPARE(config_->get_save_dialog_quality(), 55);
+        QCOMPARE(config_->get_screenshot_quality(), 33);
+        // Changing the other one afterwards leaves the dialog where it was.
+        config_->set_screenshot_quality(70);
+        SaveImageDialog next(noisy_image(), "shot", config_);
+        QCOMPARE(next.current_quality(), 55);
+    }
+
+    // The size the dialog estimates is the size it saves, for the PNG level and the PDF page of the settings.
+    void theEstimateUsesThePngLevelAndThePdfPage() {
+        const auto image = noisy_image();
+        for (const char *level : {"low", "high"}) {
+            config_->set_png_compression(level);
+            SaveOptions options;
+            options.png = QString(level) == "low" ? SaveOptions::PngCompression::Low : SaveOptions::PngCompression::High;
+            SaveImageDialog dialog(image, "level", config_);
+            select_format(dialog, "PNG");
+            const auto estimate = wait_encoded(dialog);
+            QCOMPARE(estimate, static_cast<qint64>(SaveService::encode_image(image, "PNG", options).size()));
+            const auto folder = dir_.filePath(QString("png_%1").arg(level));
+            dialog.directory_edit->setText(QDir::toNativeSeparators(folder));
+            dialog.save_button->click();
+            QCOMPARE(QFileInfo(folder + "/level.png").size(), estimate);
+        }
+        config_->set_pdf_page_size("a4_landscape");
+        SaveOptions pdf;
+        pdf.pdf_page = SaveOptions::PdfPageSize::A4Landscape;
+        SaveImageDialog dialog(image, "page", config_);
+        select_format(dialog, "PDF");
+        const auto estimate = wait_encoded(dialog);
+        QCOMPARE(estimate, static_cast<qint64>(SaveService::encode_image(image, "PDF", pdf).size()));
+        QVERIFY(estimate != static_cast<qint64>(SaveService::encode_image(image, "PDF", {}).size()));
+        dialog.directory_edit->setText(QDir::toNativeSeparators(dir_.filePath("pdf_page")));
+        dialog.save_button->click();
+        QCOMPARE(QFileInfo(dir_.filePath("pdf_page/page.pdf")).size(), estimate);
+    }
+
     void startsFromSettingsAndLosslessHasNoQuality() {
         settings_->setValue("app/screenshot_format", "PNG");
         SaveImageDialog dialog(noisy_image(), "screenshot_x", config_);
@@ -208,7 +267,7 @@ private slots:
         QVERIFY(!dialog.reset_size_button->isEnabled());
         QCOMPARE(dialog.format_combo->currentText(), QString(".PNG"));
         QCOMPARE(QDir::fromNativeSeparators(dialog.target_path()), QDir::fromNativeSeparators(dir_.filePath("shots/screenshot_x.png")));
-        QCOMPARE(wait_encoded(dialog), static_cast<qint64>(SaveService::encode_image(noisy_image(), "PNG").size()));
+        QCOMPARE(wait_encoded(dialog), static_cast<qint64>(SaveService::encode_image(noisy_image(), "PNG", {}).size()));
         QVERIFY(dialog.preview->encoded().isNull());
         QVERIFY(dialog.file_size_label->text().endsWith("KB"));
     }
@@ -237,7 +296,7 @@ private slots:
         QCOMPARE(dialog.preview->mode(), SavePreviewView::ENCODED);
         dialog.quality_slider->setValue(20);
         const auto low = wait_encoded(dialog);
-        QCOMPARE(low, static_cast<qint64>(SaveService::encode_image(noisy_image(), "JPG", 20).size()));
+        QCOMPARE(low, static_cast<qint64>(SaveService::encode_image(noisy_image(), "JPG", quality_options(20)).size()));
         QCOMPARE(dialog.preview->encoded().size(), QSize(320, 200));
         dialog.quality_slider->setValue(95);
         const auto high = wait_encoded(dialog);
@@ -247,7 +306,7 @@ private slots:
         for (int quality : {40, 50, 60, 70}) dialog.quality_slider->setValue(quality);
         QVERIFY(spy.wait(10000));
         QCOMPARE(spy.count(), 1);
-        QCOMPARE(spy.first().first().toLongLong(), static_cast<qint64>(SaveService::encode_image(noisy_image(), "JPG", 70).size()));
+        QCOMPARE(spy.first().first().toLongLong(), static_cast<qint64>(SaveService::encode_image(noisy_image(), "JPG", quality_options(70)).size()));
         select_format(dialog, "PNG");
         QCOMPARE(dialog.preview->mode(), SavePreviewView::ENCODED);
         QVERIFY(dialog.quality_block->isHidden());
@@ -256,7 +315,7 @@ private slots:
     // The limit lives in the quality block, so lossless formats never show it.
     void sizeLimitPicksTheQualityAndIsRemembered() {
         const auto image = noisy_image();
-        const auto chosen_by_hand = config_->get_screenshot_quality();
+        const auto chosen_by_hand = config_->get_save_dialog_quality();
         SaveImageDialog dialog(image, "shot", config_);
         QVERIFY(!dialog.size_limit_check->isChecked());
         select_format(dialog, "PNG");
@@ -265,7 +324,7 @@ private slots:
         select_format(dialog, "JPG");
         dialog.quality_slider->setValue(90);
         wait_encoded(dialog);
-        const int kb = static_cast<int>(SaveService::encode_image(image, "JPG", 40).size() / 1000);
+        const int kb = static_cast<int>(SaveService::encode_image(image, "JPG", quality_options(40)).size() / 1000);
         dialog.size_limit_spin->setValue(kb);
         dialog.size_limit_check->setChecked(true);
         QVERIFY(!dialog.quality_slider->isEnabled());
@@ -274,7 +333,7 @@ private slots:
         QVERIFY(bytes > 0 && bytes <= qint64(kb) * 1000);
         const int fitted = dialog.current_quality();
         QVERIFY(fitted < 40);
-        QCOMPARE(bytes, static_cast<qint64>(SaveService::encode_image(image, "JPG", fitted).size()));
+        QCOMPARE(bytes, static_cast<qint64>(SaveService::encode_image(image, "JPG", quality_options(fitted)).size()));
         QVERIFY(dialog.size_limit_hint->isHidden());
         QVERIFY(config_->get_save_dialog_size_limited());
         QCOMPARE(config_->get_save_dialog_size_limit_kb(), qint64(kb));
@@ -283,7 +342,7 @@ private slots:
         dialog.directory_edit->setText(QDir::toNativeSeparators(dir_.filePath("limited")));
         dialog.save_button->click();
         QCOMPARE(QFileInfo(dir_.filePath("limited/shot.jpg")).size(), bytes);
-        QCOMPARE(config_->get_screenshot_quality(), chosen_by_hand);
+        QCOMPARE(config_->get_save_dialog_quality(), chosen_by_hand);
 
         // The next dialog starts limited; a limit no quality meets says so.
         SaveImageDialog next(noisy_image(800, 600), "shot", config_);
@@ -302,7 +361,7 @@ private slots:
     void saveRightAfterSettingALimitFits() {
         const auto image = noisy_image();
         config_->set_save_dialog_size_limited(true);
-        config_->set_save_dialog_size_limit_kb(static_cast<int>(SaveService::encode_image(image, "JPG", 30).size() / 1000));
+        config_->set_save_dialog_size_limit_kb(static_cast<int>(SaveService::encode_image(image, "JPG", quality_options(30)).size() / 1000));
         config_->set_save_dialog_format("JPG");
         SaveImageDialog dialog(image, "early", config_);
         dialog.directory_edit->setText(QDir::toNativeSeparators(dir_.filePath("early")));
@@ -431,7 +490,9 @@ private slots:
         QCOMPARE(QImage(path).size(), QSize(160, 100));
         QCOMPARE(config_->get_app_setting("save_dialog_format").toString(), QString("WEBP"));
         QCOMPARE(QDir::fromNativeSeparators(config_->get_app_setting("save_dialog_last_dir").toString()), folder);
-        QCOMPARE(config_->get_screenshot_quality(), qint64(70));
+        QCOMPARE(config_->get_save_dialog_quality(), 70);
+        // The quality of the saves that skip the dialog is not the dialog's to change.
+        QCOMPARE(config_->get_screenshot_quality(), config_->app_defaults().value("screenshot_quality").toInt());
 
         // The next dialog starts where this one ended.
         SaveImageDialog next(noisy_image(), "shot", config_);

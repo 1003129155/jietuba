@@ -10,6 +10,8 @@
 #include "core/drag_out.h"
 #include "core/elevation.h"
 #include "core/logger.h"
+#include "core/pin_arguments.h"
+#include "core/pin_inbox.h"
 #include "core/platform_utils.h"
 #include "main_app.h"
 #include "ocr/bundled_runtime.h"
@@ -32,6 +34,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <shellapi.h>
 
 namespace jietuba {
 namespace {
@@ -78,6 +81,20 @@ QString exe_file_name() {
     wchar_t path[MAX_PATH * 4] = {};
     const DWORD length = GetModuleFileNameW(nullptr, path, static_cast<DWORD>(std::size(path)));
     return QFileInfo(QString::fromWCharArray(path, static_cast<int>(length))).fileName();
+}
+
+// How long a new instance waits for the primary instance's mutex after ending the old one.
+constexpr unsigned PRIMARY_MUTEX_WAIT_MS = 3000;
+
+// The arguments after the program name, from the wide command line.
+QStringList command_line_arguments() {
+    QStringList args;
+    int count = 0;
+    LPWSTR *wide = CommandLineToArgvW(GetCommandLineW(), &count);
+    if (!wide) return args;
+    for (int i = 1; i < count; ++i) args.append(QString::fromWCharArray(wide[i]));
+    LocalFree(wide);
+    return args;
 }
 
 QString pid_file_path() {
@@ -127,6 +144,12 @@ void ensure_single_instance() {
         const auto current = read_instance_record(path);
         if (current && current->first == static_cast<qint64>(GetCurrentProcessId())) QFile::remove(path);
     });
+}
+
+void claim_single_instance(PrimaryInstance &primary) {
+    const bool free = primary.try_claim(0);
+    ensure_single_instance();
+    if (!free && !primary.try_claim(PRIMARY_MUTEX_WAIT_MS)) log_warning(T("旧实例没有及时释放主实例锁，照常启动"), "SingleInstance");
 }
 
 bool hand_off_to_admin_task(int poll_ms, int timeout_ms, const QString &pid_file) {
@@ -180,6 +203,11 @@ void PreloadManager::build_and_start() {
     // on a worker so start-up is not held.
     if (cfg->get_run_as_admin()) steps_.push_back([] {
         std::thread([] { run_thread_guarded("AdminTask", [] { elevation::repair_task(); }); }).detach();
+        return false;
+    });
+    // The Explorer entry follows the setting, the language and where the program is now.
+    steps_.push_back([this] {
+        app_->sync_explorer_menu();
         return false;
     });
     // Before the engine setting, which resolves the engine by what is installed.
@@ -374,13 +402,33 @@ int run(int argc, char **argv) {
     set_app_user_model_id("jietuba.app");
     // 5. On the first start with a data folder, what older versions stored elsewhere, before anything reads it.
     data_folder::migrate(data_location(), data_folder::default_sources(data_location()));
-    // 6. In admin mode the elevated instance started by the scheduled task runs instead.
-    if (open_local_settings()->value("app/run_as_admin", false).toBool() && hand_off_to_admin_task())
-        return 0;
-    // 7. Single instance.
-    ensure_single_instance();
+    const bool admin = open_local_settings()->value("app/run_as_admin", false).toBool();
+    const auto pin = parse_pin_arguments(command_line_arguments());
+    PrimaryInstance primary;
+    if (pin.requested) {
+        // 6./7. A start with files to pin gives them to the instance that is running; only without one
+        // does this process take over, and then it pins them itself once it is up.
+        PinDelivery delivery;
+        if (admin) delivery.start_elevated = [] { return hand_off_to_admin_task(); };
+        switch (route_pin_request(primary, pin.files, delivery)) {
+        case PinRoute::Delivered: return 0;
+        case PinRoute::Primary: ensure_single_instance(); break;
+        case PinRoute::TimedOut:
+            log_warning(T("正在运行的实例没有响应钉图请求，由本进程接管"), "SingleInstance");
+            claim_single_instance(primary);
+            break;
+        }
+    } else {
+        // 6. In admin mode the elevated instance started by the scheduled task runs instead.
+        if (admin && hand_off_to_admin_task()) return 0;
+        // 7. Single instance.
+        claim_single_instance(primary);
+    }
+    // The window that takes pin requests from later processes exists before Qt does.
+    PinInbox inbox;
     // 8. The application.
     MainApp main(argc, argv);
+    main.accept_pin_requests(inbox, pin.files);
     return main.run();
 }
 }

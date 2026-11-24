@@ -15,6 +15,7 @@
 #include "pin/pin_text_content.h"
 #include "pin/pin_window.h"
 #include "settings/tool_settings.h"
+#include "ui/toast.h"
 #include "ui/wait_bar.h"
 #include <QApplication>
 #include <QBuffer>
@@ -902,6 +903,91 @@ private slots:
         QTest::qWait(100);
         QCOMPARE(pins().size(), 4);
         QVERIFY(!clipboard::create_pins_from_clipboard_items({blank}, nullptr));
+    }
+
+    // ---- Explorer's menu entry ----
+
+    void explorerFilesPinPicturesAndTextFilesInOrderAndSkipTheRest() {
+        const auto still = picture("explorer.png", QSize(30, 20), Qt::red);
+        const auto notes = write("explorer_notes.txt", "some notes");
+        const auto page = write("explorer_page.html", "<p>Hello <b>bold</b> world</p>");
+        const auto other = write("explorer_data.bin", "x");
+        QVERIFY(clipboard::pin_explorer_files({other, dir_.filePath("gone.png"), still, notes, dir_.filePath("gone.txt"), page}, QPoint(400, 300)));
+        // Decoded and laid out off the UI thread: no pin has opened yet.
+        QCOMPARE(pins().size(), 0);
+        QTRY_COMPARE(pins().size(), 3);
+        // Neither the unsupported file nor the missing ones: a pin each for the picture and the two texts, in order, no card.
+        QCOMPARE(pins()[0]->orig_size(), QSize(30, 20));
+        QVERIFY(!pins()[0]->file_card());
+        QVERIFY(pins()[1]->text_only());
+        QCOMPARE(pins()[1]->text_content()->text(), QString("some notes"));
+        QVERIFY(pins()[2]->text_only());
+        QVERIFY(pins()[2]->text_content()->text().contains("Hello bold world"));
+        // An html file keeps its formatting, a plain one has none.
+        QVERIFY(!pins()[2]->text_content()->html().isEmpty());
+        QVERIFY(pins()[1]->text_content()->html().isEmpty());
+        // Stepping down and right from the cursor.
+        QVERIFY(pins()[1]->geometry().center().x() > pins()[0]->geometry().center().x());
+        QVERIFY(pins()[2]->geometry().center().y() > pins()[1]->geometry().center().y());
+        QTest::qWait(100);
+        QCOMPARE(pins().size(), 3);
+    }
+
+    void explorerFilesAnAnimationPlaysAndExtensionsAreAnyCase() {
+        const auto moving = three_frames();
+        const auto upper = dir_.filePath("UPPER.TXT");
+        QVERIFY(QFile::copy(write("upper_source.txt", "loud"), upper));
+        QVERIFY(clipboard::pin_explorer_files({moving, upper}, QPoint(400, 300)));
+        QTRY_COMPARE(pins().size(), 2);
+        QVERIFY(pins()[0]->animation());
+        QCOMPARE(pins()[1]->text_content()->text(), QString("loud"));
+    }
+
+    void explorerFilesAlreadyPinnedShakeInsteadOfPinningAgain() {
+        const auto notes = write("explorer_repeat.txt", "repeat me");
+        QVERIFY(clipboard::pin_explorer_files({notes}, QPoint(400, 300)));
+        QTRY_COMPARE(pins().size(), 1);
+        QVERIFY(clipboard::pin_explorer_files({notes}, QPoint(400, 300)));
+        QTest::qWait(150);
+        QCOMPARE(pins().size(), 1);
+    }
+
+    void aLongTextFileIsCutAndSaysSo() {
+        const auto text = write("explorer_long.txt", QByteArray("0123456789 0123456789 0123456789"));
+        QVERIFY(clipboard::pin_explorer_files({text}, QPoint(400, 300), 11));
+        QTRY_COMPARE(pins().size(), 1);
+        const QString shown = pins()[0]->text_content()->text();
+        QVERIFY(shown.startsWith("0123456789 "));
+        QVERIFY(!shown.contains("0123456789 0123"));
+        QVERIFY(shown.endsWith(i18n_tr("[Only the first 64 KB of the file is shown]", "PinWindow")));
+    }
+
+    void explorerFilesWithNothingToPinSayThatInAToast() {
+        const QString expected = i18n_tr("None of the selected files could be pinned", "PinWindow");
+        // Offscreen fonts measure wide, so the tail of a toast may be elided; what shows must still start the sentence.
+        const auto toast_says_it = [&expected] {
+            for (auto *widget : QApplication::topLevelWidgets())
+                if (auto *toast = qobject_cast<Toast *>(widget)) {
+                    QString shown = toast->label->text();
+                    shown.remove(QChar(0x2026));
+                    if (shown.size() > 8 && expected.startsWith(shown)) return true;
+                }
+            return false;
+        };
+        const auto close_toasts = [] {
+            for (auto *widget : QApplication::topLevelWidgets())
+                if (qobject_cast<Toast *>(widget)) widget->close();
+        };
+        const auto other = write("explorer_none.bin", "x");
+        close_toasts();
+        QVERIFY(!clipboard::pin_explorer_files({other, dir_.filePath("never_there.png")}, QPoint(400, 300)));
+        QVERIFY(toast_says_it());
+        QCOMPARE(pins().size(), 0);
+        // A picture that does not decode says the same, not the clipboard's wording.
+        close_toasts();
+        QVERIFY(clipboard::pin_explorer_files({write("explorer_fake.png", "not a picture")}, QPoint(400, 300)));
+        QTRY_VERIFY(toast_says_it());
+        QCOMPARE(pins().size(), 0);
     }
 
     void pathTextPinsAsTheFilesItNamesWhileTheyExist() {
