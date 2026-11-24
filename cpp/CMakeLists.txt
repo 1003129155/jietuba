@@ -466,6 +466,10 @@ if(BUILD_TESTING)
         add_test(NAME save_image_dialog_desktop COMMAND jietuba_save_image_dialog_tests -o ${JIETUBA_TEST_REPORTS}/save_image_dialog_desktop.txt,txt -platform windows theSizeLimitRowFitsEveryLanguage)
         set_tests_properties(save_image_dialog_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
     endif()
+    qt_add_executable(jietuba_save_options_tests tests/test_save_options.cpp)
+    target_link_libraries(jietuba_save_options_tests PRIVATE jietuba_lib Qt6::Test)
+    add_test(NAME save_options COMMAND jietuba_save_options_tests -o ${JIETUBA_TEST_REPORTS}/save_options.txt,txt)
+    set_tests_properties(save_options PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     # The PP-OCR pack is not in the repository; the PP-OCR cases copy it from this folder when set.
     # CI names it in the environment.
     set(JIETUBA_PPOCR_MODELS "$ENV{JIETUBA_PPOCR_MODELS}" CACHE PATH "Folder holding the PP-OCR pack (models and onnxruntime.dll) for the OCR tests")

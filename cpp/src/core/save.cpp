@@ -112,6 +112,8 @@ bool SaveService::save_pdf(const QImage &image, QIODevice *device, int dpi) {
     writer.setCreator("jietuba");
     QPainter painter(&writer);
     painter.setRenderHint(QPainter::SmoothPixmapTransform, false);
+    // Without it a colour image is embedded as JPEG, which blurs the text of a screenshot.
+    painter.setRenderHint(QPainter::LosslessImageRendering);
     painter.drawImage(QRectF(0, 0, writer.width(), writer.height()), flattened, QRectF(0, 0, flattened.width(), flattened.height()));
     painter.end();
     return true;
