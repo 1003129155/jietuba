@@ -92,10 +92,6 @@
         <source>About</source>
         <translation>关于</translation>
     </message>
-    <message>
-        <source>Developer</source>
-        <translation>开发者</translation>
-    </message>
 
     <!-- Page Titles -->
     <message>
@@ -5340,7 +5336,10 @@ This action cannot be undone.</source>
     <message><source>Features</source><translation>功能特色</translation></message>
     <message><source>OCR text recognition · Long screenshot · Pin window · Clipboard manager · DeepL translation</source><translation>OCR文字识别 · 长截图 · 钉图窗口 · 剪贴板管理 · DeepL翻译</translation></message>
     <message><source>Licenses</source><translation>许可证</translation></message>
-    <message><source>Details</source><translation>详情</translation></message>
+    <message>
+        <source>Developed by %1 · Open source under the MIT License</source>
+        <translation>由 %1 开发 · 以 MIT 许可证开源</translation>
+    </message>
     <message><source>MIT License</source><translation>MIT License</translation></message>
     <message><source>MIT License Text</source><translation>MIT License
 
@@ -5364,7 +5363,10 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.</translation></message>
     <message><source>Source Code</source><translation>源代码</translation></message>
-    <message><source>Open GitHub</source><translation>打开GitHub</translation></message>
+    <message>
+        <source>Screenshot, Screen Drawing, OCR, Pin, Translation &amp; Clipboard Tool for Windows</source>
+        <translation>Windows 截图、屏幕绘制、OCR、钉图、翻译与剪贴板工具</translation>
+    </message>
     <message><source>Version</source><translation>版本</translation></message>
     <message><source>Check for Updates</source><translation>检查更新</translation></message>
     <message><source>Checking...</source><translation>正在检查...</translation></message>

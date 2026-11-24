@@ -93,10 +93,6 @@
         <source>About</source>
         <translation>情報</translation>
     </message>
-    <message>
-        <source>Developer</source>
-        <translation>開発者</translation>
-    </message>
 
     <!-- Page Titles -->
     <message>
@@ -5357,7 +5353,10 @@ This action cannot be undone.</source>
     <!-- 情報ページ -->
     <message><source>Features</source><translation>機能</translation></message>
     <message><source>Licenses</source><translation>ライセンス</translation></message>
-    <message><source>Details</source><translation>詳細</translation></message>
+    <message>
+        <source>Developed by %1 · Open source under the MIT License</source>
+        <translation>開発: %1 · MIT ライセンスのオープンソース</translation>
+    </message>
     <message><source>MIT License</source><translation>MIT License</translation></message>
     <message><source>MIT License Text</source><translation>MIT License
 
@@ -5381,7 +5380,10 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.</translation></message>
     <message><source>Source Code</source><translation>ソースコード</translation></message>
-    <message><source>Open GitHub</source><translation>GitHubを開く</translation></message>
+    <message>
+        <source>Screenshot, Screen Drawing, OCR, Pin, Translation &amp; Clipboard Tool for Windows</source>
+        <translation>Windows 向けスクリーンショット・画面描画・OCR・ピン留め・翻訳・クリップボードツール</translation>
+    </message>
     <message><source>Version</source><translation>バージョン</translation></message>
     <message><source>Check for Updates</source><translation>更新を確認</translation></message>
     <message><source>Checking...</source><translation>確認中...</translation></message>

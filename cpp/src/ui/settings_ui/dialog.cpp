@@ -460,8 +460,9 @@ void SettingsDialog::open_developer_page() {
 }
 
 void SettingsDialog::refresh_after_page_change() {
-    // The information page has nothing to reset.
+    // The information page has nothing to reset, and it shows the application's name in place of a title.
     if (page_reset_btn_) page_reset_btn_->setVisible(content_stack->currentIndex() != 8);
+    content_title_->setVisible(content_stack->currentIndex() != 8);
     update();
     right_area_->update();
     content_stack->update();

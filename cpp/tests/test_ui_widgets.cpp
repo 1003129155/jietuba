@@ -3,6 +3,7 @@
 #include "core/i18n.h"
 #include "core/shortcut_manager.h"
 #include "core/ui_scale.h"
+#include "core/updater_process.h"
 #include "pin/pin_toolbar.h"
 #include "settings/color_formats.h"
 #include "settings/tool_settings.h"
@@ -1844,13 +1845,55 @@ private slots:
             QCOMPARE(title->text(), button->text());
             auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
             QVERIFY2(scroll, qPrintable(button->text()));
-            const auto groups = scroll->widget()->findChildren<SettingCardGroup *>();
-            QVERIFY2(!groups.isEmpty(), qPrintable(button->text()));
-            for (auto *group : groups) {
+            for (auto *group : scroll->widget()->findChildren<SettingCardGroup *>()) {
                 const QString name = group->titleLabel->text();
                 QVERIFY2(name != button->text(), qPrintable(name));
                 QVERIFY2(!name.endsWith("Settings") && !name.endsWith("Options"), qPrintable(name));
             }
+        }
+    }
+
+    // The information page shows the application's mark, name and version in the middle instead of a
+    // title over a group of cards; the update check only where the updater is bundled.
+    void aboutPageShowsTheApplicationInsteadOfATitle() {
+        const auto restore = qScopeGuard([] {
+            get_dialog_scale().set_percent(100);
+            set_helper_source_for_test({});
+        });
+        for (const int percent : {100, 150}) {
+            get_dialog_scale().set_percent(percent);
+            // Bundled at 150% only, so both kinds of build are seen.
+            const bool bundled = percent == 150;
+            set_helper_source_for_test(bundled ? QCoreApplication::applicationFilePath() : QString());
+            SettingsDialog dialog(config_, config_->get_hotkey());
+            dialog.resize(dialog_scaled(1050), dialog_scaled(750));
+            dialog.show();
+            auto *title = dialog.findChild<QLabel *>("SettingsPageTitle");
+            dialog.on_nav_changed(8, "about");
+            QApplication::processEvents();
+            QVERIFY(!title->isVisible());
+            auto *page = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+            QVERIFY(page);
+            QVERIFY(page->widget()->findChildren<SettingCardGroup *>().isEmpty());
+            auto *mark = page->widget()->findChild<QWidget *>("AboutAppMark");
+            QVERIFY(mark);
+            QCOMPARE(mark->size(), QSize(dialog_scaled(128), dialog_scaled(128)));
+            // Centred over the card column, which keeps clear of the scroll bar like on the other pages.
+            const auto margins = page->widget()->layout()->contentsMargins();
+            const int middle = (margins.left() + page->widget()->width() - margins.right()) / 2;
+            QVERIFY(qAbs(mark->geometry().center().x() - middle) <= 1);
+            for (const char *name : {"AboutName", "AboutVersion"}) {
+                auto *label = page->widget()->findChild<QLabel *>(name);
+                QVERIFY2(label && qAbs(label->geometry().center().x() - middle) <= 1, name);
+            }
+            QVERIFY(page->widget()->findChild<QPushButton *>("aboutSourceButton"));
+            QVERIFY(page->widget()->findChild<QPushButton *>("aboutLicenseButton"));
+            QCOMPARE(page->widget()->findChild<QPushButton *>("checkUpdateButton") != nullptr, bundled);
+            // The repository link sits at the bottom of the page, below the buttons.
+            auto *link = page->widget()->findChild<QPushButton *>("aboutRepositoryLink");
+            QVERIFY(link && link->geometry().top() > page->widget()->findChild<QPushButton *>("aboutSourceButton")->geometry().bottom());
+            dialog.on_nav_changed(1, "capture");
+            QVERIFY(title->isVisible());
         }
     }
 

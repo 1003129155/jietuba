@@ -91,10 +91,6 @@
         <source>About</source>
         <translation>정보</translation>
     </message>
-    <message>
-        <source>Developer</source>
-        <translation>개발자</translation>
-    </message>
 
     <!-- Page Titles -->
     <message>
@@ -5346,7 +5342,10 @@ This action cannot be undone.</source>
     <message><source>Features</source><translation>기능</translation></message>
     <message><source>OCR text recognition · Long screenshot · Pin window · Clipboard manager · DeepL translation</source><translation>OCR 텍스트 인식 · 긴 스크린샷 · 고정 창 · 클립보드 관리자 · DeepL 번역</translation></message>
     <message><source>Licenses</source><translation>라이선스</translation></message>
-    <message><source>Details</source><translation>자세히</translation></message>
+    <message>
+        <source>Developed by %1 · Open source under the MIT License</source>
+        <translation>개발: %1 · MIT 라이선스 오픈 소스</translation>
+    </message>
     <message><source>MIT License</source><translation>MIT 라이선스</translation></message>
     <message><source>MIT License Text</source><translation>MIT License
 
@@ -5370,7 +5369,10 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.</translation></message>
     <message><source>Source Code</source><translation>소스 코드</translation></message>
-    <message><source>Open GitHub</source><translation>GitHub 열기</translation></message>
+    <message>
+        <source>Screenshot, Screen Drawing, OCR, Pin, Translation &amp; Clipboard Tool for Windows</source>
+        <translation>Windows 스크린샷, 화면 그리기, OCR, 고정, 번역 및 클립보드 도구</translation>
+    </message>
     <message><source>Version</source><translation>버전</translation></message>
     <message><source>Check for Updates</source><translation>업데이트 확인</translation></message>
     <message><source>Checking...</source><translation>확인 중...</translation></message>
