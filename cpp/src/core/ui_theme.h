@@ -31,6 +31,13 @@ struct UIThemeTokens {
     QString accent_text;
     QString success, danger, danger_soft, status_idle;
     QString selected_text = "#FFFFFF";
+    // Neutral palette of the settings window and the fluent_lite controls; other windows keep the tokens above.
+    // Window, the content layer over it, the page cards and their expanded bodies.
+    QString page_background, layer, layer_border, card, card_border, card_body;
+    // Text, controls (buttons, inputs), hover fill of list items, the line between rows, a switch's off fill.
+    QString fg, fg_muted, fg_disabled;
+    QString control, control_hover, control_pressed, control_border, control_border_bottom;
+    QString item_hover, divider, switch_off_fill;
     bool is_dark() const { return mode == UIThemeMode::DARK; }
 };
 

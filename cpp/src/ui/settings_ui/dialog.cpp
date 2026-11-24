@@ -29,6 +29,7 @@
 #include "ui/key_chip.h"
 #include "ui/settings_ui/components.h"
 #include "ui/settings_ui/mouse_binding_editor.h"
+#include "ui/settings_ui/page_outline.h"
 #include "ui/settings_ui/pages.h"
 #include "ui/settings_ui/search.h"
 #include "ui/toolbar_layout.h"
@@ -53,6 +54,7 @@
 #include <QTemporaryDir>
 #include <QTimer>
 #include <QUrl>
+#include <algorithm>
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -149,8 +151,8 @@ private:
     int &depth_;
 };
 
-// Between the window edge and a card: window margins, navigation, the page's scroll bar and the group frame.
-constexpr int OUTSIDE_CARDS = 315;
+// Between the window edge and a card: window margin, navigation, the page margins and its scroll bar.
+constexpr int OUTSIDE_CARDS = 301;
 // The longest card titles are Japanese.
 constexpr int LONGEST_CARD_TITLE = 260;
 
@@ -163,22 +165,21 @@ struct NavItem {
     const char *text;
     int stack_index;
     NavigationItemPosition position;
-    QString tone;
 };
 
 std::vector<NavItem> nav_items() {
     return {
-        {"shortcuts", ResourceManager::get_icon_path(QString::fromUtf8("热键.svg")), "Shortcuts", 0, NavigationItemPosition::TOP, {}},
-        {"mouse", ResourceManager::get_icon_path(QString::fromUtf8("鼠标线框.svg")), "Mouse Shortcuts", 10, NavigationItemPosition::TOP, {}},
-        {"capture", FluentIcon::Camera, "Screenshot", 1, NavigationItemPosition::TOP, "capture"},
-        {"pin", FluentIcon::Pin, "Pin", 11, NavigationItemPosition::TOP, "pin"},
-        {"screen_annotation", ResourceManager::get_icon_path(QString::fromUtf8("画笔.svg")), "Screen Annotation", 12, NavigationItemPosition::TOP, "capture"},
-        {"clipboard", FluentIcon::Paste, "Clipboard", 2, NavigationItemPosition::TOP, "clipboard"},
-        {"translation", FluentIcon::Language, "Translation", 4, NavigationItemPosition::TOP, "translate"},
-        {"appearance", FluentIcon::Brush, "Appearance", 3, NavigationItemPosition::TOP, {}},
-        {"log", FluentIcon::History, "Log Settings", 5, NavigationItemPosition::TOP, {}},
-        {"other", FluentIcon::Application, "Other", 6, NavigationItemPosition::TOP, {}},
-        {"about", FluentIcon::Info, "About", 8, NavigationItemPosition::BOTTOM, {}},
+        {"shortcuts", ResourceManager::get_icon_path(QString::fromUtf8("热键.svg")), "Shortcuts", 0, NavigationItemPosition::TOP},
+        {"mouse", ResourceManager::get_icon_path(QString::fromUtf8("鼠标线框.svg")), "Mouse Shortcuts", 10, NavigationItemPosition::TOP},
+        {"capture", FluentIcon::Camera, "Screenshot", 1, NavigationItemPosition::TOP},
+        {"pin", FluentIcon::Pin, "Pin", 11, NavigationItemPosition::TOP},
+        {"screen_annotation", ResourceManager::get_icon_path(QString::fromUtf8("画笔.svg")), "Screen Annotation", 12, NavigationItemPosition::TOP},
+        {"clipboard", FluentIcon::Paste, "Clipboard", 2, NavigationItemPosition::TOP},
+        {"translation", FluentIcon::Language, "Translation", 4, NavigationItemPosition::TOP},
+        {"appearance", FluentIcon::Brush, "Appearance", 3, NavigationItemPosition::TOP},
+        {"log", FluentIcon::History, "Log", 5, NavigationItemPosition::TOP},
+        {"other", FluentIcon::Application, "Other", 6, NavigationItemPosition::TOP},
+        {"about", FluentIcon::Info, "About", 8, NavigationItemPosition::BOTTOM},
     };
 }
 }
@@ -266,14 +267,25 @@ void SettingsDialog::setup_titlebar() {
     auto *title_bar = new FluentTitleBar(this);
     configure_dialog_control(*title_bar);
     setTitleBar(title_bar);
-    title_bar->iconLabel->hide();
-    title_bar->titleLabel->hide();
     title_bar->setFixedHeight(title_bar->buttonLayout->sizeHint().height());
-    title_bar->hBoxLayout->setContentsMargins(0, 0, 0, 0);
+    apply_titlebar_layout();
+    // The logo and the name carry the developer options in their context menu.
+    for (QLabel *label : {title_bar->iconLabel, title_bar->titleLabel}) {
+        label->setContextMenuPolicy(Qt::CustomContextMenu);
+        connect(label, &QWidget::customContextMenuRequested, this, [this, label](const QPoint &pos) { show_logo_context_menu(label->mapTo(this, pos)); });
+    }
     if (title_bar->maxBtn) title_bar->maxBtn->hide();
     title_bar->setDoubleClickEnabled(false);
     const QString icon_path = ResourceManager::get_resource_path(QString::fromUtf8("svg/托盘.svg"));
     if (QFileInfo::exists(icon_path)) setWindowIcon(QIcon(icon_path));
+}
+
+void SettingsDialog::apply_titlebar_layout() {
+    auto *title_bar = qobject_cast<FluentTitleBar *>(titleBar());
+    if (!title_bar) return;
+    // The logo lines up with the navigation icons below it; the caption buttons keep the right edge.
+    title_bar->hBoxLayout->setContentsMargins(dialog_scaled(14), 0, 0, 0);
+    title_bar->titleLabel->setIndent(dialog_scaled(8));
 }
 
 // ── UI ──
@@ -284,36 +296,17 @@ void SettingsDialog::setup_ui() {
     const int title_bar_height = titleBar() ? titleBar()->height() : dialog_scaled(32);
 
     auto *main_layout = new QHBoxLayout(this);
-    main_layout->setContentsMargins(dialog_scaled(10), title_bar_height + dialog_scaled(6), dialog_scaled(10), dialog_scaled(10));
-    main_layout->setSpacing(dialog_scaled(10));
+    // The content layer runs to the window's right and bottom edges.
+    main_layout->setContentsMargins(dialog_scaled(10), title_bar_height + dialog_scaled(6), 0, 0);
+    main_layout->setSpacing(0);
 
     // 1. Left panel.
     auto *left_panel = new QWidget;
     left_panel->setObjectName("SettingsLeftPanel");
     left_panel->setFixedWidth(sidebar_width);
     auto *left_v = new QVBoxLayout(left_panel);
-    left_v->setContentsMargins(dialog_scaled(8), 0, dialog_scaled(8), dialog_scaled(8));
+    left_v->setContentsMargins(dialog_scaled(4), 0, dialog_scaled(4), dialog_scaled(8));
     left_v->setSpacing(dialog_scaled(6));
-
-    auto *logo_area = new QWidget;
-    logo_area->setFixedHeight(dialog_scaled(48));
-    auto *logo_layout = new QHBoxLayout(logo_area);
-    logo_layout->setContentsMargins(dialog_scaled(10), 0, dialog_scaled(10), dialog_scaled(4));
-    logo_layout->setSpacing(dialog_scaled(9));
-    logo_layout->setAlignment(Qt::AlignVCenter);
-    auto *logo_icon_lbl = new QLabel;
-    logo_icon_lbl->setFixedSize(dialog_scaled(26), dialog_scaled(26));
-    logo_icon_lbl->setAlignment(Qt::AlignCenter);
-    const QString icon_path = ResourceManager::get_resource_path(QString::fromUtf8("svg/托盘.svg"));
-    if (QFileInfo::exists(icon_path)) logo_icon_lbl->setPixmap(QIcon(icon_path).pixmap(dialog_scaled(26), dialog_scaled(26)));
-    logo_layout->addWidget(logo_icon_lbl, 0, Qt::AlignVCenter);
-    auto *app_name_lbl = new BodyLabel(tr_text("jietuba"));
-    apply_theme_text_style(app_name_lbl, 14, true);
-    logo_layout->addWidget(app_name_lbl, 1, Qt::AlignVCenter);
-    left_v->addWidget(logo_area);
-    // The logo's context menu opens developer options.
-    logo_area->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(logo_area, &QWidget::customContextMenuRequested, this, [this, logo_area](const QPoint &pos) { show_logo_context_menu(logo_area->mapTo(this, pos)); });
 
     search_box_ = new SettingsSearchBox(left_panel);
     search_box_->entries = [this] { return search_entries(); };
@@ -326,16 +319,30 @@ void SettingsDialog::setup_ui() {
 
     nav_list_ = create_navigation(left_panel);
     left_v->addWidget(nav_list_, 1);
+    outline_ = new PageOutline(nav_list_, this);
+    outline_->page_of = [this](const QString &route) -> QScrollArea * {
+        for (const auto &item : nav_items()) {
+            if (item.route_key != route) continue;
+            ensure_page(item.stack_index);
+            return qobject_cast<QScrollArea *>(content_stack->widget(item.stack_index));
+        }
+        return nullptr;
+    };
+    outline_->open_page = [this](const QString &route) {
+        for (const auto &item : nav_items())
+            if (item.route_key == route) on_nav_changed(item.stack_index, route);
+    };
     main_layout->addWidget(left_panel);
 
     // 2. Right content area.
     right_area_ = new QWidget;
     right_area_->setObjectName("SettingsRightArea");
     auto *right_layout = new QVBoxLayout(right_area_);
-    right_layout->setContentsMargins(dialog_scaled(12), dialog_scaled(2), dialog_scaled(4), dialog_scaled(2));
-    right_layout->setSpacing(dialog_scaled(10));
-    content_title_ = new QLabel(tr_text("Shortcut Settings"));
-    apply_theme_text_style(content_title_, 21, true, QString("padding: 0 %1px %2px %1px;").arg(dialog_scaled(6)).arg(dialog_scaled(2)));
+    right_layout->setContentsMargins(dialog_scaled(24), dialog_scaled(14), dialog_scaled(4), 0);
+    right_layout->setSpacing(dialog_scaled(2));
+    content_title_ = new QLabel(tr_text("Shortcuts"));
+    content_title_->setObjectName("SettingsPageTitle");
+    apply_theme_text_style(content_title_, 28, true, QString("font-family: %1; padding: 0 0 %2px 0;").arg(FONT_FAMILY).arg(dialog_scaled(2)));
 
     // Pages are built on first visit (ensure_page): building all takes over a second and
     // would stall opening the window. Placeholders keep the indices.
@@ -350,6 +357,7 @@ void SettingsDialog::setup_ui() {
 
     apply_dialog_stylesheet();
     set_current_nav("shortcuts");
+    outline_->set_page(qobject_cast<QScrollArea *>(content_stack->currentWidget()), "shortcuts");
     // Saves write what differs from the snapshot; later pages join it in ensure_page.
     settings_snapshot_ = snapshot_settings();
 }
@@ -369,8 +377,9 @@ NavigationInterface *SettingsDialog::create_navigation(QWidget *parent) {
         if (group_starts.contains(item.route_key)) nav->addSeparator();
         const int stack_index = item.stack_index;
         const QString route_key = item.route_key;
-        nav->addItem(route_key, item.icon, tr_text(item.text), [this, stack_index, route_key] { on_nav_changed(stack_index, route_key); }, item.position, {},
-                     item.tone);
+        nav->addItem(route_key, item.icon, tr_text(item.text), [this, stack_index, route_key] { on_nav_changed(stack_index, route_key); }, item.position);
+        // Pages are built on first visit, so whether one has groups to list is learnt then.
+        nav->setExpandable(route_key, item.position == NavigationItemPosition::TOP);
     }
     return nav;
 }
@@ -408,21 +417,21 @@ void SettingsDialog::build_all_pages() {
 // ── Navigation and developer entry ──
 
 void SettingsDialog::on_nav_changed(int stack_index, const QString &route_key) {
-    static const QMap<int, const char *> title_map{
-        {0, "Shortcut Settings"}, {1, "Capture Settings"}, {2, "Clipboard Settings"}, {3, "Appearance Settings"},
-        {4, "Translation Settings"}, {5, "Log Settings"}, {6, "Other Settings"}, {8, "Software Information"},
-        {10, "Mouse Shortcuts"}, {11, "Pin Settings"}, {12, "Screen Annotation Settings"},
-    };
-    if (!title_map.contains(stack_index)) return;
+    const auto items = nav_items();
+    const auto item = std::find_if(items.begin(), items.end(), [stack_index](const NavItem &entry) { return entry.stack_index == stack_index; });
+    if (item == items.end()) return;
     ensure_page(stack_index);
     // The hotkey may have been edited on the shortcut page since.
     if (stack_index == 12) refresh_screen_annotation_hotkey();
-    content_title_->setText(tr_text(title_map.value(stack_index)));
+    // Titled like its navigation item, so the name reads the same in both places.
+    content_title_->setText(tr_text(item->text));
     content_stack->setCurrentIndex(stack_index);
     if (!route_key.isEmpty()) {
         set_current_nav(route_key);
         current_route_ = route_key;
     }
+    // Without a route the navigation keeps its item, which does not own this page.
+    outline_->set_page(route_key.isEmpty() ? nullptr : qobject_cast<QScrollArea *>(content_stack->currentWidget()), route_key);
     refresh_after_page_change();
 }
 
@@ -447,12 +456,14 @@ void SettingsDialog::open_developer_page() {
     content_stack->setCurrentIndex(7);
     content_title_->setText(tr_text("Developer Options"));
     nav_list_->clearCurrentItem();
+    outline_->set_page(nullptr, {});
     refresh_after_page_change();
 }
 
 void SettingsDialog::refresh_after_page_change() {
-    // The information page has nothing to reset.
+    // The information page has nothing to reset, and it shows the application's name in place of a title.
     if (page_reset_btn_) page_reset_btn_->setVisible(content_stack->currentIndex() != 8);
+    content_title_->setVisible(content_stack->currentIndex() != 8);
     update();
     right_area_->update();
     content_stack->update();
@@ -588,18 +599,12 @@ void SettingsDialog::reset_pin_page() {
 
 void SettingsDialog::show_pin_shortcuts(bool mouse) {
     on_nav_changed(mouse ? 10 : 0, mouse ? "mouse" : "shortcuts");
-    SegmentedWidget *tabs = mouse ? mouse_inapp_tabs.data() : inapp_shortcut_tabs.data();
-    if (!tabs) return;
-    tabs->setCurrentItem("pin");
-    if (auto *scroll = qobject_cast<QScrollArea *>(content_stack->currentWidget())) {
-        // The page may be new; scroll after layout so the tab row and its section title reach the top.
-        QPointer<QScrollArea> guarded_scroll(scroll);
-        QPointer<SegmentedWidget> guarded_tabs(tabs);
-        QTimer::singleShot(0, this, [guarded_scroll, guarded_tabs] {
-            if (guarded_scroll && guarded_tabs)
-                guarded_scroll->verticalScrollBar()->setValue(guarded_tabs->mapTo(guarded_scroll->widget(), QPoint(0, 0)).y() - dialog_scaled(60));
-        });
-    }
+    const QPointer<QWidget> group(attr_widget(mouse ? "mouse_pin_group" : "inapp_pin_group"));
+    if (!group) return;
+    // The page may be new; scroll after layout.
+    QTimer::singleShot(0, this, [this, group] {
+        if (group) outline_->scroll_to_group_of(group);
+    });
 }
 
 void SettingsDialog::reset_screen_annotation_page() { refresh_behavior_controls(true, {}, SCREEN_ANNOTATION_BEHAVIOR_KEYS); }
@@ -624,7 +629,6 @@ std::vector<SettingsSearchEntry> SettingsDialog::search_entries() const {
         page.stack_index = item.stack_index;
         page.route_key = item.route_key;
         page.title = tr_text(item.text);
-        page.tone = item.tone;
         entries.push_back(page);
         if (built_pages_.count(item.stack_index)) collect_settings_entries(content_stack->widget(item.stack_index), page, entries);
     }
@@ -659,6 +663,7 @@ void SettingsDialog::show_search_result(const SettingsSearchEntry &entry) {
             if (top < bar->value() + margin || top + target->height() > bar->value() + view_height - margin)
                 bar->setValue(target->height() > view_height ? top - margin : top - (view_height - target->height()) / 2);
         }
+        outline_->select_group_of(target);
         delete search_flash_.data();
         search_flash_ = flash_settings_row(target);
     });
@@ -1150,7 +1155,7 @@ void SettingsDialog::apply_dialog_stylesheet() {
                 background: transparent;
             }
         )")
-                              .arg(tokens.text) +
+                              .arg(tokens.fg) +
                           scrollbar_qss(this) + R"(
             QScrollBar::handle:vertical:disabled { background: transparent; }
         )";
@@ -1159,15 +1164,20 @@ void SettingsDialog::apply_dialog_stylesheet() {
 }
 
 void SettingsDialog::on_ui_theme_changed() {
+    apply_titlebar_layout();
     apply_dialog_stylesheet();
     refresh_theme_widget_styles(this);
-    content_title_->setStyleSheet(theme_text_style(21, true, "padding: 0 6px 2px 6px;"));
+    content_title_->setStyleSheet(theme_text_style(28, true, QString("font-family: %1; padding: 0 0 %2px 0;").arg(FONT_FAMILY).arg(dialog_scaled(2))));
     update();
 }
 
 void SettingsDialog::resizeEvent(QResizeEvent *event) {
     FrostedFramelessDialog::resizeEvent(event);
     if (titleBar()) titleBar()->resize(width(), titleBar()->height());
+}
+
+void SettingsDialog::paintEvent(QPaintEvent *) {
+    paint_layered_background(this, frosted_corner_radius_, right_area_ ? right_area_->geometry() : QRect(), dialog_scaled(8));
 }
 
 void SettingsDialog::showEvent(QShowEvent *event) {

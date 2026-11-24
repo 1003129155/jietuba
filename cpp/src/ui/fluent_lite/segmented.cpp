@@ -16,7 +16,7 @@ int bold_text_width(const QString &text, int pixel_size) {
 
 struct Metrics {
     int font, pad_v, pad_h, inset;
-    int radius() const { return pad_v + 5; }
+    int radius() const { return 4; }
 };
 Metrics metrics(bool large, bool compact, int compact_padding) {
     if (large) return {14, 7, 20, 3};
@@ -38,8 +38,8 @@ QString SegmentedWidget::style() const {
                 border: none; border-radius: %4px; font: %5px %6; }
             QPushButton:hover { color: %7; background: %8; }
             QPushButton:checked { color: %9; background: %10; font-weight: 600; }
-        )").arg(dialog_scaled(m.pad_v)).arg(dialog_scaled(m.pad_h)).arg(t.text_muted).arg(dialog_scaled(m.radius())).arg(dialog_scaled(m.font))
-        .arg(FONT_FAMILY, t.text, t.surface_subtle, t.accent_text, t.accent_soft);
+        )").arg(dialog_scaled(m.pad_v)).arg(dialog_scaled(m.pad_h)).arg(t.fg_muted).arg(dialog_scaled(m.radius())).arg(dialog_scaled(m.font))
+        .arg(FONT_FAMILY, t.fg, t.item_hover, t.fg, t.is_dark() ? "rgba(255, 255, 255, 0.1)" : "#FFFFFF");
 }
 
 void SegmentedWidget::_apply_theme() {
@@ -49,8 +49,8 @@ void SegmentedWidget::_apply_theme() {
     layout_->setContentsMargins(inset, inset, inset, inset);
     layout_->setSpacing(inset);
     set_own_style(this, QString("background: %1; border: 1px solid %2; border-radius: %3px;")
-                            .arg(floating_ ? t.popup_background : t.surface_subtle, t.border)
-                            .arg(dialog_scaled(m.radius() + 2)));
+                            .arg(floating_ ? t.popup_background : t.control, t.control_border)
+                            .arg(dialog_scaled(m.radius() + m.inset)));
     for (auto *button : items_) apply_style_sheet(button, style());
 }
 

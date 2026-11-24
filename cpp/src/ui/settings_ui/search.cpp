@@ -4,7 +4,6 @@
 #include "ui/fluent_lite/cards.h"
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/labels.h"
-#include "ui/fluent_lite/segmented.h"
 #include "ui/fluent_lite/theme.h"
 #include "ui/settings_ui/components.h"
 #include "ui/settings_ui/dialog.h"
@@ -16,7 +15,6 @@
 #include <QListWidget>
 #include <QPainter>
 #include <QRegularExpression>
-#include <QStackedWidget>
 #include <QStyledItemDelegate>
 #include <QTextDocument>
 #include <QTextDocumentFragment>
@@ -60,7 +58,7 @@ constexpr int FLASH_HOLD_MS = 1100;
 constexpr int FLASH_FADE_MS = 400;
 constexpr int FLASH_OUTSET = 8;
 
-enum Role { TitleRole = Qt::UserRole + 1, PathRole, DescriptionRole, ToneRole };
+enum Role { TitleRole = Qt::UserRole + 1, PathRole, DescriptionRole };
 
 QString normalized(const QString &text) {
     static const QRegularExpression spaces("\\s+");
@@ -115,7 +113,6 @@ void add_entry(std::vector<SettingsSearchEntry> &out, const SettingsSearchEntry 
     entry.kind = kind;
     entry.stack_index = page_entry.stack_index;
     entry.route_key = page_entry.route_key;
-    entry.tone = page_entry.tone;
     entry.title = title;
     entry.description = description;
     entry.path = join_path(path);
@@ -223,7 +220,7 @@ public:
         painter->drawText(QRect(content.left(), top, widths.title_room, line_height), Qt::AlignLeft | Qt::AlignVCenter,
                           title_metrics.elidedText(title, Qt::ElideRight, widths.title_room));
         if (widths.tag > 0) {
-            const auto &tone = feature_tone(index.data(ToneRole).toString());
+            const auto &tone = feature_tone("neutral");
             const bool dark = t.is_dark();
             const int tag_height = small_metrics.height() + dialog_scaled(4);
             const QRect tag(content.right() - widths.tag + 1, top + (line_height - tag_height) / 2, widths.tag, tag_height);
@@ -397,22 +394,6 @@ void mark_search_row(QWidget *row, QLabel *title, QLabel *description) {
     if (description) row->setProperty(ROW_DESCRIPTION, QVariant::fromValue<QObject *>(description));
 }
 
-void link_tabs(SegmentedWidget *tabs, QStackedWidget *stack, const QStringList &routes) {
-    QObject::connect(tabs, &SegmentedWidget::currentItemChanged, stack, [stack, routes](const QString &route) { stack->setCurrentIndex(routes.indexOf(route)); });
-    const QPointer<SegmentedWidget> guarded(tabs);
-    link_pages(
-        stack,
-        [stack] {
-            QList<QWidget *> pages;
-            for (int index = 0; index < stack->count(); ++index) pages.append(stack->widget(index));
-            return pages;
-        },
-        routes, [guarded](const QString &route) { return guarded ? guarded->itemText(route) : QString(); },
-        [guarded](const QString &route) {
-            if (guarded) guarded->setCurrentItem(route);
-        });
-}
-
 void link_pages(QWidget *container, std::function<QList<QWidget *>()> pages, const QStringList &routes, std::function<QString(const QString &)> label,
                 std::function<void(const QString &)> select) {
     auto *link = new PageLink(container);
@@ -464,9 +445,11 @@ QWidget *flash_settings_row(QWidget *target) { return target && target->parentWi
 
 SettingsSearchBox::SettingsSearchBox(QWidget *parent) : QWidget(parent) {
     auto *layout = new QHBoxLayout(this);
-    layout->setContentsMargins(0, 0, 0, 0);
-    edit_ = new LineEdit(this);
+    // The inset lines the field up with the navigation rows below it.
+    layout->setContentsMargins(dialog_scaled(4), 0, dialog_scaled(4), 0);
+    edit_ = new LineEdit(this, false);
     edit_->setObjectName("SettingsSearchEdit");
+    edit_->setFixedHeight(dialog_scaled(32));
     edit_->setPlaceholderText(settings_tr("Search settings"));
     search_icon_ = new QLabel(edit_);
     search_icon_->setAttribute(Qt::WA_TransparentForMouseEvents);
@@ -512,6 +495,23 @@ void SettingsSearchBox::apply_theme() {
                                          "QToolButton#SettingsSearchClear:hover { background: %2; }")
                                      .arg(dialog_scaled(6))
                                      .arg(t.surface_hover));
+    // The bottom edge is stronger than the others and thickens in the accent colour while typing; the
+    // padding gives the extra pixel back so the text does not move.
+    const bool dark = t.is_dark();
+    edit_->setStyleSheet(QString(R"(
+            QLineEdit#SettingsSearchEdit { background: %1; color: %2; border: 1px solid %3; border-bottom: 1px solid %4;
+                border-radius: %5px; padding: 0 %6px; font-size: %7px; selection-background-color: %8; selection-color: %9; }
+            QLineEdit#SettingsSearchEdit:focus { border-bottom: 2px solid %8; padding-bottom: 0; }
+        )")
+                             .arg(dark ? "rgba(255, 255, 255, 0.0605)" : "rgba(255, 255, 255, 0.7)")
+                             .arg(t.text)
+                             .arg(dark ? "rgba(255, 255, 255, 0.0698)" : "rgba(0, 0, 0, 0.0578)")
+                             .arg(dark ? "rgba(255, 255, 255, 0.5442)" : "rgba(0, 0, 0, 0.4458)")
+                             .arg(dialog_scaled(4))
+                             .arg(dialog_scaled(8))
+                             .arg(dialog_scaled(14))
+                             .arg(t.accent_strong)
+                             .arg(t.selected_text));
     if (popup_) popup_->apply_theme();
 }
 
@@ -551,7 +551,6 @@ void SettingsSearchBox::refresh() {
         item->setData(TitleRole, entry.title);
         item->setData(PathRole, entry.kind == SettingsSearchEntry::Kind::Page ? settings_tr("Page") : entry.path);
         item->setData(DescriptionRole, entry.description);
-        item->setData(ToneRole, entry.tone);
         item->setToolTip(entry.description);
         if (entry.target == selected_target && entry.route_key == selected_route) selected = i;
     }

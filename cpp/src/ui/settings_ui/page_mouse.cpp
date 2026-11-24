@@ -5,15 +5,14 @@
 #include "core/ui_theme.h"
 #include "settings/tool_settings.h"
 #include "ui/fluent_lite/inputs.h"
-#include "ui/fluent_lite/segmented.h"
 #include "ui/inapp_key_edit.h"
 #include "ui/key_chip.h"
 #include "ui/settings_ui/components.h"
 #include "ui/settings_ui/dialog.h"
+#include "ui/settings_ui/group_rows.h"
 #include "ui/settings_ui/mouse_binding_editor.h"
 #include "ui/settings_ui/pages.h"
 #include "ui/settings_ui/search.h"
-#include <QStackedWidget>
 #include <functional>
 #include <map>
 
@@ -106,91 +105,29 @@ QString title_case(const QString &text) {
     return result;
 }
 
-QWidget *build_mouse_rows(SettingsDialog *dialog, const std::vector<MouseAction> &actions, const QString &key_prefix, IconSource (*action_icons)(const QString &),
-                          QString (*binding_getter)(const ToolSettingsManager *, const QString &)) {
-    auto *page = new QWidget;
-    auto *page_layout = new QVBoxLayout(page);
-    page_layout->setContentsMargins(0, 0, 0, 0);
-    page_layout->setSpacing(0);
+// A group with a row card per action: icon, title and the binding editor.
+SettingsCardGroup *build_mouse_group(SettingsDialog *dialog, QWidget *parent, const QString &title, const std::vector<MouseAction> &actions,
+                                    const QString &key_prefix, IconSource (*action_icons)(const QString &),
+                                    QString (*binding_getter)(const ToolSettingsManager *, const QString &)) {
+    auto *group = new SettingsCardGroup(title, parent);
     for (const auto &action : actions) {
-        auto *card = new QWidget(page);
-        auto *row = new QHBoxLayout(card);
-        row->setContentsMargins(0, dialog_scaled(8), 0, dialog_scaled(8));
-        row->setSpacing(dialog_scaled(14));
+        auto *card = new WhiteCard(group);
+        auto *row = card_row_layout(card);
         const auto icon = action_icons(action.key);
-        row->addWidget(new IconBadge(std::holds_alternative<std::monostate>(icon) ? icon : icon_ref(icon), QString(), card));
-        auto *title = row_label(card, dialog->tr_text(action.label));
-        title->setWordWrap(true);
-        row->addWidget(title, 1);
+        row->addWidget(new IconBadge(std::holds_alternative<std::monostate>(icon) ? icon : icon_ref(icon), QString(), card, 20, 20, false));
+        auto *label = row_label(card, dialog->tr_text(action.label));
+        label->setWordWrap(true);
+        row->addWidget(label, 1);
         auto *editor = new MouseBindingEditor(action.kind, card);
         editor->setFixedWidth(dialog_scaled(320));
         editor->setBinding(binding_getter(dialog->config_manager, action.key));
         dialog->behavior_controls.emplace_back(key_prefix + action.key, editor);
         row->addWidget(editor);
-        add_separated_row(page_layout, card);
+        group->addSettingCard(card);
     }
-    page_layout->addStretch(1);
-    return page;
-}
-
-QWidget *create_global_section(SettingsDialog *dialog, QWidget *parent) {
-    auto *group = new SectionCard(ResourceManager::get_icon_path(QString::fromUtf8("鼠标线框.svg")), dialog->tr_text("Global Mouse Shortcuts"),
-                                  dialog->tr_text("Hold modifier keys and drag the mouse"), parent);
-    group->addWidget(build_mouse_rows(dialog, QUICK_CAPTURE_ACTIONS(), "quick_capture_", quick_capture_icon, get_quick_capture_binding));
     return group;
 }
 
-QWidget *create_inapp_section(SettingsDialog *dialog, QWidget *parent) {
-    auto *group = new SectionCard(FluentIcon::Layout, dialog->tr_text("In-App Mouse Shortcuts"), dialog->tr_text("Only in the corresponding window"), parent);
-
-    auto *tab_switch = new SegmentedWidget(group);
-    tab_switch->setLarge(true);
-    tab_switch->setFixedHeight(dialog_scaled(44));
-    tab_switch->setIndicatorColor(ACCENT, ACCENT);
-
-    auto *stack = new QStackedWidget(group);
-    stack->setObjectName("MouseShortcutStack");
-    stack->setStyleSheet("#MouseShortcutStack { background: transparent; border: none; }");
-    struct Tab {
-        QString route;
-        const char *title;
-        const std::vector<MouseAction> &actions;
-        QString prefix;
-        IconSource (*icons)(const QString &);
-        QString (*getter)(const ToolSettingsManager *, const QString &);
-    };
-    std::vector<Tab> tabs{
-        {"screenshot", "Screenshot", CAPTURE_MOUSE_ACTIONS(), "mouse_capture_", capture_mouse_icon, get_capture_mouse_binding},
-        {"long_screenshot", "Long Screenshot", LONG_SCREENSHOT_MOUSE_ACTIONS(), "mouse_long_", capture_mouse_icon, get_long_screenshot_mouse_binding},
-        {"pin", "Pin", PIN_MOUSE_ACTIONS(), "mouse_pin_", pin_mouse_icon, get_pin_mouse_binding},
-    };
-    tabs.push_back({"clipboard", "Clipboard", CLIPBOARD_MOUSE_ACTIONS(), "mouse_clipboard_", clipboard_mouse_icon, get_clipboard_mouse_binding});
-    QStringList routes;
-    for (const auto &tab : tabs) {
-        routes.append(tab.route);
-        auto *rows = build_mouse_rows(dialog, tab.actions, tab.prefix, tab.icons, tab.getter);
-        if (tab.route == "long_screenshot") {
-            auto *hint = new QLabel(dialog->tr_text("Unassigned buttons and the wheel pass through. A double-click binding also captures single clicks of that button."), rows);
-            hint->setWordWrap(true);
-            rows->layout()->addWidget(hint);
-        }
-        stack->addWidget(rows);
-        tab_switch->addItem(tab.route, i18n_tr(tab.title, "ShortcutTabs"));
-    }
-    link_tabs(tab_switch, stack, routes);
-    tab_switch->setCurrentItem("screenshot");
-    // The pin page's "Edit" button switches to the pin tab here.
-    dialog->mouse_inapp_tabs = tab_switch;
-
-    auto *tab_row = new QWidget(group);
-    auto *tab_row_layout = new QHBoxLayout(tab_row);
-    tab_row_layout->setContentsMargins(0, 0, 0, dialog_scaled(10));
-    tab_row_layout->addWidget(tab_switch);
-    tab_row_layout->addStretch(1);
-    group->addWidget(tab_row);
-    group->addWidget(stack);
-    return group;
-}
 
 QString normalized_mouse_binding(const QString &binding) {
     QStringList parts;
@@ -272,10 +209,31 @@ QWidget *create_mouse_page(SettingsDialog *dialog) {
     auto *view = new QWidget;
     set_own_style(view, "background: transparent;");
     auto *layout = new QVBoxLayout(view);
-    layout->setContentsMargins(0, 0, dialog_scaled(10), 0);
-    layout->setSpacing(dialog_scaled(12));
-    layout->addWidget(create_global_section(dialog, view));
-    layout->addWidget(create_inapp_section(dialog, view));
+    layout->setContentsMargins(0, 0, dialog_scaled(10), page_bottom_margin());
+    layout->setSpacing(dialog_scaled(14));
+    // Its own entry, not the tray's: the group title is also a navigation item, which needs a shorter Japanese name.
+    layout->addWidget(build_mouse_group(dialog, view, i18n_tr("Global Mouse Shortcuts", "ShortcutTabs"), QUICK_CAPTURE_ACTIONS(),
+                                        "quick_capture_", quick_capture_icon, get_quick_capture_binding));
+    struct Window {
+        const char *title;
+        const std::vector<MouseAction> &actions;
+        QString prefix;
+        IconSource (*icons)(const QString &);
+        QString (*getter)(const ToolSettingsManager *, const QString &);
+        bool pin;
+    };
+    const std::vector<Window> windows{
+        {"Screenshot Window", CAPTURE_MOUSE_ACTIONS(), "mouse_capture_", capture_mouse_icon, get_capture_mouse_binding, false},
+        {"Long Screenshot Window", LONG_SCREENSHOT_MOUSE_ACTIONS(), "mouse_long_", capture_mouse_icon, get_long_screenshot_mouse_binding, false},
+        {"Pinned Window", PIN_MOUSE_ACTIONS(), "mouse_pin_", pin_mouse_icon, get_pin_mouse_binding, true},
+        {"Clipboard Window", CLIPBOARD_MOUSE_ACTIONS(), "mouse_clipboard_", clipboard_mouse_icon, get_clipboard_mouse_binding, false},
+    };
+    for (const auto &window : windows) {
+        auto *group = build_mouse_group(dialog, view, i18n_tr(window.title, "ShortcutTabs"), window.actions, window.prefix, window.icons, window.getter);
+        // The pin page's "Edit" button scrolls to this group.
+        if (window.pin) dialog->set_attr("mouse_pin_group", group);
+        layout->addWidget(group);
+    }
     layout->addStretch();
     scroll->setWidget(view);
     return scroll;

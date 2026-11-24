@@ -397,6 +397,9 @@ if(BUILD_TESTING)
                  longScreenshotMousePageFitsEveryLanguage fileNameDialogFitsEveryLanguageAndFollowsWindowScale fileNameDialogDoesNotMoveWhileTyping
                  fileNameDialogErrorsStayVisibleAndKeepPastedText)
         set_tests_properties(settings_window_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
+        add_test(NAME settings_nav_desktop COMMAND jietuba_settings_window_tests -o ${JIETUBA_TEST_REPORTS}/settings_nav_desktop.txt,txt -platform windows
+                 navigationFitsEveryLanguageAtEveryScale)
+        set_tests_properties(settings_nav_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
     endif()
     qt_add_executable(jietuba_data_folder_tests tests/test_data_folder.cpp)
     target_link_libraries(jietuba_data_folder_tests PRIVATE jietuba_lib Qt6::Test)

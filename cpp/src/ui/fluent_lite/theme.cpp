@@ -3,6 +3,7 @@
 #include <QHash>
 #include <QLinearGradient>
 #include <QPainter>
+#include <QPainterPath>
 #include <QPixmap>
 #include <QWidget>
 
@@ -45,7 +46,7 @@ QIcon tinted_from_path(const QString &path, const QString &color) {
     QPainter painter(&tinted);
     painter.drawPixmap(0, 0, pixmap);
     painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
-    painter.fillRect(tinted.rect(), QColor::fromString(color));
+    painter.fillRect(tinted.rect(), css_color(color));
     painter.end();
     QIcon result(tinted);
     if (cache.size() >= 128) cache.clear();
@@ -74,7 +75,7 @@ QIcon to_qicon(const IconSource &icon, const QWidget *widget) {
     }
     const bool preserve_color = icon_id.toUpper().endsWith("WHITE");
     if (preserve_color || source.isNull()) return source;
-    return tinted_from_path(icon_path(icon), ui_tokens(widget).text);
+    return tinted_from_path(icon_path(icon), ui_tokens(widget).fg);
 }
 
 QColor css_color(const QString &value) {
@@ -112,5 +113,39 @@ void paint_solid_background(QWidget *widget, int radius) {
     painter.setPen(pen);
     painter.setBrush(Qt::NoBrush);
     painter.drawRoundedRect(rect, radius, radius);
+}
+
+void paint_layered_background(QWidget *widget, int radius, const QRect &layer_rect, int layer_radius) {
+    const auto &tokens = ui_tokens(widget);
+    QPainter painter(widget);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setCompositionMode(QPainter::CompositionMode_Source);
+    painter.fillRect(widget->rect(), Qt::transparent);
+    painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
+    const auto frame = QRectF(widget->rect()).adjusted(0.5, 0.5, -0.5, -0.5);
+    QPainterPath window;
+    window.addRoundedRect(frame, radius, radius);
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(css_color(tokens.page_background));
+    painter.drawPath(window);
+    if (layer_rect.isValid()) {
+        const auto box = QRectF(layer_rect).adjusted(0.5, 0.5, -0.5, -0.5);
+        const double r = layer_radius;
+        QPainterPath layer;
+        layer.moveTo(box.left(), box.top() + r);
+        layer.arcTo(QRectF(box.left(), box.top(), 2 * r, 2 * r), 180, -90);
+        layer.lineTo(box.right(), box.top());
+        layer.lineTo(box.right(), box.bottom());
+        layer.lineTo(box.left(), box.bottom());
+        layer.closeSubpath();
+        painter.setClipPath(window);
+        painter.setBrush(css_color(tokens.layer));
+        painter.setPen(QPen(css_color(tokens.layer_border), 1.0));
+        painter.drawPath(layer);
+        painter.setClipping(false);
+    }
+    painter.setBrush(Qt::NoBrush);
+    painter.setPen(QPen(css_color(tokens.window_border), 1.0));
+    painter.drawPath(window);
 }
 }

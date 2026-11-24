@@ -10,17 +10,18 @@
 #include "ui/fluent_lite/buttons.h"
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/labels.h"
-#include "ui/fluent_lite/segmented.h"
 #include "ui/fluent_lite/switch.h"
 #include "ui/fluent_lite/text_context_menu.h"
 #include "ui/settings_ui/components.h"
 #include "ui/settings_ui/dialog.h"
+#include "ui/settings_ui/page_outline.h"
 #include "ui/settings_ui/pages.h"
 #include "ui/settings_ui/search.h"
 #include <QAbstractButton>
 #include <QButtonGroup>
 #include <QDate>
 #include <QDesktopServices>
+#include <QEvent>
 #include <QFrame>
 #include <QLocale>
 #include <QMenu>
@@ -28,15 +29,17 @@
 #include <QRegularExpression>
 #include <QScrollArea>
 #include <QScrollBar>
-#include <QStackedWidget>
 #include <QThread>
+#include <QTimer>
 #include <QToolTip>
+#include <QVariantAnimation>
 #include <QUrl>
 #include <algorithm>
+#include <functional>
 #include <set>
 
-// The translation settings page: a General tab (engine, options, read aloud) and an API tab with
-// one card per provider. No provider is named here: each provider's credentials, own switches,
+// The translation settings page: the options, read aloud and then the API services group, which
+// shows one provider's cards at a time. No provider is named here: each provider's credentials, own switches,
 // hints, help link and which general options it uses all come from its own declaration
 // (ProviderField / ProviderMetadata); the page only renders them, so a provider cannot be missing
 // from either the form or the save.
@@ -45,14 +48,13 @@ namespace {
 // Label column width. Providers differ in field count and label length; a fixed width
 // keeps inputs from jumping sideways when switching providers.
 constexpr int LABEL_WIDTH = 135;
-// Left room of a provider card's rows at 100%; the right room is card_right_margin().
+// Left room of a provider's rows at 100%; the right room is card_right_margin().
 constexpr int CARD_PADDING = 16;
-constexpr int TAB_HEIGHT = 44;
-constexpr int TAB_GAP = 14;
+constexpr int ROW_MIN_HEIGHT = 68;
+constexpr int CARD_GAP = 4;
 constexpr int CHIP_HEIGHT = 34;
 constexpr int CHIP_COLUMNS = 4;
-const char *const GENERAL_TAB = "general";
-const char *const API_TAB = "api";
+constexpr int SCROLL_MS = 250;
 const char *const PROVIDER_ID = "provider_id";
 
 QFont ui_font(int pixel_size, bool bold = false) {
@@ -67,40 +69,6 @@ QString rgba(const QString &color, double alpha) {
     const QColor c = css_color(color);
     return QString("rgba(%1, %2, %3, %4)").arg(c.red()).arg(c.green()).arg(c.blue()).arg(alpha);
 }
-
-// The line above every row of a provider card but the first, from the text column to the edge.
-class RowLine : public QFrame {
-public:
-    explicit RowLine(QWidget *parent) : QFrame(parent) {
-        setFixedHeight(dialog_scaled(1));
-        apply_theme();
-        QObject::connect(get_ui_theme(), &UIThemeManager::theme_changed, this, [this] { apply_theme(); });
-    }
-private:
-    void apply_theme() { set_own_style(this, QString("background: %1; border: none; margin-left: %2px;").arg(ui_tokens(this).separator).arg(dialog_scaled(CARD_PADDING))); }
-};
-
-void add_row(QVBoxLayout *layout, QWidget *row) {
-    layout->addWidget(new RowLine(row->parentWidget()));
-    layout->addWidget(row);
-}
-
-// The page's scroll area with the tab row fixed above the scrolling content.
-class TabbedScrollArea : public QScrollArea {
-public:
-    TabbedScrollArea(QWidget *parent, QWidget *header, int right_inset) : QScrollArea(parent), header_(header), right_inset_(right_inset) {
-        header->setParent(this);
-        setViewportMargins(0, header->height() + dialog_scaled(TAB_GAP), 0, 0);
-    }
-protected:
-    void resizeEvent(QResizeEvent *event) override {
-        QScrollArea::resizeEvent(event);
-        header_->setGeometry(viewport()->x(), 0, std::max(0, viewport()->width() - right_inset_), header_->height());
-    }
-private:
-    QWidget *header_;
-    int right_inset_;
-};
 
 // One page shown at a time. Unlike a stack, the hidden pages take no room, so a short page does
 // not leave the height of the tallest one below it.
@@ -128,30 +96,38 @@ public:
             if (page) pages.append(page);
         return pages;
     }
+    // Called whenever the shown page's height may have changed.
+    std::function<void()> on_relayout;
+protected:
+    bool event(QEvent *event) override {
+        const bool handled = QWidget::event(event);
+        if (event->type() == QEvent::LayoutRequest && on_relayout) on_relayout();
+        return handled;
+    }
 private:
     QVBoxLayout *layout_;
     QList<QPointer<QWidget>> pages_;
     int current_ = 0;
 };
 
-// The rounded frame around a provider's rows, drawn like a card group's body.
-class ProviderCard : public QFrame {
+// A provider's cards, one under the other.
+class ProviderCard : public QWidget {
 public:
-    explicit ProviderCard(QWidget *parent) : QFrame(parent) {
-        setFrameShape(QFrame::NoFrame);
-        QObject::connect(get_ui_theme(), &UIThemeManager::theme_changed, this, [this] { update(); });
+    explicit ProviderCard(QWidget *parent) : QWidget(parent) {
+        layout_ = new QVBoxLayout(this);
+        layout_->setContentsMargins(0, 0, 0, 0);
+        layout_->setSpacing(dialog_scaled(CARD_GAP));
     }
-protected:
-    void paintEvent(QPaintEvent *) override {
-        const auto &t = ui_tokens(this);
-        QPainter painter(this);
-        painter.setRenderHint(QPainter::Antialiasing);
-        painter.setPen(css_color(t.border));
-        painter.setBrush(css_color(t.surface));
-        const int radius = dialog_scaled(15);
-        painter.drawRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), radius, radius);
-    }
+    QVBoxLayout *cards() const { return layout_; }
+private:
+    QVBoxLayout *layout_;
 };
+
+// A row that paints a card of its own.
+void add_card(QVBoxLayout *layout, QWidget *card) {
+    if (auto *surface = qobject_cast<CardSurface *>(card)) surface->setChrome(true);
+    layout->addWidget(card);
+}
 
 // This month's share of a free quota.
 class QuotaBar : public QWidget {
@@ -171,7 +147,7 @@ protected:
         painter.setRenderHint(QPainter::Antialiasing);
         painter.setPen(Qt::NoPen);
         const qreal radius = height() / 2.0;
-        painter.setBrush(css_color(t.border));
+        painter.setBrush(css_color(t.control_border_bottom));
         painter.drawRoundedRect(QRectF(rect()), radius, radius);
         if (fraction_ <= 0) return;
         painter.setBrush(css_color(fraction_ >= 1 ? t.danger : t.accent));
@@ -184,27 +160,37 @@ private:
 // Folds a provider's rarely changed settings: a chevron, its title and, while folded, what is inside.
 class DisclosureRow : public QAbstractButton {
 public:
+    static constexpr int ROW_HEIGHT = 52;
     DisclosureRow(const QString &text, const QString &summary, QWidget *parent) : QAbstractButton(parent), summary_(summary) {
         setText(text);
         setCheckable(true);
         setCursor(Qt::PointingHandCursor);
         setFocusPolicy(Qt::TabFocus);
         setAttribute(Qt::WA_Hover);
-        setFixedHeight(dialog_scaled(44));
+        setFixedHeight(dialog_scaled(ROW_HEIGHT));
         setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
         QObject::connect(get_ui_theme(), &UIThemeManager::theme_changed, this, [this] { update(); });
     }
-    QSize sizeHint() const override { return {dialog_scaled(200), dialog_scaled(44)}; }
+    QSize sizeHint() const override { return {dialog_scaled(200), dialog_scaled(ROW_HEIGHT)}; }
 protected:
     void paintEvent(QPaintEvent *) override {
         const auto &t = ui_tokens(this);
         QPainter painter(this);
         painter.setRenderHint(QPainter::Antialiasing);
-        if (underMouse() || hasFocus()) painter.fillRect(rect(), css_color(t.surface_subtle));
+        const QRectF body = QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5);
+        const qreal radius = dialog_scaled(4);
+        painter.setPen(css_color(t.card_border));
+        painter.setBrush(css_color(t.card));
+        painter.drawRoundedRect(body, radius, radius);
+        if (underMouse() || hasFocus()) {
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(css_color(t.item_hover));
+            painter.drawRoundedRect(body, radius, radius);
+        }
         const qreal size = dialog_scaled(8);
         const qreal left = dialog_scaled(CARD_PADDING);
         const QPointF c(left + size / 2, height() / 2.0);
-        QPen pen(css_color(t.text_muted), std::max(1.2, dialog_scaled(15) / 10.0));
+        QPen pen(css_color(t.fg_muted), std::max(1.2, dialog_scaled(15) / 10.0));
         pen.setCapStyle(Qt::RoundCap);
         pen.setJoinStyle(Qt::RoundJoin);
         painter.setPen(pen);
@@ -212,11 +198,11 @@ protected:
         const QPointF right[] = {{c.x() - size / 4, c.y() - size / 2}, {c.x() + size / 4, c.y()}, {c.x() - size / 4, c.y() + size / 2}};
         painter.drawPolyline(isChecked() ? down : right, 3);
 
-        const QFont title_font = ui_font(13);
+        const QFont title_font = ui_font(14);
         const int text_left = qRound(left + size) + dialog_scaled(10);
         const int title_width = QFontMetrics(title_font).horizontalAdvance(text()) + 1;
         painter.setFont(title_font);
-        painter.setPen(css_color(t.text));
+        painter.setPen(css_color(t.fg));
         painter.drawText(QRect(text_left, 0, title_width, height()), Qt::AlignLeft | Qt::AlignVCenter, text());
         if (isChecked() || summary_.isEmpty()) return;
         const QFont small = ui_font(12);
@@ -224,14 +210,14 @@ protected:
         const int room = width() - card_right_margin() - x;
         if (room <= 0) return;
         painter.setFont(small);
-        painter.setPen(css_color(t.text_muted));
+        painter.setPen(css_color(t.fg_muted));
         painter.drawText(QRect(x, 0, room, height()), Qt::AlignLeft | Qt::AlignVCenter, QFontMetrics(small).elidedText(summary_, Qt::ElideRight, room));
     }
 private:
     QString summary_;
 };
 
-// A provider on the API tab. A dot marks one whose required settings are filled, a check the one in
+// A provider among the API services. A dot marks one whose required settings are filled, a check the one in
 // use, and a warning sign the one in use while it still lacks them.
 class ProviderChip : public QAbstractButton {
 public:
@@ -269,11 +255,11 @@ protected:
         const bool configured = property("configured").toBool();
         QPainter painter(this);
         painter.setRenderHint(QPainter::Antialiasing);
-        QColor border = css_color(selected || hasFocus() ? t.accent : t.border);
+        QColor border = css_color(selected || hasFocus() ? t.accent : t.control_border_bottom);
         if (selected && !hasFocus()) border.setAlphaF(0.55f);
         painter.setPen(QPen(border, hasFocus() ? 2 : 1));
-        painter.setBrush(css_color(selected ? t.accent_soft : underMouse() ? t.surface_hover : t.surface));
-        const int radius = dialog_scaled(8);
+        painter.setBrush(css_color(selected ? t.accent_soft : underMouse() ? t.control_hover : t.control));
+        const int radius = dialog_scaled(4);
         painter.drawRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), radius, radius);
 
         const QFont font = ui_font(13, selected);
@@ -309,7 +295,7 @@ protected:
         }
         x += mark + gap;
         painter.setFont(font);
-        painter.setPen(css_color(selected ? t.accent_text : t.text));
+        painter.setPen(css_color(selected ? t.accent_text : t.fg));
         painter.drawText(QRect(x, 0, name_width + 1, height()), Qt::AlignLeft | Qt::AlignVCenter, name);
     }
 };
@@ -366,7 +352,7 @@ class ProviderPicker : public QWidget {
 public:
     explicit ProviderPicker(QWidget *parent) : QWidget(parent), group_(new QButtonGroup(this)) {
         layout_ = new QVBoxLayout(this);
-        layout_->setContentsMargins(0, 0, 0, 0);
+        layout_->setContentsMargins(0, 0, 0, dialog_scaled(8));
         layout_->setSpacing(0);
         group_->setExclusive(true);
         QObject::connect(get_ui_theme(), &UIThemeManager::theme_changed, this, [this] { apply_theme(); });
@@ -406,12 +392,12 @@ public:
     ProviderChip *chip(const QString &id) const { return chips_.value(id); }
     std::function<void(const QString &)> on_select;
 private:
-    // Like a card group's title.
+    // The subtitle of a set of chips.
     void apply_theme() {
         const auto &t = ui_tokens(this);
         for (auto *label : titles_)
-            set_own_style(label, QString("color: %1; font: 600 %2px %3; padding: %4px %5px 0 %5px; background: transparent;")
-                                     .arg(t.text).arg(dialog_scaled(12)).arg(FONT_FAMILY).arg(dialog_scaled(2)).arg(dialog_scaled(8)));
+            set_own_style(label, QString("color: %1; font: 12px %2; padding: %3px %4px 0 %4px; background: transparent;")
+                                     .arg(t.fg_muted).arg(FONT_FAMILY).arg(dialog_scaled(2)).arg(dialog_scaled(1)));
     }
     QVBoxLayout *layout_;
     QButtonGroup *group_;
@@ -427,12 +413,12 @@ QLabel *make_badge(QWidget *parent, const QString &text, bool good) {
     auto *badge = new QLabel(text, parent);
     const auto apply = [badge, good] {
         const auto &t = ui_tokens(badge);
-        const QString color = good ? t.success : t.text_muted;
-        set_own_style(badge, QString("color: %1; background: %2; border: none; border-radius: %3px; padding: %4px %5px; font: %6px %7;")
-                                 .arg(color, rgba(color, good ? 0.14 : 0.12))
+        const QString color = good ? t.success : t.fg_muted;
+        set_own_style(badge, QString("color: %1; background: transparent; border: 1px solid %2; border-radius: %3px; padding: %4px %5px; font: %6px %7;")
+                                 .arg(color, rgba(color, 0.5))
                                  .arg(dialog_scaled(4))
                                  .arg(dialog_scaled(1))
-                                 .arg(dialog_scaled(7))
+                                 .arg(dialog_scaled(6))
                                  .arg(dialog_scaled(11))
                                  .arg(FONT_FAMILY));
     };
@@ -457,9 +443,8 @@ struct TranslationPage {
     QPointer<QComboBox> engine_combo;
     QPointer<SettingCard> engine_card;
     QPointer<SettingsCardGroup> options_group;
-    QPointer<SegmentedWidget> tabs;
+    QPointer<SettingsCardGroup> api_group;
     QPointer<ProviderPicker> picker;
-    QPointer<QScrollArea> scroll;
     QMap<QString, ProviderView> views;
     // Every switch of a general option a provider uses, by option; each provider using it has one.
     QMap<QString, QList<QPointer<SwitchButton>>> request_switches;
@@ -586,12 +571,12 @@ void toggle_secret(SettingsDialog *dialog, QLineEdit *edit, QPushButton *button)
 std::pair<WhiteCard *, SwitchButton *> toggle_row(QWidget *parent, const QString &title, const QString &description, bool checked) {
     auto *card = new WhiteCard(parent);
     auto *row = new QHBoxLayout(card);
-    row->setContentsMargins(dialog_scaled(CARD_PADDING), dialog_scaled(10), card_right_margin(), dialog_scaled(10));
+    row->setContentsMargins(dialog_scaled(CARD_PADDING), dialog_scaled(12), card_right_margin(), dialog_scaled(12));
     row->setSpacing(dialog_scaled(10));
     auto *text = new QVBoxLayout;
     text->setSpacing(dialog_scaled(2));
     auto *title_label = new QLabel(title, card);
-    apply_theme_text_style(title_label, 13);
+    apply_theme_text_style(title_label, 14);
     text->addWidget(title_label);
     QLabel *description_label = nullptr;
     if (!description.isEmpty()) {
@@ -605,7 +590,7 @@ std::pair<WhiteCard *, SwitchButton *> toggle_row(QWidget *parent, const QString
     auto *switch_button = new SwitchButton(card);
     switch_button->setChecked(checked);
     row->addWidget(switch_button, 0, Qt::AlignVCenter);
-    card->setMinimumHeight(dialog_scaled(58));
+    card->setMinimumHeight(dialog_scaled(ROW_MIN_HEIGHT));
     return {card, switch_button};
 }
 
@@ -622,7 +607,7 @@ std::pair<WhiteCard *, QWidget *> build_field(SettingsDialog *dialog, QWidget *p
     row->setContentsMargins(dialog_scaled(CARD_PADDING), dialog_scaled(12), card_right_margin(), dialog_scaled(12));
     row->setSpacing(dialog_scaled(10));
     auto *title = new QLabel(dialog->tr_text(field.label.toUtf8().constData()), card);
-    apply_theme_text_style(title, 13);
+    apply_theme_text_style(title, 14);
     title->setFixedWidth(dialog_scaled(LABEL_WIDTH));
     title->setWordWrap(true);
     row->addWidget(title);
@@ -647,7 +632,7 @@ std::pair<WhiteCard *, QWidget *> build_field(SettingsDialog *dialog, QWidget *p
         QObject::connect(button, &QPushButton::clicked, dialog, [dialog, provider_id, edit, button] { fetch_models(dialog, provider_id, edit, button); });
         row->addWidget(button);
     }
-    card->setMinimumHeight(dialog_scaled(58));
+    card->setMinimumHeight(dialog_scaled(ROW_MIN_HEIGHT));
     return {card, edit};
 }
 
@@ -733,7 +718,7 @@ QString model_name(SettingsDialog *dialog, const ProviderMetadata &metadata) {
     return {};
 }
 
-// Whether the engine in use is ready, under its name on the General tab; a link to its card.
+// Whether the engine in use is ready, under its name in the options; a link to its card.
 void apply_engine_status(TranslationPage &page) {
     if (!page.engine_card) return;
     SettingsDialog *dialog = page.dialog;
@@ -742,7 +727,7 @@ void apply_engine_status(TranslationPage &page) {
     const ProviderMetadata *metadata = find_provider(page, id);
     const ProviderView view = page.views.value(id);
     QString text;
-    QString color = t.text_muted;
+    QString color = t.fg_muted;
     if (metadata && !view.configured) {
         text = dialog->tr_text("Not configured yet");
         color = t.danger;
@@ -795,10 +780,48 @@ void update_provider(TranslationPage &page, const QString &provider_id) {
     if (provider_id == current_engine(page)) apply_engine_status(page);
 }
 
-void open_provider(TranslationPage &page, const QString &provider_id) {
-    if (page.tabs) page.tabs->setCurrentItem(API_TAB);
-    if (page.picker) page.picker->setCurrentItem(provider_id);
-    if (page.scroll) page.scroll->verticalScrollBar()->setValue(0);
+QScrollArea *scroll_area_of(QWidget *widget) {
+    for (QWidget *parent = widget; parent; parent = parent->parentWidget())
+        if (auto *scroll = qobject_cast<QScrollArea *>(parent)) return scroll;
+    return nullptr;
+}
+
+// Brings the group to the top of its page. The target is read again on every step: the page may
+// still be growing into the group just shown.
+void scroll_to_group_top(QWidget *group) {
+    auto *scroll = scroll_area_of(group);
+    if (!scroll || !scroll->widget()) return;
+    auto *bar = scroll->verticalScrollBar();
+    const auto target = [group, scroll, bar] {
+        return std::clamp(group->mapTo(scroll->widget(), QPoint(0, 0)).y() - dialog_scaled(PageOutline::TOP_MARGIN), bar->minimum(), bar->maximum());
+    };
+    auto *animation = scroll->findChild<QVariantAnimation *>("GroupScrollAnimation");
+    if (!animation) {
+        animation = new QVariantAnimation(scroll);
+        animation->setObjectName("GroupScrollAnimation");
+        animation->setDuration(SCROLL_MS);
+        animation->setEasingCurve(QEasingCurve::OutCubic);
+    }
+    animation->stop();
+    animation->disconnect();
+    const int start = bar->value();
+    QObject::connect(animation, &QVariantAnimation::valueChanged, scroll, [bar, start, target](const QVariant &progress) {
+        bar->setValue(start + qRound((target() - start) * progress.toDouble()));
+    });
+    // A page not on screen has nothing to animate.
+    if (!scroll->isVisible()) {
+        bar->setValue(target());
+        return;
+    }
+    animation->setStartValue(0.0);
+    animation->setEndValue(1.0);
+    animation->start();
+}
+
+// Shows the provider's cards and brings the API services group into view.
+void open_provider(QWidget *api_group, ProviderPicker *picker, const QString &provider_id) {
+    if (picker) picker->setCurrentItem(provider_id);
+    if (api_group) scroll_to_group_top(api_group);
 }
 
 // The switch of a general option a provider uses. All switches of one option show the same value,
@@ -810,7 +833,7 @@ void add_request_switch(const std::shared_ptr<TranslationPage> &page, QVBoxLayou
     const auto row = toggle_row(parent, dialog->tr_text(split ? "Ignore Line Breaks" : "Preserve Formatting"),
                                 dialog->tr_text(split ? "Merge multi-line text for better translation" : "Keep original text formatting"),
                                 split ? dialog->config_manager->get_translation_split_sentences() : dialog->config_manager->get_translation_preserve_formatting());
-    add_row(layout, row.first);
+    add_card(layout, row.first);
     SwitchButton *button = row.second;
     auto &switches = page->request_switches[option];
     if (switches.isEmpty()) dialog->set_attr(split ? "split_sentences_toggle" : "preserve_formatting_toggle", button);
@@ -833,13 +856,10 @@ QWidget *build_provider_card(const std::shared_ptr<TranslationPage> &page, const
     ProviderView &view = page->views[id];
     auto *card = new ProviderCard(parent);
     card->setProperty(PROVIDER_ID, id);
-    auto *layout = new QVBoxLayout(card);
-    // Inside the border, so a highlighted row does not paint over it.
-    layout->setContentsMargins(1, 1, 1, 1);
-    layout->setSpacing(0);
+    QVBoxLayout *layout = card->cards();
 
     // Name, tags and "Use This"; then the provider's hint and this month's quota.
-    auto *header = new QWidget(card);
+    auto *header = new WhiteCard(card);
     auto *header_layout = new QVBoxLayout(header);
     header_layout->setContentsMargins(dialog_scaled(CARD_PADDING), dialog_scaled(12), card_right_margin(), dialog_scaled(13));
     header_layout->setSpacing(dialog_scaled(4));
@@ -850,7 +870,7 @@ QWidget *build_provider_card(const std::shared_ptr<TranslationPage> &page, const
     title_layout->setContentsMargins(0, 0, 0, 0);
     title_layout->setSpacing(dialog_scaled(8));
     auto *name = new QLabel(dialog->tr_text(metadata.display_name.toUtf8().constData()), title_row);
-    apply_theme_text_style(name, 15, true);
+    apply_theme_text_style(name, 14, true);
     title_layout->addWidget(name, 0, Qt::AlignVCenter);
     view.in_use = make_badge(title_row, dialog->tr_text("In Use"), true);
     title_layout->addWidget(view.in_use, 0, Qt::AlignVCenter);
@@ -890,7 +910,7 @@ QWidget *build_provider_card(const std::shared_ptr<TranslationPage> &page, const
         view.quota_label = quota;
         header_layout->addWidget(quota);
     }
-    layout->addWidget(header);
+    add_card(layout, header);
 
     // Settings needed to work, the provider's own switches and the general options it uses.
     std::vector<ProviderField> folded;
@@ -901,7 +921,7 @@ QWidget *build_provider_card(const std::shared_ptr<TranslationPage> &page, const
         }
         const auto [row, control] = build_field(dialog, card, field, id);
         (*dialog->provider_field_widgets)[field.config_key] = control;
-        add_row(layout, row);
+        add_card(layout, row);
     }
     for (const char *option : {"split_sentences", "preserve_formatting"})
         if (metadata.supported_request_options.contains(option)) add_request_switch(page, layout, card, option);
@@ -911,15 +931,15 @@ QWidget *build_provider_card(const std::shared_ptr<TranslationPage> &page, const
         QStringList labels;
         for (const auto &field : folded) labels << dialog->tr_text(field.label.toUtf8().constData());
         auto *disclosure = new DisclosureRow(dialog->tr_text("Advanced"), labels.join(QString::fromUtf8(" · ")), card);
-        add_row(layout, disclosure);
+        layout->addWidget(disclosure);
         auto *box = new QWidget(card);
         auto *box_layout = new QVBoxLayout(box);
         box_layout->setContentsMargins(0, 0, 0, 0);
-        box_layout->setSpacing(0);
+        box_layout->setSpacing(dialog_scaled(CARD_GAP));
         for (const auto &field : folded) {
             const auto [row, control] = build_field(dialog, box, field, id);
             (*dialog->provider_field_widgets)[field.config_key] = control;
-            add_row(box_layout, row);
+            add_card(box_layout, row);
         }
         box->setVisible(false);
         layout->addWidget(box);
@@ -935,7 +955,7 @@ QWidget *build_provider_card(const std::shared_ptr<TranslationPage> &page, const
     auto *status = new QLabel(footer);
     status->setWordWrap(true);
     status->setTextInteractionFlags(status->textInteractionFlags() | Qt::TextSelectableByMouse);
-    apply_theme_text_style(status, 13, false, {}, true);
+    apply_theme_text_style(status, 12, false, {}, true);
     footer_layout->addWidget(status, 1);
     dialog->provider_status_labels[id] = status;
     auto *test_button = new PushButton(dialog->tr_text("Test Connection"), footer);
@@ -943,8 +963,8 @@ QWidget *build_provider_card(const std::shared_ptr<TranslationPage> &page, const
     adjust_button_width(test_button, 60);
     QObject::connect(test_button, &QPushButton::clicked, dialog, [dialog, id, test_button] { test_connection(dialog, id, test_button); });
     footer_layout->addWidget(test_button);
-    footer->setMinimumHeight(dialog_scaled(58));
-    add_row(layout, footer);
+    footer->setMinimumHeight(dialog_scaled(ROW_MIN_HEIGHT));
+    add_card(layout, footer);
 
     // Typing a key can make the provider usable.
     for (const auto &field : metadata.all_fields()) {
@@ -1111,17 +1131,11 @@ SettingsCardGroup *build_speech_group(SettingsDialog *dialog, QWidget *page, std
     return group;
 }
 
-// The engine, the options every provider shares, and read aloud.
-QWidget *build_general_tab(const std::shared_ptr<TranslationPage> &page, const QString &current_provider) {
+// The engine and the options every provider shares.
+SettingsCardGroup *build_options_group(const std::shared_ptr<TranslationPage> &page, QWidget *parent, const QString &current_provider) {
     SettingsDialog *dialog = page->dialog;
     auto *config = dialog->config_manager;
-    auto *general = new QWidget;
-    set_own_style(general, "background: transparent;");
-    auto *layout = new QVBoxLayout(general);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(dialog_scaled(14));
-
-    auto *group = new SettingsCardGroup(dialog->tr_text("Translation Options"), general, "translate");
+    auto *group = new SettingsCardGroup(dialog->tr_text("General"), parent, "translate");
     page->options_group = group;
     dialog->set_attr("translation_options_group", group);
     // The description tells whether the engine is ready and leads to its card, as does the button.
@@ -1147,7 +1161,7 @@ QWidget *build_general_tab(const std::shared_ptr<TranslationPage> &page, const Q
     engine_card->addControl(configure, Qt::AlignRight);
     const std::weak_ptr<TranslationPage> weak = page;
     const auto open_current = [weak] {
-        if (const auto page = weak.lock()) open_provider(*page, current_engine(*page));
+        if (const auto page = weak.lock()) open_provider(page->api_group, page->picker, current_engine(*page));
     };
     QObject::connect(configure, &QPushButton::clicked, configure, open_current);
     QObject::connect(engine_card->contentLabel, &QLabel::linkActivated, engine_card, open_current);
@@ -1185,22 +1199,17 @@ QWidget *build_general_tab(const std::shared_ptr<TranslationPage> &page, const Q
     auto_close_card->setChecked(config->get_translation_popup_auto_close());
     dialog->set_attr("translation_auto_close_toggle", auto_close_card);
     group->addSettingCard(auto_close_card);
-    layout->addWidget(group);
-
-    layout->addWidget(build_speech_group(dialog, general, {}));
-    return general;
+    return group;
 }
 
-// The providers as chips, translation APIs before language models, and the selected one's card.
-QWidget *build_api_tab(const std::shared_ptr<TranslationPage> &page, const QString &current_provider) {
+// The providers as chips, translation APIs before language models, and the selected one's cards.
+SettingsCardGroup *build_api_group(const std::shared_ptr<TranslationPage> &page, QWidget *parent, const QString &current_provider) {
     SettingsDialog *dialog = page->dialog;
-    auto *api = new QWidget;
-    set_own_style(api, "background: transparent;");
-    auto *layout = new QVBoxLayout(api);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(dialog_scaled(14));
+    auto *group = new SettingsCardGroup(dialog->tr_text("API Services"), parent, "translate");
+    page->api_group = group;
+    dialog->set_attr("translation_api_group", group);
 
-    auto *picker = new ProviderPicker(api);
+    auto *picker = new ProviderPicker(group);
     page->picker = picker;
     dialog->set_attr("translation_provider_picker", picker);
     std::vector<std::pair<QString, QString>> services, models;
@@ -1208,9 +1217,9 @@ QWidget *build_api_tab(const std::shared_ptr<TranslationPage> &page, const QStri
         (metadata.language_model ? models : services).emplace_back(metadata.provider_id, dialog->tr_text(metadata.display_name.toUtf8().constData()));
     picker->add_group(dialog->tr_text("Translation API"), services);
     picker->add_group(dialog->tr_text("Large Language Models"), models);
-    layout->addWidget(picker);
+    group->addSettingCard(picker);
 
-    auto *cards = new PageSwitcher(api);
+    auto *cards = new PageSwitcher(group);
     QStringList ids;
     dialog->provider_sections.clear();
     dialog->provider_status_labels.clear();
@@ -1220,8 +1229,17 @@ QWidget *build_api_tab(const std::shared_ptr<TranslationPage> &page, const QStri
         ids << metadata.provider_id;
         dialog->provider_sections[metadata.provider_id] = card;
     }
-    layout->addWidget(cards);
-    picker->on_select = [cards, ids](const QString &id) { cards->set_current(ids.indexOf(id)); };
+    group->addSettingCard(cards);
+    // The group's height is fixed to its content: another provider, a folded row opening or a
+    // longer status all change it.
+    const QPointer<SettingsCardGroup> guarded_group(group);
+    cards->on_relayout = [guarded_group] {
+        if (guarded_group) guarded_group->refreshHeight();
+    };
+    picker->on_select = [cards, ids, guarded_group](const QString &id) {
+        cards->set_current(ids.indexOf(id));
+        if (guarded_group) guarded_group->refreshHeight();
+    };
     const QPointer<ProviderPicker> guarded(picker);
     link_pages(
         cards, [cards] { return cards->pages(); }, ids, [guarded](const QString &id) { return guarded ? guarded->itemText(id) : QString(); },
@@ -1229,7 +1247,7 @@ QWidget *build_api_tab(const std::shared_ptr<TranslationPage> &page, const QStri
             if (guarded) guarded->setCurrentItem(id);
         });
     picker->setCurrentItem(ids.contains(current_provider) ? current_provider : ids.value(0));
-    return api;
+    return group;
 }
 }
 
@@ -1243,12 +1261,9 @@ QString quota_usage_text(SettingsDialog *dialog, const QString &provider_id, std
 }
 
 void show_translation_provider(SettingsDialog *dialog, const QString &provider_id) {
-    auto *tabs = dialog->attr<SegmentedWidget>("translation_tabs");
     auto *picker = dynamic_cast<ProviderPicker *>(dialog->attr_widget("translation_provider_picker"));
-    if (!tabs || !picker) return;
-    tabs->setCurrentItem(API_TAB);
-    picker->setCurrentItem(provider_id);
-    if (auto *scroll = qobject_cast<QScrollArea *>(tabs->parentWidget())) scroll->verticalScrollBar()->setValue(0);
+    if (!picker) return;
+    open_provider(dialog->attr_widget("translation_api_group"), picker, provider_id);
 }
 
 QStringList speech_voice_choices(const SettingsDialog *dialog) {
@@ -1311,46 +1326,19 @@ QWidget *create_translation_page(SettingsDialog *dialog) {
     page->providers = service->registry->available_providers();
     const QString current_provider = config->get_translation_provider();
 
-    auto *tabs = new SegmentedWidget;
-    tabs->setLarge(true);
-    tabs->setFixedHeight(dialog_scaled(TAB_HEIGHT));
-    tabs->setIndicatorColor(ACCENT, ACCENT);
-    tabs->addItem(GENERAL_TAB, dialog->tr_text("General"));
-    tabs->addItem(API_TAB, dialog->tr_text("API Services"));
-    page->tabs = tabs;
-    dialog->set_attr("translation_tabs", tabs);
-
-    // The right inset keeps the cards, and the tab row above them, off the scroll bar.
-    const int right_inset = dialog_scaled(10);
-    auto *scroll = new TabbedScrollArea(dialog->content_stack, tabs, right_inset);
-    scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
+    auto *scroll = page_scroll_area(dialog);
     scroll->setWidgetResizable(true);
     scroll->setStyleSheet("QScrollArea { border: none; background: transparent; }");
-    page->scroll = scroll;
     auto *content = new QWidget;
     set_own_style(content, "background: transparent;");
     auto *layout = new QVBoxLayout(content);
-    layout->setContentsMargins(0, 0, right_inset, 0);
-    layout->setSpacing(0);
-
-    auto *switcher = new PageSwitcher(content);
-    switcher->add_page(build_general_tab(page, current_provider));
-    switcher->add_page(build_api_tab(page, current_provider));
-    layout->addWidget(switcher);
+    // The right inset keeps the cards off the scroll bar.
+    layout->setContentsMargins(0, 0, dialog_scaled(10), page_bottom_margin());
+    layout->setSpacing(dialog_scaled(14));
+    layout->addWidget(build_options_group(page, content, current_provider));
+    layout->addWidget(build_speech_group(dialog, content, {}));
+    layout->addWidget(build_api_group(page, content, current_provider));
     layout->addStretch();
-    const QStringList routes{GENERAL_TAB, API_TAB};
-    // Each tab opens at its top.
-    QObject::connect(tabs, &SegmentedWidget::currentItemChanged, switcher, [switcher, scroll, routes](const QString &route) {
-        switcher->set_current(routes.indexOf(route));
-        scroll->verticalScrollBar()->setValue(0);
-    });
-    const QPointer<SegmentedWidget> guarded_tabs(tabs);
-    link_pages(
-        switcher, [switcher] { return switcher->pages(); }, routes, [guarded_tabs](const QString &route) { return guarded_tabs ? guarded_tabs->itemText(route) : QString(); },
-        [guarded_tabs](const QString &route) {
-            if (guarded_tabs) guarded_tabs->setCurrentItem(route);
-        });
-    tabs->setCurrentItem(GENERAL_TAB);
 
     for (const auto &metadata : page->providers) page->views[metadata.provider_id].configured = pending_configured(dialog, metadata.provider_id);
     apply_all(*page);

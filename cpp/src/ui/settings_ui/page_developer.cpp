@@ -17,7 +17,7 @@ QWidget *create_developer_page(SettingsDialog *dialog) {
     auto *view = new QWidget;
     set_own_style(view, "background: transparent;");
     auto *layout = new QVBoxLayout(view);
-    layout->setContentsMargins(0, 0, dialog_scaled(10), 0);
+    layout->setContentsMargins(0, 0, dialog_scaled(10), page_bottom_margin());
     layout->setSpacing(dialog_scaled(14));
 
     // ════ Long screenshot ════
@@ -52,11 +52,6 @@ QWidget *create_developer_page(SettingsDialog *dialog) {
 
     // ════ Startup preload ════
     auto *grp_preload = new SettingsCardGroup(dialog->tr_text("Startup Preload"), view);
-    auto *preload_desc = new CaptionLabel(
-        dialog->tr_text("Control which modules are preloaded at startup. Disable to speed up launch. Changes take effect after restart."), view);
-    preload_desc->setWordWrap(true);
-    preload_desc->setStyleSheet(QString("padding: 0 0 %1px 0;").arg(dialog_scaled(4)));
-    layout->addWidget(preload_desc);
     struct PreloadItem {
         const char *attr;
         FluentIcon icon;
@@ -76,6 +71,7 @@ QWidget *create_developer_page(SettingsDialog *dialog) {
         grp_preload->addSettingCard(card);
     }
     layout->addWidget(grp_preload);
+    layout->addWidget(page_hint(view, dialog->tr_text("Control which modules are preloaded at startup. Disable to speed up launch. Changes take effect after restart.")));
 
     // ════ Selection info panel ════
     auto *grp_panel = new SettingsCardGroup(dialog->tr_text("Selection Info Panel"), view);

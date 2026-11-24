@@ -3,14 +3,18 @@
 #include "core/i18n.h"
 #include "core/shortcut_manager.h"
 #include "core/ui_scale.h"
+#include "core/updater_process.h"
 #include "pin/pin_toolbar.h"
 #include "settings/color_formats.h"
 #include "settings/tool_settings.h"
 #include "ui/base_settings_panel.h"
 #include "ui/busy_ring.h"
 #include "ui/dialogs.h"
+#include "ui/fluent_lite/buttons.h"
+#include "ui/fluent_lite/cards.h"
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/labels.h"
+#include "ui/fluent_lite/switch.h"
 #include "ui/hotkey_edit.h"
 #include "ui/mosaic_settings_panel.h"
 #include "ui/arrow_settings_panel.h"
@@ -28,6 +32,8 @@
 #include "ui/reorderable_rows.h"
 #include "ui/screenshot_countdown.h"
 #include "ui/settings_ui/color_format_dialog.h"
+#include "ui/settings_ui/components.h"
+#include "ui/settings_ui/dialog.h"
 #include "ui/toolbar.h"
 #include "ui/toolbar_layout.h"
 #include "ui/toolbar_layout_dialog.h"
@@ -70,6 +76,8 @@
 #include <QXmlStreamReader>
 #include <QTest>
 #include <QTimer>
+#include <QScrollArea>
+#include <QStackedWidget>
 #include <QToolButton>
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -1796,6 +1804,335 @@ private slots:
         get_ui_scale().set_percent(200);
         ColorPickerDialog panels_scaled(QColor("#3366CC"));
         QCOMPARE(panels_scaled.size(), large.size());
+    }
+
+    // A page note is an info icon and the text without the light-bulb emoji; it follows the window scale only.
+    void pageHintDropsTheEmojiAndFollowsTheWindowScale() {
+        const auto restore = qScopeGuard([] {
+            get_dialog_scale().set_percent(100);
+            get_ui_scale().set_percent(100);
+        });
+        const auto build = [](int window, int panel) {
+            get_dialog_scale().set_percent(window);
+            get_ui_scale().set_percent(panel);
+            auto parent = std::make_unique<QWidget>();
+            auto *hint = page_hint(parent.get(), QString::fromUcs4(U"💡") + QString(" Hint: Colors apply next time."));
+            return std::make_pair(std::move(parent), hint);
+        };
+        const auto [normal, normal_hint] = build(100, 100);
+        QCOMPARE(normal_hint->findChild<QLabel *>()->text(), QString("Hint: Colors apply next time."));
+        QCOMPARE(normal_hint->findChild<IconBadge *>()->size(), QSize(16, 16));
+        QCOMPARE(page_bottom_margin(), 24);
+        const auto [large, large_hint] = build(150, 100);
+        QCOMPARE(large_hint->findChild<IconBadge *>()->size(), QSize(24, 24));
+        QCOMPARE(page_bottom_margin(), 36);
+        const auto [panels, panels_hint] = build(100, 200);
+        QCOMPARE(panels_hint->findChild<IconBadge *>()->size(), QSize(16, 16));
+        QCOMPARE(page_bottom_margin(), 24);
+    }
+
+    // Each page is titled like its navigation item. A group named like its page would show up twice
+    // in the navigation ("Screenshot > Screenshot"), and "Settings" adds nothing inside the settings window.
+    void pagesAreTitledLikeTheirNavigationItems() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.build_all_pages();
+        auto *title = dialog.findChild<QLabel *>("SettingsPageTitle");
+        QVERIFY(title);
+        const auto buttons = dialog.findChildren<QPushButton *>("FluentLiteNavItem");
+        QCOMPARE(buttons.size(), 11);
+        for (auto *button : buttons) {
+            button->click();
+            QCOMPARE(title->text(), button->text());
+            auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+            QVERIFY2(scroll, qPrintable(button->text()));
+            for (auto *group : scroll->widget()->findChildren<SettingCardGroup *>()) {
+                const QString name = group->titleLabel->text();
+                QVERIFY2(name != button->text(), qPrintable(name));
+                QVERIFY2(!name.endsWith("Settings") && !name.endsWith("Options"), qPrintable(name));
+            }
+        }
+    }
+
+    // The information page shows the application's mark, name and version in the middle instead of a
+    // title over a group of cards; the update check only where the updater is bundled.
+    void aboutPageShowsTheApplicationInsteadOfATitle() {
+        const auto restore = qScopeGuard([] {
+            get_dialog_scale().set_percent(100);
+            set_helper_source_for_test({});
+        });
+        for (const int percent : {100, 150}) {
+            get_dialog_scale().set_percent(percent);
+            // Bundled at 150% only, so both kinds of build are seen.
+            const bool bundled = percent == 150;
+            set_helper_source_for_test(bundled ? QCoreApplication::applicationFilePath() : QString());
+            SettingsDialog dialog(config_, config_->get_hotkey());
+            dialog.resize(dialog_scaled(1050), dialog_scaled(750));
+            dialog.show();
+            auto *title = dialog.findChild<QLabel *>("SettingsPageTitle");
+            dialog.on_nav_changed(8, "about");
+            QApplication::processEvents();
+            QVERIFY(!title->isVisible());
+            auto *page = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+            QVERIFY(page);
+            QVERIFY(page->widget()->findChildren<SettingCardGroup *>().isEmpty());
+            auto *mark = page->widget()->findChild<QWidget *>("AboutAppMark");
+            QVERIFY(mark);
+            QCOMPARE(mark->size(), QSize(dialog_scaled(128), dialog_scaled(128)));
+            // Centred over the card column, which keeps clear of the scroll bar like on the other pages.
+            const auto margins = page->widget()->layout()->contentsMargins();
+            const int middle = (margins.left() + page->widget()->width() - margins.right()) / 2;
+            QVERIFY(qAbs(mark->geometry().center().x() - middle) <= 1);
+            for (const char *name : {"AboutName", "AboutVersion"}) {
+                auto *label = page->widget()->findChild<QLabel *>(name);
+                QVERIFY2(label && qAbs(label->geometry().center().x() - middle) <= 1, name);
+            }
+            QVERIFY(page->widget()->findChild<QPushButton *>("aboutSourceButton"));
+            QVERIFY(page->widget()->findChild<QPushButton *>("aboutLicenseButton"));
+            QCOMPARE(page->widget()->findChild<QPushButton *>("checkUpdateButton") != nullptr, bundled);
+            // The repository link sits at the bottom of the page, below the buttons.
+            auto *link = page->widget()->findChild<QPushButton *>("aboutRepositoryLink");
+            QVERIFY(link && link->geometry().top() > page->widget()->findChild<QPushButton *>("aboutSourceButton")->geometry().bottom());
+            dialog.on_nav_changed(1, "capture");
+            QVERIFY(title->isVisible());
+        }
+    }
+
+    // The last group does not touch the window's bottom edge, at any window scale.
+    void settingsPagesLeaveRoomBelowTheirLastGroup() {
+        const auto restore = qScopeGuard([] { get_dialog_scale().set_percent(100); });
+        for (const int percent : {100, 150}) {
+            get_dialog_scale().set_percent(percent);
+            SettingsDialog dialog(config_, config_->get_hotkey());
+            dialog.build_all_pages();
+            for (const int index : {0, 10, 4, 1, 11, 12, 2, 3, 5, 6, 7, 8}) {
+                auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->widget(index));
+                QVERIFY2(scroll, qPrintable(QString::number(index)));
+                QCOMPARE(scroll->widget()->layout()->contentsMargins().bottom(), page_bottom_margin());
+            }
+        }
+    }
+
+    // The log folder and the latest log are ordinary cards: the path is the description, the buttons sit in the control column.
+    void logPageStorageUsesStandardCards() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.build_all_pages();
+        for (const char *name : {"path_lbl", "latest_log_lbl"}) {
+            auto *label = dialog.attr<QLabel>(name);
+            QVERIFY2(label, name);
+            auto *card = qobject_cast<SettingCard *>(label->parentWidget());
+            QVERIFY2(card && card->contentLabel == label, name);
+            QVERIFY2(!label->isHidden() && !label->text().isEmpty(), name);
+            QVERIFY2(!card->controlContainer->findChildren<QPushButton *>().isEmpty(), name);
+        }
+        QCOMPARE(dialog.attr<QLabel>("path_lbl")->text(), config_->get_log_dir());
+    }
+
+    // Settings cards, switches and buttons are window-scale widgets: they follow it and ignore the panel scale.
+    void settingsControlsFollowTheWindowScale() {
+        const auto restore = qScopeGuard([] {
+            get_dialog_scale().set_percent(100);
+            get_ui_scale().set_percent(100);
+        });
+        struct Built {
+            std::unique_ptr<SwitchSettingCard> card;
+            int sub_height, button_height, combo_height;
+        };
+        const auto build = [](int window, int panel) {
+            get_dialog_scale().set_percent(window);
+            get_ui_scale().set_percent(panel);
+            Built built{std::make_unique<SwitchSettingCard>(IconSource{}, "Title", "Description"), 0, 0, 0};
+            auto *card = built.card.get();
+            auto *sub = new SubSwitchSettingCard("Sub", "", card);
+            auto *button = new PushButton("Edit", card);
+            auto *combo = new ComboBox(card);
+            combo->addItem("One");
+            configure_dialog_controls(*card);
+            built.sub_height = sub->minimumHeight();
+            button->ensurePolished();
+            combo->ensurePolished();
+            built.button_height = button->sizeHint().height();
+            built.combo_height = combo->sizeHint().height();
+            return built;
+        };
+        {
+            const auto built = build(100, 100);
+            QCOMPARE(built.card->minimumHeight(), 68);
+            QCOMPARE(built.sub_height, 52);
+            QCOMPARE(built.card->switchButton->size(), QSize(40, 20));
+            QCOMPARE(built.card->iconBadge->size(), QSize(20, 20));
+            QCOMPARE(built.button_height, 32);
+            QCOMPARE(built.combo_height, 32);
+        }
+        {
+            const auto built = build(150, 100);
+            QCOMPARE(built.card->minimumHeight(), 102);
+            QCOMPARE(built.sub_height, 78);
+            QCOMPARE(built.card->switchButton->size(), QSize(60, 30));
+            QCOMPARE(built.card->iconBadge->size(), QSize(30, 30));
+            QCOMPARE(built.button_height, 48);
+            QCOMPARE(built.combo_height, 48);
+        }
+        {
+            const auto built = build(100, 200);
+            QCOMPARE(built.card->minimumHeight(), 68);
+            QCOMPARE(built.sub_height, 52);
+            QCOMPARE(built.card->switchButton->size(), QSize(40, 20));
+            QCOMPARE(built.button_height, 32);
+            QCOMPARE(built.combo_height, 32);
+        }
+    }
+
+    // A page sets its switches before it shows, so they must open in their final state; a click on screen still slides.
+    void switchSlidesOnlyOnScreen() {
+        QWidget host;
+        auto *hidden = new SwitchButton(&host);
+        hidden->setChecked(true);
+        QCOMPARE(hidden->progress(), 1.0);
+        hidden->setChecked(false);
+        QCOMPARE(hidden->progress(), 0.0);
+        host.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&host));
+        hidden->setChecked(true);
+        QVERIFY(hidden->progress() < 1.0);
+        QTRY_COMPARE(hidden->progress(), 1.0);
+    }
+
+    // A switch row added after a card folds under it; the arrow hides the rows, and hidden rows leave no line behind.
+    void settingsGroupFoldsSwitchRowsUnderTheirCard() {
+        get_dialog_scale().set_percent(100);
+        SettingCardGroup group("Saving");
+        auto *header = new SettingCard(IconSource{}, "Auto-save", "Saves screenshots.", &group);
+        group.addSettingCard(header);
+        auto *first = new SubSwitchSettingCard("When done", "", &group);
+        auto *second = new SubSwitchSettingCard("When pinned", "", &group);
+        group.addSettingCard(first);
+        group.addSettingCard(second);
+        auto *plain = new SettingCard(IconSource{}, "Other", {}, &group);
+        group.addSettingCard(plain);
+        group.resize(700, 600);
+        group.show();
+        QApplication::processEvents();
+        auto *expander = qobject_cast<SettingExpander *>(header->parentWidget());
+        QVERIFY(expander);
+        QVERIFY(expander->isExpanded());
+        QVERIFY(first->isVisible() && second->isVisible());
+        QVERIFY(!qobject_cast<SettingExpander *>(plain->parentWidget()));
+        // Rows align with the title of the header, and their controls with each other and clear of the arrow.
+        QCOMPARE(first->titleLabel->mapTo(&group, QPoint()).x(), header->titleLabel->mapTo(&group, QPoint()).x());
+        const auto switch_right = [&](SwitchSettingCard *card) { return card->switchButton->mapTo(&group, QPoint(card->switchButton->width(), 0)).x(); };
+        QCOMPARE(switch_right(first), switch_right(second));
+        QVERIFY(switch_right(first) <= expander->arrow()->mapTo(&group, QPoint()).x());
+        QCOMPARE(first->minimumHeight(), 52);
+        const int open_height = group.cardLayout->heightForWidth(group.width());
+        QTest::mouseClick(expander->arrow(), Qt::LeftButton);
+        QApplication::processEvents();
+        QVERIFY(!expander->isExpanded());
+        QVERIFY(!first->isVisible() && !second->isVisible());
+        QVERIFY(group.cardLayout->heightForWidth(group.width()) < open_height);
+        expander->setExpanded(true);
+        // One row hidden: its line goes too, and the height follows.
+        group.setCardVisible(first, false);
+        QApplication::processEvents();
+        QVERIFY(!first->isVisible() && second->isVisible());
+        QVERIFY(group.cardLayout->heightForWidth(group.width()) < open_height);
+        // No row left: no body and no arrow.
+        group.setCardVisible(second, false);
+        QApplication::processEvents();
+        QVERIFY(!expander->arrow()->isVisible());
+        group.setCardVisible(header, false);
+        QVERIFY(!expander->isVisible());
+    }
+
+    // A row handed to a group gets the card background; a row inside a larger card stays bare.
+    void groupRowsPaintTheirOwnCard() {
+        get_ui_theme()->set_mode("light", false);
+        const auto restore = qScopeGuard([] { get_ui_theme()->set_mode("system", false); });
+        SettingCardGroup group("Storage");
+        auto *row = new CardSurface(&group);
+        row->setFixedHeight(40);
+        auto *bare = new CardSurface(&group);
+        bare->setFixedHeight(40);
+        group.addSettingCard(row);
+        group.resize(300, 200);
+        group.show();
+        bare->move(0, 120);
+        bare->show();
+        QApplication::processEvents();
+        // Inside the border the card is a translucent white over the ground; a bare row shows the ground only.
+        const auto center = [](QWidget *widget) { return widget->grab().toImage().pixelColor(widget->width() / 2, widget->height() / 2).rgb(); };
+        QVERIFY(center(row) != center(bare));
+        const QImage painted = row->grab().toImage();
+        QVERIFY(painted.pixelColor(0, row->height() / 2) != painted.pixelColor(row->width() / 2, row->height() / 2));
+    }
+
+    // The settings window sits on a flat grey, with the content layer over it rounded only at its top-left corner.
+    void layeredBackgroundRoundsOnlyTheContentLayersTopLeftCorner() {
+        struct Probe : QWidget {
+            void paintEvent(QPaintEvent *) override { paint_layered_background(this, 8, QRect(100, 40, 200, 160), 8); }
+        };
+        const auto restore = qScopeGuard([] { get_ui_theme()->set_mode("system", false); });
+        for (const bool dark : {false, true}) {
+            get_ui_theme()->set_mode(dark ? "dark" : "light", false);
+            Probe probe;
+            probe.setAttribute(Qt::WA_TranslucentBackground);
+            probe.resize(300, 200);
+            probe.show();
+            QApplication::processEvents();
+            const QImage image = probe.grab().toImage();
+            const QColor page = css_color(get_ui_theme()->tokens().page_background);
+            // Left of the layer: the page colour; inside it: the layer's veil over it.
+            QCOMPARE(image.pixelColor(20, 100).rgb(), page.rgb());
+            QVERIFY(image.pixelColor(200, 100).rgb() != page.rgb());
+            // The corner of the layer is cut away at the top left and square at the bottom left.
+            QCOMPARE(image.pixelColor(101, 41).rgb(), page.rgb());
+            QVERIFY(image.pixelColor(101, 198).rgb() != page.rgb());
+            // The window's own rounding clips the layer at the bottom right as well.
+            QCOMPARE(image.pixelColor(0, 0).alpha(), 0);
+            QCOMPARE(image.pixelColor(299, 199).alpha(), 0);
+        }
+    }
+
+    // Combo lists open on an opaque ground in both themes.
+    void fluentComboListsOpenOpaque() {
+        const auto restore = qScopeGuard([] { get_ui_theme()->set_mode("system", false); });
+        for (const bool dark : {false, true}) {
+            get_ui_theme()->set_mode(dark ? "dark" : "light", false);
+            QWidget host;
+            auto *combo = new ComboBox(&host);
+            for (const auto *item : {"One", "Two", "Three"}) combo->addItem(item);
+            host.resize(200, 100);
+            host.show();
+            combo->showPopup();
+            QApplication::processEvents();
+            const QImage list = combo->view()->grab().toImage();
+            const QColor below(list.pixelColor(list.width() / 2, list.height() - 2));
+            QCOMPARE(below.alpha(), 255);
+            QCOMPARE(below.lightness() > 128, !dark);
+            combo->hidePopup();
+        }
+    }
+
+    // Without its chevron a combo leaves the drop-down column empty, for the centred entry to use.
+    void comboChevronCanBeLeftOut() {
+        QWidget host;
+        auto *combo = new ComboBox(&host);
+        combo->setFixedWidth(160);
+        host.resize(200, 60);
+        host.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&host));
+        const auto ink_in_chevron_column = [combo] {
+            const QImage image = combo->grab().toImage();
+            int dark = 0;
+            for (int x = image.width() - 26; x < image.width() - 10; ++x)
+                for (int y = image.height() / 2 - 4; y <= image.height() / 2 + 4; ++y)
+                    if (image.pixelColor(x, y).lightness() < 140) ++dark;
+            return dark;
+        };
+        QVERIFY(combo->chevronVisible());
+        QVERIFY(ink_in_chevron_column() > 0);
+        combo->setChevronVisible(false);
+        QVERIFY(!combo->chevronVisible());
+        QCOMPARE(ink_in_chevron_column(), 0);
     }
 
     // An overlay of the capture, so it follows the panel scale and ignores the window scale.

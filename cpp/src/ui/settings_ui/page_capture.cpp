@@ -127,11 +127,11 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     auto *view = new QWidget;
     set_own_style(view, "background: transparent;");
     auto *layout = new QVBoxLayout(view);
-    layout->setContentsMargins(0, 0, dialog_scaled(10), 0);
+    layout->setContentsMargins(0, 0, dialog_scaled(10), page_bottom_margin());
     layout->setSpacing(dialog_scaled(14));
 
     // ── Capture ──
-    auto *grp_engine = new SettingsCardGroup(dialog->tr_text("Screenshot"), view, "capture");
+    auto *grp_engine = new SettingsCardGroup(dialog->tr_text("General"), view, "capture");
     auto *engine_card = new SettingCard(FluentIcon::Camera, dialog->tr_text("Capture Engine"),
                                         dialog->tr_text("Auto uses the HDR engine when a display has HDR turned on."), grp_engine);
     auto *capture_engine_combo = new ComboBox(engine_card);
@@ -156,7 +156,7 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     layout->addWidget(grp_engine);
 
     // ── Saving ──
-    auto *grp_save = new SettingsCardGroup(dialog->tr_text("Save Settings"), view, "capture");
+    auto *grp_save = new SettingsCardGroup(dialog->tr_text("Saving"), view, "capture");
     // Auto-save has one switch per moment under this title card; deliver_screenshot decides.
     grp_save->addSettingCard(new SettingCard(FluentIcon::Save, dialog->tr_text("Auto-save"),
                                              dialog->tr_text("Screenshots are saved to the save folder automatically when the actions below finish."), grp_save));
@@ -228,9 +228,7 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     grp_save->addSettingCard(style_card);
     layout->addWidget(grp_save);
 
-    auto *hint = new CaptionLabel(dialog->tr_text("💡 Hint: Even with auto-save off, it will be copied to clipboard."), view);
-    hint->setStyleSheet("padding: 5px;");
-    layout->addWidget(hint);
+    layout->addWidget(page_hint(view, dialog->tr_text("💡 Hint: Even with auto-save off, it will be copied to clipboard.")));
 
     add_quick_actions_group(dialog, view, layout);
 
@@ -280,7 +278,7 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     layout->addWidget(grp_magnifier);
 
     // ── OCR ──
-    auto *grp_ocr = new SettingsCardGroup(dialog->tr_text("OCR Settings"), view, "capture");
+    auto *grp_ocr = new SettingsCardGroup(dialog->tr_text("Text Recognition"), view, "capture");
     dialog->set_attr("ocr_settings_group", grp_ocr);
     auto *ocr_engine_card = new SettingCard(FluentIcon::Font, dialog->tr_text("OCR Engine"), dialog->tr_text("Switch OCR engines here."), grp_ocr);
     auto *ocr_engine_combo = new ComboBox(ocr_engine_card);

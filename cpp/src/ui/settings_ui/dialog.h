@@ -31,8 +31,8 @@ class QTimer;
 namespace jietuba {
 class InAppKeyEdit;
 class NavigationInterface;
+class PageOutline;
 class ProviderRegistry;
-class SegmentedWidget;
 class SettingsCardGroup;
 class SettingsSearchBox;
 struct SettingsSearchEntry;
@@ -136,8 +136,6 @@ public:
     QMap<QString, QString> inapp_groups;
     InAppKeyEdit *inapp_edit(const QString &key) const;
     QString clipboard_pick_mode;
-    QPointer<SegmentedWidget> inapp_shortcut_tabs;
-    QPointer<SegmentedWidget> mouse_inapp_tabs;
     // Edited in their own window; a change is saved like any edit.
     std::optional<QStringList> save_filename_patterns;
     std::optional<QVector<color_formats::ColorFormat>> magnifier_color_formats;
@@ -167,11 +165,13 @@ public:
     void change_log_dir();
     void open_log_dir();
     void open_welcome_wizard() { emit wizard_requested(); }
-    // The pin page's shortcut entries: switch to the keyboard or mouse page and select the pin tab.
+    // The pin page's shortcut entries: switch to the keyboard or mouse page and scroll to its pin group.
     void show_pin_shortcuts(bool mouse = false);
     // The shortcut page, scrolled to the global hotkey editor attr.
     void show_hotkey_row(const QString &attr);
     SettingsSearchBox *search_box() const { return search_box_; }
+    // The groups of the page shown, listed under its navigation item.
+    PageOutline *page_outline() const { return outline_; }
     // Every navigation page, with the groups and rows of the pages built so far.
     std::vector<SettingsSearchEntry> search_entries() const;
     // Builds the first navigation page not built yet; false when there is none.
@@ -191,6 +191,7 @@ signals:
     void settings_applied();
 protected:
     void resizeEvent(QResizeEvent *event) override;
+    void paintEvent(QPaintEvent *event) override;
     void showEvent(QShowEvent *event) override;
     void changeEvent(QEvent *event) override;
     // Ctrl+F opens the search field, except in shortcut editors, which record it.
@@ -201,6 +202,8 @@ protected:
 private:
     void open_view(const ViewState &state);
     void setup_titlebar();
+    // The caption row's left inset and logo-to-name gap; the title bar resets them on a theme change.
+    void apply_titlebar_layout();
     void setup_ui();
     NavigationInterface *create_navigation(QWidget *parent);
     void set_current_nav(const QString &route_key);
@@ -267,6 +270,7 @@ private:
     // The page and scroll position to open once the window shows.
     std::optional<ViewState> pending_view_;
     NavigationInterface *nav_list_ = nullptr;
+    PageOutline *outline_ = nullptr;
     SettingsSearchBox *search_box_ = nullptr;
     QPointer<QWidget> search_flash_;
     QWidget *right_area_ = nullptr;

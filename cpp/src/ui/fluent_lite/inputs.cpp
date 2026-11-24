@@ -3,6 +3,7 @@
 #include "ui/fluent_lite/text_context_menu.h"
 #include "ui/fluent_lite/theme.h"
 #include <QContextMenuEvent>
+#include <QPolygonF>
 #include <QStyleOptionComboBox>
 #include <QStylePainter>
 
@@ -10,39 +11,42 @@ namespace jietuba {
 QString input_qss(const QWidget *widget) {
     const auto &t = ui_tokens(widget);
     auto s = [widget](double v) { return widget_scaled(widget, v); };
+    const QString focused_fill = t.is_dark() ? "#1F1F1F" : "#FFFFFF";
     return QString(R"(
     QComboBox, QLineEdit, QSpinBox, QDoubleSpinBox {
         min-height: %1px;
         padding: %2px %3px; color: %4;
-        background: %5; border: 1px solid %6;
-        border-radius: %7px;
-        font: %8px %9; selection-background-color: %10;
+        background: %5; border: 1px solid %6; border-bottom-color: %7;
+        border-radius: %8px;
+        font: %9px %10; selection-background-color: %11;
     }
     QComboBox:hover, QLineEdit:hover, QSpinBox:hover, QDoubleSpinBox:hover {
-        border-color: %11; background: %12;
+        background: %12;
     }
-    QComboBox:focus, QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus {
-        border: 1px solid %10; background: %12;
+    QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus {
+        background: %13; border-bottom: %14px solid %11; padding-bottom: %15px;
     }
+    QComboBox:focus { border-color: %6; border-bottom-color: %7; }
     QComboBox:disabled, QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled {
-        color: %13; background: %14; border-color: %6;
+        color: %16; background: %17; border-color: %6;
     }
-    QComboBox::drop-down { width: %15px; border: none; }
+    QComboBox::drop-down { width: %18px; border: none; }
     QComboBox QAbstractItemView {
-        color: %4; background: %16; border: 1px solid %6;
-        border-radius: %7px; padding: %17px; outline: none;
-        selection-background-color: %18; selection-color: %4;
+        color: %4; background: %19; border: 1px solid %6;
+        border-radius: %20px; padding: %21px; outline: none;
+        selection-background-color: %22; selection-color: %4;
     }
-    QComboBox QAbstractItemView::item { min-height: %1px; padding: %19px %20px; }
+    QComboBox QAbstractItemView::item { min-height: %23px; padding: 0 %3px; border-radius: %8px; }
     QSpinBox::up-button, QDoubleSpinBox::up-button,
     QSpinBox::down-button, QDoubleSpinBox::down-button {
-        width: %21px; border: none; background: transparent;
+        width: %24px; border: none; background: transparent;
     }
     )")
         .arg(s(INPUT_CONTENT_HEIGHT)).arg(s(INPUT_PADDING_V)).arg(s(INPUT_PADDING_H))
-        .arg(t.text, t.input_background, t.border).arg(s(INPUT_RADIUS)).arg(s(13))
-        .arg(FONT_FAMILY, ACCENT, t.border_hover, t.surface_strong, t.text_disabled, t.surface_subtle)
-        .arg(s(24)).arg(t.popup_background).arg(s(5)).arg(t.accent_soft).arg(s(3)).arg(s(8)).arg(s(18));
+        .arg(t.fg, t.control, t.control_border, t.control_border_bottom).arg(s(INPUT_RADIUS)).arg(s(14))
+        .arg(FONT_FAMILY, t.accent, t.control_hover, focused_fill).arg(s(2)).arg(s(INPUT_PADDING_V - 1))
+        .arg(t.fg_disabled, t.control_pressed)
+        .arg(s(24)).arg(t.popup_background).arg(s(8)).arg(s(4)).arg(t.item_hover).arg(s(32)).arg(s(18));
 }
 
 ComboBox::ComboBox(QWidget *parent) : QComboBox(parent) {
@@ -56,6 +60,23 @@ void ComboBox::_apply_theme() {
     if (minimumWidth() != maximumWidth()) setMinimumWidth(std::min(widget_scaled(this, BASE_MIN_WIDTH), maximumWidth()));
 }
 
+QSize ComboBox::sizeHint() const {
+    auto size = QComboBox::sizeHint();
+    size.setHeight(widget_scaled(this, INPUT_CONTENT_HEIGHT + 2 * INPUT_PADDING_V + 2));
+    return size;
+}
+
+QSize ComboBox::minimumSizeHint() const {
+    auto size = QComboBox::minimumSizeHint();
+    size.setHeight(widget_scaled(this, INPUT_CONTENT_HEIGHT + 2 * INPUT_PADDING_V + 2));
+    return size;
+}
+
+void ComboBox::setChevronVisible(bool visible) {
+    chevron_ = visible;
+    update();
+}
+
 void ComboBox::paintEvent(QPaintEvent *) {
     QStylePainter painter(this);
     QStyleOptionComboBox option;
@@ -64,12 +85,24 @@ void ComboBox::paintEvent(QPaintEvent *) {
     // Drawn without text, otherwise it would appear twice.
     option.currentText.clear();
     painter.drawComplexControl(QStyle::CC_ComboBox, option);
-    if (text.isEmpty()) return;
     const auto &tokens = ui_tokens(this);
-    painter.setPen(QColor::fromString(isEnabled() ? tokens.text : tokens.text_disabled));
-    // The whole box rather than the style's text rect: this style draws no
-    // arrow, so the text rect would push the text off centre.
-    painter.drawText(rect(), Qt::AlignCenter, text);
+    const auto color = css_color(isEnabled() ? tokens.fg : tokens.fg_disabled);
+    if (!chevron_) {
+        painter.setPen(color);
+        painter.drawText(rect(), Qt::AlignCenter | Qt::TextSingleLine, text);
+        return;
+    }
+    if (!text.isEmpty()) {
+        const auto field = style()->subControlRect(QStyle::CC_ComboBox, &option, QStyle::SC_ComboBoxEditField, this);
+        painter.setPen(color);
+        painter.drawText(field, Qt::AlignVCenter | Qt::AlignLeft | Qt::TextSingleLine, fontMetrics().elidedText(text, Qt::ElideRight, field.width()));
+    }
+    // The style draws no arrow; the chevron sits in the drop-down column.
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setPen(QPen(color, std::max(1, widget_scaled(this, 1.4)), Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    const double cx = width() - widget_scaled(this, 18), cy = height() / 2.0;
+    const double half = widget_scaled(this, 4), drop = widget_scaled(this, 2);
+    painter.drawPolyline(QPolygonF{QPointF(cx - half, cy - drop), QPointF(cx, cy + drop), QPointF(cx + half, cy - drop)});
 }
 
 LineEdit::LineEdit(QWidget *parent, bool use_default_style) : QLineEdit(parent), themed_(use_default_style) {

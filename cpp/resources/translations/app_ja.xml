@@ -62,10 +62,6 @@
         <translation>進むボタンドラッグ</translation>
     </message>
     <message>
-        <source>Hold modifier keys and drag the mouse</source>
-        <translation>修飾キーを押しながらマウスでドラッグ</translation>
-    </message>
-    <message>
         <source>Capture failed. Please try again.</source>
         <translation>キャプチャに失敗しました。もう一度お試しください。</translation>
     </message>
@@ -90,10 +86,6 @@
         <translation>翻訳</translation>
     </message>
     <message>
-        <source>Log Settings</source>
-        <translation>ログ設定</translation>
-    </message>
-    <message>
         <source>Other</source>
         <translation>その他</translation>
     </message>
@@ -101,40 +93,8 @@
         <source>About</source>
         <translation>情報</translation>
     </message>
-    <message>
-        <source>Developer</source>
-        <translation>開発者</translation>
-    </message>
 
     <!-- Page Titles -->
-    <message>
-        <source>Shortcut Settings</source>
-        <translation>ショートカット設定</translation>
-    </message>
-    <message>
-        <source>Capture Settings</source>
-        <translation>キャプチャー設定</translation>
-    </message>
-    <message>
-        <source>Clipboard Settings</source>
-        <translation>クリップボード設定</translation>
-    </message>
-    <message>
-        <source>Appearance Settings</source>
-        <translation>外観設定</translation>
-    </message>
-    <message>
-        <source>Translation Settings</source>
-        <translation>翻訳設定</translation>
-    </message>
-    <message>
-        <source>Other Settings</source>
-        <translation>その他設定</translation>
-    </message>
-    <message>
-        <source>Software Information</source>
-        <translation>ソフトウェア情報</translation>
-    </message>
     <message>
         <source>Developer Options</source>
         <translation>開発者オプション</translation>
@@ -146,12 +106,12 @@
         <translation>スマート選択</translation>
     </message>
     <message>
-        <source>Save Settings</source>
-        <translation>スクショ保存</translation>
+        <source>Saving</source>
+        <translation>保存</translation>
     </message>
     <message>
-        <source>OCR Settings</source>
-        <translation>OCR設定</translation>
+        <source>Text Recognition</source>
+        <translation>文字認識</translation>
     </message>
 
     <!-- Setup Wizard -->
@@ -272,6 +232,10 @@
     <message>
         <source>Latest Log</source>
         <translation>最新ログ</translation>
+    </message>
+    <message>
+        <source>Log Folder</source>
+        <translation>ログフォルダー</translation>
     </message>
     
     <!-- Hotkey Page -->
@@ -851,6 +815,10 @@ Replace it?</source>
         <translation>言語</translation>
     </message>
     <message>
+        <source>Display Language</source>
+        <translation>表示言語</translation>
+    </message>
+    <message>
         <source>Select display language. Restart required after change.</source>
         <translation>表示言語を選択します。変更後は再起動が必要です。</translation>
     </message>
@@ -859,8 +827,8 @@ Replace it?</source>
         <translation>💡 ヒント: バックグラウンド起動でも、タスクトレイから操作できます。</translation>
     </message>
     <message>
-        <source>Settings Backup</source>
-        <translation>設定のバックアップ</translation>
+        <source>Backup</source>
+        <translation>バックアップ</translation>
     </message>
     <message>
         <source>Settings File</source>
@@ -987,10 +955,6 @@ Replace it?</source>
     <message>
         <source>Optional, use default if empty</source>
         <translation>任意、空欄の場合はデフォルトを使用</translation>
-    </message>
-    <message>
-        <source>Translation Options</source>
-        <translation>翻訳オプション</translation>
     </message>
     <message>
         <source>Target Language</source>
@@ -1364,10 +1328,6 @@ Replace it?</source>
         <translation>テキスト選択切替</translation>
     </message>
     <message>
-        <source>Behavior</source>
-        <translation>動作</translation>
-    </message>
-    <message>
         <source>Mouse Click-Through</source>
         <translation>マウス透過</translation>
     </message>
@@ -1548,14 +1508,6 @@ Replace it?</source>
         <translation>画面注釈</translation>
     </message>
     <message>
-        <source>Screen Annotation Settings</source>
-        <translation>画面注釈の設定</translation>
-    </message>
-    <message>
-        <source>Start and End</source>
-        <translation>開始と終了</translation>
-    </message>
-    <message>
         <source>Toolbar</source>
         <translation>ツールバー</translation>
     </message>
@@ -1664,8 +1616,8 @@ Replace it?</source>
         <translation>クリックするたびに波紋が広がります。左ボタンは黄色、右ボタンは青。</translation>
     </message>
     <message>
-        <source>Pin Clipboard Image</source>
-        <translation>クリップボードをピン留め</translation>
+        <source>Pin from Clipboard</source>
+        <translation>クリップボード</translation>
     </message>
     <message>
         <source>Volcengine machine translation: about 2M free characters/month. Overuse is billed at pay-as-you-go rates, so a local quota guard (default on) prevents surprise charges.</source>
@@ -1720,16 +1672,12 @@ Replace it?</source>
         <translation>設定ファイルを移動できませんでした: %1</translation>
     </message>
     <message>
-        <source>Unassigned buttons and the wheel pass through. A double-click binding also captures single clicks of that button.</source>
-        <translation>未割り当てのボタンとホイールは背後に届きます。ダブルクリックを割り当てると、そのボタンのシングルクリックも取り込みます。</translation>
-    </message>
-    <message>
         <source>Long Screenshot Shortcuts</source>
         <translation>スクロール撮影操作</translation>
     </message>
     <message>
         <source>Scan QR code / barcode</source>
-        <translation>コードをスキャン（QR コード / バーコード）</translation>
+        <translation>コードをスキャン</translation>
     </message>
     <message>
         <source>File Name Settings</source>
@@ -5410,8 +5358,7 @@ This action cannot be undone.</source>
 <context>
     <name>SettingsDialog</name>
     <!-- クリップボードページのグループヘッダー -->
-    <message><source>Basic Settings</source><translation>基本設定</translation></message>
-    <message><source>Data</source><translation>データ</translation></message>
+    <message><source>History</source><translation>履歴</translation></message>
     <message><source>Warning</source><translation>警告</translation></message>
     <message><source>Folder does not exist</source><translation>フォルダが存在しません</translation></message>
     <message><source>Error</source><translation>エラー</translation></message>
@@ -5439,12 +5386,13 @@ This action cannot be undone.</source>
     <message><source>Shortcut Hint</source><translation>ショートカットのヒント</translation></message>
     <message><source>Show the switch-format and copy-color shortcuts under the readings. Off makes the magnifier shorter.</source><translation>数値の下に形式の切り替えと色のコピーのショートカットを表示します。オフにすると拡大鏡が少し低くなります。</translation></message>
     <message><source>Magnifier</source><translation>拡大鏡</translation></message>
-    <message><source>Pin Settings</source><translation>ピン留め設定</translation></message>
-    <message><source>Operation</source><translation>操作</translation></message>
     <!-- 情報ページ -->
     <message><source>Features</source><translation>機能</translation></message>
     <message><source>Licenses</source><translation>ライセンス</translation></message>
-    <message><source>Details</source><translation>詳細</translation></message>
+    <message>
+        <source>Developed by %1 · Open source under the MIT License</source>
+        <translation>開発: %1 · MIT ライセンスのオープンソース</translation>
+    </message>
     <message><source>MIT License</source><translation>MIT License</translation></message>
     <message><source>MIT License Text</source><translation>MIT License
 
@@ -5468,7 +5416,10 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.</translation></message>
     <message><source>Source Code</source><translation>ソースコード</translation></message>
-    <message><source>Open GitHub</source><translation>GitHubを開く</translation></message>
+    <message>
+        <source>Screenshot, Screen Drawing, OCR, Pin, Translation &amp; Clipboard Tool for Windows</source>
+        <translation>Windows 向けスクリーンショット・画面描画・OCR・ピン留め・翻訳・クリップボードツール</translation>
+    </message>
     <message><source>Version</source><translation>バージョン</translation></message>
     <message><source>Check for Updates</source><translation>更新を確認</translation></message>
     <message><source>Checking...</source><translation>確認中...</translation></message>
@@ -6081,24 +6032,12 @@ Replace: move the current data there; the data already in that folder will be de
 </context>
 <context>
     <name>SettingsDialog</name>
-    <message>
-        <source>Works anytime</source>
-        <translation>いつでも呼び出せます</translation>
-    </message>
-    <message>
-        <source>Only in screenshot, pin and clipboard windows</source>
-        <translation>スクリーンショット、ピン留め画像、クリップボードのウィンドウでのみ有効</translation>
-    </message>
-    <message>
-        <source>Only in the corresponding window</source>
-        <translation>対応するウィンドウ内でのみ有効</translation>
-    </message>
 </context>
 <context>
     <name>SettingsDialog</name>
     <message>
-        <source>Quick Actions</source>
-        <translation>クイック動作</translation>
+        <source>Annotation</source>
+        <translation>注釈</translation>
     </message>
     <message>
         <source>Copy Recognized Text Directly</source>
@@ -7619,10 +7558,11 @@ Replace it?</source>
 </context>
   <context>
     <name>ShortcutTabs</name>
-    <message><source>Screenshot</source><translation>スクショ</translation></message>
-    <message><source>Long Screenshot</source><translation>長いスクショ</translation></message>
-    <message><source>Pin</source><translation>ピン留め</translation></message>
-    <message><source>Clipboard</source><translation>クリップボード</translation></message>
+    <message><source>Global Mouse Shortcuts</source><translation>グローバルマウス操作</translation></message>
+    <message><source>Screenshot Window</source><translation>スクショ画面</translation></message>
+    <message><source>Long Screenshot Window</source><translation>長いスクショ画面</translation></message>
+    <message><source>Pinned Window</source><translation>ピン留めウィンドウ</translation></message>
+    <message><source>Clipboard Window</source><translation>クリップボード画面</translation></message>
     <message><source>Annotation Tools</source><translation>注釈ツール</translation></message>
   </context>
 <context>

@@ -19,10 +19,12 @@
 #include "ui/fluent_lite/labels.h"
 #include "ui/fluent_lite/navigation.h"
 #include "ui/fluent_lite/segmented.h"
+#include "ui/fluent_lite/titlebar.h"
 #include "ui/hotkey_edit.h"
 #include "ui/inapp_key_edit.h"
 #include "ui/settings_ui/dialog.h"
 #include "ui/settings_ui/mouse_binding_editor.h"
+#include "ui/settings_ui/page_outline.h"
 #include "ui/settings_ui/components.h"
 #include "ui/settings_ui/pages.h"
 #include "ui/settings_ui/search.h"
@@ -114,7 +116,7 @@ QWidget *flash_over(QWidget *target) {
     return nullptr;
 }
 
-// A provider's chip on the translation page's API tab.
+// A provider's chip in the translation page's API services group.
 QAbstractButton *provider_chip(SettingsDialog &dialog, const QString &provider_id) {
     for (auto *button : dialog.attr_widget("translation_provider_picker")->findChildren<QAbstractButton *>())
         if (button->property("provider_id").toString() == provider_id) return button;
@@ -163,6 +165,38 @@ public:
 };
 
 // Records the URLs the dialog asks the desktop to open.
+// The groups a page lists in its outline: visible card groups and section cards, top to bottom.
+void collect_page_groups(QWidget *root, std::vector<QWidget *> &out) {
+    for (auto *child : root->findChildren<QWidget *>(Qt::FindDirectChildrenOnly)) {
+        if (child->isHidden() && child->testAttribute(Qt::WA_WState_ExplicitShowHide)) continue;
+        if (qobject_cast<SettingCardGroup *>(child) || qobject_cast<SectionCard *>(child)) out.push_back(child);
+        else collect_page_groups(child, out);
+    }
+}
+
+std::vector<QWidget *> page_groups(QScrollArea *scroll) {
+    std::vector<QWidget *> groups;
+    collect_page_groups(scroll->widget(), groups);
+    std::stable_sort(groups.begin(), groups.end(), [scroll](QWidget *a, QWidget *b) {
+        return a->mapTo(scroll->widget(), QPoint()).y() < b->mapTo(scroll->widget(), QPoint()).y();
+    });
+    return groups;
+}
+
+QString group_title_of(QWidget *group) {
+    if (auto *card_group = qobject_cast<SettingCardGroup *>(group)) return card_group->titleLabel->text();
+    return qobject_cast<SectionCard *>(group)->titleLabel->text();
+}
+
+int group_top_of(QScrollArea *scroll, QWidget *group) { return group->mapTo(scroll->widget(), QPoint()).y(); }
+
+// The card group of the dialog's pages with this title, or null.
+SettingCardGroup *group_titled(QWidget &dialog, const QString &title) {
+    for (auto *group : dialog.findChildren<SettingCardGroup *>())
+        if (group->titleLabel->text() == title) return group;
+    return nullptr;
+}
+
 class UrlCatcher : public QObject {
     Q_OBJECT
 public:
@@ -338,9 +372,9 @@ private slots:
             scale.set_percent(before);
             get_ui_scale().set_percent(panel_before);
         });
-        // 575 outside the card and for its title, 302 for the rest of the card; at 150% each part is
-        // rounded half to even: 862 + 96 + 321 + 36.
-        for (const auto &[percent, expected] : {std::pair{100, 877}, std::pair{150, 1315}, std::pair{200, 1754}}) {
+        // 561 outside the card and for its title, 348 for the rest of the widest row; at 150% each part is
+        // rounded half to even.
+        for (const auto &[percent, expected] : {std::pair{100, 909}, std::pair{150, 1364}, std::pair{200, 1818}}) {
             scale.set_percent(percent);
             get_ui_scale().set_percent(100);
             SettingsDialog dialog(config_, config_->get_hotkey());
@@ -360,7 +394,7 @@ private slots:
         QCOMPARE(dialog.minimumWidth(), 1280);
         QCOMPARE(dialog.width(), 1280);
         dialog.fit_to_available({2560, 1392});
-        QCOMPARE(dialog.minimumWidth(), 1315);
+        QCOMPARE(dialog.minimumWidth(), 1364);
         QCOMPARE(dialog.width(), 1575);
     }
 
@@ -1086,7 +1120,6 @@ private slots:
         ToolSettingsManager config(settings);
         SettingsDialog dialog(&config, config.get_hotkey());
         dialog.on_nav_changed(10, "mouse");
-        dialog.mouse_inapp_tabs->setCurrentItem("long_screenshot");
         QCOMPARE(LONG_SCREENSHOT_MOUSE_ACTIONS().size(), size_t(5));
         for (const auto &action : LONG_SCREENSHOT_MOUSE_ACTIONS()) {
             QVERIFY(get_long_screenshot_mouse_binding(&config, action.key).isEmpty());
@@ -1133,22 +1166,27 @@ private slots:
         }
     }
 
-    void shortcutTabTranslationsHaveExpectedText() {
+    // Each language names the window in its own words: Japanese and Korean call the full-screen capture a screen.
+    void shortcutGroupTranslationsHaveExpectedText() {
         const auto language = I18nManager::get_current_language();
         const auto restore = qScopeGuard([&] { I18nManager::load_language(language); });
         const QMap<QString, QStringList> expected{
-            {"zh", {QString::fromUtf8("截图"), QString::fromUtf8("长截图"), QString::fromUtf8("钉图"), QString::fromUtf8("剪贴板"), QString::fromUtf8("标注工具")}},
-            {"zh_TW", {QString::fromUtf8("截圖"), QString::fromUtf8("長截圖"), QString::fromUtf8("釘圖"), QString::fromUtf8("剪貼簿"), QString::fromUtf8("標註工具")}},
-            {"en", {"Screenshot", "Long Screenshot", "Pin", "Clipboard", "Annotation Tools"}},
-            {"ja", {QString::fromUtf8("スクショ"), QString::fromUtf8("長いスクショ"), QString::fromUtf8("ピン留め"), QString::fromUtf8("クリップボード"), QString::fromUtf8("注釈ツール")}},
-            {"ko", {QString::fromUtf8("캡처"), QString::fromUtf8("스크롤 캡처"), QString::fromUtf8("고정"), QString::fromUtf8("클립보드"), QString::fromUtf8("주석 도구")}},
+            {"zh", {QString::fromUtf8("截图窗口"), QString::fromUtf8("长截图窗口"), QString::fromUtf8("钉图窗口"), QString::fromUtf8("剪贴板窗口"), QString::fromUtf8("标注工具")}},
+            {"zh_TW", {QString::fromUtf8("截圖視窗"), QString::fromUtf8("長截圖視窗"), QString::fromUtf8("釘圖視窗"), QString::fromUtf8("剪貼簿視窗"), QString::fromUtf8("標註工具")}},
+            {"en", {"Screenshot Window", "Long Capture Window", "Pinned Window", "Clipboard Window", "Annotation Tools"}},
+            {"ja", {QString::fromUtf8("スクショ画面"), QString::fromUtf8("長いスクショ画面"), QString::fromUtf8("ピン留めウィンドウ"), QString::fromUtf8("クリップボード画面"), QString::fromUtf8("注釈ツール")}},
+            {"ko", {QString::fromUtf8("캡처 화면"), QString::fromUtf8("스크롤 캡처 화면"), QString::fromUtf8("고정 창"), QString::fromUtf8("클립보드 창"), QString::fromUtf8("주석 도구")}},
         };
-        const QStringList sources{"Screenshot", "Long Screenshot", "Pin", "Clipboard", "Annotation Tools"};
+        const QStringList sources{"Screenshot Window", "Long Screenshot Window", "Pinned Window", "Clipboard Window", "Annotation Tools"};
         for (auto it = expected.cbegin(); it != expected.cend(); ++it) {
             QVERIFY(I18nManager::load_language(it.key()));
             for (int i = 0; i < sources.size(); ++i)
                 QCOMPARE(i18n_tr(sources[i], "ShortcutTabs"), it.value()[i]);
         }
+        // The tray keeps the full Japanese name; the group, also a navigation item, has a shorter one.
+        QVERIFY(I18nManager::load_language("ja"));
+        QCOMPARE(i18n_tr("Global Mouse Shortcuts", "ShortcutTabs"), QString::fromUtf8("グローバルマウス操作"));
+        QCOMPARE(settings_tr("Global Mouse Shortcuts"), QString::fromUtf8("グローバルマウスショートカット"));
     }
 
     void longScreenshotMousePageFitsEveryLanguage() {
@@ -1163,45 +1201,40 @@ private slots:
                 SettingsDialog dialog(config_, config_->get_hotkey());
                 dialog.fit_to_available({4000, dialog.height()});
                 dialog.on_nav_changed(10, "mouse");
-                dialog.mouse_inapp_tabs->setCurrentItem("long_screenshot");
                 dialog.resize(0, dialog.height());
                 dialog.show();
                 QApplication::processEvents();
                 const auto shots = qEnvironmentVariable("JIETUBA_SETTINGS_SHOTS");
                 if (!shots.isEmpty() && percent == 100)
                     QVERIFY(dialog.grab().save(QDir(shots).filePath(QString("long_mouse_%1.png").arg(code))));
-                auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
-                QVERIFY(scroll);
-                const auto where = QString("%1 at %2%%: page %3, tabs %4/%5, overflow %6").arg(code).arg(percent).arg(scroll->widget()->width())
-                    .arg(dialog.mouse_inapp_tabs->width()).arg(dialog.mouse_inapp_tabs->minimumSizeHint().width()).arg(scroll->horizontalScrollBar()->maximum());
-                QVERIFY2(scroll->horizontalScrollBar()->maximum() == 0, qPrintable(where));
-                QVERIFY2(dialog.mouse_inapp_tabs->width() >= dialog.mouse_inapp_tabs->minimumSizeHint().width(), qPrintable(where));
-                dialog.on_nav_changed(0, "hotkey");
-                QApplication::processEvents();
-                if (!shots.isEmpty() && percent == 100)
-                    QVERIFY(dialog.grab().save(QDir(shots).filePath(QString("keyboard_%1.png").arg(code))));
-                auto *keyboard_scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
-                QVERIFY(keyboard_scroll);
-                const auto *keyboard_tabs = dialog.inapp_shortcut_tabs.data();
-                const int tabs_right = keyboard_tabs->mapTo(keyboard_scroll->viewport(), QPoint(keyboard_tabs->width(), 0)).x();
-                QVERIFY2(tabs_right <= keyboard_scroll->viewport()->width(), qPrintable(where));
-                for (auto *tabs : {dialog.mouse_inapp_tabs.data(), dialog.inapp_shortcut_tabs.data()}) {
-                    QCOMPARE(tabs->itemText("screenshot"), i18n_tr("Screenshot", "ShortcutTabs"));
-                    QCOMPARE(tabs->itemText("pin"), i18n_tr("Pin", "ShortcutTabs"));
-                    QCOMPARE(tabs->itemText("clipboard"), i18n_tr("Clipboard", "ShortcutTabs"));
-                    for (auto *button : tabs->findChildren<QPushButton *>()) {
-                        QVERIFY2(button->width() >= button->sizeHint().width(), qPrintable(where));
-                        QVERIFY2(button->height() >= dialog_scaled(30), qPrintable(where));
-                        QVERIFY2(button->font().pixelSize() >= dialog_scaled(14), qPrintable(where));
+                for (const int page : {10, 0}) {
+                    dialog.on_nav_changed(page, page == 10 ? "mouse" : "shortcuts");
+                    QApplication::processEvents();
+                    if (page == 0 && !shots.isEmpty() && percent == 100)
+                        QVERIFY(dialog.grab().save(QDir(shots).filePath(QString("keyboard_%1.png").arg(code))));
+                    auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+                    QVERIFY(scroll);
+                    const auto where = QString("%1 at %2%%, page %3: width %4, overflow %5").arg(code).arg(percent).arg(page).arg(scroll->widget()->width()).arg(scroll->horizontalScrollBar()->maximum());
+                    QVERIFY2(scroll->horizontalScrollBar()->maximum() == 0, qPrintable(where));
+                    for (auto *group : page_groups(scroll)) {
+                        for (auto *label : group->findChildren<QLabel *>()) {
+                            if (!label->isVisible() || label->wordWrap()) continue;
+                            QVERIFY2(label->width() >= label->sizeHint().width(), qPrintable(where + ": " + label->text()));
+                        }
+                        // A wrapped caption or row title gets the height of its lines.
+                        for (auto *label : group->findChildren<QLabel *>()) {
+                            if (!label->isVisible() || !label->wordWrap()) continue;
+                            QVERIFY2(label->height() >= label->heightForWidth(label->width()), qPrintable(where + ": " + label->text()));
+                        }
                     }
                 }
-                QCOMPARE(dialog.mouse_inapp_tabs->itemText("long_screenshot"), i18n_tr("Long Screenshot", "ShortcutTabs"));
+                QVERIFY(group_titled(dialog, i18n_tr("Long Screenshot Window", "ShortcutTabs")));
                 dialog.on_nav_changed(10, "mouse");
                 QApplication::processEvents();
                 for (const auto &action : LONG_SCREENSHOT_MOUSE_ACTIONS()) {
                     auto *edit = dialog.behavior_control(QString("mouse_long_") + action.key);
                     QVERIFY(edit && edit->isVisible());
-                    QVERIFY2(edit->width() >= edit->minimumSizeHint().width(), qPrintable(where));
+                    QVERIFY2(edit->width() >= edit->minimumSizeHint().width(), qPrintable(QString("%1 at %2%%").arg(code).arg(percent)));
                 }
             }
         }
@@ -1693,31 +1726,41 @@ private slots:
         QTRY_VERIFY(label->text().contains("1,500 / "));
     }
 
-    // The General tab holds what every provider shares; the API tab one card per provider, chosen
-    // by chips, with the provider's own switches and the general options only it uses.
-    void translationPageHasAGeneralAndAnApiTab() {
+    // One page: the options, read aloud and the API services under each other, listed in the outline.
+    // The services have a chip per provider, with the chosen one's cards below and the provider's own
+    // switches and the general options only it uses.
+    void translationPageListsItsGroupsAndHasNoTabs() {
         SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 750);
         dialog.show();
         dialog.on_nav_changed(4, "translation");
-        auto *tabs = dialog.attr<SegmentedWidget>("translation_tabs");
-        QVERIFY(tabs);
-        QCOMPARE(tabs->currentItem(), QString("general"));
-        QCOMPARE(tabs->itemText("api"), settings_tr("API Services"));
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+        QVERIFY(nav && scroll);
+        QVERIFY(!dialog.attr_widget("translation_tabs"));
+        QTRY_COMPARE(nav->currentSubRoute(), QString("translation"));
+        const QStringList titles{settings_tr("General"), settings_tr("Read Aloud"), settings_tr("API Services")};
+        QTRY_COMPARE(nav->subItemTitles("translation"), titles);
+        const auto groups = page_groups(scroll);
+        QCOMPARE(groups.size(), size_t(3));
+        QCOMPARE(groups[0], dialog.attr_widget("translation_options_group"));
+        QCOMPARE(groups[1], dialog.attr_widget("speech_group"));
+        QCOMPARE(groups[2], dialog.attr_widget("translation_api_group"));
+
         auto *combo = dialog.attr<QComboBox>("translation_provider_combo");
         auto *picker = dialog.attr_widget("translation_provider_picker");
-        QVERIFY(combo->isVisible());
-        QVERIFY(dialog.attr_widget("speech_group")->isVisible());
+        QVERIFY(combo->isVisible() && picker->isVisible());
+        QVERIFY(groups[2]->isAncestorOf(picker));
+        QVERIFY(groups[0]->isAncestorOf(combo));
         QVERIFY(dialog.attr_widget("translation_auto_close_toggle")->isVisible());
-        QVERIFY(!picker->isVisible());
-        // The tab row is not part of what scrolls.
-        auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
-        QVERIFY(scroll && !scroll->widget()->isAncestorOf(tabs));
-        scroll->verticalScrollBar()->setValue(scroll->verticalScrollBar()->maximum());
+        // The last group is reached by scrolling, and the outline follows.
+        auto *bar = scroll->verticalScrollBar();
+        QVERIFY(bar->maximum() > 0);
+        bar->setValue(bar->maximum());
+        QTRY_COMPARE(nav->currentSubItem(), 2);
+        bar->setValue(0);
+        QTRY_COMPARE(nav->currentSubItem(), 0);
 
-        tabs->setCurrentItem("api");
-        QVERIFY(!combo->isVisible());
-        QVERIFY(picker->isVisible());
-        QCOMPARE(scroll->verticalScrollBar()->value(), 0);
         // A chip per provider; the language models in a group of their own.
         const auto providers = dialog.translation_registry->available_providers();
         for (const auto &meta : providers) QVERIFY2(provider_chip(dialog, meta.provider_id), qPrintable(meta.provider_id));
@@ -1740,7 +1783,7 @@ private slots:
             QVERIFY2(toggle && dialog.provider_sections.value("deepl")->isAncestorOf(toggle), attr);
         }
         int rows = 0;
-        for (auto *label : picker->parentWidget()->findChildren<QLabel *>()) rows += label->text() == settings_tr("Ignore Line Breaks");
+        for (auto *label : groups[2]->findChildren<QLabel *>()) rows += label->text() == settings_tr("Ignore Line Breaks");
         QCOMPARE(rows, 1);
     }
 
@@ -1805,9 +1848,8 @@ private slots:
         QVERIFY(provider_chip(dialog, "deepseek")->property("current").toBool());
         QVERIFY(!chip->property("current").toBool());
 
-        // The button opens the engine's card on the API tab.
+        // The button opens the engine's card in the API services group.
         dialog.attr<QPushButton>("translation_configure_button")->click();
-        QCOMPARE(dialog.attr<SegmentedWidget>("translation_tabs")->currentItem(), QString("api"));
         QVERIFY(provider_chip(dialog, "deepseek")->isChecked());
         QVERIFY(dialog.provider_sections.value("deepseek")->isVisible());
         QPushButton *use = card_button(dialog, "deepseek", settings_tr("Use This"));
@@ -1985,6 +2027,20 @@ private slots:
         QCOMPARE(get_quick_capture_binding(config_, "long_screenshot"), QString("ctrl+alt+dragmiddle"));
     }
 
+    // The wizard's mouse grid is too narrow for a chevron beside the longest gestures, so its combos leave it out.
+    void wizardMouseCombosLeaveOutTheChevron() {
+        WelcomeWizard wizard(config_);
+        wizard.setAttribute(Qt::WA_DontShowOnScreen);
+        wizard.show();
+        wizard.go_to_page(2);
+        const auto editors = wizard.findChildren<MouseBindingEditor *>();
+        QCOMPARE(editors.size(), 8);
+        for (auto *editor : editors) {
+            QVERIFY(!editor->modifiers->chevronVisible());
+            QVERIFY(!editor->gesture->chevronVisible());
+        }
+    }
+
     void wizardMouseGridFitsEveryLanguage() {
         if (QGuiApplication::platformName() != "windows") QSKIP("Needs desktop fonts.");
         const QString language = I18nManager::get_current_language();
@@ -2124,17 +2180,19 @@ private slots:
         get_dialog_scale().set_percent(100);
         SwitchButton normal;
         configure_dialog_control(normal);
-        QCOMPARE(normal.size(), QSize(46, 26));
+        QCOMPARE(normal.size(), QSize(40, 20));
         get_dialog_scale().set_percent(150);
         WelcomeToggleSwitch large;
         configure_dialog_control(large);
-        QCOMPARE(large.size(), QSize(69, 39));
+        QCOMPARE(large.size(), QSize(60, 30));
         get_ui_scale().set_percent(200);
         configure_dialog_control(large);
-        QCOMPARE(large.size(), QSize(69, 39));
+        QCOMPARE(large.size(), QSize(60, 30));
         // Down the knob's middle column, the white knob has as much track above it as below.
+        large.setChecked(true);
+        QTest::qWait(300);
         const QImage image = large.grab().toImage();
-        const int column = large.height() / 2;
+        const int column = large.width() - large.height() / 2;
         int first = -1, last = -1;
         for (int y = 0; y < image.height(); ++y) {
             const QColor pixel = image.pixelColor(column, y);
@@ -2439,7 +2497,7 @@ private slots:
     }
 
     // The screen annotation page: start, toolbar and cursor highlight settings saved and reset like the
-    // others; keeping the drawings moved here from Quick Actions; the hotkey is shown and edited on the
+    // others; keeping the drawings moved here from the screenshot page; the hotkey is shown and edited on the
     // shortcut page.
     void screenAnnotationPage() {
         config_->set_global_hotkeys("screen_annotation", {"ctrl+alt+f9", "", "", ""});
@@ -2873,7 +2931,6 @@ private slots:
                 qobject_cast<QLineEdit *>(dialog.provider_field_widgets->value("baidu_translate_appid").data())->setText("app");
                 qobject_cast<QLineEdit *>(dialog.provider_field_widgets->value("baidu_translate_secret_key").data())->setText("secret");
                 const QString at = QString("%1 at %2%").arg(code).arg(percent);
-                for (auto *button : dialog.attr_widget("translation_tabs")->findChildren<QPushButton *>()) check(button, at, button->text());
                 for (const auto &meta : dialog.translation_registry->available_providers()) {
                     show_translation_provider(&dialog, meta.provider_id);
                     QApplication::processEvents();
@@ -2933,10 +2990,10 @@ private slots:
     void developerPageAndPinShortcutLinks() {
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.show();
-        QWidget *logo = nullptr;
-        for (auto *widget : dialog.findChildren<QWidget *>())
-            if (widget->contextMenuPolicy() == Qt::CustomContextMenu) logo = widget;
-        QVERIFY(logo);
+        auto *title_bar = qobject_cast<FluentTitleBar *>(dialog.titleBar());
+        QVERIFY(title_bar);
+        QWidget *logo = title_bar->iconLabel;
+        QCOMPARE(logo->contextMenuPolicy(), Qt::CustomContextMenu);
         QTimer::singleShot(0, &dialog, [] {
             auto *menu = qobject_cast<QMenu *>(QApplication::activePopupWidget());
             if (!menu) return;
@@ -2954,10 +3011,10 @@ private slots:
         QCOMPARE(engine->currentData(), engine_default);
         dialog.show_pin_shortcuts(true);
         QCOMPARE(dialog.content_stack->currentIndex(), 10);
-        QVERIFY(dialog.mouse_inapp_tabs);
+        QVERIFY(dialog.attr_widget("mouse_pin_group"));
         dialog.show_pin_shortcuts(false);
         QCOMPARE(dialog.content_stack->currentIndex(), 0);
-        QVERIFY(dialog.inapp_shortcut_tabs);
+        QVERIFY(dialog.attr_widget("inapp_pin_group"));
         QApplication::processEvents();
         QSignalSpy wizard(&dialog, &SettingsDialog::wizard_requested);
         dialog.open_welcome_wizard();
@@ -3056,15 +3113,15 @@ private slots:
         QCOMPARE(edit->text(), QString("ctrl+k"));
     }
 
-    // Save and quick save sit on the screenshot tab, and their defaults take no other capture key.
-    void saveKeysSitOnTheScreenshotTab() {
+    // Save and quick save sit in the screenshot group, and their defaults take no other capture key.
+    void saveKeysSitInTheScreenshotGroup() {
         SettingsDialog dialog(config_, config_->get_hotkey());
-        auto *stack = dialog.findChild<QStackedWidget *>("InAppShortcutStack");
-        QVERIFY(stack);
+        auto *group = group_titled(dialog, i18n_tr("Screenshot Window", "ShortcutTabs"));
+        QVERIFY(group);
         for (const auto &[key, value] : {std::pair{"inapp_save", "ctrl+s"}, std::pair{"inapp_quick_save", "ctrl+shift+s"}}) {
             auto *edit = dialog.inapp_edit(key);
             QVERIFY(edit);
-            QVERIFY(stack->widget(0)->isAncestorOf(edit));
+            QVERIFY(group->isAncestorOf(edit));
             QCOMPARE(edit->text(), QString(value));
             QCOMPARE(dialog.inapp_groups.value(key), QString("screenshot"));
             for (const auto &[other_key, other] : dialog.inapp_edits)
@@ -3074,10 +3131,8 @@ private slots:
 
     void undoAndRedoBelongToAnnotationTools() {
         SettingsDialog dialog(config_, config_->get_hotkey());
-        auto *stack = dialog.findChild<QStackedWidget *>("InAppShortcutStack");
-        QVERIFY(stack);
-        auto *screenshot_page = stack->widget(0);
-        auto *tools_page = stack->widget(1);
+        auto *screenshot_page = group_titled(dialog, i18n_tr("Screenshot Window", "ShortcutTabs"));
+        auto *tools_page = group_titled(dialog, i18n_tr("Annotation Tools", "ShortcutTabs"));
         QVERIFY(screenshot_page && tools_page);
         for (const char *key : {"inapp_undo", "inapp_redo"}) {
             auto *edit = dialog.inapp_edit(key);
@@ -3315,33 +3370,90 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(!flash_over(target), 4000);
     }
 
-    void searchOpensTheTabHoldingTheRow() {
+    // A row of a window's shortcuts is found under that window's group; opening it outlines the row and marks the group.
+    void searchJumpsToTheGroupHoldingTheRow() {
         SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 600);
         dialog.show();
         auto *box = dialog.search_box();
-        QCOMPARE(dialog.inapp_shortcut_tabs->currentItem(), QString("screenshot"));
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        QTRY_VERIFY(nav->subItemCount("shortcuts") > 1);
+        const QString pin_group = i18n_tr("Pinned Window", "ShortcutTabs");
+        QCOMPARE(nav->currentSubItem(), 0);
         const QString lock = inapp_label(&dialog, "inapp_pin_lock");
         box->edit()->setText(lock);
         QTRY_VERIFY(box->results_visible() && !box->results().empty());
         const auto result = box->results().front();
         QCOMPARE(result.title, lock);
-        QCOMPARE(result.path, (QStringList{settings_tr("Shortcuts"), settings_tr("In-App Shortcuts"), i18n_tr("Pin", "ShortcutTabs")}.join(" / ")));
+        QCOMPARE(result.path, (QStringList{settings_tr("Shortcuts"), pin_group}.join(" / ")));
         QPointer<QWidget> target = result.target;
-        QVERIFY(target && !target->isVisible());
+        QVERIFY(target);
         QTest::keyClick(box->edit(), Qt::Key_Return);
-        QCOMPARE(dialog.inapp_shortcut_tabs->currentItem(), QString("pin"));
-        QTRY_VERIFY(target->isVisible());
+        QTRY_COMPARE(nav->subItem(nav->currentSubRoute(), nav->currentSubItem())->text(), pin_group);
+        QTRY_VERIFY(flash_over(target));
+        auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+        const QRect in_view(target->mapTo(scroll->viewport(), QPoint()), target->size());
+        QVERIFY(scroll->viewport()->rect().contains(in_view));
 
-        // The mouse page's tabs, on a page not built yet.
+        // The mouse page, not built yet.
         box->edit()->clear();
         const QString select_region = settings_tr("Select Thumbnail Region");
         box->edit()->setText(select_region);
         QTRY_VERIFY(box->results_visible() && !box->results().empty() && box->results().front().title == select_region);
+        QCOMPARE(box->results().front().path, (QStringList{settings_tr("Mouse Shortcuts"), pin_group}.join(" / ")));
         target = box->results().front().target;
         QTest::keyClick(box->edit(), Qt::Key_Return);
         QCOMPARE(dialog.content_stack->currentIndex(), 10);
-        QCOMPARE(dialog.mouse_inapp_tabs->currentItem(), QString("pin"));
-        QTRY_VERIFY(target && target->isVisible());
+        QTRY_COMPARE(nav->currentSubRoute(), QString("mouse"));
+        QTRY_COMPARE(nav->subItem(nav->currentSubRoute(), nav->currentSubItem())->text(), pin_group);
+        QTRY_VERIFY(target && flash_over(target));
+    }
+
+    // The groups of the two shortcut pages are listed under their navigation items: the global group, then one per window.
+    void shortcutPagesListOneGroupPerWindow() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 750);
+        dialog.show();
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        const auto window = [](const char *name) { return i18n_tr(name, "ShortcutTabs"); };
+        dialog.on_nav_changed(0, "shortcuts");
+        QTRY_COMPARE(nav->subItemCount("shortcuts"), 5);
+        QCOMPARE(nav->subItemTitles("shortcuts"), (QStringList{dialog.tr_text("Global Hotkeys"), window("Screenshot Window"), window("Annotation Tools"), window("Pinned Window"), window("Clipboard Window")}));
+        dialog.on_nav_changed(10, "mouse");
+        QTRY_COMPARE(nav->subItemCount("mouse"), 5);
+        QCOMPARE(nav->subItemTitles("mouse"),
+                 (QStringList{window("Global Mouse Shortcuts"), window("Screenshot Window"), window("Long Screenshot Window"), window("Pinned Window"), window("Clipboard Window")}));
+        // Each action row sits in its window's group, and no row is left outside the groups.
+        auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+        const auto groups = page_groups(scroll);
+        QCOMPARE(int(groups.size()), 5);
+        for (const auto &action : LONG_SCREENSHOT_MOUSE_ACTIONS()) QVERIFY(groups[2]->isAncestorOf(dialog.behavior_control(QString("mouse_long_") + action.key)));
+        for (const auto &action : PIN_MOUSE_ACTIONS()) QVERIFY(groups[3]->isAncestorOf(dialog.behavior_control(QString("mouse_pin_") + action.key)));
+    }
+
+    // The pin page's buttons to the pin shortcuts scroll to the pin group and mark it in the navigation.
+    void pinShortcutEntriesScrollToThePinGroup() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 600);
+        dialog.show();
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        const QString pin_group = i18n_tr("Pinned Window", "ShortcutTabs");
+        for (const bool mouse : {false, true}) {
+            dialog.on_nav_changed(11, "pin");
+            dialog.show_pin_shortcuts(mouse);
+            QCOMPARE(dialog.content_stack->currentIndex(), mouse ? 10 : 0);
+            auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+            auto *group = dialog.attr_widget(mouse ? "mouse_pin_group" : "inapp_pin_group");
+            QVERIFY(group);
+            QTRY_COMPARE(nav->currentSubRoute(), QString(mouse ? "mouse" : "shortcuts"));
+            QTRY_COMPARE(nav->subItem(nav->currentSubRoute(), nav->currentSubItem())->text(), pin_group);
+            QTRY_VERIFY(!dialog.page_outline()->animating());
+            // The group's title is at the top of the view, unless the page ends before it can get there.
+            const auto *bar = scroll->verticalScrollBar();
+            QVERIFY(bar->value() > 0);
+            const int top = group_top_of(scroll, group) - bar->value();
+            QVERIFY2(top >= 0 && (top <= dialog_scaled(PageOutline::TOP_MARGIN) + 2 || bar->value() == bar->maximum()), qPrintable(QString::number(top)));
+        }
     }
 
     // Whatever search lists can be brought on screen: its page, its tab, scrolled into view.
@@ -3371,8 +3483,8 @@ private slots:
         QVERIFY2(rows > 150, qPrintable(QString::number(rows)));
     }
 
-    // Every provider's card is listed under its name, folded rows included; a result opens the API
-    // tab on that card and unfolds Advanced, without changing the engine.
+    // Every provider's card is listed under its name, folded rows included; a result opens
+    // that provider's cards and unfolds Advanced, without changing the engine.
     void searchReachesEveryProvidersCard() {
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.show();
@@ -3384,7 +3496,7 @@ private slots:
         };
         // Its name, at least one setting to work and the two pacing rows.
         for (auto it = dialog.provider_sections.begin(); it != dialog.provider_sections.end(); ++it) QVERIFY2(listed(it.value()) >= 4, qPrintable(it.key()));
-        // The General tab's rows as well.
+        // The options' rows as well.
         QVERIFY(listed(dialog.attr_widget("translation_options_group")) >= 4);
 
         auto *combo = dialog.attr<QComboBox>("translation_provider_combo");
@@ -3394,16 +3506,81 @@ private slots:
         QVERIFY(!card->isVisible());
         const auto pacing = dialog.translation_registry->metadata(provider).pacing.front();
         QWidget *edit = dialog.provider_field_widgets->value(pacing.config_key);
-        const auto found = std::find_if(entries.begin(), entries.end(), [edit](const SettingsSearchEntry &entry) { return entry.target && entry.target->isAncestorOf(edit); });
+        const auto found = std::find_if(entries.begin(), entries.end(), [edit](const SettingsSearchEntry &entry) { return entry.kind == SettingsSearchEntry::Kind::Item && entry.target && entry.target->isAncestorOf(edit); });
         QVERIFY(found != entries.end());
         QCOMPARE(found->title, settings_tr(pacing.label.toUtf8().constData()));
         QVERIFY2(found->path.endsWith(" / " + provider_chip(dialog, provider)->text()), qPrintable(found->path));
         dialog.show_search_result(*found);
-        QCOMPARE(dialog.attr<SegmentedWidget>("translation_tabs")->currentItem(), QString("api"));
         QTRY_VERIFY(edit->isVisible());
         QVERIFY(card->isVisible());
         QVERIFY(provider_chip(dialog, provider)->isChecked());
         QCOMPARE(combo->currentData().toString(), engine);
+    }
+
+    // The engine row's gear scrolls the page to the API services group and shows the engine's cards.
+    void configureButtonScrollsToTheApiServicesOfTheEngine() {
+        const QString provider = config_->get_translation_provider();
+        const auto restore = qScopeGuard([this, provider] { config_->set_translation_provider(provider); });
+        config_->set_translation_provider("deepseek");
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 600);
+        dialog.show();
+        dialog.on_nav_changed(4, "translation");
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+        QTRY_COMPARE(nav->subItemCount("translation"), 3);
+        auto *group = dialog.attr_widget("translation_api_group");
+        auto *bar = scroll->verticalScrollBar();
+        provider_chip(dialog, "deepl")->click();
+        QCOMPARE(bar->value(), 0);
+        QVERIFY(group_top_of(scroll, group) > bar->value() + scroll->viewport()->height() / 2);
+
+        dialog.attr<QPushButton>("translation_configure_button")->click();
+        QVERIFY(provider_chip(dialog, "deepseek")->isChecked());
+        QVERIFY(dialog.provider_sections.value("deepseek")->isVisible());
+        QVERIFY(!dialog.provider_sections.value("deepl")->isVisible());
+        // A smooth scroll that ends with the group at the top, or at the end of the page.
+        const auto expected = [&] { return std::clamp(group_top_of(scroll, group) - dialog_scaled(PageOutline::TOP_MARGIN), 0, bar->maximum()); };
+        QTRY_VERIFY(bar->value() > 0);
+        QTRY_COMPARE(bar->value(), expected());
+        QTRY_COMPARE(nav->currentSubItem(), 2);
+        QVERIFY(provider_chip(dialog, "deepseek")->isVisible());
+
+        // Again from the top, through the helper the other pages use.
+        bar->setValue(0);
+        QTRY_COMPARE(nav->currentSubItem(), 0);
+        show_translation_provider(&dialog, "baidu");
+        QTRY_COMPARE(bar->value(), expected());
+        QVERIFY(provider_chip(dialog, "baidu")->isChecked());
+    }
+
+    // A search result inside the API services shows its provider and the field in the view.
+    void searchJumpToAnApiFieldBringsItIntoView() {
+        const QString provider = config_->get_translation_provider();
+        const auto restore = qScopeGuard([this, provider] { config_->set_translation_provider(provider); });
+        config_->set_translation_provider("deepl");
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 600);
+        dialog.show();
+        dialog.on_nav_changed(4, "translation");
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+        QTRY_COMPARE(nav->subItemCount("translation"), 3);
+        QCOMPARE(scroll->verticalScrollBar()->value(), 0);
+        QWidget *field = dialog.provider_field_widgets->value("custom_llm_temperature");
+        QVERIFY(!field->isVisible());
+        const auto entries = dialog.search_entries();
+        const auto found = std::find_if(entries.begin(), entries.end(), [field](const SettingsSearchEntry &entry) { return entry.kind == SettingsSearchEntry::Kind::Item && entry.target && entry.target->isAncestorOf(field); });
+        QVERIFY(found != entries.end());
+        dialog.show_search_result(*found);
+        QTRY_VERIFY(field->isVisible());
+        QVERIFY(provider_chip(dialog, "custom_llm")->isChecked());
+        const auto in_view = [&] {
+            const int top = field->mapTo(scroll->viewport(), QPoint()).y();
+            return top >= 0 && top + field->height() <= scroll->viewport()->height();
+        };
+        QTRY_VERIFY(in_view());
+        QCOMPARE(nav->currentSubItem(), 2);
     }
 
     void searchKeysStayInTheField() {
@@ -3609,7 +3786,7 @@ private slots:
             QTest::qWait(200);
             QVERIFY(dialog.grab().save(QDir(out).filePath(QString("%1_%2_end.png").arg(index, 2, 10, QChar('0')).arg(route))));
         }
-        // The translation page's API tab, on a provider of each kind.
+        // The translation page's API services, on a provider of each kind.
         dialog.on_nav_changed(4, "translation");
         for (const char *provider : {"deepl", "deepseek", "volcengine", "custom_llm"}) {
             show_translation_provider(&dialog, provider);
@@ -3619,7 +3796,6 @@ private slots:
             auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
             QVERIFY(scroll->widget()->grab().save(QDir(out).filePath(QString("04_translation_api_%1_full.png").arg(provider))));
         }
-        dialog.attr<SegmentedWidget>("translation_tabs")->setCurrentItem("general");
         WelcomeWizard wizard(config_);
         wizard.setAttribute(Qt::WA_DontShowOnScreen);
         wizard.show();
@@ -3936,6 +4112,436 @@ private slots:
             auto *scroll = large.findChild<QScrollArea *>("filename_scroll");
             QCOMPARE(scroll->horizontalScrollBar()->maximum(), 0);
             QVERIFY(large.height() <= large.screen()->availableGeometry().height());
+        }
+    }
+
+
+
+    // The second navigation level: the pages' groups, listed under their items.
+    void outlineListsTheGroupsOfThePageInOrder() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 750);
+        dialog.show();
+        dialog.on_nav_changed(1, "capture");
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+        QVERIFY(nav && scroll);
+        QTRY_VERIFY(nav->subItemCount("capture") > 1);
+        auto groups = page_groups(scroll);
+        QStringList titles;
+        for (auto *group : groups) titles << group_title_of(group);
+        QCOMPARE(nav->subItemTitles("capture"), titles);
+        QCOMPARE(titles.size(), 8);
+
+        // A hidden group is not listed, and comes back when shown.
+        groups[1]->hide();
+        QStringList without = titles;
+        without.removeAt(1);
+        QTRY_COMPARE(nav->subItemTitles("capture"), without);
+        groups[1]->show();
+        QTRY_COMPARE(nav->subItemTitles("capture"), titles);
+    }
+
+    void outlineHighlightFollowsTheScroll() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 600);
+        dialog.show();
+        dialog.on_nav_changed(1, "capture");
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+        QTRY_VERIFY(nav->subItemCount("capture") > 1);
+        auto *bar = scroll->verticalScrollBar();
+        QVERIFY(bar->maximum() > 0);
+        QCOMPARE(nav->currentSubItem(), 0);
+        const auto groups = page_groups(scroll);
+        const int margin = dialog_scaled(PageOutline::TOP_MARGIN);
+        int reached = 0;
+        for (int k = 0; k < static_cast<int>(groups.size()); ++k) {
+            const int value = group_top_of(scroll, groups[k]) - margin;
+            if (value >= bar->maximum()) break;
+            bar->setValue(std::max(0, value));
+            QCOMPARE(nav->currentSubItem(), k);
+            // Still the same group a little further down, until the next one reaches the top.
+            bar->setValue(std::max(0, value) + dialog_scaled(4));
+            QCOMPARE(nav->currentSubItem(), k);
+            ++reached;
+        }
+        QVERIFY(reached >= 3);
+        // A group whose title has nearly reached the top already counts, not the sliver of the one above.
+        const int second = group_top_of(scroll, groups[1]) - margin;
+        bar->setValue(second - dialog_scaled(PageOutline::REACH) + dialog_scaled(4));
+        QCOMPARE(nav->currentSubItem(), 1);
+        bar->setValue(second - dialog_scaled(PageOutline::REACH) - dialog_scaled(4));
+        QCOMPARE(nav->currentSubItem(), 0);
+        // At the end the last group is current, also when it is too short to reach the top.
+        bar->setValue(bar->maximum());
+        QCOMPARE(nav->currentSubItem(), static_cast<int>(groups.size()) - 1);
+        bar->setValue(0);
+        QCOMPARE(nav->currentSubItem(), 0);
+        QCOMPARE(nav->currentSubRoute(), QString("capture"));
+    }
+
+    void clickingASubItemScrollsToItWithoutTheHighlightJumping() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 600);
+        dialog.show();
+        dialog.on_nav_changed(1, "capture");
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+        QTRY_VERIFY(nav->subItemCount("capture") > 3);
+        QTRY_VERIFY(!nav->animating());
+        auto *outline = dialog.page_outline();
+        auto *bar = scroll->verticalScrollBar();
+        const auto groups = page_groups(scroll);
+        const int margin = dialog_scaled(PageOutline::TOP_MARGIN);
+
+        const int target = 3;
+        const int expected = std::clamp(group_top_of(scroll, groups[target]) - margin, 0, bar->maximum());
+        QVERIFY(expected > 0);
+        nav->subItem("capture", target)->click();
+        QVERIFY(outline->animating());
+        int last = bar->value();
+        bool passed_other_group = false;
+        while (outline->animating()) {
+            // The groups the scroll passes do not take the highlight.
+            QCOMPARE(nav->currentSubItem(), target);
+            QVERIFY(bar->value() >= last);
+            last = bar->value();
+            if (group_top_of(scroll, groups[1]) - bar->value() < margin) passed_other_group = true;
+            QTest::qWait(10);
+        }
+        QVERIFY(passed_other_group);
+        QCOMPARE(bar->value(), expected);
+        QCOMPARE(nav->currentSubItem(), target);
+
+        // A group that cannot reach the top ends at the bottom and stays the chosen one.
+        const int count = nav->subItemCount("capture");
+        nav->subItem("capture", count - 2)->click();
+        QTRY_VERIFY(!outline->animating());
+        QCOMPARE(bar->value(), std::clamp(group_top_of(scroll, groups[count - 2]) - margin, 0, bar->maximum()));
+        QCOMPARE(nav->currentSubItem(), count - 2);
+        // Scrolling by other means takes over again.
+        bar->setValue(0);
+        QCOMPARE(nav->currentSubItem(), 0);
+        bar->setValue(bar->maximum());
+        QCOMPARE(nav->currentSubItem(), count - 1);
+        bar->setValue(0);
+        QCOMPARE(nav->currentSubItem(), 0);
+    }
+
+    void outlineHighlightFollowsASearchJump() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 750);
+        dialog.show();
+        dialog.on_nav_changed(1, "capture");
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+        QTRY_VERIFY(nav->subItemCount("capture") > 4);
+        const auto groups = page_groups(scroll);
+        const auto entries = dialog.search_entries();
+        // A row in the group just below the top, which the scroll alone would not mark, and one far below.
+        for (const int index : {1, 4}) {
+            dialog.on_nav_changed(1, "capture");
+            scroll->verticalScrollBar()->setValue(0);
+            QCOMPARE(nav->currentSubItem(), 0);
+            const SettingsSearchEntry *found = nullptr;
+            for (const auto &entry : entries)
+                if (entry.kind == SettingsSearchEntry::Kind::Item && entry.route_key == "capture" && entry.target && groups[index]->isAncestorOf(entry.target)) {
+                    found = &entry;
+                    break;
+                }
+            QVERIFY(found);
+            dialog.show_search_result(*found);
+            QTRY_COMPARE(nav->currentSubItem(), index);
+            QTest::qWait(30);
+            QCOMPARE(nav->currentSubItem(), index);
+            // Scrolling by hand lets go of it.
+            scroll->verticalScrollBar()->setValue(scroll->verticalScrollBar()->maximum());
+            QCOMPARE(nav->currentSubItem(), nav->subItemCount("capture") - 1);
+            scroll->verticalScrollBar()->setValue(0);
+        }
+    }
+
+    // The page opened unfolds itself and folds again when left; one unfolded with its arrow stays until folded with it.
+    void openingAPageUnfoldsItAndLeavingFoldsItUnlessTheUserUnfoldedIt() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 750);
+        dialog.show();
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        QVERIFY(nav);
+        QTRY_VERIFY(nav->isExpanded("shortcuts"));
+        dialog.on_nav_changed(1, "capture");
+        QTRY_VERIFY(nav->subItemCount("capture") > 1);
+        QVERIFY(nav->isExpanded("capture"));
+        QTRY_VERIFY(!nav->isExpanded("shortcuts"));
+        QTRY_VERIFY(!nav->animating());
+        QVERIFY(nav->subItem("shortcuts", 0) == nullptr || !nav->subItem("shortcuts", 0)->isVisible());
+
+        // An arrow unfolds a page that was never opened, building it; the window stays on its page.
+        const int before = dialog.content_stack->currentIndex();
+        QVERIFY(!nav->isExpanded("clipboard"));
+        emit nav->arrowClicked("clipboard");
+        QVERIFY(nav->isExpanded("clipboard"));
+        QCOMPARE(dialog.content_stack->currentIndex(), before);
+        QVERIFY(nav->subItemCount("clipboard") > 1);
+        QTRY_VERIFY(!nav->animating());
+        QVERIFY(nav->subItem("clipboard", 0)->isVisible());
+        QVERIFY(dialog.page_outline()->manually_unfolded().contains("clipboard"));
+
+        // Leaving folds what opening unfolded, not what the user did.
+        dialog.on_nav_changed(11, "pin");
+        QTRY_VERIFY(!nav->isExpanded("capture"));
+        QTRY_VERIFY(nav->isExpanded("pin"));
+        QVERIFY(nav->isExpanded("clipboard"));
+        dialog.on_nav_changed(2, "clipboard");
+        QVERIFY(nav->isExpanded("clipboard"));
+        QTRY_VERIFY(!nav->isExpanded("pin"));
+        dialog.on_nav_changed(5, "log");
+        QTRY_VERIFY(nav->isExpanded("log"));
+        QVERIFY(nav->isExpanded("clipboard"));
+        // The arrow folds it again, also from another page.
+        emit nav->arrowClicked("clipboard");
+        QVERIFY(!nav->isExpanded("clipboard"));
+        QTRY_VERIFY(!nav->animating());
+        QVERIFY(!nav->subItem("clipboard", 0)->isVisible());
+
+        // A page folded by the user while on it stays folded until it is opened again.
+        emit nav->arrowClicked("log");
+        QVERIFY(!nav->isExpanded("log"));
+        dialog.page_outline()->refresh();
+        QTest::qWait(30);
+        QVERIFY(!nav->isExpanded("log"));
+        dialog.on_nav_changed(1, "capture");
+        QTRY_VERIFY(nav->isExpanded("capture"));
+        dialog.on_nav_changed(5, "log");
+        QTRY_VERIFY(nav->isExpanded("log"));
+        QTRY_VERIFY(!nav->isExpanded("capture"));
+    }
+
+    void theArrowOnlyUnfoldsAndTheRestOfTheItemOpensThePage() {
+        auto &scale = get_dialog_scale();
+        const int before = scale.percent();
+        const auto restore = qScopeGuard([&] { scale.set_percent(before); });
+        // At 150% the arrow's press area is wider, so a point 40 px from the edge is on it only there.
+        for (const int percent : {100, 150}) {
+            scale.set_percent(percent);
+            SettingsDialog dialog(config_, config_->get_hotkey());
+            dialog.fit_to_available({2560, 1392});
+            dialog.show();
+            auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+            QTRY_VERIFY(nav->isExpanded("shortcuts"));
+            auto *item = nav->widget("capture");
+            QVERIFY(item);
+            const QString where = QString("at %1%%").arg(percent);
+            const int width = item->width();
+
+            QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, QPoint(width - dialog_scaled(12), item->height() / 2));
+            QVERIFY2(nav->isExpanded("capture"), qPrintable(where));
+            QVERIFY2(dialog.content_stack->currentIndex() == 0, qPrintable(where));
+            QVERIFY2(nav->isExpanded("shortcuts"), qPrintable(where));
+            QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, QPoint(width - dialog_scaled(12), item->height() / 2));
+            QVERIFY2(!nav->isExpanded("capture"), qPrintable(where));
+            QVERIFY2(dialog.content_stack->currentIndex() == 0, qPrintable(where));
+
+            // Left of the arrow the click opens the page, which unfolds.
+            const bool on_arrow = percent == 150;
+            QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, QPoint(width - 40, item->height() / 2));
+            if (on_arrow) {
+                QVERIFY2(nav->isExpanded("capture") && dialog.content_stack->currentIndex() == 0, qPrintable(where));
+            } else {
+                QVERIFY2(dialog.content_stack->currentIndex() == 1, qPrintable(where));
+                QTRY_VERIFY2(nav->isExpanded("capture"), qPrintable(where));
+            }
+            QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, QPoint(dialog_scaled(60), item->height() / 2));
+            QVERIFY2(dialog.content_stack->currentIndex() == 1, qPrintable(where));
+        }
+    }
+
+    void foldingMovesTheHeightOfTheListAndEndsAtItsNaturalSize() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 900);
+        dialog.show();
+        dialog.on_nav_changed(1, "capture");
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        QTRY_VERIFY(nav->subItemCount("capture") > 1);
+        QTRY_VERIFY(!nav->animating());
+        QWidget *list = nav->subItem("capture", 0)->parentWidget()->parentWidget();
+        QVERIFY(list->isVisible());
+        const int full = list->height();
+        QVERIFY(full >= nav->subItemCount("capture") * dialog_scaled(36));
+        QVERIFY(list->maximumHeight() >= QWIDGETSIZE_MAX);
+        // The last row ends inside it.
+        auto *last = nav->subItem("capture", nav->subItemCount("capture") - 1);
+        QVERIFY(last->geometry().bottom() < list->height());
+
+        emit nav->arrowClicked("capture");
+        QVERIFY(nav->animating());
+        bool between = false;
+        for (int i = 0; i < 60 && nav->animating(); ++i) {
+            between = between || (list->height() > 0 && list->height() < full);
+            QTest::qWait(5);
+        }
+        QVERIFY(between);
+        QTRY_VERIFY(!nav->animating());
+        QVERIFY(!list->isVisible());
+
+        emit nav->arrowClicked("capture");
+        bool grows = false;
+        for (int i = 0; i < 60 && nav->animating(); ++i) {
+            grows = grows || (list->height() > 0 && list->height() < full);
+            QTest::qWait(5);
+        }
+        QVERIFY(grows);
+        QTRY_VERIFY(!nav->animating());
+        QCOMPARE(list->height(), full);
+        QVERIFY(list->maximumHeight() >= QWIDGETSIZE_MAX);
+        // The highlight kept following the scroll through all of it.
+        QCOMPARE(nav->currentSubRoute(), QString("capture"));
+    }
+
+    void clickingASubItemOfAnotherPageOpensItAndScrollsToTheGroup() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 600);
+        dialog.show();
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        QTRY_VERIFY(nav->subItemCount("shortcuts") > 0);
+        emit nav->arrowClicked("pin");
+        QVERIFY(nav->subItemCount("pin") > 3);
+        // Only the page shown has a highlight.
+        QCOMPARE(nav->currentSubRoute(), QString("shortcuts"));
+        QTRY_VERIFY(!nav->animating());
+        const int index = 3;
+        const QString title = nav->subItemTitles("pin")[index];
+        nav->subItem("pin", index)->click();
+        QCOMPARE(dialog.content_stack->currentIndex(), 11);
+        auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+        QVERIFY(scroll);
+        QTRY_VERIFY(dialog.page_outline()->animating() || scroll->verticalScrollBar()->value() > 0);
+        QCOMPARE(nav->currentSubRoute(), QString("pin"));
+        QCOMPARE(nav->currentSubItem(), index);
+        QTRY_VERIFY(!dialog.page_outline()->animating());
+        const auto groups = page_groups(scroll);
+        QCOMPARE(group_title_of(groups[index]), title);
+        auto *bar = scroll->verticalScrollBar();
+        QCOMPARE(bar->value(), std::clamp(group_top_of(scroll, groups[index]) - dialog_scaled(PageOutline::TOP_MARGIN), 0, bar->maximum()));
+        QCOMPARE(nav->currentSubItem(), index);
+        // The page left behind is not highlighted and, opened by a click, was folded; the pin page stays unfolded by the user's arrow.
+        QTRY_VERIFY(!nav->isExpanded("shortcuts"));
+        QVERIFY(nav->isExpanded("pin"));
+    }
+
+    void theTitleBarCarriesTheLogoAndTheDeveloperMenu() {
+        auto &scale = get_dialog_scale();
+        const int before = scale.percent();
+        const auto restore = qScopeGuard([&] { scale.set_percent(before); });
+        for (const int percent : {100, 150}) {
+            scale.set_percent(percent);
+            SettingsDialog dialog(config_, config_->get_hotkey());
+            dialog.show();
+            auto *bar = qobject_cast<FluentTitleBar *>(dialog.titleBar());
+            QVERIFY(bar);
+            const QString where = QString("at %1%%").arg(percent);
+            QVERIFY2(bar->iconLabel->isVisible() && bar->titleLabel->isVisible(), qPrintable(where));
+            QVERIFY2(!bar->iconLabel->pixmap().isNull(), qPrintable(where));
+            QCOMPARE(bar->titleLabel->text(), QString("jietuba"));
+            QVERIFY2(bar->iconLabel->width() == 22 * percent / 100, qPrintable(where));
+            QVERIFY2(bar->iconLabel->pixmap().deviceIndependentSize().width() == 16 * percent / 100, qPrintable(where));
+            // The logo sits at the left end of the caption, left of the caption buttons.
+            QVERIFY2(bar->iconLabel->x() < bar->titleLabel->x() && bar->titleLabel->x() < bar->minBtn->x(), qPrintable(where));
+            // The side panel no longer has a logo row of its own.
+            auto *panel = dialog.findChild<QWidget *>("SettingsLeftPanel");
+            QVERIFY(panel);
+            for (auto *label : panel->findChildren<QLabel *>()) QVERIFY2(label->text() != "jietuba", qPrintable(where));
+        }
+    }
+
+    void theDeveloperMenuOpensFromTheNameAsWellAsTheLogo() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        auto *bar = qobject_cast<FluentTitleBar *>(dialog.titleBar());
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        QVERIFY(bar && nav);
+        for (QLabel *label : {bar->titleLabel, bar->iconLabel}) {
+            QCOMPARE(label->contextMenuPolicy(), Qt::CustomContextMenu);
+            dialog.on_nav_changed(1, "capture");
+            QTimer::singleShot(0, &dialog, [] {
+                auto *menu = qobject_cast<QMenu *>(QApplication::activePopupWidget());
+                if (!menu) return;
+                menu->setActiveAction(menu->actions().value(0));
+                QTest::keyClick(menu, Qt::Key_Return);
+            });
+            emit label->customContextMenuRequested(QPoint(2, 2));
+            QCOMPARE(dialog.content_stack->currentIndex(), 7);
+            // No item stands for the developer page: nothing is current there, and the page left is folded.
+            QVERIFY(nav->currentSubRoute().isEmpty());
+            QTRY_VERIFY(!nav->isExpanded("capture"));
+        }
+    }
+
+    void navigationRowsFollowTheWindowScaleButNotThePanelScale() {
+        auto &scale = get_dialog_scale();
+        const int window_before = scale.percent(), panel_before = get_ui_scale().percent();
+        const auto restore = qScopeGuard([&] {
+            scale.set_percent(window_before);
+            get_ui_scale().set_percent(panel_before);
+        });
+        for (const auto &[window, panel] : {std::pair{100, 100}, std::pair{150, 100}, std::pair{100, 150}, std::pair{150, 150}}) {
+            scale.set_percent(window);
+            get_ui_scale().set_percent(panel);
+            SettingsDialog dialog(config_, config_->get_hotkey());
+            dialog.fit_to_available({2560, 1392});
+            dialog.show();
+            dialog.on_nav_changed(1, "capture");
+            auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+            QTRY_VERIFY(nav->subItemCount("capture") > 1);
+            QTRY_VERIFY(!nav->animating());
+            const QString where = QString("window %1%%, panel %2%%").arg(window).arg(panel);
+            QVERIFY2(nav->widget("capture")->height() == 36 * window / 100, qPrintable(where));
+            QVERIFY2(nav->subItem("capture", 0)->height() == 36 * window / 100, qPrintable(where));
+            QVERIFY2(dialog.search_box()->edit()->height() == 32 * window / 100, qPrintable(where));
+        }
+    }
+
+    // Every item and group title is shown whole in each language, with every page unfolded at once:
+    // long ones wrap, none is cut or pushes the window wider, and an item's text stops before its arrow.
+    void navigationFitsEveryLanguageAtEveryScale() {
+        if (QGuiApplication::platformName() != "windows") QSKIP("needs desktop fonts");
+        const auto language = I18nManager::get_current_language();
+        const int scale = get_dialog_scale().percent();
+        const auto restore = qScopeGuard([&] { get_dialog_scale().set_percent(scale); I18nManager::load_language(language); });
+        for (int percent : {100, 150, 200}) {
+            get_dialog_scale().set_percent(percent);
+            for (const auto *code : {"zh", "zh_TW", "en", "ja", "ko"}) {
+                QVERIFY(I18nManager::load_language(code));
+                SettingsDialog dialog(config_, config_->get_hotkey());
+                dialog.fit_to_available({4000, 2400});
+                dialog.show();
+                auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+                const int beside_text = dialog_scaled(12 + 16 + 12) + dialog_scaled(12);
+                const QStringList routes{"shortcuts", "mouse", "capture", "pin", "screen_annotation", "clipboard", "translation", "appearance", "log", "other"};
+                for (const auto &route : routes)
+                    if (!nav->isExpanded(route)) emit nav->arrowClicked(route);
+                QTest::qWait(400);
+                for (const auto &route : routes) {
+                    const auto where = [&](const QString &text) { return qPrintable(QString("%1 at %2%%, %3: %4").arg(code).arg(percent).arg(route, text)); };
+                    auto *item = nav->widget(route);
+                    // The item's size hint holds its text and the room for the arrow.
+                    QVERIFY2(item->sizeHint().width() <= item->width(), where(item->text()));
+                    for (int i = 0; i < nav->subItemCount(route); ++i) {
+                        auto *sub = nav->subItem(route, i);
+                        QVERIFY2(sub->height() >= sub->heightForWidth(sub->width()), where(sub->text()));
+                        // The shortcut pages' groups are named to keep to one line.
+                        if (route == "shortcuts" || route == "mouse") QVERIFY2(sub->heightForWidth(sub->width()) == dialog_scaled(36), where(sub->text()));
+                        // Chinese and Japanese break between characters; words of other scripts must each fit a line.
+                        static const QRegularExpression breaks_anywhere(QStringLiteral("[\\p{Han}\\p{Hiragana}\\p{Katakana}]"));
+                        for (const auto &word : sub->text().split(' ', Qt::SkipEmptyParts))
+                            if (!word.contains(breaks_anywhere))
+                                QVERIFY2(sub->fontMetrics().horizontalAdvance(word) <= sub->width() - beside_text, where(word));
+                    }
+                }
+                QVERIFY(nav->widget("about")->sizeHint().width() <= nav->widget("about")->width());
+                QCOMPARE(nav->scrollArea()->horizontalScrollBar()->maximum(), 0);
+            }
         }
     }
 
