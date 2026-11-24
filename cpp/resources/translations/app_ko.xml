@@ -5480,6 +5480,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.</translation></message>
     <message><source>Source Code</source><translation>소스 코드</translation></message>
+    <message><source>Feedback</source><translation>제안하기</translation></message>
+    <message><source>Enjoying jietuba? Give it a Star</source><translation>jietuba가 마음에 드시나요? Star를 눌러 주세요</translation></message>
     <message>
         <source>Screenshot, Screen Drawing, OCR, Pin, Translation &amp; Clipboard Tool for Windows</source>
         <translation>Windows 스크린샷, 화면 그리기, OCR, 고정, 번역 및 클립보드 도구</translation>

@@ -3077,6 +3077,27 @@ private slots:
         }
     }
 
+    void aboutFeedbackAndStarOpenTheirGitHubPages() {
+        const QString language = I18nManager::get_current_language();
+        const auto restore_language = qScopeGuard([&] { I18nManager::load_language(language); });
+        QVERIFY(I18nManager::load_language("zh"));
+        UrlCatcher catcher;
+        QDesktopServices::setUrlHandler("https", &catcher, "open");
+        const auto unset = qScopeGuard([] { QDesktopServices::unsetUrlHandler("https"); });
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.on_nav_changed(8, "about");
+        auto *page = dialog.content_stack->currentWidget();
+        auto *feedback = page->findChild<QPushButton *>("aboutFeedbackButton");
+        auto *star = page->findChild<QPushButton *>("aboutRepositoryLink");
+        QVERIFY(feedback && star);
+        QVERIFY(!feedback->icon().isNull());
+        QCOMPARE(star->text(), QStringLiteral("☆ 截图吧用着顺手？给个 Star"));
+        feedback->click();
+        star->click();
+        const QList<QUrl> expected{QUrl("https://github.com/1003129155/jietuba/issues"), QUrl("https://github.com/1003129155/jietuba")};
+        QCOMPARE(catcher.urls, expected);
+    }
+
     // Every page in every language at the window's minimum width; the shortcut pages are tables that
     // scroll sideways below the default width.
     void everyPageFitsEveryLanguageAtTheMinimumWidth() {
@@ -3121,6 +3142,19 @@ private slots:
                     auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
                     QVERIFY(scroll);
                     if (scroll->horizontalScrollBar()->maximum() > 0) problems << where + ": the page scrolls sideways";
+                    if (index == 8) {
+                        auto *feedback = scroll->widget()->findChild<QPushButton *>("aboutFeedbackButton");
+                        auto *license = scroll->widget()->findChild<QPushButton *>("aboutLicenseButton");
+                        auto *star = scroll->widget()->findChild<QPushButton *>("aboutRepositoryLink");
+                        QVERIFY(feedback && license && star);
+                        if (feedback->width() < feedback->sizeHint().width() || feedback->x() <= license->geometry().right() ||
+                            feedback->geometry().right() >= scroll->viewport()->width() || feedback->y() != license->y()) {
+                            problems << where + ": the feedback button does not fit beside the license button";
+                        }
+                        if (star->width() < star->sizeHint().width() || star->geometry().right() >= scroll->viewport()->width()) {
+                            problems << where + ": the Star link does not fit";
+                        }
+                    }
                     for (auto *widget : scroll->widget()->findChildren<QWidget *>()) {
                         if (!widget->layout() || !widget->isVisible()) continue;
                         auto *card = qobject_cast<SettingCard *>(widget);

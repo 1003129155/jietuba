@@ -200,6 +200,10 @@ QWidget *create_about_page(SettingsDialog *dialog) {
     license_btn->setObjectName("aboutLicenseButton");
     QObject::connect(license_btn, &QPushButton::clicked, dialog, [dialog] { show_text_dialog(dialog, dialog->tr_text("MIT License"), dialog->tr_text("MIT License Text")); });
     buttons->addWidget(license_btn);
+    auto *feedback_btn = new PushButton(dialog->tr_text("Feedback"), view, FluentIcon::Edit);
+    feedback_btn->setObjectName("aboutFeedbackButton");
+    QObject::connect(feedback_btn, &QPushButton::clicked, dialog, [] { QDesktopServices::openUrl(QUrl(PROJECT_GITHUB_URL + "/issues")); });
+    buttons->addWidget(feedback_btn);
     buttons->addStretch(1);
     layout->addLayout(buttons);
 
@@ -207,7 +211,8 @@ QWidget *create_about_page(SettingsDialog *dialog) {
     auto *credit = centred_label(dialog->tr_text("Developed by %1 · Open source under the MIT License").replace("%1", "JYAARU"), view);
     apply_theme_text_style(credit, 12, false, font_family(), true);
     layout->addWidget(credit);
-    auto *link = new HyperlinkButton(PROJECT_GITHUB_URL, "github.com/1003129155/jietuba", view);
+    const QString star_text = QStringLiteral("☆ %1").arg(dialog->tr_text("Enjoying jietuba? Give it a Star"));
+    auto *link = new HyperlinkButton(PROJECT_GITHUB_URL, star_text, view);
     link->setObjectName("aboutRepositoryLink");
     layout->addWidget(link, 0, Qt::AlignHCenter);
 
