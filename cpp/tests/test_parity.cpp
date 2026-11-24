@@ -110,7 +110,13 @@ private slots:
     void pinToolbarNormalization() {
         for (const auto &v : fixtures_["pin_layout"].toArray()) {
             const auto row = v.toObject();
-            QCOMPARE(toolbar_layout::normalize_layout_json(row["input_json"].toString().toUtf8(), toolbar_layout::PIN), row["expected"].toArray());
+            // Translate came to pins after the reference froze, so its answers lack it: it follows copy, folded.
+            QJsonArray expected;
+            for (const auto &entry : row["expected"].toArray()) {
+                expected.append(entry);
+                if (entry.toArray()[0].toString() == "copy") expected.append(QJsonArray{"screenshot_translate", "more"});
+            }
+            QCOMPARE(toolbar_layout::normalize_layout_json(row["input_json"].toString().toUtf8(), toolbar_layout::PIN), expected);
         }
     }
     void scaleRoundingAndDpi() {

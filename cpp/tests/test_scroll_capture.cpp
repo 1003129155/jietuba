@@ -8,6 +8,7 @@
 #include "ui/screenshot_window.h"
 #include "ui/toolbar.h"
 #include "pin/pin_manager.h"
+#include "pin/pin_overlay_translation.h"
 #include "pin/pin_window.h"
 #include "settings/tool_settings.h"
 #include "stitch/auto_scroll.h"
@@ -19,10 +20,8 @@
 #include "translation/translation_manager.h"
 #include "ui/fluent_lite/buttons.h"
 #include "ui/fluent_lite/inputs.h"
-#include "ui/busy_ring.h"
 #include "ui/save_image_dialog.h"
 #include "ui/toast.h"
-#include "ui/translation_sweep.h"
 #include "save_dialog_answerer.h"
 #include <QApplication>
 #include <QComboBox>
@@ -379,30 +378,33 @@ private slots:
         } else QTRY_COMPARE(cancelled.count(), 1);
     }
 
-    // A finished translation is pinned, which ends the long screenshot like the pin button. The
-    // recognition and the provider are not part of this: it covers what the worker's result does.
-    void aFinishedTranslationIsPinned() {
+    // In overlay mode the long image is pinned as it is at once, which ends the long screenshot, and
+    // the translation is laid over the pin; one that cannot run leaves the pin to try again.
+    void anOverlayTranslationPinsTheLongImageFirst() {
         auto *window = open();
         QVERIFY(window);
         QVERIFY(scroll_in_steps({100, 300}));
         auto *stitcher = window->findChild<IncrementalStitcher *>();
         const auto original = stitcher->export_image().convertToFormat(QImage::Format_RGB32);
-        QVERIFY(window->toolbar->translate_btn->isEnabled());
-        // Same size, a colour nothing on the page has, so the pin is recognisable.
-        QImage translated(original.size(), QImage::Format_RGB32);
-        translated.fill(QColor(9, 190, 120));
+        set_recognizer_for_test([](const QImage &) {
+            return OcrResult{100, "ok", {OcrLine{{QPointF(0, 0), QPointF(80, 0), QPointF(80, 16), QPointF(0, 16)}, "long text"}}, 0.0};
+        });
+        const auto restore = qScopeGuard([] { set_recognizer_for_test({}); });
+        // DeepL without a key answers locally that it is not set up, so nothing reaches the network.
+        config_->set_translation_provider("deepl");
+        config_->set_screenshot_translate_mode("overlay");
         QSignalSpy finished(window, &ScrollCaptureWindow::finished);
-        const QString unplaced = "Reset\nReset all settings to their default values.";
-        window->finish_translated(translated, {}, unplaced);
+        window->toolbar->translate_btn->click();
         QCOMPARE(finished.count(), 1);
         QCOMPARE(PinManager::instance()->count(), 1);
-        QCOMPARE(PinManager::instance()->get_all_pins().first()->base_pixmap().toImage().convertToFormat(QImage::Format_RGB32), translated);
-        auto *dialog = visible_top_level<QDialog>();
-        QVERIFY(dialog);
-        const auto close_dialog = qScopeGuard([dialog] { dialog->close(); });
-        const auto *details = dialog->findChild<QPlainTextEdit *>();
-        QVERIFY(details && details->isReadOnly());
-        QCOMPARE(details->toPlainText(), unplaced);
+        auto *pin = PinManager::instance()->get_all_pins().first();
+        QCOMPARE(pin->base_pixmap().toImage().convertToFormat(QImage::Format_RGB32), original);
+        QVERIFY(pin->overlay_translation());
+        QDialog *refusal = nullptr;
+        QTRY_VERIFY((refusal = visible_top_level<QDialog>()));
+        refusal->close();
+        QVERIFY(!pin->overlay_translation()->shown());
+        QVERIFY(!pin->overlay_translation()->busy());
         PinManager::instance()->close_all();
     }
 
@@ -424,92 +426,6 @@ private slots:
         window->toolbar->translate_btn->click();
         QCOMPARE(finished.count(), 1);
         QTRY_VERIFY(TranslationManager::instance()->is_dialog_open());
-    }
-
-    // In place, a translation that cannot run reports why and hands the capture back unchanged.
-    void aFailedTranslationResumesTheCapture() {
-        auto *window = open();
-        QVERIFY(window);
-        QVERIFY(scroll_in_steps({150}));
-        config_->set_translation_provider("deepl");
-        config_->set_screenshot_translate_mode("overlay");
-        window->toolbar->translate_btn->click();
-        QDialog *refusal = nullptr;
-        QTRY_VERIFY((refusal = visible_top_level<QDialog>()));
-        // The dialog covers the region, so nothing is captured while it is open.
-        const int frames = window->screenshots;
-        QTest::qWait(CHANGE_WATCH_INTERVAL_MS * 3);
-        QCOMPARE(window->screenshots, frames);
-        QVERIFY(!window->toolbar->finish_btn->isEnabled());
-        refusal->close();
-        QTRY_VERIFY(window->toolbar->crop_btn->isEnabled());
-        QVERIFY(window->isVisible());
-        QVERIFY(window->toolbar->translate_btn->isEnabled());
-        QVERIFY(window->toolbar->finish_btn->isEnabled());
-        // Capturing goes on where it stopped, once the watch has taken its first look.
-        QTest::qWait(CHANGE_WATCH_INTERVAL_MS + 150);
-        QVERIFY(scroll_in_steps({300}));
-    }
-
-    // In place, the wait sweeps over the frozen region in a window of its own, and the ring around
-    // the translate button turns; both are gone once the run ends.
-    void theTranslationWaitSweepsOverTheRegion() {
-        auto *window = open();
-        QVERIFY(window);
-        QVERIFY(scroll_in_steps({150}));
-        std::atomic_bool release = false;
-        set_recognizer_for_test([&release](const QImage &) {
-            while (!release) QThread::msleep(5);
-            return OcrResult{100, "ok", {}, 0.0};
-        });
-        // A key, so the run gets as far as recognizing; with nothing recognized no request is sent.
-        config_->set_translation_provider("deepl");
-        config_->set_accessor_value("deepl_api_key", "test-key");
-        config_->set_screenshot_translate_mode("overlay");
-        const auto restore = qScopeGuard([this, &release] {
-            release = true;
-            set_recognizer_for_test({});
-            config_->set_accessor_value("deepl_api_key", "");
-        });
-        window->toolbar->translate_btn->click();
-        TranslationSweepWindow *sweep = nullptr;
-        QTRY_VERIFY((sweep = visible_top_level<TranslationSweepWindow>()));
-        QCOMPARE(sweep->geometry(), window->capture_rect);
-        QVERIFY(sweep->windowFlags() & Qt::WindowTransparentForInput);
-        BusyRing *ring = nullptr;
-        for (auto *child : window->toolbar->translate_btn->children())
-            if (auto *typed = dynamic_cast<BusyRing *>(child)) ring = typed;
-        QVERIFY(ring);
-        QTRY_VERIFY(ring->isVisible());
-        // Nothing recognized: the sweep and the ring are gone when the reason is shown, and the
-        // capture goes on once it is closed.
-        release = true;
-        QDialog *reason = nullptr;
-        QTRY_VERIFY((reason = visible_top_level<QDialog>()));
-        QVERIFY(!visible_top_level<TranslationSweepWindow>());
-        QVERIFY(ring->isHidden());
-        reason->close();
-        QTRY_VERIFY(window->toolbar->crop_btn->isEnabled());
-    }
-
-    // A thinking model can take a minute: the wait must always be escapable.
-    void cancellingStaysPossibleWhileTheTranslationRuns() {
-        auto *window = open();
-        QVERIFY(window);
-        QVERIFY(window->toolbar->cancel_btn->isEnabled());
-        window->set_translation_locked(true);
-        // Everything that would export or read the half-rewritten result is locked.
-        QVERIFY(!window->toolbar->finish_btn->isEnabled());
-        QVERIFY(!window->toolbar->save_btn->isEnabled());
-        QVERIFY(!window->toolbar->pin_btn->isEnabled());
-        QVERIFY(!window->toolbar->ocr_btn->isEnabled());
-        QVERIFY(!window->toolbar->translate_btn->isEnabled());
-        // Cancel is not: it is the way out of a slow engine.
-        QVERIFY(window->toolbar->cancel_btn->isEnabled());
-        window->set_translation_locked(false);
-        QVERIFY(window->toolbar->finish_btn->isEnabled());
-        QVERIFY(window->toolbar->save_btn->isEnabled());
-        QVERIFY(window->toolbar->translate_btn->isEnabled());
     }
 
     void doubleClickBindingCapturesThatButtonWithoutBlockingTheWheel() {

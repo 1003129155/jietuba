@@ -1,4 +1,5 @@
 #include "save_dialog_answerer.h"
+#include "scripted_translation.h"
 #include "pool_block.h"
 #include "canvas/items/mosaic_item.h"
 #include "tools/mosaic.h"
@@ -11,6 +12,7 @@
 #include "canvas/smart_edit_controller.h"
 #include "canvas/view.h"
 #include "core/clipboard_utils.h"
+#include "ocr/ocr_manager.h"
 #include "core/last_capture_region.h"
 #include "core/native.h"
 #include "core/theme.h"
@@ -18,6 +20,7 @@
 #include "pin/pin_canvas.h"
 #include "pin/pin_window.h"
 #include "pin/pin_manager.h"
+#include "pin/pin_overlay_translation.h"
 #include "settings/tool_settings.h"
 #include "tools/controller.h"
 #include "ui/mask_overlay.h"
@@ -51,6 +54,7 @@
 #include "barcode/result_window.h"
 #include "text_recognition/recognizer.h"
 #include "text_recognition/result_window.h"
+#include "translation/overlay_translation_session.h"
 #include "translation/translation_manager.h"
 #include <QClipboard>
 #include <QMimeData>
@@ -76,6 +80,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+#include <atomic>
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -774,6 +779,57 @@ private slots:
         QVERIFY(wait_for_clipboard_writes(10.0));
         QCOMPARE(clipboard_bitmap_size(), QSize(200, 150));
         QCOMPARE(get_last_region(), std::optional<QRect>(QRect(50, 40, 200, 150)));
+    }
+
+    // A translation laid over the selection goes on with its pin as a layer of its own: the pin's picture is
+    // the capture as it was, the translation shows over it and switches off, and nothing is asked for again.
+    void aTranslationOnTheCaptureGoesOnWithItsPin() {
+        config_->set_screenshot_translate_mode("overlay");
+        set_recognizer_for_test([](const QImage &) {
+            OcrResult result;
+            result.data = {OcrLine{{QPointF(20, 20), QPointF(170, 20), QPointF(170, 44), QPointF(20, 44)}, "Settings"}};
+            return result;
+        });
+        const auto restore = qScopeGuard([] { set_recognizer_for_test({}); });
+        auto *window = open_with_selection();
+        auto *session = window->action_handler->overlay_translation();
+        std::atomic_int asked = 0;
+        session->make_service = [&asked] {
+            return scripted_service([&asked](const QString &text) {
+                ++asked;
+                return translated_as(QString::fromUtf8("译") + text);
+            });
+        };
+        window->toolbar->screenshot_translate_btn->click();
+        QTRY_VERIFY(!session->busy());
+        QVERIFY(session->shown());
+        QCOMPARE(asked.load(), 1);
+        clear_clipboard();
+        window->toolbar->pin_btn->click();
+        const auto pins = PinManager::instance()->get_all_pins();
+        QCOMPARE(pins.size(), 1);
+        auto *pin = pins.first();
+        const auto picture = pin->base_pixmap().toImage().convertToFormat(QImage::Format_RGB32);
+        int painted = 0;
+        for (int y = 0; y < picture.height(); ++y)
+            for (int x = 0; x < picture.width(); ++x) painted += picture.pixelColor(x, y) != QColor(Qt::blue);
+        QCOMPARE(painted, 0);
+        auto *translation = pin->overlay_translation();
+        QVERIFY(translation && translation->shown());
+        QVERIFY(!translation->original_shown());
+        QVERIFY(!translation->busy());
+        const auto differing = [&] {
+            const auto shown = pin->get_current_image().convertToFormat(QImage::Format_RGB32).scaled(picture.size());
+            int count = 0;
+            for (int y = 20; y < 44; ++y)
+                for (int x = 20; x < 170; ++x) count += shown.pixel(x, y) != picture.pixel(x, y);
+            return count;
+        };
+        QVERIFY(differing() > 0);
+        pin->toggle_translation_original();
+        QCOMPARE(differing(), 0);
+        QCOMPARE(asked.load(), 1);
+        QVERIFY(wait_for_clipboard_writes(10.0));
     }
 
     // A number outside the selection whose label is inside comes along to the pin, once, label and guide line included.

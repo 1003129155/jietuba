@@ -55,8 +55,15 @@ public:
     // The selection is moving: the layer comes off and the run stops, but the translation stays
     // on, for the show() that follows where the selection ends.
     void suspend();
+    // Stops the requests; what is translated stays shown, and show() asks for the rest.
+    void stop();
+    // Lays blocks translated elsewhere over selection without asking for anything, as when a
+    // capture's translation goes on to its pin. False when there is nothing to lay.
+    bool adopt(const QRectF &selection, const QVector<OverlayTextBlock> &blocks, bool original_shown);
     bool shown() const { return shown_; }
-    bool busy() const { return !worker_.isNull() || run_waiting_; }
+    bool busy() const { return !worker_.isNull() || run_waiting_ || recognizing_; }
+    // A larger picture repaints its layer less often.
+    void set_flush_interval(int ms) { flush_timer_.setInterval(ms); }
 
     // The original picture instead of the layer, while the translation stays on.
     void set_original_shown(bool shown);
@@ -72,14 +79,22 @@ public:
     // The services to choose from, as (id, name): the configured ones and the current one.
     QList<QPair<QString, QString>> providers() const;
     const QVector<OverlayTextBlock> &blocks() const { return blocks_; }
+    // How each block is drawn, once its translation is in.
+    const QVector<std::optional<OverlayPaintedBlock>> &planned() const { return planned_; }
     OverlayTranslationWait waiting() const;
     // Paragraphs translated and in all while a run goes on; in all is 0 until the selection is
     // recognized.
     std::pair<int, int> progress() const;
     // Replaces the service the requests go through.
     std::function<std::shared_ptr<TranslationService>()> make_service;
+    // Recognizes the picture in place of the worker, for a picture whose text is read elsewhere
+    // already: done gets its paragraphs, or none and why. It may answer at once.
+    using RecognizeDone = std::function<void(const QVector<OverlayTextBlock> &blocks, const QString &error)>;
+    std::function<void(RecognizeDone done)> recognize;
 
 signals:
+    // The layer was drawn again.
+    void layer_changed();
     void shown_changed(bool shown);
     void busy_changed(bool busy);
     // waiting() may have changed.
@@ -94,6 +109,8 @@ signals:
 
 private:
     void run();
+    void start_worker();
+    void on_recognized(const QVector<OverlayTextBlock> &blocks, const QString &error);
     void cancel();
     // Stops the current run: its worker is kept until its thread ends.
     void retire_worker();
@@ -105,7 +122,12 @@ private:
     // Forgets the translations and the layer; the recognized paragraphs stay.
     void clear_translations();
     void flush();
+    // Draws the whole layer again.
     void apply_layer();
+    // Draws again only where the blocks in changed fall, before and after.
+    void repaint_layer(const QRegion &changed);
+    // Puts the layer on the background when changed, and shows it unless the original is.
+    void show_layer(bool changed);
     void on_finished(OverlayTranslationWorker *worker, bool success);
 
     QPointer<CanvasScene> scene_;
@@ -125,6 +147,10 @@ private:
     // A stopped run whose thread has not ended yet, and whether a run waits for it.
     QPointer<OverlayTranslationWorker> stopping_;
     bool run_waiting_ = false;
+    // recognize() was asked and has not answered; an answer for an earlier count is dropped.
+    bool recognizing_ = false;
+    quint64 recognition_ = 0;
+    QImage layer_;
     bool busy_told_ = false;
     // Translations that came back, per service and target language, by source text.
     QHash<QString, QHash<QString, QString>> remembered_;

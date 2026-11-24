@@ -161,14 +161,23 @@ void ActionTools::handle_pin(bool close_after) {
     // Declined, the capture stays open as it was.
     if (!PinManager::confirm_small_pin(selection_rect.size().toSize(), parent_window)) return;
     remember_last_region(selection_rect);
+    // A translation laid over the selection goes on with the pin as a layer of its own, so the pin
+    // keeps the picture under it and can show either.
+    auto *translation = overlay_session_.data();
+    const bool carried = translation && translation->shown() && !translation->blocks().isEmpty() &&
+                         translation->region() == translation->region_of(selection_rect);
+    const bool layered = carried && scene->background->overlay_visible();
+    if (layered) scene->background->set_overlay_visible(false);
     // The base image only, without annotations.
     const auto base_image = export_service.export_base_image_only(selection_rect);
+    if (layered) scene->background->set_overlay_visible(true);
     const auto drawing_items = scene->get_drawing_items_in_rect(selection_rect);
     const QPoint position(static_cast<int>(python_round(selection_rect.x())), static_cast<int>(python_round(selection_rect.y())));
     auto *pin_window = PinManager::instance()->create_pin(base_image, position, config_manager, drawing_items,
                                                           QPoint(static_cast<int>(selection_rect.x()), static_cast<int>(selection_rect.y())),
                                                           NumberTool::get_next_number(scene));
     pin_window->show();
+    if (carried) pin_window->adopt_translation(translation->blocks(), translation->original_shown(), translation->busy());
     log_debug(T("已创建钉图窗口"), "PinAction");
     log_debug(T("位置: ({pos_x}, {pos_y})", {{"pos_x", position.x()}, {"pos_y", position.y()}}), "PinAction");
     log_debug(T("底图: {width}x{height}", {{"width", base_image.width()}, {"height", base_image.height()}}), "PinAction");

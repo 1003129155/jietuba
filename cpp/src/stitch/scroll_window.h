@@ -22,13 +22,11 @@
 //     window->show();
 namespace jietuba {
 class AutoScroller;
-class BusyRing;
 class ChangeWatch;
 class FloatingToolbar;
 class InputHub;
-class OverlayTranslationWorker;
+class PinWindow;
 class ToolSettingsManager;
-class TranslationSweepWindow;
 
 // One grabbed frame: width x height BGRA pixels.
 struct GrabbedFrame {
@@ -120,12 +118,6 @@ public:
     QWidget *transparent_area = nullptr;
     FloatingToolbar *toolbar = nullptr;
     QPointer<PreviewPanel> preview_panel;
-    // What a finished translation does: pins the long image with the translations painted
-    // over its own text and ends the long screenshot. notice names paragraphs left as they were.
-    void finish_translated(const QImage &translated, const QString &notice = {}, const QString &unplaced = {});
-    // Locks the buttons that would export or act on a result the worker still owns. Cancel
-    // is left live: a slow engine must not trap the user in the wait.
-    void set_translation_locked(bool locked);
 
 signals:
     void finished();
@@ -246,13 +238,10 @@ private:
     void on_translate();
     // Ends the long screenshot and opens the side-by-side translation window, like OCR does.
     void on_translate_compare();
-    // Translates the result and pins it with the translations painted over its own text,
-    // which ends the long screenshot; a failure hands the capture back as it was.
+    // Pins the result and ends the long screenshot; the translation is laid over the pin.
     void on_translate_overlay();
-    // Stops the live capture while a translation of the result runs.
-    void set_capture_frozen(bool frozen);
-    // Pins image centred on the region and ends the long screenshot; false when no pin could be made.
-    bool pin_and_close(const QImage &image);
+    // Pins image centred on the region and ends the long screenshot; null when no pin could be made.
+    PinWindow *pin_and_close(const QImage &image);
     // Ends the long screenshot and asks where to save the result, like the capture toolbar's Save.
     void on_save();
     void on_quick_save();
@@ -261,14 +250,6 @@ private:
 
     QImage latest_preview_;
     std::optional<std::pair<int, int>> latest_box_;
-    // Deletes itself when its thread finishes; cleared before any export is taken.
-    OverlayTranslationWorker *translate_worker_ = nullptr;
-    // The sweep over the region belongs to the window while the worker runs, so cancelling
-    // takes it down even though an aborted worker never reports back.
-    QPointer<TranslationSweepWindow> translate_sweep_;
-    QPointer<BusyRing> translate_ring_;
-    // The capture is stopped while a translation runs, and started again when it fails.
-    bool capture_frozen_ = false;
     // The panel follows the preview's own direction, not scroll_direction: results already
     // in flight when the direction switches were stitched the old way.
     QString preview_direction_ = "vertical";

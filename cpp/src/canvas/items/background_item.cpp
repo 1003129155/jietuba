@@ -30,7 +30,7 @@ QImage reduce(const QImage &rgba, int block) {
 }
 }
 
-BackgroundItem::BackgroundItem(const QImage &image, const QRectF &scene_rect) : scene_rect_(scene_rect), cached_image_(image) {
+BackgroundItem::BackgroundItem(const QImage &image, const QRectF &scene_rect) : scene_rect_(scene_rect), image_size_(image.size()), cached_image_(image) {
     setZValue(0);
     setPixmap(QPixmap::fromImage(image));
     // Scene coordinates via offset; boundingRect() stays in pixmap-local (0, 0, w, h).
@@ -52,6 +52,7 @@ void BackgroundItem::update_image(const QImage &image) { update_image(image, QPi
 void BackgroundItem::update_image(const QImage &image, const QPixmap &pixmap) {
     image_source_ = nullptr;
     cached_image_ = image;
+    image_size_ = image.size();
     has_cached_image_ = true;
     reduced_cache_key_.reset();
     reduced_cache_image_ = QImage();
@@ -96,6 +97,14 @@ QImage BackgroundItem::reduced_image(int block_size) {
 void BackgroundItem::set_overlay(const QImage &layer, const QPoint &position) {
     overlay_ = layer;
     overlay_position_ = position;
+    display_overlay_ = QPixmap();
+    update();
+}
+
+void BackgroundItem::set_display_overlay(const QPixmap &layer, const QPoint &position, const QSize &display_size) {
+    display_overlay_ = layer;
+    display_overlay_position_ = position;
+    display_overlay_for_ = display_size;
     update();
 }
 
@@ -107,7 +116,25 @@ void BackgroundItem::set_overlay_visible(bool visible) {
 
 void BackgroundItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) {
     QGraphicsPixmapItem::paint(painter, option, widget);
-    if (overlay_visible()) painter->drawImage(offset() + overlay_position_, overlay_);
+    if (!overlay_visible()) return;
+    if (transform().isIdentity()) {
+        painter->drawImage(offset() + overlay_position_, overlay_);
+        return;
+    }
+    // The display pixmap is resampled under a compensating transform, while the layer stays in
+    // image pixels.
+    if (!display_overlay_.isNull() && pixmap().size() == display_overlay_for_) {
+        painter->drawPixmap(offset() + display_overlay_position_, display_overlay_);
+        return;
+    }
+    bool invertible = false;
+    const auto to_item = transform().inverted(&invertible);
+    if (!invertible) return;
+    painter->save();
+    painter->setRenderHint(QPainter::SmoothPixmapTransform, true);
+    painter->setTransform(to_item, true);
+    painter->drawImage(offset() + overlay_position_, overlay_);
+    painter->restore();
 }
 
 void BackgroundItem::release_image_cache() {

@@ -2015,6 +2015,18 @@ Replace it?</source>
         <translation>翻譯（文字辨識）</translation>
     </message>
     <message>
+        <source>Show original image</source>
+        <translation>顯示原圖</translation>
+    </message>
+    <message>
+        <source>Show translation</source>
+        <translation>顯示譯文</translation>
+    </message>
+    <message>
+        <source>Stop translating</source>
+        <translation>停止翻譯</translation>
+    </message>
+    <message>
         <source>OCR recognition could not be started</source>
         <translation>無法啟動文字辨識</translation>
     </message>
@@ -6597,18 +6609,6 @@ Replace: move the current data there; the data already in that folder will be de
 </context>
 <context>
     <name>ScrollCaptureWindow</name>
-    <message>
-        <source>Translation</source>
-        <translation>翻譯</translation>
-    </message>
-    <message>
-        <source>Translation failed</source>
-        <translation>翻譯失敗</translation>
-    </message>
-    <message>
-        <source>Nothing to translate: the text is already in the target language.</source>
-        <translation>沒有需要翻譯的內容：文字已是目標語言。</translation>
-    </message>
     <message>
         <source>Nothing to translate yet</source>
         <translation>還沒有可翻譯的內容</translation>

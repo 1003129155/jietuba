@@ -154,7 +154,12 @@ void PinContextMenu::add_menu_items(QMenu *menu, const PinMenuState &state) {
     // Always available; without a result the OCR manager recognizes on demand. A text pin
     // translates its own text. An animation or a file list has no text to read.
     if (!is_thumbnail && !is_animation && !is_files) {
-        add(menu, state.text_only ? pin_tr("Translate") : pin_tr("Translate (Text Recognition)"), [win] { win->on_translate_clicked(); });
+        if (state.translation_shown) {
+            add(menu, state.translation_original_shown ? pin_tr("Show translation") : pin_tr("Show original image"), [win] { win->toggle_translation_original(); });
+            if (state.translation_busy) add(menu, pin_tr("Stop translating"), [win] { win->stop_overlay_translation(); });
+        } else {
+            add(menu, state.text_only ? pin_tr("Translate") : pin_tr("Translate (Text Recognition)"), [win] { win->on_translate_clicked(); });
+        }
         if (!state.text_only) add(menu, shortcut_text(pin_tr("Pin as text"), "inapp_pin_text_mode"), [win] { win->pin_as_text(); });
     }
     // The image's own items are hidden in thumbnail mode; a text pin is not turned.
