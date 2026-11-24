@@ -287,15 +287,15 @@ double source_font_size(const OverlayTextBlock &block) {
 }
 
 // The text broken into lines, the first no wider than widths[0], the next than widths[1] and so
-// on; lines past the last width take the last one.
-QStringList wrapped(const QString &text, const QFont &font, const QVector<double> &widths) {
+// on; lines past the last width take the last one. Without anywhere, only between words.
+QStringList wrapped(const QString &text, const QFont &font, const QVector<double> &widths, bool anywhere = true) {
     QStringList lines;
     if (widths.isEmpty()) return lines;
     for (const auto &paragraph : text.split('\n')) {
         if (paragraph.trimmed().isEmpty()) continue;
         QTextLayout layout(paragraph, font);
         QTextOption option;
-        option.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+        option.setWrapMode(anywhere ? QTextOption::WrapAtWordBoundaryOrAnywhere : QTextOption::WordWrap);
         layout.setTextOption(option);
         layout.beginLayout();
         for (auto line = layout.createLine(); line.isValid(); line = layout.createLine()) {
@@ -357,6 +357,32 @@ int room_beside(const QImage &source, const QRect &block, const QColor &backgrou
     return room < limit ? std::max(0, room - gap) : std::max(0, room);
 }
 
+// How far a block may run on below (or above) it, up to wanted pixels: over the plain page only,
+// and stopping gap short of whatever lies there. Text within beside pixels to either side stops it
+// too: a line continued next to another paragraph would read as part of it.
+int room_vertical(const QImage &source, const QRect &block, const QColor &background, const QVector<QRect> &other_text, int wanted, int gap, bool down, int beside) {
+    if (wanted <= 0) return 0;
+    int limit = std::min(wanted, down ? source.height() - 1 - block.bottom() : block.top());
+    for (const auto &other : other_text) {
+        if (other.right() < block.left() - beside || other.left() > block.right() + beside) continue;
+        if (down && other.top() > block.bottom()) limit = std::min(limit, other.top() - block.bottom() - 1 - gap);
+        if (!down && other.bottom() < block.top()) limit = std::min(limit, block.top() - other.bottom() - 1 - gap);
+    }
+    const QRgb page = background.rgb();
+    int room = 0;
+    for (; room < limit; ++room) {
+        const int y = down ? block.bottom() + 1 + room : block.top() - 1 - room;
+        const int previous = down ? y - 1 : y + 1;
+        bool plain = true;
+        for (int x = block.left(); x <= block.right() && plain; x += 2) {
+            const QRgb pixel = source.pixel(x, y);
+            plain = channel_distance(pixel, page) <= PLAIN_TOLERANCE && (room == 0 || channel_distance(pixel, source.pixel(x, previous)) <= EDGE_STEP);
+        }
+        if (!plain) break;
+    }
+    return room < limit ? std::max(0, room - gap) : std::max(0, room);
+}
+
 // The stretch of row free of other text, the one the line itself stands in most: another
 // paragraph inside this one's area, such as a box it wraps around, takes its part of the row.
 QRectF free_stretch(const QRectF &row, const QRectF &line, const QRegion &other_text) {
@@ -393,8 +419,13 @@ qreal text_width(const QFontMetricsF &metrics, const QString &text, const QRectF
     return std::max(metrics.horizontalAdvance(text), ink.right()) - std::min(0.0, ink.left());
 }
 
+bool is_short_label(const OverlayTextBlock &block);
+
+// below and above give how much plain page there is under and over the block, up to the wanted
+// pixels; without them the translation stays on the block's own rows.
 bool lay_out(OverlayPaintedBlock &entry, const OverlayTextBlock &block, const QString &family, const QVector<QRect> &other_text,
-             const std::function<int(int wanted, bool right)> &room) {
+             const std::function<int(int wanted, bool right)> &room, const std::function<int(int wanted)> &below = {},
+             const std::function<int(int wanted)> &above = {}) {
     const int cap = std::min(static_cast<int>(std::floor(source_font_size(block))), MAX_OVERLAY_FONT);
     if (cap < 1) return false;
     const bool one_line = block.line_rects.size() == 1;
@@ -431,40 +462,139 @@ bool lay_out(OverlayPaintedBlock &entry, const OverlayTextBlock &block, const QS
         widths.append(rows.last().width());
     }
 
-    for (int low = std::min(MIN_OVERLAY_FONT, cap), high = cap; low <= high;) {
-        const int size = (low + high) / 2;
+    struct Fit {
+        QFont font;
+        QStringList lines;
+        QVector<QRectF> rects;
+        QVector<QPointF> origins;
+    };
+    bool wrap_one_line = false;
+    const auto place =[&](int size, const QVector<QRectF> &at) -> std::optional<Fit> {
+        if (at.isEmpty()) return std::nullopt;
+        QVector<double> row_widths;
+        for (const auto &row : at) row_widths.append(row.width());
         const auto font = sized(family, size);
         const QFontMetricsF metrics(font);
-        const auto lines = one_line ? QStringList{entry.text} : wrapped(entry.text, font, widths);
+        const auto lines = !one_line ? wrapped(entry.text, font, row_widths) : wrap_one_line ? wrapped(entry.text, font, row_widths, false) : QStringList{entry.text};
+        if (lines.isEmpty() || lines.size() > at.size()) return std::nullopt;
         QVector<QPointF> origins;
-        if (!lines.isEmpty() && lines.size() <= rows.size()) {
-            qreal previous_bottom = entry.area.top();
-            for (qsizetype index = 0; index < lines.size(); ++index) {
-                const auto &row = rows[index];
-                const auto ink = metrics.tightBoundingRect(lines[index]);
-                const qreal space = row.width() - text_width(metrics, lines[index], ink);
-                if (row.isEmpty() || space < 0 || ink.height() > row.height()) break;
-                qreal x = row.left() - std::min(0.0, ink.left());
-                if (entry.alignment & Qt::AlignRight) x += space;
-                else if (entry.alignment & Qt::AlignHCenter) x += space / 2;
-                const QPointF origin(x, row.center().y() - ink.center().y());
-                const auto placed_ink = ink.translated(origin);
-                if (placed_ink.top() < previous_bottom || protected_text.intersects(placed_ink.toAlignedRect())) break;
-                previous_bottom = placed_ink.bottom();
-                origins.append(origin);
+        qreal previous_bottom = std::min(entry.area.top(), at.first().top());
+        for (qsizetype index = 0; index < lines.size(); ++index) {
+            const auto &row = at[index];
+            const auto ink = metrics.tightBoundingRect(lines[index]);
+            const qreal space = row.width() - text_width(metrics, lines[index], ink);
+            if (row.isEmpty() || space < 0 || ink.height() > row.height()) return std::nullopt;
+            qreal x = row.left() - std::min(0.0, ink.left());
+            if (entry.alignment & Qt::AlignRight) x += space;
+            else if (entry.alignment & Qt::AlignHCenter) x += space / 2;
+            const QPointF origin(x, row.center().y() - ink.center().y());
+            const auto placed_ink = ink.translated(origin);
+            if (placed_ink.top() < previous_bottom || protected_text.intersects(placed_ink.toAlignedRect())) return std::nullopt;
+            previous_bottom = placed_ink.bottom();
+            origins.append(origin);
+        }
+        return Fit{font, lines, at.mid(0, lines.size()), std::move(origins)};
+    };
+    const auto search =[&](const std::function<QVector<QRectF>(int)> &rows_at) {
+        std::optional<Fit> best;
+        for (int low = std::min(MIN_OVERLAY_FONT, cap), high = cap; low <= high;) {
+            const int size = (low + high) / 2;
+            if (auto fit = place(size, rows_at(size))) {
+                best = std::move(fit);
+                low = size + 1;
+            } else {
+                high = size - 1;
             }
         }
-        if (origins.isEmpty() || origins.size() != lines.size()) {
-            high = size - 1;
-            continue;
+        return best;
+    };
+    const auto better = [](const std::optional<Fit> &candidate, const std::optional<Fit> &current) {
+        return candidate && (!current || candidate->font.pixelSize() > current->font.pixelSize());
+    };
+    auto best = search([&](int) { return rows; });
+
+    const double row_height = std::max(1.0, block.line_height);
+    const double pitch = block.line_rects.size() >= 2
+        ? std::max(row_height, (block.line_rects.last().top() - block.line_rects.first().top()) / (block.line_rects.size() - 1))
+        : 1.3 * row_height;
+    // Rows down area from its top, their height and the pitch between them shrinking with the size.
+    const auto repitched = [&](const QRectF &area, int size) {
+        const double scale = double(size) / cap;
+        QVector<QRectF> at;
+        for (double top = area.top(); top + row_height * scale <= area.bottom() + 0.5; top += pitch * scale) {
+            const QRectF row(area.left(), top, area.width(), row_height * scale);
+            at.append(free_stretch(row, row, protected_text));
         }
-        entry.font = font;
-        entry.lines = lines;
-        entry.line_rects = rows.mid(0, lines.size());
-        entry.line_origins = std::move(origins);
-        low = size + 1;
+        return at;
+    };
+    // Set smaller, a paragraph holds more lines than it had.
+    if (!one_line && (!best || best->font.pixelSize() < cap)) {
+        auto reflowed = search([&](int size) { return repitched(entry.area, size); });
+        if (better(reflowed, best)) best = std::move(reflowed);
     }
-    return !entry.lines.isEmpty();
+    // Still smaller than the original: more rows over the plain page below it and then above it.
+    // Above, only as much as the size reached needs. A label stays one line, and a single line only
+    // runs on downwards: above it is usually the text it follows.
+    if (below && (!one_line || !is_short_label(block)) && (!best || best->font.pixelSize() < cap)) {
+        wrap_one_line = one_line;
+        const auto kept_alignment = entry.alignment;
+        if (one_line) entry.alignment = Qt::AlignLeft;
+        const int wanted = std::max(static_cast<int>(std::ceil(2 * pitch)), static_cast<int>(std::ceil(entry.area.height())));
+        const int down = below(wanted);
+        const int up_room = above && !one_line ? above(wanted - down) : 0;
+        const auto row_at = [&](double top, const QRectF &grown) {
+            const QRectF row(grown.left(), top, grown.width(), row_height);
+            return free_stretch(row, row, protected_text);
+        };
+        const auto attempt = [&](int up) {
+            const QRectF grown = entry.area.adjusted(0, -up, 0, down);
+            QVector<QRectF> continued;
+            for (double top = block.line_rects.first().top() - pitch; top >= grown.top() - 0.5; top -= pitch) continued.prepend(row_at(top, grown));
+            continued += rows;
+            for (double top = block.line_rects.last().top() + pitch; top + row_height <= grown.bottom() + 0.5; top += pitch) continued.append(row_at(top, grown));
+            std::optional<Fit> fit;
+            if (continued.size() > rows.size()) fit = search([&](int) { return continued; });
+            auto reflowed = search([&](int size) { return repitched(grown, size); });
+            if (better(reflowed, fit)) fit = std::move(reflowed);
+            return fit;
+        };
+        if (down > 0 || up_room > 0) {
+            auto borrowed = attempt(up_room);
+            if (borrowed && up_room > 0) {
+                const int size = borrowed->font.pixelSize();
+                int low = 0, high = up_room;
+                while (low < high) {
+                    const int middle = (low + high) / 2;
+                    const auto fit = attempt(middle);
+                    if (fit && fit->font.pixelSize() >= size) high = middle;
+                    else low = middle + 1;
+                }
+                if (low < up_room) borrowed = attempt(low);
+            }
+            // A line is only broken onto more rows for a clearly larger size.
+            const bool worth = !one_line || !best || (borrowed && borrowed->font.pixelSize() * 5 >= best->font.pixelSize() * 6);
+            if (worth && better(borrowed, best)) {
+                best = std::move(borrowed);
+                const double first = best->rects.first().top(), last = best->rects.last().bottom();
+                if (last > entry.area.bottom()) {
+                    entry.area.setBottom(last);
+                    entry.cover.setBottom(std::max(entry.cover.bottom(), static_cast<int>(std::ceil(last)) + 1));
+                }
+                if (first < entry.area.top()) {
+                    entry.area.setTop(first);
+                    entry.cover.setTop(std::min(entry.cover.top(), static_cast<int>(std::floor(first)) - 1));
+                }
+                entry.background_region = QRegion(entry.cover).subtracted(protected_text);
+            }
+        }
+        if (one_line && (!best || best->lines.size() <= 1)) entry.alignment = kept_alignment;
+    }
+    if (!best) return false;
+    entry.font = best->font;
+    entry.lines = best->lines;
+    entry.line_rects = best->rects;
+    entry.line_origins = std::move(best->origins);
+    return true;
 }
 
 struct Line {
@@ -772,9 +902,14 @@ std::optional<OverlayPaintedBlock> plan_overlay_block(const QImage &source, cons
     }
     const double line_height = block.line_height > 0 ? block.line_height : block.rect.height() / std::max(1, block.lines);
     const auto block_rect = area.toAlignedRect();
+    // Each line of the other paragraphs rather than their bounding boxes: a line the recognizer
+    // split in two can have its first part in the paragraph above, whose box then covers the second.
     QVector<QRect> other_text;
-    for (int other = 0; other < blocks.size(); ++other)
-        if (other != index) other_text.append(blocks[other].rect.toAlignedRect());
+    for (int other = 0; other < blocks.size(); ++other) {
+        if (other == index) continue;
+        if (blocks[other].line_rects.isEmpty() || blocks[other].oriented_line) other_text.append(blocks[other].rect.toAlignedRect());
+        else for (const auto &line : blocks[other].line_rects) other_text.append(line.toAlignedRect());
+    }
     // The translations placed before this one are kept clear of like the original text.
     auto obstacles = other_text;
     for (const auto &rect : placed) obstacles.append(rect.toAlignedRect());
@@ -786,8 +921,13 @@ std::optional<OverlayPaintedBlock> plan_overlay_block(const QImage &source, cons
     entry.cover = ink_cover(source, block_rect, entry.background, entry.foreground, other_text, std::max(1, static_cast<int>(std::lround(line_height / 4))));
     if (entry.cover.isEmpty()) return std::nullopt;
     entry.text = text;
+    const int gap = std::max(4, static_cast<int>(std::lround(line_height / 2)));
+    // A single line continued below must not end up next to other text.
+    const int beside = block.line_rects.size() <= 1 ? static_cast<int>(std::lround(2 * line_height)) : 0;
     if (!lay_out(entry, block, family, obstacles,
-                 [&](int wanted, bool right) { return room_beside(source, block_rect, entry.background, obstacles, wanted, right); })) {
+                 [&](int wanted, bool right) { return room_beside(source, block_rect, entry.background, obstacles, wanted, right); },
+                 [&](int wanted) { return room_vertical(source, entry.cover, entry.background, obstacles, wanted, gap, true, beside); },
+                 [&](int wanted) { return room_vertical(source, entry.cover, entry.background, obstacles, wanted, gap, false, 0); })) {
         if (does_not_fit) *does_not_fit = true;
         return std::nullopt;
     }

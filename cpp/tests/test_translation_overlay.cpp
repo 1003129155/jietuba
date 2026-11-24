@@ -872,6 +872,34 @@ private slots:
         }
     }
 
+    // A translation too long for its paragraph's own rows takes rows of blank page below it, and
+    // above it when the next text is right below.
+    void aParagraphTakesBlankRowsBelowItAndThenAboveIt() {
+        auto paragraph = block_of("x", "This translation of the paragraph is a good deal longer than the original text was, and it goes on for a while after that",
+                                  QRectF(20, 100, 300, 38), 16, 2);
+        paragraph.line_texts = {"The first line of a paragraph that runs", "and its second line"};
+        paragraph.line_rects = {QRectF(20, 100, 300, 16), QRectF(20, 122, 200, 16)};
+        const auto under = line_block("Below", "Dessous", QRectF(20, 146, 300, 16));
+        const auto over = line_block("Above", "Dessus", QRectF(20, 76, 300, 16));
+        QImage source(360, 260, QImage::Format_ARGB32_Premultiplied);
+        source.fill(Qt::white);
+
+        const auto boxed = plan_overlay_block(source, {paragraph, under, over}, 0, "EN");
+        const auto free = plan_overlay_block(source, {paragraph}, 0, "EN");
+        const auto open_above = plan_overlay_block(source, {paragraph, under}, 0, "EN");
+        QVERIFY(boxed && free && open_above);
+        QVERIFY2(free->font.pixelSize() > boxed->font.pixelSize(), qPrintable(QString("%1 %2").arg(free->font.pixelSize()).arg(boxed->font.pixelSize())));
+        QVERIFY(free->lines.size() > 2);
+        QVERIFY(free->line_rects.last().bottom() > 138);
+        QVERIFY(free->cover.bottom() >= free->line_rects.last().bottom());
+        // Rows below were enough: nothing was taken above.
+        QCOMPARE(free->area.top(), 100.0);
+
+        QVERIFY2(open_above->font.pixelSize() > boxed->font.pixelSize(), qPrintable(QString("%1 %2").arg(open_above->font.pixelSize()).arg(boxed->font.pixelSize())));
+        QVERIFY(open_above->line_rects.first().top() < 100);
+        for (const auto &ink : overlay_text_ink(*open_above)) QVERIFY(!ink.intersects(under.rect));
+    }
+
     // A light grey button on a white page is close enough in colour to pass for the page, but the
     // step at its edge ends the room a label's translation runs on into.
     void theRoomBesideALabelEndsAtTheEdgeOfAButton() {
@@ -888,6 +916,52 @@ private slots:
         QVERIFY2(planned->cover.right() < button.left(), qPrintable(QString::number(planned->cover.right())));
         QVERIFY(planned->line_rects.first().right() < button.left());
         QVERIFY(planned->line_rects.first().left() < box.left());
+    }
+
+    // A sentence on one line goes on onto a blank row below for a clearly larger size; a label of
+    // a word stays on one line, and so does a sentence with other text beside the row below.
+    void aLongLineRunsOnBelowButALabelStaysOnOne() {
+        const QRectF box(70, 20, 250, 16);
+        const QString translation = "Reinitialiser tous les profils reseau enregistres maintenant";
+        const auto sentence = line_block("Reset all saved network profiles now", translation, box);
+        const auto left = line_block("A", "A", QRectF(20, 20, 30, 16));
+        const auto right = line_block("B", "B", QRectF(340, 20, 40, 16));
+        QImage source(400, 120, QImage::Format_ARGB32_Premultiplied);
+        source.fill(Qt::white);
+
+        const auto wrapped = plan_overlay_block(source, {sentence, left, right}, 0, "FR");
+        const auto kept = plan_overlay_block(source, {sentence, left, right, line_block("C", "C", QRectF(70, 44, 250, 16))}, 0, "FR");
+        QVERIFY(wrapped && kept);
+        QCOMPARE(wrapped->lines.size(), 2);
+        QCOMPARE(kept->lines.size(), 1);
+        QVERIFY2(wrapped->font.pixelSize() * 5 >= kept->font.pixelSize() * 6, qPrintable(QString("%1 %2").arg(wrapped->font.pixelSize()).arg(kept->font.pixelSize())));
+        QCOMPARE(wrapped->alignment, Qt::Alignment(Qt::AlignLeft));
+        QVERIFY(wrapped->line_rects.last().top() > box.bottom());
+        // Broken between words only.
+        QVERIFY(translation.split(' ').contains(wrapped->lines.last().split(' ').first()));
+
+        const auto beside = plan_overlay_block(source, {sentence, left, right, line_block("D", "D", QRectF(330, 44, 40, 16))}, 0, "FR");
+        QVERIFY(beside.has_value());
+        QCOMPARE(beside->lines.size(), 1);
+
+        const auto label = plan_overlay_block(source, {line_block("Reset", translation, box), left, right}, 0, "FR");
+        QVERIFY(label.has_value());
+        QCOMPARE(label->lines.size(), 1);
+    }
+
+    // The recognizer put the start of a paragraph's last line in the paragraph and its end, a link,
+    // apart: the paragraph's box covers the link, its lines do not.
+    void aLineSplitOffItsParagraphIsStillTranslated() {
+        auto paragraph = block_of("x", "Le premier paragraphe et sa suite", QRectF(20, 20, 300, 38), 16, 2);
+        paragraph.line_texts = {"The first line of a paragraph that runs", "and its second line"};
+        paragraph.line_rects = {QRectF(20, 20, 300, 16), QRectF(20, 42, 170, 16)};
+        const auto link = line_block("the link", "le lien", QRectF(200, 42, 110, 16));
+        QImage source(360, 100, QImage::Format_ARGB32_Premultiplied);
+        source.fill(Qt::white);
+        const auto planned = plan_overlay_block(source, {paragraph, link}, 1, "FR");
+        QVERIFY(planned.has_value());
+        for (const auto &ink : overlay_text_ink(*planned))
+            for (const auto &line : paragraph.line_rects) QVERIFY(!ink.intersects(line));
     }
 
     // Two labels with blank page between them both run on into it; the second keeps clear of the
