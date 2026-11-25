@@ -359,6 +359,28 @@ private slots:
         QVERIFY(!modeless);
     }
 
+    void standardDialogsCloseAndDragFromTheirCaption() {
+        QWidget parent;
+        QStringList misses;
+        const auto close_from_caption = [&misses](QWidget *modal) {
+            auto *dialog = qobject_cast<StandardDialog *>(modal);
+            auto *bar = dialog->titleBar();
+            const QPoint close_center = bar->closeBtn->mapTo(dialog, bar->closeBtn->rect().center());
+            if (dialog->childAt(close_center) != bar->closeBtn) misses << dialog->windowTitle() + " close button covered";
+            if (dialog->childAt(QPoint(dialog->width() / 2, bar->height() / 2)) != bar) misses << dialog->windowTitle() + " drag area covered";
+            QTest::mouseClick(dialog->windowHandle(), Qt::LeftButton, {}, close_center);
+            if (dialog->isVisible()) {
+                misses << dialog->windowTitle() + " stays open";
+                dialog->reject();
+            }
+        };
+        on_next_modal(close_from_caption);
+        show_info_dialog(&parent, "Info", "info message");
+        on_next_modal(close_from_caption);
+        show_text_dialog(&parent, "Text", "long text content");
+        QVERIFY2(misses.isEmpty(), qPrintable(misses.join(", ")));
+    }
+
     void execDialogLocksOnlyItsOwner() {
         QWidget owner, other;
         owner.show();
