@@ -1,6 +1,7 @@
 #include "ui/fluent_lite/buttons.h"
 #include "core/ui_scale.h"
 #include <QDesktopServices>
+#include <QEvent>
 #include <QUrl>
 
 namespace jietuba {
@@ -59,6 +60,91 @@ void PushButton::init_theme() {
     connect(get_ui_theme(), &UIThemeManager::theme_changed, this, [this] { _apply_theme(); });
 }
 
+void PushButton::set_kind(Kind kind) { kind_ = kind; }
+
+int PushButton::horizontal_padding() const {
+    switch (kind_) {
+    case Kind::Primary: return widget_scaled(this, 18);
+    case Kind::Transparent:
+    case Kind::Hyperlink: return widget_scaled(this, 12);
+    case Kind::Standard: break;
+    }
+    return widget_scaled(this, 16);
+}
+
+// The colours of base_style, primary_style and transparent_style; their rules come in the
+// order normal, hover, pressed, disabled, and a later one wins.
+ControlBox PushButton::control_box(QStyle::State state) const {
+    const auto &t = ui_tokens(this);
+    const bool enabled = state & QStyle::State_Enabled;
+    const bool pressed = enabled && (state & QStyle::State_Sunken);
+    const bool hovered = enabled && (state & QStyle::State_MouseOver);
+    switch (kind_) {
+    case Kind::Primary: {
+        if (!enabled) return {css_color("#687D8F"), css_color("#687D8F"), css_color("#687D8F")};
+        if (pressed) return {css_color(ACCENT_PRESSED), css_color(ACCENT_PRESSED), css_color(ACCENT_PRESSED)};
+        const QColor fill = css_color(hovered ? ACCENT_HOVER : ACCENT);
+        return {fill, fill, css_color(ACCENT_PRESSED)};
+    }
+    case Kind::Transparent:
+    case Kind::Hyperlink: {
+        const QColor fill = pressed ? css_color(t.control_pressed) : hovered ? css_color(t.item_hover) : QColor(Qt::transparent);
+        return {fill, Qt::transparent, Qt::transparent};
+    }
+    case Kind::Standard: break;
+    }
+    if (!enabled) return {css_color(t.control_pressed), css_color(t.control_border), css_color(t.control_border)};
+    const QColor fill = css_color(pressed ? t.control_pressed : hovered ? t.control_hover : t.control);
+    return {fill, css_color(t.control_border), css_color(t.control_border_bottom)};
+}
+
+QColor PushButton::text_color(QStyle::State state) const {
+    const auto &t = ui_tokens(this);
+    const bool enabled = state & QStyle::State_Enabled;
+    const bool pressed = enabled && (state & QStyle::State_Sunken);
+    const bool hovered = enabled && (state & QStyle::State_MouseOver);
+    switch (kind_) {
+    case Kind::Primary: return !enabled ? QColor(255, 255, 255, 214) : pressed ? QColor(255, 255, 255, 199) : QColor(Qt::white);
+    case Kind::Transparent:
+    case Kind::Hyperlink:
+        if (!enabled) return css_color(t.fg_disabled);
+        if (pressed) return css_color(t.fg_muted);
+        if (hovered) return css_color(t.fg);
+        return css_color(kind_ == Kind::Hyperlink ? ACCENT : t.fg_muted);
+    case Kind::Standard: break;
+    }
+    return css_color(!enabled ? t.fg_disabled : pressed ? t.fg_muted : t.fg);
+}
+
+bool PushButton::wants_painting() const {
+    if (sheet_chosen_ || menu()) return false;
+    // Subclasses outside the four kinds bring sheets (or painting) of their own.
+    const QMetaObject *meta = metaObject();
+    if (meta != &PushButton::staticMetaObject && meta != &PrimaryPushButton::staticMetaObject && meta != &TransparentPushButton::staticMetaObject
+        && meta != &HyperlinkButton::staticMetaObject)
+        return false;
+    return !style_sheet_rule_reaches(this);
+}
+
+void PushButton::use_style_sheet() {
+    sheet_chosen_ = true;
+    const bool had_sheet = !styleSheet().isEmpty();
+    if (painted_) {
+        painted_ = false;
+        setStyle(nullptr);
+        setFont(QFont());
+        setPalette(QPalette());
+    }
+    // A sheet set by the caller replaced the button's own before it painted itself, too.
+    if (!had_sheet) apply_style_sheet(this, style_sheet());
+}
+
+bool PushButton::event(QEvent *event) {
+    const bool result = QPushButton::event(event);
+    if (painted_ && (event->type() == QEvent::Polish || event->type() == QEvent::StyleChange) && !wants_painting()) use_style_sheet();
+    return result;
+}
+
 void PushButton::setIcon(const IconSource &icon) {
     theme_icon_source_ = icon;
     QPushButton::setIcon(to_qicon(icon, this));
@@ -72,7 +158,28 @@ void PushButton::setBaseIconSize(int base) {
 QString PushButton::style_sheet() const { return base_style(this); }
 
 void PushButton::_apply_theme() {
-    apply_style_sheet(this, style_sheet());
+    if (!wants_painting()) {
+        if (!sheet_chosen_) use_style_sheet();
+        else apply_style_sheet(this, style_sheet());
+    } else {
+        if (!painted_) {
+            painted_ = true;
+            // The sheets set these; hover repaints need them.
+            setAttribute(Qt::WA_Hover);
+            setMouseTracking(true);
+            // Inside a sheet with a rule for buttons this lands in use_style_sheet() at once.
+            setStyle(fluent_control_style());
+        }
+        if (painted_) {
+            const QColor fill = control_box(QStyle::State_Enabled).fill;
+            apply_sheet_palette(this, text_color(QStyle::State_Enabled), text_color(QStyle::State_None), fill, control_box(QStyle::State_None).fill);
+            setFont(fluent_control_font(this, 14, kind_ == Kind::Primary ? QFont::DemiBold : QFont::Normal));
+            // The sheet's min-height becomes the widget's minimum height.
+            setMinimumHeight(widget_scaled(this, INPUT_CONTENT_HEIGHT) + 2 * widget_scaled(this, INPUT_PADDING_V) + 2);
+            updateGeometry();
+            update();
+        }
+    }
     const int side = widget_scaled(this, base_icon_size_);
     setIconSize(QSize(side, side));
     if (!std::holds_alternative<std::monostate>(theme_icon_source_)) QPushButton::setIcon(to_qicon(theme_icon_source_, this));
@@ -108,13 +215,20 @@ QString ColorSwatchButton::style_sheet() const {
         .arg(t.fg).arg(s(14)).arg(FONT_FAMILY, hover);
 }
 
-PrimaryPushButton::PrimaryPushButton(const QString &text, QWidget *parent, const IconSource &icon) : PushButton(text, parent, icon) { _apply_theme(); }
+PrimaryPushButton::PrimaryPushButton(const QString &text, QWidget *parent, const IconSource &icon) : PushButton(text, parent, icon) {
+    set_kind(Kind::Primary);
+    _apply_theme();
+}
 QString PrimaryPushButton::style_sheet() const { return primary_style(this); }
-TransparentPushButton::TransparentPushButton(const QString &text, QWidget *parent, const IconSource &icon) : PushButton(text, parent, icon) { _apply_theme(); }
+TransparentPushButton::TransparentPushButton(const QString &text, QWidget *parent, const IconSource &icon) : PushButton(text, parent, icon) {
+    set_kind(Kind::Transparent);
+    _apply_theme();
+}
 QString TransparentPushButton::style_sheet() const { return transparent_style(this); }
 
 HyperlinkButton::HyperlinkButton(const QString &url, const QString &text, QWidget *parent, const IconSource &icon)
     : TransparentPushButton(text, parent, icon), url_(url) {
+    set_kind(Kind::Hyperlink);
     _apply_theme();
     connect(this, &QPushButton::clicked, this, [this] {
         if (!url_.isEmpty()) QDesktopServices::openUrl(QUrl(url_));

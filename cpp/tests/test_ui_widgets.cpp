@@ -57,6 +57,7 @@
 #include <QLabel>
 #include <QMenu>
 #include <QToolButton>
+#include <QStyleOptionComboBox>
 #include <QAbstractItemView>
 #include <algorithm>
 #include <cmath>
@@ -1938,6 +1939,122 @@ private slots:
         ComboBox free;
         configure_dialog_control(free);
         QCOMPARE(free.minimumWidth(), widget_scaled(&free, ComboBox::BASE_MIN_WIDTH));
+    }
+
+    // A painted control measures exactly as its style sheet would, so falling back to the sheet
+    // (on the first popup, or when another sheet's rule reaches it) never moves the layout.
+    void paintedControlsMeasureLikeTheirSheets() {
+        // Any rule for the three types sends them to their sheets; this one changes nothing they draw.
+        const QString reaching = "QPushButton, QComboBox, QLineEdit { qproperty-whatsThis: \"\"; }";
+        using Make = std::function<QWidget *(QWidget *)>;
+        const QList<QPair<const char *, Make>> makes{
+            {"button", [](QWidget *p) { return new PushButton("Save", p); }},
+            {"cjk button", [](QWidget *p) { return new PushButton(QString::fromUtf8("确定"), p); }},
+            {"empty button", [](QWidget *p) { return new PushButton(p); }},
+            {"icon button", [](QWidget *p) { return new PushButton("Open", p, FluentIcon::Folder); }},
+            {"primary", [](QWidget *p) { return new PrimaryPushButton("OK", p); }},
+            {"transparent", [](QWidget *p) { return new TransparentPushButton("More", p, FluentIcon::Folder); }},
+            {"hyperlink", [](QWidget *p) { return new HyperlinkButton("https://example.com", "Link", p); }},
+            {"combo", [](QWidget *p) { auto *c = new ComboBox(p); c->addItems({"A", "A longer entry"}); return c; }},
+            {"empty combo", [](QWidget *p) { return new ComboBox(p); }},
+            {"line edit", [](QWidget *p) { auto *e = new LineEdit(p); e->setPlaceholderText("Placeholder"); return e; }},
+            {"line edit with margins", [](QWidget *p) { auto *e = new LineEdit(p); e->setTextMargins(20, 0, 8, 0); e->setText("text"); return e; }},
+        };
+        const auto painted_of = [](QWidget *w) {
+            if (auto *b = qobject_cast<PushButton *>(w)) return b->paints_itself();
+            if (auto *c = qobject_cast<ComboBox *>(w)) return c->paints_itself();
+            return qobject_cast<LineEdit *>(w)->paints_itself();
+        };
+        for (const double factor : {1.0, 1.5}) {
+            for (const auto &[name, make] : makes) {
+                const QString where = QString("%1 at %2").arg(name).arg(factor);
+                QWidget plain, sheeted;
+                sheeted.setStyleSheet(reaching);
+                QWidget *painted = make(&plain);
+                QWidget *sheet = make(&sheeted);
+                for (QWidget *w : {painted, sheet}) {
+                    w->setProperty("dialog_scale_factor", factor);
+                    QMetaObject::invokeMethod(w, "_apply_theme");
+                }
+                plain.show();
+                sheeted.show();
+                QVERIFY2(painted_of(painted), qPrintable(where));
+                QVERIFY2(!painted_of(sheet), qPrintable(where));
+                QCOMPARE(painted->sizeHint(), sheet->sizeHint());
+                QCOMPARE(painted->minimumSizeHint(), sheet->minimumSizeHint());
+                QCOMPARE(painted->minimumHeight(), sheet->minimumHeight());
+                QCOMPARE(painted->font().pixelSize(), sheet->font().pixelSize());
+                QCOMPARE(painted->font().weight(), sheet->font().weight());
+                const QSize size(painted->sizeHint().width() + 40, painted->sizeHint().height());
+                painted->resize(size);
+                sheet->resize(size);
+                if (auto *edit = qobject_cast<LineEdit *>(painted)) {
+                    // The text sits where the sheet's padding puts it, focused or not.
+                    QCOMPARE(edit->inputMethodQuery(Qt::ImCursorRectangle), sheet->inputMethodQuery(Qt::ImCursorRectangle));
+                    edit->setFocus();
+                    sheet->setFocus();
+                    QCOMPARE(edit->inputMethodQuery(Qt::ImCursorRectangle), sheet->inputMethodQuery(Qt::ImCursorRectangle));
+                } else if (auto *combo = qobject_cast<ComboBox *>(painted)) {
+                    QStyleOptionComboBox a, b;
+                    a.initFrom(combo);
+                    b.initFrom(sheet);
+                    QCOMPARE(combo->style()->subControlRect(QStyle::CC_ComboBox, &a, QStyle::SC_ComboBoxEditField, combo),
+                             sheet->style()->subControlRect(QStyle::CC_ComboBox, &b, QStyle::SC_ComboBoxEditField, sheet));
+                }
+            }
+        }
+    }
+
+    void paintedControlsFallBackToTheirSheets() {
+        QWidget host;
+        host.setStyleSheet("QPushButton#special { color: red; } .QWidget { background: transparent; }");
+        auto *special = new PushButton("Special", &host);
+        special->setObjectName("special");
+        auto *plain = new PushButton("Plain", &host);
+        auto *swatch = new ColorSwatchButton(&host);
+        auto *own = new PushButton("Own", &host);
+        own->setStyleSheet("QPushButton { color: green; }");
+        auto *clearable = new LineEdit(&host);
+        clearable->setClearButtonEnabled(true);
+        auto *unthemed = new LineEdit(&host, false);
+        auto *combo = new ComboBox(&host);
+        combo->addItems({"One", "Two"});
+        host.resize(300, 300);
+        host.show();
+        QVERIFY(!special->paints_itself());
+        // An exact-class rule for QWidget does not reach a button.
+        QVERIFY(plain->paints_itself());
+        QVERIFY(!swatch->paints_itself());
+        // A caller's own sheet is kept, not replaced by the button's.
+        QVERIFY(!own->paints_itself());
+        QCOMPARE(own->styleSheet(), QString("QPushButton { color: green; }"));
+        QVERIFY(!clearable->paints_itself());
+        QVERIFY(!unthemed->paints_itself());
+        QVERIFY(unthemed->styleSheet().isEmpty());
+
+        // The popup is styled by the sheet, taken when it first opens, without a size change.
+        QVERIFY(combo->paints_itself());
+        const QSize before = combo->sizeHint();
+        combo->showPopup();
+        QVERIFY(!combo->paints_itself());
+        QVERIFY(!combo->styleSheet().isEmpty());
+        QCOMPARE(combo->sizeHint(), before);
+        combo->hidePopup();
+
+        // A clear button turned on later also lays out inside the sheet's padding.
+        auto *late = new LineEdit(&host);
+        late->show();
+        QVERIFY(late->paints_itself());
+        late->setClearButtonEnabled(true);
+        QTRY_VERIFY(!late->paints_itself());
+
+        // Moving under a sheet with a rule for it sends a painted button to its sheet.
+        QWidget other;
+        other.setStyleSheet("QAbstractButton { padding: 0; }");
+        plain->setParent(&other);
+        other.show();
+        QVERIFY(!plain->paints_itself());
+        QVERIFY(!plain->styleSheet().isEmpty());
     }
 
     void colorDialogFollowsTheWindowScale() {

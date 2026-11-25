@@ -1,4 +1,5 @@
 #pragma once
+#include "ui/fluent_lite/control_style.h"
 #include "ui/fluent_lite/theme.h"
 #include <QPushButton>
 #include <QToolButton>
@@ -7,6 +8,10 @@ namespace jietuba {
 // Native Qt buttons styled as one family. Icon size is kept as a base value
 // that _apply_theme rescales, because the style is regenerated on construction,
 // theme changes and dialog scaling; a plain setIconSize() would not survive.
+//
+// The four plain kinds are drawn by fluent_control_style() as their style sheets would draw
+// them. A menu, another sheet's rule for the button or a subclass with its own sheet switches
+// it to the sheet for good.
 class PushButton : public QPushButton {
     Q_OBJECT
 public:
@@ -15,11 +20,24 @@ public:
     void setIcon(const IconSource &icon);
     void setBaseIconSize(int base);
     Q_INVOKABLE void _apply_theme();
+    bool paints_itself() const { return painted_; }
+    ControlBox control_box(QStyle::State state) const;
+    QColor text_color(QStyle::State state) const;
+    int horizontal_padding() const;
 protected:
+    enum class Kind { Standard, Primary, Transparent, Hyperlink };
+    bool event(QEvent *event) override;
     virtual QString style_sheet() const;
     void init_theme();
+    void set_kind(Kind kind);
     int base_icon_size_ = 16;
     IconSource theme_icon_source_;
+private:
+    bool wants_painting() const;
+    void use_style_sheet();
+    Kind kind_ = Kind::Standard;
+    bool painted_ = false;
+    bool sheet_chosen_ = false;
 };
 
 // A button whose fill is its content (theme colour, mask colour, palettes).

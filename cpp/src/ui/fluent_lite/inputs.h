@@ -1,4 +1,5 @@
 #pragma once
+#include "ui/fluent_lite/control_style.h"
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QLabel>
@@ -23,11 +24,21 @@ public:
     // Off for a combo too narrow for its longest entry beside the chevron: the entry is then centred over the whole box.
     void setChevronVisible(bool visible);
     bool chevronVisible() const { return chevron_; }
+    // Drawn by fluent_control_style() until it needs its style sheet: the popup, editing, or
+    // another sheet's rule for it. The sheet is not given up again.
+    bool paints_itself() const { return painted_; }
+    ControlBox control_box(QStyle::State state) const;
+    void showPopup() override;
 protected:
+    bool event(QEvent *event) override;
     // The current entry is left-aligned with a chevron on the right.
     void paintEvent(QPaintEvent *event) override;
 private:
+    bool wants_painting() const;
+    void use_style_sheet();
     bool chevron_ = true;
+    bool painted_ = false;
+    bool sheet_chosen_ = false;
 };
 
 class LineEdit : public QLineEdit {
@@ -35,10 +46,19 @@ class LineEdit : public QLineEdit {
 public:
     explicit LineEdit(QWidget *parent = nullptr, bool use_default_style = true);
     Q_INVOKABLE void _apply_theme();
+    // Drawn by fluent_control_style() until it needs its style sheet: an action or clear button
+    // beside the text, or another sheet's rule for it.
+    bool paints_itself() const { return painted_; }
+    ControlBox control_box(QStyle::State state) const;
 protected:
+    bool event(QEvent *event) override;
     void contextMenuEvent(QContextMenuEvent *event) override;
 private:
+    bool wants_painting() const;
+    void use_style_sheet();
     bool themed_;
+    bool painted_ = false;
+    bool sheet_chosen_ = false;
 };
 
 // QTextEdit with the shared context menu; the caller owns its body style.

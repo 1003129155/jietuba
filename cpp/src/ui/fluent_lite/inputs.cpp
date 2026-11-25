@@ -50,15 +50,91 @@ QString input_qss(const QWidget *widget) {
         .arg(s(24)).arg(t.popup_background).arg(s(8)).arg(s(4)).arg(t.item_hover).arg(s(32)).arg(s(18));
 }
 
+namespace {
+// What input_qss sets on an input painted by fluent_control_style(): font, palette, minimum
+// height and hover tracking.
+void apply_painted_input_look(QWidget *widget) {
+    const auto &t = ui_tokens(widget);
+    apply_sheet_palette(widget, css_color(t.fg), css_color(t.fg_disabled), css_color(t.control), css_color(t.control_pressed), css_color(t.accent));
+    widget->setFont(fluent_control_font(widget, 14));
+    widget->setMinimumHeight(widget_scaled(widget, INPUT_CONTENT_HEIGHT) + 2 * widget_scaled(widget, INPUT_PADDING_V) + 2);
+    widget->updateGeometry();
+    widget->update();
+}
+
+// Starts painting with fluent_control_style(); false when another sheet's rule reached the
+// widget meanwhile and it went back to its sheet.
+template <typename Input>
+bool start_painting(Input *input, bool &painted) {
+    if (painted) return true;
+    painted = true;
+    input->setAttribute(Qt::WA_Hover);
+    input->setMouseTracking(true);
+    input->setStyle(fluent_control_style());
+    return painted;
+}
+
+void stop_painting(QWidget *widget) {
+    widget->setStyle(nullptr);
+    widget->setFont(QFont());
+    widget->setPalette(QPalette());
+}
+
+// input_qss's colours: normal, hover, focus (line edits only), disabled; a later rule wins.
+ControlBox input_box(const QWidget *widget, QStyle::State state, bool focus_rule) {
+    const auto &t = ui_tokens(widget);
+    if (!(state & QStyle::State_Enabled)) return {css_color(t.control_pressed), css_color(t.control_border), css_color(t.control_border)};
+    if (focus_rule && (state & QStyle::State_HasFocus))
+        return {css_color(t.is_dark() ? "#1F1F1F" : "#FFFFFF"), css_color(t.control_border), css_color(t.accent), widget_scaled(widget, 2)};
+    const QColor fill = css_color(state & QStyle::State_MouseOver ? t.control_hover : t.control);
+    return {fill, css_color(t.control_border), css_color(t.control_border_bottom)};
+}
+}
+
 ComboBox::ComboBox(QWidget *parent) : QComboBox(parent) {
     _apply_theme();
     connect(get_ui_theme(), &UIThemeManager::theme_changed, this, [this] { _apply_theme(); });
 }
 
 void ComboBox::_apply_theme() {
-    apply_style_sheet(this, input_qss(this));
+    if (!wants_painting()) {
+        if (!sheet_chosen_) use_style_sheet();
+        else apply_style_sheet(this, input_qss(this));
+    } else if (start_painting(this, painted_)) {
+        apply_painted_input_look(this);
+    }
     // A width pinned with setFixedWidth stays; otherwise a scaled floor, never above the maximum.
     if (minimumWidth() != maximumWidth()) setMinimumWidth(std::min(widget_scaled(this, BASE_MIN_WIDTH), maximumWidth()));
+}
+
+bool ComboBox::wants_painting() const {
+    if (sheet_chosen_ || isEditable() || metaObject() != &ComboBox::staticMetaObject) return false;
+    return !style_sheet_rule_reaches(this);
+}
+
+void ComboBox::use_style_sheet() {
+    sheet_chosen_ = true;
+    const bool had_sheet = !styleSheet().isEmpty();
+    if (painted_) {
+        painted_ = false;
+        stop_painting(this);
+    }
+    if (!had_sheet) apply_style_sheet(this, input_qss(this));
+}
+
+ControlBox ComboBox::control_box(QStyle::State state) const { return input_box(this, state, false); }
+
+void ComboBox::showPopup() {
+    // The popup list is styled by input_qss; the sheet is taken only when it is first needed,
+    // and its frame and metrics match the painted ones.
+    if (painted_) use_style_sheet();
+    QComboBox::showPopup();
+}
+
+bool ComboBox::event(QEvent *event) {
+    const bool result = QComboBox::event(event);
+    if (painted_ && (event->type() == QEvent::Polish || event->type() == QEvent::StyleChange) && !wants_painting()) use_style_sheet();
+    return result;
 }
 
 QSize ComboBox::sizeHint() const {
@@ -114,7 +190,43 @@ LineEdit::LineEdit(QWidget *parent, bool use_default_style) : QLineEdit(parent),
 }
 
 void LineEdit::_apply_theme() {
-    if (themed_) apply_style_sheet(this, input_qss(this));
+    if (!themed_) return;
+    if (!wants_painting()) {
+        if (!sheet_chosen_) use_style_sheet();
+        else apply_style_sheet(this, input_qss(this));
+    } else if (start_painting(this, painted_)) {
+        apply_painted_input_look(this);
+    }
+}
+
+bool LineEdit::wants_painting() const {
+    // Actions and the clear button are laid out inside the sheet's padding.
+    if (sheet_chosen_ || !actions().isEmpty() || isClearButtonEnabled() || metaObject() != &LineEdit::staticMetaObject) return false;
+    return !style_sheet_rule_reaches(this);
+}
+
+void LineEdit::use_style_sheet() {
+    sheet_chosen_ = true;
+    const bool had_sheet = !styleSheet().isEmpty();
+    if (painted_) {
+        painted_ = false;
+        stop_painting(this);
+    }
+    if (!had_sheet) apply_style_sheet(this, input_qss(this));
+}
+
+ControlBox LineEdit::control_box(QStyle::State state) const { return input_box(this, state, true); }
+
+bool LineEdit::event(QEvent *event) {
+    const bool result = QLineEdit::event(event);
+    const auto type = event->type();
+    if (painted_ && (type == QEvent::Polish || type == QEvent::StyleChange || type == QEvent::ActionAdded) && !wants_painting()) use_style_sheet();
+    // The clear button's action is named only after it is added, so it is looked for afterwards.
+    if (painted_ && type == QEvent::ChildAdded)
+        QMetaObject::invokeMethod(this, [this] {
+            if (painted_ && !wants_painting()) use_style_sheet();
+        }, Qt::QueuedConnection);
+    return result;
 }
 
 void LineEdit::contextMenuEvent(QContextMenuEvent *event) { show_text_context_menu(this, event->globalPos()); }
