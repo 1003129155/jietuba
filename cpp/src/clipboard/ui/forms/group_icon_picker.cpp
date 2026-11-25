@@ -2,7 +2,6 @@
 #include "clipboard/services/group_service.h"
 #include "clipboard/ui/dialogs/manage_dialog.h"
 #include "clipboard/ui/forms/form_widgets.h"
-#include "clipboard/ui/group_kind_style.h"
 #include "clipboard/ui/layout_scale.h"
 #include "clipboard/ui/resources/emoji_data.h"
 #include "core/ui_theme.h"
@@ -179,30 +178,17 @@ void create_group_icon_picker(ManageDialog *dialog, const QString &current_icon)
 
     dialog->emoji_current_idx = 0;
     dialog->switch_emoji_group_checked(0, form_token);
-    refresh_group_icon_kind(dialog);
 }
 
-IconPreview::IconPreview(const QString &icon, const QString &kind) : QLabel(icon), kind_(kind.isEmpty() ? KIND_NORMAL() : kind) {
+IconPreview::IconPreview(const QString &icon) : QLabel(icon) {
     setFixedSize(scale_ui(52), scale_ui(52));
     setAlignment(Qt::AlignCenter);
     _apply_theme();
 }
 
-void IconPreview::set_kind(const QString &kind) {
-    if (kind == kind_) return;
-    kind_ = kind;
-    _apply_theme();
-}
-
 void IconPreview::_apply_theme() {
     const auto &tokens = ui_tokens(this);
-    const QColor tint = kind_tint(kind_, 0.14, tokens);
-    const QString background = QString("rgba(%1, %2, %3, %4)").arg(tint.red()).arg(tint.green()).arg(tint.blue()).arg(tint.alphaF(), 0, 'f', 2);
-    setStyleSheet(QString("QLabel { font-size: %1px; background: %2; border: 1px solid %3; border-radius: %4px; }").arg(scale_ui(28)).arg(background, tokens.border).arg(scale_ui(14)));
-}
-
-void refresh_group_icon_kind(ManageDialog *dialog) {
-    if (auto *preview = qobject_cast<IconPreview *>(dialog->icon_preview.data())) preview->set_kind(group_kind(dialog->selected_group_type()));
+    setStyleSheet(QString("QLabel { font-size: %1px; background: %2; border: 1px solid %3; border-radius: %4px; }").arg(scale_ui(28)).arg(tokens.card, tokens.card_border).arg(scale_ui(4)));
 }
 
 QString emoji_tab_style(bool active, const QWidget *dialog) {
@@ -216,11 +202,11 @@ QString emoji_tab_style(bool active, const QWidget *dialog) {
         }
         QPushButton:hover { background: %6; }
     )")
-        .arg(tokens.text, active ? tokens.accent_soft : QString("transparent"))
-        .arg(scale_ui(6))
+        .arg(tokens.fg, active ? tokens.divider : QString("transparent"))
+        .arg(scale_ui(4))
         .arg(scale_ui(18))
         .arg(scale_y(2))
-        .arg(active ? tokens.accent_soft : tokens.surface_hover);
+        .arg(active ? tokens.divider : tokens.item_hover);
 }
 
 QString emoji_btn_style(const QWidget *dialog) {
@@ -239,7 +225,7 @@ QString emoji_btn_style(const QWidget *dialog) {
     )")
         .arg(scale_ui(4))
         .arg(scale_ui(22))
-        .arg(tokens.accent_soft, tokens.surface_hover);
+        .arg(tokens.item_hover, tokens.divider);
 }
 
 void switch_emoji_group(ManageDialog *dialog, int group_idx) {

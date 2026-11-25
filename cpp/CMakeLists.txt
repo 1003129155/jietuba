@@ -369,7 +369,7 @@ if(BUILD_TESTING)
     set_tests_properties(clipboard_manage PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     if(WIN32)
         # Whether the footer's texts fit needs real fonts.
-        add_test(NAME clipboard_manage_desktop COMMAND jietuba_clipboard_manage_tests -o ${JIETUBA_TEST_REPORTS}/clipboard_manage_desktop.txt,txt -platform windows theFooterFitsEveryLanguageInTheNarrowestWindow)
+        add_test(NAME clipboard_manage_desktop COMMAND jietuba_clipboard_manage_tests -o ${JIETUBA_TEST_REPORTS}/clipboard_manage_desktop.txt,txt -platform windows theButtonsFitEveryLanguageInTheNarrowestWindow)
         set_tests_properties(clipboard_manage_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
     endif()
     qt_add_executable(jietuba_clipboard_backend_tests tests/test_clipboard_backend.cpp)

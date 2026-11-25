@@ -3844,10 +3844,6 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>通用</translation>
     </message>
     <message>
-        <source>Groups</source>
-        <translation>分组</translation>
-    </message>
-    <message>
         <source>Hidden</source>
         <translation>隐藏</translation>
     </message>

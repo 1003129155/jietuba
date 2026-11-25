@@ -14,16 +14,16 @@ std::pair<QFrame *, QVBoxLayout *> section_card(FluentIcon icon, const QString &
     auto *card = new QFrame;
     card->setObjectName("ManageSectionCard");
     auto *layout = new QVBoxLayout(card);
-    layout->setContentsMargins(dialog_scaled(18), dialog_scaled(16), dialog_scaled(18), dialog_scaled(16));
+    layout->setContentsMargins(dialog_scaled(16), dialog_scaled(14), dialog_scaled(16), dialog_scaled(14));
     layout->setSpacing(dialog_scaled(12));
 
     auto *header = new QHBoxLayout;
-    header->setSpacing(dialog_scaled(12));
-    header->addWidget(new IconBadge(icon, "neutral", card));
+    header->setSpacing(dialog_scaled(16));
+    header->addWidget(new IconBadge(icon, QString(), card, 20, 20, false));
     auto *text_box = new QVBoxLayout;
-    text_box->setSpacing(dialog_scaled(2));
+    text_box->setSpacing(dialog_scaled(1));
     QLabel *title_label = field_label(title, false);
-    apply_theme_text_style(title_label, 14, true);
+    apply_theme_text_style(title_label, 14, false);
     text_box->addWidget(title_label);
     text_box->addWidget(field_hint(description));
     header->addLayout(text_box, 1);

@@ -3868,10 +3868,6 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>通常</translation>
     </message>
     <message>
-        <source>Groups</source>
-        <translation>グループ</translation>
-    </message>
-    <message>
         <source>Hidden</source>
         <translation>非表示</translation>
     </message>

@@ -14,11 +14,11 @@
 namespace jietuba::clipboard {
 namespace {
 // The name row: the current icon's preview tile on the left, the name input on the right.
-void build_name_section(ManageDialog *dialog, const QString &name, const QString &icon, int group_type) {
+void build_name_section(ManageDialog *dialog, const QString &name, const QString &icon) {
     dialog->detail_layout->addWidget(field_label(ManageDialog::tr_text("Group Name"), false));
     auto *row = new QHBoxLayout;
     row->setSpacing(dialog_scaled(12));
-    auto *preview = new IconPreview(icon, group_kind(group_type));
+    auto *preview = new IconPreview(icon);
     dialog->icon_preview = preview;
     row->addWidget(preview);
     auto *input = new LineEdit;
@@ -116,7 +116,7 @@ void build_group_type_section(ManageDialog *dialog, int group_type, bool can_be_
 
 void build_new_group_form(ManageDialog *dialog) {
     const QString icon = get_group_display_icon(std::nullopt, static_cast<int>(GroupType::NORMAL));
-    build_name_section(dialog, "", icon, static_cast<int>(GroupType::NORMAL));
+    build_name_section(dialog, "", icon);
     build_group_type_section(dialog, static_cast<int>(GroupType::NORMAL), true, std::nullopt);
     dialog->detail_layout->addWidget(field_label(ManageDialog::tr_text("Icon")));
     dialog->create_emoji_picker(icon);
@@ -124,7 +124,7 @@ void build_new_group_form(ManageDialog *dialog) {
 
 void build_edit_group_form(ManageDialog *dialog, const Group &group) {
     const QString current_icon = get_group_display_icon(group.icon, group.group_type, group.filter_rule);
-    build_name_section(dialog, group.name, current_icon, group.group_type);
+    build_name_section(dialog, group.name, current_icon);
     // A filter group stores no content, so a group that still has content cannot become one (the Rust core refuses too).
     const bool has_items = !dialog->manager->get_by_group(group.id, 0, 1).isEmpty();
     build_group_type_section(dialog, group.group_type, group.is_filter() || !has_items, group.filter_rule);
