@@ -1089,7 +1089,7 @@ void ManageDialog::update_group_form_header() {
         subtitle = tr_text("Filter groups store no content; they show the clipboard history that matches the chosen type and source app");
     } else if (radio_hidden && radio_hidden->isChecked()) {
         title = is_new ? tr_text("New Hidden Group") : tr_text("Edit Hidden Group");
-        subtitle = tr_text("Hidden groups are not displayed on the clipboard panel; changing to normal group restores visibility");
+        subtitle = tr_text("Hidden groups are not displayed on the clipboard panel; changing to General Group restores visibility");
     } else if (radio_file->isChecked()) {
         title = is_new ? tr_text("New Quick Launch Group") : tr_text("Edit Quick Launch Group");
         subtitle = tr_text("Quick launch groups accept files, folder paths and links; selecting an item opens them");

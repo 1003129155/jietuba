@@ -403,8 +403,8 @@ Replace it?</translation>
         <translation>Recognize Text</translation>
     </message>
     <message>
-        <source>Cursor Move Keys</source>
-        <translation>Cursor Move Keys</translation>
+        <source>Mouse Nudge Keys</source>
+        <translation>Mouse Nudge Keys</translation>
     </message>
     <message>
         <source>💡 Hint: Click the input box and press the desired key combination.</source>
@@ -1613,8 +1613,8 @@ Replace it?</translation>
         <translation>Custom LLM-3</translation>
     </message>
     <message>
-        <source>Baidu Translate Open Platform</source>
-        <translation>Baidu Translate Open Platform</translation>
+        <source>Baidu Translate Open Platform · Developer Info</source>
+        <translation>Baidu Translate Open Platform · Developer Info</translation>
     </message>
     <message>
         <source>API Key</source>
@@ -2932,8 +2932,8 @@ Replace it?</translation>
         <translation>Show Time</translation>
     </message>
     <message>
-        <source>Hide Grouped Items from All</source>
-        <translation>Hide Grouped Items from All</translation>
+        <source>Hide Grouped Items from History</source>
+        <translation>Hide Grouped Items from History</translation>
     </message>
     <message>
         <source>More Settings</source>
@@ -3443,8 +3443,8 @@ This action cannot be undone.</translation>
         <translation>Edit Hidden Group</translation>
     </message>
     <message>
-        <source>Hidden groups are not displayed on the clipboard panel; changing to normal group restores visibility</source>
-        <translation>Hidden groups are not displayed on the clipboard panel; changing to normal group restores visibility</translation>
+        <source>Hidden groups are not displayed on the clipboard panel; changing to General Group restores visibility</source>
+        <translation>Hidden groups are not displayed on the clipboard panel; changing to General Group restores visibility</translation>
     </message>
     <message>
         <source>General groups allow any content; selecting an item pastes content or files to the target</source>
@@ -4083,12 +4083,12 @@ Items in the group will be moved back to clipboard history.</translation>
         <translation>Size of image thumbnails in the list</translation>
     </message>
     <message>
-        <source>Hide Grouped Items from All</source>
-        <translation>Hide Grouped Items from All</translation>
+        <source>Hide Grouped Items from History</source>
+        <translation>Hide Grouped Items from History</translation>
     </message>
     <message>
-        <source>Items in a group no longer show in All; filter groups still list them</source>
-        <translation>Items in a group no longer show in All; filter groups still list them</translation>
+        <source>Items in a group no longer show in Clipboard History; filter groups still list them</source>
+        <translation>Items in a group no longer show in Clipboard History; filter groups still list them</translation>
     </message>
     <message>
         <source>Close After Paste</source>
@@ -5136,8 +5136,8 @@ You can tweak more options in Settings anytime.</translation>
         <translation>Custom LLM-3</translation>
     </message>
     <message>
-        <source>Baidu Translate Open Platform</source>
-        <translation>Baidu Translate Open Platform</translation>
+        <source>Baidu Translate Open Platform · Developer Info</source>
+        <translation>Baidu Translate Open Platform · Developer Info</translation>
     </message>
     <message>
         <source>API Key</source>
@@ -5876,16 +5876,16 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>No text found in the selection.</translation>
     </message>
     <message>
-        <source>No PP-OCR model is installed. Download one in the OCR settings.</source>
-        <translation>No PP-OCR model is installed. Download one in the OCR settings.</translation>
+        <source>No PP-OCR model is installed. Download one in Settings &gt; Screenshot &gt; Text Recognition.</source>
+        <translation>No PP-OCR model is installed. Download one in Settings &gt; Screenshot &gt; Text Recognition.</translation>
     </message>
     <message>
-        <source>The PP-OCR model could not be loaded. Download it again or choose another one in the OCR settings.</source>
-        <translation>The PP-OCR model could not be loaded. Download it again or choose another one in the OCR settings.</translation>
+        <source>The PP-OCR model could not be loaded. Download it again or choose another one in Settings &gt; Screenshot &gt; Text Recognition.</source>
+        <translation>The PP-OCR model could not be loaded. Download it again or choose another one in Settings &gt; Screenshot &gt; Text Recognition.</translation>
     </message>
     <message>
-        <source>ONNX Runtime, which PP-OCR needs, is not installed. Download it in the OCR settings.</source>
-        <translation>ONNX Runtime, which PP-OCR needs, is not installed. Download it in the OCR settings.</translation>
+        <source>ONNX Runtime, which PP-OCR needs, is not installed. Download it in Settings &gt; Screenshot &gt; Text Recognition.</source>
+        <translation>ONNX Runtime, which PP-OCR needs, is not installed. Download it in Settings &gt; Screenshot &gt; Text Recognition.</translation>
     </message>
     <message>
         <source>This build does not include the text recognition engine.</source>
@@ -6221,8 +6221,8 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>Nothing to translate yet</translation>
     </message>
     <message>
-        <source>Couldn't join. Scroll back</source>
-        <translation>Couldn't join. Scroll back</translation>
+        <source>Couldn't join. Scroll back a little.</source>
+        <translation>Couldn't join. Scroll back a little.</translation>
     </message>
     <message>
         <source>Stitching failed</source>
@@ -6394,8 +6394,8 @@ Make sure gifrecorder is installed correctly.</translation>
         <translation>Preparing to restart...</translation>
     </message>
 <message>
-        <source>Update handoff failed.</source>
-        <translation>Update handoff failed.</translation>
+        <source>Could not start installing the update.</source>
+        <translation>Could not start installing the update.</translation>
     </message>
 <message>
         <source>Update failed: %1</source>

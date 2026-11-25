@@ -599,7 +599,7 @@ QWidget *create_clipboard_page(SettingsDialog *dialog) {
     choice_combo(dialog, image_card, "clipboard_image_size",
                  {{dialog->tr_text("Small"), QString("small")}, {dialog->tr_text("Medium"), QString("medium")}, {dialog->tr_text("Large"), QString("large")}});
     grp_list->addSettingCard(image_card);
-    add_switch_card(dialog, grp_list, FluentIcon::Hide, "Hide Grouped Items from All", "Items in a group no longer show in All; filter groups still list them",
+    add_switch_card(dialog, grp_list, FluentIcon::Hide, "Hide Grouped Items from History", "Items in a group no longer show in Clipboard History; filter groups still list them",
                     "clipboard_hide_grouped_in_history");
     layout->addWidget(grp_list);
 

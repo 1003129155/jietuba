@@ -1376,7 +1376,7 @@ private slots:
             {"zh", {QString::fromUtf8("截图窗口"), QString::fromUtf8("长截图窗口"), QString::fromUtf8("钉图窗口"), QString::fromUtf8("剪贴板窗口"), QString::fromUtf8("标注工具")}},
             {"zh_TW", {QString::fromUtf8("截圖視窗"), QString::fromUtf8("長截圖視窗"), QString::fromUtf8("釘圖視窗"), QString::fromUtf8("剪貼簿視窗"), QString::fromUtf8("標註工具")}},
             {"en", {"Screenshot Window", "Long Capture Window", "Pinned Window", "Clipboard Window", "Annotation Tools"}},
-            {"ja", {QString::fromUtf8("スクショ画面"), QString::fromUtf8("長いスクショ画面"), QString::fromUtf8("ピン留めウィンドウ"), QString::fromUtf8("クリップボード画面"), QString::fromUtf8("注釈ツール")}},
+            {"ja", {QString::fromUtf8("キャプチャウィンドウ"), QString::fromUtf8("スクロールキャプチャ"), QString::fromUtf8("ピン留めウィンドウ"), QString::fromUtf8("クリップボード画面"), QString::fromUtf8("注釈ツール")}},
             {"ko", {QString::fromUtf8("캡처 화면"), QString::fromUtf8("스크롤 캡처 화면"), QString::fromUtf8("고정 창"), QString::fromUtf8("클립보드 창"), QString::fromUtf8("주석 도구")}},
         };
         const QStringList sources{"Screenshot Window", "Long Screenshot Window", "Pinned Window", "Clipboard Window", "Annotation Tools"};

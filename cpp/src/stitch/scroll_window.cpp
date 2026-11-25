@@ -1121,7 +1121,7 @@ void ScrollCaptureWindow::on_frame_stitched(const FrameResult &result) {
         handle_stitch_failure(tr_text("Stitching failed"), true);
     } else {
         if (!stitch_failing_) log_stitch(T("[WARN] 第 {screenshot_count} 张拼接失败，未找到重叠区域", {{"screenshot_count", result.index}}));
-        handle_stitch_failure(tr_text("Couldn't join. Scroll back"));
+        handle_stitch_failure(tr_text("Couldn't join. Scroll back a little."));
     }
     if (!result.preview.isNull()) {
         latest_preview_ = result.preview;

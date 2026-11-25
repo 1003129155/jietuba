@@ -29,7 +29,7 @@ ProviderMetadata BaiduTranslateProvider::class_metadata() {
         ProviderField::text("baidu_translate_secret_key", "Baidu Secret Key", "Paired with APPID in the Baidu console", true),
     };
     metadata.pacing = pacing_fields("baidu_translate", PACING);
-    metadata.help_label = "Baidu Translate Open Platform";
+    metadata.help_label = "Baidu Translate Open Platform · Developer Info";
     metadata.help_url = "https://fanyi-api.baidu.com/manage/developer";
     return metadata;
 }

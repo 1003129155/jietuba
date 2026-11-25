@@ -14,7 +14,7 @@
     </message>
     <message>
         <source>What the translate button on the capture and long screenshot toolbars does</source>
-        <translation>截圖與長截圖工具列上「翻譯」按鈕的做法</translation>
+        <translation>截圖與長截圖工具列上「翻譯」按鈕的行為</translation>
     </message>
     <message>
         <source>Screenshot Translation</source>
@@ -94,7 +94,7 @@
     </message>
     <message>
         <source>Smart Selection</source>
-        <translation>智慧選區</translation>
+        <translation>智慧選取範圍</translation>
     </message>
     <message>
         <source>Saving</source>
@@ -106,15 +106,15 @@
     </message>
     <message>
         <source>Setup Wizard</source>
-        <translation>初始嚮導</translation>
+        <translation>初始設定精靈</translation>
     </message>
     <message>
         <source>Re-run the initial setup guide.</source>
-        <translation>開啟初始設定嚮導介面。</translation>
+        <translation>開啟初始設定精靈。</translation>
     </message>
     <message>
         <source>Open Wizard</source>
-        <translation>開啟向導</translation>
+        <translation>開啟精靈</translation>
     </message>
     <message>
         <source>Startup Preload</source>
@@ -122,7 +122,7 @@
     </message>
     <message>
         <source>Control which modules are preloaded at startup. Disable to speed up launch. Changes take effect after restart.</source>
-        <translation>控制啟動時預載入哪些模組。關閉可加快啟動速度。修改後重新啟動生效。</translation>
+        <translation>控制啟動時預載入哪些模組。關閉可加快啟動速度。修改後需重新啟動才會生效。</translation>
     </message>
     <message>
         <source>Preload Fonts</source>
@@ -146,7 +146,7 @@
     </message>
     <message>
         <source>Pre-create toolbar widgets to avoid first-capture lag</source>
-        <translation>預建立工具列控制項，避免首次截圖卡頓</translation>
+        <translation>預先建立工具列控制項，避免第一次截圖時延遲</translation>
     </message>
     <message>
         <source>Preload OCR Engine</source>
@@ -174,11 +174,11 @@
     </message>
     <message>
         <source>Selection Info Panel</source>
-        <translation>選區資訊面板</translation>
+        <translation>選取範圍資訊面板</translation>
     </message>
     <message>
         <source>Control the behavior of the selection info panel during screenshot.</source>
-        <translation>控制截圖時選區資訊面板的行為。</translation>
+        <translation>控制截圖時選取範圍資訊面板的行為。</translation>
     </message>
     <message>
         <source>Hide Panel on Drag</source>
@@ -186,7 +186,7 @@
     </message>
     <message>
         <source>Hide the info panel while dragging the selection area</source>
-        <translation>拖曳選區時隱藏資訊面板</translation>
+        <translation>拖曳選取範圍時隱藏資訊面板</translation>
     </message>
     <message>
         <source>Reset This Page</source>
@@ -226,11 +226,11 @@
     </message>
     <message>
         <source>e.g.: ctrl+shift+a</source>
-        <translation>例如: ctrl+shift+a</translation>
+        <translation>例如：ctrl+shift+a</translation>
     </message>
     <message>
         <source>In-App Shortcuts</source>
-        <translation>應用內快速鍵</translation>
+        <translation>應用程式內快速鍵</translation>
     </message>
     <message>
         <source>Screenshot Shortcuts</source>
@@ -334,7 +334,7 @@
     </message>
     <message>
         <source>Some in-app shortcuts conflict within the same group. Please fix them first.</source>
-        <translation>同組記憶體在重複的快速鍵，請先修正衝突。</translation>
+        <translation>同組內存在重複的快速鍵，請先修正衝突。</translation>
     </message>
     <message>
         <source>The following shortcuts conflict:</source>
@@ -351,8 +351,8 @@
     <message>
         <source>"%1" is already used by "%2".
 Replace it?</source>
-        <translation>"%1" 已被 "%2" 使用。
-是否替換？</translation>
+        <translation>「%1」已被「%2」使用。
+要取代嗎？</translation>
     </message>
     <message>
         <source>Confirm Screenshot</source>
@@ -372,11 +372,11 @@ Replace it?</source>
     </message>
     <message>
         <source>Delete Selected</source>
-        <translation>刪除選取圖元</translation>
+        <translation>刪除選取的標註</translation>
     </message>
     <message>
         <source>Restore Last Region</source>
-        <translation>恢復上次選區</translation>
+        <translation>還原上次選取範圍</translation>
     </message>
     <message>
         <source>Copy Pinned Image</source>
@@ -419,16 +419,16 @@ Replace it?</source>
         <translation>文字辨識</translation>
     </message>
     <message>
-        <source>Cursor Move Keys</source>
+        <source>Mouse Nudge Keys</source>
         <translation>滑鼠微移按鍵</translation>
     </message>
     <message>
         <source>💡 Hint: Click the input box and press the desired key combination.</source>
-        <translation>💡 提示: 點擊輸入框後按下想要的快速鍵組合。</translation>
+        <translation>💡 提示：點擊輸入框後按下想要的快速鍵組合。</translation>
     </message>
     <message>
         <source>💡 Hint: You can use modifier keys like Ctrl, Shift, Alt.</source>
-        <translation>💡 提示: 可以使用 Ctrl, Shift, Alt 等修飾鍵組合。</translation>
+        <translation>💡 提示：可以使用 Ctrl, Shift, Alt 等修飾鍵組合。</translation>
     </message>
     <message>
         <source>Stitching Engine</source>
@@ -440,7 +440,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Auto (Recommended)</source>
-        <translation>自動 (推薦)</translation>
+        <translation>自動（推薦）</translation>
     </message>
     <message>
         <source>Python Hash (Debug)</source>
@@ -452,7 +452,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Skip this many top pixels on subsequent captures during matching</source>
-        <translation>匹配時跳過後續截圖頂部的畫素行數</translation>
+        <translation>比對時跳過後續截圖頂部的畫素行數</translation>
     </message>
     <message>
         <source>Capture Behavior</source>
@@ -488,7 +488,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Select a new annotation right away, so the wheel or its handles adjust it. For tools turned off, the wheel sizes the next annotation instead.</source>
-        <translation>畫完立即選取剛畫的標註，可直接用滾輪或手柄調整。關閉的工具畫完不選取，滾輪調整的是下一個標註的大小。</translation>
+        <translation>畫完立即選取剛畫的標註，可直接用滾輪或控點調整。關閉的工具畫完不選取，滾輪調整的是下一個標註的大小。</translation>
     </message>
     <message>
         <source>All On</source>
@@ -518,15 +518,15 @@ Replace it?</source>
     </message>
     <message>
         <source>Start new text annotations at about 30 characters wide and keep them inside the selection.</source>
-        <translation>新增文字標註預設約 30 個字元寬，並限制在選區內。</translation>
+        <translation>新增文字標註預設約 30 個字元寬，並限制在選取範圍內。</translation>
     </message>
     <message>
         <source>Detection Precision</source>
-        <translation>檢測精度</translation>
+        <translation>偵測精確度</translation>
     </message>
     <message>
         <source>Snap the selection to the window or control under the cursor. Control detection reads the accessibility tree and takes longer on large windows.</source>
-        <translation>讓選區自動貼合游標下的視窗或控制項。檢測元素需要讀取無障礙樹，視窗越大耗時越久。</translation>
+        <translation>讓選取範圍自動貼合游標下的視窗或控制項。偵測控制項需要讀取無障礙樹狀結構，視窗越大越耗時。</translation>
     </message>
     <message>
         <source>Off</source>
@@ -542,15 +542,15 @@ Replace it?</source>
     </message>
     <message>
         <source>Selection Switch Animation</source>
-        <translation>選區切換動畫</translation>
+        <translation>選取範圍切換動畫</translation>
     </message>
     <message>
         <source>Slide the selection when it moves from one window or control to another.</source>
-        <translation>選區在視窗或控制項之間移動時滑動過渡。</translation>
+        <translation>選取範圍在視窗或控制項之間移動時滑動過渡。</translation>
     </message>
     <message>
         <source>💡 How to use:</source>
-        <translation>💡 使用方法:</translation>
+        <translation>💡 使用方法：</translation>
     </message>
     <message>
         <source>1. Move cursor over window during capture</source>
@@ -570,7 +570,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Lets tools that only recognize a file path (e.g. some terminal apps) paste the screenshot too. Only takes effect when the screenshot is auto-saved.</source>
-        <translation>讓只認檔案路徑的工具（如部分終端程式）也能貼上截圖。只在自動儲存時生效。</translation>
+        <translation>讓只認檔案路徑的工具（如部分終端機程式）也能貼上截圖。只在自動儲存時生效。</translation>
     </message>
     <message>
         <source>Auto-save</source>
@@ -590,11 +590,11 @@ Replace it?</source>
     </message>
     <message>
         <source>When a Pinned Image Is Created</source>
-        <translation>釘圖生成時</translation>
+        <translation>建立釘圖時</translation>
     </message>
     <message>
         <source>Saves when a selected region becomes a pinned image, including regular pins, global mouse shortcut pins, long screenshot pins, and more.</source>
-        <translation>選擇區域生成釘圖時自動儲存，包括普通釘圖、全域滑鼠釘圖、長截圖釘圖等。</translation>
+        <translation>選取的區域變成釘圖時自動儲存，包括普通釘圖、全域滑鼠釘圖、長截圖釘圖等。</translation>
     </message>
     <message>
         <source>Also Save the Original</source>
@@ -610,7 +610,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Save Format:</source>
-        <translation>儲存格式:</translation>
+        <translation>儲存格式：</translation>
     </message>
     <message>
         <source>File format for auto-saved screenshots.</source>
@@ -618,15 +618,15 @@ Replace it?</source>
     </message>
     <message>
         <source>Save Quality:</source>
-        <translation>儲存品質:</translation>
+        <translation>儲存品質：</translation>
     </message>
     <message>
         <source>Compression quality (1-100). Only affects JPG and WebP.</source>
-        <translation>壓縮品質 (1-100)，僅影響 JPG 和 WebP。</translation>
+        <translation>壓縮品質（1–100），僅影響 JPG 和 WebP。</translation>
     </message>
     <message>
         <source>💡 Hint: Even with auto-save off, it will be copied to clipboard.</source>
-        <translation>💡 提示: 即使關閉自動儲存，也會複製到剪貼簿。</translation>
+        <translation>💡 提示：即使關閉自動儲存，也會複製到剪貼簿。</translation>
     </message>
     <message>
         <source>Select Screenshot Save Folder</source>
@@ -634,19 +634,19 @@ Replace it?</source>
     </message>
     <message>
         <source>No OCR Version / OCR module not found</source>
-        <translation>無OCR版本 / 未找到OCR模組</translation>
+        <translation>無 OCR 版本 / 找不到 OCR 模組</translation>
     </message>
     <message>
         <source>This is a casual version without OCR.</source>
-        <translation>這是一個不帶OCR的簡易版本。</translation>
+        <translation>這是不含 OCR 的精簡版。</translation>
     </message>
     <message>
         <source>If you need OCR features, please download the full version,</source>
-        <translation>如需OCR功能，請下載完整版，</translation>
+        <translation>如需 OCR 功能，請下載完整版，</translation>
     </message>
     <message>
         <source>or contact the developer:</source>
-        <translation>或聯絡開發者:</translation>
+        <translation>或聯絡開發者：</translation>
     </message>
     <message>
         <source>Automatically recognize text after pinning</source>
@@ -654,7 +654,7 @@ Replace it?</source>
     </message>
     <message>
         <source>On very low-end computers, OCR after pinning may cause a brief stutter. Turn off automatic recognition if needed.</source>
-        <translation>超低配電腦上，釘圖後的 OCR 可能導致瞬時卡頓，可以關閉自動文字辨識。</translation>
+        <translation>規格很低的電腦上，釘圖後的 OCR 可能造成短暫停頓，可以關閉自動文字辨識。</translation>
     </message>
     <message>
         <source>OCR Engine</source>
@@ -694,23 +694,23 @@ Replace it?</source>
     </message>
     <message>
         <source>The Snipping Tool engine is faster and reads more languages, but needs the Snipping Tool from Windows 11. PP-OCR works on any Windows.</source>
-        <translation>截圖工具引擎更快、支援的語言更多，但需要 Windows 11 的截圖工具。PP-OCR 在任何 Windows 上都能用。</translation>
+        <translation>剪取工具引擎更快、支援的語言更多，但需要 Windows 11 的剪取工具。PP-OCR 在任何 Windows 上都能用。</translation>
     </message>
     <message>
         <source>Windows Snipping Tool</source>
-        <translation>Windows 截圖工具</translation>
+        <translation>Windows 剪取工具</translation>
     </message>
     <message>
         <source>OCR unavailable: install the Snipping Tool from the Microsoft Store, or download the full version</source>
-        <translation>OCR 不可用：請從 Microsoft Store 安裝截圖工具，或下載完整版</translation>
+        <translation>OCR 無法使用：請從 Microsoft Store 安裝剪取工具，或下載完整版</translation>
     </message>
     <message>
         <source>Auto language detection: Supports Chinese, Japanese, English mixed recognition</source>
-        <translation>自動語言檢測: 支援中日英混合辨識</translation>
+        <translation>自動語言偵測：支援中日英混合辨識</translation>
     </message>
     <message>
         <source>Grayscale Conversion</source>
-        <translation>灰度轉換</translation>
+        <translation>灰階轉換</translation>
     </message>
     <message>
         <source>Image Upscale</source>
@@ -718,11 +718,11 @@ Replace it?</source>
     </message>
     <message>
         <source>Scale:</source>
-        <translation>倍率:</translation>
+        <translation>倍率：</translation>
     </message>
     <message>
         <source>💡 Supports 100+ languages: Chinese, English, Japanese, Korean, Arabic, etc.</source>
-        <translation>💡 支援100+種語言：中文、英語、日語、韓語、阿拉伯語等</translation>
+        <translation>💡 支援 100+ 種語言：中文、英語、日語、韓語、阿拉伯語等</translation>
     </message>
     <message>
         <source>Save Logs</source>
@@ -730,15 +730,15 @@ Replace it?</source>
     </message>
     <message>
         <source>Saves app activity logs to file.</source>
-        <translation>將應用活動日誌儲存到檔案。</translation>
+        <translation>將應用程式活動日誌儲存到檔案。</translation>
     </message>
     <message>
         <source>Log Level</source>
-        <translation>日誌級別</translation>
+        <translation>日誌層級</translation>
     </message>
     <message>
         <source>Minimum log level to record</source>
-        <translation>記錄的最低日誌級別</translation>
+        <translation>記錄的最低日誌層級</translation>
     </message>
     <message>
         <source>Retention Period</source>
@@ -754,7 +754,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Save Location:</source>
-        <translation>儲存位置:</translation>
+        <translation>儲存位置：</translation>
     </message>
     <message>
         <source>Select Log Save Folder</source>
@@ -762,15 +762,15 @@ Replace it?</source>
     </message>
     <message>
         <source>Current Log:</source>
-        <translation>目前日誌:</translation>
+        <translation>目前日誌：</translation>
     </message>
     <message>
         <source>Current Log: (Not generated)  *Log will be created after app starts</source>
-        <translation>目前日誌: (未生成)  *日誌將在應用啟動後建立</translation>
+        <translation>目前日誌：（未產生）  *日誌將在應用程式啟動後建立</translation>
     </message>
     <message>
         <source>Current Log: (Not generated)</source>
-        <translation>目前日誌: (未生成)</translation>
+        <translation>目前日誌：（未產生）</translation>
     </message>
     <message>
         <source>Log</source>
@@ -778,7 +778,7 @@ Replace it?</source>
     </message>
     <message>
         <source>No log files yet. Please start and use the app first.</source>
-        <translation>還沒有日誌檔案。請先啟動並使用應用。</translation>
+        <translation>還沒有日誌檔案。請先啟動並使用應用程式。</translation>
     </message>
     <message>
         <source>Log save location changed.</source>
@@ -802,23 +802,23 @@ Replace it?</source>
     </message>
     <message>
         <source>Run as Administrator</source>
-        <translation>以管理員身份執行</translation>
+        <translation>以系統管理員身分執行</translation>
     </message>
     <message>
         <source>Lets screenshots capture administrator windows such as Task Manager. Launching it by hand also runs as administrator, without a UAC prompt.</source>
-        <translation>可以擷取工作管理員等管理員視窗。手動啟動時也以管理員身份執行，不彈 UAC 確認。</translation>
+        <translation>可以擷取工作管理員等系統管理員視窗。手動啟動時也以系統管理員身分執行，不會跳出 UAC 確認。</translation>
     </message>
     <message>
         <source>Changing it asks for administrator permission. Turning it on restarts the program as administrator.</source>
-        <translation>更改時會請求管理員權限，開啟後程式會以管理員身份重新啟動。</translation>
+        <translation>更改時會要求系統管理員權限，開啟後程式會以系統管理員身分重新啟動。</translation>
     </message>
     <message>
         <source>Run as administrator was not turned on.</source>
-        <translation>未能開啟以管理員身份執行。</translation>
+        <translation>未能開啟以系統管理員身分執行。</translation>
     </message>
     <message>
         <source>Run as administrator could not be turned off. It still starts as administrator at sign-in.</source>
-        <translation>未能關閉以管理員身份執行，登入時仍會以管理員身份啟動。</translation>
+        <translation>未能關閉以系統管理員身分執行，登入時仍會以系統管理員身分啟動。</translation>
     </message>
     <message>
         <source>Show Main Window on Startup</source>
@@ -834,11 +834,11 @@ Replace it?</source>
     </message>
     <message>
         <source>On: Shows toolbar when mouse enters pinned window.</source>
-        <translation>開: 滑鼠進入釘圖視窗時顯示工具列。</translation>
+        <translation>開：滑鼠進入釘圖視窗時顯示工具列。</translation>
     </message>
     <message>
         <source>Off: Show via right-click toolbar button.</source>
-        <translation>關: 透過右鍵選單工具列按鈕顯示。</translation>
+        <translation>關：透過右鍵選單工具列按鈕顯示。</translation>
     </message>
     <message>
         <source>Language</source>
@@ -854,7 +854,7 @@ Replace it?</source>
     </message>
     <message>
         <source>💡 Hint: Even with background startup, you can operate from system tray.</source>
-        <translation>💡 提示: 即使背景啟動，也可以透過系統匣操作。</translation>
+        <translation>💡 提示：即使背景啟動，也可以透過系統匣操作。</translation>
     </message>
     <message>
         <source>Backup</source>
@@ -902,7 +902,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Click the button on the right to test the translation API</source>
-        <translation>點擊右側按鈕測試翻譯介面</translation>
+        <translation>點擊右側按鈕測試翻譯 API</translation>
     </message>
     <message>
         <source>DeepL API</source>
@@ -954,7 +954,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Optional, for temporary credentials</source>
-        <translation>可選，用於臨時憑證</translation>
+        <translation>可選，用於暫時性憑證</translation>
     </message>
     <message>
         <source>Google Cloud Translation</source>
@@ -978,7 +978,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Azure Endpoint</source>
-        <translation>Azure 終結點</translation>
+        <translation>Azure 端點</translation>
     </message>
     <message>
         <source>Optional, use default if empty</source>
@@ -997,7 +997,7 @@ Replace it?</source>
         <translation>主控台「開發者資訊」裡與 APPID 成對的金鑰</translation>
     </message>
     <message>
-        <source>Baidu Translate Open Platform</source>
+        <source>Baidu Translate Open Platform · Developer Info</source>
         <translation>百度翻譯開放平臺 · 開發者資訊</translation>
     </message>
     <message>
@@ -1010,11 +1010,11 @@ Replace it?</source>
     </message>
     <message>
         <source>API Base URL</source>
-        <translation>API 地址</translation>
+        <translation>API 位址</translation>
     </message>
     <message>
         <source>LLM translation: better with context and idioms, but slower, billed per token, and may refuse some content</source>
-        <translation>大模型翻譯：更懂上下文和習慣用法，但更慢、按 token 計費，且可能拒絕部分內容</translation>
+        <translation>大型語言模型翻譯：更能掌握上下文與慣用語，但速度較慢、依 token 計費，且可能拒絕處理部分內容</translation>
     </message>
     <message>
         <source>Target Language</source>
@@ -1082,7 +1082,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Timeout (s)</source>
-        <translation>超時（秒）</translation>
+        <translation>逾時（秒）</translation>
     </message>
     <message>
         <source>Parallel requests</source>
@@ -1106,7 +1106,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Extra Body</source>
-        <translation>附加請求體</translation>
+        <translation>附加要求本文</translation>
     </message>
     <message>
         <source>JSON Mode</source>
@@ -1114,7 +1114,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Ask for JSON replies. If the service rejects it, the request is retried without; turn it off to skip that retry</source>
-        <translation>要求模型以 JSON 回覆。服務不支援時會去掉後自動重試一次；關閉可省掉這次重試</translation>
+        <translation>要求模型以 JSON 回覆。服務不支援時，會移除此要求後自動重試一次；關閉可省去這次重試</translation>
     </message>
     <message>
         <source>Optional for local models</source>
@@ -1134,7 +1134,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Fetch Models</source>
-        <translation>獲取模型</translation>
+        <translation>取得模型</translation>
     </message>
     <message>
         <source>Test Connection</source>
@@ -1146,11 +1146,11 @@ Replace it?</source>
     </message>
     <message>
         <source>Fetching models...</source>
-        <translation>正在獲取模型…</translation>
+        <translation>正在取得模型…</translation>
     </message>
     <message>
         <source>No models returned</source>
-        <translation>服務沒有返回任何模型</translation>
+        <translation>服務沒有傳回任何模型</translation>
     </message>
     <message>
         <source>Copy to Clipboard</source>
@@ -1218,7 +1218,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Hover Buttons</source>
-        <translation>懸停時顯示按鈕</translation>
+        <translation>滑鼠移過時顯示按鈕</translation>
     </message>
     <message>
         <source>Show the close and toolbar buttons in the top-right corner when the mouse is over a pinned image. When off, use the right-click menu or shortcuts.</source>
@@ -1230,7 +1230,7 @@ Replace it?</source>
     </message>
     <message>
         <source>What this hotkey takes from the clipboard. When it holds both a picture and text, such as copied spreadsheet cells, the picture is pinned.</source>
-        <translation>這個快速鍵從剪貼簿釘住哪些內容。剪貼簿裡同時有圖片和文字時（如複製的表格儲存格），釘圖片。</translation>
+        <translation>這個快速鍵會釘選剪貼簿中的哪些內容。剪貼簿裡同時有圖片和文字時（如複製的表格儲存格），會釘選圖片。</translation>
     </message>
     <message>
         <source>Image</source>
@@ -1238,11 +1238,11 @@ Replace it?</source>
     </message>
     <message>
         <source>Screenshots, copied pictures and picture files. Animated GIF and WebP files play.</source>
-        <translation>截圖、複製的圖片和圖片檔；GIF、WebP 動圖會播放。</translation>
+        <translation>截圖、複製的圖片和圖片檔；GIF、WebP 動態圖片會播放。</translation>
     </message>
     <message>
         <source>Copied text, formatted when Keep Text Formatting is on.</source>
-        <translation>複製的文字；開著「保留文字格式」時帶格式。</translation>
+        <translation>複製的文字；開啟「保留文字格式」時會保留格式。</translation>
     </message>
     <message>
         <source>Keep Text Formatting</source>
@@ -1314,11 +1314,11 @@ Replace it?</source>
     </message>
     <message>
         <source>Toggle Pin Thumbnail</source>
-        <translation>快速縮略釘圖</translation>
+        <translation>快速縮圖釘圖</translation>
     </message>
     <message>
         <source>Select Thumbnail Region</source>
-        <translation>選區縮略釘圖</translation>
+        <translation>選取範圍縮圖釘圖</translation>
     </message>
     <message>
         <source>Copy Selected Text</source>
@@ -1382,7 +1382,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Opacity of a pinned image when click-through starts from its right-click menu. The slider on the bar above it still adjusts each image.</source>
-        <translation>從右鍵選單開啟滑鼠穿透時釘圖的不透明度。穿透時釘圖上方工具條的滑塊仍可單獨調整。</translation>
+        <translation>從右鍵選單開啟滑鼠穿透時釘圖的不透明度。穿透時釘圖上方工具列的滑桿仍可單獨調整。</translation>
     </message>
     <message>
         <source>Keyboard Shortcuts</source>
@@ -1410,7 +1410,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Zoom Step</source>
-        <translation>縮放步長</translation>
+        <translation>縮放幅度</translation>
     </message>
     <message>
         <source>How much one wheel notch zooms, relative to the original size.</source>
@@ -1418,7 +1418,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Fine Zoom Step</source>
-        <translation>精細縮放步長</translation>
+        <translation>精細縮放幅度</translation>
     </message>
     <message>
         <source>Zoom step for the fine zoom mouse shortcut (Alt + wheel by default).</source>
@@ -1426,7 +1426,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Opacity Step</source>
-        <translation>不透明度步長</translation>
+        <translation>不透明度幅度</translation>
     </message>
     <message>
         <source>Opacity change per notch of the opacity mouse shortcut (Ctrl + wheel by default).</source>
@@ -1538,7 +1538,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Ending the screen annotation keeps its drawings; they come back the next time it starts.</source>
-        <translation>退出螢幕標註時保留畫出的內容，下次開始時恢復。</translation>
+        <translation>結束螢幕標註時保留畫出的內容，下次開始時恢復。</translation>
     </message>
     <message>
         <source>Screen Annotation</source>
@@ -1590,11 +1590,11 @@ Replace it?</source>
     </message>
     <message>
         <source>Bottom Center of the Screen</source>
-        <translation>螢幕底部居中</translation>
+        <translation>螢幕底部置中</translation>
     </message>
     <message>
         <source>Top Center of the Screen</source>
-        <translation>螢幕頂部居中</translation>
+        <translation>螢幕頂部置中</translation>
     </message>
     <message>
         <source>Toolbar Invisible to Screen Capture</source>
@@ -1602,7 +1602,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Keeps the toolbar and its panels out of recordings, screenshots, screen sharing, remote desktop and other screen capture; you still see them. Turn off to let them be captured, for example when recording a tutorial.</source>
-        <translation>讓工具列及其面板不會被螢幕錄影、截圖、螢幕分享、遠端畫面等擷取，你自己照常看得見。錄教學等需要錄進工具列時可關掉。</translation>
+        <translation>讓工具列及其面板不會被螢幕錄影、截圖、螢幕分享、遠端桌面等擷取，你自己仍能正常看到。錄製教學影片等需要錄進工具列時可關掉。</translation>
     </message>
     <message>
         <source>Screen Recording</source>
@@ -1610,7 +1610,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Keeps the recording toolbar, its panels and menus out of the recording while they sit inside the recording area, such as when recording the full screen; you still see them. Turn off to record them too.</source>
-        <translation>錄製全螢幕等情況下，工具列及其面板、選單落在錄製區域內時不會被錄進去，你自己照常看得見。需要錄進工具列時可關掉。</translation>
+        <translation>錄製全螢幕等情況下，工具列及其面板、選單落在錄製區域內時不會被錄進去，你自己仍能正常看到。需要錄進工具列時可關掉。</translation>
     </message>
     <message>
         <source>Where It Was Last</source>
@@ -1654,7 +1654,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Green Mode</source>
-        <translation>綠色模式</translation>
+        <translation>可攜模式</translation>
     </message>
     <message>
         <source>Keep the settings in the program's folder; copy the whole folder to take them along.</source>
@@ -1674,7 +1674,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Scan QR code / barcode</source>
-        <translation>掃碼（二維碼 / 條碼）</translation>
+        <translation>掃描 QR Code / 條碼</translation>
     </message>
     <message>
         <source>File Name Settings</source>
@@ -1721,11 +1721,11 @@ Replace it?</source>
     </message>
     <message>
         <source>Failed to capture the selected area.</source>
-        <translation>無法獲取截圖區域！</translation>
+        <translation>無法取得截圖區域！</translation>
     </message>
     <message>
         <source>Please configure DeepL API key in Settings.</source>
-        <translation>請先在設定中配置 DeepL API 金鑰</translation>
+        <translation>請先在設定中設定 DeepL API 金鑰</translation>
     </message>
     <message>
         <source>Save Failed</source>
@@ -1748,7 +1748,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Please configure DeepL API key in Settings.</source>
-        <translation>請先在設定中配置 DeepL API 金鑰</translation>
+        <translation>請先在設定中設定 DeepL API 金鑰</translation>
     </message>
 </context>
 <context>
@@ -1763,7 +1763,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Ctrl+click any editable annotation to edit it temporarily</source>
-        <translation>按住 Ctrl 點擊任意可編輯標註，可臨時編輯</translation>
+        <translation>按住 Ctrl 點擊任意可編輯標註，可暫時編輯</translation>
     </message>
     <message>
         <source>Mosaic (mouse wheel to resize)</source>
@@ -1791,11 +1791,11 @@ Replace it?</source>
     </message>
     <message>
         <source>Pen tool (hold Shift for straight line)</source>
-        <translation>畫筆工具（按住Shift畫直線）</translation>
+        <translation>畫筆工具（按住 Shift 畫直線）</translation>
     </message>
     <message>
         <source>Highlighter (hold Shift for straight line)</source>
-        <translation>螢光筆（按住Shift畫直線）</translation>
+        <translation>螢光筆（按住 Shift 畫直線）</translation>
     </message>
     <message>
         <source>Draw arrow</source>
@@ -1803,15 +1803,15 @@ Replace it?</source>
     </message>
     <message>
         <source>Number (Shift+scroll to change number)</source>
-        <translation>序號（Shift+滾輪可變號）</translation>
+        <translation>序號（Shift+滾輪可更改號碼）</translation>
     </message>
     <message>
         <source>Draw rectangle (hold Shift for square)</source>
-        <translation>繪製矩形（按住Shift畫正方形）</translation>
+        <translation>繪製矩形（按住 Shift 畫正方形）</translation>
     </message>
     <message>
         <source>Draw ellipse (hold Shift for circle)</source>
-        <translation>繪製橢圓（按住Shift畫正圓）</translation>
+        <translation>繪製橢圓（按住 Shift 畫正圓）</translation>
     </message>
     <message>
         <source>Add text</source>
@@ -1839,11 +1839,11 @@ Replace it?</source>
     </message>
     <message>
         <source>Scan code</source>
-        <translation>掃碼</translation>
+        <translation>掃描 QR Code</translation>
     </message>
     <message>
         <source>Recognizing...</source>
-        <translation>辨識中...</translation>
+        <translation>辨識中…</translation>
     </message>
     <message>
         <source>Pin image</source>
@@ -1927,7 +1927,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Exit screen annotation</source>
-        <translation>退出螢幕標註</translation>
+        <translation>結束螢幕標註</translation>
     </message>
     <message>
         <source>Toggle whiteboard</source>
@@ -1994,7 +1994,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Recognizing...</source>
-        <translation>辨識中...</translation>
+        <translation>辨識中…</translation>
     </message>
     <message>
         <source>Text selection on</source>
@@ -2178,11 +2178,11 @@ Replace it?</source>
     </message>
     <message>
         <source>Copy animation</source>
-        <translation>複製動圖</translation>
+        <translation>複製動態圖片</translation>
     </message>
     <message>
         <source>Copy current frame</source>
-        <translation>複製目前幀</translation>
+        <translation>複製目前影格</translation>
     </message>
     <message>
         <source>Play</source>
@@ -2194,11 +2194,11 @@ Replace it?</source>
     </message>
     <message>
         <source>Next frame</source>
-        <translation>下一幀</translation>
+        <translation>下一影格</translation>
     </message>
     <message>
         <source>Previous frame</source>
-        <translation>上一幀</translation>
+        <translation>上一影格</translation>
     </message>
     <message>
         <source>Faster</source>
@@ -2218,11 +2218,11 @@ Replace it?</source>
     </message>
     <message>
         <source>Frame: %1</source>
-        <translation>幀：%1</translation>
+        <translation>影格：%1</translation>
     </message>
     <message>
         <source>Save Animation</source>
-        <translation>儲存動圖</translation>
+        <translation>儲存動態圖片</translation>
     </message>
     <message>
         <source>Pin Many Images</source>
@@ -2261,7 +2261,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Exit click-through</source>
-        <translation>退出滑鼠穿透</translation>
+        <translation>結束滑鼠穿透</translation>
     </message>
 </context>
 <context>
@@ -2276,7 +2276,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Vertical</source>
-        <translation>豎向</translation>
+        <translation>直向</translation>
     </message>
     <message>
         <source>Horizontal</source>
@@ -2288,15 +2288,15 @@ Replace it?</source>
     </message>
     <message>
         <source>Press Shift or click button</source>
-        <translation>Shift或點右側計數</translation>
+        <translation>Shift 或點右側計數</translation>
     </message>
     <message>
         <source>Screenshots: 0</source>
-        <translation>截圖: 0 張</translation>
+        <translation>截圖：0 張</translation>
     </message>
     <message>
         <source>Screenshots: {count}</source>
-        <translation>截圖: {count} 張</translation>
+        <translation>截圖：{count} 張</translation>
     </message>
     <message>
         <source>Click to take screenshot manually</source>
@@ -2379,7 +2379,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Delayed Screenshot</source>
-        <translation>延時截圖</translation>
+        <translation>延遲截圖</translation>
     </message>
     <message>
         <source>Screen Recording</source>
@@ -2395,7 +2395,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Disable Global Hotkeys</source>
-        <translation>禁用全域熱鍵</translation>
+        <translation>停用全域熱鍵</translation>
     </message>
     <message>
         <source>Pause Hotkeys While Gaming</source>
@@ -2411,7 +2411,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Exit</source>
-        <translation>退出</translation>
+        <translation>結束</translation>
     </message>
     <message>
         <source>Close all pinned windows</source>
@@ -2427,11 +2427,11 @@ Replace it?</source>
     </message>
     <message>
         <source>Thumbnail all pins</source>
-        <translation>縮圖所有釘圖</translation>
+        <translation>將所有釘圖縮成縮圖</translation>
     </message>
     <message>
         <source>Restore all pin thumbnails</source>
-        <translation>取消縮略所有釘圖</translation>
+        <translation>還原所有釘圖的縮圖</translation>
     </message>
     <message>
         <source>Hide all pins</source>
@@ -2498,11 +2498,11 @@ Replace it?</source>
     </message>
     <message>
         <source>Exit</source>
-        <translation>退出</translation>
+        <translation>結束</translation>
     </message>
     <message>
         <source>Pin Clipboard Image</source>
-        <translation>生成釘圖</translation>
+        <translation>建立釘圖</translation>
     </message>
     <message>
         <source>Hotkey Registration Failed</source>
@@ -2522,7 +2522,7 @@ Replace it?</source>
     </message>
     <message>
         <source>System tray not available</source>
-        <translation>系統匣不可用</translation>
+        <translation>系統匣無法使用</translation>
     </message>
     <message>
         <source>Finish capturing or saving before updating. The download has been kept.</source>
@@ -2605,11 +2605,11 @@ Replace it?</source>
     </message>
     <message>
         <source>Always on top: ON</source>
-        <translation>置頂: 開啟</translation>
+        <translation>置頂：開啟</translation>
     </message>
     <message>
         <source>Always on top: OFF</source>
-        <translation>置頂: 關閉</translation>
+        <translation>置頂：關閉</translation>
     </message>
     <message>
         <source>Translate text</source>
@@ -2617,19 +2617,19 @@ Replace it?</source>
     </message>
     <message>
         <source>Translating...</source>
-        <translation>正在翻譯...</translation>
+        <translation>正在翻譯…</translation>
     </message>
     <message>
         <source>Enter text to translate...</source>
-        <translation>輸入要翻譯的文字...</translation>
+        <translation>輸入要翻譯的文字…</translation>
     </message>
     <message>
         <source>Translation will appear here...</source>
-        <translation>翻譯結果將顯示在這裡...</translation>
+        <translation>翻譯結果將顯示在這裡…</translation>
     </message>
     <message>
         <source>Auto Detect</source>
-        <translation>自動檢測</translation>
+        <translation>自動偵測</translation>
     </message>
     <message>
         <source>Chinese</source>
@@ -2697,19 +2697,19 @@ Replace it?</source>
     </message>
     <message>
         <source>No voice installed for this language. Add one in Windows Settings &gt; Time &amp; language &gt; Speech.</source>
-        <translation>沒有安裝這種語言的語音，可在 Windows 設定 &gt; 時間和語言 &gt; 語音 中新增。</translation>
+        <translation>沒有安裝這種語言的語音，可在 Windows 設定 &gt; 時間與語言 &gt; 語音 中新增。</translation>
     </message>
     <message>
         <source>Enter or paste text...</source>
-        <translation>輸入或貼上文字...</translation>
+        <translation>輸入或貼上文字…</translation>
     </message>
     <message>
         <source>Engine not configured</source>
-        <translation>未配置引擎</translation>
+        <translation>尚未設定引擎</translation>
     </message>
     <message>
         <source>API key not configured</source>
-        <translation>未配置 API 金鑰，請前往設定中配置。</translation>
+        <translation>尚未設定 API 金鑰，請前往設定。</translation>
     </message>
     <message>
         <source>Open full window</source>
@@ -2761,7 +2761,7 @@ Replace it?</source>
     </message>
     <message>
         <source>OCR is not available</source>
-        <translation>OCR 功能不可用</translation>
+        <translation>OCR 功能無法使用</translation>
     </message>
     <message>
         <source>No text recognized</source>
@@ -2784,7 +2784,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Get your API key from DeepL website (free tier available)</source>
-        <translation>從Deepl網站獲取API金鑰（有免費版）</translation>
+        <translation>從 DeepL 網站取得 API 金鑰（有免費版）</translation>
     </message>
     <message>
         <source>Show Key</source>
@@ -2800,7 +2800,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Advanced Options</source>
-        <translation>高階選項</translation>
+        <translation>進階選項</translation>
     </message>
     <message>
         <source>Auto Split Sentences</source>
@@ -2816,15 +2816,15 @@ Replace it?</source>
     </message>
     <message>
         <source>DeepL free tier: 500,000 chars/month. Get API key at</source>
-        <translation>DeepL 免費版：每月 50 萬字元。獲取 API 金鑰：</translation>
+        <translation>DeepL 免費版：每月 50 萬字元。取得 API 金鑰：</translation>
     </message>
     <message>
         <source>DeepL offers a free API tier with 500,000 characters/month.</source>
-        <translation>DeepL提供免費API，每月50萬字元額度。</translation>
+        <translation>DeepL 提供免費 API，每月 50 萬字元額度。</translation>
     </message>
     <message>
         <source>Visit https://www.deepl.com/pro-api to get your API key.</source>
-        <translation>訪問 https://www.deepl.com/pro-api 獲取您的API金鑰。</translation>
+        <translation>前往 https://www.deepl.com/pro-api 取得您的 API 金鑰。</translation>
     </message>
     <message>
         <source>SecretId</source>
@@ -2852,7 +2852,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Tencent Cloud TMT: about 5M free characters/month. The API rejects overuse itself; the local quota guard (default on) is extra protection.</source>
-        <translation>騰訊雲機器翻譯：每月約 500 萬免費字元。介面自身會拒絕超額請求，本機額度保護（預設開啟）作為額外保險。</translation>
+        <translation>騰訊雲機器翻譯：每月約 500 萬免費字元。API 本身會拒絕超額請求，本機額度保護（預設開啟）作為額外保險。</translation>
     </message>
     <message>
         <source>Volcengine Console</source>
@@ -2991,7 +2991,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Apply time filter</source>
-        <translation>應用時間篩選</translation>
+        <translation>套用時間篩選</translation>
     </message>
     <message>
         <source>Close filters</source>
@@ -3030,8 +3030,8 @@ Replace it?</source>
         <translation>顯示時間</translation>
     </message>
     <message>
-        <source>Hide Grouped Items from All</source>
-        <translation>「全部」中隱藏已分組內容</translation>
+        <source>Hide Grouped Items from History</source>
+        <translation>「剪貼簿歷史」中隱藏已分組內容</translation>
     </message>
     <message>
         <source>More Settings</source>
@@ -3047,7 +3047,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Separator</source>
-        <translation>分隔符</translation>
+        <translation>分隔符號</translation>
     </message>
     <message>
         <source>New Line</source>
@@ -3063,7 +3063,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Tab</source>
-        <translation>製表符</translation>
+        <translation>定位字元</translation>
     </message>
     <message>
         <source>Comma</source>
@@ -3071,7 +3071,7 @@ Replace it?</source>
     </message>
     <message>
         <source>No Separator</source>
-        <translation>無分隔符</translation>
+        <translation>無分隔符號</translation>
     </message>
     <message>
         <source>Custom, \n for a new line</source>
@@ -3175,7 +3175,7 @@ Items in the group will be moved back to clipboard history.</source>
     </message>
     <message>
         <source>Are you sure you want to delete this item?</source>
-        <translation>確定要刪除他嗎？</translation>
+        <translation>確定要刪除這筆內容嗎？</translation>
     </message>
     <message>
         <source>Delete Group</source>
@@ -3191,7 +3191,7 @@ Items in the group will be moved back to clipboard history.</source>
     </message>
     <message>
         <source>Pin to Screen</source>
-        <translation>生成釘圖</translation>
+        <translation>釘到螢幕</translation>
     </message>
     <message>
         <source>Save as</source>
@@ -3203,7 +3203,7 @@ Items in the group will be moved back to clipboard history.</source>
     </message>
     <message>
         <source>Image data is unavailable.</source>
-        <translation>圖片資料不可用。</translation>
+        <translation>圖片資料無法使用。</translation>
     </message>
     <message>
         <source>Failed to load image data.</source>
@@ -3259,7 +3259,7 @@ Pinned items and items in groups will be kept.
 This action cannot be undone.</source>
         <translation>確定要清空剪貼簿歷史嗎？
 置頂和分組中的內容會保留。
-此操作不可恢復。</translation>
+此動作無法復原。</translation>
     </message>
     <message>
         <source>Paste</source>
@@ -3303,11 +3303,11 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>SQL IN Clause</source>
-        <translation>SQL IN 句</translation>
+        <translation>SQL IN 子句</translation>
     </message>
     <message>
         <source>Remove Line Breaks</source>
-        <translation>移除換行符</translation>
+        <translation>移除換行字元</translation>
     </message>
     <message>
         <source>Remove All Whitespace</source>
@@ -3343,7 +3343,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Exit multi-select</source>
-        <translation>退出多選</translation>
+        <translation>結束多選</translation>
     </message>
     <message>
         <source>Multi-select</source>
@@ -3371,7 +3371,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Stitch Vertically and Paste</source>
-        <translation>豎向拼接後貼上</translation>
+        <translation>直向拼接後貼上</translation>
     </message>
     <message>
         <source>Stitch Horizontally and Paste</source>
@@ -3387,11 +3387,11 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Extract Digits</source>
-        <translation>僅提取數字</translation>
+        <translation>僅保留數字</translation>
     </message>
     <message>
         <source>Extract Letters</source>
-        <translation>僅提取字母</translation>
+        <translation>僅保留字母</translation>
     </message>
     <message>
         <source>Clear History</source>
@@ -3494,7 +3494,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Enter group name...</source>
-        <translation>輸入分組名稱...</translation>
+        <translation>輸入分組名稱…</translation>
     </message>
     <message>
         <source>Select Icon</source>
@@ -3541,8 +3541,8 @@ This action cannot be undone.</source>
         <translation>編輯隱藏分組</translation>
     </message>
     <message>
-        <source>Hidden groups are not displayed on the clipboard panel; changing to normal group restores visibility</source>
-        <translation>不在剪貼簿面板顯示，設為普通分組即恢復</translation>
+        <source>Hidden groups are not displayed on the clipboard panel; changing to General Group restores visibility</source>
+        <translation>不在剪貼簿面板顯示，設為通用分組即恢復</translation>
     </message>
     <message>
         <source>General groups allow any content; selecting an item pastes content or files to the target</source>
@@ -3558,11 +3558,11 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Enter or paste emoji...</source>
-        <translation>輸入或貼上表情...</translation>
+        <translation>輸入或貼上表情符號…</translation>
     </message>
     <message>
         <source>Preview:</source>
-        <translation>預覽:</translation>
+        <translation>預覽：</translation>
     </message>
     <message>
         <source>Edit Group</source>
@@ -3594,7 +3594,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Select a file...</source>
-        <translation>請選擇檔案...</translation>
+        <translation>請選擇檔案…</translation>
     </message>
     <message>
         <source>Browse</source>
@@ -3634,7 +3634,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Enter title (e.g., Restart Command)...</source>
-        <translation>輸入標題（如：重新啟動命令）...</translation>
+        <translation>輸入標題（如：重新啟動命令）…</translation>
     </message>
     <message>
         <source>Content</source>
@@ -3642,7 +3642,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Enter text content to save...</source>
-        <translation>輸入要儲存的文字內容...</translation>
+        <translation>輸入要儲存的文字內容…</translation>
     </message>
     <message>
         <source>Edit Content</source>
@@ -3650,11 +3650,11 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Enter title...</source>
-        <translation>輸入標題...</translation>
+        <translation>輸入標題…</translation>
     </message>
     <message>
         <source>Created: %s</source>
-        <translation>建立時間: %s</translation>
+        <translation>建立時間：%s</translation>
     </message>
     <message>
         <source>Hint</source>
@@ -3724,7 +3724,7 @@ Items in the group will be moved back to clipboard history.</source>
     </message>
     <message>
         <source>Are you sure you want to delete this item?</source>
-        <translation>確定要刪除這條內容嗎？</translation>
+        <translation>確定要刪除這筆內容嗎？</translation>
     </message>
     <message>
         <source>Failed to delete item</source>
@@ -3772,15 +3772,15 @@ Items in the group will be moved back to clipboard history.</source>
     </message>
     <message>
         <source>Column 1: Group Name</source>
-        <translation>第1列：組名</translation>
+        <translation>第 1 欄：組名</translation>
     </message>
     <message>
         <source>Column 2: Content</source>
-        <translation>第2列：內容</translation>
+        <translation>第 2 欄：內容</translation>
     </message>
     <message>
         <source>Column 3: Title (optional)</source>
-        <translation>第3列：標題（可選）</translation>
+        <translation>第 3 欄：標題（可選）</translation>
     </message>
     <message>
         <source>Export to CSV</source>
@@ -3796,7 +3796,7 @@ Items in the group will be moved back to clipboard history.</source>
     </message>
     <message>
         <source>Exported {count} items to CSV file.</source>
-        <translation>已匯出 {count} 條內容到 CSV 檔案。</translation>
+        <translation>已匯出 {count} 筆內容到 CSV 檔案。</translation>
     </message>
     <message>
         <source>Export Failed</source>
@@ -3816,7 +3816,7 @@ Items in the group will be moved back to clipboard history.</source>
     </message>
     <message>
         <source>Imported {count} items.</source>
-        <translation>已匯入 {count} 條內容。</translation>
+        <translation>已匯入 {count} 筆內容。</translation>
     </message>
     <message>
         <source>Import Failed</source>
@@ -3896,7 +3896,7 @@ Items in the group will be moved back to clipboard history.</source>
     </message>
     <message>
         <source>No matching content</source>
-        <translation>沒有匹配的內容</translation>
+        <translation>沒有符合的內容</translation>
     </message>
     <message>
         <source>Not shown on the panel</source>
@@ -3936,11 +3936,11 @@ Items in the group will be moved back to clipboard history.</source>
     </message>
     <message>
         <source>{count} items</source>
-        <translation>共 {count} 條</translation>
+        <translation>共 {count} 筆</translation>
     </message>
     <message>
         <source>{visible} of {count} items</source>
-        <translation>找到 {visible} 條，共 {count} 條</translation>
+        <translation>找到 {visible} 筆，共 {count} 筆</translation>
     </message>
     <message>
         <source>Copy</source>
@@ -3968,7 +3968,7 @@ Items in the group will be moved back to clipboard history.</source>
     </message>
     <message>
         <source>Save As...</source>
-        <translation>另存為...</translation>
+        <translation>另存為…</translation>
     </message>
     <message>
         <source>Text</source>
@@ -4008,7 +4008,7 @@ Items in the group will be moved back to clipboard history.</source>
     </message>
     <message>
         <source>The image was not recorded. Make sure clipboard history is turned on.</source>
-        <translation>沒有檢測到圖片被記錄，請確認剪貼簿記錄已開啟。</translation>
+        <translation>沒有偵測到圖片被記錄，請確認剪貼簿記錄已開啟。</translation>
     </message>
     <message>
         <source>There is no image on the clipboard</source>
@@ -4088,11 +4088,11 @@ Items in the group will be moved back to clipboard history.</source>
     </message>
     <message>
         <source>Source App</source>
-        <translation>來源應用</translation>
+        <translation>來源應用程式</translation>
     </message>
     <message>
         <source>Any App</source>
-        <translation>任意應用</translation>
+        <translation>任意應用程式</translation>
     </message>
     <message>
         <source>Jietuba (this app)</source>
@@ -4100,7 +4100,7 @@ Items in the group will be moved back to clipboard history.</source>
     </message>
     <message>
         <source>Choose a content type or a source app</source>
-        <translation>請選擇內容類型或來源應用</translation>
+        <translation>請選擇內容類型或來源應用程式</translation>
     </message>
 </context>
 <context>
@@ -4119,7 +4119,7 @@ Items in the group will be moved back to clipboard history.</source>
     </message>
     <message>
         <source>Automatically send Ctrl+V after selecting an item</source>
-        <translation>選擇專案後自動傳送 Ctrl+V</translation>
+        <translation>選擇項目後自動傳送 Ctrl+V</translation>
     </message>
     <message>
         <source>Group Bar Position</source>
@@ -4178,12 +4178,12 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>列表中圖片縮圖的大小</translation>
     </message>
     <message>
-        <source>Hide Grouped Items from All</source>
-        <translation>「全部」中隱藏已分組內容</translation>
+        <source>Hide Grouped Items from History</source>
+        <translation>「剪貼簿歷史」中隱藏已分組內容</translation>
     </message>
     <message>
-        <source>Items in a group no longer show in All; filter groups still list them</source>
-        <translation>加入分組的內容不再出現在「全部」中，篩選分組照常顯示</translation>
+        <source>Items in a group no longer show in Clipboard History; filter groups still list them</source>
+        <translation>加入分組的內容不再出現在「剪貼簿歷史」中，篩選分組照常顯示</translation>
     </message>
     <message>
         <source>Close After Paste</source>
@@ -4215,7 +4215,7 @@ Items in the group will be moved back to clipboard history.</source>
     </message>
     <message>
         <source>Separator</source>
-        <translation>分隔符</translation>
+        <translation>分隔符號</translation>
     </message>
     <message>
         <source>Placed between the items pasted together</source>
@@ -4259,7 +4259,7 @@ Items in the group will be moved back to clipboard history.</source>
     </message>
     <message>
         <source>Maximum number of items to keep (0 = unlimited)</source>
-        <translation>保留的最大專案數（0 = 無限制）</translation>
+        <translation>保留的最大項目數（0 = 無限制）</translation>
     </message>
     <message>
         <source>Record Content Marked Private</source>
@@ -4271,11 +4271,11 @@ Items in the group will be moved back to clipboard history.</source>
     </message>
     <message>
         <source>Auto Cleanup Old Items</source>
-        <translation>自動清理舊專案</translation>
+        <translation>自動清理舊項目</translation>
     </message>
     <message>
         <source>Automatically remove items exceeding the limit</source>
-        <translation>自動刪除超出限制的專案</translation>
+        <translation>自動刪除超出限制的項目</translation>
     </message>
     <message>
         <source>Data Storage Location</source>
@@ -4287,7 +4287,7 @@ Items in the group will be moved back to clipboard history.</source>
     </message>
     <message>
         <source>Recommended when the data folder is in OneDrive or another sync folder: the database stays one complete file. Saving is slightly slower.</source>
-        <translation>資料夾放在 OneDrive 等同步資料夾時建議開啟：資料庫始終是一個完整的檔案。儲存會稍慢一些。</translation>
+        <translation>資料所在的資料夾位於 OneDrive 等同步資料夾時建議開啟：資料庫始終是一個完整的檔案。儲存會稍慢一些。</translation>
     </message>
     <message>
         <source>Cannot switch the storage mode: the clipboard database is open in another program. Close it and try again.</source>
@@ -4299,7 +4299,7 @@ Items in the group will be moved back to clipboard history.</source>
     </message>
     <message>
         <source>Clipboard module not available</source>
-        <translation>剪貼簿模組不可用</translation>
+        <translation>剪貼簿模組無法使用</translation>
     </message>
     <message>
         <source>Clear Clipboard History</source>
@@ -4319,7 +4319,7 @@ Items in the group will be moved back to clipboard history.</source>
     </message>
     <message>
         <source>If PNG is available, skip storing DIB to save space</source>
-        <translation>若剪貼簿含PNG格式，跳過DIB儲存以節省空間</translation>
+        <translation>若剪貼簿含 PNG 格式，跳過 DIB 儲存以節省空間</translation>
     </message>
     <message>
         <source>💡 Hint: Set clipboard hotkey in Shortcuts settings.</source>
@@ -4333,7 +4333,7 @@ Items in the group will be moved back to clipboard history.</source>
         <source>Are you sure you want to clear all clipboard history?
 This action cannot be undone.</source>
         <translation>確定要清空所有剪貼簿歷史嗎？
-此操作不可恢復。</translation>
+此動作無法復原。</translation>
     </message>
     <message>
         <source>Also delete pinned and grouped content</source>
@@ -4372,11 +4372,11 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Thin Arrow</source>
-        <translation>細杆箭頭</translation>
+        <translation>細桿箭頭</translation>
     </message>
     <message>
         <source>Thin Double Arrow</source>
-        <translation>細杆雙向箭頭</translation>
+        <translation>細桿雙向箭頭</translation>
     </message>
     <message>
         <source>Dimension Line</source>
@@ -4416,7 +4416,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Opacity (%)</source>
-        <translation>透明度(%)</translation>
+        <translation>透明度（%）</translation>
     </message>
     <message>
         <source>Freehand</source>
@@ -4428,11 +4428,11 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Freehand Highlight</source>
-        <translation>自由熒光</translation>
+        <translation>自由螢光</translation>
     </message>
     <message>
         <source>Rect Highlight</source>
-        <translation>矩形熒光</translation>
+        <translation>矩形螢光</translation>
     </message>
     <message>
         <source>Number Style</source>
@@ -4507,7 +4507,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Font Size</source>
-        <translation>字號</translation>
+        <translation>字型大小</translation>
     </message>
     <message>
         <source>Bold</source>
@@ -4519,7 +4519,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Underline</source>
-        <translation>下劃線</translation>
+        <translation>底線</translation>
     </message>
     <message>
         <source>Custom Color</source>
@@ -4800,7 +4800,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>工具描述_录屏</source>
-        <translation>錄製螢幕區域為 GIF 動圖或 MP4 影片</translation>
+        <translation>錄製螢幕區域為 GIF 動畫或 MP4 影片</translation>
     </message>
     <message>
         <source>工具描述_截图翻译</source>
@@ -4898,7 +4898,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>智能选区</source>
-        <translation>智慧選區</translation>
+        <translation>智慧選取範圍</translation>
     </message>
     <message>
         <source>🌐 翻译设置</source>
@@ -4906,7 +4906,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>选择翻译引擎并填写对应凭据，之后可以随时在设置中修改。</source>
-        <translation>選擇翻譯引擎並填寫對應憑據，之後可隨時在設定中修改。</translation>
+        <translation>選擇翻譯引擎並填寫對應的憑證，之後可隨時在設定中修改。</translation>
     </message>
     <message>
         <source>翻译引擎</source>
@@ -4929,7 +4929,7 @@ This action cannot be undone.</source>
         <translation>主控台「開發者資訊」裡與 APPID 成對的金鑰</translation>
     </message>
     <message>
-        <source>Baidu Translate Open Platform</source>
+        <source>Baidu Translate Open Platform · Developer Info</source>
         <translation>百度翻譯開放平臺 · 開發者資訊</translation>
     </message>
     <message>
@@ -4942,7 +4942,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>API Base URL</source>
-        <translation>API 地址</translation>
+        <translation>API 位址</translation>
     </message>
     <message>
         <source>APPID</source>
@@ -4970,7 +4970,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>可选，临时凭据使用</source>
-        <translation>可選，供臨時憑據使用</translation>
+        <translation>可選，供暫時性憑證使用</translation>
     </message>
     <message>
         <source>使用 DeepL API 进行高质量翻译。
@@ -4984,7 +4984,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>留空则使用免费公共接口</source>
-        <translation>留空則使用免費公共介面</translation>
+        <translation>留空則使用免費公用端點</translation>
     </message>
     <message>
         <source>翻译目标语言</source>
@@ -5010,7 +5010,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>右键托盘图标访问设置</source>
-        <translation>右鍵系統匣圖示訪問設定</translation>
+        <translation>在系統匣圖示上按右鍵即可開啟設定</translation>
     </message>
     <message>
         <source>开机自启</source>
@@ -5026,7 +5026,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>开机自启和更新</source>
-        <translation>開機自啟和更新</translation>
+        <translation>開機自動啟動與更新</translation>
     </message>
     <message>
         <source>在后台下载新版本，下次启动时安装。</source>
@@ -5046,7 +5046,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>完成向导时在桌面创建截图吧快捷方式。</source>
-        <translation>完成嚮導時在桌面建立截圖吧捷徑。</translation>
+        <translation>完成設定精靈時在桌面建立截圖吧捷徑。</translation>
     </message>
     <message>
         <source>截图、文字识别、钉图、录屏、屏幕标注、剪贴板和翻译，一站搞定</source>
@@ -5090,11 +5090,11 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>点击输入框后，按下快捷键或鼠标侧键即可录入。</source>
-        <translation>點擊輸入框後，按下快速鍵或滑鼠側鍵即可錄入。</translation>
+        <translation>點擊輸入框後，按下快速鍵或滑鼠側鍵即可設定。</translation>
     </message>
     <message>
         <source>设置截图的保存方式与选区方式。</source>
-        <translation>設定截圖的儲存方式與選區方式。</translation>
+        <translation>設定截圖的儲存方式與選取範圍方式。</translation>
     </message>
     <message>
         <source>自动保存截图</source>
@@ -5102,7 +5102,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>关闭时截图只复制到剪贴板，不落盘。</source>
-        <translation>關閉時截圖只複製到剪貼簿，不落盤。</translation>
+        <translation>關閉時，截圖只會複製到剪貼簿，不會存成檔案。</translation>
     </message>
     <message>
         <source>保存格式</source>
@@ -5110,7 +5110,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>悬停时自动识别窗口边界，单击即可精准截取。</source>
-        <translation>懸停時自動辨識視窗邊界，點擊即可精準擷取。</translation>
+        <translation>滑鼠移到視窗上時自動辨識視窗邊界，按一下即可精準擷取。</translation>
     </message>
     <message>
         <source>剪贴板外观</source>
@@ -5126,7 +5126,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Azure Endpoint</source>
-        <translation>Azure 終結點</translation>
+        <translation>Azure 端點</translation>
     </message>
     <message>
         <source>Optional, use default if empty</source>
@@ -5142,7 +5142,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>不可用</source>
-        <translation>不可用</translation>
+        <translation>無法使用</translation>
     </message>
     <message>
         <source>当前按下</source>
@@ -5254,7 +5254,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>讲解、演示或共享屏幕时，直接在画面上圈重点。</source>
-        <translation>講解、演示或分享螢幕時，直接在畫面上圈重點。</translation>
+        <translation>講解、簡報或分享螢幕時，直接在畫面上圈重點。</translation>
     </message>
     <message>
         <source>不用截图，直接在任何窗口上画画、写字，结束后画面恢复原样。</source>
@@ -5278,7 +5278,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>点击输入框后，按下快捷键或鼠标侧键即可录入。备用快捷键可以在设置的「快捷键」页添加。</source>
-        <translation>點擊輸入框後，按下快速鍵或滑鼠側鍵即可錄入。備用快速鍵可以在設定的「快速鍵」頁新增。</translation>
+        <translation>點擊輸入框後，按下快速鍵或滑鼠側鍵即可設定。備用快速鍵可以在設定的「快速鍵」頁新增。</translation>
     </message>
     <message>
         <source>截图、剪贴板记录和设置各自存在哪里，之后也可以在设置里改。</source>
@@ -5317,7 +5317,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>恢复录制</source>
-        <translation>恢復錄製</translation>
+        <translation>繼續錄製</translation>
     </message>
     <message>
         <source>录制中无法移动</source>
@@ -5361,15 +5361,15 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>优先使用硬件编码（不可用时使用系统软件编码）</source>
-        <translation>優先使用硬體編碼（不可用時使用系統軟體編碼）</translation>
+        <translation>優先使用硬體編碼（無法使用時使用系統軟體編碼）</translation>
     </message>
     <message>
         <source>帧率</source>
-        <translation>幀率</translation>
+        <translation>影格速率</translation>
     </message>
     <message>
         <source>帧率（1–60）</source>
-        <translation>幀率（1–60）</translation>
+        <translation>影格速率（1–60）</translation>
     </message>
     <message>
         <source>录制格式</source>
@@ -5393,11 +5393,11 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>自定义帧率</source>
-        <translation>自訂幀率</translation>
+        <translation>自訂影格速率</translation>
     </message>
     <message>
         <source>自定义帧率…</source>
-        <translation>自訂幀率…</translation>
+        <translation>自訂影格速率…</translation>
     </message>
     <message>
         <source>视频码率</source>
@@ -5533,7 +5533,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Affects selection border, toolbar border, magnifier crosshair, etc. Restart recommended after change.</source>
-        <translation>影響選區邊框、工具列描邊、放大鏡十字線等。修改後建議重新啟動應用。</translation>
+        <translation>影響選取範圍邊框、工具列描邊、放大鏡十字線等。修改後建議重新啟動應用程式。</translation>
     </message>
     <message>
         <source>Select Theme Color</source>
@@ -5541,7 +5541,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Used for selection border, toolbar accent, magnifier crosshair.</source>
-        <translation>用於選區邊框、工具列強調色、放大鏡十字線。</translation>
+        <translation>用於選取範圍邊框、工具列強調色、放大鏡十字線。</translation>
     </message>
     <message>
         <source>Screenshot Overlay</source>
@@ -5549,7 +5549,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>The semi-transparent overlay color outside the selection area during screenshot.</source>
-        <translation>截圖時選區外部的半透明遮罩顏色。</translation>
+        <translation>截圖時選取範圍外部的半透明遮罩顏色。</translation>
     </message>
     <message>
         <source>Select Mask Color</source>
@@ -5632,7 +5632,7 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Follows the cursor while selecting, and picks the color under it.</source>
-        <translation>選區時跟隨游標顯示，並可取游標下的顏色。</translation>
+        <translation>框選範圍時跟隨游標顯示，並可擷取游標下的顏色。</translation>
     </message>
     <message>
         <source>Pixel Grid</source>
@@ -5644,11 +5644,11 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>Show Selection</source>
-        <translation>顯示選區</translation>
+        <translation>顯示選取範圍</translation>
     </message>
     <message>
         <source>Dim what lies outside the selection and draw its edge in the magnified view, to line the edge up pixel by pixel.</source>
-        <translation>在放大圖上壓暗選區以外的部分並畫出選區邊框，方便把邊緣逐畫素對準。</translation>
+        <translation>在放大圖上壓暗選取範圍以外的部分並畫出選取範圍邊框，方便把邊緣逐畫素對準。</translation>
     </message>
     <message>
         <source>Shortcut Hint</source>
@@ -5668,11 +5668,11 @@ This action cannot be undone.</source>
     </message>
     <message>
         <source>OCR text recognition · Long screenshot · Pin window · Clipboard manager · DeepL translation</source>
-        <translation>OCR文字辨識 · 長截圖 · 釘圖視窗 · 剪貼簿管理 · DeepL翻譯</translation>
+        <translation>OCR 文字辨識 · 長截圖 · 釘圖視窗 · 剪貼簿管理 · DeepL 翻譯</translation>
     </message>
     <message>
         <source>Licenses</source>
-        <translation>許可證</translation>
+        <translation>授權條款</translation>
     </message>
     <message>
         <source>MIT License</source>
@@ -5724,7 +5724,7 @@ SOFTWARE.</translation>
     </message>
     <message>
         <source>Checking...</source>
-        <translation>正在檢查...</translation>
+        <translation>正在檢查…</translation>
     </message>
     <message>
         <source>Update Check</source>
@@ -5756,7 +5756,7 @@ SOFTWARE.</translation>
     </message>
     <message>
         <source>Download:</source>
-        <translation>下載地址：</translation>
+        <translation>下載連結：</translation>
     </message>
     <message>
         <source>Open Download Page</source>
@@ -5810,7 +5810,7 @@ SOFTWARE.</translation>
     </message>
     <message>
         <source>More groups ({n})</source>
-        <translation>更多分組 ({n})</translation>
+        <translation>更多分組（{n}）</translation>
     </message>
     <message>
         <source>Edit</source>
@@ -5881,11 +5881,11 @@ Items in the group will be moved back to clipboard history.</source>
     <name>SettingsDialog</name>
     <message>
         <source>Current clipboard database path is unavailable.</source>
-        <translation>無法獲取目前剪貼簿資料庫路徑。</translation>
+        <translation>無法取得目前剪貼簿資料庫路徑。</translation>
     </message>
     <message>
         <source>Choose Clipboard Data Folder</source>
-        <translation>選擇剪貼簿資料資料夾</translation>
+        <translation>選擇剪貼簿資料的存放資料夾</translation>
     </message>
     <message>
         <source>Info</source>
@@ -5929,7 +5929,7 @@ Replace: move the current data there; the data already in that folder will be de
     </message>
     <message>
         <source>Preparing migration...</source>
-        <translation>正在準備遷移...</translation>
+        <translation>正在準備遷移…</translation>
     </message>
     <message>
         <source>Moving Clipboard Data</source>
@@ -5937,7 +5937,7 @@ Replace: move the current data there; the data already in that folder will be de
     </message>
     <message>
         <source>Finalizing migration...</source>
-        <translation>正在完成遷移...</translation>
+        <translation>正在完成遷移…</translation>
     </message>
     <message>
         <source>Migration complete.</source>
@@ -5950,12 +5950,12 @@ Replace: move the current data there; the data already in that folder will be de
     <message>
         <source>Clipboard data location changed successfully, but the old files are still in use and could not be deleted. You can remove them after restarting the app.
 {error}</source>
-        <translation>剪貼簿資料位置已更改，但舊檔案仍被佔用，暫時無法刪除。重新啟動應用後可以手動刪除。
+        <translation>剪貼簿資料位置已更改，但舊檔案仍被佔用，暫時無法刪除。重新啟動應用程式後可以手動刪除。
 {error}</translation>
     </message>
     <message>
         <source>Clipboard data moved, but reopening the database failed. Please restart the app.</source>
-        <translation>剪貼簿資料已移動，但重新開啟資料庫失敗。請重新啟動應用。</translation>
+        <translation>剪貼簿資料已移動，但重新開啟資料庫失敗。請重新啟動應用程式。</translation>
     </message>
     <message>
         <source>No clipboard data files were found to move.</source>
@@ -5963,7 +5963,7 @@ Replace: move the current data there; the data already in that folder will be de
     </message>
     <message>
         <source>Moving clipboard data... {done} / {total}</source>
-        <translation>正在移動剪貼簿資料... {done} / {total}</translation>
+        <translation>正在移動剪貼簿資料… {done} / {total}</translation>
     </message>
 </context>
 <context>
@@ -5986,7 +5986,7 @@ Replace: move the current data there; the data already in that folder will be de
     </message>
     <message>
         <source>Size of toolbars, tool panels, popups and the clipboard window.</source>
-        <translation>工具列、工具面板、彈層和剪貼簿視窗的顯示大小。</translation>
+        <translation>工具列、工具面板、彈出面板和剪貼簿視窗的顯示大小。</translation>
     </message>
     <message>
         <source>Window Scale</source>
@@ -5994,35 +5994,35 @@ Replace: move the current data there; the data already in that folder will be de
     </message>
     <message>
         <source>Font and size of application windows.</source>
-        <translation>應用視窗的字型與尺寸。</translation>
+        <translation>應用程式視窗的字型與尺寸。</translation>
     </message>
     <message>
         <source>Selection Border Width</source>
-        <translation>選區邊框粗細</translation>
+        <translation>選取範圍邊框粗細</translation>
     </message>
     <message>
         <source>Thickness of the selection outline.</source>
-        <translation>選區邊框線條的粗細。</translation>
+        <translation>選取範圍邊框線條的粗細。</translation>
     </message>
     <message>
         <source>Selection Handles</source>
-        <translation>選區手柄</translation>
+        <translation>選取範圍控點</translation>
     </message>
     <message>
         <source>Hidden handles can still be dragged to resize.</source>
-        <translation>隱藏後依然可以拖曳邊角調整選區。</translation>
+        <translation>隱藏後依然可以拖曳邊角調整選取範圍。</translation>
     </message>
     <message>
         <source>Selection Handle Size</source>
-        <translation>選區手柄大小</translation>
+        <translation>選取範圍控點大小</translation>
     </message>
     <message>
         <source>Size of the selection handles.</source>
-        <translation>選區手柄的大小。</translation>
+        <translation>選取範圍控點的大小。</translation>
     </message>
     <message>
         <source>8 handles</source>
-        <translation>8 個手柄</translation>
+        <translation>8 個控點</translation>
     </message>
     <message>
         <source>4 corners</source>
@@ -6130,7 +6130,7 @@ Replace: move the current data there; the data already in that folder will be de
     </message>
     <message>
         <source>Drag the handle to reorder. Use the drop-down to change visibility.</source>
-        <translation>拖曳左側手柄調整順序，使用下拉選單更改顯示方式。</translation>
+        <translation>拖曳左側把手調整順序，使用下拉選單更改顯示方式。</translation>
     </message>
     <message>
         <source>Restore defaults</source>
@@ -6166,7 +6166,7 @@ Replace: move the current data there; the data already in that folder will be de
     </message>
     <message>
         <source>Scan code</source>
-        <translation>掃碼</translation>
+        <translation>掃描 QR Code</translation>
     </message>
     <message>
         <source>Recognize text</source>
@@ -6250,7 +6250,7 @@ Replace: move the current data there; the data already in that folder will be de
     </message>
     <message>
         <source>Exit annotation</source>
-        <translation>退出標註</translation>
+        <translation>結束標註</translation>
     </message>
     <message>
         <source>Board</source>
@@ -6265,7 +6265,7 @@ Replace: move the current data there; the data already in that folder will be de
     <name>BarcodeResultWindow</name>
     <message>
         <source>Scan result</source>
-        <translation>掃碼結果</translation>
+        <translation>掃描結果</translation>
     </message>
     <message>
         <source>Found %1 code(s)</source>
@@ -6273,11 +6273,11 @@ Replace: move the current data there; the data already in that folder will be de
     </message>
     <message>
         <source>No QR code or barcode found</source>
-        <translation>未辨識到二維碼或條碼</translation>
+        <translation>未辨識到 QR Code 或條碼</translation>
     </message>
     <message>
         <source>Make sure the whole code is inside the selection.</source>
-        <translation>請確認碼完整地框在選區內。</translation>
+        <translation>請確認整個 QR Code 或條碼都在選取範圍內。</translation>
     </message>
     <message>
         <source>Copy</source>
@@ -6300,7 +6300,7 @@ Replace: move the current data there; the data already in that folder will be de
     </message>
     <message>
         <source>Recognizing...</source>
-        <translation>辨識中...</translation>
+        <translation>辨識中…</translation>
     </message>
     <message>
         <source>Recognized %1 characters</source>
@@ -6308,19 +6308,19 @@ Replace: move the current data there; the data already in that folder will be de
     </message>
     <message>
         <source>No text found in the selection.</source>
-        <translation>選區內沒有辨識到文字。</translation>
+        <translation>選取範圍內沒有辨識到文字。</translation>
     </message>
     <message>
-        <source>No PP-OCR model is installed. Download one in the OCR settings.</source>
-        <translation>沒有安裝 PP-OCR 模型，可在設定的「OCR設定」裡下載。</translation>
+        <source>No PP-OCR model is installed. Download one in Settings &gt; Screenshot &gt; Text Recognition.</source>
+        <translation>沒有安裝 PP-OCR 模型，可在「設定 → 截圖 → 文字辨識」裡下載。</translation>
     </message>
     <message>
-        <source>The PP-OCR model could not be loaded. Download it again or choose another one in the OCR settings.</source>
-        <translation>PP-OCR 模型載入失敗，可在設定的「OCR設定」裡重新下載或換用其他模型。</translation>
+        <source>The PP-OCR model could not be loaded. Download it again or choose another one in Settings &gt; Screenshot &gt; Text Recognition.</source>
+        <translation>PP-OCR 模型載入失敗，可在「設定 → 截圖 → 文字辨識」裡重新下載或換用其他模型。</translation>
     </message>
     <message>
-        <source>ONNX Runtime, which PP-OCR needs, is not installed. Download it in the OCR settings.</source>
-        <translation>沒有安裝 PP-OCR 所需的 ONNX Runtime，可在設定的「OCR設定」裡下載。</translation>
+        <source>ONNX Runtime, which PP-OCR needs, is not installed. Download it in Settings &gt; Screenshot &gt; Text Recognition.</source>
+        <translation>沒有安裝 PP-OCR 所需的 ONNX Runtime，可在「設定 → 截圖 → 文字辨識」裡下載。</translation>
     </message>
     <message>
         <source>This build does not include the text recognition engine.</source>
@@ -6348,7 +6348,7 @@ Replace: move the current data there; the data already in that folder will be de
     </message>
     <message>
         <source>Remove line breaks</source>
-        <translation>移除換行符</translation>
+        <translation>移除換行字元</translation>
     </message>
     <message>
         <source>Keep every line</source>
@@ -6380,11 +6380,11 @@ Replace: move the current data there; the data already in that folder will be de
     </message>
     <message>
         <source>Always on top: ON</source>
-        <translation>置頂: 開啟</translation>
+        <translation>置頂：開啟</translation>
     </message>
     <message>
         <source>Always on top: OFF</source>
-        <translation>置頂: 關閉</translation>
+        <translation>置頂：關閉</translation>
     </message>
 </context>
 <context>
@@ -6402,7 +6402,7 @@ Replace: move the current data there; the data already in that folder will be de
     </message>
     <message>
         <source>The magnifier shows one checked format at a time — Shift cycles between them, C copies whichever is shown. Drag one to the top to make it the default.</source>
-        <translation>放大鏡一次只顯示一個勾選的格式：Shift 迴圈切換，C 複製目前顯示的那個。拖到第一位的就是預設顯示的格式。</translation>
+        <translation>放大鏡一次只顯示一個勾選的格式：Shift 循環切換，C 複製目前顯示的那個。拖到第一位的就是預設顯示的格式。</translation>
     </message>
     <message>
         <source>Restore defaults</source>
@@ -6486,11 +6486,11 @@ Replace: move the current data there; the data already in that folder will be de
     </message>
     <message>
         <source>Copy a Single Code Directly</source>
-        <translation>掃碼直接複製</translation>
+        <translation>單一代碼直接複製</translation>
     </message>
     <message>
         <source>When only one QR code or barcode is found, copy its content instead of opening the result window. Multiple codes still open it.</source>
-        <translation>只辨識到一個二維碼或條碼時直接複製內容，不彈出結果視窗；辨識到多個碼時仍會彈出。</translation>
+        <translation>只辨識到一個 QR Code 或條碼時直接複製內容，不開啟結果視窗；辨識到多個時仍會開啟。</translation>
     </message>
     <message>
         <source>Global Mouse Shortcuts</source>
@@ -6498,7 +6498,7 @@ Replace: move the current data there; the data already in that folder will be de
     </message>
     <message>
         <source>In-App Mouse Shortcuts</source>
-        <translation>應用內滑鼠快速鍵</translation>
+        <translation>應用程式內滑鼠快速鍵</translation>
     </message>
     <message>
         <source>Quick Edit Text</source>
@@ -6506,7 +6506,7 @@ Replace: move the current data there; the data already in that folder will be de
     </message>
     <message>
         <source>Auto uses the HDR engine when a display has HDR turned on.</source>
-        <translation>自動：顯示器開著 HDR 時使用 HDR 引擎。</translation>
+        <translation>自動：顯示器已開啟 HDR 時使用 HDR 引擎。</translation>
     </message>
     <message>
         <source>Standard</source>
@@ -6677,8 +6677,8 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>還沒有可翻譯的內容</translation>
     </message>
     <message>
-        <source>Couldn't join. Scroll back</source>
-        <translation>沒接上，往回滾</translation>
+        <source>Couldn't join. Scroll back a little.</source>
+        <translation>拼接失敗，請把頁面往回捲動一點。</translation>
     </message>
     <message>
         <source>Stitching failed</source>
@@ -6690,7 +6690,7 @@ Replace: move the current data there; the data already in that folder will be de
     </message>
     <message>
         <source>Vertical</source>
-        <translation>豎向</translation>
+        <translation>直向</translation>
     </message>
     <message>
         <source>Horizontal</source>
@@ -6717,7 +6717,7 @@ Replace: move the current data there; the data already in that folder will be de
     <name>GifRecorder</name>
     <message>
         <source>gifrecorder unavailable</source>
-        <translation>gifrecorder 不可用</translation>
+        <translation>gifrecorder 無法使用</translation>
     </message>
     <message>
         <source>The gifrecorder module was not found, so the GIF cannot be exported.
@@ -6741,7 +6741,7 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>GIF animation (*.gif)</source>
-        <translation>GIF 動圖 (*.gif)</translation>
+        <translation>GIF 動畫 (*.gif)</translation>
     </message>
 </context>
 <context>
@@ -6802,7 +6802,7 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>退出绘制</source>
-        <translation>退出繪製</translation>
+        <translation>結束繪製</translation>
     </message>
 </context>
 <context>
@@ -6843,8 +6843,8 @@ Make sure gifrecorder is installed correctly.</source>
         <translation>正在準備安裝並重新啟動…</translation>
     </message>
     <message>
-        <source>Update handoff failed.</source>
-        <translation>更新交接失敗。</translation>
+        <source>Could not start installing the update.</source>
+        <translation>無法開始安裝更新。</translation>
     </message>
     <message>
         <source>Update failed: %1</source>
@@ -6871,7 +6871,7 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>The downloaded update does not match this installation.</source>
-        <translation>下載的更新與目前安裝不匹配。</translation>
+        <translation>下載的更新與目前安裝不相符。</translation>
     </message>
     <message>
         <source>Another update or recovery is already running.</source>
@@ -6883,7 +6883,7 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>The application did not close or its file is in use. Close it and try again.</source>
-        <translation>程式未能退出或檔案被佔用，請關閉後重試。</translation>
+        <translation>程式未能結束或檔案被佔用，請關閉後重試。</translation>
     </message>
     <message>
         <source>No permission to write to the installation folder.</source>
@@ -6918,7 +6918,7 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>无法释放之前的录制会话，请稍后重试。</source>
-        <translation>無法釋放之前的錄製會話，請稍後重試。</translation>
+        <translation>無法釋放之前的錄製工作階段，請稍後重試。</translation>
     </message>
     <message>
         <source>正在保存…</source>
@@ -6930,7 +6930,7 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>正在恢复…</source>
-        <translation>正在恢復…</translation>
+        <translation>正在繼續…</translation>
     </message>
     <message>
         <source>正在暂停…</source>
@@ -6985,23 +6985,23 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>录制组件不存在，请重新安装或从当前源码构建。</source>
-        <translation>錄製元件不存在，請重新安裝或從目前原始碼構建。</translation>
+        <translation>錄製元件不存在，請重新安裝，或從目前的原始碼重新建置。</translation>
     </message>
     <message>
         <source>录制进程响应超时，视频未确认保存成功。</source>
-        <translation>錄製程式響應超時，影片未確認儲存成功。</translation>
+        <translation>錄製處理程序沒有回應而逾時，影片未確認儲存成功。</translation>
     </message>
     <message>
         <source>录制进程意外退出，视频可能未完成。</source>
-        <translation>錄製程式意外退出，影片可能未完成。</translation>
+        <translation>錄製程式意外結束，影片可能未完成。</translation>
     </message>
     <message>
         <source>录制进程返回了无效的状态消息。</source>
-        <translation>錄製程式返回了無效的狀態訊息。</translation>
+        <translation>錄製程式傳回了無效的狀態訊息。</translation>
     </message>
     <message>
         <source>录制进程返回了过大的状态消息。</source>
-        <translation>錄製程式返回了過大的狀態訊息。</translation>
+        <translation>錄製程式傳回了過大的狀態訊息。</translation>
     </message>
     <message>
         <source>无法发送停止命令。</source>
@@ -7021,11 +7021,11 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>退出时录制未能完成。</source>
-        <translation>退出時錄製未能完成。</translation>
+        <translation>結束時錄製未能完成。</translation>
     </message>
     <message>
         <source>找不到可用的播放设备，请连接音箱或耳机，或在视频设置中关闭系统声音后重试。</source>
-        <translation>找不到可用的播放裝置，請連線音箱或耳機，或在影片設定中關閉系統聲音後重試。</translation>
+        <translation>找不到可用的播放裝置，請連接喇叭或耳機，或在影片設定中關閉系統聲音後重試。</translation>
     </message>
     <message>
         <source>当前播放设备的音频格式不受支持，请在 Windows 声音设置中选择立体声格式，或关闭系统声音后重试。</source>
@@ -7037,15 +7037,15 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>播放设备的声音时间戳异常，录制已停止。请重新连接设备，或关闭系统声音后重试。</source>
-        <translation>播放裝置的聲音時間戳異常，錄製已停止。請重新連線裝置，或關閉系統聲音後重試。</translation>
+        <translation>播放裝置的聲音時間戳記異常，錄製已停止。請重新連接裝置，或關閉系統聲音後重試。</translation>
     </message>
     <message>
         <source>视频编码失败，请尝试降低分辨率或帧率，或在视频设置中关闭硬件编码后重试。</source>
-        <translation>影片編碼失敗，請嘗試降低解析度或幀率，或在影片設定中關閉硬體編碼後重試。</translation>
+        <translation>影片編碼失敗，請嘗試降低解析度或影格速率，或在影片設定中關閉硬體編碼後重試。</translation>
     </message>
     <message>
         <source>无法采集录制区域，请检查屏幕连接和选区后重试。</source>
-        <translation>無法採集錄製區域，請檢查螢幕連線和選區後重試。</translation>
+        <translation>無法擷取錄製區域，請檢查螢幕連線和選取範圍後重試。</translation>
     </message>
     <message>
         <source>无法创建视频文件，请检查保存位置的写入权限和剩余空间。</source>
@@ -7057,7 +7057,7 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>录制参数或区域无效，请重新调整选区和视频设置。</source>
-        <translation>錄製引數或區域無效，請重新調整選區和影片設定。</translation>
+        <translation>錄製參數或區域無效，請重新調整選取範圍和影片設定。</translation>
     </message>
     <message>
         <source>视频录制失败，请重试。若问题持续，请查看日志中的详细错误。</source>
@@ -7065,7 +7065,7 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>暂停或恢复录制超时，录制已停止，视频未确认保存成功。</source>
-        <translation>暫停或恢復錄製超時，錄製已停止，影片未確認儲存成功。</translation>
+        <translation>暫停或繼續錄製逾時，錄製已停止，影片未確認儲存成功。</translation>
     </message>
 </context>
 <context>
@@ -7084,7 +7084,7 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>Check the items to show in the menu. Drag the handle to reorder them. Uncheck all items to hide Special Paste for that type.</source>
-        <translation>勾選要顯示的選單項，拖曳左側手柄調整順序。取消全部勾選可隱藏該類型的特殊貼上選單。</translation>
+        <translation>勾選要顯示的選單項，拖曳左側把手調整順序。取消全部勾選可隱藏該類型的特殊貼上選單。</translation>
     </message>
     <message>
         <source>Restore defaults</source>
@@ -7112,7 +7112,7 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>Capitalize the first letter of each word.</source>
-        <translation>將每個單詞的首字母大寫。</translation>
+        <translation>將每個單字的第一個字母大寫。</translation>
     </message>
     <message>
         <source>Capitalize the first letter of each sentence.</source>
@@ -7128,11 +7128,11 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>Replace line breaks with spaces.</source>
-        <translation>將換行符替換為空格。</translation>
+        <translation>將換行字元替換為空格。</translation>
     </message>
     <message>
         <source>Remove spaces, tabs and line breaks.</source>
-        <translation>移除空格、製表符和換行符。</translation>
+        <translation>移除空格、定位字元和換行字元。</translation>
     </message>
     <message>
         <source>Keep only digits 0–9.</source>
@@ -7185,7 +7185,7 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>If the last screenshot ended with a watermark, the next one gets the same watermark with the time updated; otherwise none is added. Screenshots taken with mouse shortcuts follow the same rule.</source>
-        <translation>上次截圖結束時帶著浮水印，這次就加上同樣的浮水印，時間按這次重新整理；上次沒有就不加。滑鼠快速鍵截的圖也一樣。</translation>
+        <translation>上次截圖結束時帶有浮水印，這次就加上同樣的浮水印，時間更新為這次的時間；上次沒有就不加。用滑鼠快速鍵擷取的截圖也一樣。</translation>
     </message>
     <message>
         <source>Straight Lines with Shift</source>
@@ -7228,7 +7228,7 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>Center</source>
-        <translation>居中</translation>
+        <translation>置中</translation>
     </message>
     <message>
         <source>Top Left</source>
@@ -7236,7 +7236,7 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>Top Center</source>
-        <translation>頂部居中</translation>
+        <translation>頂部置中</translation>
     </message>
     <message>
         <source>Top Right</source>
@@ -7248,7 +7248,7 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>Bottom Center</source>
-        <translation>底部居中</translation>
+        <translation>底部置中</translation>
     </message>
     <message>
         <source>Bottom Right</source>
@@ -7335,7 +7335,7 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>Apply</source>
-        <translation>應用</translation>
+        <translation>套用</translation>
     </message>
     <message>
         <source>Cancel</source>
@@ -7351,11 +7351,11 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>Year-month-day, 24-hour (China, Japan, Korea, ISO)</source>
-        <translation>年-月-日，24 小時制（中國、日本、韓國，ISO 標準）</translation>
+        <translation>年-月-日，24 小時制（台灣、日本、韓國、中國，ISO 標準）</translation>
     </message>
     <message>
         <source>Slash-separated date, 24-hour</source>
-        <translation>斜槓分隔的日期，24 小時制</translation>
+        <translation>斜線分隔的日期，24 小時制</translation>
     </message>
     <message>
         <source>Day/month/year, 24-hour (most of Europe)</source>
@@ -7391,14 +7391,14 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>Compact, for file names</source>
-        <translation>緊湊格式，適合檔名</translation>
+        <translation>精簡格式，適合檔名</translation>
     </message>
 </context>
 <context>
     <name>TranslationLoadingDialog</name>
     <message>
         <source>Recognizing...</source>
-        <translation>辨識中...</translation>
+        <translation>辨識中…</translation>
     </message>
 </context>
 <context>
@@ -7425,7 +7425,7 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>Add Local Model...</source>
-        <translation>新增本機模型...</translation>
+        <translation>新增本機模型…</translation>
     </message>
     <message>
         <source>Added manually</source>
@@ -7433,7 +7433,7 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>Browse...</source>
-        <translation>瀏覽...</translation>
+        <translation>瀏覽…</translation>
     </message>
     <message>
         <source>Cancel</source>
@@ -7441,7 +7441,7 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>Checking %1...</source>
-        <translation>正在檢查 %1...</translation>
+        <translation>正在檢查 %1…</translation>
     </message>
     <message>
         <source>Chinese</source>
@@ -7469,7 +7469,7 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>Cyrillic</source>
-        <translation>西裡爾字母</translation>
+        <translation>西里爾字母</translation>
     </message>
     <message>
         <source>Delete</source>
@@ -7485,7 +7485,7 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>Detection model</source>
-        <translation>檢測模型</translation>
+        <translation>偵測模型</translation>
     </message>
     <message>
         <source>Dictionary</source>
@@ -7509,7 +7509,7 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>Included</source>
-        <translation>自帶</translation>
+        <translation>內建</translation>
     </message>
     <message>
         <source>Japanese</source>
@@ -7549,7 +7549,7 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>Optional: only if the recognition model has no built-in dictionary</source>
-        <translation>可選：辨識模型沒有自帶字典時才需要</translation>
+        <translation>可選：辨識模型沒有內建字典時才需要</translation>
     </message>
     <message>
         <source>Recognition model</source>
@@ -7640,14 +7640,14 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>Downloading...</source>
-        <translation>下載中...</translation>
+        <translation>下載中…</translation>
     </message>
 </context>
 <context>
     <name>SettingsDialog</name>
     <message>
         <source>Snipping Tool OCR</source>
-        <translation>截圖工具 OCR</translation>
+        <translation>剪取工具 OCR</translation>
     </message>
     <message>
         <source>Download more models...</source>
@@ -7733,11 +7733,11 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>Compare</source>
-        <translation>對比</translation>
+        <translation>比較</translation>
     </message>
     <message>
         <source>Estimating...</source>
-        <translation>正在預估...</translation>
+        <translation>正在預估…</translation>
     </message>
     <message>
         <source>Save Path</source>
@@ -7793,7 +7793,7 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>Default size limit</source>
-        <translation>預設最大上限</translation>
+        <translation>預設大小上限</translation>
     </message>
     <message>
         <source>Even the lowest quality is larger than this. Make the image smaller to fit.</source>
@@ -7849,7 +7849,7 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>Use the system Save As dialog for this and every later image save? You can change this back in Settings &gt; Screenshot &gt; Save Dialog.</source>
-        <translation>對目前圖片以及之後所有圖片儲存都使用系統原生儲存對話方塊嗎？您稍後可以在「設定 → 截圖 → 儲存對話方塊」中更改。</translation>
+        <translation>要讓目前和之後所有的圖片儲存，都改用系統內建的「另存新檔」對話方塊嗎？之後可以在「設定 → 截圖 → 儲存對話方塊」中改回來。</translation>
     </message>
     <message>
         <source>Use classic dialog</source>
@@ -7921,7 +7921,7 @@ Replace it?</source>
     </message>
     <message>
         <source>This name is already used by another path "%1". Please choose a different name for the current path.</source>
-        <translation>該名稱已被另一個路徑“%1”使用。請為目前路徑選擇不同的名稱。</translation>
+        <translation>該名稱已被另一個路徑「%1」使用。請為目前路徑選擇不同的名稱。</translation>
     </message>
     <message>
         <source>Path Already Exists</source>
@@ -7929,11 +7929,11 @@ Replace it?</source>
     </message>
     <message>
         <source>This path already exists with the name "%1". Do you want to change its name to "%2"?</source>
-        <translation>該路徑已存在，名稱為“%1”。您想將其名稱更改為“%2”嗎？</translation>
+        <translation>該路徑已存在，名稱為「%1」。要將名稱改為「%2」嗎？</translation>
     </message>
     <message>
         <source>The name "%1" is already used by path "%2". Do you want to set a new name for the current path?</source>
-        <translation>名稱“%1”已被路徑“%2”使用。要為目前路徑設定新名稱嗎？</translation>
+        <translation>名稱「%1」已被路徑「%2」使用。要為目前路徑設定新名稱嗎？</translation>
     </message>
 </context>
 <context>
@@ -8193,7 +8193,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Use This</source>
-        <translation>設為目前</translation>
+        <translation>設為使用中</translation>
     </message>
     <message>
         <source>In Use</source>
@@ -8259,15 +8259,15 @@ Replace it?</source>
     </message>
     <message>
         <source>The access key ID is not known to this service.</source>
-        <translation>該服務不認識這個 Access Key ID。</translation>
+        <translation>此服務無法辨識這個 Access Key ID。</translation>
     </message>
     <message>
         <source>Check that this key may write to the bucket.</source>
-        <translation>請檢查該金鑰是否有寫入儲存桶的權限。</translation>
+        <translation>請檢查該金鑰是否有寫入儲存貯體的權限。</translation>
     </message>
     <message>
         <source>The bucket does not exist.</source>
-        <translation>儲存桶不存在。</translation>
+        <translation>儲存貯體不存在。</translation>
     </message>
     <message>
         <source>Check the date and time of this computer.</source>
@@ -8346,7 +8346,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Bucket</source>
-        <translation>儲存桶</translation>
+        <translation>儲存貯體</translation>
     </message>
     <message>
         <source>Access Key ID</source>
@@ -8394,7 +8394,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Fill in the endpoint and the bucket to see the link.</source>
-        <translation>填好服務端點和儲存桶後顯示連結。</translation>
+        <translation>填好服務端點和儲存貯體後顯示連結。</translation>
     </message>
     <message>
         <source>Uploading...</source>
@@ -8430,11 +8430,11 @@ Replace it?</source>
     </message>
     <message>
         <source>Enter the bucket name.</source>
-        <translation>請填寫儲存桶名稱。</translation>
+        <translation>請填寫儲存貯體名稱。</translation>
     </message>
     <message>
         <source>The bucket name cannot contain '/' or spaces.</source>
-        <translation>儲存桶名稱不能含有 / 或空格。</translation>
+        <translation>儲存貯體名稱不能含有 / 或空格。</translation>
     </message>
     <message>
         <source>Enter the access key ID.</source>

@@ -1243,7 +1243,7 @@ private slots:
         const int before = window->screenshots;
         page_window_->set_page(stranger);
         QTRY_VERIFY_WITH_TIMEOUT(window->preview_panel->warning_label->isVisible(), 8000);
-        QCOMPARE(window->preview_panel->warning_label->text(), i18n_tr("Couldn't join. Scroll back", "ScrollCaptureWindow"));
+        QCOMPARE(window->preview_panel->warning_label->text(), i18n_tr("Couldn't join. Scroll back a little.", "ScrollCaptureWindow"));
         QCOMPARE(window->screenshots, before);
         page_window_->set_page(page_);
         page_window_->scroll_to(180);

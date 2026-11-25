@@ -459,7 +459,7 @@ QWidget *create_hotkey_page(SettingsDialog *dialog) {
     if (const int idx = cursor_move_combo->findData(dialog->config_manager->get_inapp_cursor_move_mode()); idx >= 0) cursor_move_combo->setCurrentIndex(idx);
 
     layout->addWidget(build_group(i18n_tr("Screenshot Window", "ShortcutTabs"), SCREENSHOT_KEYS, "screenshot",
-                                  {[dialog, cursor_move_combo](QWidget *group) { return inapp_row(group, CURSOR_MOVE_ICON, dialog->tr_text("Cursor Move Keys"), cursor_move_combo); }}));
+                                  {[dialog, cursor_move_combo](QWidget *group) { return inapp_row(group, CURSOR_MOVE_ICON, dialog->tr_text("Mouse Nudge Keys"), cursor_move_combo); }}));
     layout->addWidget(build_group(i18n_tr("Annotation Tools", "ShortcutTabs"), TOOL_KEYS(), "screenshot"));
     auto *grp_pin = build_group(i18n_tr("Pinned Window", "ShortcutTabs"), PIN_KEYS, "pin");
     // The pin page's "Edit" button scrolls to this group.

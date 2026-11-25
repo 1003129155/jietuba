@@ -403,7 +403,7 @@ Replace it?</source>
         <translation>文字识别</translation>
     </message>
     <message>
-        <source>Cursor Move Keys</source>
+        <source>Mouse Nudge Keys</source>
         <translation>鼠标微移按键</translation>
     </message>
     <message>
@@ -997,7 +997,7 @@ Replace it?</source>
         <translation>控制台「开发者信息」里与 APPID 成对的密钥</translation>
     </message>
     <message>
-        <source>Baidu Translate Open Platform</source>
+        <source>Baidu Translate Open Platform · Developer Info</source>
         <translation>百度翻译开放平台 · 开发者信息</translation>
     </message>
     <message>
@@ -1593,7 +1593,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Keeps the toolbar and its panels out of recordings, screenshots, screen sharing, remote desktop and other screen capture; you still see them. Turn off to let them be captured, for example when recording a tutorial.</source>
-        <translation>让工具栏及其面板不会被录屏、截图、屏幕共享、远程画面等捕获，你自己照常看得见。录教程等需要录进工具栏时可关掉。</translation>
+        <translation>让工具栏及其面板不会被录屏、截图、屏幕共享、远程画面等捕获，你自己仍能正常看到。录教程等需要录进工具栏时可关掉。</translation>
     </message>
     <message>
         <source>Screen Recording</source>
@@ -1601,7 +1601,7 @@ Replace it?</source>
     </message>
     <message>
         <source>Keeps the recording toolbar, its panels and menus out of the recording while they sit inside the recording area, such as when recording the full screen; you still see them. Turn off to record them too.</source>
-        <translation>录制全屏等情况下，工具栏及其面板、菜单落在录制区域里时不会被录进去，你自己照常看得见。需要录进工具栏时可关掉。</translation>
+        <translation>录制全屏等情况下，工具栏及其面板、菜单落在录制区域里时不会被录进去，你自己仍能正常看到。需要录进工具栏时可关掉。</translation>
     </message>
     <message>
         <source>Where It Was Last</source>
@@ -2420,8 +2420,8 @@ Replace it?</source>
     <message><source>Close all pinned windows</source><translation>关闭所有钉图窗口</translation></message>
     <message><source>Current pinned windows: {count}</source><translation>当前 {count} 个钉图</translation></message>
     <message><source>Move all pins to center</source><translation>移动所有钉图到中心</translation></message>
-    <message><source>Thumbnail all pins</source><translation>缩略图所有钉图</translation></message>
-    <message><source>Restore all pin thumbnails</source><translation>取消缩略所有钉图</translation></message>
+    <message><source>Thumbnail all pins</source><translation>将所有钉图缩成缩略图</translation></message>
+    <message><source>Restore all pin thumbnails</source><translation>还原所有钉图的缩略图</translation></message>
     <message><source>Hide all pins</source><translation>隐藏所有钉图</translation></message>
     <message><source>Close all pins</source><translation>关闭所有钉图</translation></message>
     <message><source>Save all pins as...</source><translation>所有钉图另存为</translation></message>
@@ -2999,8 +2999,8 @@ Replace it?</source>
         <translation>显示时间</translation>
     </message>
     <message>
-        <source>Hide Grouped Items from All</source>
-        <translation>「全部」中隐藏已分组内容</translation>
+        <source>Hide Grouped Items from History</source>
+        <translation>「剪贴板历史」中隐藏已分组内容</translation>
     </message>
     <message>
         <source>More Settings</source>
@@ -3144,7 +3144,7 @@ Items in the group will be moved back to clipboard history.</source>
     </message>
     <message>
         <source>Are you sure you want to delete this item?</source>
-        <translation>确定要删除他吗？</translation>
+        <translation>确定要删除这条内容吗？</translation>
     </message>
     <message>
         <source>Delete Group</source>
@@ -3509,8 +3509,8 @@ This action cannot be undone.</source>
         <translation>编辑隐藏分组</translation>
     </message>
     <message>
-        <source>Hidden groups are not displayed on the clipboard panel; changing to normal group restores visibility</source>
-        <translation>不在剪贴板面板显示，设为普通分组即恢复</translation>
+        <source>Hidden groups are not displayed on the clipboard panel; changing to General Group restores visibility</source>
+        <translation>不在剪贴板面板显示，设为通用分组即恢复</translation>
     </message>
     <message>
         <source>General groups allow any content; selecting an item pastes content or files to the target</source>
@@ -4149,12 +4149,12 @@ Items in the group will be moved back to clipboard history.</source>
         <translation>列表中图片缩略图的大小</translation>
     </message>
     <message>
-        <source>Hide Grouped Items from All</source>
-        <translation>「全部」中隐藏已分组内容</translation>
+        <source>Hide Grouped Items from History</source>
+        <translation>「剪贴板历史」中隐藏已分组内容</translation>
     </message>
     <message>
-        <source>Items in a group no longer show in All; filter groups still list them</source>
-        <translation>加入分组的内容不再出现在「全部」中，筛选分组照常显示</translation>
+        <source>Items in a group no longer show in Clipboard History; filter groups still list them</source>
+        <translation>加入分组的内容不再出现在「剪贴板历史」中，筛选分组照常显示</translation>
     </message>
     <message>
         <source>Close After Paste</source>
@@ -4868,7 +4868,7 @@ This action cannot be undone.</source>
         <translation>控制台「开发者信息」里与 APPID 成对的密钥</translation>
     </message>
     <message>
-        <source>Baidu Translate Open Platform</source>
+        <source>Baidu Translate Open Platform · Developer Info</source>
         <translation>百度翻译开放平台 · 开发者信息</translation>
     </message>
     <message>
@@ -5947,16 +5947,16 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>选区内没有识别到文字。</translation>
     </message>
     <message>
-        <source>No PP-OCR model is installed. Download one in the OCR settings.</source>
-        <translation>没有安装 PP-OCR 模型，可在设置的「OCR设置」里下载。</translation>
+        <source>No PP-OCR model is installed. Download one in Settings &gt; Screenshot &gt; Text Recognition.</source>
+        <translation>没有安装 PP-OCR 模型，可在「设置 → 截图 → 文字识别」里下载。</translation>
     </message>
     <message>
-        <source>The PP-OCR model could not be loaded. Download it again or choose another one in the OCR settings.</source>
-        <translation>PP-OCR 模型加载失败，可在设置的「OCR设置」里重新下载或换用其他模型。</translation>
+        <source>The PP-OCR model could not be loaded. Download it again or choose another one in Settings &gt; Screenshot &gt; Text Recognition.</source>
+        <translation>PP-OCR 模型加载失败，可在「设置 → 截图 → 文字识别」里重新下载或换用其他模型。</translation>
     </message>
     <message>
-        <source>ONNX Runtime, which PP-OCR needs, is not installed. Download it in the OCR settings.</source>
-        <translation>没有安装 PP-OCR 所需的 ONNX Runtime，可在设置的「OCR设置」里下载。</translation>
+        <source>ONNX Runtime, which PP-OCR needs, is not installed. Download it in Settings &gt; Screenshot &gt; Text Recognition.</source>
+        <translation>没有安装 PP-OCR 所需的 ONNX Runtime，可在「设置 → 截图 → 文字识别」里下载。</translation>
     </message>
     <message>
         <source>This build does not include the text recognition engine.</source>
@@ -6295,8 +6295,8 @@ Replace: move the current data there; the data already in that folder will be de
 <context>
     <name>ScrollCaptureWindow</name>
     <message>
-        <source>Couldn't join. Scroll back</source>
-        <translation>没接上，往回滚</translation>
+        <source>Couldn't join. Scroll back a little.</source>
+        <translation>拼接失败，请把页面往回滚一点。</translation>
     </message>
     <message>
         <source>Stitching failed</source>
@@ -6462,8 +6462,8 @@ Make sure gifrecorder is installed correctly.</source>
         <translation>正在准备安装并重启…</translation>
     </message>
 <message>
-        <source>Update handoff failed.</source>
-        <translation>更新交接失败。</translation>
+        <source>Could not start installing the update.</source>
+        <translation>无法开始安装更新。</translation>
     </message>
 <message>
         <source>Update failed: %1</source>
@@ -7414,7 +7414,7 @@ Make sure gifrecorder is installed correctly.</source>
     </message>
     <message>
         <source>Default size limit</source>
-        <translation>默认最大上限</translation>
+        <translation>默认大小上限</translation>
     </message>
     <message>
         <source>Even the lowest quality is larger than this. Make the image smaller to fit.</source>

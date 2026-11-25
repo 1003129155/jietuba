@@ -173,7 +173,7 @@ void UpdateController::on_event(const QString &event, const QString &transaction
                 dialog->set_working(true);
             }
         } else {
-            on_error(reason.isEmpty() ? tr_controller("Update handoff failed.") : reason);
+            on_error(reason.isEmpty() ? tr_controller("Could not start installing the update.") : reason);
             runner->cancel();
         }
     } else if (event == "handed_off") {
@@ -210,7 +210,7 @@ void UpdateController::on_finished() {
             // A download that would not install is not tried again.
             kept_ = false;
             discard_download();
-            emit background_install_failed(failure_.isEmpty() ? tr_controller("Update handoff failed.") : failure_);
+            emit background_install_failed(failure_.isEmpty() ? tr_controller("Could not start installing the update.") : failure_);
         }
         return;
     }
