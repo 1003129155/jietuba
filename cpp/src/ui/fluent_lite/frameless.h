@@ -32,6 +32,7 @@ public:
 protected:
     bool nativeEvent(const QByteArray &event_type, void *message, qintptr *result) override;
     void resizeEvent(QResizeEvent *event) override;
+    void childEvent(QChildEvent *event) override;
     TitleBar *title_bar_ = nullptr;
     FramelessHelper helper_;
 };
@@ -47,6 +48,7 @@ public:
 protected:
     bool nativeEvent(const QByteArray &event_type, void *message, qintptr *result) override;
     void resizeEvent(QResizeEvent *event) override;
+    void childEvent(QChildEvent *event) override;
     TitleBar *title_bar_ = nullptr;
     FramelessHelper helper_;
 };

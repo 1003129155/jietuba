@@ -112,9 +112,6 @@ StandardDialog::StandardDialog(QWidget *parent, const QString &title, const QStr
     root->addWidget(content_, 1);
     button_box = new DialogButtonRow(this);
     root->addWidget(button_box);
-    // The content starts at the top edge; the caption row stays above it so the close
-    // button and the drag area receive the mouse.
-    bar->raise();
     const auto apply_theme = [this] {
         const auto &t = ui_tokens(this);
         set_own_style(title_label, QString("color: %1; font: 600 %2px %3; background: transparent;").arg(t.fg).arg(dialog_scaled(20)).arg(FONT_FAMILY));

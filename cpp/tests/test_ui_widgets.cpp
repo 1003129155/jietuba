@@ -381,6 +381,23 @@ private slots:
         QVERIFY2(misses.isEmpty(), qPrintable(misses.join(", ")));
     }
 
+    void framelessTitleBarsStayAboveLaterContent() {
+        FramelessDialog dialog;
+        FramelessWindow window;
+        for (QWidget *frame : {static_cast<QWidget *>(&dialog), static_cast<QWidget *>(&window)}) {
+            frame->resize(320, 200);
+            auto *cover = new QWidget(frame);
+            cover->setGeometry(frame->rect());
+            auto *moved_in = new QWidget;
+            moved_in->setParent(frame);
+            moved_in->setGeometry(frame->rect());
+            frame->show();
+            auto *bar = frame == &dialog ? dialog.titleBar() : window.titleBar();
+            QCOMPARE(frame->childAt(bar->closeBtn->mapTo(frame, bar->closeBtn->rect().center())), bar->closeBtn);
+            QCOMPARE(frame->childAt(QPoint(frame->width() / 3, bar->height() / 2)), static_cast<QWidget *>(bar));
+        }
+    }
+
     void execDialogLocksOnlyItsOwner() {
         QWidget owner, other;
         owner.show();

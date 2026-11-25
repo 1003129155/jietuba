@@ -1,5 +1,6 @@
 #include "ui/fluent_lite/frameless.h"
 #include "ui/fluent_lite/theme.h"
+#include <QChildEvent>
 #include <QEnterEvent>
 #include <QMouseEvent>
 #include <QPainter>
@@ -11,6 +12,14 @@
 #endif
 
 namespace jietuba {
+namespace {
+// The title bar sits outside the layout; a widget added after it would stack above it
+// and take the clicks meant for the caption buttons and the drag area.
+void keep_title_bar_on_top(TitleBar *title_bar, QChildEvent *event) {
+    if (event->added() && title_bar && event->child() != title_bar && event->child()->isWidgetType()) title_bar->raise();
+}
+}
+
 void FramelessHelper::install() {
     window_->setWindowFlags(window_->windowFlags() | Qt::FramelessWindowHint);
 #ifdef Q_OS_WIN
@@ -80,7 +89,11 @@ FramelessWindow::FramelessWindow(QWidget *parent) : QWidget(parent), helper_(thi
 }
 
 void FramelessWindow::setTitleBar(TitleBar *title_bar) {
-    if (title_bar_) title_bar_->deleteLater();
+    if (title_bar_) {
+        // A modal loop started later does not run the deletion, so the old bar is hidden now.
+        title_bar_->hide();
+        title_bar_->deleteLater();
+    }
     title_bar_ = title_bar;
     title_bar_->setParent(this);
     title_bar_->raise();
@@ -96,6 +109,11 @@ void FramelessWindow::resizeEvent(QResizeEvent *event) {
     if (title_bar_) title_bar_->resize(width(), title_bar_->height());
 }
 
+void FramelessWindow::childEvent(QChildEvent *event) {
+    QWidget::childEvent(event);
+    keep_title_bar_on_top(title_bar_, event);
+}
+
 FramelessDialog::FramelessDialog(QWidget *parent) : QDialog(parent), helper_(this) {
     helper_.install();
     title_bar_ = new TitleBar(this);
@@ -106,7 +124,11 @@ FramelessDialog::FramelessDialog(QWidget *parent) : QDialog(parent), helper_(thi
 }
 
 void FramelessDialog::setTitleBar(TitleBar *title_bar) {
-    if (title_bar_) title_bar_->deleteLater();
+    if (title_bar_) {
+        // A modal loop started later does not run the deletion, so the old bar is hidden now.
+        title_bar_->hide();
+        title_bar_->deleteLater();
+    }
     title_bar_ = title_bar;
     title_bar_->setParent(this);
     title_bar_->raise();
@@ -120,6 +142,11 @@ bool FramelessDialog::nativeEvent(const QByteArray &event_type, void *message, q
 void FramelessDialog::resizeEvent(QResizeEvent *event) {
     QDialog::resizeEvent(event);
     if (title_bar_) title_bar_->resize(width(), title_bar_->height());
+}
+
+void FramelessDialog::childEvent(QChildEvent *event) {
+    QDialog::childEvent(event);
+    keep_title_bar_on_top(title_bar_, event);
 }
 
 FrostedFramelessDialog::FrostedFramelessDialog(QWidget *parent) : FramelessDialog(parent) {
