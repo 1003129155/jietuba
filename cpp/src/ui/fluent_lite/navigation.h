@@ -63,8 +63,6 @@ private:
     // Brings the widget into view once no list is moving, as their heights change meanwhile.
     void request_visible(QWidget *widget);
     void flush_visible();
-    // Lays out the rows and updates the scroll range together after the lists' heights changed.
-    void settle_layout();
     NavSubList *list_of(const QString &route_key) const { return lists_.value(route_key); }
     QMap<QString, QPushButton *> items_;
     QMap<QString, IconSource> icons_;
@@ -78,6 +76,5 @@ private:
     QScrollArea *scroll_;
     QVBoxLayout *layout_, *top_, *bottom_;
     int expand_width_ = 0, minimum_expand_width_ = 0;
-    bool settle_pending_ = false;
 };
 }

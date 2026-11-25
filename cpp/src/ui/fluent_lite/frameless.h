@@ -7,6 +7,7 @@
 
 namespace jietuba {
 class TitleBar;
+class PaintGate;
 
 // Native frameless window: the system frame is removed in WM_NCCALCSIZE while
 // WS_THICKFRAME/WS_CAPTION stay, so Windows still provides the shadow, snap
@@ -17,9 +18,12 @@ public:
     explicit FramelessHelper(QWidget *window) : window_(window) {}
     void install();
     bool native_event(const QByteArray &event_type, void *message, qintptr *result);
+    // Whether a paint of the window waits for layouts still settling; it is requested again.
+    bool hold_paint();
     bool resize_enabled = true;
 private:
     QWidget *window_;
+    PaintGate *paint_gate_ = nullptr;
 };
 
 class FramelessWindow : public QWidget {
@@ -31,6 +35,8 @@ public:
     void setResizeEnabled(bool enabled) { helper_.resize_enabled = enabled; }
 protected:
     bool nativeEvent(const QByteArray &event_type, void *message, qintptr *result) override;
+    // Lays out fully before each paint, so a fold or a resize shows no in-between frames.
+    bool event(QEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
     void childEvent(QChildEvent *event) override;
     TitleBar *title_bar_ = nullptr;
@@ -47,6 +53,8 @@ public:
     void setResizeEnabled(bool enabled) { helper_.resize_enabled = enabled; }
 protected:
     bool nativeEvent(const QByteArray &event_type, void *message, qintptr *result) override;
+    // Lays out fully before each paint, so a fold or a resize shows no in-between frames.
+    bool event(QEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
     void childEvent(QChildEvent *event) override;
     TitleBar *title_bar_ = nullptr;

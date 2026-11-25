@@ -1,6 +1,7 @@
 #include "ui/fluent_lite/frameless.h"
 #include "ui/fluent_lite/theme.h"
 #include <QChildEvent>
+#include <QCoreApplication>
 #include <QEnterEvent>
 #include <QMouseEvent>
 #include <QPainter>
@@ -20,7 +21,39 @@ void keep_title_bar_on_top(TitleBar *title_bar, QChildEvent *event) {
 }
 }
 
+// A size change climbs one layout level per posted LayoutRequest, and a pass of the event queue only
+// delivers the requests posted before it began, so a paint in the same pass would show every level in
+// between: a row folded near the bottom of a scroll area jumps and settles over several frames.
+// While layout requests keep arriving, the paint waits for the next pass. Delivering the requests early
+// instead would let the pass run events posted during it, which code waiting a turn relies on not happening.
+class PaintGate : public QObject {
+public:
+    static constexpr int MAX_HOLDS = 8;
+    explicit PaintGate(QWidget *window) : QObject(window), window_(window) { QCoreApplication::instance()->installEventFilter(this); }
+    bool hold() {
+        if (!relaid_ || holds_ >= MAX_HOLDS) {
+            relaid_ = false;
+            holds_ = 0;
+            return false;
+        }
+        relaid_ = false;
+        ++holds_;
+        QCoreApplication::postEvent(window_, new QEvent(QEvent::UpdateRequest), Qt::LowEventPriority);
+        return true;
+    }
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override {
+        if (event->type() == QEvent::LayoutRequest && watched->isWidgetType() && static_cast<QWidget *>(watched)->window() == window_) relaid_ = true;
+        return false;
+    }
+private:
+    QWidget *window_;
+    bool relaid_ = false;
+    int holds_ = 0;
+};
+
 void FramelessHelper::install() {
+    paint_gate_ = new PaintGate(window_);
     window_->setWindowFlags(window_->windowFlags() | Qt::FramelessWindowHint);
 #ifdef Q_OS_WIN
     HWND hwnd = reinterpret_cast<HWND>(window_->winId());
@@ -32,6 +65,8 @@ void FramelessHelper::install() {
     SetWindowPos(hwnd, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 #endif
 }
+
+bool FramelessHelper::hold_paint() { return paint_gate_ && paint_gate_->hold(); }
 
 bool FramelessHelper::native_event(const QByteArray &event_type, void *message, qintptr *result) {
 #ifdef Q_OS_WIN
@@ -104,6 +139,11 @@ bool FramelessWindow::nativeEvent(const QByteArray &event_type, void *message, q
     return helper_.native_event(event_type, message, result) || QWidget::nativeEvent(event_type, message, result);
 }
 
+bool FramelessWindow::event(QEvent *event) {
+    if (event->type() == QEvent::UpdateRequest && helper_.hold_paint()) return true;
+    return QWidget::event(event);
+}
+
 void FramelessWindow::resizeEvent(QResizeEvent *event) {
     QWidget::resizeEvent(event);
     if (title_bar_) title_bar_->resize(width(), title_bar_->height());
@@ -137,6 +177,11 @@ void FramelessDialog::setTitleBar(TitleBar *title_bar) {
 
 bool FramelessDialog::nativeEvent(const QByteArray &event_type, void *message, qintptr *result) {
     return helper_.native_event(event_type, message, result) || QDialog::nativeEvent(event_type, message, result);
+}
+
+bool FramelessDialog::event(QEvent *event) {
+    if (event->type() == QEvent::UpdateRequest && helper_.hold_paint()) return true;
+    return QDialog::event(event);
 }
 
 void FramelessDialog::resizeEvent(QResizeEvent *event) {

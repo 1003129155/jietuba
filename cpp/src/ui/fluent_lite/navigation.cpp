@@ -451,11 +451,7 @@ void NavigationInterface::setSubItems(const QString &route_key, const QStringLis
     const bool is_new = !list;
     if (is_new) {
         list = new NavSubList(scroll_->widget());
-        connect(list->animation(), &QVariantAnimation::valueChanged, this, [this] { settle_layout(); });
-        connect(list->animation(), &QAbstractAnimation::finished, this, [this] {
-            settle_layout();
-            flush_visible();
-        });
+        connect(list->animation(), &QAbstractAnimation::finished, this, [this] { flush_visible(); });
         top_->insertWidget(top_->indexOf(parent_item) + 1, list);
         lists_[route_key] = list;
     } else if (subItemTitles(route_key) == titles) {
@@ -513,20 +509,6 @@ void NavigationInterface::request_visible(QWidget *widget) {
     pending_visible_ = widget;
     // Deferred: a list just built has no geometry yet.
     QTimer::singleShot(0, this, [this] { flush_visible(); });
-}
-
-// The scroll area takes a new content height only from an event posted while laying out, after the
-// next paint, so each step would be painted twice: rows moved at the old scroll position, then
-// shifted by the clamped one. Queued once per step, this runs after every list moved, before the paint.
-void NavigationInterface::settle_layout() {
-    if (settle_pending_) return;
-    settle_pending_ = true;
-    QMetaObject::invokeMethod(this, [this] {
-        settle_pending_ = false;
-        if (auto *layout = scroll_->widget()->layout()) layout->activate();
-        QEvent request(QEvent::LayoutRequest);
-        QCoreApplication::sendEvent(scroll_, &request);
-    }, Qt::QueuedConnection);
 }
 
 void NavigationInterface::flush_visible() {

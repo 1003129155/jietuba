@@ -2061,6 +2061,53 @@ private slots:
         QVERIFY(dialog.provider_field_widgets->value("deepl_use_pro")->isVisible());
     }
 
+    // Folding near the bottom of a scrolled page changes the heights of several nested layouts; each paint
+    // shows either the old layout or the final one, never a level in between.
+    void foldingNearTheBottomOfAPagePaintsNoInBetweenLayout() {
+        struct PaintSpy : QObject {
+            std::function<void()> on_paint;
+            bool eventFilter(QObject *, QEvent *event) override {
+                if (event->type() == QEvent::Paint && on_paint) on_paint();
+                return false;
+            }
+        };
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 600);
+        dialog.show();
+        dialog.on_nav_changed(4, "translation");
+        show_translation_provider(&dialog, "google");
+        QWidget *card = dialog.provider_sections.value("google");
+        QAbstractButton *advanced = nullptr;
+        for (auto *button : card->findChildren<QAbstractButton *>())
+            if (button->text() == settings_tr("Advanced")) advanced = button;
+        QVERIFY(advanced);
+        QWidget *footer = card_button(dialog, "google", settings_tr("Test Connection"))->parentWidget();
+        QScrollArea *area = nullptr;
+        for (QWidget *parent = card; parent && !area; parent = parent->parentWidget()) area = qobject_cast<QScrollArea *>(parent);
+        QVERIFY(area);
+        // Opening the provider scrolls to its group; that animation must end first.
+        if (auto *scroll = area->findChild<QVariantAnimation *>("GroupScrollAnimation")) QTRY_COMPARE(scroll->state(), QAbstractAnimation::Stopped);
+        area->verticalScrollBar()->setValue(area->verticalScrollBar()->maximum());
+        QTest::qWait(100);
+
+        QList<QPair<int, int>> frames;
+        PaintSpy spy;
+        spy.on_paint = [&] {
+            const QPair<int, int> frame(advanced->mapTo(area->viewport(), QPoint()).y(), footer->mapTo(area->viewport(), QPoint()).y());
+            if (frames.isEmpty() || frames.last() != frame) frames << frame;
+        };
+        area->viewport()->installEventFilter(&spy);
+        for (const char *step : {"unfold", "fold"}) {
+            frames.clear();
+            advanced->click();
+            QTest::qWait(150);
+            QStringList trail;
+            for (const auto &frame : frames) trail << QString("%1/%2").arg(frame.first).arg(frame.second);
+            QVERIFY2(!frames.isEmpty() && frames.size() <= 1, qPrintable(QString(step) + ": " + trail.join(' ')));
+        }
+        spy.on_paint = nullptr;
+    }
+
     // The engine row says whether the engine can translate, from what the form holds now, and its
     // button opens the engine's card; Use This on another configured provider makes it the engine.
     void theEngineStatusFollowsTheFormAndLeadsToTheCard() {
