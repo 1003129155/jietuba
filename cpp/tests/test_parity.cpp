@@ -113,11 +113,14 @@ private slots:
         for (const auto &v : fixtures_["pin_layout"].toArray()) {
             const auto row = v.toObject();
             // Translate came to pins after the reference froze, so its answers lack it: it follows copy, folded.
-            // Upload came later still: it follows save, folded.
+            // Quick save and upload came later still: they follow save, folded.
             QJsonArray expected;
             for (const auto &entry : row["expected"].toArray()) {
                 expected.append(entry);
-                if (entry.toArray()[0].toString() == "save") expected.append(QJsonArray{"upload", "more"});
+                if (entry.toArray()[0].toString() == "save") {
+                    expected.append(QJsonArray{"quick_save", "more"});
+                    expected.append(QJsonArray{"upload", "more"});
+                }
                 if (entry.toArray()[0].toString() == "copy") expected.append(QJsonArray{"screenshot_translate", "more"});
             }
             QCOMPARE(toolbar_layout::normalize_layout_json(row["input_json"].toString().toUtf8(), toolbar_layout::PIN), expected);

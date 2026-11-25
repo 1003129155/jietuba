@@ -18,7 +18,7 @@ QStringList pin_keys() {
     QStringList keys = {
         "inapp_copy_pin", "inapp_copy_pin_text", "inapp_pin_reset_size",
         "inapp_thumbnail", "inapp_toggle_toolbar", "inapp_pin_hide_annotations", "inapp_delete", "inapp_pin_lock", "inapp_pin_text_mode",
-        "inapp_pin_text_selection", "inapp_undo", "inapp_redo", "inapp_upload",
+        "inapp_pin_text_selection", "inapp_undo", "inapp_redo", "inapp_save", "inapp_quick_save", "inapp_upload",
     };
     for (const auto &entry : ANNOTATION_TOOL_SHORTCUTS()) keys.append(entry.config_key);
     return keys;
@@ -60,6 +60,14 @@ bool PinHandlerBase::handle_shared(PinWindow *pin, QInputEvent *event) {
     }
     if (match(event, "inapp_copy_pin_text")) {
         pin->copy_all_text();
+        return true;
+    }
+    if (match(event, "inapp_save")) {
+        pin->save_image();
+        return true;
+    }
+    if (match(event, "inapp_quick_save")) {
+        pin->quick_save_image();
         return true;
     }
     if (match(event, "inapp_upload")) {

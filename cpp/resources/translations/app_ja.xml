@@ -2014,6 +2014,22 @@ Replace it?</source>
         <translation>名前を付けて保存</translation>
     </message>
     <message>
+        <source>Quick save</source>
+        <translation>クイック保存</translation>
+    </message>
+    <message>
+        <source>Saved: %1</source>
+        <translation>保存しました：%1</translation>
+    </message>
+    <message>
+        <source>Save Failed</source>
+        <translation>保存に失敗しました</translation>
+    </message>
+    <message>
+        <source>Cannot create the save folder or reserve a file name.</source>
+        <translation>保存フォルダーを作成できないか、ファイル名を割り当てられません。設定の保存先を確認してください。</translation>
+    </message>
+    <message>
         <source>Toolbar</source>
         <translation>ツールバー</translation>
     </message>

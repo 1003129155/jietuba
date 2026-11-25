@@ -280,6 +280,7 @@ void PinCanvas::connect_toolbar(PinToolbar *toolbar, CanvasView *view) {
     connect(toolbar, &Toolbar::watermark_text_changed, this, [this, toolbar](const QString &template_text) { on_watermark_text_changed(template_text, toolbar); });
     // Saving and copying stay with the window.
     connect(toolbar, &Toolbar::save_clicked, parent_window, &PinWindow::save_image);
+    connect(toolbar, &Toolbar::quick_save_clicked, parent_window, &PinWindow::quick_save_image);
     connect(toolbar, &Toolbar::copy_clicked, parent_window, &PinWindow::copy_to_clipboard);
     connect(toolbar, &Toolbar::upload_clicked, parent_window, &PinWindow::upload_image);
     undo_stack->print_stack_status();

@@ -1927,6 +1927,22 @@ Replace it?</translation>
         <translation>Save as</translation>
     </message>
     <message>
+        <source>Quick save</source>
+        <translation>Quick save</translation>
+    </message>
+    <message>
+        <source>Saved: %1</source>
+        <translation>Saved: %1</translation>
+    </message>
+    <message>
+        <source>Save Failed</source>
+        <translation>Save Failed</translation>
+    </message>
+    <message>
+        <source>Cannot create the save folder or reserve a file name.</source>
+        <translation>Cannot create the save folder or reserve a file name.</translation>
+    </message>
+    <message>
         <source>Toolbar</source>
         <translation>Toolbar</translation>
     </message>

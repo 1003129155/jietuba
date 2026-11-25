@@ -205,6 +205,8 @@ public:
     void when_pixels_ready(std::function<void()> then);
     void save_image();
     void save_image_with_system_dialog();
+    // Straight into the save folder without asking, an animation as its own file; the pin stays open.
+    void quick_save_image();
     // Uploads what the pin shows (an animation's current frame) to the default upload target; the pin stays open.
     void upload_image();
     // A text pin copies its selected text, or all of it.

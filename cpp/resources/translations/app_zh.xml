@@ -1947,6 +1947,22 @@ Replace it?</source>
         <translation>另存为</translation>
     </message>
     <message>
+        <source>Quick save</source>
+        <translation>快捷保存</translation>
+    </message>
+    <message>
+        <source>Saved: %1</source>
+        <translation>已保存：%1</translation>
+    </message>
+    <message>
+        <source>Save Failed</source>
+        <translation>保存失败</translation>
+    </message>
+    <message>
+        <source>Cannot create the save folder or reserve a file name.</source>
+        <translation>无法创建保存目录或分配文件名，请检查设置里的保存路径。</translation>
+    </message>
+    <message>
         <source>Toolbar</source>
         <translation>工具栏</translation>
     </message>

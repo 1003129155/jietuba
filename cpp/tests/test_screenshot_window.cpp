@@ -1637,7 +1637,7 @@ private slots:
         QCOMPARE(tl::SCREENSHOT.default_mode("upload"), tl::MORE);
         QCOMPARE(tl::PIN.default_mode("upload"), tl::MORE);
         QCOMPARE(tl::default_order().indexOf("upload"), tl::default_order().indexOf("quick_save") + 1);
-        QCOMPARE(tl::PIN.order.indexOf("upload"), tl::PIN.order.indexOf("save") + 1);
+        QCOMPARE(tl::PIN.order.indexOf("upload"), tl::PIN.order.indexOf("quick_save") + 1);
         config_->set_inapp_shortcut("inapp_upload", "ctrl+u");
         const auto close_toasts = [] {
             for (auto *widget : QApplication::topLevelWidgets())

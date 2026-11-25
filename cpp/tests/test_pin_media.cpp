@@ -1077,6 +1077,30 @@ private slots:
         QVERIFY(QFile::exists(copied));
     }
 
+    // Quick save puts the animation itself, every frame, into the save folder; the pin stays.
+    void quickSavingAnAnimationKeepsItsFile() {
+        const auto original = three_frames();
+        QFile file(original);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QByteArray bytes = file.readAll();
+        file.close();
+        const QDir folder(dir_.filePath("quick-saves"));
+        config_->set_screenshot_save_path(folder.path());
+        auto source = load_animation(original);
+        QVERIFY(source);
+        auto *pin = PinManager::instance()->create_animation_pin(std::move(*source), QPoint(100, 100), config_);
+        pin->quick_save_image();
+        const auto saved = folder.entryList(QDir::Files);
+        QCOMPARE(saved.size(), 1);
+        QCOMPARE(QFileInfo(saved.first()).suffix(), QString("gif"));
+        QFile copy(folder.filePath(saved.first()));
+        QVERIFY(copy.open(QIODevice::ReadOnly));
+        QCOMPARE(copy.readAll(), bytes);
+        QVERIFY(!pin->is_closed() && pin->isVisible());
+        for (auto *widget : QApplication::topLevelWidgets())
+            if (qobject_cast<Toast *>(widget)) widget->close();
+    }
+
     void theAnimationMenuControlsPlayback() {
         auto source = load_animation(three_frames());
         QVERIFY(source);

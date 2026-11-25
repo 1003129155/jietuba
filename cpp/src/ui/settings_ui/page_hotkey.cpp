@@ -22,9 +22,9 @@ namespace {
 const std::vector<InAppKey> SCREENSHOT_KEYS = {
     {"inapp_confirm", "Copy to Clipboard", "ctrl+c"},
     {"inapp_pin", "Pin to Screen", "mousemiddle"},
+    // Save, quick save and upload are the pinned window's keys too; a key listed once serves both, like undo and the tool keys.
     {"inapp_save", "Save to File", "ctrl+s"},
     {"inapp_quick_save", "Quick Save", "ctrl+shift+s"},
-    // Also the pinned window's upload key; a key listed once serves both, like undo and the tool keys.
     {"inapp_upload", "Upload", ""},
     {"inapp_delete", "Delete Selected", "delete"},
     {"inapp_restore_last_region", "Restore Last Region", "l"},

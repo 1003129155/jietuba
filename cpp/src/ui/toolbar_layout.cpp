@@ -54,11 +54,11 @@ const QStringList &default_order() {
 // Later, rarely used features are folded by default so the default toolbar does not keep growing.
 const LayoutProfile SCREENSHOT{default_order(), {"quick_save", "upload", "text_recognize", "scan_code", "spotlight", "watermark"}, {"confirm"}, SETTING_KEY};
 const LayoutProfile PIN{
-    {"save", "upload", "copy", "screenshot_translate",
+    {"save", "quick_save", "upload", "copy", "screenshot_translate",
      "pen", "highlighter", "mosaic", "spotlight", "watermark", "arrow", "number", "rect", "ellipse", "text",
      "eraser",
      "undo", "redo"},
-    {"upload", "spotlight", "watermark", "screenshot_translate"}, {}, "pin_toolbar_layout"};
+    {"quick_save", "upload", "spotlight", "watermark", "screenshot_translate"}, {}, "pin_toolbar_layout"};
 const LayoutProfile ANNOTATION{
     {"annotation_pointer",
      "pen", "highlighter", "arrow", "number", "rect", "ellipse", "text", "eraser",

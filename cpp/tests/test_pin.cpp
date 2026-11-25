@@ -1732,7 +1732,7 @@ private slots:
     void theMenuOffersEveryEntryWithStateAndShortcuts() {
         auto *pin = make_pin();
         const QStringList want = {
-            "Copy (CTRL+C)", "Save as", "Upload", "Translate (Text Recognition)", "Pin as text (T)", "Reset size", "Image transform",
+            "Copy (CTRL+C)", "Save as (CTRL+S)", "Quick save (CTRL+SHIFT+S)", "Upload", "Translate (Text Recognition)", "Pin as text (T)", "Reset size", "Image transform",
             "  Rotate right", "  Rotate left", "  Flip horizontal", "  Flip vertical", "  -", "  Reset transform", "-",
             "[ ] Toolbar (SPACE)", "[ ] Hide annotations (H)", "[x] Always on top", "[ ] Mouse click-through",
             "[ ] Lock (L)", "[x] Border", "[ ] Text selection (P)",
@@ -1917,11 +1917,91 @@ private slots:
         close_toasts();
     }
 
+    // Quick save writes into the save folder without asking and names the file beside the cursor; the pin stays. It is
+    // Ctrl+Shift+S, a menu entry and a button folded into the toolbar's "..."; Ctrl+S opens the save window. The
+    // thumbnail menu stays short, and a save folder that cannot be made is reported.
+    void aPinQuickSavesFromItsKeyMenuAndToolbar() {
+        const QDir folder(dir_.filePath("captures"));
+        const auto saved = [&folder] { return folder.entryList(QDir::Files); };
+        const auto close_toasts = [] {
+            for (auto *widget : QApplication::topLevelWidgets())
+                if (qobject_cast<Toast *>(widget)) widget->close();
+        };
+        auto *pin = make_pin(QSize(120, 80));
+        const QPointer<PinWindow> alive(pin);
+        PinShortcutController::instance()->reload_bindings();
+        QCursor::setPos(pin->mapToGlobal(QPoint(30, 20)));
+        close_toasts();
+        press_key(pin, Qt::Key_S, Qt::ControlModifier | Qt::ShiftModifier);
+        QCOMPARE(saved().size(), 1);
+        QCOMPARE(QImageReader(folder.filePath(saved().first())).size(), QSize(120, 80));
+        Toast *toast = nullptr;
+        for (auto *widget : QApplication::topLevelWidgets())
+            if (auto *shown = qobject_cast<Toast *>(widget); shown && shown->isVisible()) toast = shown;
+        QVERIFY(toast);
+        // Offscreen fonts measure wide, so the tail may be elided; what shows must still start naming the file.
+        QString shown = toast->label->text();
+        shown.remove(QChar(0x2026));
+        QVERIFY2(QString("Saved: " + saved().first()).startsWith(shown) && shown.size() > QString("Saved: ").size(), qPrintable(shown));
+        QVERIFY(!QApplication::activeModalWidget());
+        QVERIFY(alive && alive->isVisible());
+        close_toasts();
+
+        QVERIFY(pin_menu(pin).contains("Quick save (CTRL+SHIFT+S)"));
+        pin_menu(pin, "Quick save");
+        QCOMPARE(saved().size(), 2);
+        close_toasts();
+
+        pin->toggle_toolbar();
+        QVERIFY(pin->toolbar && pin->toolbar->quick_save_btn);
+        QCOMPARE(toolbar_layout::PIN.default_mode("quick_save"), toolbar_layout::MORE);
+        QCOMPARE(toolbar_layout::PIN.order.indexOf("quick_save"), toolbar_layout::PIN.order.indexOf("save") + 1);
+        QVERIFY(pin->toolbar->quick_save_btn->parentWidget() != pin->toolbar || pin->toolbar->quick_save_btn->isHidden());
+        pin->toolbar->quick_save_btn->click();
+        QCOMPARE(saved().size(), 3);
+        pin->toggle_toolbar();
+        close_toasts();
+
+        QTemporaryDir out;
+        {
+            SaveDialogAnswerer answer(out.filePath("keyed.png"));
+            press_key(pin, Qt::Key_S, Qt::ControlModifier);
+            QTRY_VERIFY(answer.answered);
+        }
+        QTRY_VERIFY(QFileInfo::exists(out.filePath("keyed.png")));
+        QCOMPARE(saved().size(), 3);
+        QVERIFY(alive && alive->isVisible());
+
+        pin->toggle_thumbnail_mode();
+        QVERIFY(!pin_menu(pin).contains("Quick save (CTRL+SHIFT+S)"));
+        pin->toggle_thumbnail_mode();
+
+        // A file where the folder should be: nothing can be made below it.
+        QFile blocker(dir_.filePath("not-a-folder"));
+        QVERIFY(blocker.open(QIODevice::WriteOnly));
+        blocker.close();
+        config_->set_screenshot_save_path(QDir(blocker.fileName()).filePath("sub"));
+        QStringList warning;
+        QTimer poll;
+        QObject::connect(&poll, &QTimer::timeout, [&poll, &warning] {
+            auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            if (!dialog || !dialog->isVisible()) return;
+            poll.stop();
+            for (auto *label : dialog->findChildren<QLabel *>()) warning.append(label->text());
+            dialog->accept();
+        });
+        poll.start(20);
+        pin->quick_save_image();
+        QVERIFY2(warning.contains("Save Failed") && warning.contains("Cannot create the save folder or reserve a file name."), qPrintable(warning.join(" | ")));
+        QCOMPARE(saved().size(), 3);
+        QVERIFY(alive && alive->isVisible());
+    }
+
     void aThumbnailMenuKeepsOnlySevenEntries() {
         auto *pin = make_pin();
         QCursor::setPos(0, 0);
         pin->toggle_thumbnail_mode();
-        const QStringList want = {"Copy (CTRL+C)", "Save as", "-", "[x] Always on top", "[ ] Mouse click-through",
+        const QStringList want = {"Copy (CTRL+C)", "Save as (CTRL+S)", "-", "[x] Always on top", "[ ] Mouse click-through",
                                   "[ ] Lock (L)", "[x] Thumbnail mode (R)", "-", "Close (ESC)"};
         QCOMPARE(pin_menu(pin), want);
     }
@@ -2755,7 +2835,7 @@ private slots:
         QVERIFY(pin->thumbnail_mode());
         press_key(pin, Qt::Key_R);
         QVERIFY(!pin->thumbnail_mode());
-        const QStringList want = {"Copy text (CTRL+C)", "Copy plain text", "Copy image", "Save as", "Upload", "Translate", "Reset size", "-", "[ ] Toolbar (SPACE)",
+        const QStringList want = {"Copy text (CTRL+C)", "Copy plain text", "Copy image", "Save as (CTRL+S)", "Quick save (CTRL+SHIFT+S)", "Upload", "Translate", "Reset size", "-", "[ ] Toolbar (SPACE)",
                                   "[ ] Hide annotations (H)", "[x] Always on top", "[ ] Mouse click-through", "[ ] Lock (L)", "[x] Border",
                                   "[x] Text selection (P)", "[ ] Thumbnail mode (R)", "-", "Close (ESC)"};
         QCOMPARE(pin_menu(pin), want);

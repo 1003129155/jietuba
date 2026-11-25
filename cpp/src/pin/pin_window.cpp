@@ -33,6 +33,7 @@
 #include "upload/upload_service.h"
 #include "ui/dialogs.h"
 #include "ui/save_image_dialog.h"
+#include "ui/toast.h"
 #include "ui/translation_panel.h"
 #include "ui/arrow_settings_panel.h"
 #include "ui/mosaic_settings_panel.h"
@@ -1543,6 +1544,41 @@ void PinWindow::upload_image() {
             const QImage image = animation_ ? animation_->current_frame() : get_current_image();
             upload::start_upload(image, config, upload::Source::Pin);
         });
+    });
+}
+
+void PinWindow::quick_save_image() {
+    auto &config = *(config_manager ? config_manager : get_tool_settings_manager());
+    // A path comes back even when the write failed, so it doubles as the detail line;
+    // no path at all means the folder or the file name was the problem.
+    const auto report = [this](bool success, const std::optional<QString> &path) {
+        if (success) {
+            log_info(T("保存成功: {file_path}", {{"file_path", *path}}), "PinWindow");
+            show_toast(pin_tr("Saved: %1").replace("%1", QFileInfo(*path).fileName()));
+            return;
+        }
+        log_error(T("保存失败: {file_path}", {{"file_path", path.value_or(QString())}}), "PinWindow");
+        show_warning_dialog(this, pin_tr("Save Failed"), path ? *path : pin_tr("Cannot create the save folder or reserve a file name."));
+    };
+    if (animation_) {
+        const auto &source = animation_->source();
+        std::optional<QString> path;
+        try {
+            path = SaveService(config).reserve_save_path(config.get_screenshot_save_path(), "pinned", {}, QString::fromLatin1(source.format));
+        } catch (const std::exception &) {
+        }
+        // The reserved name is an empty placeholder; the copy takes its place.
+        const bool copied = path && QFile::remove(*path) && QFile::copy(source.path(), *path);
+        if (path && !copied) SaveService::cleanup_failed_placeholder(*path);
+        report(copied, path);
+        return;
+    }
+    when_pixels_ready([this, &config, report] {
+        QImage image;
+        with_edit_paused([this, &image] { image = get_current_image(); });
+        const SaveService save_service(config);
+        const auto [success, path] = save_service.save_qimage(image, config.get_screenshot_save_path(), "pinned", {}, config.get_screenshot_format(), save_service.options());
+        report(success, path);
     });
 }
 

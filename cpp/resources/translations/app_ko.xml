@@ -1986,6 +1986,22 @@ Replace it?</source>
         <translation>다른 이름으로 저장</translation>
     </message>
     <message>
+        <source>Quick save</source>
+        <translation>빠른 저장</translation>
+    </message>
+    <message>
+        <source>Saved: %1</source>
+        <translation>저장됨: %1</translation>
+    </message>
+    <message>
+        <source>Save Failed</source>
+        <translation>저장 실패</translation>
+    </message>
+    <message>
+        <source>Cannot create the save folder or reserve a file name.</source>
+        <translation>저장 폴더를 만들 수 없거나 파일 이름을 할당할 수 없습니다. 설정의 저장 경로를 확인하세요.</translation>
+    </message>
+    <message>
         <source>Toolbar</source>
         <translation>도구 모음</translation>
     </message>
