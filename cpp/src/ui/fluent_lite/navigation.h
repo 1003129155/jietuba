@@ -14,6 +14,7 @@ namespace jietuba {
 enum class NavigationItemPosition { TOP = 0, BOTTOM = 1 };
 
 class NavSubList;
+class NavIndicator;
 
 // Route-based sidebar navigation. An item of the top list may unfold a second level of entries
 // (sub-items) below it; any number of items can be unfolded at once.
@@ -51,9 +52,16 @@ public:
     // above it then gives up its own highlight.
     void setCurrentSubItem(const QString &route_key, int index);
     const QString &currentSubRoute() const { return current_sub_route_; }
+    // The item's sub-items are about to be read and one of them made current: until it is cleared with
+    // an empty route, neither the item nor the bar marks a row, so the mark goes straight to the group
+    // instead of stopping at the item first.
+    void setSubItemPending(const QString &route_key);
     int currentSubItem() const { return current_sub_; }
     // Whether an unfold or fold animation is running.
     bool animating() const;
+    // Where the current row's bar is drawn now, in the scrolled list's coordinates; empty when the
+    // current row is not in that list or not on show.
+    QRectF indicatorRect() const;
 signals:
     // The arrow of an item was pressed; the owner decides what to unfold.
     void arrowClicked(const QString &route_key);
@@ -63,6 +71,7 @@ private:
     // Brings the widget into view once no list is moving, as their heights change meanwhile.
     void request_visible(QWidget *widget);
     void flush_visible();
+    void mark_sub_active();
     NavSubList *list_of(const QString &route_key) const { return lists_.value(route_key); }
     QMap<QString, QPushButton *> items_;
     QMap<QString, IconSource> icons_;
@@ -71,9 +80,11 @@ private:
     QString current_;
     QString current_sub_route_;
     int current_sub_ = -1;
+    QString pending_sub_route_;
     QPointer<QWidget> pending_visible_;
     QButtonGroup *group_;
     QScrollArea *scroll_;
+    NavIndicator *indicator_ = nullptr;
     QVBoxLayout *layout_, *top_, *bottom_;
     int expand_width_ = 0, minimum_expand_width_ = 0;
 };

@@ -1,11 +1,33 @@
 #include "ui/fluent_lite/fluent_lite.h"
 #include "core/ui_scale.h"
+#include "ui/motion.h"
 #include <QPainter>
 #include <QPainterPath>
 #include <QStyleOptionButton>
 
 namespace jietuba {
 CheckBox::CheckBox(const QString &text, QWidget *parent) : QCheckBox(text, parent) {
+    connect(&fade_, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
+        fill_ = value.toDouble();
+        update();
+    });
+    connect(this, &QCheckBox::toggled, this, [this](bool checked) {
+        fade_.stop();
+        const int length = motion::duration(motion::FAST_MS);
+        if (!isVisible() || length <= 0) {
+            fill_ = checked ? 1.0 : 0.0;
+            update();
+            return;
+        }
+        // Nothing listens while the values are set: a finished animation would report its new end at once.
+        {
+            const QSignalBlocker quiet(&fade_);
+            fade_.setDuration(length);
+            fade_.setStartValue(fill_);
+            fade_.setEndValue(checked ? 1.0 : 0.0);
+        }
+        fade_.start();
+    });
     _apply_theme();
     connect(get_ui_theme(), &UIThemeManager::theme_changed, this, [this] { _apply_theme(); });
 }
@@ -36,14 +58,20 @@ void CheckBox::paintEvent(QPaintEvent *) {
     painter.setPen(option.palette.color(QPalette::WindowText));
     painter.drawText(label_rect, flags, option.text);
     const auto &tokens = ui_tokens(this);
-    const bool checked = isChecked();
     const auto box = QRectF(indicator).adjusted(0.5, 0.5, -0.5, -0.5);
     const double radius = widget_scaled(this, 4);
-    painter.setPen(QColor::fromString(checked || underMouse() ? ACCENT : tokens.border_hover));
-    painter.setBrush(QColor::fromString(checked ? ACCENT : tokens.input_background));
+    const auto blend = [this](const QColor &off, const QColor &on) {
+        return QColor::fromRgbF(off.redF() + (on.redF() - off.redF()) * fill_, off.greenF() + (on.greenF() - off.greenF()) * fill_,
+                                off.blueF() + (on.blueF() - off.blueF()) * fill_, off.alphaF() + (on.alphaF() - off.alphaF()) * fill_);
+    };
+    const QColor accent = QColor::fromString(ACCENT);
+    painter.setPen(blend(underMouse() ? accent : QColor::fromString(tokens.border_hover), accent));
+    painter.setBrush(blend(QColor::fromString(tokens.input_background), accent));
     painter.drawRoundedRect(box, radius, radius);
-    if (checked) {
-        QPen pen(QColor("#FFFFFF"), std::max(1.5, box.width() / 9));
+    if (fill_ > 0) {
+        QColor tick_color("#FFFFFF");
+        tick_color.setAlphaF(fill_);
+        QPen pen(tick_color, std::max(1.5, box.width() / 9));
         pen.setCapStyle(Qt::RoundCap);
         pen.setJoinStyle(Qt::RoundJoin);
         painter.setPen(pen);

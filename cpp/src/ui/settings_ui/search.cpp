@@ -5,6 +5,7 @@
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/labels.h"
 #include "ui/fluent_lite/theme.h"
+#include "ui/motion.h"
 #include "ui/settings_ui/components.h"
 #include "ui/settings_ui/dialog.h"
 #include <QApplication>
@@ -55,7 +56,6 @@ constexpr int POPUP_MAX_HEIGHT = 440;
 constexpr int ROW_HEIGHT = 56;
 constexpr int SHORT_ROW_HEIGHT = 40;
 constexpr int FLASH_HOLD_MS = 1100;
-constexpr int FLASH_FADE_MS = 400;
 constexpr int FLASH_OUTSET = 8;
 
 enum Role { TitleRole = Qt::UserRole + 1, PathRole, DescriptionRole };
@@ -255,7 +255,7 @@ public:
         auto *fade = new QVariantAnimation(this);
         fade->setStartValue(1.0);
         fade->setEndValue(0.0);
-        fade->setDuration(FLASH_FADE_MS);
+        fade->setDuration(std::max(1, motion::duration(motion::SLOW_MS)));
         connect(fade, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
             strength_ = value.toDouble();
             update();

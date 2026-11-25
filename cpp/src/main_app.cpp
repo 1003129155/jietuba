@@ -43,6 +43,7 @@
 #include "translation/smart_translation_controller.h"
 #include "translation/translation_manager.h"
 #include "ui/dialogs.h"
+#include "ui/motion.h"
 #include "ui/screenshot_countdown.h"
 #include "ui/screenshot_window.h"
 #include "ui/toast.h"
@@ -115,6 +116,7 @@ MainApp::MainApp(int &argc, char **argv) : app(std::make_unique<QApplication>(ar
     // separately by core/theme.
     ui_theme_manager = get_ui_theme()->init(config_manager, app.get());
     connect(ui_theme_manager, &UIThemeManager::theme_changed, this, &MainApp::on_ui_theme_changed);
+    motion::install_popup_fade(*app);
 
     setup_logger(config_manager);
     data_folder::write_deferred_log();

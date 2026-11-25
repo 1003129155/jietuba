@@ -2,6 +2,7 @@
 #include "core/ui_scale.h"
 #include "ui/fluent_lite/cards.h"
 #include "ui/fluent_lite/navigation.h"
+#include "ui/motion.h"
 #include "ui/settings_ui/components.h"
 #include <QEvent>
 #include <QLabel>
@@ -13,8 +14,6 @@
 
 namespace jietuba {
 namespace {
-constexpr int ANIMATION_MS = 250;
-
 // Hidden by code, not merely because an ancestor is.
 bool hidden_on_purpose(const QWidget *widget) { return widget->isHidden() && widget->testAttribute(Qt::WA_WState_ExplicitShowHide); }
 
@@ -32,10 +31,9 @@ PageOutline::PageOutline(NavigationInterface *navigation, QObject *parent) : QOb
     refresh_timer_->setSingleShot(true);
     refresh_timer_->setInterval(0);
     connect(refresh_timer_, &QTimer::timeout, this, &PageOutline::refresh);
-    animation_.setDuration(ANIMATION_MS);
     animation_.setStartValue(0.0);
     animation_.setEndValue(1.0);
-    animation_.setEasingCurve(QEasingCurve::OutCubic);
+    animation_.setEasingCurve(motion::decelerate());
     connect(&animation_, &QVariantAnimation::valueChanged, this, [this](const QVariant &progress) {
         if (!scroll_ || animation_group_ < 0 || animation_group_ >= group_count()) return;
         // The target is read each step: a page still settling moves its groups.
@@ -51,6 +49,9 @@ PageOutline::PageOutline(NavigationInterface *navigation, QObject *parent) : QOb
 
 void PageOutline::set_page(QScrollArea *scroll, const QString &route_key) {
     route_ = route_key;
+    // Another page's groups are known once it is laid out; until then its own row stays unmarked too.
+    if (!scroll || route_key.isEmpty()) navigation_->setSubItemPending({});
+    else if (scroll != scroll_.data()) navigation_->setSubItemPending(route_key);
     unfold_only(route_);
     if (scroll == scroll_.data()) {
         schedule_refresh();
@@ -186,6 +187,7 @@ void PageOutline::refresh() {
         for (int i = 0; i < group_count(); ++i)
             if (groups_[i].title == pending_title_) locked_ = i;
     update_current();
+    navigation_->setSubItemPending({});
 }
 
 void PageOutline::schedule_refresh() {
@@ -225,6 +227,7 @@ void PageOutline::scroll_to_group(int index) {
     if (start == target_value(index)) return;
     animation_from_ = start;
     animation_group_ = index;
+    animation_.setDuration(std::max(1, motion::duration(motion::SLOW_MS)));
     animation_.start();
 }
 

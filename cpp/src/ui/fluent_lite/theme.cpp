@@ -115,6 +115,17 @@ void paint_solid_background(QWidget *widget, int radius) {
     painter.drawRoundedRect(rect, radius, radius);
 }
 
+QColor painted_over(const QColor &top, const QColor &under) {
+    const double a = top.alphaF();
+    return QColor::fromRgbF(top.redF() * a + under.redF() * (1 - a), top.greenF() * a + under.greenF() * (1 - a),
+                            top.blueF() * a + under.blueF() * (1 - a));
+}
+
+QColor layer_backdrop(const QWidget *widget) {
+    const auto &tokens = ui_tokens(widget);
+    return painted_over(css_color(tokens.layer), css_color(tokens.page_background));
+}
+
 void paint_layered_background(QWidget *widget, int radius, const QRect &layer_rect, int layer_radius) {
     const auto &tokens = ui_tokens(widget);
     QPainter painter(widget);

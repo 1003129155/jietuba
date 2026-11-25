@@ -2,6 +2,7 @@
 #include "ui/fluent_lite/control_style.h"
 #include "ui/fluent_lite/theme.h"
 #include <QPushButton>
+#include <QVariantAnimation>
 #include <QToolButton>
 
 namespace jietuba {
@@ -23,6 +24,10 @@ public:
     bool paints_itself() const { return painted_; }
     ControlBox control_box(QStyle::State state) const;
     QColor text_color(QStyle::State state) const;
+    // What is drawn for the state: its colours, or on the way to them from those of the state before
+    // while the pointer has just come, gone or pressed.
+    ControlBox shown_box(QStyle::State state) const;
+    QColor shown_text(QStyle::State state) const;
     int horizontal_padding() const;
 protected:
     enum class Kind { Standard, Primary, Transparent, Hyperlink };
@@ -35,9 +40,16 @@ protected:
 private:
     bool wants_painting() const;
     void use_style_sheet();
+    // Hover, pressed and enabled, as the colours depend on them.
+    QStyle::State pointer_state() const;
     Kind kind_ = Kind::Standard;
     bool painted_ = false;
     bool sheet_chosen_ = false;
+    QStyle::State shown_state_ = QStyle::State_Enabled;
+    ControlBox fade_from_box_;
+    QColor fade_from_text_;
+    double fade_ = 1;
+    QVariantAnimation fade_anim_;
 };
 
 // A button whose fill is its content (theme colour, mask colour, palettes).

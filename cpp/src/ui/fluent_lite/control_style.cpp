@@ -70,7 +70,7 @@ void paint_button_label(const PushButton *button, const QStyleOptionButton &opti
     }
     // The sheet sets its font on the painter, so a caller's own painter draws the same text.
     painter->setFont(button->font());
-    painter->setPen(button->text_color(option.state));
+    painter->setPen(button->shown_text(option.state));
     painter->drawText(text_rect, flags, option.text);
 }
 
@@ -136,7 +136,7 @@ public:
     void drawControl(ControlElement element, const QStyleOption *option, QPainter *painter, const QWidget *widget) const override {
         if (const auto *button = painted_button(widget); button && element == CE_PushButton) {
             if (const auto *button_option = qstyleoption_cast<const QStyleOptionButton *>(option)) {
-                paint_control_box(painter, option->rect, widget_scaled(button, INPUT_RADIUS), button->control_box(option->state));
+                paint_control_box(painter, option->rect, widget_scaled(button, INPUT_RADIUS), button->shown_box(option->state));
                 paint_button_label(button, *button_option, painter, this);
                 return;
             }

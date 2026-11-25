@@ -3,11 +3,13 @@
 #include <QHBoxLayout>
 #include <QMap>
 #include <QPushButton>
+#include <QVariantAnimation>
 #include <QWidget>
 #include <functional>
 
 namespace jietuba {
-// Compact segmented selector addressed by route keys.
+// Compact segmented selector addressed by route keys. The backing of the checked button is drawn
+// here, under the buttons, so that on screen it can slide from the old choice to the new one.
 class SegmentedWidget : public QWidget {
     Q_OBJECT
 public:
@@ -25,8 +27,12 @@ public:
     void setFloating(bool floating);
     void setIndicatorColor(const QString &light, const QString &dark = {}) { indicator_ = light; Q_UNUSED(dark); }
     Q_INVOKABLE void _apply_theme();
+    // Where the checked backing is drawn now.
+    QRectF thumbRect() const;
 signals:
     void currentItemChanged(const QString &route_key);
+protected:
+    void paintEvent(QPaintEvent *event) override;
 private:
     QString style() const;
     void refresh_items();
@@ -40,5 +46,9 @@ private:
     bool floating_ = false;
     QButtonGroup *group_;
     QHBoxLayout *layout_;
+    // The backing travels from here to the checked button, wherever the layout has that button by then.
+    QRectF slide_from_;
+    double slide_ = 1;
+    QVariantAnimation slide_anim_;
 };
 }

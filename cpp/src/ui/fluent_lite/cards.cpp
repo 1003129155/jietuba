@@ -265,13 +265,16 @@ SettingExpander::SettingExpander(SettingCard *header, QWidget *parent) : QWidget
     layout->addWidget(header_);
     arrow_ = new ArrowButton(header_);
     header_->hBoxLayout->addWidget(arrow_, 0, Qt::AlignVCenter);
-    body_ = new QFrame(this);
+    body_ = new FoldBox(this);
     body_->setObjectName("FluentLiteExpanderBody");
-    body_layout_ = new QVBoxLayout(body_);
+    body_layout_ = new QVBoxLayout(body_->content());
     body_layout_->setContentsMargins(0, 0, 0, 0);
     body_layout_->setSpacing(0);
     layout->addWidget(body_);
-    body_->hide();
+    connect(body_, &FoldBox::resized, this, [this] {
+        header_->setJoinedBelow(!body_->isHidden());
+        emit resized();
+    });
     arrow_->hide();
     connect(arrow_, &QAbstractButton::clicked, this, [this] { setExpanded(arrow_->isChecked()); });
     _apply_theme();
@@ -284,6 +287,7 @@ void SettingExpander::_apply_theme() {
                                      " border-bottom-left-radius: %3px; border-bottom-right-radius: %3px; }")
                                  .arg(t.card_body, t.card_border)
                                  .arg(dialog_scaled(CARD_RADIUS)));
+    body_->setBackdrop([this] { return painted_over(css_color(ui_tokens(this).card_body), layer_backdrop(this)); }, dialog_scaled(CARD_RADIUS) - 1);
     for (auto *separator : separators_)
         if (separator) set_own_style(separator, separator_style());
 }
@@ -292,20 +296,20 @@ void SettingExpander::addItem(SettingCard *item) {
     if (items_.isEmpty()) {
         separators_.append(nullptr);
     } else {
-        auto *separator = new QFrame(body_);
+        auto *separator = new QFrame(body_->content());
         separator->setFixedHeight(dialog_scaled(1));
         set_own_style(separator, separator_style());
         body_layout_->addWidget(separator);
         separators_.append(separator);
     }
-    item->setParent(body_);
+    item->setParent(body_->content());
     item->setEmbedded(true);
     body_layout_->addWidget(item);
     items_.append(item);
     refreshItems();
 }
 
-void SettingExpander::refreshItems() {
+void SettingExpander::refreshItems(bool animated) {
     bool any = false;
     for (int i = 0; i < items_.size(); ++i) {
         const bool visible = !items_[i]->isHidden();
@@ -313,16 +317,16 @@ void SettingExpander::refreshItems() {
         if (auto *separator = separators_[i]) separator->setVisible(visible && any);
         any = any || visible;
     }
-    body_->setVisible(any && expanded_);
+    body_->setOpen(any && expanded_, animated);
     arrow_->setVisible(any);
     header_->setJoinedBelow(!body_->isHidden());
     emit resized();
 }
 
-void SettingExpander::setExpanded(bool expanded) {
+void SettingExpander::setExpanded(bool expanded, bool animated) {
     expanded_ = expanded;
     arrow_->setChecked(expanded);
-    refreshItems();
+    refreshItems(animated);
 }
 
 SettingCardGroup::SettingCardGroup(const QString &title, QWidget *parent, const QString &tone) : QWidget(parent), tone_(tone) {

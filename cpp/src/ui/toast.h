@@ -1,4 +1,5 @@
 #pragma once
+#include "ui/motion.h"
 #include <QLabel>
 #include <QPoint>
 #include <QWidget>
@@ -15,7 +16,7 @@ class Toast : public QWidget {
     Q_OBJECT
 public:
     static constexpr int HOLD_MS = 1500;
-    static constexpr int FADE_MS = 200;
+    static constexpr int FADE_MS = motion::MID_MS;
     static constexpr int MAX_TEXT_WIDTH = 360;
     explicit Toast(const QString &text);
     // Line breaks collapse to spaces and long text is elided: one line only.

@@ -1,4 +1,5 @@
 #include "ui/fluent_lite/navigation.h"
+#include "ui/motion.h"
 #include "core/ui_scale.h"
 #include "ui/fluent_lite/cards.h"
 #include <QCoreApplication>
@@ -8,15 +9,13 @@
 #include <QPen>
 #include <QPolygonF>
 #include <QPropertyAnimation>
+#include <QSignalBlocker>
 #include <QTimer>
 #include <QVariantAnimation>
 #include <algorithm>
 
 namespace jietuba {
 namespace {
-constexpr int UNFOLD_MS = 200;
-constexpr int ARROW_TURN_MS = 150;
-
 // Thin line between navigation groups, inset to match the selection pill.
 class NavSeparator : public QWidget {
 public:
@@ -63,6 +62,14 @@ public:
         setFocusPolicy(Qt::TabFocus);
         setCursor(Qt::PointingHandCursor);
     }
+    bool lit() const { return current(); }
+    // The bar of the current row, in the row's coordinates.
+    QRectF bar_rect() const {
+        const qreal bar_width = dialog_scaled(3), bar_height = dialog_scaled(16);
+        return QRectF(0, (height() - bar_height) / 2, bar_width, bar_height);
+    }
+    // A row whose bar the list's indicator draws does not draw it itself.
+    void set_bar_drawn_elsewhere(bool elsewhere) { bar_elsewhere_ = elsewhere; }
 protected:
     virtual bool current() const = 0;
     void paint_row(QPainter &painter) {
@@ -75,12 +82,11 @@ protected:
             painter.setBrush(row_fill(tokens, isDown() && !lit));
             painter.drawRoundedRect(QRectF(rect()), radius, radius);
         }
-        if (lit) {
-            const qreal bar_width = dialog_scaled(3);
-            const qreal bar_height = dialog_scaled(16);
+        if (lit && !bar_elsewhere_) {
+            const QRectF bar = bar_rect();
             painter.setPen(Qt::NoPen);
             painter.setBrush(css_color(ACCENT));
-            painter.drawRoundedRect(QRectF(0, (height() - bar_height) / 2, bar_width, bar_height), bar_width / 2, bar_width / 2);
+            painter.drawRoundedRect(bar, bar.width() / 2, bar.width() / 2);
         }
         if (hasFocus()) {
             painter.setPen(QPen(css_color(ACCENT), 1));
@@ -90,6 +96,8 @@ protected:
         painter.setFont(row_font());
         painter.setPen(css_color(tokens.fg));
     }
+private:
+    bool bar_elsewhere_ = false;
 };
 
 // A page of the list. When one of its sub-items is current, that one carries the highlight.
@@ -97,8 +105,7 @@ class NavItemButton : public NavRowButton {
 public:
     explicit NavItemButton(const QString &text, QWidget *parent) : NavRowButton(text, parent) {
         setFixedHeight(row_height());
-        turn_.setDuration(ARROW_TURN_MS);
-        turn_.setEasingCurve(QEasingCurve::OutCubic);
+        turn_.setEasingCurve(motion::decelerate());
         connect(&turn_, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
             angle_ = value.toReal();
             update();
@@ -123,7 +130,9 @@ public:
         update();
         turn_.stop();
         const qreal end = expanded ? 180 : 0;
-        if (animate && isVisible() && angle_ != end) {
+        const int length = motion::duration(motion::MID_MS);
+        if (animate && isVisible() && angle_ != end && length > 0) {
+            turn_.setDuration(length);
             turn_.setStartValue(angle_);
             turn_.setEndValue(end);
             turn_.start();
@@ -229,6 +238,133 @@ private:
 };
 }
 
+// The bar of the current row of the scrolled list, drawn over the rows so that it can travel from the row
+// that was current to the one that is. Rows move while a sub-list folds, so the place of the row is read
+// at every paint.
+class NavIndicator : public QWidget {
+public:
+    explicit NavIndicator(QWidget *content) : QWidget(content) {
+        setAttribute(Qt::WA_TransparentForMouseEvents);
+        content->installEventFilter(this);
+        slide_.setEasingCurve(motion::decelerate());
+        connect(&slide_, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
+            progress_ = value.toDouble();
+            update();
+        });
+    }
+    // Items are added before their sub-items: where both are lit, the item carries the bar.
+    void watch(NavRowButton *row) {
+        rows_.append(row);
+        row->set_bar_drawn_elsewhere(true);
+        follow(row);
+    }
+    // A widget whose moves carry rows along with it.
+    void follow(QWidget *widget) {
+        widget->installEventFilter(this);
+        raise();
+    }
+    // Which row is current may have changed. One switch is several changes, an item unchecked and
+    // another checked, so the rows are looked at once all of them have been made.
+    void request_sync() {
+        if (pending_) return;
+        pending_ = true;
+        QMetaObject::invokeMethod(this, [this] { sync(); }, Qt::QueuedConnection);
+    }
+    // While the current row is not known yet, the bar keeps its place, and then travels from where it
+    // was seen last instead of stopping at a row on the way.
+    void hold() {
+        if (held_) return;
+        held_ = true;
+        held_from_ = bar();
+    }
+    void release() {
+        if (!held_) return;
+        held_ = false;
+        request_sync();
+    }
+    void sync() {
+        pending_ = false;
+        if (held_) {
+            update();
+            return;
+        }
+        rows_.removeAll(QPointer<NavRowButton>());
+        NavRowButton *lit = nullptr;
+        for (const auto &row : rows_)
+            if (!lit && row->lit() && row->isVisibleTo(parentWidget())) lit = row;
+        if (lit == lit_) {
+            held_from_ = {};
+            update();
+            return;
+        }
+        QRectF from = bar();
+        if (from.isEmpty()) from = held_from_;
+        held_from_ = {};
+        lit_ = lit;
+        slide_.stop();
+        progress_ = 1;
+        const int length = motion::duration(motion::MID_MS);
+        if (lit_ && !from.isEmpty() && isVisible() && length > 0) {
+            from_ = from;
+            progress_ = 0;
+            {
+                // A finished animation given new values would report its new end at once.
+                const QSignalBlocker quiet(&slide_);
+                slide_.setDuration(length);
+                slide_.setStartValue(0.0);
+                slide_.setEndValue(1.0);
+            }
+            slide_.start();
+        }
+        update();
+    }
+    QRectF bar() const {
+        if (!lit_) return {};
+        const QPointF origin = lit_->mapTo(parentWidget(), QPoint(0, 0));
+        const QRectF whole = lit_->bar_rect().translated(origin);
+        if (progress_ < 1) {
+            const auto mix = [this](double a, double b) { return a + (b - a) * progress_; };
+            return QRectF(mix(from_.x(), whole.x()), mix(from_.y(), whole.y()), mix(from_.width(), whole.width()), mix(from_.height(), whole.height()));
+        }
+        // At rest, only as much of it as the row shows: a folding sub-list cuts its rows off.
+        return whole.intersected(QRectF(lit_->visibleRegion().boundingRect()).translated(origin));
+    }
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override {
+        switch (event->type()) {
+        case QEvent::Resize:
+            if (watched == parentWidget()) setGeometry(parentWidget()->rect());
+            update();
+            break;
+        case QEvent::Move:
+        case QEvent::Show:
+        case QEvent::Hide:
+            update();
+            break;
+        default: break;
+        }
+        return false;
+    }
+    void paintEvent(QPaintEvent *) override {
+        const QRectF rect = bar();
+        if (rect.isEmpty()) return;
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing);
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(css_color(ACCENT));
+        painter.drawRoundedRect(rect, rect.width() / 2, rect.width() / 2);
+    }
+private:
+    QList<QPointer<NavRowButton>> rows_;
+    QPointer<NavRowButton> lit_;
+    QRectF from_;
+    QRectF held_from_;
+    double progress_ = 1;
+    bool pending_ = false;
+    bool held_ = false;
+    QVariantAnimation slide_;
+};
+
 // The sub-items of one page, in a box that folds by its height. The rows keep their place and size
 // inside it and are clipped as it shrinks. Folded it is hidden, so it takes no clicks or focus.
 class NavSubList : public QWidget {
@@ -242,8 +378,7 @@ public:
         rows_ = new QVBoxLayout(inner_);
         rows_->setContentsMargins(0, 0, 0, 0);
         rows_->setSpacing(dialog_scaled(2));
-        animation_->setDuration(UNFOLD_MS);
-        animation_->setEasingCurve(QEasingCurve::OutCubic);
+        animation_->setEasingCurve(motion::decelerate());
         // Folded, it goes hidden; unfolded, it takes its natural height back (a wrapped title may grow it later).
         connect(animation_, &QAbstractAnimation::finished, this, [this] {
             setMaximumHeight(unfolding_ ? QWIDGETSIZE_MAX : 0);
@@ -299,6 +434,7 @@ public:
         const int end = unfolded ? natural_height(width) : 0;
         setMaximumHeight(start);
         show();
+        animation_->setDuration(std::max(1, motion::duration(motion::MID_MS)));
         animation_->setStartValue(start);
         animation_->setEndValue(end);
         animation_->start();
@@ -335,6 +471,7 @@ NavigationInterface::NavigationInterface(QWidget *parent) : QWidget(parent), gro
     top_view_layout->addLayout(top_);
     top_view_layout->addStretch(1);
     scroll_->setWidget(top_view);
+    indicator_ = new NavIndicator(top_view);
     bottom_ = new QVBoxLayout;
     bottom_->setContentsMargins(dialog_scaled(4), 0, dialog_scaled(4), 0);
     bottom_->setSpacing(dialog_scaled(2));
@@ -367,9 +504,13 @@ QPushButton *NavigationInterface::addItem(const QString &route_key, const IconSo
     group_->addButton(button);
     items_[route_key] = button;
     icons_[route_key] = icon;
-    connect(button, &QPushButton::toggled, this, [this, route_key](bool) { apply_icon(route_key); });
+    connect(button, &QPushButton::toggled, this, [this, route_key](bool) {
+        apply_icon(route_key);
+        indicator_->request_sync();
+    });
     apply_icon(route_key);
     (position == NavigationItemPosition::BOTTOM ? bottom_ : top_)->addWidget(button);
+    if (position == NavigationItemPosition::TOP) indicator_->watch(button);
     return button;
 }
 
@@ -425,6 +566,7 @@ void NavigationInterface::setExpanded(const QString &route_key, bool expanded, b
     if (!button || top_->indexOf(button) < 0) return;
     expanded_[route_key] = expanded;
     button->setExpanded(expanded, animate);
+    indicator_->request_sync();
     if (auto *list = list_of(route_key)) {
         const int width = std::max(1, scroll_->viewport()->width() - 2 * dialog_scaled(4));
         list->unfold(expanded, animate && scroll_->isVisible(), width);
@@ -451,7 +593,11 @@ void NavigationInterface::setSubItems(const QString &route_key, const QStringLis
     const bool is_new = !list;
     if (is_new) {
         list = new NavSubList(scroll_->widget());
-        connect(list->animation(), &QAbstractAnimation::finished, this, [this] { flush_visible(); });
+        indicator_->follow(list);
+        connect(list->animation(), &QAbstractAnimation::finished, this, [this] {
+            flush_visible();
+            indicator_->request_sync();
+        });
         top_->insertWidget(top_->indexOf(parent_item) + 1, list);
         lists_[route_key] = list;
     } else if (subItemTitles(route_key) == titles) {
@@ -459,6 +605,8 @@ void NavigationInterface::setSubItems(const QString &route_key, const QStringLis
     }
     const bool had_current = current_sub_route_ == route_key;
     list->set_titles(titles, [this, route_key](int index) { emit subItemClicked(route_key, index); });
+    for (auto *button : list->buttons) indicator_->watch(button);
+    indicator_->request_sync();
     if (had_current) setCurrentSubItem(route_key, std::min<int>(current_sub_, titles.size() - 1));
     // A list made for an item that is already unfolded opens with the animation; a rebuilt one stays as it is.
     if (is_new && isExpanded(route_key)) {
@@ -493,11 +641,31 @@ void NavigationInterface::setCurrentSubItem(const QString &route_key, int index)
     current_sub_ = index;
     for (auto it = lists_.begin(); it != lists_.end(); ++it)
         for (int i = 0; i < static_cast<int>(it.value()->buttons.size()); ++i) it.value()->buttons[i]->setActive(it.key() == current_sub_route_ && i == current_sub_);
-    for (auto it = items_.begin(); it != items_.end(); ++it) static_cast<NavItemButton *>(it.value())->setSubActive(it.key() == current_sub_route_);
+    mark_sub_active();
+    indicator_->request_sync();
     if (index < 0) return;
     // The first group shows its page's item too.
     request_visible(index == 0 ? static_cast<QWidget *>(items_.value(route_key)) : static_cast<QWidget *>(subItem(route_key, index)));
 }
+
+void NavigationInterface::mark_sub_active() {
+    for (auto it = items_.begin(); it != items_.end(); ++it)
+        static_cast<NavItemButton *>(it.value())->setSubActive(it.key() == current_sub_route_ || it.key() == pending_sub_route_);
+}
+
+void NavigationInterface::setSubItemPending(const QString &route_key) {
+    if (pending_sub_route_ == route_key) return;
+    pending_sub_route_ = route_key;
+    if (route_key.isEmpty()) {
+        mark_sub_active();
+        indicator_->release();
+        return;
+    }
+    indicator_->hold();
+    mark_sub_active();
+}
+
+QRectF NavigationInterface::indicatorRect() const { return indicator_->bar(); }
 
 bool NavigationInterface::animating() const {
     for (const auto *list : lists_)

@@ -1,6 +1,7 @@
 #include "ui/fluent_lite/switch.h"
 #include "core/ui_scale.h"
 #include "ui/fluent_lite/theme.h"
+#include "ui/motion.h"
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QPainter>
@@ -11,8 +12,7 @@ SwitchButton::SwitchButton(QWidget *parent) : QWidget(parent), animation_(new QP
     setCursor(Qt::PointingHandCursor);
     setFocusPolicy(Qt::StrongFocus);
     setAttribute(Qt::WA_Hover);
-    animation_->setDuration(145);
-    animation_->setEasingCurve(QEasingCurve::OutCubic);
+    animation_->setEasingCurve(motion::decelerate());
     _apply_theme();
     connect(get_ui_theme(), &UIThemeManager::theme_changed, this, [this] { update(); });
 }
@@ -45,11 +45,13 @@ void SwitchButton::setChecked(bool checked) {
 
 void SwitchButton::animate() {
     animation_->stop();
+    const int length = motion::duration(motion::MID_MS);
     // A switch not on screen yet, such as one on a page being built, takes its state at once.
-    if (!isVisible()) {
+    if (!isVisible() || length <= 0) {
         set_progress(checked_ ? 1.0 : 0.0);
         return;
     }
+    animation_->setDuration(length);
     animation_->setStartValue(progress_);
     animation_->setEndValue(checked_ ? 1.0 : 0.0);
     animation_->start();

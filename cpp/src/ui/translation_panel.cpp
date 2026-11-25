@@ -112,8 +112,7 @@ TranslationPanel::TranslationPanel(QWidget *parent) : QWidget(parent) {
     tail->addWidget(drawer_);
     tail->addWidget(expand_btn);
     layout->addLayout(tail);
-    slide_.setDuration(SLIDE_MS);
-    slide_.setEasingCurve(QEasingCurve::OutCubic);
+    slide_.setEasingCurve(motion::decelerate());
     connect(&slide_, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) { apply_open(value.toReal()); });
     connect(view_toggle, &SegmentedToggle::current_changed, this, [this](int index) { emit original_shown_changed(index == 1); });
     connect(language_combo, &QComboBox::currentIndexChanged, this, [this](int) { emit target_language_changed(target_language()); });
@@ -183,6 +182,7 @@ void TranslationPanel::set_expanded(bool expanded) {
         apply_open(expanded_ ? 1 : 0);
         return;
     }
+    slide_.setDuration(std::max(1, motion::duration(SLIDE_MS)));
     slide_.setStartValue(open_);
     slide_.setEndValue(expanded_ ? 1.0 : 0.0);
     slide_.start();

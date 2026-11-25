@@ -33,7 +33,15 @@ Toast::Toast(const QString &text) : QWidget(nullptr) {
 
     anchor_ = QCursor::pos();
     set_text(text);
+    const int fade_in = motion::duration(FADE_MS);
+    if (fade_in > 0) setWindowOpacity(0.0);
     show();
+    if (fade_in <= 0) return;
+    auto *fade = new QPropertyAnimation(this, "windowOpacity", this);
+    fade->setDuration(fade_in);
+    fade->setStartValue(0.0);
+    fade->setEndValue(1.0);
+    fade->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
 void Toast::set_text(const QString &text) {
@@ -58,7 +66,7 @@ void Toast::finish() {
 
 void Toast::fade_out() {
     auto *fade = new QPropertyAnimation(this, "windowOpacity", this);
-    fade->setDuration(FADE_MS);
+    fade->setDuration(std::max(1, motion::duration(FADE_MS)));
     fade->setStartValue(1.0);
     fade->setEndValue(0.0);
     connect(fade, &QPropertyAnimation::finished, this, &QWidget::close);

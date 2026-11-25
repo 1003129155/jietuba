@@ -1,7 +1,9 @@
 #include "ui/fluent_lite/buttons.h"
 #include "core/ui_scale.h"
+#include "ui/motion.h"
 #include <QDesktopServices>
 #include <QEvent>
+#include <QSignalBlocker>
 #include <QUrl>
 
 namespace jietuba {
@@ -54,6 +56,10 @@ PushButton::PushButton(const QString &text, QWidget *parent, const IconSource &i
 }
 
 void PushButton::init_theme() {
+    connect(&fade_anim_, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
+        fade_ = value.toDouble();
+        update();
+    });
     // style_sheet() is virtual but not dispatched to subclasses during this
     // constructor; each subclass constructor applies its own style again.
     _apply_theme();
@@ -139,9 +145,66 @@ void PushButton::use_style_sheet() {
     if (!had_sheet) apply_style_sheet(this, style_sheet());
 }
 
+QStyle::State PushButton::pointer_state() const {
+    QStyle::State state = QStyle::State_None;
+    if (isEnabled()) state |= QStyle::State_Enabled;
+    if (underMouse()) state |= QStyle::State_MouseOver;
+    if (isDown()) state |= QStyle::State_Sunken;
+    return state;
+}
+
+ControlBox PushButton::shown_box(QStyle::State state) const {
+    const ControlBox to = control_box(state);
+    if (fade_ >= 1) return to;
+    const auto mix = [this](const QColor &a, const QColor &b) {
+        return QColor::fromRgbF(a.redF() + (b.redF() - a.redF()) * fade_, a.greenF() + (b.greenF() - a.greenF()) * fade_,
+                                a.blueF() + (b.blueF() - a.blueF()) * fade_, a.alphaF() + (b.alphaF() - a.alphaF()) * fade_);
+    };
+    return {mix(fade_from_box_.fill, to.fill), mix(fade_from_box_.edge, to.edge), mix(fade_from_box_.bottom_edge, to.bottom_edge), to.bottom_width};
+}
+
+QColor PushButton::shown_text(QStyle::State state) const {
+    const QColor to = text_color(state);
+    if (fade_ >= 1) return to;
+    const QColor &a = fade_from_text_;
+    return QColor::fromRgbF(a.redF() + (to.redF() - a.redF()) * fade_, a.greenF() + (to.greenF() - a.greenF()) * fade_,
+                            a.blueF() + (to.blueF() - a.blueF()) * fade_, a.alphaF() + (to.alphaF() - a.alphaF()) * fade_);
+}
+
 bool PushButton::event(QEvent *event) {
     const bool result = QPushButton::event(event);
     if (painted_ && (event->type() == QEvent::Polish || event->type() == QEvent::StyleChange) && !wants_painting()) use_style_sheet();
+    switch (event->type()) {
+    case QEvent::Enter:
+    case QEvent::Leave:
+    case QEvent::MouseButtonPress:
+    case QEvent::MouseButtonRelease:
+    case QEvent::EnabledChange: {
+        const QStyle::State state = pointer_state();
+        if (!painted_ || state == shown_state_) break;
+        // From what is drawn now, which may itself be part-way through a fade.
+        const ControlBox box = shown_box(shown_state_);
+        const QColor text = shown_text(shown_state_);
+        shown_state_ = state;
+        fade_anim_.stop();
+        fade_ = 1;
+        const int length = motion::duration(motion::FAST_MS);
+        if (!isVisible() || length <= 0) break;
+        fade_from_box_ = box;
+        fade_from_text_ = text;
+        fade_ = 0;
+        {
+            // A finished animation given new values would report its new end at once.
+            const QSignalBlocker quiet(&fade_anim_);
+            fade_anim_.setDuration(length);
+            fade_anim_.setStartValue(0.0);
+            fade_anim_.setEndValue(1.0);
+        }
+        fade_anim_.start();
+        break;
+    }
+    default: break;
+    }
     return result;
 }
 

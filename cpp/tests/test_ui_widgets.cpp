@@ -2321,9 +2321,12 @@ private slots:
         QTest::mouseClick(expander->arrow(), Qt::LeftButton);
         QApplication::processEvents();
         QVERIFY(!expander->isExpanded());
-        QVERIFY(!first->isVisible() && !second->isVisible());
+        // The rows fade out and the card then closes over them.
+        QVERIFY(first->isVisible() && second->isVisible());
+        QTRY_VERIFY(!first->isVisible() && !second->isVisible());
         QVERIFY(group.cardLayout->heightForWidth(group.width()) < open_height);
         expander->setExpanded(true);
+        QTRY_VERIFY(static_cast<FoldBox *>(expander->body())->settled());
         // One row hidden: its line goes too, and the height follows.
         group.setCardVisible(first, false);
         QApplication::processEvents();

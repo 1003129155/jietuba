@@ -8,10 +8,12 @@
 #include "translation/speech_service.h"
 #include "translation/worker.h"
 #include "ui/fluent_lite/buttons.h"
+#include "ui/fluent_lite/fold_box.h"
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/labels.h"
 #include "ui/fluent_lite/switch.h"
 #include "ui/fluent_lite/text_context_menu.h"
+#include "ui/motion.h"
 #include "ui/settings_ui/components.h"
 #include "ui/settings_ui/dialog.h"
 #include "ui/settings_ui/page_outline.h"
@@ -54,7 +56,6 @@ constexpr int ROW_MIN_HEIGHT = 68;
 constexpr int CARD_GAP = 4;
 constexpr int CHIP_HEIGHT = 34;
 constexpr int CHIP_COLUMNS = 4;
-constexpr int SCROLL_MS = 250;
 const char *const PROVIDER_ID = "provider_id";
 
 QFont ui_font(int pixel_size, bool bold = false) {
@@ -799,10 +800,10 @@ void scroll_to_group_top(QWidget *group) {
     if (!animation) {
         animation = new QVariantAnimation(scroll);
         animation->setObjectName("GroupScrollAnimation");
-        animation->setDuration(SCROLL_MS);
-        animation->setEasingCurve(QEasingCurve::OutCubic);
+        animation->setEasingCurve(motion::decelerate());
     }
     animation->stop();
+    animation->setDuration(std::max(1, motion::duration(motion::SLOW_MS)));
     animation->disconnect();
     const int start = bar->value();
     QObject::connect(animation, &QVariantAnimation::valueChanged, scroll, [bar, start, target](const QVariant &progress) {
@@ -932,7 +933,9 @@ QWidget *build_provider_card(const std::shared_ptr<TranslationPage> &page, const
         for (const auto &field : folded) labels << dialog->tr_text(field.label.toUtf8().constData());
         auto *disclosure = new DisclosureRow(dialog->tr_text("Advanced"), labels.join(QString::fromUtf8(" · ")), card);
         layout->addWidget(disclosure);
-        auto *box = new QWidget(card);
+        auto *fold = new FoldBox(card);
+        fold->setBackdrop([fold] { return layer_backdrop(fold); });
+        QWidget *box = fold->content();
         auto *box_layout = new QVBoxLayout(box);
         box_layout->setContentsMargins(0, 0, 0, 0);
         box_layout->setSpacing(dialog_scaled(CARD_GAP));
@@ -941,10 +944,12 @@ QWidget *build_provider_card(const std::shared_ptr<TranslationPage> &page, const
             (*dialog->provider_field_widgets)[field.config_key] = control;
             add_card(box_layout, row);
         }
-        box->setVisible(false);
-        layout->addWidget(box);
-        QObject::connect(disclosure, &QAbstractButton::toggled, box, [box](bool open) { box->setVisible(open); });
-        mark_search_revealable(box, [disclosure] { disclosure->setChecked(true); });
+        layout->addWidget(fold);
+        QObject::connect(disclosure, &QAbstractButton::toggled, fold, [fold](bool open) { fold->setOpen(open); });
+        mark_search_revealable(fold, [disclosure, fold] {
+            fold->setOpen(true, false);
+            disclosure->setChecked(true);
+        });
     }
 
     // The last test or model list result, and the test.

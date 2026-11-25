@@ -1,4 +1,5 @@
 #pragma once
+#include "ui/fluent_lite/fold_box.h"
 #include "ui/fluent_lite/theme.h"
 #include <QAbstractButton>
 #include <QFrame>
@@ -118,6 +119,7 @@ private:
 };
 
 // A card with rows folded under it: the header carries an arrow that shows or hides the rows.
+// On screen the rows fold away as a FoldBox does.
 class SettingExpander : public QWidget {
     Q_OBJECT
 public:
@@ -125,9 +127,10 @@ public:
     SettingCard *header() const { return header_; }
     void addItem(SettingCard *item);
     // Called after an item was shown or hidden: separators and the body follow the visible items.
-    void refreshItems();
+    void refreshItems(bool animated = true);
     bool isExpanded() const { return expanded_; }
-    void setExpanded(bool expanded);
+    // Not animated for a row about to be scrolled to, which needs its final place at once.
+    void setExpanded(bool expanded, bool animated = true);
     QAbstractButton *arrow() const { return arrow_; }
     // Hidden while folded.
     QWidget *body() const { return body_; }
@@ -139,7 +142,7 @@ private:
     void sync_header();
     SettingCard *header_;
     QAbstractButton *arrow_;
-    QFrame *body_;
+    FoldBox *body_;
     QVBoxLayout *body_layout_;
     QList<SettingCard *> items_;
     QList<QFrame *> separators_;

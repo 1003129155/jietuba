@@ -22,7 +22,9 @@
 #include "tools/action.h"
 #include "translation/translation_manager.h"
 #include "ui/dialogs.h"
+#include "ui/motion.h"
 #include "ui/toast.h"
+#include <algorithm>
 #include <QApplication>
 #include <QCursor>
 #include <QDateTime>
@@ -94,7 +96,6 @@ constexpr int BASE_MARGIN = 24;
 constexpr double HOVER_OPACITY = 0.25;
 constexpr int HOVER_DELAY_MS = 200;
 constexpr int HOVER_POLL_MS = 50;
-constexpr int HOVER_FADE_MS = 300;
 
 // No change along the stitch direction (a white screen, mid repaint): nothing to stitch,
 // and two matching grabs of it do not count as settled. Vertically every row is the
@@ -134,7 +135,6 @@ PreviewPanel::PreviewPanel(QWidget *parent) : QWidget(parent), hover_timer_(this
     build_ui();
     setup_mouse_transparent();
     fade_ = new QPropertyAnimation(this, "windowOpacity", this);
-    fade_->setDuration(HOVER_FADE_MS);
     fade_->setEasingCurve(QEasingCurve::InOutQuad);
     hover_timer_.setInterval(HOVER_POLL_MS);
     connect(&hover_timer_, &QTimer::timeout, this, &PreviewPanel::update_hover_fade);
@@ -149,6 +149,7 @@ void PreviewPanel::update_hover_fade() {
     if (fade == faded_) return;
     faded_ = fade;
     fade_->stop();
+    fade_->setDuration(std::max(1, motion::duration(motion::SLOW_MS)));
     fade_->setStartValue(windowOpacity());
     fade_->setEndValue(fade ? HOVER_OPACITY : 1.0);
     fade_->start();

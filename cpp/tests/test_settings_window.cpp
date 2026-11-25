@@ -18,6 +18,7 @@
 #include "ui/dialogs.h"
 #include "ui/fluent_lite/buttons.h"
 #include "ui/fluent_lite/cards.h"
+#include "ui/fluent_lite/fold_box.h"
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/labels.h"
 #include "ui/fluent_lite/navigation.h"
@@ -844,7 +845,8 @@ private slots:
         QVERIFY(summary && !rows.contains(nullptr));
         auto *number = dialog.attr<SwitchSettingCard>("auto_select_number_toggle");
         auto *rect = dialog.attr<SwitchSettingCard>("auto_select_rect_toggle");
-        auto *expander = qobject_cast<SettingExpander *>(number->parentWidget()->parentWidget());
+        SettingExpander *expander = nullptr;
+        for (QWidget *parent = number->parentWidget(); parent && !expander; parent = parent->parentWidget()) expander = qobject_cast<SettingExpander *>(parent);
         QVERIFY(expander && !expander->isExpanded());
         QVERIFY(summary->isVisible() && !number->isVisible());
         expander->arrow()->click();
@@ -2055,15 +2057,15 @@ private slots:
         QVERIFY(temperature->isVisible());
         QVERIFY(parallel->isVisible());
         advanced->click();
-        QVERIFY(!temperature->isVisible());
+        QTRY_VERIFY(!temperature->isVisible());
         // DeepL's Pro switch is needed to work, so it is not folded.
         show_translation_provider(&dialog, "deepl");
         QVERIFY(dialog.provider_field_widgets->value("deepl_use_pro")->isVisible());
     }
 
-    // Folding near the bottom of a scrolled page changes the heights of several nested layouts; each paint
-    // shows either the old layout or the final one, never a level in between.
-    void foldingNearTheBottomOfAPagePaintsNoInBetweenLayout() {
+    // Folding near the bottom of a scrolled page changes the heights of several nested layouts at every step
+    // of the fold; each paint shows a settled layout, the row below right under the fold as tall as it is then.
+    void foldingNearTheBottomOfAPagePaintsOnlySettledLayouts() {
         struct PaintSpy : QObject {
             std::function<void()> on_paint;
             bool eventFilter(QObject *, QEvent *event) override {
@@ -2081,6 +2083,8 @@ private slots:
         for (auto *button : card->findChildren<QAbstractButton *>())
             if (button->text() == settings_tr("Advanced")) advanced = button;
         QVERIFY(advanced);
+        auto *fold = card->findChild<FoldBox *>();
+        QVERIFY(fold && fold->isHidden());
         QWidget *footer = card_button(dialog, "google", settings_tr("Test Connection"))->parentWidget();
         QScrollArea *area = nullptr;
         for (QWidget *parent = card; parent && !area; parent = parent->parentWidget()) area = qobject_cast<QScrollArea *>(parent);
@@ -2090,20 +2094,92 @@ private slots:
         area->verticalScrollBar()->setValue(area->verticalScrollBar()->maximum());
         QTest::qWait(100);
 
+        // Folded, the row below follows the button after one gap; unfolded, the fold and a second gap come between.
+        const auto below = [&] { return footer->mapTo(card, QPoint()).y() - advanced->mapTo(card, QPoint()).y(); };
+        const int folded = below(), gap = folded - advanced->height();
+        struct Frame {
+            int fold_height, below;
+        };
+        QList<Frame> frames;
+        PaintSpy spy;
+        spy.on_paint = [&] {
+            const Frame frame{fold->isHidden() ? -gap : fold->height(), below()};
+            if (frames.isEmpty() || frames.last().fold_height != frame.fold_height || frames.last().below != frame.below) frames << frame;
+        };
+        area->viewport()->installEventFilter(&spy);
+        for (const bool unfold : {true, false}) {
+            frames.clear();
+            advanced->click();
+            QVERIFY(!fold->settled());
+            QTRY_VERIFY_WITH_TIMEOUT(fold->settled(), 2000);
+            QTest::qWait(50);
+            QStringList trail;
+            for (const auto &frame : frames) trail << QString("%1/%2").arg(frame.fold_height).arg(frame.below);
+            const QByteArray shown = (QString(unfold ? "unfold: " : "fold: ") + trail.join(' ')).toUtf8();
+            QVERIFY2(frames.size() > 3, shown.constData());
+            for (int i = 0; i < frames.size(); ++i) {
+                QVERIFY2(frames[i].below == folded + frames[i].fold_height + gap, shown.constData());
+                if (i > 0) QVERIFY2(unfold ? frames[i].fold_height >= frames[i - 1].fold_height : frames[i].fold_height <= frames[i - 1].fold_height, shown.constData());
+            }
+            QCOMPARE(fold->isHidden(), !unfold);
+        }
+        spy.on_paint = nullptr;
+    }
+
+    // Folding a card's rows changes its group's height at every step of the fold; each paint shows the group
+    // as tall as its cards are then, not a layout still catching up.
+    void foldingSettingRowsPaintsOnlySettledLayouts() {
+        struct PaintSpy : QObject {
+            std::function<void()> on_paint;
+            bool eventFilter(QObject *, QEvent *event) override {
+                if (event->type() == QEvent::Paint && on_paint) on_paint();
+                return false;
+            }
+        };
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 600);
+        dialog.show();
+        dialog.on_nav_changed(1, "capture");
+        auto *number = dialog.attr<SwitchSettingCard>("auto_select_number_toggle");
+        SettingExpander *expander = nullptr;
+        SettingCardGroup *group = nullptr;
+        QScrollArea *area = nullptr;
+        for (QWidget *parent = number->parentWidget(); parent; parent = parent->parentWidget()) {
+            if (!expander) expander = qobject_cast<SettingExpander *>(parent);
+            if (!group) group = qobject_cast<SettingCardGroup *>(parent);
+            if (!area) area = qobject_cast<QScrollArea *>(parent);
+        }
+        QVERIFY(expander && group && area);
+        auto *fold = qobject_cast<FoldBox *>(expander->body());
+        QVERIFY(fold && fold->isHidden());
+        area->ensureWidgetVisible(expander);
+        QTest::qWait(100);
+
+        // How much taller the group is than its layout asks for: the same in every settled layout.
+        const auto slack = [&] { return group->height() - group->vBoxLayout->sizeHint().height(); };
+        const int settled_slack = slack();
         QList<QPair<int, int>> frames;
         PaintSpy spy;
         spy.on_paint = [&] {
-            const QPair<int, int> frame(advanced->mapTo(area->viewport(), QPoint()).y(), footer->mapTo(area->viewport(), QPoint()).y());
+            const QPair<int, int> frame(fold->isHidden() ? 0 : fold->height(), slack());
             if (frames.isEmpty() || frames.last() != frame) frames << frame;
         };
         area->viewport()->installEventFilter(&spy);
-        for (const char *step : {"unfold", "fold"}) {
+        for (const bool unfold : {true, false}) {
             frames.clear();
-            advanced->click();
-            QTest::qWait(150);
+            expander->arrow()->click();
+            QVERIFY(!fold->settled());
+            QTRY_VERIFY_WITH_TIMEOUT(fold->settled(), 2000);
+            QTest::qWait(50);
             QStringList trail;
             for (const auto &frame : frames) trail << QString("%1/%2").arg(frame.first).arg(frame.second);
-            QVERIFY2(!frames.isEmpty() && frames.size() <= 1, qPrintable(QString(step) + ": " + trail.join(' ')));
+            const QByteArray shown = (QString(unfold ? "unfold: " : "fold: ") + trail.join(' ')).toUtf8();
+            QVERIFY2(frames.size() > 3, shown.constData());
+            for (int i = 0; i < frames.size(); ++i) {
+                QVERIFY2(frames[i].second == settled_slack, shown.constData());
+                if (i > 0) QVERIFY2(unfold ? frames[i].first >= frames[i - 1].first : frames[i].first <= frames[i - 1].first, shown.constData());
+            }
+            QCOMPARE(fold->isHidden(), !unfold);
         }
         spy.on_paint = nullptr;
     }
@@ -5401,14 +5477,14 @@ private slots:
         QVERIFY(nav->isExpanded("capture"));
         QTRY_VERIFY(!nav->animating());
 
-        // The current page's mark: a group's row while unfolded, the page's own row while folded.
-        const auto row_marked = [item] {
-            const QColor bar = item->grab().toImage().pixelColor(1, item->height() / 2);
-            const QColor accent = css_color(ACCENT);
-            return std::abs(bar.red() - accent.red()) + std::abs(bar.green() - accent.green()) + std::abs(bar.blue() - accent.blue()) < 8;
+        // The current page's mark: a group's row while unfolded, the page's own row while folded. The bar
+        // travels to it, so it is looked for until it has arrived.
+        const auto row_marked = [nav, item] {
+            const QRectF bar = nav->indicatorRect();
+            return !bar.isEmpty() && QRectF(item->geometry()).contains(bar.center());
         };
         QCOMPARE(nav->currentSubRoute(), QString("capture"));
-        QVERIFY(!row_marked());
+        QTRY_VERIFY(!row_marked());
 
         QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, on_text);
         QVERIFY(!nav->isExpanded("capture"));
@@ -5416,13 +5492,13 @@ private slots:
         QVERIFY(item->isChecked());
         QTRY_VERIFY(!nav->animating());
         QVERIFY(!nav->subItem("capture", 0)->isVisible());
-        QVERIFY(row_marked());
+        QTRY_VERIFY(row_marked());
         QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, on_text);
         QVERIFY(nav->isExpanded("capture"));
         QCOMPARE(dialog.content_stack->currentIndex(), 1);
         QTRY_VERIFY(!nav->animating());
         QVERIFY(nav->subItem("capture", 0)->isVisible());
-        QVERIFY(!row_marked());
+        QTRY_VERIFY(!row_marked());
 
         QTest::mouseClick(nav->widget("pin"), Qt::LeftButton, Qt::NoModifier, on_text);
         QCOMPARE(dialog.content_stack->currentIndex(), 11);

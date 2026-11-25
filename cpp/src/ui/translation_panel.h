@@ -1,5 +1,6 @@
 #pragma once
 #include "ui/base_settings_panel.h"
+#include "ui/motion.h"
 #include <QList>
 #include <QPair>
 #include <QPushButton>
@@ -26,7 +27,7 @@ public:
     static constexpr int BASE_BTN = 28;
     // A custom model's name can be anything; longer ones are cut at this width.
     static constexpr int BASE_SERVICE_MAX_WIDTH = 160;
-    static constexpr int SLIDE_MS = 160;
+    static constexpr int SLIDE_MS = motion::MID_MS;
     explicit TranslationPanel(QWidget *parent = nullptr);
     void apply_scale();
     void retranslate();

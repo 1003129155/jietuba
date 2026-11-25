@@ -39,7 +39,7 @@ private:
     bool dragging_ = false;
 };
 
-// A column of row cards that can be dragged into a new order.
+// A column of row cards that can be dragged into a new order. On screen the rows slide to their new places.
 class ReorderableRowList : public QScrollArea {
     Q_OBJECT
 public:
@@ -52,7 +52,7 @@ public:
     int content_height();
 private:
     void place(DraggableRow *row, int index);
-    // The dragged row's slot is the number of other rows whose centre is above the pointer.
+    // The dragged row's slot is the number of other rows whose place has its centre above the pointer.
     void drag_row(DraggableRow *row, int global_y);
     QWidget *rows_widget_ = nullptr;
     QVBoxLayout *layout_ = nullptr;

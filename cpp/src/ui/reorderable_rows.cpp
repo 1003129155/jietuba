@@ -3,10 +3,17 @@
 #include "core/ui_scale.h"
 #include "ui/fluent_lite/cards.h"
 #include "ui/fluent_lite/theme.h"
+#include "ui/motion.h"
+#include <QHash>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QPropertyAnimation>
 
 namespace jietuba {
+namespace {
+const char *const SLIDE_NAME = "RowSlide";
+}
+
 DragGrip::DragGrip(QWidget *parent) : QWidget(parent) {
     setFixedSize(dialog_scaled(16), dialog_scaled(28));
     setCursor(Qt::OpenHandCursor);
@@ -108,20 +115,40 @@ int ReorderableRowList::content_height() {
 }
 
 void ReorderableRowList::place(DraggableRow *row, int index) {
+    const QList<DraggableRow *> all = rows();
+    // Where each row is drawn now, which for a row still sliding is short of its place.
+    QHash<DraggableRow *, QPoint> shown;
+    for (auto *each : all) {
+        delete each->findChild<QPropertyAnimation *>(SLIDE_NAME, Qt::FindDirectChildrenOnly);
+        shown.insert(each, each->pos());
+    }
     layout_->removeWidget(row);
     layout_->insertWidget(index, row);
+    // Geometry in the new order right away, so the next move compares against it.
+    layout_->activate();
+    const int length = motion::duration(motion::MID_MS);
+    if (length <= 0 || !isVisible()) return;
+    for (auto *each : all) {
+        if (shown.value(each) == each->pos()) continue;
+        auto *slide = new QPropertyAnimation(each, "pos", each);
+        slide->setObjectName(SLIDE_NAME);
+        slide->setDuration(length);
+        slide->setEasingCurve(motion::decelerate());
+        slide->setStartValue(shown.value(each));
+        slide->setEndValue(each->pos());
+        slide->start(QAbstractAnimation::DeleteWhenStopped);
+    }
 }
 
 void ReorderableRowList::drag_row(DraggableRow *row, int global_y) {
     const int y = rows_widget_->mapFromGlobal(QPoint(0, global_y)).y();
+    // By the rows' places in the layout: a row still sliding is drawn elsewhere.
     int index = 0;
-    for (auto *other : rows())
-        if (other != row && other->geometry().center().y() < y) ++index;
-    if (layout_->indexOf(row) != index) {
-        place(row, index);
-        // Geometry in the new order right away, so the next move compares against it.
-        layout_->activate();
+    for (int i = 0; i < layout_->count(); ++i) {
+        const auto *item = layout_->itemAt(i);
+        if (item->widget() && item->widget() != row && item->geometry().center().y() < y) ++index;
     }
+    if (layout_->indexOf(row) != index) place(row, index);
     // Keeps scrolling when dragged past the visible area.
     ensureWidgetVisible(row, 0, 0);
 }

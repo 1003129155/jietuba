@@ -59,7 +59,7 @@ void add_auto_select_card(SettingsDialog *dialog, SettingsCardGroup *group) {
     refresh();
     if (auto *expander = group->expander(header)) {
         expander->setExpanded(false);
-        mark_search_revealable(expander->body(), [expander] { expander->setExpanded(true); });
+        mark_search_revealable(expander->body(), [expander] { expander->setExpanded(true, false); });
     }
 }
 }
