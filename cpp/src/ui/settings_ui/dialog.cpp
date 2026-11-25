@@ -1190,6 +1190,11 @@ void SettingsDialog::paintEvent(QPaintEvent *) {
 }
 
 void SettingsDialog::showEvent(QShowEvent *event) {
+    // Restored from minimized: the page is shown as it was left; reloading it would relayout every row.
+    if (event->spontaneous()) {
+        FrostedFramelessDialog::showEvent(event);
+        return;
+    }
     apply_dialog_stylesheet();
     refresh_external_state();
     refresh_settings();

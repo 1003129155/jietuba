@@ -49,7 +49,6 @@ public:
     // translation page), a stale height leaves a gap at the top and cuts off cards below.
     void refreshHeight() override;
 protected:
-    void showEvent(QShowEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
 };
 

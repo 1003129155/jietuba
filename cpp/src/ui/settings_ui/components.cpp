@@ -158,12 +158,6 @@ void SettingsCardGroup::refreshHeight() {
     setFixedHeight(cardLayout->heightForWidth(width()) + header_height());
 }
 
-void SettingsCardGroup::showEvent(QShowEvent *event) {
-    SettingCardGroup::showEvent(event);
-    // Card heights are only accurate once shown.
-    refreshHeight();
-}
-
 void SettingsCardGroup::resizeEvent(QResizeEvent *event) {
     SettingCardGroup::resizeEvent(event);
     // A new width changes how many lines wrapped descriptions take.

@@ -2108,6 +2108,77 @@ private slots:
         spy.on_paint = nullptr;
     }
 
+    // Restoring the minimized window shows the page as it was left: the controls are not loaded again,
+    // which would relayout the whole page on the restore paint.
+    void restoringFromMinimizedDoesNotReloadThePage() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.on_nav_changed(1, "capture");
+        QWidget *control = dialog.attr_widget("smart_animation_toggle");
+        QVERIFY(control);
+        auto *card = qobject_cast<SwitchSettingCard *>(control);
+        auto *toggle = card ? card->switchButton : qobject_cast<SwitchButton *>(control);
+        QVERIFY2(toggle, control->metaObject()->className());
+        const bool saved = toggle->isChecked();
+        {
+            // Not saved, so a reload would put the saved value back.
+            const QSignalBlocker blocker(toggle);
+            toggle->setChecked(!saved);
+        }
+        // What the window gets when restored; the offscreen platform does not minimize.
+        QWindowStateChangeEvent restored(Qt::WindowMinimized);
+        QCoreApplication::sendEvent(&dialog, &restored);
+        QCOMPARE(toggle->isChecked(), !saved);
+        // Opening the window again does load it.
+        const auto restore = qScopeGuard([this, saved] { config_->set_smart_selection_animation(saved); });
+        dialog.hide();
+        QCOMPARE(config_->get_smart_selection_animation(), !saved);
+        {
+            const QSignalBlocker blocker(toggle);
+            toggle->setChecked(saved);
+        }
+        dialog.show();
+        QCOMPARE(toggle->isChecked(), !saved);
+    }
+
+    // Restored from the taskbar, the window is painted at once, before queued layouts run; the show events
+    // its rows get on the way leave every row where it was.
+    void restoringFromMinimizedKeepsEveryRowInPlace() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 700);
+        dialog.show();
+        const auto layout = [&dialog] {
+            QHash<QWidget *, QRect> rows;
+            for (auto *widget : dialog.findChildren<QWidget *>())
+                if (widget->isVisible()) rows.insert(widget, QRect(widget->mapTo(&dialog, QPoint()), widget->size()));
+            return rows;
+        };
+        for (const auto &[index, route] : QList<std::pair<int, QString>>{{1, "capture"}, {2, "clipboard"}, {5, "log"}}) {
+            dialog.on_nav_changed(index, route);
+            // The page settles first: queries of the system fill some rows in later.
+            auto before = layout();
+            QTRY_VERIFY_WITH_TIMEOUT([&] {
+                QTest::qWait(100);
+                const auto now = layout();
+                return std::exchange(before, now) == now;
+            }(), 5000);
+            dialog.setWindowState(Qt::WindowMinimized);
+            QTest::qWait(50);
+            dialog.setWindowState(Qt::WindowNoState);
+            const auto restored = layout();
+            QCOMPARE(restored.size(), before.size());
+            for (auto it = before.begin(); it != before.end(); ++it) {
+                const QRect now = restored.value(it.key());
+                const QByteArray where = QString("%1: %2 in %3, %4,%5 %6x%7 -> %8,%9 %10x%11")
+                                             .arg(route, it.key()->metaObject()->className(), it.key()->parentWidget()->metaObject()->className())
+                                             .arg(it->x()).arg(it->y()).arg(it->width()).arg(it->height())
+                                             .arg(now.x()).arg(now.y()).arg(now.width()).arg(now.height())
+                                             .toUtf8();
+                QVERIFY2(now == it.value(), where.constData());
+            }
+        }
+    }
+
     // The engine row says whether the engine can translate, from what the form holds now, and its
     // button opens the engine's card; Use This on another configured provider makes it the engine.
     void theEngineStatusFollowsTheFormAndLeadsToTheCard() {

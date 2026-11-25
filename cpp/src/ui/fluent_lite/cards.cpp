@@ -420,7 +420,9 @@ QSize SettingCardGroup::minimumSizeHint() const {
 void SettingCardGroup::showEvent(QShowEvent *event) {
     QWidget::showEvent(event);
     sync_control_column();
-    adjustSize();
+    // A derived group's own height, not adjustSize's: a group pinned to its content would be resized to its
+    // size hint until the next layout pass, and a window restored from the taskbar paints before that pass.
+    refreshHeight();
 }
 
 SimpleCardWidget::SimpleCardWidget(QWidget *parent) : QFrame(parent) {
