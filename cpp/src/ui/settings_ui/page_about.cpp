@@ -173,44 +173,39 @@ QWidget *create_about_page(SettingsDialog *dialog) {
     name->setObjectName("AboutName");
     apply_theme_text_style(name, 30, true, font_family());
     layout->addWidget(name);
-    layout->addSpacing(dialog_scaled(4));
-    auto *tagline = centred_label(dialog->tr_text("Screenshot, Screen Drawing, OCR, Pin, Translation & Clipboard Tool for Windows"), view);
-    apply_theme_text_style(tagline, 14, false, font_family(), true);
-    layout->addWidget(tagline);
     layout->addSpacing(dialog_scaled(14));
     layout->addWidget(new VersionChip(QString("%1 %2").arg(dialog->tr_text("Version"), APP_VERSION), view), 0, Qt::AlignHCenter);
     layout->addSpacing(dialog_scaled(26));
 
-    auto *buttons = new QHBoxLayout;
+    // One column, every button as wide as the widest label.
+    auto *column = new QWidget(view);
+    column->setMinimumWidth(dialog_scaled(200));
+    auto *buttons = new QVBoxLayout(column);
+    buttons->setContentsMargins(0, 0, 0, 0);
     buttons->setSpacing(dialog_scaled(8));
-    buttons->addStretch(1);
     // Builds without the bundled updater helper (JIETUBA_UPDATES off) offer no update check.
     if (updater_bundled()) {
         // Pre-tinted: the theme tint would draw it in the text colour on the accent fill.
-        auto *check_update_btn = new PrimaryPushButton(dialog->tr_text("Check for Updates"), view, tinted_icon(FluentIcon::Sync, "#FFFFFF"));
+        auto *check_update_btn = new PrimaryPushButton(dialog->tr_text("Check for Updates"), column, tinted_icon(FluentIcon::Sync, "#FFFFFF"));
         check_update_btn->setObjectName("checkUpdateButton");
         connect_update_check(dialog, check_update_btn);
         buttons->addWidget(check_update_btn);
     }
-    auto *source_btn = new PushButton(dialog->tr_text("Source Code"), view, FluentIcon::GitHub);
+    auto *source_btn = new PushButton(dialog->tr_text("Source Code"), column, FluentIcon::GitHub);
     source_btn->setObjectName("aboutSourceButton");
     QObject::connect(source_btn, &QPushButton::clicked, dialog, [] { QDesktopServices::openUrl(QUrl(PROJECT_GITHUB_URL)); });
     buttons->addWidget(source_btn);
-    auto *license_btn = new PushButton(dialog->tr_text("Licenses"), view, FluentIcon::Certificate);
+    auto *license_btn = new PushButton(dialog->tr_text("Licenses"), column, FluentIcon::Certificate);
     license_btn->setObjectName("aboutLicenseButton");
     QObject::connect(license_btn, &QPushButton::clicked, dialog, [dialog] { show_text_dialog(dialog, dialog->tr_text("MIT License"), dialog->tr_text("MIT License Text")); });
     buttons->addWidget(license_btn);
-    auto *feedback_btn = new PushButton(dialog->tr_text("Feedback"), view, FluentIcon::Edit);
+    auto *feedback_btn = new PushButton(dialog->tr_text("Feedback"), column, FluentIcon::Edit);
     feedback_btn->setObjectName("aboutFeedbackButton");
     QObject::connect(feedback_btn, &QPushButton::clicked, dialog, [] { QDesktopServices::openUrl(QUrl(PROJECT_GITHUB_URL + "/issues")); });
     buttons->addWidget(feedback_btn);
-    buttons->addStretch(1);
-    layout->addLayout(buttons);
+    layout->addWidget(column, 0, Qt::AlignHCenter);
 
     layout->addStretch(1);
-    auto *credit = centred_label(dialog->tr_text("Developed by %1 · Open source under the MIT License").replace("%1", "JYAARU"), view);
-    apply_theme_text_style(credit, 12, false, font_family(), true);
-    layout->addWidget(credit);
     const QString star_text = QStringLiteral("☆ %1").arg(dialog->tr_text("Enjoying jietuba? Give it a Star"));
     auto *link = new HyperlinkButton(PROJECT_GITHUB_URL, star_text, view);
     link->setObjectName("aboutRepositoryLink");

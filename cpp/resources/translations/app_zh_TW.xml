@@ -5675,10 +5675,6 @@ This action cannot be undone.</source>
         <translation>許可證</translation>
     </message>
     <message>
-        <source>Developed by %1 · Open source under the MIT License</source>
-        <translation>由 %1 開發 · 以 MIT 許可證開源</translation>
-    </message>
-    <message>
         <source>MIT License</source>
         <translation>MIT License</translation>
     </message>
@@ -5717,10 +5713,6 @@ SOFTWARE.</translation>
     <message>
         <source>Enjoying jietuba? Give it a Star</source>
         <translation>截圖吧用得順手？給個 Star</translation>
-    </message>
-    <message>
-        <source>Screenshot, Screen Drawing, OCR, Pin, Translation &amp; Clipboard Tool for Windows</source>
-        <translation>Windows 截圖、螢幕繪製、OCR、釘圖、翻譯與剪貼簿工具</translation>
     </message>
     <message>
         <source>Version</source>

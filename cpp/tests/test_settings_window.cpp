@@ -3152,9 +3152,10 @@ private slots:
                         auto *license = scroll->widget()->findChild<QPushButton *>("aboutLicenseButton");
                         auto *star = scroll->widget()->findChild<QPushButton *>("aboutRepositoryLink");
                         QVERIFY(feedback && license && star);
-                        if (feedback->width() < feedback->sizeHint().width() || feedback->x() <= license->geometry().right() ||
-                            feedback->geometry().right() >= scroll->viewport()->width() || feedback->y() != license->y()) {
-                            problems << where + ": the feedback button does not fit beside the license button";
+                        if (feedback->width() < feedback->sizeHint().width() || feedback->y() <= license->geometry().bottom() ||
+                            feedback->x() != license->x() || feedback->width() != license->width() ||
+                            feedback->mapTo(scroll->widget(), QPoint(feedback->width(), 0)).x() >= scroll->viewport()->width()) {
+                            problems << where + ": the feedback button does not fit under the license button";
                         }
                         if (star->width() < star->sizeHint().width() || star->geometry().right() >= scroll->viewport()->width()) {
                             problems << where + ": the Star link does not fit";

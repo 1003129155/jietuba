@@ -5463,10 +5463,6 @@ This action cannot be undone.</source>
     <!-- 情報ページ -->
     <message><source>Features</source><translation>機能</translation></message>
     <message><source>Licenses</source><translation>ライセンス</translation></message>
-    <message>
-        <source>Developed by %1 · Open source under the MIT License</source>
-        <translation>開発: %1 · MIT ライセンスのオープンソース</translation>
-    </message>
     <message><source>MIT License</source><translation>MIT License</translation></message>
     <message><source>MIT License Text</source><translation>MIT License
 
@@ -5492,10 +5488,6 @@ SOFTWARE.</translation></message>
     <message><source>Source Code</source><translation>ソースコード</translation></message>
     <message><source>Feedback</source><translation>要望を送る</translation></message>
     <message><source>Enjoying jietuba? Give it a Star</source><translation>jietuba が気に入ったら Star を</translation></message>
-    <message>
-        <source>Screenshot, Screen Drawing, OCR, Pin, Translation &amp; Clipboard Tool for Windows</source>
-        <translation>Windows 向けスクリーンショット・画面描画・OCR・ピン留め・翻訳・クリップボードツール</translation>
-    </message>
     <message><source>Version</source><translation>バージョン</translation></message>
     <message><source>Check for Updates</source><translation>更新を確認</translation></message>
     <message><source>Checking...</source><translation>確認中...</translation></message>

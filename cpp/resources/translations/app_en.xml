@@ -5379,10 +5379,6 @@ You can tweak more options in Settings anytime.</translation>
     <message><source>Features</source><translation>Features</translation></message>
     <message><source>OCR text recognition · Long screenshot · Pin window · Clipboard manager · DeepL translation</source><translation>OCR text recognition · Long screenshot · Pin window · Clipboard manager · DeepL translation</translation></message>
     <message><source>Licenses</source><translation>Licenses</translation></message>
-    <message>
-        <source>Developed by %1 · Open source under the MIT License</source>
-        <translation>Developed by %1 · Open source under the MIT License</translation>
-    </message>
     <message><source>MIT License</source><translation>MIT License</translation></message>
     <message><source>MIT License Text</source><translation>MIT License
 
@@ -5408,10 +5404,6 @@ SOFTWARE.</translation></message>
     <message><source>Source Code</source><translation>Source Code</translation></message>
     <message><source>Feedback</source><translation>Feedback</translation></message>
     <message><source>Enjoying jietuba? Give it a Star</source><translation>Enjoying jietuba? Give it a Star</translation></message>
-    <message>
-        <source>Screenshot, Screen Drawing, OCR, Pin, Translation &amp; Clipboard Tool for Windows</source>
-        <translation>Screenshot, Screen Drawing, OCR, Pin, Translation &amp; Clipboard Tool for Windows</translation>
-    </message>
     <message><source>Version</source><translation>Version</translation></message>
     <message><source>Check for Updates</source><translation>Check for Updates</translation></message>
     <message><source>Checking...</source><translation>Checking...</translation></message>

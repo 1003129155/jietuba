@@ -2012,12 +2012,21 @@ private slots:
                 auto *label = page->widget()->findChild<QLabel *>(name);
                 QVERIFY2(label && qAbs(label->geometry().center().x() - middle) <= 1, name);
             }
-            QVERIFY(page->widget()->findChild<QPushButton *>("aboutSourceButton"));
-            QVERIFY(page->widget()->findChild<QPushButton *>("aboutLicenseButton"));
+            auto *source = page->widget()->findChild<QPushButton *>("aboutSourceButton");
+            auto *license = page->widget()->findChild<QPushButton *>("aboutLicenseButton");
+            auto *feedback = page->widget()->findChild<QPushButton *>("aboutFeedbackButton");
+            QVERIFY(source && license && feedback);
             QCOMPARE(page->widget()->findChild<QPushButton *>("checkUpdateButton") != nullptr, bundled);
+            // The buttons stand in one centred column of equal widths.
+            const auto in_page = [&](QWidget *w) { return QRect(w->mapTo(page->widget(), QPoint(0, 0)), w->size()); };
+            QVERIFY(in_page(license).top() > in_page(source).bottom());
+            QVERIFY(in_page(feedback).top() > in_page(license).bottom());
+            QCOMPARE(license->width(), source->width());
+            QCOMPARE(feedback->width(), source->width());
+            QVERIFY(qAbs(in_page(source).center().x() - middle) <= 1);
             // The repository link sits at the bottom of the page, below the buttons.
             auto *link = page->widget()->findChild<QPushButton *>("aboutRepositoryLink");
-            QVERIFY(link && link->geometry().top() > page->widget()->findChild<QPushButton *>("aboutSourceButton")->geometry().bottom());
+            QVERIFY(link && link->geometry().top() > in_page(feedback).bottom());
             dialog.on_nav_changed(1, "capture");
             QVERIFY(title->isVisible());
         }
