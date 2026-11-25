@@ -52,7 +52,7 @@ const QStringList &default_order() {
     return order;
 }
 // Later, rarely used features are folded by default so the default toolbar does not keep growing.
-const LayoutProfile SCREENSHOT{default_order(), {"quick_save", "upload", "text_recognize", "scan_code", "spotlight", "watermark"}, {"confirm"}, SETTING_KEY};
+const LayoutProfile SCREENSHOT{default_order(), {"quick_save", "upload", "scan_code", "spotlight", "watermark"}, {"confirm"}, SETTING_KEY};
 const LayoutProfile PIN{
     {"save", "quick_save", "upload", "copy", "screenshot_translate",
      "pen", "highlighter", "mosaic", "spotlight", "watermark", "arrow", "number", "rect", "ellipse", "text",

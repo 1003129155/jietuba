@@ -898,6 +898,9 @@ private slots:
     }
 
     void toolbarPlacementFollowsTheSelectionAndScreen() {
+        // The default capture toolbar is about as wide as the 800 px offscreen screen; fold a few so it has room to line up.
+        tl::save_layout(*config_, layout_with({}, {{"quick_save", tl::MORE}, {"upload", tl::MORE}, {"scan_code", tl::MORE}, {"spotlight", tl::MORE},
+                                                   {"watermark", tl::MORE}, {"highlighter", tl::MORE}, {"mosaic", tl::MORE}}));
         Toolbar toolbar;
         toolbar.show();
         const auto screen = QGuiApplication::primaryScreen()->geometry();

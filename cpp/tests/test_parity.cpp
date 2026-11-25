@@ -99,8 +99,22 @@ private slots:
         for (const auto &v : fixtures_["layout"].toArray()) {
             const auto row = v.toObject();
             // Quick save and upload came after the reference froze, so its answers lack them: they follow save, folded.
+            // The reference also folded recognize text by default; now shown, so a mode it filled in becomes show.
+            const auto input = QJsonDocument::fromJson(row["input_json"].toString().toUtf8()).array();
+            bool recognize_set = false;
+            for (const auto &value : input) {
+                const auto entry = value.toArray();
+                if (entry.size() != 2 || entry[0].toString() != "text_recognize") continue;
+                recognize_set = QStringList{"show", "more", "hide"}.contains(entry[1].toString());
+                break;
+            }
             QJsonArray expected;
             for (const auto &entry : row["expected"].toArray()) {
+                if (entry.toArray()[0].toString() == "text_recognize" && !recognize_set) {
+                    QCOMPARE(entry.toArray()[1].toString(), QString("more"));
+                    expected.append(QJsonArray{"text_recognize", "show"});
+                    continue;
+                }
                 expected.append(entry);
                 if (entry.toArray()[0].toString() != "save") continue;
                 expected.append(QJsonArray{"quick_save", "more"});
