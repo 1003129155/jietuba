@@ -287,6 +287,7 @@ void Toolbar::make_floating(QWidget *widget) const {
     if (!parent()) {
         widget->setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool | Qt::X11BypassWindowManagerHint);
         widget->setAttribute(Qt::WA_ShowWithoutActivating);
+        keep_system_frame_off(widget);
     } else {
         widget->setWindowFlags(Qt::FramelessWindowHint);
     }

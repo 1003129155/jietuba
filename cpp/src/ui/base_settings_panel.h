@@ -21,6 +21,9 @@ constexpr double PANEL_RADIUS = 12.0;
 // and its "..." popup. Drawn into a pixmap cached on the widget and redrawn
 // only when size, DPR or UI scale changes. Corners stay transparent through WA_TranslucentBackground.
 void paint_rounded_panel(QWidget *widget);
+// For panels that are top-level windows: keeps the Windows 11 rounded frame, its
+// grey outline and shadow off every time the window shows.
+void keep_system_frame_off(QWidget *window);
 
 // Ink for values and line previews, a lighter grey for glyphs and chevrons.
 inline const QColor CONTROL_INK = QColor("#2a3243");

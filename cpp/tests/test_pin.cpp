@@ -202,6 +202,45 @@ QLabel *move_handle(PinClickThroughBar *bar) {
 
 LONG_PTR ex_style(QWidget *widget) { return GetWindowLongPtrW(reinterpret_cast<HWND>(widget->winId()), GWL_EXSTYLE); }
 
+// Compares the screen over a window, plus a 2 px band left, right and below, with what the window
+// paints laid over a white backdrop. Empty when they match, else the first differing pixel.
+QString screen_differs_from_painting(QWidget *window) {
+    RECT rect{};
+    GetWindowRect(reinterpret_cast<HWND>(window->winId()), &rect);
+    const int band = 2, width = rect.right - rect.left, height = rect.bottom - rect.top;
+    const auto own = window->grab().toImage().convertToFormat(QImage::Format_ARGB32_Premultiplied);
+    // A fractional scale may round the painted size one pixel off the native one.
+    if (std::abs(own.width() - width) > 1 || std::abs(own.height() - height) > 1)
+        return QString("painted %1x%2, window %3x%4").arg(own.width()).arg(own.height()).arg(width).arg(height);
+    HDC screen = GetDC(nullptr);
+    HDC memory = CreateCompatibleDC(screen);
+    HBITMAP bitmap = CreateCompatibleBitmap(screen, width + 2 * band, height + band);
+    auto *previous = SelectObject(memory, bitmap);
+    BitBlt(memory, 0, 0, width + 2 * band, height + band, screen, rect.left - band, rect.top, SRCCOPY | CAPTUREBLT);
+    SelectObject(memory, previous);
+    const auto shot = QImage::fromHBITMAP(bitmap).convertToFormat(QImage::Format_RGB32);
+    DeleteObject(bitmap);
+    DeleteDC(memory);
+    ReleaseDC(nullptr, screen);
+    for (int y = 0; y < shot.height(); ++y) {
+        for (int x = 0; x < shot.width(); ++x) {
+            const int wx = x - band;
+            const bool inside = wx >= 0 && wx < width && y < height;
+            if (inside && (wx >= own.width() || y >= own.height())) continue;
+            QRgb expected = qRgb(255, 255, 255);
+            if (inside) {
+                const QRgb painted = reinterpret_cast<const QRgb *>(own.constScanLine(y))[wx];
+                const int cover = 255 - qAlpha(painted);
+                expected = qRgb(qRed(painted) + cover, qGreen(painted) + cover, qBlue(painted) + cover);
+            }
+            const QRgb seen = shot.pixel(x, y);
+            if (std::abs(qRed(seen) - qRed(expected)) > 3 || std::abs(qGreen(seen) - qGreen(expected)) > 3 || std::abs(qBlue(seen) - qBlue(expected)) > 3)
+                return QString("at (%1,%2) of the window: screen %3, painted %4").arg(wx).arg(y).arg(QColor(seen).name(), QColor(expected).name());
+        }
+    }
+    return {};
+}
+
 const QString LOCKED_HINT = "Locked, right-click to unlock";
 
 QVector<QPointF> box(double x, double y, double w, double h) { return {QPointF(x, y), QPointF(x + w, y), QPointF(x + w, y + h), QPointF(x, y + h)}; }
@@ -1208,6 +1247,34 @@ private slots:
         QVERIFY(click_through_bar(pin)->isVisible());
         pin->set_click_through(false);
         QVERIFY(!(ex_style(pin) & WS_EX_TRANSPARENT));
+    }
+
+    // The pin toolbar and its panels are top-level windows; the screen shows only their own
+    // rounded panel, like the capture toolbar, with no system outline or shadow around it.
+    void thePinToolbarShowsNoSystemOutlineOrShadow() {
+        if (!desktop()) QSKIP("needs -platform windows");
+        const auto area = QGuiApplication::primaryScreen()->availableGeometry();
+        QWidget backdrop(nullptr, Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
+        backdrop.setAttribute(Qt::WA_ShowWithoutActivating);
+        QPalette palette;
+        palette.setColor(QPalette::Window, Qt::white);
+        backdrop.setPalette(palette);
+        backdrop.setAutoFillBackground(true);
+        backdrop.setGeometry(area.left(), area.top(), area.width(), 420);
+        backdrop.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&backdrop));
+        QCursor::setPos(area.left() + 10, area.top() + 410);
+        auto *pin = make_pin(QSize(300, 150), area.topLeft() + QPoint(area.width() / 2, 40));
+        pin->show();
+        pin->show_toolbar();
+        auto *toolbar = pin->toolbar;
+        QVERIFY(QTest::qWaitForWindowExposed(toolbar));
+        QTRY_COMPARE_WITH_TIMEOUT(screen_differs_from_painting(toolbar), QString(), 3000);
+        toolbar->select_tool("rect");
+        auto *panel = toolbar->shape_panel;
+        QVERIFY(panel && panel->isWindow());
+        QVERIFY(QTest::qWaitForWindowExposed(panel));
+        QTRY_COMPARE_WITH_TIMEOUT(screen_differs_from_painting(panel), QString(), 3000);
     }
 
     // ---- Thumbnail mode ----

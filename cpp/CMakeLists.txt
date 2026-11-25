@@ -563,11 +563,11 @@ if(BUILD_TESTING)
     add_test(NAME pin_window COMMAND jietuba_pin_tests -o ${JIETUBA_TEST_REPORTS}/pin_window.txt,txt)
     set_tests_properties(pin_window PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     if(WIN32)
-        # Window styles only exist on real windows; the translation window needs a real screen's width beside the pin;
+        # Window styles and system frames only exist on real windows; the translation window needs a real screen's width beside the pin;
         # only Windows shows a pin without activating it.
         add_test(NAME pin_window_desktop COMMAND jietuba_pin_tests -o ${JIETUBA_TEST_REPORTS}/pin_window_desktop.txt,txt -platform windows clickThroughStyleSurvivesStayOnTopToggles aPinMadeDuringACaptureGoesRightBelowIt
             translatingAPinRecognizesThenTranslates aNewPinTakesKeyboardFocus
-            hiddenPinsComeBackInTheirOrderAndANewPinShowsThem)
+            hiddenPinsComeBackInTheirOrderAndANewPinShowsThem thePinToolbarShowsNoSystemOutlineOrShadow)
         set_tests_properties(pin_window_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
     endif()
     qt_add_executable(jietuba_pin_media_tests tests/test_pin_media.cpp)

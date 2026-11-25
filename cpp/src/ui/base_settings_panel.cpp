@@ -1,6 +1,7 @@
 #include "ui/base_settings_panel.h"
 #include "core/constants.h"
 #include "core/i18n.h"
+#include "core/platform_utils.h"
 #include "core/theme.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
@@ -155,6 +156,22 @@ void paint_rounded_panel(QWidget *widget) {
     QPainter painter(widget);
     painter.drawPixmap(0, 0, pixmap);
 }
+
+namespace {
+// Qt's Windows 11 style sets the rounded corner preference from an application event
+// filter on every Show; object filters run after it, so turning the frame off here wins.
+class SystemFrameRemover : public QObject {
+public:
+    using QObject::QObject;
+    bool eventFilter(QObject *watched, QEvent *event) override {
+        if (event->type() == QEvent::Show)
+            if (auto *widget = qobject_cast<QWidget *>(watched); widget && widget->isWindow()) disable_native_frame(static_cast<quintptr>(widget->winId()));
+        return false;
+    }
+};
+}
+
+void keep_system_frame_off(QWidget *window) { window->installEventFilter(new SystemFrameRemover(window)); }
 
 QColor accent_color() { return get_theme().theme_color(); }
 
@@ -628,6 +645,7 @@ HoverPopup::HoverPopup(QWidget *parent) : QWidget(parent) {
     setAttribute(Qt::WA_TranslucentBackground, true);
     setFocusPolicy(Qt::NoFocus);
     setObjectName("HoverPopup");
+    keep_system_frame_off(this);
     HoverPopup::apply_scale();
     close_timer_.setSingleShot(true);
     close_timer_.setInterval(CLOSE_DELAY_MS);
