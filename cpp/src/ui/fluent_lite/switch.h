@@ -17,8 +17,6 @@ public:
     void set_progress(double value);
     bool isChecked() const { return checked_; }
     void setChecked(bool checked);
-    void setOnText(const QString &text) { on_text_ = text; }
-    void setOffText(const QString &text) { off_text_ = text; }
     void setCompact(bool compact);
 signals:
     void checkedChanged(bool checked);
@@ -32,7 +30,6 @@ private:
     void animate();
     bool checked_ = false;
     bool compact_ = false;
-    QString on_text_, off_text_;
     double progress_ = 0.0;
     QPropertyAnimation *animation_;
 };

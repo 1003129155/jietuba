@@ -168,8 +168,6 @@ WhiteCard::WhiteCard(QWidget *parent) : CardSurface(parent) { setAttribute(Qt::W
 QSize WhiteCard::minimumSizeHint() const { return QSize(0, std::max(minimumHeight(), layout() ? layout()->minimumSize().height() : 0)); }
 
 ToggleSwitch::ToggleSwitch(QWidget *parent) : SwitchButton(parent) {
-    setOnText("");
-    setOffText("");
     connect(this, &SwitchButton::checkedChanged, this, &ToggleSwitch::toggled);
 }
 
