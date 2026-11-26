@@ -258,6 +258,8 @@ void MainApp::on_language_changed(const QString &lang_code) {
     // The settings window is preloaded, so it is rebuilt to pick up the translations.
     // A switch made by the settings window itself rebuilds it once that save is done.
     if (settings_window && !settings_window->saving()) recreate_settings_window();
+    // The clipboard management window is built once and kept, so it is built again too.
+    recreate_clipboard_manage_dialog();
     // Translation windows are created again in the new language.
     TranslationManager::instance()->close_dialog();
 }
