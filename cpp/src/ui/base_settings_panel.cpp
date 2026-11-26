@@ -21,8 +21,6 @@ namespace jietuba {
 namespace {
 // The panel background is a fixed texture rather than a blur of what lies
 // behind: pin toolbars float over the live desktop with nothing to blur.
-const QColor PANEL_TOP("#fcfdff");
-const QColor PANEL_BOTTOM("#eef2f8");
 // (x ratio, y ratio, base radius, RGBA): muted glows imitating blurred colour behind.
 struct Glow { double fx, fy, base_radius; int r, g, b, a; };
 constexpr Glow PANEL_GLOWS[] = {
@@ -32,9 +30,6 @@ constexpr Glow PANEL_GLOWS[] = {
 };
 constexpr double PANEL_NOISE_OPACITY = 0.015;
 const QColor PANEL_HIGHLIGHT(255, 255, 255, 235);
-const QColor PANEL_INNER_RING(255, 255, 255, 190);
-// A dark translucent outer ring: visible on white screenshots, almost invisible on dark ones.
-const QColor PANEL_OUTER_RING(15, 23, 42, 30);
 
 // 64x64 black noise with random alpha; a fixed seed keeps the texture stable across runs.
 const QImage &panel_noise_tile() {

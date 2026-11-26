@@ -35,7 +35,7 @@ namespace jietuba {
 namespace {
 QString toolbar_tr(const char *text) { return i18n_tr(text, "Toolbar"); }
 
-const QColor GRIP_DOT_COLOR(0x5F, 0x63, 0x68);
+const QColor &GRIP_DOT_COLOR = TOOLBAR_GRIP_DOT;
 const QColor GRIP_DOT_COLOR_IDLE(0xB4, 0xB8, 0xBE);
 
 // Three vertical dots centred in rect.

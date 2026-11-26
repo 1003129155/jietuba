@@ -17,13 +17,20 @@ constexpr int WELCOME_RADIUS = 16;
 
 QString welcome_tr(const char *text);
 
-// The wizard's semantic colours, following the global light / dark theme.
+// The wizard's colours, following the global light / dark theme. The frame comes from the
+// window palette (UIThemeTokens) as opaque colours, so both style sheets and QColor accept it;
+// the demo colours belong to the stage illustrations only.
 struct WelcomeTheme {
-    QString page, panel, panel_subtle, illustration, sidebar, border, border_strong, separator;
-    QString text, text_muted, text_soft, accent, accent_hover, accent_soft, toolbar, canvas;
-    bool is_dark;
+    QString page, card, card_border, outline, divider;
+    QString text, text_muted, text_soft, step_idle;
+    QString accent, accent_hover;
     // The demo stage: the page tinted with the accent, the one coloured area of a page.
     QString stage;
+    bool is_dark;
+    // The illustrations draw a mock-up of the capture screen and its tools, not window chrome.
+    struct Demo {
+        QString panel, panel_subtle, sidebar, border, border_strong, separator, text, text_soft;
+    } demo;
 };
 WelcomeTheme welcome_theme();
 

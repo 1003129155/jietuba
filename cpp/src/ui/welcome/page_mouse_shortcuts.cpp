@@ -71,7 +71,7 @@ protected:
                 p.setBrush(QColor(0, 0, 0, theme.is_dark ? 26 : 14));
                 p.drawRoundedRect(pin.adjusted(-i, -i + 2, i, i + 2), 4 + i, 4 + i);
             }
-            p.setBrush(QColor(theme.panel));
+            p.setBrush(QColor(theme.demo.panel));
             p.setPen(QPen(with_alpha(theme.accent, 150 + static_cast<int>(70 * (1.0 - rise))), 1.4));
             p.drawRoundedRect(pin, 4, 4);
             draw_chart(p, theme, pin.adjusted(6, 6, -6, -6));
@@ -92,11 +92,11 @@ private:
         const QRectF key(x, band.y(), key_w, band.height());
         draw_keycap(p, theme, key, "Win", key_held);
         p.setFont(pixel_font(13));
-        p.setPen(QColor(theme.text_soft));
+        p.setPen(QColor(theme.demo.text_soft));
         p.drawText(QRectF(key.right(), band.y(), plus_w, band.height()), Qt::AlignCenter, "+");
         const QRectF mouse(key.right() + plus_w, band.y(), mouse_w, band.height());
-        p.setPen(QPen(QColor(theme.border_strong), 1.2));
-        p.setBrush(QColor(theme.panel));
+        p.setPen(QPen(QColor(theme.demo.border_strong), 1.2));
+        p.setBrush(QColor(theme.demo.panel));
         p.drawRoundedRect(mouse, 10, 10);
         QPainterPath left_button;
         left_button.moveTo(mouse.center().x(), mouse.top() + 1);
@@ -105,7 +105,7 @@ private:
         left_button.arcTo(QRectF(mouse.left() + 1, mouse.top() + 1, mouse.width() - 2, mouse.width() - 2), 180, -90);
         left_button.closeSubpath();
         p.setPen(Qt::NoPen);
-        p.setBrush(left_held ? QColor(theme.accent) : with_alpha(theme.text_soft, 40));
+        p.setBrush(left_held ? QColor(theme.accent) : with_alpha(theme.demo.text_soft, 40));
         p.drawPath(left_button);
     }
 };

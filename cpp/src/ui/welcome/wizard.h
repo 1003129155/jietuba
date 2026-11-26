@@ -53,6 +53,8 @@ public:
     int current_page() const { return current_; }
     void go_to_page(int index);
 protected:
+    // The caption sits on the window background, the body on the content layer.
+    void paintEvent(QPaintEvent *event) override;
     // Finishing, Skip and the close button all save every page and mark the wizard as run.
     void closeEvent(QCloseEvent *event) override;
 private:

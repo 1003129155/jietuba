@@ -2,6 +2,7 @@
 #include "core/i18n.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
+#include "ui/fluent_lite/theme.h"
 #include <QHBoxLayout>
 #include <QPainter>
 #include <QPainterPath>
@@ -19,11 +20,33 @@ QString mix(const QString &base, const QString &tint, double amount) {
 
 WelcomeTheme welcome_theme() {
     const auto &tokens = get_ui_theme()->tokens();
-    if (tokens.is_dark())
-        return {"#23272C", "#2B3036", "#252A30", "#262C32", "#20252A", "#3C444D", "#4B5661", "#363E47",
-                "#F2F4F6", "#AEB7C1", "#87919C", tokens.accent, tokens.accent_hover, "#31404C", "#171C21", "#303840", true, mix("#23272C", tokens.accent, 0.16)};
-    return {"#FFFFFF", "#FFFFFF", "#F7F9FB", "#F3F7FA", "#F5F8FA", "#DDE5EC", "#C9D6E0", "#E5EBF0",
-            "#172331", "#667587", "#8795A4", tokens.accent, tokens.accent_hover, "#E9F0F5", "#233342", "#EAF0F4", false, mix("#FFFFFF", tokens.accent, 0.18)};
+    // What the wizard's body lies on: the content layer over the window background.
+    const QColor page = layer_backdrop();
+    const auto on_page = [&page](const QString &token, double alpha_scale = 1) {
+        QColor color = css_color(token);
+        color.setAlphaF(color.alphaF() * alpha_scale);
+        return painted_over(color, page).name();
+    };
+    const QColor card = QColor(on_page(tokens.card));
+    WelcomeTheme theme;
+    theme.page = page.name();
+    theme.card = card.name();
+    theme.card_border = painted_over(css_color(tokens.card_border), card).name();
+    theme.outline = on_page(tokens.control_border);
+    theme.divider = on_page(tokens.divider);
+    theme.text = on_page(tokens.fg);
+    theme.text_muted = on_page(tokens.fg_muted);
+    theme.text_soft = on_page(tokens.fg_disabled);
+    theme.step_idle = on_page(tokens.fg_disabled, 0.55);
+    theme.accent = tokens.accent;
+    theme.accent_hover = tokens.accent_hover;
+    theme.stage = mix(theme.page, tokens.accent, tokens.is_dark() ? 0.16 : 0.18);
+    theme.is_dark = tokens.is_dark();
+    if (theme.is_dark)
+        theme.demo = {"#2B3036", "#252A30", "#20252A", "#3C444D", "#4B5661", "#363E47", "#F2F4F6", "#87919C"};
+    else
+        theme.demo = {"#FFFFFF", "#F7F9FB", "#F5F8FA", "#DDE5EC", "#C9D6E0", "#E5EBF0", "#172331", "#8795A4"};
+    return theme;
 }
 
 QString brand_text(const QString &text) {
@@ -170,7 +193,7 @@ void BasePage::apply_welcome_theme() {
     for (auto *label : findChildren<QLabel *>()) apply_welcome_label_style(label);
     for (auto *widget : findChildren<QWidget *>()) {
         if (widget->property("welcomeSettingRow").toBool()) set_setting_row_current(widget, widget->property("welcomeRowCurrent").toBool());
-        if (widget->objectName() == "ListSeparator") set_own_style(widget, QString("background: %1; border: none;").arg(theme.separator));
+        if (widget->objectName() == "ListSeparator") set_own_style(widget, QString("background: %1; border: none;").arg(theme.divider));
         if (widget->objectName() == "ListRow") set_list_row_current(widget->findChild<QLabel *>(), widget->property("listRowCurrent").toBool());
         // Children that paint themselves refresh on the theme too.
         if (widget->metaObject()->indexOfMethod("apply_welcome_child_theme()") >= 0) QMetaObject::invokeMethod(widget, "apply_welcome_child_theme");
@@ -182,7 +205,7 @@ void BasePage::set_setting_row_current(QWidget *card, bool current) {
     const auto theme = welcome_theme();
     card->setProperty("welcomeRowCurrent", current);
     card->setStyleSheet(QString("#SettingRow { background: %1; border: 1px solid %2; border-radius: %3px; }")
-                            .arg(current ? theme.stage : theme.panel_subtle, theme.border)
+                            .arg(current ? theme.stage : theme.card, theme.card_border)
                             .arg(dialog_scaled(10)));
 }
 
@@ -191,7 +214,7 @@ QLabel *BasePage::add_list_row(QVBoxLayout *layout, const QString &name, QWidget
         auto *line = new QFrame;
         line->setObjectName("ListSeparator");
         line->setFixedHeight(1);
-        set_own_style(line, QString("background: %1; border: none;").arg(welcome_theme().separator));
+        set_own_style(line, QString("background: %1; border: none;").arg(welcome_theme().divider));
         layout->addWidget(line);
     }
     auto *row = new QWidget;

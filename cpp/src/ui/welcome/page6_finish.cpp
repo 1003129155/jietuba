@@ -65,8 +65,8 @@ protected:
         const QRectF desk(4, 4, w - 8, h - 8);
         QPainterPath clip;
         clip.addRoundedRect(desk, 10, 10);
-        p.setPen(QPen(QColor(theme.border), 1));
-        p.setBrush(QColor(theme.panel_subtle));
+        p.setPen(QPen(QColor(theme.demo.border), 1));
+        p.setBrush(QColor(theme.demo.panel_subtle));
         p.drawPath(clip);
         p.save();
         p.setClipPath(clip);
@@ -74,15 +74,15 @@ protected:
         // The taskbar and its tray, right to left: the clock, the icons in view, the button.
         const QRectF bar(desk.x(), desk.bottom() - BAR_H, desk.width(), BAR_H);
         p.setPen(Qt::NoPen);
-        p.setBrush(QColor(theme.panel));
+        p.setBrush(QColor(theme.demo.panel));
         p.drawRect(bar);
-        p.setPen(QPen(QColor(theme.border), 1));
+        p.setPen(QPen(QColor(theme.demo.border), 1));
         p.drawLine(bar.topLeft(), bar.topRight());
         const QRectF clock(bar.right() - 12 - CLOCK_W, bar.y(), CLOCK_W, BAR_H);
         p.setPen(Qt::NoPen);
-        p.setBrush(with_alpha(theme.text, 170));
+        p.setBrush(with_alpha(theme.demo.text, 170));
         p.drawRoundedRect(QRectF(clock.right() - 40, clock.center().y() - 9, 40, 5), 2.5, 2.5);
-        p.setBrush(with_alpha(theme.text, 110));
+        p.setBrush(with_alpha(theme.demo.text, 110));
         p.drawRoundedRect(QRectF(clock.right() - 58, clock.center().y() + 4, 58, 4.5), 2.2, 2.2);
         const double gap = ease(QEasingCurve::OutCubic, phase(now, DRAG_END_MS - 300, DRAG_END_MS));
         const double right = clock.x() - 6;
@@ -93,10 +93,10 @@ protected:
         const bool open = now >= CLICK_MS && now < DRAG_END_MS;
         if (open || (now >= CLICK_MS - 80 && now < CLICK_MS)) {
             p.setPen(Qt::NoPen);
-            p.setBrush(with_alpha(theme.text, theme.is_dark ? 30 : 18));
+            p.setBrush(with_alpha(theme.demo.text, theme.is_dark ? 30 : 18));
             p.drawRoundedRect(chevron.adjusted(2, 0, -2, 0), 5, 5);
         }
-        QPen arrow(QColor(theme.text), 1.8);
+        QPen arrow(QColor(theme.demo.text), 1.8);
         arrow.setCapStyle(Qt::RoundCap);
         arrow.setJoinStyle(Qt::RoundJoin);
         p.setPen(arrow);
@@ -115,8 +115,8 @@ protected:
             p.setOpacity(p.opacity() * shown);
             const QRectF box = flyout.translated(0, 6 * (1 - shown));
             draw_shadow(p, theme, box, 10);
-            p.setPen(QPen(QColor(theme.border), 0.8));
-            p.setBrush(QColor(theme.panel));
+            p.setPen(QPen(QColor(theme.demo.border), 0.8));
+            p.setBrush(QColor(theme.demo.panel));
             p.drawRoundedRect(box, 10, 10);
             for (int i = 0; i < FLYOUT_ICONS; ++i) {
                 if (i == OURS && (dragging || placed)) continue;

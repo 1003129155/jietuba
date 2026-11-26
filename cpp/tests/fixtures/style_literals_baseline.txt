@@ -41,8 +41,8 @@
 5 translation/overlay_translation.cpp
 2 translation/translation_dialog.cpp
 1 ui/arrow_settings_panel.cpp
-19 ui/base_settings_panel.cpp
-12 ui/base_settings_panel.h
+15 ui/base_settings_panel.cpp
+16 ui/base_settings_panel.h
 6 ui/color_picker_button.cpp
 8 ui/color_picker_dialog.cpp
 9 ui/fluent_lite/buttons.cpp
@@ -81,7 +81,7 @@
 1 ui/tray_menu.cpp
 2 ui/wait_bar.cpp
 5 ui/watermark_settings_panel.cpp
-30 ui/welcome/base_page.cpp
+16 ui/welcome/base_page.cpp
 13 ui/welcome/demo_paint.cpp
 2 ui/welcome/page1_welcome.cpp
 8 ui/welcome/page6_finish.cpp
