@@ -30,22 +30,6 @@ namespace {
 QString tr_text(const char *text) { return i18n_tr(text, "TranslationDialog"); }
 }
 
-const DashboardPalette &dashboard_dark() {
-    static const DashboardPalette palette{
-        "#45474e", "#2c2d33", "#555860", "#f4f6f9", "#9aa1ae", "#686d79", "#3f8cff", "#62a2ff", "rgba(63, 140, 255, 0.16)",
-        "rgba(125, 132, 148, 0.22)", "rgba(125, 132, 148, 0.34)", QColor(125, 132, 148, 56), QColor(125, 132, 148, 87), "#ff5449", "#35d06a",
-    };
-    return palette;
-}
-
-const DashboardPalette &dashboard_light() {
-    static const DashboardPalette palette{
-        "#f5f5f7", "#ffffff", "#ffffff", "#1d1d1f", "#73737a", "#9999a1", "#007aff", "#218cff", "rgba(0, 122, 255, 0.12)",
-        "rgba(120, 120, 128, 0.15)", "rgba(120, 120, 128, 0.25)", QColor(120, 120, 128, 38), QColor(120, 120, 128, 64), "#ff3b30", "#34c759",
-    };
-    return palette;
-}
-
 void set_badge_text(QLabel *badge, const QString &text, int padding) {
     const int max_width = dialog_scaled(BADGE_MAX_WIDTH);
     badge->setMaximumWidth(max_width);
@@ -62,7 +46,7 @@ QString fill_dashboard_sheet(QString sheet, const DashboardPalette &p) {
     const std::vector<std::pair<QString, QString>> values = {
         {"@surface_strong", p.surface_strong}, {"@surface_radius", s(SURFACE_CORNER_RADIUS)}, {"@control_radius", s(CONTROL_CORNER_RADIUS)},
         {"@accent_tint", p.accent_tint}, {"@fill_hover", p.fill_hover}, {"@stroke", s(1)}, {"@text_2", p.text_2}, {"@text_3", p.text_3},
-        {"@accent", p.accent}, {"@danger", p.danger}, {"@field", p.field}, {"@green", p.green}, {"@fill", p.fill}, {"@text", p.text},
+        {"@on_accent", p.on_accent}, {"@accent", p.accent}, {"@danger", p.danger}, {"@field", p.field}, {"@green", p.green}, {"@fill", p.fill}, {"@text", p.text},
     };
     for (const auto &[key, value] : values) sheet.replace(key, value);
     static const QRegularExpression scaled(R"(@s(\d+))");
@@ -231,11 +215,11 @@ void TranslateButton::paintEvent(QPaintEvent *) {
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
     QString color = underMouse() ? palette_->accent_hover : palette_->accent;
-    if (!isEnabled()) color = "#6689bb";
+    if (!isEnabled()) color = palette_->accent_disabled;
     painter.setPen(Qt::NoPen);
     painter.setBrush(QColor(color));
     painter.drawRoundedRect(QRectF(rect()), dialog_scaled(17), dialog_scaled(17));
-    painter.setPen(QColor("white"));
+    painter.setPen(QColor(palette_->on_accent));
     painter.setFont(QFont("Microsoft YaHei UI", dialog_scaled(10), QFont::DemiBold));
     painter.drawText(rect(), Qt::AlignCenter, text());
 }
@@ -248,9 +232,7 @@ void DashboardPinButton::apply_palette(const DashboardPalette &palette) {
 std::pair<QColor, QColor> DashboardPinButton::colors() const {
     const auto &palette = *palette_;
     if (isChecked()) {
-        QColor tint(palette.accent);
-        tint.setAlpha(41);  // matches accent_tint's alpha
-        return {QColor(palette.accent), tint};
+        return {QColor(palette.accent), palette.pin_checked_fill};
     }
     if (isDown()) return {QColor(palette.text), palette.fill_hover_color};
     if (underMouse()) return {QColor(palette.text), palette.fill_color};
@@ -274,7 +256,7 @@ DashboardTitleBar::DashboardTitleBar(QWidget *parent) : FluentTitleBar(parent) {
         auto logo_pixmap = logo_icon.pixmap(64, 64);
         QPainter logo_painter(&logo_pixmap);
         logo_painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
-        logo_painter.fillRect(logo_pixmap.rect(), QColor("white"));
+        logo_painter.fillRect(logo_pixmap.rect(), QColor(palette_->on_accent));
         logo_painter.end();
         setIcon(QIcon(logo_pixmap));
     }
@@ -324,7 +306,7 @@ void DashboardTitleBar::apply_caption_colors() {
         button->setHoverBackgroundColor(palette.fill_hover_color);
         button->setPressedBackgroundColor(palette.fill_color);
     }
-    closeBtn->setHoverColor(QColor("white"));
+    closeBtn->setHoverColor(QColor(palette.on_accent));
     closeBtn->setHoverBackgroundColor(QColor(palette.danger));
 }
 
@@ -788,10 +770,10 @@ void TranslationDialog::paintEvent(QPaintEvent *) {
     const double radius = isMaximized() ? 0.0 : dialog_scaled(WINDOW_CORNER_RADIUS);
     QRectF area(rect());
     if (!isMaximized()) area.adjust(0.5, 0.5, -0.5, -0.5);
-    if (theme_name_ == "dark") {
+    if (palette_->window_top != palette_->window_bottom) {
         QLinearGradient background(0, 0, 0, std::min(dialog_scaled(190), height()));
-        background.setColorAt(0.0, QColor("#4d4f56"));
-        background.setColorAt(1.0, QColor("#41434a"));
+        background.setColorAt(0.0, QColor(palette_->window_top));
+        background.setColorAt(1.0, QColor(palette_->window_bottom));
         painter.setBrush(background);
     } else {
         painter.setBrush(QColor(palette_->window));
@@ -821,7 +803,7 @@ QString TranslationDialog::style_sheet(const DashboardPalette &p) {
     const QString sheet = R"(
         QWidget { color: @text; font-size: @s13px; }
         QLabel#appLogo {
-            color: white; background: @accent; border: none; border-radius: @s7px;
+            color: @on_accent; background: @accent; border: none; border-radius: @s7px;
             font-size: @s9px; font-weight: 700;
         }
         QLabel#appName { font-size: @s13px; font-weight: 600; padding-left: @s3px; }
@@ -840,7 +822,7 @@ QString TranslationDialog::style_sheet(const DashboardPalette &p) {
             color: @text; background: @surface_strong;
             border: @strokepx solid @fill_hover; border-radius: @control_radiuspx;
             padding: @s5px;
-            outline: none; selection-color: white; selection-background-color: @accent;
+            outline: none; selection-color: @on_accent; selection-background-color: @accent;
         }
         QPushButton#swapButton { background: @accent_tint; border: none; border-radius: @s18px; }
         QPushButton#swapButton:hover { background: @fill_hover; }
@@ -852,7 +834,7 @@ QString TranslationDialog::style_sheet(const DashboardPalette &p) {
         QTextEdit#sourceEdit, QTextEdit#targetEdit {
             color: @text; background: transparent; border: none;
             padding: @s1px @s3px; font-size: @s15px;
-            selection-color: white; selection-background-color: @accent;
+            selection-color: @on_accent; selection-background-color: @accent;
         }
         QTextEdit#targetEdit[error="true"] { color: @danger; }
         QTextEdit#targetEdit[loading="true"] { color: @text_2; font-style: italic; }

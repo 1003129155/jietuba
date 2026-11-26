@@ -261,4 +261,23 @@ UIThemeManager *get_ui_theme() {
     static UIThemeManager *manager = new UIThemeManager;
     return manager;
 }
+
+// Translation style.
+const DashboardPalette &dashboard_dark() {
+    static const DashboardPalette palette{
+        "#45474e", "#2c2d33", "#555860", "#f4f6f9", "#9aa1ae", "#686d79", "#3f8cff", "#62a2ff", "rgba(63, 140, 255, 0.16)",
+        "rgba(125, 132, 148, 0.22)", "rgba(125, 132, 148, 0.34)", QColor(125, 132, 148, 56), QColor(125, 132, 148, 87), "#ff5449", "#35d06a",
+        "#ffffff", "#6689bb", "#4d4f56", "#41434a", QColor(63, 140, 255, 41),
+    };
+    return palette;
+}
+
+const DashboardPalette &dashboard_light() {
+    static const DashboardPalette palette{
+        "#f5f5f7", "#ffffff", "#ffffff", "#1d1d1f", "#73737a", "#9999a1", "#007aff", "#218cff", "rgba(0, 122, 255, 0.12)",
+        "rgba(120, 120, 128, 0.15)", "rgba(120, 120, 128, 0.25)", QColor(120, 120, 128, 38), QColor(120, 120, 128, 64), "#ff3b30", "#34c759",
+        "#ffffff", "#6689bb", "#f5f5f7", "#f5f5f7", QColor(0, 122, 255, 41),
+    };
+    return palette;
+}
 }

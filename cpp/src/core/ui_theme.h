@@ -80,4 +80,22 @@ void apply_style_sheet(QWidget *widget, const QString &sheet);
 void set_own_style(QWidget *widget, const QString &declarations);
 
 UIThemeManager *get_ui_theme();
+
+// Translation style: the translation window and the translation popup keep a look of
+// their own instead of the window palette above.
+struct DashboardPalette {
+    QString window, field, surface_strong, text, text_2, text_3, accent, accent_hover, accent_tint, fill, fill_hover;
+    QColor fill_color, fill_hover_color;
+    QString danger, green;
+    // Text, selection and caption symbols drawn over accent or danger fills.
+    QString on_accent;
+    // The primary button while disabled.
+    QString accent_disabled;
+    // Window background gradient from the top edge; equal stops draw a flat window.
+    QString window_top, window_bottom;
+    // The pinned (checked) always-on-top button's background.
+    QColor pin_checked_fill;
+};
+const DashboardPalette &dashboard_dark();
+const DashboardPalette &dashboard_light();
 }

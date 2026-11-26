@@ -334,7 +334,7 @@ void TranslationPopup::set_theme(const QString &theme_name) {
                 color: @text_2; background: transparent; border: none;
                 border-radius: @control_radiuspx; font-size: @s19px;
             }
-            QPushButton#popupClose:hover { color: white; background: @danger; }
+            QPushButton#popupClose:hover { color: @on_accent; background: @danger; }
             QTextEdit#popupSource {
                 color: @text; background: @field;
                 border: @strokepx solid @fill_hover;
@@ -379,7 +379,7 @@ void TranslationPopup::set_theme(const QString &theme_name) {
                 color: @text; background: transparent; padding: @s6px @s12px;
                 border-radius: @control_radiuspx; font-size: @s12px;
             }
-            QMenu#popupLangMenu::item:selected { background: @accent; color: white; }
+            QMenu#popupLangMenu::item:selected { background: @accent; color: @on_accent; }
             QMenu#popupLangMenu::item:checked { font-weight: 600; }
             )",
                                        *palette_));
