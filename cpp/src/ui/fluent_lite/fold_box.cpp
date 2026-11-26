@@ -116,7 +116,13 @@ void FoldBox::finish() {
     set_cover(0);
     const bool was_hidden = isHidden();
     setVisible(open_);
-    if (!set_shown(open_ ? natural_height() : 0) && was_hidden != isHidden()) emit resized();
+    // Hidden or shown at an unchanged height, the box still leaves or joins its layouts, which are laid
+    // out at once like any step of the fold.
+    if (!set_shown(open_ ? natural_height() : 0) && was_hidden != isHidden()) {
+        settle();
+        emit resized();
+        settle();
+    }
 }
 
 void FoldBox::setOpen(bool open, bool animated) {

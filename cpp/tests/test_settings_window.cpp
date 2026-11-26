@@ -2109,6 +2109,8 @@ private slots:
             if (frames.isEmpty() || frames.last().fold_height != frame.fold_height || frames.last().below != frame.below) frames << frame;
         };
         area->viewport()->installEventFilter(&spy);
+        // A paint can come as soon as a fold ends, before anything queued is handled.
+        QObject::connect(fold, &FoldBox::finished, area->viewport(), [area] { area->viewport()->repaint(); });
         for (const bool unfold : {true, false}) {
             frames.clear();
             advanced->click();
@@ -2168,6 +2170,8 @@ private slots:
             if (frames.isEmpty() || frames.last() != frame) frames << frame;
         };
         area->viewport()->installEventFilter(&spy);
+        // A paint can come as soon as a fold ends, before anything queued is handled.
+        QObject::connect(fold, &FoldBox::finished, area->viewport(), [area] { area->viewport()->repaint(); });
         for (const bool unfold : {true, false}) {
             frames.clear();
             expander->arrow()->click();
