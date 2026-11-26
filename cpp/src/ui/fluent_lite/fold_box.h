@@ -28,6 +28,8 @@ public:
 signals:
     // The box's height changed, or it was shown or hidden.
     void resized();
+    // An animated opening or closing has ended.
+    void finished();
 protected:
     bool event(QEvent *event) override;
     bool eventFilter(QObject *watched, QEvent *event) override;

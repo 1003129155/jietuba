@@ -17,8 +17,8 @@ class NavigationInterface;
 // items, keeps the current one in step with the scroll position of the page shown and scrolls to
 // a group on request.
 //
-// At most one page is unfolded: opening a page or unfolding one with its arrow folds the one
-// before. A page the user folded while on it stays folded until it is opened again.
+// Opening a page unfolds it. Only the user folds a page again, and one folded while on it stays
+// folded until it is opened again.
 class PageOutline : public QObject {
     Q_OBJECT
 public:
@@ -64,8 +64,8 @@ private:
     void update_current();
     void schedule_refresh();
     void stop_animation();
-    // Unfolds route_key, or nothing when it is empty, and folds the page unfolded before.
-    void unfold_only(const QString &route_key);
+    // Unfolds route_key, or nothing when it is empty.
+    void unfold(const QString &route_key);
     void toggle(const QString &route_key);
     void sub_item_clicked(const QString &route_key, int index);
 
@@ -80,7 +80,6 @@ private:
     // The group chosen by a click or a search jump; kept until the page is scrolled by other means.
     int locked_ = -1;
     bool scrolling_by_outline_ = false;
-    QString unfolded_;
     // The group clicked under another page, scrolled to once that page is shown.
     QString pending_title_;
     int animation_from_ = 0;

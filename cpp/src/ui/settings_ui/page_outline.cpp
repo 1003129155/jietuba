@@ -52,7 +52,7 @@ void PageOutline::set_page(QScrollArea *scroll, const QString &route_key) {
     // Another page's groups are known once it is laid out; until then its own row stays unmarked too.
     if (!scroll || route_key.isEmpty()) navigation_->setSubItemPending({});
     else if (scroll != scroll_.data()) navigation_->setSubItemPending(route_key);
-    unfold_only(route_);
+    unfold(route_);
     if (scroll == scroll_.data()) {
         schedule_refresh();
         return;
@@ -80,16 +80,13 @@ void PageOutline::set_page(QScrollArea *scroll, const QString &route_key) {
     schedule_refresh();
 }
 
-void PageOutline::unfold_only(const QString &route_key) {
-    if (!unfolded_.isEmpty() && unfolded_ != route_key) navigation_->setExpanded(unfolded_, false);
-    unfolded_ = route_key;
+void PageOutline::unfold(const QString &route_key) {
     if (!route_key.isEmpty() && !navigation_->isExpanded(route_key)) navigation_->setExpanded(route_key, true);
 }
 
 void PageOutline::toggle(const QString &route_key) {
     if (navigation_->isExpanded(route_key)) {
         navigation_->setExpanded(route_key, false);
-        if (unfolded_ == route_key) unfolded_.clear();
         return;
     }
     if (route_key == route_) {
@@ -104,7 +101,7 @@ void PageOutline::toggle(const QString &route_key) {
         navigation_->setSubItems(route_key, titles);
     }
     if (navigation_->subItemCount(route_key) == 0) return;
-    unfold_only(route_key);
+    unfold(route_key);
 }
 
 void PageOutline::sub_item_clicked(const QString &route_key, int index) {

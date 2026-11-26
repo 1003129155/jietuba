@@ -5364,8 +5364,8 @@ private slots:
         }
     }
 
-    // At most one page is unfolded: opening a page or unfolding one with its arrow folds the one before.
-    void onlyOnePageIsUnfoldedAtATime() {
+    // Opening a page or unfolding one with its arrow leaves the others as they are.
+    void unfoldedPagesStayUnfolded() {
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.resize(1050, 750);
         dialog.show();
@@ -5378,47 +5378,37 @@ private slots:
             return open;
         };
         QTRY_COMPARE(unfolded(), QStringList{"shortcuts"});
+        QTRY_VERIFY(nav->subItemCount("shortcuts") > 0);
         dialog.on_nav_changed(1, "capture");
-        QCOMPARE(unfolded(), QStringList{"capture"});
+        QCOMPARE(unfolded(), (QStringList{"shortcuts", "capture"}));
         QTRY_VERIFY(nav->subItemCount("capture") > 1);
         QTRY_VERIFY(!nav->animating());
-        QVERIFY(nav->subItem("shortcuts", 0) == nullptr || !nav->subItem("shortcuts", 0)->isVisible());
+        QVERIFY(nav->subItem("shortcuts", 0)->isVisible());
 
         // An arrow unfolds a page that was never opened, building it; the window stays on its page.
         const int before = dialog.content_stack->currentIndex();
         emit nav->arrowClicked("clipboard");
-        QCOMPARE(unfolded(), QStringList{"clipboard"});
+        QCOMPARE(unfolded(), (QStringList{"shortcuts", "capture", "clipboard"}));
         QCOMPARE(dialog.content_stack->currentIndex(), before);
         QVERIFY(nav->subItemCount("clipboard") > 1);
         QTRY_VERIFY(!nav->animating());
         QVERIFY(nav->subItem("clipboard", 0)->isVisible());
-        QVERIFY(!nav->subItem("capture", 0)->isVisible());
-
-        // Opening a page folds one unfolded by its arrow too.
-        dialog.on_nav_changed(11, "pin");
-        QCOMPARE(unfolded(), QStringList{"pin"});
-        // Folded and unfolded again by clicks on its row, the page shown is still folded when left.
-        auto *item = nav->widget("pin");
-        const QPoint on_text(dialog_scaled(60), item->height() / 2);
-        QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, on_text);
-        QVERIFY(unfolded().isEmpty());
-        QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, on_text);
-        QCOMPARE(unfolded(), QStringList{"pin"});
-        dialog.on_nav_changed(5, "log");
-        QCOMPARE(unfolded(), QStringList{"log"});
+        QVERIFY(nav->subItem("capture", 0)->isVisible());
+        // Only the page shown has a highlight.
+        QCOMPARE(nav->currentSubRoute(), QString("capture"));
 
         // A page folded by the user while on it stays folded until it is opened again.
-        emit nav->arrowClicked("log");
-        QVERIFY(unfolded().isEmpty());
+        emit nav->arrowClicked("capture");
+        QCOMPARE(unfolded(), (QStringList{"shortcuts", "clipboard"}));
         dialog.page_outline()->refresh();
         QTest::qWait(30);
-        QVERIFY(unfolded().isEmpty());
+        QCOMPARE(unfolded(), (QStringList{"shortcuts", "clipboard"}));
+        dialog.on_nav_changed(11, "pin");
+        QCOMPARE(unfolded(), (QStringList{"shortcuts", "pin", "clipboard"}));
         dialog.on_nav_changed(1, "capture");
-        QCOMPARE(unfolded(), QStringList{"capture"});
-        dialog.on_nav_changed(5, "log");
-        QCOMPARE(unfolded(), QStringList{"log"});
+        QCOMPARE(unfolded(), (QStringList{"shortcuts", "capture", "pin", "clipboard"}));
         QTRY_VERIFY(!nav->animating());
-        QVERIFY(!nav->subItem("capture", 0)->isVisible());
+        QVERIFY(nav->subItem("capture", 0)->isVisible());
     }
 
     void theArrowOnlyUnfoldsAndTheRestOfTheItemOpensThePage() {
@@ -5441,7 +5431,7 @@ private slots:
             QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, QPoint(width - dialog_scaled(12), item->height() / 2));
             QVERIFY2(nav->isExpanded("capture"), qPrintable(where));
             QVERIFY2(dialog.content_stack->currentIndex() == 0, qPrintable(where));
-            QVERIFY2(!nav->isExpanded("shortcuts"), qPrintable(where));
+            QVERIFY2(nav->isExpanded("shortcuts"), qPrintable(where));
             QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, QPoint(width - dialog_scaled(12), item->height() / 2));
             QVERIFY2(!nav->isExpanded("capture"), qPrintable(where));
             QVERIFY2(dialog.content_stack->currentIndex() == 0, qPrintable(where));
@@ -5455,13 +5445,19 @@ private slots:
                 QVERIFY2(dialog.content_stack->currentIndex() == 1, qPrintable(where));
                 QTRY_VERIFY2(nav->isExpanded("capture"), qPrintable(where));
             }
+            // On the text an unfolded page folds and stays where it is shown or not; a folded one opens.
             QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, QPoint(dialog_scaled(60), item->height() / 2));
+            QVERIFY2(!nav->isExpanded("capture"), qPrintable(where));
+            if (on_arrow) {
+                QVERIFY2(dialog.content_stack->currentIndex() == 0 && nav->widget("shortcuts")->isChecked() && !item->isChecked(), qPrintable(where));
+                QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, QPoint(dialog_scaled(60), item->height() / 2));
+            }
             QVERIFY2(dialog.content_stack->currentIndex() == 1, qPrintable(where));
         }
     }
 
     // Clicked again, the row of the page shown folds it and then unfolds it, like its arrow; the
-    // page stays. Another page's row still opens that page.
+    // page stays. Another page's row folds that page while it is unfolded, and opens it once folded.
     void clickingTheOpenPagesRowFoldsAndUnfoldsIt() {
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.resize(1050, 750);
@@ -5469,10 +5465,12 @@ private slots:
         auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
         QVERIFY(nav);
         QTRY_VERIFY(nav->isExpanded("shortcuts"));
+        QTRY_VERIFY(nav->subItemCount("shortcuts") > 0);
         auto *item = nav->widget("capture");
         const QPoint on_text(dialog_scaled(60), item->height() / 2);
         QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, on_text);
         QCOMPARE(dialog.content_stack->currentIndex(), 1);
+        QVERIFY(item->isChecked() && !nav->widget("shortcuts")->isChecked());
         QTRY_VERIFY(nav->subItemCount("capture") > 1);
         QVERIFY(nav->isExpanded("capture"));
         QTRY_VERIFY(!nav->animating());
@@ -5500,6 +5498,21 @@ private slots:
         QVERIFY(nav->subItem("capture", 0)->isVisible());
         QTRY_VERIFY(!row_marked());
 
+        // The shortcut page, left unfolded, folds; the capture page stays the current one.
+        auto *other = nav->widget("shortcuts");
+        QTest::mouseClick(other, Qt::LeftButton, Qt::NoModifier, on_text);
+        QVERIFY(!nav->isExpanded("shortcuts"));
+        QCOMPARE(dialog.content_stack->currentIndex(), 1);
+        QVERIFY(item->isChecked() && !other->isChecked());
+        QCOMPARE(nav->currentSubRoute(), QString("capture"));
+        QTRY_VERIFY(!nav->animating());
+        QVERIFY(!nav->subItem("shortcuts", 0)->isVisible());
+        // Folded, its row opens it.
+        QTest::mouseClick(other, Qt::LeftButton, Qt::NoModifier, on_text);
+        QCOMPARE(dialog.content_stack->currentIndex(), 0);
+        QVERIFY(other->isChecked() && !item->isChecked());
+        QTRY_VERIFY(nav->isExpanded("shortcuts"));
+
         QTest::mouseClick(nav->widget("pin"), Qt::LeftButton, Qt::NoModifier, on_text);
         QCOMPARE(dialog.content_stack->currentIndex(), 11);
         QTRY_VERIFY(nav->isExpanded("pin"));
@@ -5517,7 +5530,9 @@ private slots:
         QVERIFY(list->isVisible());
         const int full = list->height();
         QVERIFY(full >= nav->subItemCount("capture") * dialog_scaled(36));
-        QVERIFY(list->maximumHeight() >= QWIDGETSIZE_MAX);
+        auto *box = qobject_cast<FoldBox *>(list);
+        QVERIFY(box);
+        QCOMPARE(box->cover(), 0.0);
         // The last row ends inside it.
         auto *last = nav->subItem("capture", nav->subItemCount("capture") - 1);
         QVERIFY(last->geometry().bottom() < list->height());
@@ -5527,6 +5542,8 @@ private slots:
         bool between = false;
         for (int i = 0; i < 60 && nav->animating(); ++i) {
             between = between || (list->height() > 0 && list->height() < full);
+            // The rows are hidden before the list starts to shrink.
+            if (list->isVisible() && list->height() < full) QCOMPARE(box->cover(), 1.0);
             QTest::qWait(5);
         }
         QVERIFY(between);
@@ -5537,12 +5554,23 @@ private slots:
         bool grows = false;
         for (int i = 0; i < 60 && nav->animating(); ++i) {
             grows = grows || (list->height() > 0 && list->height() < full);
+            // Covered all the while it grows, in the very colour of the sidebar around it.
+            if (list->height() > 0 && list->height() < full) {
+                QCOMPARE(box->cover(), 1.0);
+                const QImage shot = dialog.grab().toImage();
+                const qreal ratio = shot.devicePixelRatio();
+                const auto pixel = [&](const QPoint &at) { return shot.pixelColor((QPointF(at) * ratio).toPoint()); };
+                const QPoint top = list->mapTo(&dialog, QPoint(0, 0));
+                const QColor beside = pixel(top + QPoint(-2, 1));
+                for (int x = dialog_scaled(20); x < dialog_scaled(120); x += dialog_scaled(3))
+                    for (int y = 0; y < list->height(); y += 3) QCOMPARE(pixel(top + QPoint(x, y)), beside);
+            }
             QTest::qWait(5);
         }
         QVERIFY(grows);
         QTRY_VERIFY(!nav->animating());
         QCOMPARE(list->height(), full);
-        QVERIFY(list->maximumHeight() >= QWIDGETSIZE_MAX);
+        QCOMPARE(box->cover(), 0.0);
         // The highlight kept following the scroll through all of it.
         QCOMPARE(nav->currentSubRoute(), QString("capture"));
     }
@@ -5563,9 +5591,6 @@ private slots:
         dialog.show();
         auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
         QScrollArea *area = nav->scrollArea();
-        // The log page's list is built first, so only folding moves the rows below.
-        dialog.on_nav_changed(5, "log");
-        QTRY_VERIFY(nav->subItemCount("log") > 0);
         dialog.on_nav_changed(1, "capture");
         QTRY_VERIFY(nav->subItemCount("capture") > 1);
         QTRY_VERIFY(!nav->animating());
@@ -5585,7 +5610,7 @@ private slots:
         };
         area->viewport()->installEventFilter(&spy);
         for (const auto &route : routes) nav->widget(route)->installEventFilter(&spy);
-        dialog.on_nav_changed(5, "log");
+        emit nav->arrowClicked("capture");
         QTRY_VERIFY(!nav->animating());
         QTest::qWait(50);
         spy.on_paint = nullptr;
@@ -5626,8 +5651,8 @@ private slots:
         auto *bar = scroll->verticalScrollBar();
         QCOMPARE(bar->value(), std::clamp(group_top_of(scroll, groups[index]) - dialog_scaled(PageOutline::TOP_MARGIN), 0, bar->maximum()));
         QCOMPARE(nav->currentSubItem(), index);
-        // The page left behind is not highlighted and stays folded; the pin page is the one unfolded.
-        QVERIFY(!nav->isExpanded("shortcuts"));
+        // The page left behind stays unfolded, without a highlight.
+        QVERIFY(nav->isExpanded("shortcuts"));
         QVERIFY(nav->isExpanded("pin"));
     }
 
@@ -5673,9 +5698,9 @@ private slots:
             });
             emit label->customContextMenuRequested(QPoint(2, 2));
             QCOMPARE(dialog.content_stack->currentIndex(), 7);
-            // No item stands for the developer page: nothing is current there, and the page left is folded.
+            // No item stands for the developer page: nothing is current there, and the page left stays unfolded.
             QVERIFY(nav->currentSubRoute().isEmpty());
-            QTRY_VERIFY(!nav->isExpanded("capture"));
+            QVERIFY(nav->isExpanded("capture"));
         }
     }
 

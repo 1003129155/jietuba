@@ -39,7 +39,7 @@ public:
     // Whether the item shows the unfold arrow. Only items of the top list can.
     void setExpandable(const QString &route_key, bool expandable);
     bool isExpandable(const QString &route_key) const;
-    // Unfolds or folds the item's sub-items, with a height animation once the window is shown. The
+    // Unfolds or folds the item's sub-items, as a FoldBox does once the window is shown. The
     // state is kept while the item has no sub-items yet, and applies when they are set.
     void setExpanded(const QString &route_key, bool expanded, bool animate = true);
     bool isExpanded(const QString &route_key) const { return expanded_.value(route_key, false); }
@@ -63,7 +63,8 @@ public:
     // current row is not in that list or not on show.
     QRectF indicatorRect() const;
 signals:
-    // The arrow of an item was pressed; the owner decides what to unfold.
+    // The arrow of an item was pressed, or its row where that only folds or unfolds it; the owner
+    // decides what to unfold.
     void arrowClicked(const QString &route_key);
     void subItemClicked(const QString &route_key, int index);
 private:
@@ -73,6 +74,8 @@ private:
     void flush_visible();
     void mark_sub_active();
     NavSubList *list_of(const QString &route_key) const { return lists_.value(route_key); }
+    // Opens or closes the list, sized first to the width it is shown at.
+    void fold(NavSubList *list, bool open, bool animate);
     QMap<QString, QPushButton *> items_;
     QMap<QString, IconSource> icons_;
     QMap<QString, bool> expanded_;

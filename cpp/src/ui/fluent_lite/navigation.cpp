@@ -2,13 +2,13 @@
 #include "ui/motion.h"
 #include "core/ui_scale.h"
 #include "ui/fluent_lite/cards.h"
+#include "ui/fluent_lite/fold_box.h"
 #include <QCoreApplication>
 #include <QLayout>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPen>
 #include <QPolygonF>
-#include <QPropertyAnimation>
 #include <QSignalBlocker>
 #include <QTimer>
 #include <QVariantAnimation>
@@ -365,30 +365,17 @@ private:
     QVariantAnimation slide_;
 };
 
-// The sub-items of one page, in a box that folds by its height. The rows keep their place and size
-// inside it and are clipped as it shrinks. Folded it is hidden, so it takes no clicks or focus.
-class NavSubList : public QWidget {
+// The sub-items of one page, folded away as the setting cards' rows are.
+class NavSubList : public FoldBox {
 public:
-    explicit NavSubList(QWidget *parent) : QWidget(parent), animation_(new QPropertyAnimation(this, "maximumHeight", this)) {
+    explicit NavSubList(QWidget *parent) : FoldBox(parent), rows_(new QVBoxLayout(content())) {
         setObjectName("FluentLiteNavSubList");
-        QSizePolicy policy(QSizePolicy::Preferred, QSizePolicy::Preferred);
-        policy.setHeightForWidth(true);
-        setSizePolicy(policy);
-        inner_ = new QWidget(this);
-        rows_ = new QVBoxLayout(inner_);
         rows_->setContentsMargins(0, 0, 0, 0);
         rows_->setSpacing(dialog_scaled(2));
-        animation_->setEasingCurve(motion::decelerate());
-        // Folded, it goes hidden; unfolded, it takes its natural height back (a wrapped title may grow it later).
-        connect(animation_, &QAbstractAnimation::finished, this, [this] {
-            setMaximumHeight(unfolding_ ? QWIDGETSIZE_MAX : 0);
-            if (!unfolding_) hide();
-        });
-        setMaximumHeight(0);
-        hide();
+        // The list lies on the window's own background.
+        setBackdrop([this] { return css_color(ui_tokens(this).page_background); });
     }
     std::vector<NavSubButton *> buttons;
-    QPropertyAnimation *animation() const { return animation_; }
 
     void set_titles(const QStringList &titles, const std::function<void(int)> &on_click) {
         for (auto *button : buttons) {
@@ -398,54 +385,17 @@ public:
         }
         buttons.clear();
         for (int i = 0; i < titles.size(); ++i) {
-            auto *button = new NavSubButton(titles[i], inner_);
+            auto *button = new NavSubButton(titles[i], content());
             button->setObjectName("FluentLiteNavSubItem");
             connect(button, &QPushButton::clicked, this, [on_click, i] { on_click(i); });
             rows_->addWidget(button);
             buttons.push_back(button);
             button->show();
         }
-        set_titles_done();
+        refit();
     }
-
-    // Height of the rows at the given width.
-    int natural_height(int width) const {
-        const int wrapped = rows_->hasHeightForWidth() ? rows_->heightForWidth(width) : -1;
-        return std::max({wrapped, rows_->sizeHint().height(), rows_->minimumSize().height()});
-    }
-    bool hasHeightForWidth() const override { return true; }
-    int heightForWidth(int width) const override { return natural_height(width); }
-    QSize sizeHint() const override { return QSize(0, natural_height(std::max(1, width()))); }
-    QSize minimumSizeHint() const override { return sizeHint(); }
-    void set_titles_done() {
-        updateGeometry();
-        inner_->setGeometry(0, 0, width(), natural_height(std::max(1, width())));
-    }
-
-    void unfold(bool unfolded, bool animate, int width) {
-        animation_->stop();
-        unfolding_ = unfolded;
-        if (!animate) {
-            setMaximumHeight(unfolded ? QWIDGETSIZE_MAX : 0);
-            setVisible(unfolded);
-            return;
-        }
-        const int start = isVisible() ? std::min(height(), maximumHeight()) : 0;
-        const int end = unfolded ? natural_height(width) : 0;
-        setMaximumHeight(start);
-        show();
-        animation_->setDuration(std::max(1, motion::duration(motion::MID_MS)));
-        animation_->setStartValue(start);
-        animation_->setEndValue(end);
-        animation_->start();
-    }
-protected:
-    void resizeEvent(QResizeEvent *) override { inner_->setGeometry(0, 0, width(), natural_height(std::max(1, width()))); }
 private:
-    QWidget *inner_;
     QVBoxLayout *rows_;
-    QPropertyAnimation *animation_;
-    bool unfolding_ = false;
 };
 
 NavigationInterface::NavigationInterface(QWidget *parent) : QWidget(parent), group_(new QButtonGroup(this)) {
@@ -493,8 +443,18 @@ QPushButton *NavigationInterface::addItem(const QString &route_key, const IconSo
     if (!tooltip.isEmpty()) button->setToolTip(tooltip);
     button->on_arrow = [this, route_key] { emit arrowClicked(route_key); };
     connect(button, &QPushButton::clicked, this, [this, route_key, button, on_click] {
-        // The open page's row folds and unfolds like its arrow; the page is already shown.
-        if (current_ == route_key && button->expandable()) {
+        // An unfolded row folds like its arrow, and the open page's row unfolds again; the page shown stays.
+        if (button->expandable() && (current_ == route_key || isExpanded(route_key))) {
+            if (current_ != route_key) {
+                // The click checked this row: the page shown takes the check back.
+                if (auto *current = items_.value(current_)) {
+                    current->setChecked(true);
+                } else {
+                    group_->setExclusive(false);
+                    button->setChecked(false);
+                    group_->setExclusive(true);
+                }
+            }
             emit arrowClicked(route_key);
             return;
         }
@@ -567,10 +527,13 @@ void NavigationInterface::setExpanded(const QString &route_key, bool expanded, b
     expanded_[route_key] = expanded;
     button->setExpanded(expanded, animate);
     indicator_->request_sync();
-    if (auto *list = list_of(route_key)) {
-        const int width = std::max(1, scroll_->viewport()->width() - 2 * dialog_scaled(4));
-        list->unfold(expanded, animate && scroll_->isVisible(), width);
-    }
+    if (auto *list = list_of(route_key)) fold(list, expanded, animate);
+}
+
+void NavigationInterface::fold(NavSubList *list, bool open, bool animate) {
+    // Its height is read from the rows at the width it is about to have.
+    if (list->isHidden()) list->resize(std::max(1, scroll_->viewport()->width() - 2 * dialog_scaled(4)), 0);
+    list->setOpen(open, animate);
 }
 
 void NavigationInterface::setSubItems(const QString &route_key, const QStringList &titles) {
@@ -580,7 +543,7 @@ void NavigationInterface::setSubItems(const QString &route_key, const QStringLis
     if (titles.isEmpty()) {
         if (!list) return;
         top_->removeWidget(list);
-        list->hide();
+        list->setOpen(false, false);
         list->deleteLater();
         lists_.remove(route_key);
         if (current_sub_route_ == route_key) {
@@ -594,7 +557,7 @@ void NavigationInterface::setSubItems(const QString &route_key, const QStringLis
     if (is_new) {
         list = new NavSubList(scroll_->widget());
         indicator_->follow(list);
-        connect(list->animation(), &QAbstractAnimation::finished, this, [this] {
+        connect(list, &FoldBox::finished, this, [this] {
             flush_visible();
             indicator_->request_sync();
         });
@@ -609,12 +572,8 @@ void NavigationInterface::setSubItems(const QString &route_key, const QStringLis
     indicator_->request_sync();
     if (had_current) setCurrentSubItem(route_key, std::min<int>(current_sub_, titles.size() - 1));
     // A list made for an item that is already unfolded opens with the animation; a rebuilt one stays as it is.
-    if (is_new && isExpanded(route_key)) {
-        const int width = std::max(1, scroll_->viewport()->width() - 2 * dialog_scaled(4));
-        list->unfold(true, scroll_->isVisible(), width);
-    } else if (!is_new) {
-        list->setVisible(isExpanded(route_key));
-    }
+    if (is_new && isExpanded(route_key)) fold(list, true, true);
+    else if (!is_new && list->settled()) fold(list, isExpanded(route_key), false);
 }
 
 int NavigationInterface::subItemCount(const QString &route_key) const {
@@ -669,7 +628,7 @@ QRectF NavigationInterface::indicatorRect() const { return indicator_->bar(); }
 
 bool NavigationInterface::animating() const {
     for (const auto *list : lists_)
-        if (list->animation()->state() == QAbstractAnimation::Running) return true;
+        if (!list->settled()) return true;
     return false;
 }
 

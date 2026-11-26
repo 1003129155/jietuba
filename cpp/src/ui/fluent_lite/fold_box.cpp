@@ -165,6 +165,7 @@ void FoldBox::next_phase() {
     case Phase::FadingIn:
     case Phase::Shrinking:
         finish();
+        emit finished();
         break;
     case Phase::Idle: break;
     }
