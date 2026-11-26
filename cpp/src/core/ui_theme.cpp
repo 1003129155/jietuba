@@ -103,6 +103,44 @@ const UIThemeTokens &DARK_TOKENS() {
     return tokens;
 }
 
+QList<QPair<QString, QString>> ui_token_entries(const UIThemeTokens &tokens) {
+    return {
+        {"accent", tokens.accent},
+        {"accent_hover", tokens.accent_hover},
+        {"accent_pressed", tokens.accent_pressed},
+        {"accent_soft", tokens.accent_soft},
+        {"accent_strong", tokens.accent_strong},
+        {"accent_strong_hover", tokens.accent_strong_hover},
+        {"accent_strong_pressed", tokens.accent_strong_pressed},
+        {"accent_text", tokens.accent_text},
+        {"success", tokens.success},
+        {"danger", tokens.danger},
+        {"danger_soft", tokens.danger_soft},
+        {"status_idle", tokens.status_idle},
+        {"selected_text", tokens.selected_text},
+        {"page_background", tokens.page_background},
+        {"layer", tokens.layer},
+        {"layer_border", tokens.layer_border},
+        {"card", tokens.card},
+        {"card_border", tokens.card_border},
+        {"card_body", tokens.card_body},
+        {"window_border", tokens.window_border},
+        {"fg", tokens.fg},
+        {"fg_muted", tokens.fg_muted},
+        {"fg_disabled", tokens.fg_disabled},
+        {"control", tokens.control},
+        {"control_hover", tokens.control_hover},
+        {"control_pressed", tokens.control_pressed},
+        {"control_border", tokens.control_border},
+        {"control_border_bottom", tokens.control_border_bottom},
+        {"item_hover", tokens.item_hover},
+        {"divider", tokens.divider},
+        {"switch_off_fill", tokens.switch_off_fill},
+        {"popup_background", tokens.popup_background},
+        {"popup_hover", tokens.popup_hover},
+    };
+}
+
 UIThemeManager::UIThemeManager(QObject *parent) : QObject(parent) {}
 
 UIThemeManager *UIThemeManager::init(ToolSettingsManager *config_manager, QApplication *application) {

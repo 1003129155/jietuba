@@ -1,6 +1,8 @@
 #pragma once
 #include <QColor>
+#include <QList>
 #include <QObject>
+#include <QPair>
 #include <QPalette>
 #include <QString>
 #include <QVariant>
@@ -17,6 +19,7 @@ enum class UIThemeMode { SYSTEM, LIGHT, DARK };
 QString ui_theme_mode_value(UIThemeMode mode);
 UIThemeMode coerce_ui_theme_mode(const QVariant &value);
 
+// A new colour field must also be listed in ui_token_entries(), which the design gallery shows.
 struct UIThemeTokens {
     UIThemeMode mode;
     QString accent, accent_hover, accent_pressed, accent_soft;
@@ -40,6 +43,8 @@ struct UIThemeTokens {
 
 const UIThemeTokens &LIGHT_TOKENS();
 const UIThemeTokens &DARK_TOKENS();
+// Every colour field as (field name, value), in declaration order; the mode is not included.
+QList<QPair<QString, QString>> ui_token_entries(const UIThemeTokens &tokens);
 
 // Parses token colours for QPainter and QPalette; QColor::fromString rejects rgb()/rgba().
 QColor css_color(const QString &value);

@@ -12,8 +12,6 @@ constexpr int CARD_LEFT = 16;
 constexpr int CARD_RIGHT = 16;
 constexpr int CARD_GAP = 20;
 constexpr int ICON_SIZE = 20;
-constexpr int CARD_RADIUS = 4;
-constexpr int CARD_MIN_HEIGHT = 68;
 constexpr int ROW_MIN_HEIGHT = 52;
 constexpr int ARROW_SIZE = 32;
 

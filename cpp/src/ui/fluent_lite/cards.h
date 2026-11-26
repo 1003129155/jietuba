@@ -10,6 +10,10 @@
 #include <optional>
 
 namespace jietuba {
+// Unscaled metrics of setting cards: corner radius and minimum height of a card.
+constexpr int CARD_RADIUS = 4;
+constexpr int CARD_MIN_HEIGHT = 68;
+
 class BodyLabel;
 class CaptionLabel;
 class SwitchButton;
