@@ -48,6 +48,8 @@ PageOutline::PageOutline(NavigationInterface *navigation, QObject *parent) : QOb
 }
 
 void PageOutline::set_page(QScrollArea *scroll, const QString &route_key) {
+    // A page left in the turn it was opened lists its groups first, so its unfolded row has them under it.
+    if (scroll != scroll_.data() && refresh_timer_->isActive()) refresh();
     route_ = route_key;
     // Another page's groups are known once it is laid out; until then its own row stays unmarked too.
     if (!scroll || route_key.isEmpty()) navigation_->setSubItemPending({});

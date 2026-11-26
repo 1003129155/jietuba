@@ -5518,6 +5518,38 @@ private slots:
         QTRY_VERIFY(nav->isExpanded("pin"));
     }
 
+    // A window rebuilt on another page (language or scale change) leaves the first page in the same
+    // turn, before that page has listed its groups. Its row, unfolded, has them under it, so a click
+    // folds what is seen unfolded instead of an empty list, and the next one opens the page.
+    void aWindowRebuiltOnAnotherPageListsTheGroupsOfThePageItLeft() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 750);
+        SettingsDialog::ViewState state;
+        state.stack_index = 6;
+        state.route_key = "other";
+        dialog.restore_view_state(state);
+        dialog.show();
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        QVERIFY(nav);
+        QTRY_VERIFY(nav->isExpanded("other") && nav->subItemCount("other") > 0);
+        QTRY_VERIFY(!nav->animating());
+        QVERIFY(nav->isExpanded("shortcuts"));
+        QVERIFY(nav->subItemCount("shortcuts") > 0);
+        QVERIFY(nav->subItem("shortcuts", 0)->isVisible());
+        QCOMPARE(nav->currentSubRoute(), QString("other"));
+
+        auto *item = nav->widget("shortcuts");
+        const QPoint on_text(dialog_scaled(60), item->height() / 2);
+        QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, on_text);
+        QVERIFY(!nav->isExpanded("shortcuts"));
+        QCOMPARE(dialog.content_stack->currentIndex(), 6);
+        QTRY_VERIFY(!nav->animating());
+        QVERIFY(!nav->subItem("shortcuts", 0)->isVisible());
+        QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, on_text);
+        QCOMPARE(dialog.content_stack->currentIndex(), 0);
+        QTRY_VERIFY(nav->isExpanded("shortcuts"));
+    }
+
     void foldingMovesTheHeightOfTheListAndEndsAtItsNaturalSize() {
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.resize(1050, 900);
@@ -5593,6 +5625,10 @@ private slots:
         QScrollArea *area = nav->scrollArea();
         dialog.on_nav_changed(1, "capture");
         QTRY_VERIFY(nav->subItemCount("capture") > 1);
+        QTRY_VERIFY(!nav->animating());
+        // The first page stays unfolded; folded, it leaves the rows below the capture page room to move.
+        QVERIFY(nav->isExpanded("shortcuts"));
+        emit nav->arrowClicked("shortcuts");
         QTRY_VERIFY(!nav->animating());
         auto *bar = area->verticalScrollBar();
         QVERIFY(bar->maximum() > 0);
