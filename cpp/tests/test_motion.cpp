@@ -10,6 +10,8 @@
 #include <QMenu>
 #include <QTest>
 #include <QVBoxLayout>
+#include <optional>
+#include "fixed_animation_steps.h"
 
 using namespace jietuba;
 
@@ -52,9 +54,17 @@ struct Stage {
 
 class MotionTest : public QObject {
     Q_OBJECT
+    // The tests read the steps of animations.
+    std::optional<FixedAnimationSteps> steps_;
 private slots:
-    void init() { motion::set_enabled_override(true); }
-    void cleanup() { motion::set_enabled_override(std::nullopt); }
+    void init() {
+        motion::set_enabled_override(true);
+        steps_.emplace();
+    }
+    void cleanup() {
+        steps_.reset();
+        motion::set_enabled_override(std::nullopt);
+    }
 
     void durationsFollowTheAnimationSwitch() {
         QCOMPARE(motion::duration(motion::FAST_MS), 83);

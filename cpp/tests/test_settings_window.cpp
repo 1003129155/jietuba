@@ -43,6 +43,7 @@
 #include "ui/welcome/pages.h"
 #include "ui/welcome/wizard.h"
 #include "caption_check.h"
+#include "fixed_animation_steps.h"
 #include <QApplication>
 #include <QColorDialog>
 #include <QComboBox>
@@ -2066,6 +2067,7 @@ private slots:
     // Folding near the bottom of a scrolled page changes the heights of several nested layouts at every step
     // of the fold; each paint shows a settled layout, the row below right under the fold as tall as it is then.
     void foldingNearTheBottomOfAPagePaintsOnlySettledLayouts() {
+        const FixedAnimationSteps fixed_steps;
         struct PaintSpy : QObject {
             std::function<void()> on_paint;
             bool eventFilter(QObject *, QEvent *event) override {
@@ -2129,6 +2131,7 @@ private slots:
     // Folding a card's rows changes its group's height at every step of the fold; each paint shows the group
     // as tall as its cards are then, not a layout still catching up.
     void foldingSettingRowsPaintsOnlySettledLayouts() {
+        const FixedAnimationSteps fixed_steps;
         struct PaintSpy : QObject {
             std::function<void()> on_paint;
             bool eventFilter(QObject *, QEvent *event) override {
@@ -5611,6 +5614,7 @@ private slots:
     // content: every paint shows the rows at the scroll position that goes with them, so none of
     // them moves back and forth.
     void foldingInAScrolledNavigationMovesEveryRowOneWay() {
+        const FixedAnimationSteps fixed_steps;
         struct PaintSpy : QObject {
             std::function<void()> on_paint;
             bool eventFilter(QObject *, QEvent *event) override {
