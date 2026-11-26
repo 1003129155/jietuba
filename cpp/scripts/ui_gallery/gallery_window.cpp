@@ -258,16 +258,6 @@ void add_state_table(SettingsCardGroup *group, const QStringList &headers, const
     }
 }
 
-QString text_edit_sheet(const QWidget *widget) {
-    const auto &tokens = ui_tokens(widget);
-    return QString("QTextEdit { color: %1; background: %2; border: 1px solid %3; border-radius: %4px; padding: %5px; font: %6px %7; selection-background-color: %8; }"
-                   "QTextEdit:focus { border-color: %8; }")
-        .arg(tokens.fg, tokens.control, tokens.control_border_bottom)
-        .arg(dialog_scaled(INPUT_RADIUS))
-        .arg(dialog_scaled(4))
-        .arg(dialog_scaled(14))
-        .arg(FONT_FAMILY, ACCENT);
-}
 
 // ---- Page 1: window palette ----
 
@@ -398,7 +388,7 @@ void build_inputs(QVBoxLayout *layout, QWidget *view) {
                              auto *edit = new TextEdit;
                              edit->setPlainText(text("多行文字\n第二行"));
                              edit->setFixedHeight(dialog_scaled(72));
-                             edit->setStyleSheet(text_edit_sheet(edit));
+                             edit->setStyleSheet(text_edit_qss(edit));
                              return enable(edit, column);
                          }},
                         {"ComboBox", [=](int column) {

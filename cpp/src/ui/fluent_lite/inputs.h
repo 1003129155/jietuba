@@ -10,6 +10,9 @@
 
 namespace jietuba {
 QString input_qss(const QWidget *widget = nullptr);
+// The same input look for a multi-line QTextEdit used as an input box (not for read-only text views):
+// normal, hover, focus and disabled.
+QString text_edit_qss(const QWidget *widget = nullptr);
 
 class ComboBox : public QComboBox {
     Q_OBJECT

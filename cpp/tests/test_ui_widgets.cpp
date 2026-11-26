@@ -205,6 +205,66 @@ private slots:
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
     }
 
+    // ---- Disabled inputs ----
+
+    // Each control shows it cannot be used: the multi-line input and the key chip take the dimmer
+    // fill of a disabled field, the slider's filled track turns grey and the chip drops its clear mark.
+    void disabledInputsLookDisabled() {
+        const auto theme = get_ui_theme()->mode();
+        const auto restore = qScopeGuard([theme] { get_ui_theme()->set_mode(ui_theme_mode_value(theme), false); });
+        for (const char *mode : {"light", "dark"}) {
+            get_ui_theme()->set_mode(mode, false);
+            // The translucent fills need the theme's window behind them, as in a real window.
+            QWidget host;
+            host.setAutoFillBackground(true);
+            QPalette backdrop = host.palette();
+            backdrop.setColor(QPalette::Window, css_color(ui_tokens().page_background));
+            host.setPalette(backdrop);
+            auto *layout = new QVBoxLayout(&host);
+            auto *edit = new TextEdit;
+            edit->setPlainText("text");
+            edit->setStyleSheet(text_edit_qss(edit));
+            edit->setFixedSize(200, 80);
+            auto *slider = new ValueSlider;
+            slider->setRange(0, 100);
+            slider->setValue(70);
+            slider->setFixedWidth(220);
+            auto *chip = new KeyChipLineEdit;
+            chip->setText("ctrl+a");
+            chip->setFixedSize(180, dialog_scaled(32));
+            for (QWidget *widget : std::initializer_list<QWidget *>{edit, slider, chip}) layout->addWidget(widget);
+            host.show();
+            QApplication::processEvents();
+
+            const auto pixel = [](QWidget *widget, QPoint at) { return widget->grab().toImage().pixelColor(at); };
+            // The strongest lightness difference from the fill inside a region: ink drawn there.
+            const auto ink = [](QWidget *widget, const QRect &region, const QColor &fill) {
+                const auto image = widget->grab().toImage();
+                int strongest = 0;
+                for (int y = region.top(); y <= region.bottom(); ++y)
+                    for (int x = region.left(); x <= region.right(); ++x) strongest = std::max(strongest, std::abs(image.pixelColor(x, y).lightness() - fill.lightness()));
+                return strongest;
+            };
+            const QPoint edit_fill(edit->width() - 12, edit->height() - 12);
+            const QPoint track(slider->slider()->x() + slider->slider()->width() / 5, slider->slider()->y() + slider->slider()->height() / 2);
+            const QPoint chip_fill(chip->width() * 3 / 5, chip->height() / 2);
+            const QRect clear_mark(chip->width() - dialog_scaled(30), 4, dialog_scaled(30) - 4, chip->height() - 8);
+            const QColor edit_on = pixel(edit, edit_fill), track_on = pixel(slider, track), chip_on = pixel(chip, chip_fill);
+            const int mark_on = ink(chip, clear_mark, chip_on);
+
+            host.setEnabled(false);
+            QApplication::processEvents();
+            const QColor edit_off = pixel(edit, edit_fill), track_off = pixel(slider, track), chip_off = pixel(chip, chip_fill);
+            const QString where = QString::fromLatin1(mode);
+            QVERIFY2(edit_off != edit_on, qPrintable(where + ": the multi-line input keeps its fill"));
+            QVERIFY2(track_off != track_on, qPrintable(where + ": the slider keeps its accent track"));
+            QVERIFY2(std::abs(track_off.saturation() - track_on.saturation()) > 20, qPrintable(where + ": the disabled track is still coloured"));
+            QVERIFY2(chip_off != chip_on, qPrintable(where + ": the key chip keeps its fill"));
+            QVERIFY2(mark_on > 40, qPrintable(where + ": the enabled chip shows no clear mark"));
+            QVERIFY2(ink(chip, clear_mark, chip_off) < mark_on / 2, qPrintable(where + ": the disabled chip still shows its clear mark"));
+        }
+    }
+
     // ---- Key chips ----
 
     void shortcutValuesShowAsReadableKeys_data() {

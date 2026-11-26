@@ -441,7 +441,6 @@ void ManageDialog::apply_ui_theme(const UIThemeTokens &tokens) {
     refresh_theme_scope();
     refresh_theme_widget_styles(this);
     // The settings window's neutral palette and Fluent metrics; the list rows and forms paint with the same tokens.
-    const QString focused_fill = tokens.is_dark() ? "#1F1F1F" : "#FFFFFF";
     setStyleSheet(QString(R"(
             QWidget#ManagePanel, QWidget#ManageSidebar, QWidget#ManageListColumn,
             QWidget#ManageDetailColumn, QWidget#ManageDetailContent {
@@ -457,64 +456,46 @@ void ManageDialog::apply_ui_theme(const UIThemeTokens &tokens) {
                 border: 1px solid %2;
                 border-radius: %3px;
             }
-            QTextEdit {
-                background: %4;
-                border: 1px solid %5;
-                border-bottom-color: %6;
-                border-radius: %3px;
-                padding: %7px %8px;
-                color: %9;
-                font: %10px %11;
-                selection-background-color: %12;
-            }
-            QTextEdit:hover {
-                background: %13;
-            }
-            QTextEdit:focus {
-                background: %14;
-                border-bottom: %15px solid %12;
-            }
             QPushButton#ManageSidebarAction {
                 background: transparent;
                 border: none;
                 border-radius: %3px;
-                color: %9;
-                font: %10px %11;
-                padding: %8px %8px;
+                color: %8;
+                font: %9px %10;
+                padding: %7px %7px;
                 text-align: left;
             }
             QPushButton#ManageSidebarAction:hover {
-                background: %16;
+                background: %13;
             }
             QPushButton#ManageAddButton {
                 background: %4;
                 border: 1px solid %5;
                 border-bottom-color: %6;
                 border-radius: %3px;
-                color: %9;
-                font: %10px %11;
-                min-height: %17px;
+                color: %8;
+                font: %9px %10;
+                min-height: %14px;
             }
             QPushButton#ManageAddButton:hover {
-                background: %13;
+                background: %12;
             }
             QPushButton#ManageAddButton:pressed {
-                background: %18;
+                background: %15;
             }
             QPushButton#ManageAddButton:checked {
-                background: %16;
-                border-color: %12;
+                background: %13;
+                border-color: %11;
             }
             QPushButton#ManageAddButton:disabled {
-                background: %18;
+                background: %15;
                 border-color: %5;
-                color: %19;
+                color: %16;
             }
         )")
-                      .arg(tokens.card, tokens.card_border, s(4), tokens.control, tokens.control_border, tokens.control_border_bottom, s(6), s(12), tokens.fg)
-                      .arg(s(14), FONT_FAMILY, ACCENT, tokens.control_hover, focused_fill, s(2), tokens.item_hover, s(30), tokens.control_pressed)
-                      .arg(tokens.fg_disabled) +
-                  scrollbar_qss(this));
+                      .arg(tokens.card, tokens.card_border, s(4), tokens.control, tokens.control_border, tokens.control_border_bottom, s(12), tokens.fg, s(14))
+                      .arg(FONT_FAMILY, ACCENT, tokens.control_hover, tokens.item_hover, s(30), tokens.control_pressed, tokens.fg_disabled) +
+                  text_edit_qss(this) + scrollbar_qss(this));
     set_own_style(column_separator, QString("background: %1; border: none;").arg(tokens.divider));
     search_action->setIcon(tinted_icon(FluentIcon::Search, tokens.fg_muted));
     import_export_btn->setIcon(tinted_icon(FluentIcon::Sync, tokens.fg));

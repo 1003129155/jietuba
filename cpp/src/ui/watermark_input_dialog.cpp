@@ -63,14 +63,7 @@ WatermarkInputDialog::WatermarkInputDialog(const QString &template_text, const Q
     edit->setPlaceholderText(wid_tr("Type the watermark. Use the time button to insert the capture time."));
     edit->setPlainText(template_text);
     edit->setFixedHeight(dialog_scaled(BASE_EDIT_HEIGHT));
-    edit->setStyleSheet(QString("QTextEdit { color: %1; background: %2; border: 1px solid %3; border-radius: %4px;"
-                                " padding: %5px; font: %6px %7; selection-background-color: %8; }"
-                                "QTextEdit:focus { border-color: %8; }")
-                            .arg(tokens.fg, tokens.control, tokens.control_border_bottom)
-                            .arg(dialog_scaled(INPUT_RADIUS))
-                            .arg(dialog_scaled(4))
-                            .arg(dialog_scaled(14))
-                            .arg(FONT_FAMILY, ACCENT));
+    edit->setStyleSheet(text_edit_qss(edit));
     connect(edit, &QTextEdit::textChanged, this, &WatermarkInputDialog::refresh_preview);
 
     preview = new CaptionLabel("", this);

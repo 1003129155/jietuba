@@ -9,10 +9,15 @@
 #include <QStylePainter>
 
 namespace jietuba {
+namespace {
+// An input's fill while it has the focus: opaque, a step off the control fill.
+QString focused_input_fill(const UIThemeTokens &t) { return t.is_dark() ? "#1F1F1F" : "#FFFFFF"; }
+}
+
 QString input_qss(const QWidget *widget) {
     const auto &t = ui_tokens(widget);
     auto s = [widget](double v) { return widget_scaled(widget, v); };
-    const QString focused_fill = t.is_dark() ? "#1F1F1F" : "#FFFFFF";
+    const QString focused_fill = focused_input_fill(t);
     return QString(R"(
     QComboBox, QLineEdit, QSpinBox, QDoubleSpinBox {
         min-height: %1px;
@@ -50,6 +55,30 @@ QString input_qss(const QWidget *widget) {
         .arg(s(24)).arg(t.popup_background).arg(s(8)).arg(s(4)).arg(t.item_hover).arg(s(32)).arg(s(18));
 }
 
+QString text_edit_qss(const QWidget *widget) {
+    const auto &t = ui_tokens(widget);
+    auto s = [widget](double v) { return widget_scaled(widget, v); };
+    // The focus edge is one pixel thicker; the padding gives it back so the text does not move.
+    return QString(R"(
+    QTextEdit {
+        color: %1; background: %2; border: 1px solid %3; border-bottom-color: %4; border-radius: %5px;
+        padding: %6px %7px; font: %8px %9; selection-background-color: %10;
+    }
+    QTextEdit:hover { background: %11; }
+    QTextEdit:focus { background: %12; border-bottom: %13px solid %10; padding-bottom: %14px; }
+    QTextEdit:disabled { color: %15; background: %16; border-color: %3; }
+    )")
+        .arg(t.fg, t.control, t.control_border, t.control_border_bottom)
+        .arg(s(INPUT_RADIUS))
+        .arg(s(INPUT_PADDING_V))
+        .arg(s(INPUT_PADDING_H))
+        .arg(s(14))
+        .arg(FONT_FAMILY, t.accent, t.control_hover, focused_input_fill(t))
+        .arg(s(2))
+        .arg(s(INPUT_PADDING_V - 1))
+        .arg(t.fg_disabled, t.control_pressed);
+}
+
 namespace {
 // What input_qss sets on an input painted by fluent_control_style(): font, palette, minimum
 // height and hover tracking.
@@ -85,7 +114,7 @@ ControlBox input_box(const QWidget *widget, QStyle::State state, bool focus_rule
     const auto &t = ui_tokens(widget);
     if (!(state & QStyle::State_Enabled)) return {css_color(t.control_pressed), css_color(t.control_border), css_color(t.control_border)};
     if (focus_rule && (state & QStyle::State_HasFocus))
-        return {css_color(t.is_dark() ? "#1F1F1F" : "#FFFFFF"), css_color(t.control_border), css_color(t.accent), widget_scaled(widget, 2)};
+        return {css_color(focused_input_fill(t)), css_color(t.control_border), css_color(t.accent), widget_scaled(widget, 2)};
     const QColor fill = css_color(state & QStyle::State_MouseOver ? t.control_hover : t.control);
     return {fill, css_color(t.control_border), css_color(t.control_border_bottom)};
 }
@@ -276,8 +305,14 @@ void ValueSlider::_apply_theme() {
     QSlider::add-page:horizontal { background: %2; border-radius: %3px; }
     QSlider::handle:horizontal { width: %5px; height: %5px; margin: -%6px 0; background: white; border: 1px solid %7; border-radius: %8px; }
     QSlider::handle:horizontal:hover { border-color: %4; }
-    )").arg(s(4)).arg(t.control_border_bottom).arg(s(2)).arg(t.accent).arg(s(16)).arg(s(6)).arg(t.control_border_bottom).arg(s(8)));
-    set_own_style(value_label_, QString("color: %1; font: %2px %3; background: transparent;").arg(t.fg_muted).arg(s(13)).arg(FONT_FAMILY));
+    QSlider::sub-page:horizontal:disabled { background: %9; }
+    QSlider::handle:horizontal:disabled { background: %9; border-color: transparent; }
+    )").arg(s(4)).arg(t.control_border_bottom).arg(s(2)).arg(t.accent).arg(s(16)).arg(s(6)).arg(t.control_border_bottom).arg(s(8)).arg(t.fg_disabled));
+    // Class-qualified like set_own_style, so tooltips do not inherit it; the value dims with the slider.
+    apply_style_sheet(value_label_, QString(".QLabel { color: %1; font: %2px %3; background: transparent; } .QLabel:disabled { color: %4; }")
+                                        .arg(t.fg_muted)
+                                        .arg(s(13))
+                                        .arg(FONT_FAMILY, t.fg_disabled));
     // The width of the widest value in the font the style sheet sets, so the slider does not move while it is dragged.
     value_label_->ensurePolished();
     value_label_->setFixedWidth(QFontMetrics(value_label_->font()).horizontalAdvance(QStringLiteral("100")) + s(6));

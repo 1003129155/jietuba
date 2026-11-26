@@ -7,7 +7,6 @@
 1 canvas/items/spotlight_item.cpp
 2 canvas/items/text_item.h
 1 canvas/items/watermark_item.h
-2 clipboard/ui/dialogs/manage_dialog.cpp
 4 clipboard/ui/forms/image_content_form.cpp
 3 clipboard/ui/panels/setting_panel.cpp
 10 clipboard/ui/theme/theme_styles.cpp
@@ -49,7 +48,7 @@
 20 ui/fluent_lite/cards.cpp
 1 ui/fluent_lite/fluent_lite.cpp
 6 ui/fluent_lite/frameless.h
-4 ui/fluent_lite/inputs.cpp
+2 ui/fluent_lite/inputs.cpp
 2 ui/fluent_lite/segmented.cpp
 1 ui/fluent_lite/switch.cpp
 6 ui/fluent_lite/theme.h
