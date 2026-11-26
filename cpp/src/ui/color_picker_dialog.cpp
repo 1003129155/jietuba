@@ -132,15 +132,15 @@ protected:
         QPainter painter(this);
         painter.setRenderHint(QPainter::Antialiasing);
         const auto &t = ui_tokens(this);
-        const double radius = dialog_scaled_f(3);
-        const QString edge = hasFocus() || view()->isVisible() ? t.accent : underMouse() ? t.border_hover : t.border;
+        const double radius = dialog_scaled_f(4);
+        const QString edge = hasFocus() || view()->isVisible() ? t.accent : underMouse() ? t.control_border_bottom : t.control_border;
         painter.setPen(QPen(css_color(edge), 1));
-        painter.setBrush(css_color(t.input_background));
+        painter.setBrush(css_color(underMouse() ? t.control_hover : t.control));
         painter.drawRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), radius, radius);
-        painter.setPen(css_color(isEnabled() ? t.text : t.text_disabled));
+        painter.setPen(css_color(isEnabled() ? t.fg : t.fg_disabled));
         painter.drawText(rect().adjusted(dialog_scaled(9), 0, 0, 0), Qt::AlignLeft | Qt::AlignVCenter, currentText());
         const double half = dialog_scaled_f(3.6), cx = width() - dialog_scaled_f(11.5), cy = height() / 2.0;
-        painter.setPen(QPen(css_color(t.text_muted), dialog_scaled_f(1.5), Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        painter.setPen(QPen(css_color(t.fg_muted), dialog_scaled_f(1.5), Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
         painter.setBrush(Qt::NoBrush);
         const QPointF chevron[] = {{cx - half, cy - half / 2}, {cx, cy + half / 2}, {cx + half, cy - half / 2}};
         painter.drawPolyline(chevron, 3);
@@ -559,31 +559,31 @@ void ColorPickerDialog::apply_theme() {
     caption_bar_->setIcon(app_icon);
     caption_bar_->iconLabel->setVisible(!app_icon.isNull());
 
-    const int radius = dialog_scaled(3);
+    const int radius = dialog_scaled(4);
     const int font_px = dialog_scaled(BASE_FONT);
     const int icon = dialog_scaled(22);
     QIcon glyph;
-    glyph.addPixmap(eyedropper_pixmap(icon, css_color(t.text)), QIcon::Normal, QIcon::Off);
+    glyph.addPixmap(eyedropper_pixmap(icon, css_color(t.fg)), QIcon::Normal, QIcon::Off);
     glyph.addPixmap(eyedropper_pixmap(icon, css_color(t.selected_text)), QIcon::Normal, QIcon::On);
     eyedropper_button->setIcon(glyph);
     eyedropper_button->setIconSize(QSize(icon, icon));
     apply_style_sheet(eyedropper_button, QString("QToolButton { background: %1; border: 1px solid %2; border-radius: %3px; }"
                                                  "QToolButton:hover { border-color: %4; }"
                                                  "QToolButton:checked { background: %5; border-color: %6; }")
-                                             .arg(t.input_background, t.border)
+                                             .arg(t.control, t.control_border)
                                              .arg(radius)
-                                             .arg(t.border_hover, t.accent_strong, t.accent_strong));
+                                             .arg(t.control_border_bottom, t.accent_strong, t.accent_strong));
     apply_style_sheet(format_combo, QString("QComboBox QAbstractItemView { background: %1; color: %2; border: 1px solid %3; outline: none;"
                                             " selection-background-color: %4; selection-color: %2; }")
-                                        .arg(t.popup_background, t.text, t.border, t.popup_hover));
+                                        .arg(t.popup_background, t.fg, t.control_border, t.popup_hover));
     apply_style_sheet(value_group, QString("QFrame#valueGroup { background: %1; border: 1px solid %2; border-radius: %3px; }"
                                            "QFrame#valueGroup[focused=\"true\"] { border-color: %4; }")
-                                       .arg(t.input_background, t.border)
+                                       .arg(t.control, t.control_border)
                                        .arg(radius)
                                        .arg(t.accent));
     const QString field = QString("QLineEdit { border: none; background: transparent; color: %1; font: %2px %3; padding: 0 %4px;"
                                   " selection-background-color: %5; selection-color: %6; }")
-                              .arg(t.text)
+                              .arg(t.fg)
                               .arg(font_px)
                               .arg(FONT_FAMILY)
                               .arg(dialog_scaled(4))
@@ -591,15 +591,15 @@ void ColorPickerDialog::apply_theme() {
     apply_style_sheet(value_edit, field);
     apply_style_sheet(alpha_edit, field);
     for (auto *edit : channel_edits) apply_style_sheet(edit, field);
-    for (auto *line : channel_dividers_) apply_style_sheet(line, QString("QFrame { background: %1; border: none; }").arg(t.border));
-    for (auto *line : {value_divider_, separator_}) apply_style_sheet(line, QString("QFrame { background: %1; border: none; }").arg(line == separator_ ? t.separator : t.border));
+    for (auto *line : channel_dividers_) apply_style_sheet(line, QString("QFrame { background: %1; border: none; }").arg(t.control_border));
+    for (auto *line : {value_divider_, separator_}) apply_style_sheet(line, QString("QFrame { background: %1; border: none; }").arg(line == separator_ ? t.divider : t.control_border));
     const QString button = QString("QPushButton { border-radius: %1px; font: %2px %3; padding: 0; outline: none; }").arg(dialog_scaled(4)).arg(font_px).arg(FONT_FAMILY);
     apply_style_sheet(ok_button, button + QString("QPushButton { background: %1; color: %2; border: none; }"
                                                   "QPushButton:hover { background: %3; } QPushButton:pressed { background: %4; }")
                                               .arg(t.accent_strong, t.selected_text, t.accent_strong_hover, t.accent_strong_pressed));
     apply_style_sheet(cancel_button, button + QString("QPushButton { background: %1; color: %2; border: 1px solid %3; }"
                                                       "QPushButton:hover { border-color: %4; } QPushButton:pressed { background: %5; }")
-                                                  .arg(t.input_background, t.text, t.border, t.border_hover, t.surface_subtle));
+                                                  .arg(t.control, t.fg, t.control_border, t.control_border_bottom, t.control_pressed));
     update();
     square->update();
     hue_slider->update();

@@ -42,7 +42,7 @@ void DragGrip::paintEvent(QPaintEvent *) {
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
     painter.setPen(Qt::NoPen);
-    painter.setBrush(QColor(ui_tokens(this).text_muted));
+    painter.setBrush(css_color(ui_tokens(this).fg_muted));
     const QPointF center(rect().center());
     for (int dx : {-3, 3})
         for (int dy : {-6, 0, 6})

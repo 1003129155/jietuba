@@ -40,28 +40,13 @@ const UIThemeTokens &LIGHT_TOKENS() {
         auto t = common_tokens(UIThemeMode::LIGHT);
         t.accent_soft = "#DFE8EF";
         t.accent_text = "#465E73";
-        t.window = "#EEF0F3";
-        t.window_top = "#F5F6F8";
-        t.window_bottom = "#ECEEF1";
-        t.surface = "rgba(255, 255, 255, 0.92)";
-        t.surface_strong = "rgba(255, 255, 255, 0.98)";
-        t.surface_subtle = "rgba(248, 251, 253, 0.85)";
-        t.surface_hover = "#FFFFFF";
-        t.text = "#17201B";
-        t.text_muted = "#68736D";
-        t.text_disabled = "#9AA39D";
-        t.border = "rgba(112, 130, 119, 0.20)";
-        t.border_hover = "rgba(76, 101, 86, 0.34)";
-        t.window_border = "#D3D7DC";
-        t.input_background = "#FFFFFF";
+        t.window_border = "#D5D5D5";
         t.popup_background = "#FFFFFF";
-        t.popup_hover = "#EAF2FA";
-        t.separator = "rgba(98, 116, 105, 0.13)";
-        t.switch_off = "#C4CCC6";
+        t.popup_hover = "#F0F0F0";
         t.success = "#3E9B63";
         t.danger = "#CF4F4B";
         t.danger_soft = "#FBECEB";
-        t.status_idle = "#BCC5BF";
+        t.status_idle = "#C2C2C2";
         t.page_background = "#F3F3F3";
         t.layer = "rgba(255, 255, 255, 0.5)";
         t.layer_border = "rgba(0, 0, 0, 0.0578)";
@@ -89,28 +74,13 @@ const UIThemeTokens &DARK_TOKENS() {
         auto t = common_tokens(UIThemeMode::DARK);
         t.accent_soft = "#31404C";
         t.accent_text = "#B9CCDD";
-        t.window = "#1B1E22";
-        t.window_top = "#24282D";
-        t.window_bottom = "#191C20";
-        t.surface = "rgba(43, 47, 52, 0.96)";
-        t.surface_strong = "rgba(49, 54, 60, 0.99)";
-        t.surface_subtle = "rgba(36, 40, 45, 0.92)";
-        t.surface_hover = "#373C43";
-        t.text = "#F2F4F6";
-        t.text_muted = "#AEB5BD";
-        t.text_disabled = "#737B84";
-        t.border = "rgba(255, 255, 255, 0.12)";
-        t.border_hover = "rgba(255, 255, 255, 0.28)";
-        t.window_border = "#3B424A";
-        t.input_background = "#2B2F34";
-        t.popup_background = "#292D32";
-        t.popup_hover = "#363B42";
-        t.separator = "rgba(255, 255, 255, 0.10)";
-        t.switch_off = "#626A73";
+        t.window_border = "#404040";
+        t.popup_background = "#2C2C2C";
+        t.popup_hover = "#383838";
         t.success = "#4FAE74";
         t.danger = "#E0605B";
         t.danger_soft = "rgba(224, 96, 91, 0.14)";
-        t.status_idle = "#5A6168";
+        t.status_idle = "#5F5F5F";
         t.page_background = "#202020";
         t.layer = "rgba(58, 58, 58, 0.3)";
         t.layer_border = "rgba(0, 0, 0, 0.3)";
@@ -190,30 +160,52 @@ void UIThemeManager::connect_system_theme() {
     }
 }
 
+QColor css_color(const QString &value) {
+    const auto text = value.trimmed();
+    if (text.startsWith("rgba(") || text.startsWith("rgb(")) {
+        const auto inner = text.mid(text.indexOf('(') + 1).chopped(1);
+        const auto channels = inner.split(',');
+        QColor color(channels.value(0).trimmed().toInt(), channels.value(1).trimmed().toInt(), channels.value(2).trimmed().toInt());
+        if (channels.size() == 4) color.setAlphaF(channels[3].trimmed().toDouble());
+        return color;
+    }
+    return QColor::fromString(text);
+}
+
+QColor painted_over(const QColor &top, const QColor &under) {
+    const double a = top.alphaF();
+    return QColor::fromRgbF(top.redF() * a + under.redF() * (1 - a), top.greenF() * a + under.greenF() * (1 - a),
+                            top.blueF() * a + under.blueF() * (1 - a));
+}
+
+// Opaque colours: widgets without a sheet of their own may lie on any window background.
 QPalette UIThemeManager::build_palette(const UIThemeTokens &t) {
+    const QColor page = css_color(t.page_background);
+    const auto on_page = [&page](const QString &token) { return painted_over(css_color(token), page); };
+    const QColor base = on_page(t.control);
     QPalette palette;
-    const std::pair<QPalette::ColorRole, QString> roles[] = {
-        {QPalette::Window, t.window},
-        {QPalette::WindowText, t.text},
-        {QPalette::Base, t.input_background},
-        {QPalette::AlternateBase, t.surface_subtle},
-        {QPalette::ToolTipBase, t.popup_background},
-        {QPalette::ToolTipText, t.text},
-        {QPalette::Text, t.text},
-        {QPalette::Button, t.surface_strong},
-        {QPalette::ButtonText, t.text},
-        {QPalette::BrightText, "#FFFFFF"},
-        {QPalette::Link, t.accent},
-        {QPalette::Highlight, t.accent},
-        {QPalette::HighlightedText, t.selected_text},
-        {QPalette::PlaceholderText, t.text_muted},
-        {QPalette::Mid, t.border_hover},
-        {QPalette::Dark, t.window_border},
+    const std::pair<QPalette::ColorRole, QColor> roles[] = {
+        {QPalette::Window, page},
+        {QPalette::WindowText, on_page(t.fg)},
+        {QPalette::Base, base},
+        {QPalette::AlternateBase, painted_over(css_color(t.item_hover), base)},
+        {QPalette::ToolTipBase, css_color(t.popup_background)},
+        {QPalette::ToolTipText, on_page(t.fg)},
+        {QPalette::Text, on_page(t.fg)},
+        {QPalette::Button, base},
+        {QPalette::ButtonText, on_page(t.fg)},
+        {QPalette::BrightText, QColor(Qt::white)},
+        {QPalette::Link, css_color(t.accent)},
+        {QPalette::Highlight, css_color(t.accent)},
+        {QPalette::HighlightedText, css_color(t.selected_text)},
+        {QPalette::PlaceholderText, on_page(t.fg_muted)},
+        {QPalette::Mid, on_page(t.control_border_bottom)},
+        {QPalette::Dark, css_color(t.window_border)},
     };
     for (const auto group : {QPalette::Normal, QPalette::Inactive, QPalette::Disabled})
-        for (const auto &[role, value] : roles) palette.setColor(group, role, QColor::fromString(value));
+        for (const auto &[role, value] : roles) palette.setColor(group, role, value);
     for (const auto role : {QPalette::WindowText, QPalette::Text, QPalette::ButtonText, QPalette::PlaceholderText})
-        palette.setColor(QPalette::Disabled, role, QColor::fromString(t.text_disabled));
+        palette.setColor(QPalette::Disabled, role, on_page(t.fg_disabled));
     return palette;
 }
 
@@ -252,7 +244,7 @@ QString UIThemeManager::build_global_stylesheet(const UIThemeTokens &t) {
                 background: %7;
                 margin: 4px 7px;
             }
-        )").arg(t.text, t.popup_background, t.border_hover, t.border, t.popup_hover, t.text_disabled, t.separator);
+        )").arg(t.fg, t.popup_background, t.control_border_bottom, t.control_border_bottom, t.popup_hover, t.fg_disabled, t.divider);
 }
 
 void apply_style_sheet(QWidget *widget, const QString &sheet) {

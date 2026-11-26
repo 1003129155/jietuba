@@ -591,11 +591,12 @@ private slots:
             view.set_table(small_table(), false);
             view.resize(400, 200);
             const auto &t = ui_tokens(&view);
-            view.setStyleSheet(view.styleSheet() + QString("QTableWidget { background: %1; }").arg(t.input_background));
+            // The table card's fill as the window shows it: a card on the content layer.
+            const QColor background = painted_over(css_color(t.card), layer_backdrop(&view));
+            view.setStyleSheet(view.styleSheet() + QString("QTableWidget { background: %1; }").arg(background.name()));
             view.show();
             QApplication::processEvents();
             const auto sample = [](QWidget *widget) { return widget->grab().toImage().pixelColor(4, 4); };
-            const QColor background = css_color(t.input_background);
             const QColor header = sample(view.horizontalHeader()->viewport());
             QCOMPARE(sample(view.verticalHeader()->viewport()), header);
             QVERIFY(std::abs(header.lightness() - background.lightness()) >= 18);
@@ -1284,7 +1285,7 @@ private slots:
         const auto verify_icon = [&] {
             const int side = widget_scaled(button, 14);
             const auto icon_rect = QRect(widget_scaled(button, 8) + 1, (button->height() - side) / 2, side, side);
-            return has_ink(button->grab().toImage().copy(icon_rect), css_color(ui_tokens(button).text));
+            return has_ink(button->grab().toImage().copy(icon_rect), css_color(ui_tokens(button).fg));
         };
         for (const char *mode : {"light", "dark"}) {
             get_ui_theme()->set_mode(mode, false);

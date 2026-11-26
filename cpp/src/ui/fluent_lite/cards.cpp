@@ -437,6 +437,6 @@ SimpleCardWidget::SimpleCardWidget(QWidget *parent) : QFrame(parent) {
 
 void SimpleCardWidget::_apply_theme() {
     const auto &t = ui_tokens(this);
-    apply_style_sheet(this, QString("QFrame#FluentLiteSimpleCard { background: %1; border: 1px solid %2; border-radius: 14px; }").arg(t.surface, t.border));
+    apply_style_sheet(this, QString("QFrame#FluentLiteSimpleCard { background: %1; border: 1px solid %2; border-radius: 14px; }").arg(t.card, t.card_border));
 }
 }

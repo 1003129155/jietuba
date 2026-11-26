@@ -113,13 +113,13 @@ void KeyChipLineEdit::paintEvent(QPaintEvent *) {
     const auto [parts, pending] = shortcut_display_parts(text());
 
     if (parts.isEmpty() && !pending && !focused) {
-        QColor border = css_color(t.text_muted);
+        QColor border = css_color(t.fg_muted);
         border.setAlphaF(0.55);
         painter.setPen(QPen(border, 1.0, Qt::DashLine));
         painter.setBrush(Qt::NoBrush);
         painter.drawRoundedRect(rect, radius, radius);
-        paint_plus(painter, QPointF(pad + dialog_scaled(5), rect.center().y()), css_color(t.text_muted));
-        painter.setPen(css_color(t.text_muted));
+        paint_plus(painter, QPointF(pad + dialog_scaled(5), rect.center().y()), css_color(t.fg_muted));
+        painter.setPen(css_color(t.fg_muted));
         const QRectF text_rect = rect.adjusted(pad + dialog_scaled(16), 0, -pad, 0);
         painter.drawText(text_rect, Qt::AlignVCenter | Qt::AlignLeft, metrics.elidedText(tr_text("Add shortcut"), Qt::ElideRight, static_cast<int>(text_rect.width())));
         return;
@@ -130,11 +130,10 @@ void KeyChipLineEdit::paintEvent(QPaintEvent *) {
     if (error_) {
         fill = css_color(t.danger_soft), border = css_color(t.danger);
     } else if (focused) {
-        fill = css_color(t.surface_hover), border = css_color(t.accent), width = 1.5;
+        fill = css_color(t.control), border = css_color(t.accent), width = 1.5;
     } else {
-        // In the dark theme input_background equals the card colour and the chip would be only an outline.
-        fill = css_color(t.surface_hover);
-        border = css_color(underMouse() ? t.accent : t.border_hover);
+        fill = css_color(underMouse() ? t.control_hover : t.control);
+        border = css_color(underMouse() ? t.accent : t.control_border_bottom);
     }
     const double inset = width / 2;
     painter.setPen(QPen(border, width));
@@ -144,7 +143,7 @@ void KeyChipLineEdit::paintEvent(QPaintEvent *) {
     const QRectF clear = clear_rect();
     const double text_right = !text().isEmpty() ? clear.left() : rect.right() - pad;
     const int available = static_cast<int>(text_right - pad);
-    const QColor text_color = css_color(t.text), sep_color = css_color(t.text_muted);
+    const QColor text_color = css_color(t.fg), sep_color = css_color(t.fg_muted);
     const double baseline = rect.center().y() + (metrics.ascent() - metrics.descent()) / 2.0;
 
     if (parts.isEmpty()) {
@@ -176,7 +175,7 @@ void KeyChipLineEdit::paintEvent(QPaintEvent *) {
     }
 
     if (!text().isEmpty()) {
-        const QColor color = css_color(hover_clear_ ? t.text : t.text_muted);
+        const QColor color = css_color(hover_clear_ ? t.fg : t.fg_muted);
         const int half = dialog_scaled(4);
         const QPointF center = clear.center();
         painter.setPen(QPen(color, 1.4, Qt::SolidLine, Qt::RoundCap));

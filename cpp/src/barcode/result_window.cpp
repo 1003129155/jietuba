@@ -150,7 +150,7 @@ CodeText::CodeText(const QString &text, QWidget *parent) : TextEdit(parent) {
 void CodeText::apply_theme() {
     const auto &t = ui_tokens(this);
     setStyleSheet(QString("QTextEdit { background: transparent; color: %1; font: %2px %3; selection-background-color: %4; selection-color: %5; }")
-                      .arg(t.text)
+                      .arg(t.fg)
                       .arg(dialog_scaled(13))
                       .arg(FONT_FAMILY, t.accent, t.selected_text));
 }

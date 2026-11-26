@@ -296,7 +296,7 @@ void UploadTargetDialog::refresh_preview() {
 }
 
 void UploadTargetDialog::set_test_text(const QString &text, bool failed) {
-    set_own_style(test_label, QString("color: %1; font-size: %2px; background: transparent;").arg(failed ? ui_tokens(this).danger : ui_tokens(this).text_muted).arg(dialog_scaled(12)));
+    set_own_style(test_label, QString("color: %1; font-size: %2px; background: transparent;").arg(failed ? ui_tokens(this).danger : ui_tokens(this).fg_muted).arg(dialog_scaled(12)));
     test_label->setText(text);
 }
 

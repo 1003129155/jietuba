@@ -216,7 +216,7 @@ public:
         const auto widths = search_row_widths(option.rect.width(), title, path);
 
         painter->setFont(big);
-        painter->setPen(css_color(t.text));
+        painter->setPen(css_color(t.fg));
         painter->drawText(QRect(content.left(), top, widths.title_room, line_height), Qt::AlignLeft | Qt::AlignVCenter,
                           title_metrics.elidedText(title, Qt::ElideRight, widths.title_room));
         if (widths.tag > 0) {
@@ -234,7 +234,7 @@ public:
         }
         if (!description.isEmpty()) {
             painter->setFont(small);
-            painter->setPen(css_color(t.text_muted));
+            painter->setPen(css_color(t.fg_muted));
             const QRect line(content.left(), content.bottom() - small_metrics.height() + 1, content.width(), small_metrics.height());
             painter->drawText(line, Qt::AlignLeft | Qt::AlignVCenter, small_metrics.elidedText(description, Qt::ElideRight, content.width()));
         }
@@ -340,7 +340,7 @@ protected:
         const auto &t = get_ui_theme()->tokens();
         QPainter painter(this);
         painter.setRenderHint(QPainter::Antialiasing);
-        painter.setPen(css_color(t.border));
+        painter.setPen(css_color(t.control_border_bottom));
         painter.setBrush(css_color(t.popup_background));
         painter.drawRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), dialog_scaled(10), dialog_scaled(10));
     }
@@ -488,13 +488,13 @@ bool SettingsSearchBox::results_visible() const { return popup_ && popup_->isVis
 void SettingsSearchBox::apply_theme() {
     const auto &t = get_ui_theme()->tokens();
     const int icon = dialog_scaled(16);
-    search_icon_->setPixmap(tinted_icon(FluentIcon::Search, t.text_muted).pixmap(QSize(icon, icon), search_icon_->devicePixelRatioF()));
-    clear_button_->setIcon(tinted_icon(FluentIcon::Close, t.text_muted));
+    search_icon_->setPixmap(tinted_icon(FluentIcon::Search, t.fg_muted).pixmap(QSize(icon, icon), search_icon_->devicePixelRatioF()));
+    clear_button_->setIcon(tinted_icon(FluentIcon::Close, t.fg_muted));
     clear_button_->setIconSize(QSize(dialog_scaled(12), dialog_scaled(12)));
     clear_button_->setStyleSheet(QString("QToolButton#SettingsSearchClear { border: none; background: transparent; border-radius: %1px; }"
                                          "QToolButton#SettingsSearchClear:hover { background: %2; }")
                                      .arg(dialog_scaled(6))
-                                     .arg(t.surface_hover));
+                                     .arg(t.item_hover));
     // The bottom edge is stronger than the others and thickens in the accent colour while typing; the
     // padding gives the extra pixel back so the text does not move.
     const bool dark = t.is_dark();
@@ -503,9 +503,9 @@ void SettingsSearchBox::apply_theme() {
                 border-radius: %5px; padding: 0 %6px; font-size: %7px; selection-background-color: %8; selection-color: %9; }
             QLineEdit#SettingsSearchEdit:focus { border-bottom: 2px solid %8; padding-bottom: 0; }
         )")
-                             .arg(dark ? "rgba(255, 255, 255, 0.0605)" : "rgba(255, 255, 255, 0.7)")
-                             .arg(t.text)
-                             .arg(dark ? "rgba(255, 255, 255, 0.0698)" : "rgba(0, 0, 0, 0.0578)")
+                             .arg(t.control)
+                             .arg(t.fg)
+                             .arg(t.control_border)
                              .arg(dark ? "rgba(255, 255, 255, 0.5442)" : "rgba(0, 0, 0, 0.4458)")
                              .arg(dialog_scaled(4))
                              .arg(dialog_scaled(8))

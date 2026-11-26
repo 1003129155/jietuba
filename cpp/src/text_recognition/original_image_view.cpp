@@ -212,8 +212,8 @@ QGraphicsView *OriginalImageView::view() const { return view_; }
 
 void OriginalImageView::apply_theme() {
     const auto &t = ui_tokens(this);
-    view_->setStyleSheet(QString("QGraphicsView { background: %1; border: none; }").arg(t.surface_subtle) + scrollbar_qss(this));
-    findChild<QFrame *>("originalImageToolbar")->setStyleSheet(QString("#originalImageToolbar { background: %1; border-top: 1px solid %2; }").arg(t.input_background, t.separator));
+    view_->setStyleSheet(QString("QGraphicsView { background: %1; border: none; }").arg(t.page_background) + scrollbar_qss(this));
+    findChild<QFrame *>("originalImageToolbar")->setStyleSheet(QString("#originalImageToolbar { background: transparent; border-top: 1px solid %1; }").arg(t.divider));
 }
 
 void OriginalImageView::set_text(OcrTextLayout layout) {

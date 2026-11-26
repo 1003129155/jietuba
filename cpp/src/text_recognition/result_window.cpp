@@ -17,6 +17,7 @@
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/labels.h"
 #include "ui/fluent_lite/text_context_menu.h"
+#include "ui/fluent_lite/fluent_dialog.h"
 #include "ui/fluent_lite/theme.h"
 #include "ui/fluent_lite/titlebar.h"
 #include "ui/submenu_position.h"
@@ -117,8 +118,8 @@ QString RecognitionCommandButton::style_sheet() const {
                    "border: 1px solid transparent; border-radius: %6px; font: %7px %8; outline: none; }"
                    "QPushButton:hover { background: %9; } QPushButton:pressed { background: %10; }"
                    "QPushButton:focus { border-color: %11; } QPushButton:disabled { color: %12; }")
-        .arg(s(20)).arg(s(3)).arg(s(menu_ ? 23 : 8)).arg(s(8)).arg(t.text).arg(s(4)).arg(s(12))
-        .arg(FONT_FAMILY, t.surface_subtle, t.accent_soft, t.accent, t.text_disabled);
+        .arg(s(20)).arg(s(3)).arg(s(menu_ ? 23 : 8)).arg(s(8)).arg(t.fg).arg(s(4)).arg(s(12))
+        .arg(FONT_FAMILY, t.item_hover, t.divider, t.accent, t.fg_disabled);
 }
 
 QSize RecognitionCommandButton::sizeHint() const {
@@ -142,14 +143,14 @@ void RecognitionCommandButton::paintEvent(QPaintEvent *event) {
         left += side + widget_scaled(this, 6);
     }
     const auto &t = ui_tokens(this);
-    painter.setPen(css_color(isEnabled() ? t.text : t.text_disabled));
+    painter.setPen(css_color(isEnabled() ? t.fg : t.fg_disabled));
     painter.drawText(QRect(left, 0, width() - left - widget_scaled(this, menu_ ? 23 : 8), height()), Qt::AlignLeft | Qt::AlignVCenter, text());
     if (!menu_) return;
     const double arm = widget_scaled(this, 3);
     const double x = width() - widget_scaled(this, 11);
     const double y = height() / 2.0;
     painter.setRenderHint(QPainter::Antialiasing);
-    QPen pen(css_color(isEnabled() ? ui_tokens(this).text_muted : ui_tokens(this).text_disabled), std::max(1.0, widget_scaled(this, 1) * 1.1));
+    QPen pen(css_color(isEnabled() ? ui_tokens(this).fg_muted : ui_tokens(this).fg_disabled), std::max(1.0, widget_scaled(this, 1) * 1.1));
     pen.setCapStyle(Qt::RoundCap);
     pen.setJoinStyle(Qt::RoundJoin);
     painter.setPen(pen);
@@ -373,7 +374,7 @@ void TextRecognitionWindow::apply_text_theme() {
     const auto &t = ui_tokens(this);
     text_edit->setStyleSheet(QString("QTextEdit { background: %1; color: %2; border: none; padding: %3px %4px; "
                                      "font: %5px %6; selection-background-color: %7; selection-color: %8; }")
-                                 .arg(t.input_background, t.text)
+                                 .arg("transparent", t.fg)
                                  .arg(dialog_scaled(18))
                                  .arg(dialog_scaled(20))
                                  .arg(std::max(1, int(std::lround(dialog_scaled(15) * text_zoom_->factor()))))
@@ -384,13 +385,18 @@ void TextRecognitionWindow::apply_text_theme() {
 void TextRecognitionWindow::apply_theme() {
     apply_text_theme();
     const auto &t = ui_tokens(this);
-    findChild<QFrame *>("recognitionToolbar")->setStyleSheet(
-        QString("#recognitionToolbar { background: %1; border-top: 1px solid %2; border-bottom: 1px solid %2; }").arg(t.input_background, t.separator));
+    findChild<QFrame *>("recognitionToolbar")->setStyleSheet(QString("#recognitionToolbar { background: transparent; border-bottom: 1px solid %1; }").arg(t.divider));
     findChild<QFrame *>("recognitionFooter")->setStyleSheet(
-        QString("#recognitionFooter { background: %1; border-top: 1px solid %2; } #recognitionOptionDivider { background: %2; }").arg(t.input_background, t.separator));
-    table_card_->setStyleSheet(QString("#tableCard { background: %1; border: 1px solid %2; border-radius: 6px; }").arg(t.input_background, t.border));
-    splitter->setStyleSheet(QString("#recognitionSplitter::handle { background: %1; }").arg(t.separator));
+        QString("#recognitionFooter { background: transparent; border-top: 1px solid %1; } #recognitionOptionDivider { background: %1; }").arg(t.divider));
+    table_card_->setStyleSheet(QString("#tableCard { background: %1; border: 1px solid %2; border-radius: %3px; }").arg(t.card, t.card_border).arg(dialog_scaled(4)));
+    splitter->setStyleSheet(QString("#recognitionSplitter::handle { background: %1; }").arg(t.divider));
     table_view->apply_theme();
+}
+
+// The caption on the window background and the body on the settings window's content layer.
+void TextRecognitionWindow::paintEvent(QPaintEvent *) {
+    const int caption = titleBar() ? titleBar()->height() : 0;
+    paint_dialog_frame(this, frosted_corner_radius_, QRect(0, caption, width(), height() - caption), ui_tokens(this).layer);
 }
 
 void TextRecognitionWindow::place() {

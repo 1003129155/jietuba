@@ -159,7 +159,7 @@ void LabeledSwitch::paintEvent(QPaintEvent *) {
     const int radius = widget_scaled(this, 4);
     if (hasFocus() || (isEnabled() && underMouse())) {
         painter.setPen(hasFocus() ? QPen(css_color(t.accent), 1) : QPen(Qt::NoPen));
-        painter.setBrush(css_color(t.surface_subtle));
+        painter.setBrush(css_color(t.item_hover));
         painter.drawRoundedRect(bounds, radius, radius);
     }
     auto label = rect().adjusted(widget_scaled(this, 4), 0, -widget_scaled(this, 4), 0);
@@ -168,7 +168,7 @@ void LabeledSwitch::paintEvent(QPaintEvent *) {
         label.setLeft(switch_->geometry().right() + gap);
     else
         label.setRight(switch_->geometry().left() - gap);
-    painter.setPen(css_color(!isEnabled() ? t.text_disabled : underMouse() ? t.text : t.text_muted));
+    painter.setPen(css_color(!isEnabled() ? t.fg_disabled : underMouse() ? t.fg : t.fg_muted));
     painter.drawText(label, Qt::AlignVCenter | (layoutDirection() == Qt::RightToLeft ? Qt::AlignRight : Qt::AlignLeft), text());
 }
 

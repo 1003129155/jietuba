@@ -39,16 +39,12 @@ QString scrollbar_qss(const QWidget *widget = nullptr);
 using IconSource = std::variant<std::monostate, QIcon, FluentIcon, QString>;
 // SVG-backed icons are tinted with the theme's text colour; *White icons keep their colour.
 QIcon to_qicon(const IconSource &icon, const QWidget *widget = nullptr);
-// Parses token colours for QPainter; QColor rejects rgb()/rgba().
-QColor css_color(const QString &value);
 QIcon tinted_icon(const IconSource &icon, const QString &color);
-// Opaque rounded background with a subtle vertical gradient for frameless dialogs.
+// The opaque rounded background and outline of a frameless window.
 void paint_solid_background(QWidget *widget, int radius = 8);
 // Flat window background with a translucent content layer over layer_rect (widget coordinates):
 // only its top-left corner is rounded, and the window's own rounding clips the rest.
 void paint_layered_background(QWidget *widget, int radius, const QRect &layer_rect, int layer_radius);
-// `top` as it looks painted over the opaque `under`.
-QColor painted_over(const QColor &top, const QColor &under);
 // What the cards of a layered window lie on: the content layer over the window's background.
 QColor layer_backdrop(const QWidget *widget = nullptr);
 }

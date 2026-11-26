@@ -276,7 +276,7 @@ void ValueSlider::_apply_theme() {
     QSlider::add-page:horizontal { background: %2; border-radius: %3px; }
     QSlider::handle:horizontal { width: %5px; height: %5px; margin: -%6px 0; background: white; border: 1px solid %7; border-radius: %8px; }
     QSlider::handle:horizontal:hover { border-color: %4; }
-    )").arg(s(4)).arg(t.switch_off).arg(s(2)).arg(t.accent).arg(s(16)).arg(s(6)).arg(t.border_hover).arg(s(8)));
+    )").arg(s(4)).arg(t.control_border_bottom).arg(s(2)).arg(t.accent).arg(s(16)).arg(s(6)).arg(t.control_border_bottom).arg(s(8)));
     set_own_style(value_label_, QString("color: %1; font: %2px %3; background: transparent;").arg(t.fg_muted).arg(s(13)).arg(FONT_FAMILY));
     // The width of the widest value in the font the style sheet sets, so the slider does not move while it is dragged.
     value_label_->ensurePolished();

@@ -96,19 +96,20 @@ RecognizedTableView::RecognizedTableView(QWidget *parent) : QTableWidget(parent)
 
 void RecognizedTableView::apply_theme() {
     const auto &t = ui_tokens(this);
-    const QString header_background = t.is_dark() ? "#3B424A" : "#E1E5EA";
-    grid_color_ = css_color(t.border);
+    // A step darker than the cells in both themes, so the headers read as a frame around them.
+    const QString header_background = t.is_dark() ? t.page_background : painted_over(css_color(t.divider), css_color(t.page_background)).name();
+    grid_color_ = css_color(t.control_border_bottom);
     setStyleSheet(QString("QTableWidget { background: transparent; color: %1; font: %3px %4; border: none; outline: 0; "
                           "selection-background-color: %5; selection-color: %1; }"
                           "QTableWidget::item { padding: 0 %6px; border: none; }"
                           "QTableWidget::item:selected { background: %5; color: %1; }"
                           "QTableWidget QLineEdit { background: %7; color: %1; border: 1px solid %8; padding: 0 %9px; "
                           "selection-background-color: %8; selection-color: %10; }")
-                      .arg(t.text)
+                      .arg(t.fg)
                       .arg(zoomed(14))
                       .arg(FONT_FAMILY, t.accent_soft)
                       .arg(zoomed(8))
-                      .arg(t.input_background, t.accent)
+                      .arg(t.card, t.accent)
                       .arg(zoomed(6))
                       .arg(t.selected_text) +
                   // Headers shade the rows and columns holding the selection, as spreadsheets do.
@@ -118,7 +119,7 @@ void RecognizedTableView::apply_theme() {
                           "border-bottom: 1px solid %3; padding: 0 %4px; font: %5px %6; }"
                           "QHeaderView::section:checked { background: %7; color: %8; }"
                           "QTableCornerButton::section { background: %1; border: none; border-right: 1px solid %3; border-bottom: 1px solid %3; }")
-                      .arg(header_background, t.text_muted, t.border_hover)
+                      .arg(header_background, t.fg_muted, t.control_border_bottom)
                       .arg(zoomed(6))
                       .arg(zoomed(12))
                       .arg(FONT_FAMILY, t.accent_strong, t.selected_text) +

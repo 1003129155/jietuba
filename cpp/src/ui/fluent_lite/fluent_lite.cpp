@@ -36,7 +36,7 @@ void CheckBox::_apply_theme() {
     const int spacing = widget_scaled(this, LABEL_SPACING);
     apply_style_sheet(this, QString("QCheckBox { color: %1; background: transparent; spacing: %2px; font: %3px %4; }"
                                     "QCheckBox::indicator { width: %5px; height: %5px; }")
-                                .arg(ui_tokens(this).text).arg(spacing).arg(widget_scaled(this, 13)).arg(FONT_FAMILY).arg(widget_scaled(this, 16)));
+                                .arg(ui_tokens(this).fg).arg(spacing).arg(widget_scaled(this, 13)).arg(FONT_FAMILY).arg(widget_scaled(this, 16)));
 }
 
 void CheckBox::paintEvent(QPaintEvent *) {
@@ -64,9 +64,9 @@ void CheckBox::paintEvent(QPaintEvent *) {
         return QColor::fromRgbF(off.redF() + (on.redF() - off.redF()) * fill_, off.greenF() + (on.greenF() - off.greenF()) * fill_,
                                 off.blueF() + (on.blueF() - off.blueF()) * fill_, off.alphaF() + (on.alphaF() - off.alphaF()) * fill_);
     };
-    const QColor accent = QColor::fromString(ACCENT);
-    painter.setPen(blend(underMouse() ? accent : QColor::fromString(tokens.border_hover), accent));
-    painter.setBrush(blend(QColor::fromString(tokens.input_background), accent));
+    const QColor accent = css_color(ACCENT);
+    painter.setPen(blend(underMouse() ? accent : css_color(tokens.control_border_bottom), accent));
+    painter.setBrush(blend(css_color(tokens.control), accent));
     painter.drawRoundedRect(box, radius, radius);
     if (fill_ > 0) {
         QColor tick_color("#FFFFFF");

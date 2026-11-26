@@ -21,7 +21,7 @@ Toast::Toast(const QString &text) : QWidget(nullptr) {
     label = new QLabel(this);
     label->setTextFormat(Qt::PlainText);
     label->setStyleSheet(QString("QLabel { background: %1; color: %2; border: 1px solid %3; border-radius: %4px; padding: %5px %6px; font: %7px %8; }")
-                             .arg(t.popup_background, t.text, t.window_border)
+                             .arg(t.popup_background, t.fg, t.window_border)
                              .arg(dialog_scaled(8))
                              .arg(dialog_scaled(6))
                              .arg(dialog_scaled(12))

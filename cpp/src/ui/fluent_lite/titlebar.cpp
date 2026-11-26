@@ -64,9 +64,9 @@ std::pair<QColor, QColor> TitleBarPinButton::colors() const {
     const auto &tokens = ui_tokens(this);
     if (isChecked())
         return {css_color(tokens.selected_text), css_color(isDown() ? tokens.accent_strong_pressed : underMouse() ? tokens.accent_strong_hover : tokens.accent_strong)};
-    const QColor icon = QColor::fromString(underMouse() || isDown() ? tokens.text : tokens.text_muted);
-    if (isDown()) return {icon, QColor::fromString(tokens.accent_soft)};
-    if (underMouse()) return {icon, QColor::fromString(tokens.surface_hover)};
+    const QColor icon = css_color(underMouse() || isDown() ? tokens.fg : tokens.fg_muted);
+    if (isDown()) return {icon, css_color(tokens.divider)};
+    if (underMouse()) return {icon, css_color(tokens.item_hover)};
     return {icon, QColor(0, 0, 0, 0)};
 }
 
@@ -151,7 +151,7 @@ void FluentTitleBar::_apply_theme() {
     setFixedHeight(widget_scaled(this, 32));
     iconLabel->setFixedSize(widget_scaled(this, 22), widget_scaled(this, 22));
     for (auto *button : {minBtn, maxBtn, closeBtn}) button->setFixedSize(widget_scaled(this, 46), widget_scaled(this, 32));
-    set_own_style(titleLabel, QString("color: %1; font: %2px %3; background: transparent;").arg(tokens.text).arg(widget_scaled(this, 12)).arg(FONT_FAMILY));
+    set_own_style(titleLabel, QString("color: %1; font: %2px %3; background: transparent;").arg(tokens.fg).arg(widget_scaled(this, 12)).arg(FONT_FAMILY));
     apply_caption_colors();
     apply_layout_metrics();
     refresh_icon();
@@ -165,12 +165,12 @@ void FluentTitleBar::apply_layout_metrics() {
 void FluentTitleBar::apply_caption_colors() {
     const auto &tokens = ui_tokens(this);
     for (auto *button : {minBtn, maxBtn, closeBtn}) {
-        button->setNormalColor(QColor::fromString(tokens.text_muted));
-        button->setHoverColor(QColor::fromString(tokens.text));
-        button->setPressedColor(QColor::fromString(tokens.text));
+        button->setNormalColor(css_color(tokens.fg_muted));
+        button->setHoverColor(css_color(tokens.fg));
+        button->setPressedColor(css_color(tokens.fg));
         button->setNormalBackgroundColor(QColor(0, 0, 0, 0));
-        button->setHoverBackgroundColor(QColor::fromString(tokens.surface_hover));
-        button->setPressedBackgroundColor(QColor::fromString(tokens.accent_soft));
+        button->setHoverBackgroundColor(css_color(tokens.item_hover));
+        button->setPressedBackgroundColor(css_color(tokens.divider));
     }
     closeBtn->setHoverColor(QColor("#FFFFFF"));
     closeBtn->setHoverBackgroundColor(QColor("#C42B1C"));

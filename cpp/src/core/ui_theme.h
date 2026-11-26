@@ -1,4 +1,5 @@
 #pragma once
+#include <QColor>
 #include <QObject>
 #include <QPalette>
 #include <QString>
@@ -19,11 +20,6 @@ UIThemeMode coerce_ui_theme_mode(const QVariant &value);
 struct UIThemeTokens {
     UIThemeMode mode;
     QString accent, accent_hover, accent_pressed, accent_soft;
-    QString window, window_top, window_bottom;
-    QString surface, surface_strong, surface_subtle, surface_hover;
-    QString text, text_muted, text_disabled;
-    QString border, border_hover, window_border;
-    QString input_background, popup_background, popup_hover, separator, switch_off;
     // White text on accent is only 3.4:1; fills carrying white text use the darker
     // accent_strong (4.9:1), switches and indicators keep accent.
     QString accent_strong, accent_strong_hover, accent_strong_pressed;
@@ -31,18 +27,24 @@ struct UIThemeTokens {
     QString accent_text;
     QString success, danger, danger_soft, status_idle;
     QString selected_text = "#FFFFFF";
-    // Neutral palette of the settings window and the fluent_lite controls; other windows keep the tokens above.
-    // Window, the content layer over it, the page cards and their expanded bodies.
-    QString page_background, layer, layer_border, card, card_border, card_body;
+    // Window, the content layer over it, the page cards and their expanded bodies, and the window's outline.
+    QString page_background, layer, layer_border, card, card_border, card_body, window_border;
     // Text, controls (buttons, inputs), hover fill of list items, the line between rows, a switch's off fill.
     QString fg, fg_muted, fg_disabled;
     QString control, control_hover, control_pressed, control_border, control_border_bottom;
     QString item_hover, divider, switch_off_fill;
+    // Menus, drop-down lists and tooltips, opaque because they float over other windows.
+    QString popup_background, popup_hover;
     bool is_dark() const { return mode == UIThemeMode::DARK; }
 };
 
 const UIThemeTokens &LIGHT_TOKENS();
 const UIThemeTokens &DARK_TOKENS();
+
+// Parses token colours for QPainter and QPalette; QColor::fromString rejects rgb()/rgba().
+QColor css_color(const QString &value);
+// `top` as it looks painted over the opaque `under`.
+QColor painted_over(const QColor &top, const QColor &under);
 
 class UIThemeManager : public QObject {
     Q_OBJECT

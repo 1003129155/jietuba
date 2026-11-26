@@ -82,13 +82,6 @@ void disable_wheel_on_value_controls(QWidget *root) {
         if (qobject_cast<QComboBox *>(widget) || qobject_cast<QAbstractSpinBox *>(widget)) widget->installEventFilter(wheel_filter);
 }
 
-QString theme_color(const QString &light, const QString &dark) { return get_ui_theme()->is_dark() ? dark : light; }
-QString theme_surface_color() { return theme_color("#FAFBFC", "#202124"); }
-QString theme_border_color() { return theme_color("rgba(255, 255, 255, 0.76)", "rgba(255, 255, 255, 0.08)"); }
-QString theme_input_background() { return theme_color("rgba(255, 255, 255, 0.78)", "#2B2D31"); }
-QString theme_popup_background() { return theme_color("#FFFFFF", "#2A2C30"); }
-QString theme_popup_hover_background() { return theme_color("#EAF2FA", "#36393F"); }
-
 QString theme_text_style(int font_size, bool bold, const QString &extra) {
     const QString weight = bold ? " font-weight: 600;" : "";
     return QString("font-size: %1px; color: %2; background: transparent;%3%4")
@@ -115,7 +108,7 @@ void refresh_theme_widget_styles(QWidget *root) {
 }
 
 QString theme_menu_style() {
-    const auto &text = get_ui_theme()->tokens().text;
+    const auto &t = get_ui_theme()->tokens();
     return QString(R"(
         QMenu {
             background-color: %1;
@@ -134,13 +127,13 @@ QString theme_menu_style() {
             background-color: %9;
         }
     )")
-        .arg(theme_popup_background(), text, theme_border_color())
+        .arg(t.popup_background, t.fg, t.control_border_bottom)
         .arg(dialog_scaled(6))
         .arg(dialog_scaled(4))
         .arg(dialog_scaled(6))
         .arg(dialog_scaled(20))
         .arg(dialog_scaled(14))
-        .arg(theme_popup_hover_background());
+        .arg(t.popup_hover);
 }
 
 SettingsCardGroup::SettingsCardGroup(const QString &title, QWidget *parent, const QString &tone) : SettingCardGroup(title, parent, tone) {

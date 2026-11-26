@@ -10,6 +10,7 @@
 #include "ui/fluent_lite/fluent_lite.h"
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/segmented.h"
+#include "ui/fluent_lite/fluent_dialog.h"
 #include "ui/fluent_lite/theme.h"
 #include "ui/fluent_lite/titlebar.h"
 #include <QApplication>
@@ -292,10 +293,10 @@ PathTagBar::PathTagBar(ToolSettingsManager *config, int width, QWidget *parent)
     add_button->setObjectName("pathTagAdd");
     add_button->setToolTip(tr_text("Add path tag"));
     add_button->setFixedSize(dialog_scaled(26), dialog_scaled(26));
-    add_button->setIcon(plus_icon(css_color(ui_tokens(this).text_muted)));
+    add_button->setIcon(plus_icon(css_color(ui_tokens(this).fg_muted)));
     connect(add_button, &QToolButton::clicked, this, [this] { add_path(current_path_); });
     connect(get_ui_theme(), &UIThemeManager::theme_changed, this, [this] {
-        add_button->setIcon(plus_icon(css_color(ui_tokens(this).text_muted)));
+        add_button->setIcon(plus_icon(css_color(ui_tokens(this).fg_muted)));
         rebuild();
     });
     rebuild();
@@ -536,14 +537,14 @@ void SavePreviewView::paintEvent(QPaintEvent *) {
     QPainter painter(this);
     const auto &t = ui_tokens(this);
     QPainterPath frame;
-    const double radius = dialog_scaled(12);
+    const double radius = dialog_scaled(4);
     frame.addRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), radius, radius);
     painter.setRenderHint(QPainter::Antialiasing);
-    painter.fillPath(frame, css_color(t.window_top));
+    painter.fillPath(frame, css_color(t.page_background));
     painter.setClipPath(frame);
     // A dot grid tells the backdrop apart from white or transparent image content.
     const int step = dialog_scaled(14);
-    auto dot = css_color(t.border_hover);
+    auto dot = css_color(t.control_border_bottom);
     dot.setAlphaF(dot.alphaF() * 0.6);
     painter.setPen(Qt::NoPen);
     painter.setBrush(dot);
@@ -598,7 +599,7 @@ void SavePreviewView::paintEvent(QPaintEvent *) {
         if (loading_) draw_pill(painter, QPointF(width() - dialog_scaled(10), height() - dialog_scaled(30)), true, tr_text("Estimating..."));
     }
     painter.setClipping(false);
-    painter.setPen(QPen(css_color(t.border), 1));
+    painter.setPen(QPen(css_color(t.card_border), 1));
     painter.setBrush(Qt::NoBrush);
     painter.drawPath(frame);
 }
@@ -1258,14 +1259,10 @@ void SaveImageDialog::write_save() {
     accept();
 }
 
+// The caption on the window background and the body on the settings window's content layer.
 void SaveImageDialog::paintEvent(QPaintEvent *) {
-    QPainter painter(this);
-    painter.setRenderHint(QPainter::Antialiasing);
-    const auto &t = ui_tokens(this);
-    const auto rect = QRectF(this->rect()).adjusted(0.5, 0.5, -0.5, -0.5);
-    painter.setPen(QPen(css_color(t.window_border), 1));
-    painter.setBrush(css_color(t.popup_background));
-    painter.drawRoundedRect(rect, frosted_corner_radius_, frosted_corner_radius_);
+    const int caption = titleBar() ? titleBar()->height() : 0;
+    paint_dialog_frame(this, frosted_corner_radius_, QRect(0, caption, width(), height() - caption), ui_tokens(this).layer);
 }
 
 bool SaveImageDialog::eventFilter(QObject *watched, QEvent *event) {
@@ -1276,8 +1273,8 @@ bool SaveImageDialog::eventFilter(QObject *watched, QEvent *event) {
 
 void SaveImageDialog::apply_theme() {
     const auto &t = ui_tokens(this);
-    const int radius = dialog_scaled(12);
-    const QString fill = t.is_dark() ? "#1F2327" : "#F1F3F5";
+    const int radius = dialog_scaled(4);
+    const QString fill = t.control;
     panel_->setStyleSheet(QString(R"(
         QLabel#blockTitle { color: %1; font-size: %2px; background: transparent; }
         QLabel#hint { color: %1; font-size: %3px; background: transparent; }
@@ -1285,9 +1282,10 @@ void SaveImageDialog::apply_theme() {
         QLabel#sizeValue { color: %5; font-size: %6px; background: transparent; }
         QLabel#sizeSuffix { color: %1; font-size: %2px; background: transparent; }
         QLabel#pathTagText { color: %5; font-size: %2px; background: transparent; }
-        QLineEdit#field { background: %7; color: %5; border: none; border-radius: %8px; padding: 0 %9px;
+        QLineEdit#field { background: %7; color: %5; border: 1px solid %13; border-bottom-color: %14; border-radius: %8px; padding: 0 %9px;
             min-height: %10px; max-height: %10px; font-size: %2px; selection-background-color: %11; }
-        QFrame#sizeInput { background: %7; border: none; border-radius: %8px; }
+        QLineEdit#field:focus { border-bottom: 2px solid %11; }
+        QFrame#sizeInput { background: %7; border: 1px solid %13; border-bottom-color: %14; border-radius: %8px; }
         QFrame#sizeInput QSpinBox { background: transparent; border: none; color: %5; font-size: %2px; padding-left: %9px; }
         QFrame#pathTag { background: %12; border: 1px solid %13; border-radius: %8px; }
         QFrame#pathTag:hover { border-color: %14; }
@@ -1303,31 +1301,31 @@ void SaveImageDialog::apply_theme() {
         QSlider::handle:horizontal { width: %19px; height: %19px; margin: %20px 0; background: white; border: 1px solid %14; border-radius: %21px; }
         QSlider::handle:horizontal:hover { border-color: %11; }
         )")
-                              .arg(t.text_muted)
+                              .arg(t.fg_muted)
                               .arg(dialog_scaled(13))
                               .arg(dialog_scaled(12))
-                              .arg(warning_color(t), t.text)
+                              .arg(warning_color(t), t.fg)
                               .arg(dialog_scaled(14))
                               .arg(fill)
                               .arg(radius)
                               .arg(dialog_scaled(12))
                               .arg(dialog_scaled(36))
-                              .arg(t.accent, t.popup_background, t.border, t.border_hover)
+                              .arg(t.accent, t.card, t.control_border, t.control_border_bottom)
                               .arg(dialog_scaled(20))
                               .arg(dialog_scaled(4))
-                              .arg(t.switch_off)
+                              .arg(t.control_border_bottom)
                               .arg(dialog_scaled(2))
                               .arg(dialog_scaled(16))
                               .arg(-dialog_scaled(6))
                               .arg(dialog_scaled(8)));
     panel_scroll->verticalScrollBar()->setStyleSheet(scrollbar_qss(this));
     for (auto *label : {zoom_label, original_label})
-        label->setStyleSheet(QString("QLabel { color: %1; font-size: %2px; background: transparent; }").arg(t.text_muted).arg(dialog_scaled(12)));
+        label->setStyleSheet(QString("QLabel { color: %1; font-size: %2px; background: transparent; }").arg(t.fg_muted).arg(dialog_scaled(12)));
     for (auto *button : {save_button, change_button}) button->setFixedHeight(dialog_scaled(34));
-    lock_button->setIcon(lock_icon(lock_button->isChecked() ? css_color(t.accent) : css_color(t.text_muted), lock_button->isChecked()));
-    reset_size_button->setIcon(tinted_icon(FluentIcon::Sync, t.text_muted));
+    lock_button->setIcon(lock_icon(lock_button->isChecked() ? css_color(t.accent) : css_color(t.fg_muted), lock_button->isChecked()));
+    reset_size_button->setIcon(tinted_icon(FluentIcon::Sync, t.fg_muted));
     reset_size_button->setIconSize(QSize(dialog_scaled(16), dialog_scaled(16)));
-    classic_link->setText(QString("<a href=\"classic\" style=\"color: %1; text-decoration: underline;\">%2</a>").arg(t.text_muted, tr_text("Use classic dialog")));
+    classic_link->setText(QString("<a href=\"classic\" style=\"color: %1; text-decoration: underline;\">%2</a>").arg(t.fg_muted, tr_text("Use classic dialog")));
     classic_link->setStyleSheet(QString("QLabel { font-size: %1px; background: transparent; }").arg(dialog_scaled(12)));
     update();
 }

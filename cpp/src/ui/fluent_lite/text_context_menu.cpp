@@ -76,7 +76,7 @@ void style_popup_menu(QMenu *menu, const UIThemeTokens &tokens) {
             background-color: %6;
             margin: 4px 7px;
         }
-    )").arg(tokens.text, tokens.popup_background, tokens.border_hover, tokens.popup_hover, tokens.text_disabled, tokens.separator));
+    )").arg(tokens.fg, tokens.popup_background, tokens.control_border_bottom, tokens.popup_hover, tokens.fg_disabled, tokens.divider));
 }
 
 void show_text_context_menu(QWidget *editor, const QPoint &global_pos) {

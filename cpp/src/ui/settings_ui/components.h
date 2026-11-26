@@ -24,13 +24,6 @@ QScrollArea *page_scroll_area(SettingsDialog *dialog);
 // Settings pages scroll with the pointer often over a combo or spin box; the wheel must not change their values.
 void disable_wheel_on_value_controls(QWidget *root);
 
-// One of two values for the effective application theme.
-QString theme_color(const QString &light, const QString &dark);
-QString theme_surface_color();
-QString theme_border_color();
-QString theme_input_background();
-QString theme_popup_background();
-QString theme_popup_hover_background();
 QString theme_text_style(int font_size = 14, bool bold = false, const QString &extra = {});
 QString theme_caption_style(int font_size = 13, const QString &extra = {});
 // Applies a semantic text style and registers it for refresh on theme changes.

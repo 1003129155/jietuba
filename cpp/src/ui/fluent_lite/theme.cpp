@@ -29,7 +29,7 @@ QString scrollbar_qss(const QWidget *widget) {
     QScrollBar::handle:hover { background: %2; }
     QScrollBar::add-line, QScrollBar::sub-line { width: 0; height: 0; }
     QScrollBar::add-page, QScrollBar::sub-page { background: transparent; }
-    )").arg(t.border_hover, t.accent);
+    )").arg(t.fg_disabled, t.accent);
 }
 
 namespace {
@@ -78,18 +78,6 @@ QIcon to_qicon(const IconSource &icon, const QWidget *widget) {
     return tinted_from_path(icon_path(icon), ui_tokens(widget).fg);
 }
 
-QColor css_color(const QString &value) {
-    const auto text = value.trimmed();
-    if (text.startsWith("rgba(") || text.startsWith("rgb(")) {
-        const auto inner = text.mid(text.indexOf('(') + 1).chopped(1);
-        const auto channels = inner.split(',');
-        QColor color(channels.value(0).trimmed().toInt(), channels.value(1).trimmed().toInt(), channels.value(2).trimmed().toInt());
-        if (channels.size() == 4) color.setAlphaF(channels[3].trimmed().toDouble());
-        return color;
-    }
-    return QColor::fromString(text);
-}
-
 QIcon tinted_icon(const IconSource &icon, const QString &color) { return tinted_from_path(icon_path(icon), color); }
 
 void paint_solid_background(QWidget *widget, int radius) {
@@ -98,27 +86,11 @@ void paint_solid_background(QWidget *widget, int radius) {
     painter.setCompositionMode(QPainter::CompositionMode_Source);
     painter.fillRect(widget->rect(), Qt::transparent);
     const auto rect = QRectF(widget->rect()).adjusted(0.5, 0.5, -0.5, -0.5);
-    QLinearGradient gradient(0, 0, 0, widget->height());
     const auto &tokens = ui_tokens(widget);
-    gradient.setColorAt(0.0, QColor::fromString(tokens.window_top));
-    gradient.setColorAt(1.0, QColor::fromString(tokens.window_bottom));
     painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
-    painter.setBrush(gradient);
-    painter.setPen(Qt::NoPen);
+    painter.setBrush(css_color(tokens.page_background));
+    painter.setPen(QPen(css_color(tokens.window_border), 1.0));
     painter.drawRoundedRect(rect, radius, radius);
-    QPen pen = painter.pen();
-    pen.setStyle(Qt::SolidLine);
-    pen.setColor(QColor::fromString(tokens.window_border));
-    pen.setWidthF(1.0);
-    painter.setPen(pen);
-    painter.setBrush(Qt::NoBrush);
-    painter.drawRoundedRect(rect, radius, radius);
-}
-
-QColor painted_over(const QColor &top, const QColor &under) {
-    const double a = top.alphaF();
-    return QColor::fromRgbF(top.redF() * a + under.redF() * (1 - a), top.greenF() * a + under.greenF() * (1 - a),
-                            top.blueF() * a + under.blueF() * (1 - a));
 }
 
 QColor layer_backdrop(const QWidget *widget) {
