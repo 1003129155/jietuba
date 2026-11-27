@@ -26,7 +26,6 @@
 #include <QDateTime>
 #include <QDesktopServices>
 #include <QDir>
-#include <QEventLoop>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QMimeData>
@@ -336,14 +335,29 @@ void GifRecordWindow::on_record_stop() {
         return;
     }
     if (recorder_->state() != RecordState::RECORDING && recorder_->state() != RecordState::PAUSED) return;
+    // A stop already waiting on the capture thread; the button is ignored until it lands.
+    if (stop_pending_) return;
 
     show_stop_progress();
+    // Waiting for the capture thread must not run a nested event loop: the user can close the
+    // window while it waits, and the deferred deletes a nested loop processes would destroy this
+    // object in the middle of the call. The frames are synced back only once the thread exits, so
+    // everything that reads them continues in on_stop_finished().
+    stop_pending_ = true;
+    connect(recorder_, &FrameRecorder::stop_finished, this, &GifRecordWindow::on_stop_finished, Qt::UniqueConnection);
+    recorder_->stop_async();
+}
 
+void GifRecordWindow::on_stop_finished() {
+    if (!stop_pending_) return;
+    stop_pending_ = false;
+    dismiss_stop_progress();
+    // The window closed while the capture thread was stopping; there is nothing to play back.
+    if (!recorder_ || !overlay_ || !record_toolbar_) return;
     auto &frames = recorder_->frames();
     const auto store = recorder_->store();
     if (store) log_info(T("停止录制, 共 {frame_count} 帧, store=有", {{"frame_count", static_cast<qlonglong>(frames.size())}}), "GIF");
     else log_info(T("停止录制, 共 {frame_count} 帧, store=无", {{"frame_count", static_cast<qlonglong>(frames.size())}}), "GIF");
-
     if (store && store->frame_count() == 0) {
         log_warning(T("FrameStore 为空"), "GIF");
         show_warning_dialog(nullptr, gif_tr("Recording error"), gif_tr("The recording is empty. Please record again."));
@@ -364,24 +378,21 @@ void GifRecordWindow::on_record_stop() {
 }
 
 void GifRecordWindow::show_stop_progress() {
+    if (stop_bar_) return;
     auto *bar = new WaitBar;
     bar->set_progress(0, 0);
     bar->center_on(rect_.center());
-
-    // stop_async + stop_finished wait for the capture thread to exit.
-    QEventLoop loop;
-    const auto connection = connect(recorder_, &FrameRecorder::stop_finished, &loop, &QEventLoop::quit);
-    recorder_->stop_async();
-
     // The bar shows after about 400 ms so capture has stopped and it is not recorded.
     bar->show_after(400);
+    stop_bar_ = bar;
+}
 
-    loop.exec();
-
-    disconnect(connection);
+void GifRecordWindow::dismiss_stop_progress() {
+    if (!stop_bar_) return;
+    auto *bar = stop_bar_.data();
+    stop_bar_ = nullptr;
     bar->set_progress(1, 1);
     bar->dismiss();
-    QApplication::processEvents();
     bar->deleteLater();
 }
 
@@ -686,6 +697,10 @@ void GifRecordWindow::on_rerecord() {
 void GifRecordWindow::close_all() {
     cancel_countdown();
     release_timer_.stop();
+    // A stop still waiting on the capture thread continues in on_stop_finished(), which finds no
+    // recorder once this returns; its progress bar must not outlive the window.
+    dismiss_stop_progress();
+    stop_pending_ = false;
     if (!recorder_) return;
     if (save_dialog_) {
         close_after_video_ = true;

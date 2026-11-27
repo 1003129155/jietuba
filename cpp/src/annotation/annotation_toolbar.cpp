@@ -23,9 +23,9 @@ AnnotationToolbar::AnnotationToolbar(ScreenAnnotation *owner) : Toolbar(nullptr,
     const int tool = BASE_BTN_WIDTH;
     pointer_btn = add_button("annotation_pointer", QString::fromUtf8("svg/穿透.svg"), "Pass through: the mouse works the windows below (Esc)", tool,
                              [this] { emit pointer_clicked(); }, true);
-    board_btn = add_button("annotation_board", "svg/白板.svg", "Whiteboard: click to cover the screen with white, click again to remove", tool,
+    board_btn = add_button("annotation_board", "svg/白板.svg", "Toggle whiteboard", tool,
                            [this] { emit board_clicked(); }, true);
-    highlight_btn = add_button("annotation_cursor", "svg/光标高亮.svg", "Cursor highlight: a light around the pointer and a ring for every click", tool,
+    highlight_btn = add_button("annotation_cursor", "svg/光标高亮.svg", "Highlight cursor and clicks", tool,
                                [this] { emit highlight_clicked(); }, true);
     clear_btn = add_button("annotation_clear", QString::fromUtf8("svg/清空.svg"), "Clear all drawings", tool, [this] { emit clear_clicked(); });
     hide_btn = add_button("annotation_hide", QString::fromUtf8("svg/隐藏标注.svg"), "Hide / show drawings", tool, [this] { emit hide_clicked(); }, true);

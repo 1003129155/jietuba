@@ -3,10 +3,17 @@
 #include "core/ui_scale.h"
 #include "ui/fluent_lite/cards.h"
 #include "ui/fluent_lite/theme.h"
+#include "ui/motion.h"
+#include <QHash>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QPropertyAnimation>
 
 namespace jietuba {
+namespace {
+const char *const SLIDE_NAME = "RowSlide";
+}
+
 DragGrip::DragGrip(QWidget *parent) : QWidget(parent) {
     setFixedSize(dialog_scaled(16), dialog_scaled(28));
     setCursor(Qt::OpenHandCursor);
@@ -35,7 +42,7 @@ void DragGrip::paintEvent(QPaintEvent *) {
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
     painter.setPen(Qt::NoPen);
-    painter.setBrush(QColor(ui_tokens(this).text_muted));
+    painter.setBrush(css_color(ui_tokens(this).fg_muted));
     const QPointF center(rect().center());
     for (int dx : {-3, 3})
         for (int dy : {-6, 0, 6})
@@ -50,31 +57,33 @@ void DraggableRow::set_dragging(bool dragging) {
     update();
 }
 
+// Each row is a settings card; the dragged one takes the accent backing.
 void DraggableRow::paintEvent(QPaintEvent *) {
-    if (!dragging_) return;
+    const auto &t = ui_tokens(this);
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
-    painter.setPen(Qt::NoPen);
-    painter.setBrush(QColor(ui_tokens(this).accent_soft));
-    painter.drawRoundedRect(rect(), dialog_scaled(8), dialog_scaled(8));
+    painter.setPen(QPen(css_color(dragging_ ? t.accent : t.card_border), 1.0));
+    painter.setBrush(css_color(dragging_ ? t.accent_soft : t.card));
+    const int radius = dialog_scaled(4);
+    painter.drawRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), radius, radius);
     painter.end();
 }
 
 ReorderableRowList::ReorderableRowList(QWidget *parent) : QScrollArea(parent) {
-    card_ = new SimpleCardWidget;
-    layout_ = new QVBoxLayout(card_);
-    layout_->setContentsMargins(dialog_scaled(6), dialog_scaled(6), dialog_scaled(6), dialog_scaled(6));
-    layout_->setSpacing(0);
+    rows_widget_ = new QWidget;
+    layout_ = new QVBoxLayout(rows_widget_);
+    layout_->setContentsMargins(0, 0, 0, 0);
+    layout_->setSpacing(dialog_scaled(4));
     layout_->setAlignment(Qt::AlignTop);
     setWidgetResizable(true);
     setFrameShape(QFrame::NoFrame);
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    setStyleSheet("QScrollArea { border: none; background: transparent; }");
-    setWidget(card_);
+    setStyleSheet("QScrollArea { border: none; background: transparent; } QScrollArea > QWidget > QWidget { background: transparent; }" + scrollbar_qss(this));
+    setWidget(rows_widget_);
 }
 
 DraggableRow *ReorderableRowList::add_row(DraggableRow *row, int index) {
-    row->setParent(card_);
+    row->setParent(rows_widget_);
     connect(row->grip, &DragGrip::pressed, row, [row] { row->set_dragging(true); });
     connect(row->grip, &DragGrip::dragged, this, [this, row](int global_y) { drag_row(row, global_y); });
     connect(row->grip, &DragGrip::released, row, [row] { row->set_dragging(false); });
@@ -106,20 +115,40 @@ int ReorderableRowList::content_height() {
 }
 
 void ReorderableRowList::place(DraggableRow *row, int index) {
+    const QList<DraggableRow *> all = rows();
+    // Where each row is drawn now, which for a row still sliding is short of its place.
+    QHash<DraggableRow *, QPoint> shown;
+    for (auto *each : all) {
+        delete each->findChild<QPropertyAnimation *>(SLIDE_NAME, Qt::FindDirectChildrenOnly);
+        shown.insert(each, each->pos());
+    }
     layout_->removeWidget(row);
     layout_->insertWidget(index, row);
+    // Geometry in the new order right away, so the next move compares against it.
+    layout_->activate();
+    const int length = motion::duration(motion::MID_MS);
+    if (length <= 0 || !isVisible()) return;
+    for (auto *each : all) {
+        if (shown.value(each) == each->pos()) continue;
+        auto *slide = new QPropertyAnimation(each, "pos", each);
+        slide->setObjectName(SLIDE_NAME);
+        slide->setDuration(length);
+        slide->setEasingCurve(motion::decelerate());
+        slide->setStartValue(shown.value(each));
+        slide->setEndValue(each->pos());
+        slide->start(QAbstractAnimation::DeleteWhenStopped);
+    }
 }
 
 void ReorderableRowList::drag_row(DraggableRow *row, int global_y) {
-    const int y = card_->mapFromGlobal(QPoint(0, global_y)).y();
+    const int y = rows_widget_->mapFromGlobal(QPoint(0, global_y)).y();
+    // By the rows' places in the layout: a row still sliding is drawn elsewhere.
     int index = 0;
-    for (auto *other : rows())
-        if (other != row && other->geometry().center().y() < y) ++index;
-    if (layout_->indexOf(row) != index) {
-        place(row, index);
-        // Geometry in the new order right away, so the next move compares against it.
-        layout_->activate();
+    for (int i = 0; i < layout_->count(); ++i) {
+        const auto *item = layout_->itemAt(i);
+        if (item->widget() && item->widget() != row && item->geometry().center().y() < y) ++index;
     }
+    if (layout_->indexOf(row) != index) place(row, index);
     // Keeps scrolling when dragged past the visible area.
     ensureWidgetVisible(row, 0, 0);
 }

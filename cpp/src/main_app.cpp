@@ -8,7 +8,14 @@
 #include "gif/composer.h"
 #include "gif/record_window.h"
 #include "pin/pin_manager.h"
+#include "core/auto_update.h"
+#include "core/constants.h"
+#include "core/crash_handler.h"
 #include "core/elevation.h"
+#include "core/explorer_menu.h"
+#include "core/package_identity.h"
+#include "core/pin_inbox.h"
+#include "core/pin_request_queue.h"
 #include "core/game_mode_monitor.h"
 #include "ui/settings_ui/dialog.h"
 #include "ui/welcome/wizard.h"
@@ -36,13 +43,17 @@
 #include "translation/smart_translation_controller.h"
 #include "translation/translation_manager.h"
 #include "ui/dialogs.h"
+#include "ui/motion.h"
 #include "ui/screenshot_countdown.h"
 #include "ui/screenshot_window.h"
 #include "ui/toast.h"
 #include "ui/tray_menu.h"
 #include <QCursor>
+#include <QDir>
 #include <QFile>
 #include <QGuiApplication>
+#include <QStandardPaths>
+#include <thread>
 #include <QMenu>
 #include <QPainter>
 #include <QScreen>
@@ -105,6 +116,7 @@ MainApp::MainApp(int &argc, char **argv) : app(std::make_unique<QApplication>(ar
     // separately by core/theme.
     ui_theme_manager = get_ui_theme()->init(config_manager, app.get());
     connect(ui_theme_manager, &UIThemeManager::theme_changed, this, &MainApp::on_ui_theme_changed);
+    motion::install_popup_fade(*app);
 
     setup_logger(config_manager);
     data_folder::write_deferred_log();
@@ -129,6 +141,7 @@ MainApp::MainApp(int &argc, char **argv) : app(std::make_unique<QApplication>(ar
     }
     I18nManager::load_language(saved_lang);
     log_info(T("语言设置: {lang_name}", {{"lang_name", I18nManager::get_current_language_name()}}), "I18n");
+    update_notification_identity();
     // Updates the tray menu and other UI on language switches.
     connect(I18nManager::instance().language_signals(), &I18nSignals::language_changed, this, &MainApp::on_language_changed);
 
@@ -157,6 +170,9 @@ MainApp::MainApp(int &argc, char **argv) : app(std::make_unique<QApplication>(ar
     update_controller = new UpdateController(this, this);
     app->setProperty("_update_controller", QVariant::fromValue<QObject *>(update_controller));
     connect(app.get(), &QCoreApplication::aboutToQuit, update_controller, &UpdateController::cancel);
+    auto_updater = new AutoUpdater(config_manager, update_controller, this);
+    app->setProperty("_auto_updater", QVariant::fromValue<QObject *>(auto_updater));
+    connect(auto_updater, &AutoUpdater::update_ready, this, &MainApp::notify_update_ready);
 
     set_trim_busy_check([this] { return capture_busy(); });
 
@@ -236,9 +252,14 @@ void MainApp::on_about_to_quit() {
 void MainApp::on_language_changed(const QString &lang_code) {
     log_debug(T("语言已切换到: {lang_code}，更新 UI", {{"lang_code", lang_code}}), "I18n");
     update_tray_menu();
+    update_notification_identity();
+    // The Explorer entry's text is in the interface language.
+    sync_explorer_menu();
     // The settings window is preloaded, so it is rebuilt to pick up the translations.
     // A switch made by the settings window itself rebuilds it once that save is done.
     if (settings_window && !settings_window->saving()) recreate_settings_window();
+    // The clipboard management window is built once and kept, so it is built again too.
+    recreate_clipboard_manage_dialog();
     // Translation windows are created again in the new language.
     TranslationManager::instance()->close_dialog();
 }
@@ -356,7 +377,48 @@ void MainApp::setup_tray() {
     tray_icon->setToolTip(tr_text("jietuba - Click to screenshot"));
     tray_icon->setContextMenu(create_tray_menu(this));
     connect(tray_icon, &QSystemTrayIcon::activated, this, &MainApp::on_tray_activated);
+    connect(tray_icon, &QSystemTrayIcon::messageClicked, this, [this] {
+        if (auto click = std::exchange(tray_message_click_, {})) click();
+    });
     tray_icon->show();
+    // A little later, so Windows has picked up a Start menu shortcut written at this start.
+    if (auto_updater && !auto_updater->updated_from().isEmpty())
+        QTimer::singleShot(3000, this, [this] { show_tray_line(tr_text("Updated to %1").replace("%1", APP_VERSION)); });
+}
+
+void MainApp::show_tray_line(const QString &text, std::function<void()> on_click) {
+    if (!tray_icon) return;
+    tray_message_click_ = std::move(on_click);
+    if (!show_one_line_tray_message(text)) tray_icon->showMessage({}, text, QSystemTrayIcon::NoIcon);
+}
+
+void MainApp::update_notification_identity() {
+    // The Store package names its notifications itself; tests must not touch the Start menu.
+    if (is_packaged() || !test_sandbox_dir().isEmpty()) return;
+    const QString folder = QStandardPaths::writableLocation(QStandardPaths::ApplicationsLocation);
+    const QString name = tr_text("jietuba");
+    QStringList others{QString::fromUtf8("截图吧"), QString::fromUtf8("截圖吧"), QStringLiteral("jietuba")};
+    others.removeAll(name);
+    const QString program = QDir::toNativeSeparators(QCoreApplication::applicationFilePath());
+    // Shell link files go through COM and the disk; start-up does not wait for them.
+    std::thread([folder, name, others, program] {
+        run_thread_guarded("StartMenuShortcut", [&] { ensure_start_menu_shortcut(folder, name, others, program); });
+    }).detach();
+}
+
+void MainApp::show_tray_message(const QString &title, const QString &text, QSystemTrayIcon::MessageIcon icon, std::function<void()> on_click) {
+    if (!tray_icon) return;
+    tray_message_click_ = std::move(on_click);
+    tray_icon->showMessage(title, text, icon);
+}
+
+void MainApp::notify_update_ready(const ReleaseInfo &release) {
+    if (!tray_icon || capture_busy() || update_preparing || (screenshot_window && screenshot_window->isVisible())) {
+        QTimer::singleShot(30000, this, [this, release] { notify_update_ready(release); });
+        return;
+    }
+    show_tray_line(tr_text("Version %1 downloaded, installs at the next start").replace("%1", version_text(release.tag_name)),
+                   [this, release] { update_controller->present(release); });
 }
 
 void MainApp::on_tray_activated(QSystemTrayIcon::ActivationReason reason) {
@@ -497,6 +559,7 @@ void MainApp::on_settings_accepted(SettingsDialog *accepted_window) {
     if (saved.contains("clipboard_enabled_toggle")) set_clipboard_monitoring_enabled(config_manager->get_clipboard_enabled());
     if (accepted_window->hotkeys_saved()) update_hotkey(true);
     if (saved.contains("capture_engine_combo")) apply_capture_engine(config_manager->get_capture_engine());
+    if (saved.contains("explorer_context_menu")) sync_explorer_menu();
     if (saved.contains("translation_target_combo") && TranslationManager::has_instance())
         TranslationManager::instance()->apply_target_lang(config_manager->get_translation_target_lang());
     if (clipboard_window) {
@@ -553,6 +616,14 @@ void MainApp::recreate_settings_window(std::optional<bool> reopen) {
     settings_window->restore_view_state(view);
     open_settings();
 }
+
+void MainApp::accept_pin_requests(PinInbox &inbox, const QStringList &initial_files) {
+    pin_requests_ = new PinRequestQueue([](const QStringList &files) { clipboard::pin_explorer_files(files, QCursor::pos()); }, PinRequestQueue::QUIET_MS, this);
+    if (!initial_files.isEmpty()) pin_requests_->add(initial_files);
+    inbox.set_handler([this](const QStringList &files) { pin_requests_->add(files); });
+}
+
+void MainApp::sync_explorer_menu() { explorer_menu::sync(*config_manager); }
 
 void MainApp::open_settings() {
     if (update_preparing) return;

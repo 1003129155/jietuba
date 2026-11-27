@@ -25,6 +25,7 @@ class AutoScroller;
 class ChangeWatch;
 class FloatingToolbar;
 class InputHub;
+class PinWindow;
 class ToolSettingsManager;
 
 // One grabbed frame: width x height BGRA pixels.
@@ -233,6 +234,14 @@ private:
     void on_pin();
     // Recognizes the text of the current result like the capture toolbar does, then ends the long screenshot.
     void on_text_recognize();
+    // The translate button: overlay or side-by-side, as the settings choose.
+    void on_translate();
+    // Ends the long screenshot and opens the side-by-side translation window, like OCR does.
+    void on_translate_compare();
+    // Pins the result and ends the long screenshot; the translation is laid over the pin.
+    void on_translate_overlay();
+    // Pins image centred on the region and ends the long screenshot; null when no pin could be made.
+    PinWindow *pin_and_close(const QImage &image);
     // Ends the long screenshot and asks where to save the result, like the capture toolbar's Save.
     void on_save();
     void on_quick_save();

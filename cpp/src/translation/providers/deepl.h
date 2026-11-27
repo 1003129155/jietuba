@@ -11,6 +11,8 @@ public:
     QString display_name() const override { return "DeepL API"; }
     bool is_configured() const override { return !api_key_.isEmpty(); }
     TranslationResult translate(const TranslationRequest &request) override;
+    BatchLimits batch_limits() const override { return {50, 5000}; }
+    BatchTranslationResult translate_batch(const QStringList &texts, const TranslationRequest &request) override;
 private:
     static QString to_deepl_code(const QString &language_code);
     static TranslationErrorCode error_code(const QString &message);

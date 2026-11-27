@@ -27,9 +27,11 @@ void emit_event(const QString &event, const QJsonObject &data) {
 }
 
 QJsonObject release(const QString &tag) {
-    return {{"tag_name", tag},          {"title", tag}, {"notes", "Bug fixes"}, {"url", "https://github.com/1003129155/jietuba/releases/latest"},
-            {"asset_name", "package.zip"}, {"arch", "x64"},
-            {"artifact", QJsonObject{{"urls", QJsonArray{"https://example.com/package.zip"}}, {"size", 123}}}};
+    QJsonObject data{{"tag_name", tag},          {"title", tag}, {"notes", "Bug fixes"}, {"url", "https://github.com/1003129155/jietuba/releases/latest"},
+                     {"asset_name", "package.zip"}, {"arch", "x64"},
+                     {"artifact", QJsonObject{{"urls", QJsonArray{"https://example.com/package.zip"}}, {"size", 123}}}};
+    if (const QString published = qEnvironmentVariable("JIETUBA_FAKE_PUBLISHED"); !published.isEmpty()) data.insert("published_at", published);
+    return data;
 }
 }
 

@@ -1,3 +1,4 @@
+#include "ui/fluent_lite/fluent_dialog.h"
 #include "clipboard/controllers/clipboard_controller.h"
 #include "clipboard/core/manager.h"
 #include "clipboard/services/manage_dialog_service.h"
@@ -42,7 +43,7 @@ namespace {
 void reset_page(QWidget &dialog) {
     QTimer::singleShot(0, [] {
         auto *modal = QApplication::activeModalWidget();
-        for (auto *box : modal ? modal->findChildren<QDialogButtonBox *>() : QList<QDialogButtonBox *>())
+        for (auto *box : modal ? modal->findChildren<jietuba::DialogButtonRow *>() : QList<jietuba::DialogButtonRow *>())
             for (auto *button : box->buttons())
                 if (box->buttonRole(button) == QDialogButtonBox::YesRole) button->click();
     });

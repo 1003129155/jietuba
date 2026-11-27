@@ -278,6 +278,9 @@ void CanvasView::on_cursor_tool_update_requested(const QString &tool_id, bool fo
 
 void CanvasView::on_item_auto_select_requested(QGraphicsItem *item) {
     if (is_closed_ || !smart_edit_controller) return;
+    // Left unselected, the wheel sizes the tool's next annotation instead of this one.
+    const QString tool_id = canvas_scene->tool_controller->current_tool_id();
+    if (has_auto_select_setting(tool_id) && !get_tool_settings_manager()->get_app_setting(auto_select_setting(tool_id), true).toBool()) return;
     smart_edit_controller->select_item(item, true);
 }
 

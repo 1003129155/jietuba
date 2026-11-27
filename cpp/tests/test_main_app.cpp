@@ -4,7 +4,9 @@
 #include "canvas/scene.h"
 #include "capture/capture_service.h"
 #include "clipboard/core/manager.h"
+#include "clipboard/ui/dialogs/manage_dialog.h"
 #include "clipboard/ui/windows/clipboard_window.h"
+#include "core/auto_update.h"
 #include "core/background_tasks.h"
 #include "core/constants.h"
 #include "core/game_mode_monitor.h"
@@ -25,6 +27,7 @@
 #include "ui/screenshot_window.h"
 #include "ui/settings_ui/dialog.h"
 #include "ui/toolbar.h"
+#include "ui/update_dialog.h"
 #include "ui/welcome/wizard.h"
 #include <QClipboard>
 #include <QCursor>
@@ -182,6 +185,24 @@ private slots:
         QCOMPARE(main_app_->tray_icon, icon);
         QVERIFY(!create_fallback_app_icon().isNull());
         QVERIFY(!create_app_icon().isNull());
+    }
+
+    // A release downloaded in the background is announced in the tray; clicking that balloon, and
+    // not one shown after it, opens the update window.
+    void aDownloadedUpdateIsAnnouncedInTheTray() {
+        auto *controller = main_app_->update_controller;
+        const auto close = qScopeGuard([controller] {
+            if (controller->dialog) controller->dialog->hide();
+        });
+        const ReleaseInfo release{"release-99.0.0", "99.0.0", "notes", "https://example.com", true, "jietuba_lite-release-99.0.0-x64.zip", "x64", QJsonObject{}};
+        emit main_app_->auto_updater->update_ready(release);
+        main_app_->show_tray_message("other", "other", QSystemTrayIcon::Information);
+        emit main_app_->tray_icon->messageClicked();
+        QVERIFY(!controller->dialog);
+        emit main_app_->auto_updater->update_ready(release);
+        emit main_app_->tray_icon->messageClicked();
+        QTRY_VERIFY(controller->dialog && controller->dialog->isVisible());
+        QCOMPARE(controller->release->tag_name, QString("release-99.0.0"));
     }
 
     void startingAScreenshotCapturesIntoANewWindow() {
@@ -395,6 +416,38 @@ private slots:
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
         QVERIFY(IsWindow(clipboard));
         main_app_->clipboard_window->close();
+    }
+
+    // The clipboard management window is built once and kept, so a language switch builds it again:
+    // shown, it opens again at once; hidden, it is built anew when next opened.
+    void aLanguageSwitchBuildsTheClipboardManagementWindowAgain() {
+        const QString language = I18nManager::get_current_language();
+        const auto restore = qScopeGuard([language] {
+            I18nManager::load_language(language);
+            clipboard::destroy_manage_dialog();
+        });
+        QVERIFY(I18nManager::load_language("en"));
+        QPointer<clipboard::ManageDialog> old_dialog = clipboard::get_manage_dialog();
+        old_dialog->show_and_activate();
+        QTRY_VERIFY(old_dialog->isVisible());
+        QCOMPARE(old_dialog->import_export_btn->text(), QString("Import / Export"));
+
+        QVERIFY(I18nManager::load_language("zh"));
+        QPointer<clipboard::ManageDialog> dialog = clipboard::get_existing_manage_dialog();
+        QVERIFY(dialog && dialog != old_dialog);
+        QTRY_VERIFY(!old_dialog);
+        QVERIFY(dialog->isVisible());
+        const QString zh_text = i18n_tr("Import / Export", "ManageDialog");
+        QVERIFY(zh_text != "Import / Export");
+        QCOMPARE(dialog->import_export_btn->text(), zh_text);
+        QCOMPARE(dialog->reorder_hint->text(), i18n_tr("Drag or press Alt+Up/Down to reorder", "ManageDialog"));
+        QCOMPARE(dialog->windowTitle(), i18n_tr("Clipboard Management", "ManageDialog"));
+
+        dialog->hide();
+        QVERIFY(I18nManager::load_language("en"));
+        QVERIFY(!clipboard::get_existing_manage_dialog());
+        QTRY_VERIFY(!dialog);
+        QCOMPARE(clipboard::get_manage_dialog()->import_export_btn->text(), QString("Import / Export"));
     }
 
     void turningClipboardMonitoringOffAndOnFollowsTheSetting() {

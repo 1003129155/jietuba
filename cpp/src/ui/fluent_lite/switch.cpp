@@ -1,6 +1,7 @@
 #include "ui/fluent_lite/switch.h"
 #include "core/ui_scale.h"
 #include "ui/fluent_lite/theme.h"
+#include "ui/motion.h"
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QPainter>
@@ -10,14 +11,14 @@ namespace jietuba {
 SwitchButton::SwitchButton(QWidget *parent) : QWidget(parent), animation_(new QPropertyAnimation(this, "progress", this)) {
     setCursor(Qt::PointingHandCursor);
     setFocusPolicy(Qt::StrongFocus);
-    animation_->setDuration(145);
-    animation_->setEasingCurve(QEasingCurve::OutCubic);
+    setAttribute(Qt::WA_Hover);
+    animation_->setEasingCurve(motion::decelerate());
     _apply_theme();
     connect(get_ui_theme(), &UIThemeManager::theme_changed, this, [this] { update(); });
 }
 
 void SwitchButton::_apply_theme() {
-    setFixedSize(widget_scaled(this, compact_ ? 32 : 46), widget_scaled(this, compact_ ? 18 : 26));
+    setFixedSize(widget_scaled(this, compact_ ? 32 : 40), widget_scaled(this, compact_ ? 16 : 20));
     update();
 }
 
@@ -44,6 +45,13 @@ void SwitchButton::setChecked(bool checked) {
 
 void SwitchButton::animate() {
     animation_->stop();
+    const int length = motion::duration(motion::MID_MS);
+    // A switch not on screen yet, such as one on a page being built, takes its state at once.
+    if (!isVisible() || length <= 0) {
+        set_progress(checked_ ? 1.0 : 0.0);
+        return;
+    }
+    animation_->setDuration(length);
     animation_->setStartValue(progress_);
     animation_->setEndValue(checked_ ? 1.0 : 0.0);
     animation_->start();
@@ -68,24 +76,42 @@ void SwitchButton::keyPressEvent(QKeyEvent *event) {
 }
 
 void SwitchButton::paintEvent(QPaintEvent *) {
+    const auto &t = ui_tokens(this);
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
-    const QRectF track(0.5, 0.5, width() - 1, height() - 1);
-    const QColor off = QColor::fromString(ui_tokens(this).switch_off);
-    const QColor on = QColor::fromString(ui_tokens(this).accent);
-    int r = static_cast<int>(off.red() + (on.red() - off.red()) * progress_);
-    int g = static_cast<int>(off.green() + (on.green() - off.green()) * progress_);
-    int b = static_cast<int>(off.blue() + (on.blue() - off.blue()) * progress_);
     painter.setOpacity(isEnabled() ? 1.0 : 0.45);
+    const QRectF track(0.5, 0.5, width() - 1, height() - 1);
+    const double radius = track.height() / 2;
+    const QColor on = css_color(t.accent);
+    const QColor off_fill = css_color(t.switch_off_fill);
+    const QColor off_stroke = css_color(t.fg_muted);
+    auto mix = [this](const QColor &from, const QColor &to) {
+        QColor color;
+        color.setRgbF(from.redF() + (to.redF() - from.redF()) * progress_, from.greenF() + (to.greenF() - from.greenF()) * progress_,
+                      from.blueF() + (to.blueF() - from.blueF()) * progress_, from.alphaF() + (to.alphaF() - from.alphaF()) * progress_);
+        return color;
+    };
+    painter.setPen(QPen(mix(off_stroke, on), 1.0));
+    painter.setBrush(mix(off_fill, on));
+    painter.drawRoundedRect(track, radius, radius);
+    // The knob is 3/5 of the height, 7/10 while hovered; its travel spans the track minus a 1/5 margin.
+    const bool hovered = isEnabled() && underMouse();
+    const double knob = height() * (hovered ? 0.7 : 0.6);
+    const double margin = height() * 0.2;
+    const double x = margin - (hovered ? height() * 0.05 : 0) + (width() - 2 * margin - knob + (hovered ? height() * 0.1 : 0)) * progress_;
     painter.setPen(Qt::NoPen);
-    painter.setBrush(QColor(r, g, b));
-    painter.drawRoundedRect(track, track.height() / 2, track.height() / 2);
-    // Measured from the real height, so the knob stays centred at any size.
-    const double margin = height() * 3.0 / 26.0;
-    const double knob = height() - margin * 2;
-    const double x = margin + (width() - knob - margin * 2) * progress_;
-    painter.setBrush(QColor("#FFFFFF"));
-    painter.drawEllipse(QRectF(x, margin, knob, knob));
+    painter.setBrush(mix(off_stroke, QColor("#FFFFFF")));
+    painter.drawEllipse(QRectF(x, (height() - knob) / 2, knob, knob));
+}
+
+void SwitchButton::enterEvent(QEnterEvent *event) {
+    QWidget::enterEvent(event);
+    update();
+}
+
+void SwitchButton::leaveEvent(QEvent *event) {
+    QWidget::leaveEvent(event);
+    update();
 }
 
 LabeledSwitch::LabeledSwitch(const QString &text, QWidget *parent) : QAbstractButton(parent), switch_(new SwitchButton(this)) {
@@ -133,7 +159,7 @@ void LabeledSwitch::paintEvent(QPaintEvent *) {
     const int radius = widget_scaled(this, 4);
     if (hasFocus() || (isEnabled() && underMouse())) {
         painter.setPen(hasFocus() ? QPen(css_color(t.accent), 1) : QPen(Qt::NoPen));
-        painter.setBrush(css_color(t.surface_subtle));
+        painter.setBrush(css_color(t.item_hover));
         painter.drawRoundedRect(bounds, radius, radius);
     }
     auto label = rect().adjusted(widget_scaled(this, 4), 0, -widget_scaled(this, 4), 0);
@@ -142,7 +168,7 @@ void LabeledSwitch::paintEvent(QPaintEvent *) {
         label.setLeft(switch_->geometry().right() + gap);
     else
         label.setRight(switch_->geometry().left() - gap);
-    painter.setPen(css_color(!isEnabled() ? t.text_disabled : underMouse() ? t.text : t.text_muted));
+    painter.setPen(css_color(!isEnabled() ? t.fg_disabled : underMouse() ? t.fg : t.fg_muted));
     painter.drawText(label, Qt::AlignVCenter | (layoutDirection() == Qt::RightToLeft ? Qt::AlignRight : Qt::AlignLeft), text());
 }
 

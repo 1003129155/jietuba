@@ -1,6 +1,7 @@
 #include "ui/base_settings_panel.h"
 #include "core/constants.h"
 #include "core/i18n.h"
+#include "core/platform_utils.h"
 #include "core/theme.h"
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
@@ -20,8 +21,6 @@ namespace jietuba {
 namespace {
 // The panel background is a fixed texture rather than a blur of what lies
 // behind: pin toolbars float over the live desktop with nothing to blur.
-const QColor PANEL_TOP("#fcfdff");
-const QColor PANEL_BOTTOM("#eef2f8");
 // (x ratio, y ratio, base radius, RGBA): muted glows imitating blurred colour behind.
 struct Glow { double fx, fy, base_radius; int r, g, b, a; };
 constexpr Glow PANEL_GLOWS[] = {
@@ -31,9 +30,6 @@ constexpr Glow PANEL_GLOWS[] = {
 };
 constexpr double PANEL_NOISE_OPACITY = 0.015;
 const QColor PANEL_HIGHLIGHT(255, 255, 255, 235);
-const QColor PANEL_INNER_RING(255, 255, 255, 190);
-// A dark translucent outer ring: visible on white screenshots, almost invisible on dark ones.
-const QColor PANEL_OUTER_RING(15, 23, 42, 30);
 
 // 64x64 black noise with random alpha; a fixed seed keeps the texture stable across runs.
 const QImage &panel_noise_tile() {
@@ -156,6 +152,22 @@ void paint_rounded_panel(QWidget *widget) {
     painter.drawPixmap(0, 0, pixmap);
 }
 
+namespace {
+// Qt's Windows 11 style sets the rounded corner preference from an application event
+// filter on every Show; object filters run after it, so turning the frame off here wins.
+class SystemFrameRemover : public QObject {
+public:
+    using QObject::QObject;
+    bool eventFilter(QObject *watched, QEvent *event) override {
+        if (event->type() == QEvent::Show)
+            if (auto *widget = qobject_cast<QWidget *>(watched); widget && widget->isWindow()) disable_native_frame(static_cast<quintptr>(widget->winId()));
+        return false;
+    }
+};
+}
+
+void keep_system_frame_off(QWidget *window) { window->installEventFilter(new SystemFrameRemover(window)); }
+
 QColor accent_color() { return get_theme().theme_color(); }
 
 QString line_style_of_pen(const QPen &pen) {
@@ -228,6 +240,38 @@ QString combo_popup_qss() {
         }
     )").arg(rgba(DIVIDER_COLOR), accent_soft, CONTROL_INK.name(), CSS_FONT_FAMILY).arg(scaled(12)).arg(scaled(2)).arg(scaled(3)).arg(scaled(6)).arg(scaled(18))
         .arg(rgba(CONTROL_FILL));
+}
+
+QString panel_menu_qss() {
+    const auto accent = accent_color();
+    const auto accent_soft = QString("rgba(%1, %2, %3, 0.3)").arg(accent.red()).arg(accent.green()).arg(accent.blue());
+    return QString(R"(
+        QMenu {
+            background: white;
+            border: 1px solid %1;
+            padding: %2px;
+            font-family: %3;
+            font-size: %4px;
+            color: %5;
+        }
+        QMenu::item {
+            padding: %6px %7px %6px %8px;
+            background: transparent;
+            color: %5;
+        }
+        QMenu::item:selected {
+            background-color: %9;
+        }
+        QMenu::item:disabled {
+            color: %10;
+        }
+        QMenu::separator {
+            height: 1px;
+            background: %1;
+            margin: %2px %7px;
+        }
+    )").arg(rgba(DIVIDER_COLOR)).arg(scaled(3)).arg(CSS_FONT_FAMILY).arg(scaled(12)).arg(CONTROL_INK.name()).arg(scaled(5)).arg(scaled(14)).arg(scaled(26))
+        .arg(accent_soft).arg(CONTROL_SUB.name());
 }
 
 QString build_settings_panel_stylesheet(bool combo_enabled, const QString &, int combo_min_width, int combo_max_width, bool) {
@@ -596,6 +640,7 @@ HoverPopup::HoverPopup(QWidget *parent) : QWidget(parent) {
     setAttribute(Qt::WA_TranslucentBackground, true);
     setFocusPolicy(Qt::NoFocus);
     setObjectName("HoverPopup");
+    keep_system_frame_off(this);
     HoverPopup::apply_scale();
     close_timer_.setSingleShot(true);
     close_timer_.setInterval(CLOSE_DELAY_MS);

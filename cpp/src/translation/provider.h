@@ -22,18 +22,42 @@ struct ProviderField {
     // Masked, always with a show/hide button.
     bool secret = false;
     QString description;
+    // Folded under "Advanced" in the settings: rarely changed once the service works.
+    bool advanced = false;
     static ProviderField text(const QString &key, const QString &label, const QString &placeholder = {}, bool secret = false) {
         return ProviderField{Text, key, label, placeholder, secret, {}};
     }
     static ProviderField model(const QString &key, const QString &label, const QString &placeholder = {}) { return ProviderField{Model, key, label, placeholder, false, {}}; }
     static ProviderField toggle(const QString &key, const QString &label, const QString &description = {}) { return ProviderField{Toggle, key, label, {}, false, description}; }
+    ProviderField as_advanced() const {
+        ProviderField field = *this;
+        field.advanced = true;
+        return field;
+    }
 };
+
+// How a caller with many texts may load a service: requests in flight at once, and the least
+// time between the starts of two of them.
+struct RequestPacing {
+    static constexpr int MAX_PARALLEL = 16;
+    static constexpr int MAX_INTERVAL_MS = 5000;
+    int parallel = 4;
+    int interval_ms = 0;
+};
+
+// The two rows every provider page ends its options with. The field keys are
+// <prefix>_parallel_requests and <prefix>_request_interval_ms; the placeholders show defaults.
+std::vector<ProviderField> pacing_fields(const QString &prefix, const RequestPacing &defaults);
 
 struct ProviderMetadata {
     QString provider_id;
     QString display_name;
+    // Listed with the large language models rather than the translation APIs.
+    bool language_model = false;
     std::vector<ProviderField> credentials;
     std::vector<ProviderField> options;
+    // Request pacing; kept apart from options, which are the service's own settings.
+    std::vector<ProviderField> pacing;
     // Which "general translation options" this provider uses; for UI visibility only,
     // requests always carry them and other providers ignore them.
     QSet<QString> supported_request_options;
@@ -41,7 +65,7 @@ struct ProviderMetadata {
     QString notice;
     QString help_label;
     QString help_url;
-    // Credentials plus provider options: everything the provider's page shows.
+    // Credentials, provider options and pacing: everything the provider's page shows.
     std::vector<ProviderField> all_fields() const;
 };
 
@@ -55,6 +79,19 @@ public:
     virtual bool is_configured() const = 0;
     // One synchronous request.
     virtual TranslationResult translate(const TranslationRequest &request) = 0;
+    // What one translate_batch() request may carry; one text when it is not implemented.
+    // max_chars counts the texts' UTF-16 units, 0 for no limit.
+    struct BatchLimits {
+        int max_texts = 1;
+        int max_chars = 0;
+    };
+    virtual BatchLimits batch_limits() const { return {}; }
+    bool supports_batch() const { return batch_limits().max_texts > 1; }
+    // Several texts in one request, in the same order. request carries the target
+    // language and the options; its text is ignored. An entry the service could not
+    // translate comes back empty. A failure makes the caller split the texts into
+    // smaller requests, so nothing is lost if a reply breaks the one-to-one contract.
+    virtual BatchTranslationResult translate_batch(const QStringList &texts, const TranslationRequest &request);
     int effective_timeout(const TranslationRequest &request) const { return std::max(request.timeout, min_timeout); }
     virtual std::optional<QSet<QString>> supported_target_languages() const { return std::nullopt; }
     // The name shown in the translation window; translated_name is display_name
@@ -64,6 +101,13 @@ public:
     // it. Throws std::runtime_error with a message for the user.
     virtual QStringList list_models();
     int min_timeout = 0;
+    // For a caller with many texts: how many requests the service takes at once, and the
+    // least time between the starts of two of them.
+    int parallel_requests = RequestPacing{}.parallel;
+    int request_interval_ms = RequestPacing{}.interval_ms;
+    // The configured pacing, or defaults for a blank or unusable value: the settings are text,
+    // so a typo must not stall a translation. Called at the end of a provider's constructor.
+    void apply_pacing(const RequestPacing &defaults, const QVariantMap &config);
     // Monthly free quota in characters that the service guards; 0 for none.
     qint64 quota_limit_chars = 0;
 };

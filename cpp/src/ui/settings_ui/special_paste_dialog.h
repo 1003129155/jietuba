@@ -1,6 +1,6 @@
 #pragma once
 #include "settings/special_paste.h"
-#include <QDialog>
+#include "ui/fluent_lite/fluent_dialog.h"
 #include <QMap>
 
 class QStackedWidget;
@@ -12,7 +12,7 @@ class ReorderableRowList;
 class SegmentedWidget;
 class TransparentPushButton;
 
-class SpecialPasteDialog : public QDialog {
+class SpecialPasteDialog : public FluentDialog {
     Q_OBJECT
 public:
     explicit SpecialPasteDialog(const QList<special_paste::Entry> &entries, QWidget *parent = nullptr);

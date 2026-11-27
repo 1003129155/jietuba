@@ -132,8 +132,8 @@ private:
         p.setOpacity(p.opacity() * shown);
         const QRectF bubble = box.translated(0, -4 * hop);
         draw_shadow(p, theme, bubble, 8);
-        p.setPen(QPen(QColor(theme.border), 0.8));
-        p.setBrush(QColor(theme.panel));
+        p.setPen(QPen(QColor(theme.demo.border), 0.8));
+        p.setBrush(QColor(theme.demo.panel));
         p.drawRoundedRect(bubble, 8, 8);
         demo_icon(FluentIcon::Folder).paint(&p, bubble.adjusted(10, 7, -10, -7).toRect());
         p.restore();
@@ -162,7 +162,7 @@ private:
         }
         fly(p, chart_region(screen), folder, t, SEND_MS[SCREENSHOTS], [&](const QRectF &box) {
             p.setPen(Qt::NoPen);
-            p.setBrush(QColor(theme.panel));
+            p.setBrush(QColor(theme.demo.panel));
             p.drawRect(box);
             draw_chart(p, theme, box.adjusted(box.width() * 0.04, box.height() * 0.05, -box.width() * 0.04, -box.height() * 0.05));
             p.setPen(QPen(theme_color(), 1.4));
@@ -196,13 +196,13 @@ private:
         p.save();
         p.setOpacity(p.opacity() * in);
         draw_shadow(p, theme, win, 6);
-        p.setPen(QPen(QColor(theme.border), 0.8));
-        p.setBrush(QColor(theme.sidebar));
+        p.setPen(QPen(QColor(theme.demo.border), 0.8));
+        p.setBrush(QColor(theme.demo.sidebar));
         p.drawRoundedRect(win, 6, 6);
         // The sidebar: the logo, then the pages with their feature colours, the first current.
         const double nav_w = win.width() * 0.3;
         p.setPen(Qt::NoPen);
-        p.setBrush(with_alpha(theme.text, 150));
+        p.setBrush(with_alpha(theme.demo.text, 150));
         p.drawRoundedRect(QRectF(win.x() + 7, win.y() + 7, 7, 7), 2, 2);
         p.drawRoundedRect(QRectF(win.x() + 17, win.y() + 9.5, 18, 2.5), 1.2, 1.2);
         const char *tones[] = {"neutral", "neutral", "capture", "pin", "clipboard", "translate"};
@@ -217,16 +217,16 @@ private:
             const auto &tone = feature_tone(tones[i]);
             p.setBrush(QColor(theme.is_dark ? tone.dark_fg : tone.light_fg));
             p.drawRoundedRect(QRectF(item.x() + 4, item.y() + 2, 5, 5), 1.2, 1.2);
-            p.setBrush(with_alpha(theme.text, 90));
+            p.setBrush(with_alpha(theme.demo.text, 90));
             p.drawRoundedRect(QRectF(item.x() + 12, item.center().y() - 1, item.width() * (0.45 + 0.08 * (i % 3)), 2), 1, 1);
         }
         // The page: its title and a card of three rows with switches.
         const QRectF page(win.x() + nav_w, win.y() + 6, win.width() - nav_w - 6, win.height() - 12);
-        p.setBrush(with_alpha(theme.text, 170));
+        p.setBrush(with_alpha(theme.demo.text, 170));
         p.drawRoundedRect(QRectF(page.x() + 2, page.y() + 2, page.width() * 0.4, 3.5), 1.7, 1.7);
         const QRectF card(page.x(), page.y() + 12, page.width(), page.height() - 14);
-        p.setPen(QPen(QColor(theme.border), 0.8));
-        p.setBrush(QColor(theme.panel));
+        p.setPen(QPen(QColor(theme.demo.border), 0.8));
+        p.setBrush(QColor(theme.demo.panel));
         p.drawRoundedRect(card, 5, 5);
         const char *row_tones[] = {"capture", "capture", "neutral"};
         const double row_h = card.height() / 3;
@@ -234,29 +234,29 @@ private:
         for (int row = 0; row < 3; ++row) {
             const QRectF line(card.x() + 5, card.y() + row * row_h, card.width() - 10, row_h);
             if (row) {
-                p.setPen(QPen(QColor(theme.separator), 0.6));
+                p.setPen(QPen(QColor(theme.demo.separator), 0.6));
                 p.drawLine(QPointF(line.x() + 12, line.top()), QPointF(line.right(), line.top()));
             }
             p.setPen(Qt::NoPen);
             const auto &tone = feature_tone(row_tones[row]);
             p.setBrush(QColor(theme.is_dark ? tone.dark_bg : tone.light_bg));
             p.drawRoundedRect(QRectF(line.x(), line.center().y() - 4.5, 9, 9), 2.2, 2.2);
-            p.setBrush(with_alpha(theme.text, 110));
+            p.setBrush(with_alpha(theme.demo.text, 110));
             p.drawRoundedRect(QRectF(line.x() + 13, line.center().y() - 3, line.width() * 0.4, 2.2), 1.1, 1.1);
-            p.setBrush(with_alpha(theme.text_soft, 90));
+            p.setBrush(with_alpha(theme.demo.text_soft, 90));
             p.drawRoundedRect(QRectF(line.x() + 13, line.center().y() + 1.5, line.width() * 0.3, 1.8), 0.9, 0.9);
             // The switch; the middle one flips on.
             const double on = row == 0 ? 1.0 : row == 1 ? flip : 0.0;
             const QRectF track(line.right() - 16, line.center().y() - 3.5, 14, 7);
-            p.setBrush(on > 0.5 ? QColor(theme.accent) : with_alpha(theme.text_soft, 90));
+            p.setBrush(on > 0.5 ? QColor(theme.accent) : with_alpha(theme.demo.text_soft, 90));
             p.drawRoundedRect(track, 3.5, 3.5);
             p.setBrush(QColor("#FFFFFF"));
             p.drawEllipse(QPointF(track.x() + 3.5 + 7 * on, track.center().y()), 2.5, 2.5);
         }
         p.restore();
         fly(p, QRectF(card.right() - 34, card.bottom() - 18, 28, 14), folder, t, SEND_MS[SETTINGS], [&](const QRectF &box) {
-            p.setPen(QPen(QColor(theme.border_strong), 0.8));
-            p.setBrush(QColor(theme.panel));
+            p.setPen(QPen(QColor(theme.demo.border_strong), 0.8));
+            p.setBrush(QColor(theme.demo.panel));
             p.drawRoundedRect(box, 2.5, 2.5);
             demo_icon(FluentIcon::Document).paint(&p, QRectF(box.x() + 2, box.center().y() - box.height() * 0.3, box.height() * 0.6, box.height() * 0.6).toRect());
         });

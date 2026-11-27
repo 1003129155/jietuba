@@ -46,19 +46,19 @@ QString object_key(QByteArray member) {
 }
 const QStringList &default_order() {
     static const QStringList order{
-        "long_screenshot", "save", "quick_save", "screenshot_translate", "text_recognize", "scan_code", "gif",
+        "long_screenshot", "save", "quick_save", "upload", "screenshot_translate", "text_recognize", "scan_code", "gif",
         "pen", "highlighter", "mosaic", "spotlight", "watermark", "arrow", "number", "rect", "ellipse", "text", "eraser",
         "undo", "redo", "cancel", "pin", "confirm"};
     return order;
 }
 // Later, rarely used features are folded by default so the default toolbar does not keep growing.
-const LayoutProfile SCREENSHOT{default_order(), {"quick_save", "text_recognize", "scan_code", "spotlight", "watermark"}, {"confirm"}, SETTING_KEY};
+const LayoutProfile SCREENSHOT{default_order(), {"quick_save", "upload", "scan_code", "spotlight", "watermark"}, {"confirm"}, SETTING_KEY};
 const LayoutProfile PIN{
-    {"save", "copy",
+    {"save", "quick_save", "upload", "copy", "screenshot_translate",
      "pen", "highlighter", "mosaic", "spotlight", "watermark", "arrow", "number", "rect", "ellipse", "text",
      "eraser",
      "undo", "redo"},
-    {"spotlight", "watermark"}, {}, "pin_toolbar_layout"};
+    {"quick_save", "upload", "spotlight", "watermark", "screenshot_translate"}, {}, "pin_toolbar_layout"};
 const LayoutProfile ANNOTATION{
     {"annotation_pointer",
      "pen", "highlighter", "arrow", "number", "rect", "ellipse", "text", "eraser",

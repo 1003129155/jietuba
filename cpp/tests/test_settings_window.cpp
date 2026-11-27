@@ -5,6 +5,7 @@
 #include "settings/data_folder.h"
 #include "core/elevation.h"
 #include "core/i18n.h"
+#include "core/package_identity.h"
 #include "core/resource_manager.h"
 #include "ocr/ocr_manager.h"
 #include "ocr/ppocr_models.h"
@@ -12,24 +13,37 @@
 #include "settings/tool_settings.h"
 #include "translation/speech_service.h"
 #include "core/ui_scale.h"
+#include "core/updater_process.h"
 #include "ui/color_picker_dialog.h"
+#include "ui/dialogs.h"
+#include "ui/fluent_lite/buttons.h"
 #include "ui/fluent_lite/cards.h"
+#include "ui/fluent_lite/fold_box.h"
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/labels.h"
 #include "ui/fluent_lite/navigation.h"
 #include "ui/fluent_lite/segmented.h"
+#include "ui/fluent_lite/titlebar.h"
 #include "ui/hotkey_edit.h"
 #include "ui/inapp_key_edit.h"
 #include "ui/settings_ui/dialog.h"
 #include "ui/settings_ui/mouse_binding_editor.h"
+#include "ui/settings_ui/page_outline.h"
 #include "ui/settings_ui/components.h"
 #include "ui/settings_ui/pages.h"
 #include "ui/settings_ui/search.h"
+#include "ui/settings_ui/color_format_dialog.h"
+#include "ui/settings_ui/ppocr_model_dialog.h"
+#include "ui/settings_ui/special_paste_dialog.h"
+#include "ui/settings_ui/upload_target_dialog.h"
+#include "ui/toolbar_layout_dialog.h"
+#include "upload/s3_target.h"
 #include "ui/toolbar_layout.h"
 #include "ui/welcome/demo_paint.h"
 #include "ui/welcome/pages.h"
 #include "ui/welcome/wizard.h"
 #include "caption_check.h"
+#include "stepped_animation_clock.h"
 #include <QApplication>
 #include <QColorDialog>
 #include <QComboBox>
@@ -84,7 +98,7 @@ void answer_next(bool yes) {
             modal->reject();
             return;
         }
-        for (auto *box : modal->findChildren<QDialogButtonBox *>())
+        for (auto *box : modal->findChildren<jietuba::DialogButtonRow *>())
             for (auto *button : box->buttons())
                 if (box->buttonRole(button) == QDialogButtonBox::YesRole || box->buttonRole(button) == QDialogButtonBox::AcceptRole) {
                     button->click();
@@ -93,6 +107,30 @@ void answer_next(bool yes) {
         modal->accept();
     });
     timer->start(20);
+}
+
+// Runs act on the upload target dialog once it opens; the dialog is closed afterwards if act left it open.
+void drive_upload_dialog(std::function<void(UploadTargetDialog *)> act) {
+    auto *timer = new QTimer;
+    QElapsedTimer waited;
+    waited.start();
+    QObject::connect(timer, &QTimer::timeout, [timer, act, waited] {
+        auto *dialog = qobject_cast<UploadTargetDialog *>(QApplication::activeModalWidget());
+        if (!dialog && waited.elapsed() < 3000) return;
+        timer->stop();
+        timer->deleteLater();
+        if (!dialog) return;
+        act(dialog);
+        if (dialog->isVisible()) dialog->reject();
+    });
+    timer->start(20);
+}
+
+void fill_upload_target(UploadTargetDialog *dialog, const QString &name, const QString &bucket) {
+    dialog->name_edit->setText(name);
+    dialog->bucket_edit->setText(bucket);
+    dialog->access_key_edit->setText("AKID");
+    dialog->secret_edit->setText("secret");
 }
 
 // Clicks "Reset This Page" and confirms its question.
@@ -110,6 +148,20 @@ void reset_page(QWidget &dialog) {
 QWidget *flash_over(QWidget *target) {
     for (auto *flash : target->parentWidget()->findChildren<QWidget *>("SettingsSearchFlash", Qt::FindDirectChildrenOnly))
         if (flash->geometry().contains(target->geometry())) return flash;
+    return nullptr;
+}
+
+// A provider's chip in the translation page's API services group.
+QAbstractButton *provider_chip(SettingsDialog &dialog, const QString &provider_id) {
+    for (auto *button : dialog.attr_widget("translation_provider_picker")->findChildren<QAbstractButton *>())
+        if (button->property("provider_id").toString() == provider_id) return button;
+    return nullptr;
+}
+
+// The button captioned text in a provider's card.
+QPushButton *card_button(SettingsDialog &dialog, const QString &provider_id, const QString &text) {
+    for (auto *button : dialog.provider_sections.value(provider_id)->findChildren<QPushButton *>())
+        if (button->text() == text) return button;
     return nullptr;
 }
 
@@ -148,6 +200,38 @@ public:
 };
 
 // Records the URLs the dialog asks the desktop to open.
+// The groups a page lists in its outline: visible card groups and section cards, top to bottom.
+void collect_page_groups(QWidget *root, std::vector<QWidget *> &out) {
+    for (auto *child : root->findChildren<QWidget *>(Qt::FindDirectChildrenOnly)) {
+        if (child->isHidden() && child->testAttribute(Qt::WA_WState_ExplicitShowHide)) continue;
+        if (qobject_cast<SettingCardGroup *>(child) || qobject_cast<SectionCard *>(child)) out.push_back(child);
+        else collect_page_groups(child, out);
+    }
+}
+
+std::vector<QWidget *> page_groups(QScrollArea *scroll) {
+    std::vector<QWidget *> groups;
+    collect_page_groups(scroll->widget(), groups);
+    std::stable_sort(groups.begin(), groups.end(), [scroll](QWidget *a, QWidget *b) {
+        return a->mapTo(scroll->widget(), QPoint()).y() < b->mapTo(scroll->widget(), QPoint()).y();
+    });
+    return groups;
+}
+
+QString group_title_of(QWidget *group) {
+    if (auto *card_group = qobject_cast<SettingCardGroup *>(group)) return card_group->titleLabel->text();
+    return qobject_cast<SectionCard *>(group)->titleLabel->text();
+}
+
+int group_top_of(QScrollArea *scroll, QWidget *group) { return group->mapTo(scroll->widget(), QPoint()).y(); }
+
+// The card group of the dialog's pages with this title, or null.
+SettingCardGroup *group_titled(QWidget &dialog, const QString &title) {
+    for (auto *group : dialog.findChildren<SettingCardGroup *>())
+        if (group->titleLabel->text() == title) return group;
+    return nullptr;
+}
+
 class UrlCatcher : public QObject {
     Q_OBJECT
 public:
@@ -174,6 +258,63 @@ private slots:
         // the defaults (Ctrl+1, Ctrl+2); a rarely used one keeps these tests independent of it.
         config_->set_hotkey("ctrl+alt+shift+f10");
         config_->set_clipboard_hotkey("");
+    }
+
+    // The image quality slider on the screenshot page: it shows the stored quality, a change is stored by
+    // the autosave, and resetting the page brings the default back.
+    void imageQualityCardStoresAndResets() {
+        config_->set_screenshot_quality(70);
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.build_all_pages();
+        auto *slider = dialog.attr<ValueSlider>("screenshot_quality_slider");
+        QVERIFY(slider);
+        QCOMPARE(slider->slider()->minimum(), 1);
+        QCOMPARE(slider->slider()->maximum(), 100);
+        QCOMPARE(slider->value(), 70);
+        QCOMPARE(slider->valueLabel()->text(), QString("70"));
+        slider->setValue(42);
+        QCOMPARE(slider->valueLabel()->text(), QString("42"));
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_screenshot_quality(), 42);
+        dialog.on_nav_changed(1, "capture");
+        reset_page(dialog);
+        QCOMPARE(slider->value(), config_->app_defaults().value("screenshot_quality").toInt());
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_screenshot_quality(), 85);
+    }
+
+    // The PNG compression and PDF page size cards on the screenshot page: their choices, stored by the autosave and reset with the page.
+    void pngAndPdfCardsStoreAndReset() {
+        config_->set_png_compression("medium");
+        config_->set_pdf_page_size("image");
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.build_all_pages();
+        auto *png = dialog.attr<QComboBox>("png_compression_combo");
+        auto *pdf = dialog.attr<QComboBox>("pdf_page_size_combo");
+        QVERIFY(png && pdf);
+        QCOMPARE(png->count(), 3);
+        QCOMPARE(pdf->count(), 3);
+        QCOMPARE(png->currentData().toString(), QString("medium"));
+        QCOMPARE(pdf->currentData().toString(), QString("image"));
+        png->setCurrentIndex(png->findData("high"));
+        pdf->setCurrentIndex(pdf->findData("a4_landscape"));
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_png_compression(), QString("high"));
+        QCOMPARE(config_->get_pdf_page_size(), QString("a4_landscape"));
+        // A new window shows what was stored.
+        {
+            SettingsDialog again(config_, config_->get_hotkey());
+            again.build_all_pages();
+            QCOMPARE(again.attr<QComboBox>("png_compression_combo")->currentData().toString(), QString("high"));
+            QCOMPARE(again.attr<QComboBox>("pdf_page_size_combo")->currentData().toString(), QString("a4_landscape"));
+        }
+        dialog.on_nav_changed(1, "capture");
+        reset_page(dialog);
+        QCOMPARE(png->currentData().toString(), QString("medium"));
+        QCOMPARE(pdf->currentData().toString(), QString("image"));
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_png_compression(), QString("medium"));
+        QCOMPARE(config_->get_pdf_page_size(), QString("image"));
     }
 
     void everyPageBuilds() {
@@ -323,9 +464,9 @@ private slots:
             scale.set_percent(before);
             get_ui_scale().set_percent(panel_before);
         });
-        // 575 outside the card and for its title, 302 for the rest of the card; at 150% each part is
-        // rounded half to even: 862 + 96 + 321 + 36.
-        for (const auto &[percent, expected] : {std::pair{100, 877}, std::pair{150, 1315}, std::pair{200, 1754}}) {
+        // 561 outside the card and for its title, 348 for the rest of the widest row; at 150% each part is
+        // rounded half to even.
+        for (const auto &[percent, expected] : {std::pair{100, 909}, std::pair{150, 1364}, std::pair{200, 1818}}) {
             scale.set_percent(percent);
             get_ui_scale().set_percent(100);
             SettingsDialog dialog(config_, config_->get_hotkey());
@@ -345,7 +486,7 @@ private slots:
         QCOMPARE(dialog.minimumWidth(), 1280);
         QCOMPARE(dialog.width(), 1280);
         dialog.fit_to_available({2560, 1392});
-        QCOMPARE(dialog.minimumWidth(), 1315);
+        QCOMPARE(dialog.minimumWidth(), 1364);
         QCOMPARE(dialog.width(), 1575);
     }
 
@@ -635,8 +776,9 @@ private slots:
         QCOMPARE(toggle->isChecked(), default_value);
     }
 
-    // The hotkey's kinds have a group of their own, second to last above the pin keys, one switch
-    // each; formatting, which the clipboard window's pins follow too, stays with the behaviour.
+    // The hotkey's kinds have a group of their own, third to last, one switch each, with the
+    // Explorer entry's group and the pin keys after it; formatting, which the clipboard window's
+    // pins follow too, stays with the behaviour.
     void pinClipboardKindsAndFormattingSaveAndReset() {
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.show();
@@ -655,7 +797,7 @@ private slots:
         QVERIFY(own && group_of(text) == own && group_of(files) == own);
         auto groups = own->parentWidget()->findChildren<SettingCardGroup *>(Qt::FindDirectChildrenOnly);
         std::sort(groups.begin(), groups.end(), [](QWidget *a, QWidget *b) { return a->y() < b->y(); });
-        QCOMPARE(groups.indexOf(own), groups.size() - 2);
+        QCOMPARE(groups.indexOf(own), groups.size() - 3);
         QVERIFY(!groups.last()->findChildren<QPushButton *>().isEmpty());
         QVERIFY(group_of(formatting) == group_of(dialog.attr_widget("pin_auto_toolbar_toggle")));
         // Stacked, one row per kind.
@@ -690,6 +832,118 @@ private slots:
         QVERIFY(config_->get_pin_clipboard_file());
         QVERIFY(config_->get_pin_text_formatting());
         dialog.hide();
+    }
+
+    // Select After Drawing folds its switch rows, one per tool, into a single row whose summary names
+    // what is off; each tool saves on its own and the screenshot page resets them.
+    void autoSelectRowsFoldSummarizeSaveAndReset() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.on_nav_changed(1, "capture");
+        auto *summary = dialog.attr<QLabel>("auto_select_summary");
+        QList<SwitchSettingCard *> rows;
+        for (const auto &tool : AUTO_SELECT_TOOLS) rows << dialog.attr<SwitchSettingCard>(auto_select_setting(tool.tool_id) + "_toggle");
+        QVERIFY(summary && !rows.contains(nullptr));
+        auto *number = dialog.attr<SwitchSettingCard>("auto_select_number_toggle");
+        auto *rect = dialog.attr<SwitchSettingCard>("auto_select_rect_toggle");
+        SettingExpander *expander = nullptr;
+        for (QWidget *parent = number->parentWidget(); parent && !expander; parent = parent->parentWidget()) expander = qobject_cast<SettingExpander *>(parent);
+        QVERIFY(expander && !expander->isExpanded());
+        QVERIFY(summary->isVisible() && !number->isVisible());
+        expander->arrow()->click();
+        QVERIFY(number->isVisible());
+
+        for (auto *row : rows) QVERIFY(row->isChecked());
+        QCOMPARE(summary->text(), settings_tr("All On"));
+        number->setChecked(false);
+        QCOMPARE(summary->text(), settings_tr("Off: %1").arg(settings_tr("Number")));
+        rect->setChecked(false);
+        QCOMPARE(summary->text(), QCoreApplication::translate("SettingsDialog", "%n Off", nullptr, 2));
+        QVERIFY(dialog.apply_settings());
+        QVERIFY(!config_->get_auto_select_number());
+        QVERIFY(!config_->get_auto_select_rect());
+        QVERIFY(config_->get_auto_select_arrow() && config_->get_auto_select_ellipse());
+        {
+            SettingsDialog again(config_, config_->get_hotkey());
+            again.on_nav_changed(1, "capture");
+            QVERIFY(!again.attr<SwitchSettingCard>("auto_select_number_toggle")->isChecked());
+            QCOMPARE(again.attr<QLabel>("auto_select_summary")->text(), QCoreApplication::translate("SettingsDialog", "%n Off", nullptr, 2));
+        }
+        for (auto *row : rows) row->setChecked(false);
+        QCOMPARE(summary->text(), settings_tr("All Off"));
+        // Sized for its longest text from the start, so the control column never cuts it short.
+        QVERIFY(summary->width() >= summary->sizeHint().width());
+        reset_page(dialog);
+        for (auto *row : rows) QVERIFY(row->isChecked());
+        QCOMPARE(summary->text(), settings_tr("All On"));
+        QVERIFY(dialog.apply_settings());
+        QVERIFY(config_->get_auto_select_number());
+        dialog.hide();
+    }
+
+    // The Explorer entry's group follows the clipboard hotkey's; its choice saves and resets with the page.
+    void explorerMenuChoiceSavesAndResets() {
+        config_->set_explorer_context_menu("off");
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.on_nav_changed(11, "pin");
+        auto *combo = qobject_cast<QComboBox *>(dialog.behavior_control("explorer_context_menu"));
+        QVERIFY(combo);
+        QStringList modes;
+        for (int i = 0; i < combo->count(); ++i) modes << combo->itemData(i).toString();
+        QCOMPARE(modes, QStringList({"off", "images", "images_text"}));
+        QCOMPARE(combo->itemText(0), settings_tr("Off"));
+        QCOMPARE(combo->itemText(1), settings_tr("Images"));
+        QCOMPARE(combo->itemText(2), settings_tr("Images and Text Files"));
+        QCOMPARE(combo->currentData().toString(), QString("off"));
+        const auto group_of = [](QWidget *widget) -> SettingCardGroup * {
+            for (QWidget *w = widget; w; w = w->parentWidget())
+                if (auto *group = qobject_cast<SettingCardGroup *>(w)) return group;
+            return nullptr;
+        };
+        auto *own = group_of(combo);
+        QVERIFY(own);
+        QCOMPARE(own->titleLabel->text(), settings_tr("File Explorer"));
+        auto groups = own->parentWidget()->findChildren<SettingCardGroup *>(Qt::FindDirectChildrenOnly);
+        std::sort(groups.begin(), groups.end(), [](QWidget *a, QWidget *b) { return a->y() < b->y(); });
+        QCOMPARE(groups[groups.indexOf(own) - 1]->titleLabel->text(), settings_tr("Pin from Clipboard"));
+        // Nothing is written until the choice changes.
+        QVERIFY(dialog.apply_settings());
+        QVERIFY(dialog.saved_keys().isEmpty());
+        combo->setCurrentIndex(combo->findData(QString("images_text")));
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_explorer_context_menu(), QString("images_text"));
+        QVERIFY(dialog.saved_keys().contains("explorer_context_menu"));
+        {
+            SettingsDialog again(config_, config_->get_hotkey());
+            again.on_nav_changed(11, "pin");
+            auto *loaded = qobject_cast<QComboBox *>(again.behavior_control("explorer_context_menu"));
+            QVERIFY(loaded);
+            QCOMPARE(loaded->currentData().toString(), QString("images_text"));
+        }
+        reset_page(dialog);
+        QCOMPARE(combo->currentData().toString(), QString("off"));
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_explorer_context_menu(), QString("off"));
+        QVERIFY(dialog.saved_keys().contains("explorer_context_menu"));
+        dialog.hide();
+    }
+
+    // Windows 11 hides a registry entry under "Show more options"; the packaged build's entry is on the first level.
+    void explorerMenuCardTellsWhereTheEntryIsPerBuild() {
+        const auto description = [this](bool packaged) {
+            set_packaged_for_test(packaged);
+            SettingsDialog dialog(config_, config_->get_hotkey());
+            dialog.on_nav_changed(11, "pin");
+            for (QWidget *w = dialog.behavior_control("explorer_context_menu"); w; w = w->parentWidget())
+                if (auto *card = qobject_cast<SettingCard *>(w)) return card->contentLabel->text();
+            return QString();
+        };
+        const auto restore = qScopeGuard([] { set_packaged_for_test(std::nullopt); });
+        const QString portable = description(false), packaged = description(true);
+        QCOMPARE(portable, settings_tr("Right-click files in File Explorer and choose \"Pin to Screen with jietuba\". Windows 11 lists it under Show more options."));
+        QCOMPARE(packaged, settings_tr("Right-click files in File Explorer and choose \"Pin to Screen with jietuba\"."));
+        QVERIFY(portable != packaged);
     }
 
     void captureEngineComboLoadsSavesAndResets() {
@@ -1071,7 +1325,6 @@ private slots:
         ToolSettingsManager config(settings);
         SettingsDialog dialog(&config, config.get_hotkey());
         dialog.on_nav_changed(10, "mouse");
-        dialog.mouse_inapp_tabs->setCurrentItem("long_screenshot");
         QCOMPARE(LONG_SCREENSHOT_MOUSE_ACTIONS().size(), size_t(5));
         for (const auto &action : LONG_SCREENSHOT_MOUSE_ACTIONS()) {
             QVERIFY(get_long_screenshot_mouse_binding(&config, action.key).isEmpty());
@@ -1118,22 +1371,27 @@ private slots:
         }
     }
 
-    void shortcutTabTranslationsHaveExpectedText() {
+    // Each language names the window in its own words: Japanese and Korean call the full-screen capture a screen.
+    void shortcutGroupTranslationsHaveExpectedText() {
         const auto language = I18nManager::get_current_language();
         const auto restore = qScopeGuard([&] { I18nManager::load_language(language); });
         const QMap<QString, QStringList> expected{
-            {"zh", {QString::fromUtf8("截图"), QString::fromUtf8("长截图"), QString::fromUtf8("钉图"), QString::fromUtf8("剪贴板"), QString::fromUtf8("标注工具")}},
-            {"zh_TW", {QString::fromUtf8("截圖"), QString::fromUtf8("長截圖"), QString::fromUtf8("釘圖"), QString::fromUtf8("剪貼簿"), QString::fromUtf8("標註工具")}},
-            {"en", {"Screenshot", "Long Screenshot", "Pin", "Clipboard", "Annotation Tools"}},
-            {"ja", {QString::fromUtf8("スクショ"), QString::fromUtf8("長いスクショ"), QString::fromUtf8("ピン留め"), QString::fromUtf8("クリップボード"), QString::fromUtf8("注釈ツール")}},
-            {"ko", {QString::fromUtf8("캡처"), QString::fromUtf8("스크롤 캡처"), QString::fromUtf8("고정"), QString::fromUtf8("클립보드"), QString::fromUtf8("주석 도구")}},
+            {"zh", {QString::fromUtf8("截图窗口"), QString::fromUtf8("长截图窗口"), QString::fromUtf8("钉图窗口"), QString::fromUtf8("剪贴板窗口"), QString::fromUtf8("标注工具")}},
+            {"zh_TW", {QString::fromUtf8("截圖視窗"), QString::fromUtf8("長截圖視窗"), QString::fromUtf8("釘圖視窗"), QString::fromUtf8("剪貼簿視窗"), QString::fromUtf8("標註工具")}},
+            {"en", {"Screenshot Window", "Long Capture Window", "Pinned Window", "Clipboard Window", "Annotation Tools"}},
+            {"ja", {QString::fromUtf8("キャプチャウィンドウ"), QString::fromUtf8("スクロールキャプチャ"), QString::fromUtf8("ピン留めウィンドウ"), QString::fromUtf8("クリップボード画面"), QString::fromUtf8("注釈ツール")}},
+            {"ko", {QString::fromUtf8("캡처 화면"), QString::fromUtf8("스크롤 캡처 화면"), QString::fromUtf8("고정 창"), QString::fromUtf8("클립보드 창"), QString::fromUtf8("주석 도구")}},
         };
-        const QStringList sources{"Screenshot", "Long Screenshot", "Pin", "Clipboard", "Annotation Tools"};
+        const QStringList sources{"Screenshot Window", "Long Screenshot Window", "Pinned Window", "Clipboard Window", "Annotation Tools"};
         for (auto it = expected.cbegin(); it != expected.cend(); ++it) {
             QVERIFY(I18nManager::load_language(it.key()));
             for (int i = 0; i < sources.size(); ++i)
                 QCOMPARE(i18n_tr(sources[i], "ShortcutTabs"), it.value()[i]);
         }
+        // The tray keeps the full Japanese name; the group, also a navigation item, has a shorter one.
+        QVERIFY(I18nManager::load_language("ja"));
+        QCOMPARE(i18n_tr("Global Mouse Shortcuts", "ShortcutTabs"), QString::fromUtf8("グローバルマウス操作"));
+        QCOMPARE(settings_tr("Global Mouse Shortcuts"), QString::fromUtf8("グローバルマウスショートカット"));
     }
 
     void longScreenshotMousePageFitsEveryLanguage() {
@@ -1148,45 +1406,83 @@ private slots:
                 SettingsDialog dialog(config_, config_->get_hotkey());
                 dialog.fit_to_available({4000, dialog.height()});
                 dialog.on_nav_changed(10, "mouse");
-                dialog.mouse_inapp_tabs->setCurrentItem("long_screenshot");
                 dialog.resize(0, dialog.height());
                 dialog.show();
                 QApplication::processEvents();
                 const auto shots = qEnvironmentVariable("JIETUBA_SETTINGS_SHOTS");
                 if (!shots.isEmpty() && percent == 100)
                     QVERIFY(dialog.grab().save(QDir(shots).filePath(QString("long_mouse_%1.png").arg(code))));
-                auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
-                QVERIFY(scroll);
-                const auto where = QString("%1 at %2%%: page %3, tabs %4/%5, overflow %6").arg(code).arg(percent).arg(scroll->widget()->width())
-                    .arg(dialog.mouse_inapp_tabs->width()).arg(dialog.mouse_inapp_tabs->minimumSizeHint().width()).arg(scroll->horizontalScrollBar()->maximum());
-                QVERIFY2(scroll->horizontalScrollBar()->maximum() == 0, qPrintable(where));
-                QVERIFY2(dialog.mouse_inapp_tabs->width() >= dialog.mouse_inapp_tabs->minimumSizeHint().width(), qPrintable(where));
-                dialog.on_nav_changed(0, "hotkey");
-                QApplication::processEvents();
-                if (!shots.isEmpty() && percent == 100)
-                    QVERIFY(dialog.grab().save(QDir(shots).filePath(QString("keyboard_%1.png").arg(code))));
-                auto *keyboard_scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
-                QVERIFY(keyboard_scroll);
-                const auto *keyboard_tabs = dialog.inapp_shortcut_tabs.data();
-                const int tabs_right = keyboard_tabs->mapTo(keyboard_scroll->viewport(), QPoint(keyboard_tabs->width(), 0)).x();
-                QVERIFY2(tabs_right <= keyboard_scroll->viewport()->width(), qPrintable(where));
-                for (auto *tabs : {dialog.mouse_inapp_tabs.data(), dialog.inapp_shortcut_tabs.data()}) {
-                    QCOMPARE(tabs->itemText("screenshot"), i18n_tr("Screenshot", "ShortcutTabs"));
-                    QCOMPARE(tabs->itemText("pin"), i18n_tr("Pin", "ShortcutTabs"));
-                    QCOMPARE(tabs->itemText("clipboard"), i18n_tr("Clipboard", "ShortcutTabs"));
-                    for (auto *button : tabs->findChildren<QPushButton *>()) {
-                        QVERIFY2(button->width() >= button->sizeHint().width(), qPrintable(where));
-                        QVERIFY2(button->height() >= dialog_scaled(30), qPrintable(where));
-                        QVERIFY2(button->font().pixelSize() >= dialog_scaled(14), qPrintable(where));
+                for (const int page : {10, 0}) {
+                    dialog.on_nav_changed(page, page == 10 ? "mouse" : "shortcuts");
+                    QApplication::processEvents();
+                    if (page == 0 && !shots.isEmpty() && percent == 100)
+                        QVERIFY(dialog.grab().save(QDir(shots).filePath(QString("keyboard_%1.png").arg(code))));
+                    auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+                    QVERIFY(scroll);
+                    const auto where = QString("%1 at %2%%, page %3: width %4, overflow %5").arg(code).arg(percent).arg(page).arg(scroll->widget()->width()).arg(scroll->horizontalScrollBar()->maximum());
+                    QVERIFY2(scroll->horizontalScrollBar()->maximum() == 0, qPrintable(where));
+                    for (auto *group : page_groups(scroll)) {
+                        for (auto *label : group->findChildren<QLabel *>()) {
+                            if (!label->isVisible() || label->wordWrap()) continue;
+                            QVERIFY2(label->width() >= label->sizeHint().width(), qPrintable(where + ": " + label->text()));
+                        }
+                        // A wrapped caption or row title gets the height of its lines.
+                        for (auto *label : group->findChildren<QLabel *>()) {
+                            if (!label->isVisible() || !label->wordWrap()) continue;
+                            QVERIFY2(label->height() >= label->heightForWidth(label->width()), qPrintable(where + ": " + label->text()));
+                        }
                     }
                 }
-                QCOMPARE(dialog.mouse_inapp_tabs->itemText("long_screenshot"), i18n_tr("Long Screenshot", "ShortcutTabs"));
+                QVERIFY(group_titled(dialog, i18n_tr("Long Screenshot Window", "ShortcutTabs")));
                 dialog.on_nav_changed(10, "mouse");
                 QApplication::processEvents();
                 for (const auto &action : LONG_SCREENSHOT_MOUSE_ACTIONS()) {
                     auto *edit = dialog.behavior_control(QString("mouse_long_") + action.key);
                     QVERIFY(edit && edit->isVisible());
-                    QVERIFY2(edit->width() >= edit->minimumSizeHint().width(), qPrintable(where));
+                    QVERIFY2(edit->width() >= edit->minimumSizeHint().width(), qPrintable(QString("%1 at %2%%").arg(code).arg(percent)));
+                }
+            }
+        }
+    }
+
+    // The image quality, PNG compression and PDF page size cards in every language at the window's narrowest and largest scale:
+    // titles and captions keep their whole text, a combo shows its longest choice and the slider keeps its value.
+    void saveOptionCardsFitEveryLanguage() {
+        if (QGuiApplication::platformName() != "windows") QSKIP("needs desktop fonts");
+        const auto language = I18nManager::get_current_language();
+        const int scale = get_dialog_scale().percent();
+        const auto restore = qScopeGuard([&] { get_dialog_scale().set_percent(scale); I18nManager::load_language(language); });
+        for (const int percent : {100, 150, 200}) {
+            get_dialog_scale().set_percent(percent);
+            for (const auto *code : {"zh", "zh_TW", "en", "ja", "ko"}) {
+                QVERIFY(I18nManager::load_language(code));
+                SettingsDialog dialog(config_, config_->get_hotkey());
+                dialog.fit_to_available({4000, dialog.height()});
+                dialog.build_all_pages();
+                dialog.resize(0, dialog.height());
+                dialog.show();
+                dialog.on_nav_changed(1, "capture");
+                QApplication::processEvents();
+                for (const char *title : {"Image Quality", "PNG Compression", "PDF Page Size"}) {
+                    const QString where = QString("%1 at %2%%, %3").arg(code).arg(percent).arg(settings_tr(title));
+                    SettingCard *card = nullptr;
+                    for (auto *candidate : dialog.findChildren<SettingCard *>())
+                        if (candidate->titleLabel->text() == settings_tr(title)) card = candidate;
+                    QVERIFY2(card && card->isVisible(), qPrintable(where));
+                    QVERIFY2(card->width() >= card->layout()->totalMinimumSize().width(), qPrintable(where + ": the card is squeezed"));
+                    QVERIFY2(card->titleLabel->width() >= card->titleLabel->sizeHint().width(), qPrintable(where + ": the title is cut"));
+                    QVERIFY2(card->contentLabel->height() >= card->contentLabel->heightForWidth(card->contentLabel->width()), qPrintable(where + ": the caption is cut"));
+                    for (auto *combo : card->findChildren<ComboBox *>()) {
+                        const QFontMetrics metrics(combo->font());
+                        for (int index = 0; index < combo->count(); ++index) {
+                            const int needs = metrics.horizontalAdvance(combo->itemText(index)) + widget_scaled(combo, 2 * INPUT_PADDING_H + 18);
+                            QVERIFY2(combo->width() >= needs, qPrintable(QString("%1: %2 needs %3, has %4").arg(where, combo->itemText(index)).arg(needs).arg(combo->width())));
+                        }
+                    }
+                    for (auto *slider : card->findChildren<ValueSlider *>()) {
+                        QVERIFY2(slider->valueLabel()->width() >= slider->valueLabel()->sizeHint().width(), qPrintable(where + ": the value is cut"));
+                        QVERIFY2(slider->slider()->width() >= slider->slider()->minimumWidth(), qPrintable(where + ": the slider is squeezed"));
+                    }
                 }
             }
         }
@@ -1334,8 +1630,9 @@ private slots:
         QVERIFY(keys.contains("app/screenshot_toolbar_layout"));
         QVERIFY(keys.contains("pin/toolbar_layout"));
         // Settings no page shows stay out: the window could never show what was imported.
-        for (const char *key : {"app/clipboard_window_width", "clipboard/starter_groups_seeded", "gif/fps", "app/screenshot_quality"})
+        for (const char *key : {"app/clipboard_window_width", "clipboard/starter_groups_seeded", "gif/fps", "app/save_dialog_quality"})
             QVERIFY2(!keys.contains(key), key);
+        for (const char *key : {"app/screenshot_quality", "app/png_compression", "app/pdf_page_size"}) QVERIFY2(keys.contains(key), key);
         for (const auto &key : LOCAL_SETTING_PATHS()) QVERIFY2(!keys.contains(key), qPrintable(key));
         // A control a page edits by name has its setting imported.
         dialog.build_all_pages();
@@ -1507,6 +1804,27 @@ private slots:
         QVERIFY(!config_->get_translation_popup_auto_close());
     }
 
+    void theScreenshotTranslateModeSavesAndResets() {
+        config_->settings().remove("translation/screenshot_mode");
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.on_nav_changed(4, "translation");
+        auto *combo = dialog.attr<QComboBox>("screenshot_translate_mode_combo");
+        QVERIFY(combo);
+        QCOMPARE(combo->currentData().toString(), QString("compare"));
+        combo->setCurrentIndex(combo->findData("overlay"));
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_screenshot_translate_mode(), QString("overlay"));
+        reset_page(dialog);
+        QCOMPARE(combo->currentData().toString(), QString("compare"));
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_screenshot_translate_mode(), QString("compare"));
+        // A value no build writes reads as the default.
+        config_->settings().setValue("translation/screenshot_mode", "sideways");
+        QCOMPARE(config_->get_screenshot_translate_mode(), QString("compare"));
+        config_->set_screenshot_translate_mode("sideways");
+        QCOMPARE(config_->settings().value("translation/screenshot_mode").toString(), QString("compare"));
+    }
+
     // Test Connection and Fetch Models use the form's unsaved values.
     void pendingProviderValuesOverlayTheConfig() {
         SettingsDialog dialog(config_, config_->get_hotkey());
@@ -1554,13 +1872,53 @@ private slots:
         config_->settings().remove("translation/providers/tencent");
     }
 
+    // Every service has its two pacing rows on its page; what they hold, saved or still being typed,
+    // is what its provider is built with, and blank means the provider's own default.
+    void everyServicesPacingRowsReachItsProvider() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.on_nav_changed(4, "translation");
+        QVERIFY(dialog.provider_field_widgets);
+        const auto registry = dialog.translation_registry;
+        QStringList keys;
+        const auto reset = qScopeGuard([this, &keys] {
+            for (const auto &key : keys) config_->set_accessor_value(key, "");
+        });
+        const auto providers = registry->available_providers();
+        QCOMPARE(providers.size(), size_t(12));
+        for (const auto &meta : providers) {
+            QVERIFY2(meta.pacing.size() == 2, qPrintable(meta.provider_id));
+            const auto &parallel = meta.pacing[0];
+            const auto &interval = meta.pacing[1];
+            keys << parallel.config_key << interval.config_key;
+            auto *edit = qobject_cast<QLineEdit *>(dialog.provider_field_widgets->value(parallel.config_key).data());
+            QVERIFY2(edit && dialog.provider_field_widgets->value(interval.config_key), qPrintable(meta.provider_id));
+            QCOMPARE(edit->placeholderText(), parallel.placeholder);
+            const auto build = [&](const QVariantMap &config) { return registry->create(meta.provider_id, config); };
+
+            auto provider = build(config_->get_translation_provider_config(meta.provider_id));
+            QCOMPARE(QString::number(provider->parallel_requests), parallel.placeholder);
+            QCOMPARE(QString::number(provider->request_interval_ms), interval.placeholder);
+
+            QVERIFY(config_->set_accessor_value(parallel.config_key, " 3 "));
+            QVERIFY(config_->set_accessor_value(interval.config_key, "70"));
+            provider = build(config_->get_translation_provider_config(meta.provider_id));
+            QVERIFY2(provider->parallel_requests == 3 && provider->request_interval_ms == 70, qPrintable(meta.provider_id));
+
+            edit->setText("5");
+            const auto fields = provider_fields::provider_fields(*registry, meta.provider_id);
+            const auto pending = provider_fields::pending_config(config_, fields, *dialog.provider_field_widgets);
+            provider = build(pending->get_translation_provider_config(meta.provider_id));
+            QVERIFY2(provider->parallel_requests == 5, qPrintable(meta.provider_id));
+        }
+    }
+
     void youdaoCredentialsReachTheProvider() {
         QVERIFY(config_->set_accessor_value("youdao_translate_app_key", " app "));
         QVERIFY(config_->set_accessor_value("youdao_translate_app_secret", " secret "));
         QCOMPARE(config_->accessor_value("youdao_translate_app_key")->toString(), QString("app"));
-        QCOMPARE(config_->get_translation_provider_config("youdao"), (QVariantMap{{"app_key", "app"}, {"app_secret", "secret"}}));
+        QCOMPARE(config_->get_translation_provider_config("youdao"), (QVariantMap{{"app_key", "app"}, {"app_secret", "secret"}, {"parallel_requests", ""}, {"request_interval_ms", ""}}));
         config_->settings().remove("translation/providers/youdao");
-        QCOMPARE(config_->get_translation_provider_config("youdao"), (QVariantMap{{"app_key", ""}, {"app_secret", ""}}));
+        QCOMPARE(config_->get_translation_provider_config("youdao"), (QVariantMap{{"app_key", ""}, {"app_secret", ""}, {"parallel_requests", ""}, {"request_interval_ms", ""}}));
     }
 
     void quotaProvidersShowTheirUsageUnderTheNotice() {
@@ -1582,11 +1940,14 @@ private slots:
         QVERIFY(quota_usage_text(&dialog, "").isEmpty());
         QVERIFY(quota_usage_text(&dialog, "no-such-provider").isEmpty());
 
-        auto *combo = dialog.attr<QComboBox>("translation_provider_combo");
-        combo->setCurrentIndex(combo->findData("tencent"));
-        const auto text = dialog.attr<QLabel>("translation_notice_label")->text();
-        QVERIFY(text.contains("<br/>"));
-        QVERIFY(text.endsWith(quota_usage_text(&dialog, "tencent")));
+        // Under the hint of each quota provider's card, with a bar; other cards have neither.
+        for (const QString provider : {"tencent", "volcengine"}) {
+            auto *label = dialog.provider_sections.value(provider)->findChild<QLabel *>("ProviderQuota");
+            QVERIFY2(label, qPrintable(provider));
+            dialog.refresh_external_state();
+            QTRY_COMPARE(label->text(), quota_usage_text(&dialog, provider));
+        }
+        QVERIFY(!dialog.provider_sections.value("deepl")->findChild<QLabel *>("ProviderQuota"));
         config_->settings().remove("translation/usage");
         config_->settings().remove("translation/providers/volcengine");
     }
@@ -1604,13 +1965,355 @@ private slots:
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.show();
         dialog.on_nav_changed(4, "translation");
-        auto *label = dialog.attr<QLabel>("translation_notice_label");
+        auto *label = dialog.provider_sections.value("tencent")->findChild<QLabel *>("ProviderQuota");
+        QVERIFY(label);
         // Shown as soon as the page is built, before the background read returns.
         QVERIFY2(label->text().contains("500 / "), qPrintable(label->text()));
         dialog.hide();
         config_->add_translation_usage_chars("tencent", 1000);
         dialog.show();
         QTRY_VERIFY(label->text().contains("1,500 / "));
+    }
+
+    // One page: the options, read aloud and the API services under each other, listed in the outline.
+    // The services have a chip per provider, with the chosen one's cards below and the provider's own
+    // switches and the general options only it uses.
+    void translationPageListsItsGroupsAndHasNoTabs() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 750);
+        dialog.show();
+        dialog.on_nav_changed(4, "translation");
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+        QVERIFY(nav && scroll);
+        QVERIFY(!dialog.attr_widget("translation_tabs"));
+        QTRY_COMPARE(nav->currentSubRoute(), QString("translation"));
+        const QStringList titles{settings_tr("General"), settings_tr("Read Aloud"), settings_tr("API Services")};
+        QTRY_COMPARE(nav->subItemTitles("translation"), titles);
+        const auto groups = page_groups(scroll);
+        QCOMPARE(groups.size(), size_t(3));
+        QCOMPARE(groups[0], dialog.attr_widget("translation_options_group"));
+        QCOMPARE(groups[1], dialog.attr_widget("speech_group"));
+        QCOMPARE(groups[2], dialog.attr_widget("translation_api_group"));
+
+        auto *combo = dialog.attr<QComboBox>("translation_provider_combo");
+        auto *picker = dialog.attr_widget("translation_provider_picker");
+        QVERIFY(combo->isVisible() && picker->isVisible());
+        QVERIFY(groups[2]->isAncestorOf(picker));
+        QVERIFY(groups[0]->isAncestorOf(combo));
+        QVERIFY(dialog.attr_widget("translation_auto_close_toggle")->isVisible());
+        // The last group is reached by scrolling, and the outline follows.
+        auto *bar = scroll->verticalScrollBar();
+        QVERIFY(bar->maximum() > 0);
+        bar->setValue(bar->maximum());
+        QTRY_COMPARE(nav->currentSubItem(), 2);
+        bar->setValue(0);
+        QTRY_COMPARE(nav->currentSubItem(), 0);
+
+        // A chip per provider; the language models in a group of their own.
+        const auto providers = dialog.translation_registry->available_providers();
+        for (const auto &meta : providers) QVERIFY2(provider_chip(dialog, meta.provider_id), qPrintable(meta.provider_id));
+        QVERIFY(provider_chip(dialog, "deepseek")->parentWidget() != provider_chip(dialog, "deepl")->parentWidget());
+        QCOMPARE(provider_chip(dialog, "custom_llm")->parentWidget(), provider_chip(dialog, "deepseek")->parentWidget());
+        QCOMPARE(provider_chip(dialog, "baidu")->parentWidget(), provider_chip(dialog, "deepl")->parentWidget());
+        // The engine's card comes first; a chip shows another.
+        const QString engine = combo->currentData().toString();
+        QVERIFY(provider_chip(dialog, engine)->isChecked());
+        QVERIFY(dialog.provider_sections.value(engine)->isVisible());
+        const QString other = engine == "amazon" ? "azure" : "amazon";
+        provider_chip(dialog, other)->click();
+        QVERIFY(dialog.provider_sections.value(other)->isVisible());
+        QVERIFY(!dialog.provider_sections.value(engine)->isVisible());
+        QCOMPARE(combo->currentData().toString(), engine);
+
+        // Ignore Line Breaks and Preserve Formatting are only in DeepL's card.
+        for (const char *attr : {"split_sentences_toggle", "preserve_formatting_toggle"}) {
+            QWidget *toggle = dialog.attr_widget(attr);
+            QVERIFY2(toggle && dialog.provider_sections.value("deepl")->isAncestorOf(toggle), attr);
+        }
+        int rows = 0;
+        for (auto *label : groups[2]->findChildren<QLabel *>()) rows += label->text() == settings_tr("Ignore Line Breaks");
+        QCOMPARE(rows, 1);
+    }
+
+    // Rarely changed settings are folded under Advanced; the settings needed to work are not.
+    void advancedFoldsTheRarelyChangedSettings() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.on_nav_changed(4, "translation");
+        show_translation_provider(&dialog, "custom_llm");
+        auto *card = dialog.provider_sections.value("custom_llm").data();
+        QVERIFY(card->isVisible());
+        QWidget *base_url = dialog.provider_field_widgets->value("custom_llm_base_url");
+        QWidget *temperature = dialog.provider_field_widgets->value("custom_llm_temperature");
+        QWidget *parallel = dialog.provider_field_widgets->value("custom_llm_parallel_requests");
+        QVERIFY(base_url->isVisible());
+        QVERIFY(!temperature->isVisible());
+        QVERIFY(!parallel->isVisible());
+        QAbstractButton *advanced = nullptr;
+        for (auto *button : card->findChildren<QAbstractButton *>())
+            if (button->text() == settings_tr("Advanced")) advanced = button;
+        QVERIFY(advanced);
+        advanced->click();
+        QVERIFY(temperature->isVisible());
+        QVERIFY(parallel->isVisible());
+        advanced->click();
+        QTRY_VERIFY(!temperature->isVisible());
+        // DeepL's Pro switch is needed to work, so it is not folded.
+        show_translation_provider(&dialog, "deepl");
+        QVERIFY(dialog.provider_field_widgets->value("deepl_use_pro")->isVisible());
+    }
+
+    // Folding near the bottom of a scrolled page changes the heights of several nested layouts at every step
+    // of the fold; each paint shows a settled layout, the row below right under the fold as tall as it is then.
+    void foldingNearTheBottomOfAPagePaintsOnlySettledLayouts() {
+        struct PaintSpy : QObject {
+            std::function<void()> on_paint;
+            bool eventFilter(QObject *, QEvent *event) override {
+                if (event->type() == QEvent::Paint && on_paint) on_paint();
+                return false;
+            }
+        };
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 600);
+        dialog.show();
+        dialog.on_nav_changed(4, "translation");
+        show_translation_provider(&dialog, "google");
+        QWidget *card = dialog.provider_sections.value("google");
+        QAbstractButton *advanced = nullptr;
+        for (auto *button : card->findChildren<QAbstractButton *>())
+            if (button->text() == settings_tr("Advanced")) advanced = button;
+        QVERIFY(advanced);
+        auto *fold = card->findChild<FoldBox *>();
+        QVERIFY(fold && fold->isHidden());
+        QWidget *footer = card_button(dialog, "google", settings_tr("Test Connection"))->parentWidget();
+        QScrollArea *area = nullptr;
+        for (QWidget *parent = card; parent && !area; parent = parent->parentWidget()) area = qobject_cast<QScrollArea *>(parent);
+        QVERIFY(area);
+        // Opening the provider scrolls to its group; that animation must end first.
+        if (auto *scroll = area->findChild<QVariantAnimation *>("GroupScrollAnimation")) QTRY_COMPARE(scroll->state(), QAbstractAnimation::Stopped);
+        area->verticalScrollBar()->setValue(area->verticalScrollBar()->maximum());
+        QTest::qWait(100);
+
+        // Folded, the row below follows the button after one gap; unfolded, the fold and a second gap come between.
+        const auto below = [&] { return footer->mapTo(card, QPoint()).y() - advanced->mapTo(card, QPoint()).y(); };
+        const int folded = below(), gap = folded - advanced->height();
+        struct Frame {
+            int fold_height, below;
+        };
+        QList<Frame> frames;
+        PaintSpy spy;
+        spy.on_paint = [&] {
+            const Frame frame{fold->isHidden() ? -gap : fold->height(), below()};
+            if (frames.isEmpty() || frames.last().fold_height != frame.fold_height || frames.last().below != frame.below) frames << frame;
+        };
+        area->viewport()->installEventFilter(&spy);
+        // A paint can come as soon as a fold ends, before anything queued is handled.
+        QObject::connect(fold, &FoldBox::finished, area->viewport(), [area] { area->viewport()->repaint(); });
+        SteppedAnimationClock clock;
+        for (const bool unfold : {true, false}) {
+            frames.clear();
+            advanced->click();
+            QVERIFY(!fold->settled());
+            QVERIFY(clock.step_until([&] { return fold->settled(); }));
+            QTest::qWait(50);
+            QStringList trail;
+            for (const auto &frame : frames) trail << QString("%1/%2").arg(frame.fold_height).arg(frame.below);
+            const QByteArray shown = (QString(unfold ? "unfold: " : "fold: ") + trail.join(' ')).toUtf8();
+            QVERIFY2(frames.size() > 3, shown.constData());
+            for (int i = 0; i < frames.size(); ++i) {
+                QVERIFY2(frames[i].below == folded + frames[i].fold_height + gap, shown.constData());
+                if (i > 0) QVERIFY2(unfold ? frames[i].fold_height >= frames[i - 1].fold_height : frames[i].fold_height <= frames[i - 1].fold_height, shown.constData());
+            }
+            QCOMPARE(fold->isHidden(), !unfold);
+        }
+        spy.on_paint = nullptr;
+    }
+
+    // Folding a card's rows changes its group's height at every step of the fold; each paint shows the group
+    // as tall as its cards are then, not a layout still catching up.
+    void foldingSettingRowsPaintsOnlySettledLayouts() {
+        struct PaintSpy : QObject {
+            std::function<void()> on_paint;
+            bool eventFilter(QObject *, QEvent *event) override {
+                if (event->type() == QEvent::Paint && on_paint) on_paint();
+                return false;
+            }
+        };
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 600);
+        dialog.show();
+        dialog.on_nav_changed(1, "capture");
+        auto *number = dialog.attr<SwitchSettingCard>("auto_select_number_toggle");
+        SettingExpander *expander = nullptr;
+        SettingCardGroup *group = nullptr;
+        QScrollArea *area = nullptr;
+        for (QWidget *parent = number->parentWidget(); parent; parent = parent->parentWidget()) {
+            if (!expander) expander = qobject_cast<SettingExpander *>(parent);
+            if (!group) group = qobject_cast<SettingCardGroup *>(parent);
+            if (!area) area = qobject_cast<QScrollArea *>(parent);
+        }
+        QVERIFY(expander && group && area);
+        auto *fold = qobject_cast<FoldBox *>(expander->body());
+        QVERIFY(fold && fold->isHidden());
+        area->ensureWidgetVisible(expander);
+        QTest::qWait(100);
+
+        // How much taller the group is than its layout asks for: the same in every settled layout.
+        const auto slack = [&] { return group->height() - group->vBoxLayout->sizeHint().height(); };
+        const int settled_slack = slack();
+        QList<QPair<int, int>> frames;
+        PaintSpy spy;
+        spy.on_paint = [&] {
+            const QPair<int, int> frame(fold->isHidden() ? 0 : fold->height(), slack());
+            if (frames.isEmpty() || frames.last() != frame) frames << frame;
+        };
+        area->viewport()->installEventFilter(&spy);
+        // A paint can come as soon as a fold ends, before anything queued is handled.
+        QObject::connect(fold, &FoldBox::finished, area->viewport(), [area] { area->viewport()->repaint(); });
+        SteppedAnimationClock clock;
+        for (const bool unfold : {true, false}) {
+            frames.clear();
+            expander->arrow()->click();
+            QVERIFY(!fold->settled());
+            QVERIFY(clock.step_until([&] { return fold->settled(); }));
+            QTest::qWait(50);
+            QStringList trail;
+            for (const auto &frame : frames) trail << QString("%1/%2").arg(frame.first).arg(frame.second);
+            const QByteArray shown = (QString(unfold ? "unfold: " : "fold: ") + trail.join(' ')).toUtf8();
+            QVERIFY2(frames.size() > 3, shown.constData());
+            for (int i = 0; i < frames.size(); ++i) {
+                QVERIFY2(frames[i].second == settled_slack, shown.constData());
+                if (i > 0) QVERIFY2(unfold ? frames[i].first >= frames[i - 1].first : frames[i].first <= frames[i - 1].first, shown.constData());
+            }
+            QCOMPARE(fold->isHidden(), !unfold);
+        }
+        spy.on_paint = nullptr;
+    }
+
+    // Restoring the minimized window shows the page as it was left: the controls are not loaded again,
+    // which would relayout the whole page on the restore paint.
+    void restoringFromMinimizedDoesNotReloadThePage() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.on_nav_changed(1, "capture");
+        QWidget *control = dialog.attr_widget("smart_animation_toggle");
+        QVERIFY(control);
+        auto *card = qobject_cast<SwitchSettingCard *>(control);
+        auto *toggle = card ? card->switchButton : qobject_cast<SwitchButton *>(control);
+        QVERIFY2(toggle, control->metaObject()->className());
+        const bool saved = toggle->isChecked();
+        {
+            // Not saved, so a reload would put the saved value back.
+            const QSignalBlocker blocker(toggle);
+            toggle->setChecked(!saved);
+        }
+        // What the window gets when restored; the offscreen platform does not minimize.
+        QWindowStateChangeEvent restored(Qt::WindowMinimized);
+        QCoreApplication::sendEvent(&dialog, &restored);
+        QCOMPARE(toggle->isChecked(), !saved);
+        // Opening the window again does load it.
+        const auto restore = qScopeGuard([this, saved] { config_->set_smart_selection_animation(saved); });
+        dialog.hide();
+        QCOMPARE(config_->get_smart_selection_animation(), !saved);
+        {
+            const QSignalBlocker blocker(toggle);
+            toggle->setChecked(saved);
+        }
+        dialog.show();
+        QCOMPARE(toggle->isChecked(), !saved);
+    }
+
+    // Restored from the taskbar, the window is painted at once, before queued layouts run; the show events
+    // its rows get on the way leave every row where it was.
+    void restoringFromMinimizedKeepsEveryRowInPlace() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 700);
+        dialog.show();
+        const auto layout = [&dialog] {
+            QHash<QWidget *, QRect> rows;
+            for (auto *widget : dialog.findChildren<QWidget *>())
+                if (widget->isVisible()) rows.insert(widget, QRect(widget->mapTo(&dialog, QPoint()), widget->size()));
+            return rows;
+        };
+        for (const auto &[index, route] : QList<std::pair<int, QString>>{{1, "capture"}, {2, "clipboard"}, {5, "log"}}) {
+            dialog.on_nav_changed(index, route);
+            // The page settles first: queries of the system fill some rows in later.
+            auto before = layout();
+            QTRY_VERIFY_WITH_TIMEOUT([&] {
+                QTest::qWait(100);
+                const auto now = layout();
+                return std::exchange(before, now) == now;
+            }(), 5000);
+            dialog.setWindowState(Qt::WindowMinimized);
+            QTest::qWait(50);
+            dialog.setWindowState(Qt::WindowNoState);
+            const auto restored = layout();
+            QCOMPARE(restored.size(), before.size());
+            for (auto it = before.begin(); it != before.end(); ++it) {
+                const QRect now = restored.value(it.key());
+                const QByteArray where = QString("%1: %2 in %3, %4,%5 %6x%7 -> %8,%9 %10x%11")
+                                             .arg(route, it.key()->metaObject()->className(), it.key()->parentWidget()->metaObject()->className())
+                                             .arg(it->x()).arg(it->y()).arg(it->width()).arg(it->height())
+                                             .arg(now.x()).arg(now.y()).arg(now.width()).arg(now.height())
+                                             .toUtf8();
+                QVERIFY2(now == it.value(), where.constData());
+            }
+        }
+    }
+
+    // The engine row says whether the engine can translate, from what the form holds now, and its
+    // button opens the engine's card; Use This on another configured provider makes it the engine.
+    void theEngineStatusFollowsTheFormAndLeadsToTheCard() {
+        const QString provider = config_->get_translation_provider();
+        const auto restore = qScopeGuard([this, provider] {
+            config_->set_translation_provider(provider);
+            for (const char *key : {"deepl_api_key", "baidu_translate_appid", "baidu_translate_secret_key", "deepseek_api_key", "deepseek_model"})
+                config_->set_accessor_value(key, "");
+        });
+        for (const char *key : {"deepl_api_key", "baidu_translate_appid", "baidu_translate_secret_key", "deepseek_api_key", "deepseek_model"})
+            config_->set_accessor_value(key, "");
+        config_->set_translation_provider("deepl");
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.on_nav_changed(4, "translation");
+        auto *status = dialog.attr<SettingCard>("translation_engine_card")->contentLabel;
+        QVERIFY2(status->text().contains(settings_tr("Not configured yet")), qPrintable(status->text()));
+        auto *chip = provider_chip(dialog, "deepl");
+        QVERIFY(chip->property("current").toBool() && !chip->property("configured").toBool());
+        const auto edit = [&dialog](const char *key) { return qobject_cast<QLineEdit *>(dialog.provider_field_widgets->value(key).data()); };
+        edit("deepl_api_key")->setText("key:fx");
+        QVERIFY2(status->text().contains(settings_tr("Configured")), qPrintable(status->text()));
+        QVERIFY(chip->property("configured").toBool());
+        // A language model also names its model, the default one while the field is empty.
+        edit("deepseek_api_key")->setText("sk-test");
+        auto *combo = dialog.attr<QComboBox>("translation_provider_combo");
+        combo->setCurrentIndex(combo->findData("deepseek"));
+        QVERIFY2(status->text().contains(edit("deepseek_model")->placeholderText()), qPrintable(status->text()));
+        edit("deepseek_model")->setText("deepseek-chat");
+        QVERIFY2(status->text().contains("deepseek-chat"), qPrintable(status->text()));
+        QVERIFY(provider_chip(dialog, "deepseek")->property("current").toBool());
+        QVERIFY(!chip->property("current").toBool());
+
+        // The button opens the engine's card in the API services group.
+        dialog.attr<QPushButton>("translation_configure_button")->click();
+        QVERIFY(provider_chip(dialog, "deepseek")->isChecked());
+        QVERIFY(dialog.provider_sections.value("deepseek")->isVisible());
+        QPushButton *use = card_button(dialog, "deepseek", settings_tr("Use This"));
+        QVERIFY(use && !use->isVisible());
+
+        // Use This shows on a configured provider that is not the engine, and makes it the engine.
+        provider_chip(dialog, "baidu")->click();
+        use = card_button(dialog, "baidu", settings_tr("Use This"));
+        QVERIFY(use && !use->isVisible());
+        edit("baidu_translate_appid")->setText("app");
+        edit("baidu_translate_secret_key")->setText("secret");
+        QVERIFY(use->isVisible());
+        use->click();
+        QCOMPARE(combo->currentData().toString(), QString("baidu"));
+        QVERIFY(!use->isVisible());
+        QVERIFY(dialog.apply_settings());
+        QCOMPARE(config_->get_translation_provider(), QString("baidu"));
     }
 
     void wizardNavigatesAcrossEveryPage() {
@@ -1771,6 +2474,20 @@ private slots:
         QCOMPARE(get_quick_capture_binding(config_, "long_screenshot"), QString("ctrl+alt+dragmiddle"));
     }
 
+    // The wizard's mouse grid is too narrow for a chevron beside the longest gestures, so its combos leave it out.
+    void wizardMouseCombosLeaveOutTheChevron() {
+        WelcomeWizard wizard(config_);
+        wizard.setAttribute(Qt::WA_DontShowOnScreen);
+        wizard.show();
+        wizard.go_to_page(2);
+        const auto editors = wizard.findChildren<MouseBindingEditor *>();
+        QCOMPARE(editors.size(), 8);
+        for (auto *editor : editors) {
+            QVERIFY(!editor->modifiers->chevronVisible());
+            QVERIFY(!editor->gesture->chevronVisible());
+        }
+    }
+
     void wizardMouseGridFitsEveryLanguage() {
         if (QGuiApplication::platformName() != "windows") QSKIP("Needs desktop fonts.");
         const QString language = I18nManager::get_current_language();
@@ -1910,17 +2627,19 @@ private slots:
         get_dialog_scale().set_percent(100);
         SwitchButton normal;
         configure_dialog_control(normal);
-        QCOMPARE(normal.size(), QSize(46, 26));
+        QCOMPARE(normal.size(), QSize(40, 20));
         get_dialog_scale().set_percent(150);
         WelcomeToggleSwitch large;
         configure_dialog_control(large);
-        QCOMPARE(large.size(), QSize(69, 39));
+        QCOMPARE(large.size(), QSize(60, 30));
         get_ui_scale().set_percent(200);
         configure_dialog_control(large);
-        QCOMPARE(large.size(), QSize(69, 39));
+        QCOMPARE(large.size(), QSize(60, 30));
         // Down the knob's middle column, the white knob has as much track above it as below.
+        large.setChecked(true);
+        QTest::qWait(300);
         const QImage image = large.grab().toImage();
-        const int column = large.height() / 2;
+        const int column = large.width() - large.height() / 2;
         int first = -1, last = -1;
         for (int y = 0; y < image.height(); ++y) {
             const QColor pixel = image.pixelColor(column, y);
@@ -1947,6 +2666,104 @@ private slots:
         QVERIFY(config_->get_app_setting("pause_hotkeys_in_games").toBool());
         FinishPage again(config_);
         QVERIFY(again.findChildren<WelcomeToggleSwitch *>().last()->isChecked());
+    }
+
+    // Automatic updates share the autostart card on the finish page, on unless turned off, and only
+    // in builds that can replace their own program.
+    void wizardFinishPageStoresTheAutoUpdate() {
+        const auto restore = qScopeGuard([this] {
+            set_helper_source_for_test({});
+            config_->set_app_setting("auto_update", true);
+        });
+        {
+            FinishPage page(config_);
+            QCOMPARE(page.findChild<WelcomeToggleSwitch *>("autoUpdateSwitch") != nullptr, updater_bundled());
+        }
+        set_helper_source_for_test(QCoreApplication::applicationFilePath());
+        FinishPage page(config_);
+        auto *toggle = page.findChild<WelcomeToggleSwitch *>("autoUpdateSwitch");
+        QVERIFY(toggle);
+        QVERIFY(toggle->isChecked());
+        // Still four cards: the autostart card holds both switches.
+        QCOMPARE(page.findChildren<WelcomeToggleSwitch *>().size(), 5);
+        QCOMPARE(toggle->parentWidget()->objectName(), QString("SettingRow"));
+        toggle->setChecked(false);
+        page.save_preferences();
+        QVERIFY(!config_->get_auto_update());
+        FinishPage again(config_);
+        QVERIFY(!again.findChild<WelcomeToggleSwitch *>("autoUpdateSwitch")->isChecked());
+    }
+
+    // The settings window has the same switch on the misc page.
+    void settingsAutoUpdateSwitchNeedsTheUpdaterHelper() {
+        const auto restore = qScopeGuard([this] {
+            set_helper_source_for_test({});
+            config_->set_app_setting("auto_update", true);
+        });
+        {
+            SettingsDialog dialog(config_, config_->get_hotkey());
+            dialog.build_all_pages();
+            QCOMPARE(dialog.has_attr("auto_update_toggle"), updater_bundled());
+        }
+        set_helper_source_for_test(QCoreApplication::applicationFilePath());
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.build_all_pages();
+        auto *card = dialog.attr<SwitchSettingCard>("auto_update_toggle");
+        QVERIFY(card);
+        QVERIFY(card->isChecked());
+        card->setChecked(false);
+        QVERIFY(dialog.apply_settings());
+        QVERIFY(!config_->get_auto_update());
+    }
+
+    // The finish page with the update switch: every card fits its panel and every text keeps its
+    // full size in every language.
+    void wizardFinishPageFitsEveryLanguage() {
+        if (QGuiApplication::platformName() != "windows") QSKIP("Needs desktop fonts.");
+        const QString language = I18nManager::get_current_language();
+        const int scale = get_dialog_scale().percent();
+        const QString saved_language = config_->get_language();
+        set_helper_source_for_test(QCoreApplication::applicationFilePath());
+        const auto restore = qScopeGuard([&] {
+            set_helper_source_for_test({});
+            get_dialog_scale().set_percent(scale);
+            config_->set_language(saved_language);
+            I18nManager::load_language(language);
+        });
+        QStringList problems;
+        for (int percent : {100, 150, 200}) {
+            get_dialog_scale().set_percent(percent);
+            for (const QString &lang : {QString("zh"), QString("zh_TW"), QString("en"), QString("ja"), QString("ko")}) {
+                config_->set_language(lang);
+                WelcomeWizard wizard(config_);
+                wizard.setAttribute(Qt::WA_DontShowOnScreen);
+                wizard.show();
+                wizard.go_to_page(WelcomeWizard::PAGE_COUNT - 1);
+                QTest::qWait(80);
+                auto *page = wizard.findChild<FinishPage *>();
+                QVERIFY(page);
+                QVERIFY(page->findChild<WelcomeToggleSwitch *>("autoUpdateSwitch")->isVisible());
+                const QString where = QString("%1 %2%").arg(lang).arg(percent);
+                const QString out = qEnvironmentVariable("JIETUBA_SETTINGS_SHOTS");
+                if (!out.isEmpty() && percent == 100) QVERIFY(wizard.grab().save(QDir(out).filePath(QString("finish_%1.png").arg(lang))));
+                // A layout given less than it needs squeezes its cards and cuts their texts.
+                auto *panel = page->findChild<QFrame *>("ContentPanel");
+                QVERIFY(panel);
+                const int needed = panel->layout()->totalHeightForWidth(panel->width());
+                if (needed > panel->height()) problems << QString("%1: cards need %2, panel has %3").arg(where).arg(needed).arg(panel->height());
+                for (auto *label : page->findChildren<QLabel *>()) {
+                    if (!label->isVisible()) continue;
+                    if (!page->rect().contains(QRect(label->mapTo(page, QPoint()), label->size()))) problems << QString("%1: %2 leaves the page").arg(where, label->text());
+                    const int height = label->wordWrap() ? label->heightForWidth(label->width()) : label->sizeHint().height();
+                    if (label->height() < height)
+                        problems << QString("%1: %2 needs height %3, has %4 at width %5").arg(where, label->text()).arg(height).arg(label->height()).arg(label->width());
+                    if (!label->wordWrap() && label->width() < label->sizeHint().width())
+                        problems << QString("%1: %2 needs width %3, has %4").arg(where, label->text()).arg(label->sizeHint().width()).arg(label->width());
+                }
+                wizard.hide();
+            }
+        }
+        QVERIFY2(problems.isEmpty(), qPrintable(problems.join('\n')));
     }
 
     // The wizard's steps, buttons and pages respond and paint; nothing here closes or finishes
@@ -2127,7 +2944,7 @@ private slots:
     }
 
     // The screen annotation page: start, toolbar and cursor highlight settings saved and reset like the
-    // others; keeping the drawings moved here from Quick Actions; the hotkey is shown and edited on the
+    // others; keeping the drawings moved here from the screenshot page; the hotkey is shown and edited on the
     // shortcut page.
     void screenAnnotationPage() {
         config_->set_global_hotkeys("screen_annotation", {"ctrl+alt+f9", "", "", ""});
@@ -2466,6 +3283,27 @@ private slots:
         }
     }
 
+    void aboutFeedbackAndStarOpenTheirGitHubPages() {
+        const QString language = I18nManager::get_current_language();
+        const auto restore_language = qScopeGuard([&] { I18nManager::load_language(language); });
+        QVERIFY(I18nManager::load_language("zh"));
+        UrlCatcher catcher;
+        QDesktopServices::setUrlHandler("https", &catcher, "open");
+        const auto unset = qScopeGuard([] { QDesktopServices::unsetUrlHandler("https"); });
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.on_nav_changed(8, "about");
+        auto *page = dialog.content_stack->currentWidget();
+        auto *feedback = page->findChild<QPushButton *>("aboutFeedbackButton");
+        auto *star = page->findChild<QPushButton *>("aboutRepositoryLink");
+        QVERIFY(feedback && star);
+        QVERIFY(!feedback->icon().isNull());
+        QCOMPARE(star->text(), QStringLiteral("☆ 截图吧用着顺手？给个 Star"));
+        feedback->click();
+        star->click();
+        const QList<QUrl> expected{QUrl("https://github.com/1003129155/jietuba/issues"), QUrl("https://github.com/1003129155/jietuba")};
+        QCOMPARE(catcher.urls, expected);
+    }
+
     // Every page in every language at the window's minimum width; the shortcut pages are tables that
     // scroll sideways below the default width.
     void everyPageFitsEveryLanguageAtTheMinimumWidth() {
@@ -2474,7 +3312,10 @@ private slots:
         auto &scale = get_dialog_scale();
         const int percent_before = scale.percent();
         const QString language = I18nManager::get_current_language();
+        // With the updater helper, so the update switch is measured too.
+        set_helper_source_for_test(QCoreApplication::applicationFilePath());
         const auto restore = qScopeGuard([&scale, percent_before, language] {
+            set_helper_source_for_test({});
             scale.set_percent(percent_before);
             I18nManager::load_language(language);
         });
@@ -2507,12 +3348,137 @@ private slots:
                     auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
                     QVERIFY(scroll);
                     if (scroll->horizontalScrollBar()->maximum() > 0) problems << where + ": the page scrolls sideways";
+                    if (index == 8) {
+                        auto *feedback = scroll->widget()->findChild<QPushButton *>("aboutFeedbackButton");
+                        auto *license = scroll->widget()->findChild<QPushButton *>("aboutLicenseButton");
+                        auto *star = scroll->widget()->findChild<QPushButton *>("aboutRepositoryLink");
+                        QVERIFY(feedback && license && star);
+                        if (feedback->width() < feedback->sizeHint().width() || feedback->y() <= license->geometry().bottom() ||
+                            feedback->x() != license->x() || feedback->width() != license->width() ||
+                            feedback->mapTo(scroll->widget(), QPoint(feedback->width(), 0)).x() >= scroll->viewport()->width()) {
+                            problems << where + ": the feedback button does not fit under the license button";
+                        }
+                        if (star->width() < star->sizeHint().width() || star->geometry().right() >= scroll->viewport()->width()) {
+                            problems << where + ": the Star link does not fit";
+                        }
+                    }
                     for (auto *widget : scroll->widget()->findChildren<QWidget *>()) {
                         if (!widget->layout() || !widget->isVisible()) continue;
                         auto *card = qobject_cast<SettingCard *>(widget);
                         check(widget, card ? card->titleLabel->text() : QString(widget->metaObject()->className()));
                     }
                 }
+            }
+        }
+        QVERIFY2(problems.isEmpty(), qPrintable(problems.join('\n')));
+    }
+
+    // The Explorer entry's card in every language, at every window scale and the minimum width: the
+    // title and description keep their lines and the dropdown shows each choice whole.
+    void explorerMenuCardFitsEveryLanguageAtEveryScale() {
+        // Text widths need real fonts, which the offscreen platform does not have.
+        if (QGuiApplication::platformName() != "windows") QSKIP("needs -platform windows");
+        auto &scale = get_dialog_scale();
+        const int percent_before = scale.percent();
+        const QString language = I18nManager::get_current_language();
+        const auto restore = qScopeGuard([&scale, percent_before, language] {
+            set_packaged_for_test(std::nullopt);
+            scale.set_percent(percent_before);
+            I18nManager::load_language(language);
+        });
+        QStringList problems;
+        for (const bool packaged : {false, true})
+            for (const int percent : {100, 150, 200}) {
+                scale.set_percent(percent);
+                set_packaged_for_test(packaged);
+                for (const char *code : {"zh", "zh_TW", "en", "ja", "ko"}) {
+                    QVERIFY(I18nManager::load_language(code));
+                    SettingsDialog dialog(config_, config_->get_hotkey());
+                    dialog.fit_to_available({4000, dialog.height()});
+                    dialog.build_all_pages();
+                    dialog.resize(0, dialog.height());
+                    dialog.show();
+                    dialog.on_nav_changed(11, "pin");
+                    QApplication::processEvents();
+                    const QString where = QString("%1 at %2%%3").arg(code).arg(percent).arg(packaged ? ", packaged" : "");
+                    auto *combo = qobject_cast<QComboBox *>(dialog.behavior_control("explorer_context_menu"));
+                    QVERIFY(combo);
+                    SettingCard *card = nullptr;
+                    for (QWidget *w = combo; w && !card; w = w->parentWidget()) card = qobject_cast<SettingCard *>(w);
+                    QVERIFY(card);
+                    if (combo->width() < combo->sizeHint().width()) problems << where + ": the dropdown is narrower than its content";
+                    const QFontMetrics metrics(combo->font());
+                    for (int i = 0; i < combo->count(); ++i)
+                        if (metrics.horizontalAdvance(combo->itemText(i)) > combo->width()) problems << where + ": " + combo->itemText(i) + " does not fit the dropdown";
+                    if (card->titleLabel->width() < card->titleLabel->sizeHint().width()) problems << where + ": the title is cut";
+                    if (card->layout()->totalMinimumSize().width() > card->width()) problems << where + ": the card needs more width than it has";
+                    // A description that wraps keeps every line.
+                    auto *label = card->contentLabel;
+                    if (label->wordWrap() && label->height() < label->heightForWidth(label->width())) problems << where + ": the description loses lines";
+                    if (dialog.width() != dialog.minimumWidth()) problems << where + ": the window grew";
+                }
+            }
+        QVERIFY2(problems.isEmpty(), qPrintable(problems.join('\n')));
+    }
+
+    // The translation page's tabs and every provider card in every language at the window's minimum
+    // width: the chips, the name with its tags and the buttons keep their whole text, wrapped text
+    // keeps every line, and nothing scrolls sideways.
+    void translationApiTabFitsEveryLanguageAtTheMinimumWidth() {
+        // Text widths need real fonts, which the offscreen platform does not have.
+        if (QGuiApplication::platformName() != "windows") QSKIP("needs -platform windows");
+        auto &scale = get_dialog_scale();
+        const int percent_before = scale.percent();
+        const QString language = I18nManager::get_current_language();
+        const QString engine = config_->get_translation_provider();
+        const auto restore = qScopeGuard([this, &scale, percent_before, language, engine] {
+            scale.set_percent(percent_before);
+            I18nManager::load_language(language);
+            config_->set_translation_provider(engine);
+            for (const char *key : {"baidu_translate_appid", "baidu_translate_secret_key"}) config_->set_accessor_value(key, "");
+        });
+        // With Google as the engine, Baidu filled in shows Use This.
+        config_->set_translation_provider("google");
+        QStringList problems;
+        const auto check = [&problems](QWidget *widget, const QString &where, const QString &name) {
+            if (!widget->isVisible()) return;
+            if (auto *label = qobject_cast<QLabel *>(widget); label && label->wordWrap()) {
+                if (label->height() < label->heightForWidth(label->width())) problems << QString("%1: \"%2\" is cut off").arg(where, name);
+            } else if (widget->width() < widget->sizeHint().width()) {
+                problems << QString("%1: \"%2\" is %3 wide, needs %4").arg(where, name).arg(widget->width()).arg(widget->sizeHint().width());
+            }
+        };
+        for (const int percent : {100, 150, 200}) {
+            scale.set_percent(percent);
+            for (const char *code : {"zh", "zh_TW", "en", "ja", "ko"}) {
+                QVERIFY(I18nManager::load_language(code));
+                SettingsDialog dialog(config_, config_->get_hotkey());
+                // Wider than any screen, so the minimum is not capped at this one's width.
+                dialog.fit_to_available({4000, dialog.height()});
+                dialog.resize(0, dialog.height());
+                dialog.show();
+                dialog.on_nav_changed(4, "translation");
+                qobject_cast<QLineEdit *>(dialog.provider_field_widgets->value("baidu_translate_appid").data())->setText("app");
+                qobject_cast<QLineEdit *>(dialog.provider_field_widgets->value("baidu_translate_secret_key").data())->setText("secret");
+                const QString at = QString("%1 at %2%").arg(code).arg(percent);
+                for (const auto &meta : dialog.translation_registry->available_providers()) {
+                    show_translation_provider(&dialog, meta.provider_id);
+                    QApplication::processEvents();
+                    const QString where = at + ", " + meta.provider_id;
+                    auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+                    QVERIFY(scroll);
+                    if (scroll->horizontalScrollBar()->maximum() > 0) problems << where + ": the page scrolls sideways";
+                    check(provider_chip(dialog, meta.provider_id), where, provider_chip(dialog, meta.provider_id)->text());
+                    QWidget *card = dialog.provider_sections.value(meta.provider_id);
+                    const QRect in_page(card->mapTo(scroll->viewport(), QPoint()), card->size());
+                    if (in_page.left() < 0 || in_page.right() >= scroll->viewport()->width()) problems << where + ": the card sticks out of the page";
+                    for (auto *label : card->findChildren<QLabel *>()) check(label, where, label->text());
+                    for (auto *button : card->findChildren<QPushButton *>()) check(button, where, button->text());
+                    for (auto *widget : card->findChildren<QWidget *>())
+                        if (widget->layout() && widget->isVisible() && widget->layout()->totalMinimumSize().width() > widget->width())
+                            problems << QString("%1: a %2 needs %3, has %4").arg(where, widget->metaObject()->className()).arg(widget->layout()->totalMinimumSize().width()).arg(widget->width());
+                }
+                QVERIFY2(card_button(dialog, "baidu", settings_tr("Use This"))->isVisibleTo(dialog.provider_sections.value("baidu")), qPrintable(at));
             }
         }
         QVERIFY2(problems.isEmpty(), qPrintable(problems.join('\n')));
@@ -2554,10 +3520,10 @@ private slots:
     void developerPageAndPinShortcutLinks() {
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.show();
-        QWidget *logo = nullptr;
-        for (auto *widget : dialog.findChildren<QWidget *>())
-            if (widget->contextMenuPolicy() == Qt::CustomContextMenu) logo = widget;
-        QVERIFY(logo);
+        auto *title_bar = qobject_cast<FluentTitleBar *>(dialog.titleBar());
+        QVERIFY(title_bar);
+        QWidget *logo = title_bar->iconLabel;
+        QCOMPARE(logo->contextMenuPolicy(), Qt::CustomContextMenu);
         QTimer::singleShot(0, &dialog, [] {
             auto *menu = qobject_cast<QMenu *>(QApplication::activePopupWidget());
             if (!menu) return;
@@ -2575,10 +3541,10 @@ private slots:
         QCOMPARE(engine->currentData(), engine_default);
         dialog.show_pin_shortcuts(true);
         QCOMPARE(dialog.content_stack->currentIndex(), 10);
-        QVERIFY(dialog.mouse_inapp_tabs);
+        QVERIFY(dialog.attr_widget("mouse_pin_group"));
         dialog.show_pin_shortcuts(false);
         QCOMPARE(dialog.content_stack->currentIndex(), 0);
-        QVERIFY(dialog.inapp_shortcut_tabs);
+        QVERIFY(dialog.attr_widget("inapp_pin_group"));
         QApplication::processEvents();
         QSignalSpy wizard(&dialog, &SettingsDialog::wizard_requested);
         dialog.open_welcome_wizard();
@@ -2677,15 +3643,15 @@ private slots:
         QCOMPARE(edit->text(), QString("ctrl+k"));
     }
 
-    // Save and quick save sit on the screenshot tab, and their defaults take no other capture key.
-    void saveKeysSitOnTheScreenshotTab() {
+    // Save and quick save sit in the screenshot group, and their defaults take no other capture key.
+    void saveKeysSitInTheScreenshotGroup() {
         SettingsDialog dialog(config_, config_->get_hotkey());
-        auto *stack = dialog.findChild<QStackedWidget *>("InAppShortcutStack");
-        QVERIFY(stack);
+        auto *group = group_titled(dialog, i18n_tr("Screenshot Window", "ShortcutTabs"));
+        QVERIFY(group);
         for (const auto &[key, value] : {std::pair{"inapp_save", "ctrl+s"}, std::pair{"inapp_quick_save", "ctrl+shift+s"}}) {
             auto *edit = dialog.inapp_edit(key);
             QVERIFY(edit);
-            QVERIFY(stack->widget(0)->isAncestorOf(edit));
+            QVERIFY(group->isAncestorOf(edit));
             QCOMPARE(edit->text(), QString(value));
             QCOMPARE(dialog.inapp_groups.value(key), QString("screenshot"));
             for (const auto &[other_key, other] : dialog.inapp_edits)
@@ -2695,10 +3661,8 @@ private slots:
 
     void undoAndRedoBelongToAnnotationTools() {
         SettingsDialog dialog(config_, config_->get_hotkey());
-        auto *stack = dialog.findChild<QStackedWidget *>("InAppShortcutStack");
-        QVERIFY(stack);
-        auto *screenshot_page = stack->widget(0);
-        auto *tools_page = stack->widget(1);
+        auto *screenshot_page = group_titled(dialog, i18n_tr("Screenshot Window", "ShortcutTabs"));
+        auto *tools_page = group_titled(dialog, i18n_tr("Annotation Tools", "ShortcutTabs"));
         QVERIFY(screenshot_page && tools_page);
         for (const char *key : {"inapp_undo", "inapp_redo"}) {
             auto *edit = dialog.inapp_edit(key);
@@ -2936,33 +3900,90 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(!flash_over(target), 4000);
     }
 
-    void searchOpensTheTabHoldingTheRow() {
+    // A row of a window's shortcuts is found under that window's group; opening it outlines the row and marks the group.
+    void searchJumpsToTheGroupHoldingTheRow() {
         SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 600);
         dialog.show();
         auto *box = dialog.search_box();
-        QCOMPARE(dialog.inapp_shortcut_tabs->currentItem(), QString("screenshot"));
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        QTRY_VERIFY(nav->subItemCount("shortcuts") > 1);
+        const QString pin_group = i18n_tr("Pinned Window", "ShortcutTabs");
+        QCOMPARE(nav->currentSubItem(), 0);
         const QString lock = inapp_label(&dialog, "inapp_pin_lock");
         box->edit()->setText(lock);
         QTRY_VERIFY(box->results_visible() && !box->results().empty());
         const auto result = box->results().front();
         QCOMPARE(result.title, lock);
-        QCOMPARE(result.path, (QStringList{settings_tr("Shortcuts"), settings_tr("In-App Shortcuts"), i18n_tr("Pin", "ShortcutTabs")}.join(" / ")));
+        QCOMPARE(result.path, (QStringList{settings_tr("Shortcuts"), pin_group}.join(" / ")));
         QPointer<QWidget> target = result.target;
-        QVERIFY(target && !target->isVisible());
+        QVERIFY(target);
         QTest::keyClick(box->edit(), Qt::Key_Return);
-        QCOMPARE(dialog.inapp_shortcut_tabs->currentItem(), QString("pin"));
-        QTRY_VERIFY(target->isVisible());
+        QTRY_COMPARE(nav->subItem(nav->currentSubRoute(), nav->currentSubItem())->text(), pin_group);
+        QTRY_VERIFY(flash_over(target));
+        auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+        const QRect in_view(target->mapTo(scroll->viewport(), QPoint()), target->size());
+        QVERIFY(scroll->viewport()->rect().contains(in_view));
 
-        // The mouse page's tabs, on a page not built yet.
+        // The mouse page, not built yet.
         box->edit()->clear();
         const QString select_region = settings_tr("Select Thumbnail Region");
         box->edit()->setText(select_region);
         QTRY_VERIFY(box->results_visible() && !box->results().empty() && box->results().front().title == select_region);
+        QCOMPARE(box->results().front().path, (QStringList{settings_tr("Mouse Shortcuts"), pin_group}.join(" / ")));
         target = box->results().front().target;
         QTest::keyClick(box->edit(), Qt::Key_Return);
         QCOMPARE(dialog.content_stack->currentIndex(), 10);
-        QCOMPARE(dialog.mouse_inapp_tabs->currentItem(), QString("pin"));
-        QTRY_VERIFY(target && target->isVisible());
+        QTRY_COMPARE(nav->currentSubRoute(), QString("mouse"));
+        QTRY_COMPARE(nav->subItem(nav->currentSubRoute(), nav->currentSubItem())->text(), pin_group);
+        QTRY_VERIFY(target && flash_over(target));
+    }
+
+    // The groups of the two shortcut pages are listed under their navigation items: the global group, then one per window.
+    void shortcutPagesListOneGroupPerWindow() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 750);
+        dialog.show();
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        const auto window = [](const char *name) { return i18n_tr(name, "ShortcutTabs"); };
+        dialog.on_nav_changed(0, "shortcuts");
+        QTRY_COMPARE(nav->subItemCount("shortcuts"), 5);
+        QCOMPARE(nav->subItemTitles("shortcuts"), (QStringList{dialog.tr_text("Global Hotkeys"), window("Screenshot Window"), window("Annotation Tools"), window("Pinned Window"), window("Clipboard Window")}));
+        dialog.on_nav_changed(10, "mouse");
+        QTRY_COMPARE(nav->subItemCount("mouse"), 5);
+        QCOMPARE(nav->subItemTitles("mouse"),
+                 (QStringList{window("Global Mouse Shortcuts"), window("Screenshot Window"), window("Long Screenshot Window"), window("Pinned Window"), window("Clipboard Window")}));
+        // Each action row sits in its window's group, and no row is left outside the groups.
+        auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+        const auto groups = page_groups(scroll);
+        QCOMPARE(int(groups.size()), 5);
+        for (const auto &action : LONG_SCREENSHOT_MOUSE_ACTIONS()) QVERIFY(groups[2]->isAncestorOf(dialog.behavior_control(QString("mouse_long_") + action.key)));
+        for (const auto &action : PIN_MOUSE_ACTIONS()) QVERIFY(groups[3]->isAncestorOf(dialog.behavior_control(QString("mouse_pin_") + action.key)));
+    }
+
+    // The pin page's buttons to the pin shortcuts scroll to the pin group and mark it in the navigation.
+    void pinShortcutEntriesScrollToThePinGroup() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 600);
+        dialog.show();
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        const QString pin_group = i18n_tr("Pinned Window", "ShortcutTabs");
+        for (const bool mouse : {false, true}) {
+            dialog.on_nav_changed(11, "pin");
+            dialog.show_pin_shortcuts(mouse);
+            QCOMPARE(dialog.content_stack->currentIndex(), mouse ? 10 : 0);
+            auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+            auto *group = dialog.attr_widget(mouse ? "mouse_pin_group" : "inapp_pin_group");
+            QVERIFY(group);
+            QTRY_COMPARE(nav->currentSubRoute(), QString(mouse ? "mouse" : "shortcuts"));
+            QTRY_COMPARE(nav->subItem(nav->currentSubRoute(), nav->currentSubItem())->text(), pin_group);
+            QTRY_VERIFY(!dialog.page_outline()->animating());
+            // The group's title is at the top of the view, unless the page ends before it can get there.
+            const auto *bar = scroll->verticalScrollBar();
+            QVERIFY(bar->value() > 0);
+            const int top = group_top_of(scroll, group) - bar->value();
+            QVERIFY2(top >= 0 && (top <= dialog_scaled(PageOutline::TOP_MARGIN) + 2 || bar->value() == bar->maximum()), qPrintable(QString::number(top)));
+        }
     }
 
     // Whatever search lists can be brought on screen: its page, its tab, scrolled into view.
@@ -2992,41 +4013,104 @@ private slots:
         QVERIFY2(rows > 150, qPrintable(QString::number(rows)));
     }
 
-    // Another translation service's fields are hidden; they are not listed until it is chosen.
-    void searchLeavesOutRowsHiddenOnPurpose() {
+    // Every provider's card is listed under its name, folded rows included; a result opens
+    // that provider's cards and unfolds Advanced, without changing the engine.
+    void searchReachesEveryProvidersCard() {
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.show();
         dialog.on_nav_changed(4, "translation");
         QCoreApplication::processEvents();
-        const auto lists = [&dialog](QWidget *section) {
-            const auto entries = dialog.search_entries();
-            return std::any_of(entries.begin(), entries.end(), [section](const SettingsSearchEntry &entry) { return entry.target && section->isAncestorOf(entry.target); });
+        const auto entries = dialog.search_entries();
+        const auto listed = [&entries](QWidget *inside) {
+            return std::count_if(entries.begin(), entries.end(), [inside](const SettingsSearchEntry &entry) { return entry.target && inside->isAncestorOf(entry.target); });
         };
-        QString hidden_provider;
-        int shown = 0;
-        for (auto it = dialog.provider_sections.begin(); it != dialog.provider_sections.end(); ++it) {
-            QWidget *section = it.value();
-            QVERIFY(section);
-            if (!section->isHidden()) {
-                ++shown;
-                QVERIFY2(lists(section), qPrintable(it.key()));
-                continue;
-            }
-            QVERIFY2(!lists(section), qPrintable(it.key()));
-            // A service with fields besides the connection test row.
-            if (hidden_provider.isEmpty() && section->findChildren<WhiteCard *>().size() > 1) hidden_provider = it.key();
-        }
-        QCOMPARE(shown, 1);
-        QVERIFY(!hidden_provider.isEmpty());
+        // Its name, at least one setting to work and the two pacing rows.
+        for (auto it = dialog.provider_sections.begin(); it != dialog.provider_sections.end(); ++it) QVERIFY2(listed(it.value()) >= 4, qPrintable(it.key()));
+        // The options' rows as well.
+        QVERIFY(listed(dialog.attr_widget("translation_options_group")) >= 4);
+
         auto *combo = dialog.attr<QComboBox>("translation_provider_combo");
-        const int before = combo->currentIndex();
-        const auto restore = qScopeGuard([&dialog, combo, before] {
-            combo->setCurrentIndex(before);
-            dialog.apply_settings();
-        });
-        combo->setCurrentIndex(combo->findData(hidden_provider));
-        QCoreApplication::processEvents();
-        QVERIFY(lists(dialog.provider_sections.value(hidden_provider)));
+        const QString engine = combo->currentData().toString();
+        const QString provider = engine == "amazon" ? "azure" : "amazon";
+        QWidget *card = dialog.provider_sections.value(provider);
+        QVERIFY(!card->isVisible());
+        const auto pacing = dialog.translation_registry->metadata(provider).pacing.front();
+        QWidget *edit = dialog.provider_field_widgets->value(pacing.config_key);
+        const auto found = std::find_if(entries.begin(), entries.end(), [edit](const SettingsSearchEntry &entry) { return entry.kind == SettingsSearchEntry::Kind::Item && entry.target && entry.target->isAncestorOf(edit); });
+        QVERIFY(found != entries.end());
+        QCOMPARE(found->title, settings_tr(pacing.label.toUtf8().constData()));
+        QVERIFY2(found->path.endsWith(" / " + provider_chip(dialog, provider)->text()), qPrintable(found->path));
+        dialog.show_search_result(*found);
+        QTRY_VERIFY(edit->isVisible());
+        QVERIFY(card->isVisible());
+        QVERIFY(provider_chip(dialog, provider)->isChecked());
+        QCOMPARE(combo->currentData().toString(), engine);
+    }
+
+    // The engine row's gear scrolls the page to the API services group and shows the engine's cards.
+    void configureButtonScrollsToTheApiServicesOfTheEngine() {
+        const QString provider = config_->get_translation_provider();
+        const auto restore = qScopeGuard([this, provider] { config_->set_translation_provider(provider); });
+        config_->set_translation_provider("deepseek");
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 600);
+        dialog.show();
+        dialog.on_nav_changed(4, "translation");
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+        QTRY_COMPARE(nav->subItemCount("translation"), 3);
+        auto *group = dialog.attr_widget("translation_api_group");
+        auto *bar = scroll->verticalScrollBar();
+        provider_chip(dialog, "deepl")->click();
+        QCOMPARE(bar->value(), 0);
+        QVERIFY(group_top_of(scroll, group) > bar->value() + scroll->viewport()->height() / 2);
+
+        dialog.attr<QPushButton>("translation_configure_button")->click();
+        QVERIFY(provider_chip(dialog, "deepseek")->isChecked());
+        QVERIFY(dialog.provider_sections.value("deepseek")->isVisible());
+        QVERIFY(!dialog.provider_sections.value("deepl")->isVisible());
+        // A smooth scroll that ends with the group at the top, or at the end of the page.
+        const auto expected = [&] { return std::clamp(group_top_of(scroll, group) - dialog_scaled(PageOutline::TOP_MARGIN), 0, bar->maximum()); };
+        QTRY_VERIFY(bar->value() > 0);
+        QTRY_COMPARE(bar->value(), expected());
+        QTRY_COMPARE(nav->currentSubItem(), 2);
+        QVERIFY(provider_chip(dialog, "deepseek")->isVisible());
+
+        // Again from the top, through the helper the other pages use.
+        bar->setValue(0);
+        QTRY_COMPARE(nav->currentSubItem(), 0);
+        show_translation_provider(&dialog, "baidu");
+        QTRY_COMPARE(bar->value(), expected());
+        QVERIFY(provider_chip(dialog, "baidu")->isChecked());
+    }
+
+    // A search result inside the API services shows its provider and the field in the view.
+    void searchJumpToAnApiFieldBringsItIntoView() {
+        const QString provider = config_->get_translation_provider();
+        const auto restore = qScopeGuard([this, provider] { config_->set_translation_provider(provider); });
+        config_->set_translation_provider("deepl");
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 600);
+        dialog.show();
+        dialog.on_nav_changed(4, "translation");
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+        QTRY_COMPARE(nav->subItemCount("translation"), 3);
+        QCOMPARE(scroll->verticalScrollBar()->value(), 0);
+        QWidget *field = dialog.provider_field_widgets->value("custom_llm_temperature");
+        QVERIFY(!field->isVisible());
+        const auto entries = dialog.search_entries();
+        const auto found = std::find_if(entries.begin(), entries.end(), [field](const SettingsSearchEntry &entry) { return entry.kind == SettingsSearchEntry::Kind::Item && entry.target && entry.target->isAncestorOf(field); });
+        QVERIFY(found != entries.end());
+        dialog.show_search_result(*found);
+        QTRY_VERIFY(field->isVisible());
+        QVERIFY(provider_chip(dialog, "custom_llm")->isChecked());
+        const auto in_view = [&] {
+            const int top = field->mapTo(scroll->viewport(), QPoint()).y();
+            return top >= 0 && top + field->height() <= scroll->viewport()->height();
+        };
+        QTRY_VERIFY(in_view());
+        QCOMPARE(nav->currentSubItem(), 2);
     }
 
     void searchKeysStayInTheField() {
@@ -3212,6 +4296,10 @@ private slots:
     void renderPagesForReview() {
         const QString out = qEnvironmentVariable("JIETUBA_SETTINGS_SHOTS");
         if (out.isEmpty()) QSKIP("JIETUBA_SETTINGS_SHOTS is not set.");
+        // JIETUBA_SETTINGS_SHOTS_LANGUAGE renders another interface language.
+        const QString language = I18nManager::get_current_language();
+        const auto restore_language = qScopeGuard([language] { I18nManager::load_language(language); });
+        if (const QString shown = qEnvironmentVariable("JIETUBA_SETTINGS_SHOTS_LANGUAGE"); !shown.isEmpty()) QVERIFY(I18nManager::load_language(shown));
         SettingsDialog dialog(config_, config_->get_hotkey());
         dialog.setAttribute(Qt::WA_DontShowOnScreen);
         dialog.show();
@@ -3228,6 +4316,16 @@ private slots:
             QTest::qWait(200);
             QVERIFY(dialog.grab().save(QDir(out).filePath(QString("%1_%2_end.png").arg(index, 2, 10, QChar('0')).arg(route))));
         }
+        // The translation page's API services, on a provider of each kind.
+        dialog.on_nav_changed(4, "translation");
+        for (const char *provider : {"deepl", "deepseek", "volcengine", "custom_llm"}) {
+            show_translation_provider(&dialog, provider);
+            QTest::qWait(200);
+            QVERIFY(dialog.grab().save(QDir(out).filePath(QString("04_translation_api_%1.png").arg(provider))));
+            // The whole card, below the window's height as well.
+            auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+            QVERIFY(scroll->widget()->grab().save(QDir(out).filePath(QString("04_translation_api_%1_full.png").arg(provider))));
+        }
         WelcomeWizard wizard(config_);
         wizard.setAttribute(Qt::WA_DontShowOnScreen);
         wizard.show();
@@ -3238,6 +4336,69 @@ private slots:
         }
         // Closing saves every page; the finish page would write the Run key and the desktop.
         wizard.hide();
+    }
+    // Saves the dialogs opened from the settings window, light and dark, when JIETUBA_SETTINGS_SHOTS names a folder.
+    void renderDialogsForReview() {
+        const QString out = qEnvironmentVariable("JIETUBA_SETTINGS_SHOTS");
+        if (out.isEmpty()) QSKIP("JIETUBA_SETTINGS_SHOTS is not set.");
+        const QString language = I18nManager::get_current_language();
+        const auto mode = get_ui_theme()->mode();
+        const auto restore = qScopeGuard([language, mode] {
+            I18nManager::load_language(language);
+            get_ui_theme()->set_mode(ui_theme_mode_value(mode), false);
+        });
+        const auto save = [&out](QWidget &widget, const QString &name) {
+            widget.setAttribute(Qt::WA_DontShowOnScreen);
+            widget.show();
+            QTest::qWait(100);
+            QVERIFY(widget.grab().save(QDir(out).filePath(name + ".png")));
+            widget.hide();
+        };
+        for (const char *theme : {"light", "dark"}) {
+            get_ui_theme()->set_mode(theme, false);
+            for (const char *lang : {"zh", "en", "ja"}) {
+                QVERIFY(I18nManager::load_language(lang));
+                FileNameDialog names(file_names::defaults());
+                save(names, QString("dialog_filename_%1_%2").arg(lang, theme));
+                StandardDialog confirm(nullptr, settings_tr("Reset This Page"), settings_tr("Restore the default settings of this page?"));
+                confirm.button_box->addButton(i18n_tr("Yes", "StandardDialog"), QDialogButtonBox::YesRole);
+                confirm.button_box->addButton(i18n_tr("No", "StandardDialog"), QDialogButtonBox::NoRole);
+                save(confirm, QString("dialog_confirm_%1_%2").arg(lang, theme));
+            }
+            QVERIFY(I18nManager::load_language("zh"));
+            FileNameDialog broken(file_names::defaults());
+            broken.findChild<QLineEdit *>("filename_rule_5")->setText("bad?");
+            save(broken, QString("dialog_filename_error_%1").arg(theme));
+            StandardDialog choice(nullptr, settings_tr("Existing Clipboard Data"),
+                                  settings_tr("The selected folder already contains clipboard data.\n"
+                                              "Use That Data: switch to it and leave the current data where it is.\n"
+                                              "Replace: move the current data there; the data already in that folder will be deleted."));
+            choice.button_box->addButton(settings_tr("Use That Data"), QDialogButtonBox::AcceptRole);
+            choice.button_box->addButton(settings_tr("Replace"), QDialogButtonBox::DestructiveRole);
+            choice.button_box->addButton(settings_tr("Cancel"), QDialogButtonBox::RejectRole);
+            save(choice, QString("dialog_choice_%1").arg(theme));
+            StandardDialog info(nullptr, settings_tr("Log"), settings_tr("No log files yet. Please start and use the app first."));
+            info.button_box->addButton(i18n_tr("OK", "StandardDialog"), QDialogButtonBox::AcceptRole);
+            save(info, QString("dialog_info_%1").arg(theme));
+            ColorFormatDialog formats(color_formats::default_formats());
+            save(formats, QString("dialog_color_formats_%1").arg(theme));
+            SpecialPasteDialog paste(special_paste::default_entries());
+            save(paste, QString("dialog_special_paste_%1").arg(theme));
+            PpocrModelDialog models;
+            save(models, QString("dialog_models_%1").arg(theme));
+            PpocrImportForm import_form;
+            save(import_form, QString("dialog_model_import_%1").arg(theme));
+            upload::Target blank;
+            blank.id = "new";
+            UploadTargetDialog upload_dialog(blank, {}, true);
+            save(upload_dialog, QString("dialog_upload_%1").arg(theme));
+            QMap<QString, QIcon> icons;
+            for (const auto &key : toolbar_layout::default_order()) icons[key] = QIcon();
+            ToolbarLayoutDialog toolbar(toolbar_layout::default_layout(), icons);
+            save(toolbar, QString("dialog_toolbar_%1").arg(theme));
+            ColorPickerDialog picker(QColor(230, 153, 60));
+            save(picker, QString("dialog_color_picker_%1").arg(theme));
+        }
     }
     void fileNameRulesValidateAndSaveWithoutOverwriting() {
         QTemporaryDir temp;
@@ -3268,22 +4429,22 @@ private slots:
         SaveService service(config);
         QImage image(2, 2, QImage::Format_RGB32);
         image.fill(Qt::red);
-        const auto first = service.save_qimage(image);
+        const auto first = service.save_qimage(image, {}, {}, {}, "PNG", {});
         QVERIFY(first.first);
         QCOMPARE(QFileInfo(*first.second).fileName(), QString("shot.png"));
-        const auto second = service.save_qimage(image);
+        const auto second = service.save_qimage(image, {}, {}, {}, "PNG", {});
         QVERIFY(second.first);
         QCOMPARE(QFileInfo(*second.second).fileName(), QString("shot_1.png"));
         QCOMPARE(QImage(*first.second).pixelColor(0, 0), QColor(Qt::red));
-        const auto pin = service.save_qimage(image, {}, "pinned");
+        const auto pin = service.save_qimage(image, {}, "pinned", {}, "PNG", {});
         QVERIFY(pin.first);
         QCOMPARE(QFileInfo(*pin.second).fileName(), QString("pin.png"));
-        const auto long_shot = service.save_qimage(image, {}, "horizontal");
+        const auto long_shot = service.save_qimage(image, {}, "horizontal", {}, "PNG", {});
         QVERIFY(long_shot.first);
         QCOMPARE(QFileInfo(*long_shot.second).fileName(), QString("article_horizontal.png"));
         QCOMPARE(file_names::stem(config, file_names::Gif), QString("animation"));
         QCOMPARE(file_names::stem(config, file_names::Video), QString("video"));
-        const auto original = SaveService::save_beside(image, *first.second, file_names::load(config).at(file_names::OriginalSuffix));
+        const auto original = SaveService::save_beside(image, *first.second, file_names::load(config).at(file_names::OriginalSuffix), {});
         QVERIFY(original);
         QCOMPARE(QFileInfo(*original).fileName(), QString("shot_source.png"));
         rules[0] = "../bad";
@@ -3544,6 +4705,1113 @@ private slots:
             auto *scroll = large.findChild<QScrollArea *>("filename_scroll");
             QCOMPARE(scroll->horizontalScrollBar()->maximum(), 0);
             QVERIFY(large.height() <= large.screen()->availableGeometry().height());
+        }
+    }
+
+
+
+    // A new target starts from the first provider; a mistake shows beside its own field, and the link a screenshot
+    // would get follows the fields.
+    void uploadDialogChecksFieldsBesideThemAndPreviewsTheLink() {
+        upload::Target existing;
+        existing.id = "old";
+        existing.name = "Main";
+        upload::Target blank;
+        blank.id = "new";
+        UploadTargetDialog dialog(blank, {existing}, true);
+        QCOMPARE(dialog.endpoint_edit->text(), QString("https://s3.us-east-1.amazonaws.com"));
+        QCOMPARE(dialog.region_edit->text(), QString("us-east-1"));
+        QCOMPARE(dialog.addressing_combo->currentData().toString(), QString("virtual"));
+        const auto shown = [&dialog](const char *field) {
+            auto *label = dialog.errors.value(field);
+            return label && !label->isHidden() && !label->text().isEmpty();
+        };
+        QVERIFY(!dialog.validate_fields());
+        QVERIFY(shown("name") && shown("bucket") && shown("access_key_id") && shown("secret_access_key"));
+        QVERIFY(!shown("endpoint") && !shown("region") && !shown("public_url"));
+        QCOMPARE(dialog.errors.value("name")->text(), i18n_tr("Enter a name.", "UploadTargetDialog"));
+        // A name used by another target in any letter case, an endpoint that is no http address, a bucket with a slash.
+        dialog.name_edit->setText("main");
+        dialog.endpoint_edit->setText("ftp://x");
+        dialog.bucket_edit->setText("a/b");
+        QVERIFY(!dialog.validate_fields());
+        QVERIFY(shown("name") && shown("endpoint") && shown("bucket"));
+        QCOMPARE(dialog.errors.value("name")->text(), i18n_tr("This name is already used.", "UploadTargetDialog"));
+        // Editing a field stops showing what was said about it.
+        dialog.name_edit->setText("Other");
+        QVERIFY(!shown("name") && shown("endpoint"));
+        dialog.endpoint_edit->setText("  https://s3.us-east-1.amazonaws.com ");
+        dialog.bucket_edit->setText(" my-bucket ");
+        dialog.access_key_edit->setText("AKID");
+        dialog.secret_edit->setText("secret");
+        QVERIFY(dialog.validate_fields());
+        const auto target = dialog.target();
+        QCOMPARE(target.id, QString("new"));
+        QCOMPARE(target.name, QString("Other"));
+        QCOMPARE(target.endpoint, QString("https://s3.us-east-1.amazonaws.com"));
+        QCOMPARE(target.bucket, QString("my-bucket"));
+        QCOMPARE(target.access_key_id, QString("AKID"));
+        QCOMPARE(target.addressing, upload::Addressing::Virtual);
+        // The preview is the link of an example name, with the prefix, and follows the addressing and the public address.
+        const int year = QDate::currentDate().year();
+        QCOMPARE(dialog.preview_text(), QString("https://my-bucket.s3.us-east-1.amazonaws.com/Screenshot-1a2b3c4d.png"));
+        dialog.prefix_edit->setText("shots/{yyyy}");
+        QCOMPARE(dialog.preview_text(), QString("https://my-bucket.s3.us-east-1.amazonaws.com/shots/%1/Screenshot-1a2b3c4d.png").arg(year));
+        dialog.addressing_combo->setCurrentIndex(0);
+        QCOMPARE(dialog.preview_text(), QString("https://s3.us-east-1.amazonaws.com/my-bucket/shots/%1/Screenshot-1a2b3c4d.png").arg(year));
+        dialog.addressing_combo->setCurrentIndex(1);
+        dialog.bucket_edit->setText("my.bucket");
+        QVERIFY2(dialog.preview_text().startsWith("https://s3.us-east-1.amazonaws.com/my.bucket/"), qPrintable(dialog.preview_text()));
+        dialog.public_edit->setText("https://cdn.test/img/");
+        QCOMPARE(dialog.preview_text(), QString("https://cdn.test/img/shots/%1/Screenshot-1a2b3c4d.png").arg(year));
+        dialog.public_edit->setText("cdn.test");
+        QVERIFY(!dialog.validate_fields());
+        QVERIFY(shown("public_url"));
+        QVERIFY(!dialog.preview_text().startsWith("http"));
+    }
+
+    // Picking a provider fills its endpoint, region and addressing; the region of a provider that carries it in the
+    // endpoint carries it along until the endpoint is changed by hand.
+    void uploadDialogProvidersFillTheirTemplates() {
+        upload::Target blank;
+        blank.id = "new";
+        UploadTargetDialog dialog(blank, {}, true);
+        const auto pick = [&dialog](int index) {
+            dialog.preset_combo->setCurrentIndex(index);
+            emit dialog.preset_combo->activated(index);
+        };
+        pick(2);
+        QCOMPARE(dialog.endpoint_edit->text(), QString("https://s3.oss-cn-hangzhou.aliyuncs.com"));
+        QCOMPARE(dialog.region_edit->text(), QString("cn-hangzhou"));
+        QCOMPARE(dialog.addressing_combo->currentData().toString(), QString("virtual"));
+        pick(3);
+        QCOMPARE(dialog.endpoint_edit->text(), QString("https://cos.ap-guangzhou.myqcloud.com"));
+        QCOMPARE(dialog.region_edit->text(), QString("ap-guangzhou"));
+        pick(1);
+        QCOMPARE(dialog.endpoint_edit->text(), QString("https://<ACCOUNT_ID>.r2.cloudflarestorage.com"));
+        QCOMPARE(dialog.region_edit->text(), QString("auto"));
+        QCOMPARE(dialog.addressing_combo->currentData().toString(), QString("path"));
+        // The R2 template is not an address until the account id is put in.
+        QVERIFY(!dialog.validate_fields());
+        QVERIFY(!dialog.errors.value("endpoint")->isHidden());
+        dialog.endpoint_edit->setText("https://0123abcd.r2.cloudflarestorage.com");
+        QVERIFY(dialog.errors.value("endpoint")->isHidden());
+        pick(4);
+        QCOMPARE(dialog.endpoint_edit->text(), QString("http://localhost:9000"));
+        QCOMPARE(dialog.region_edit->text(), QString("us-east-1"));
+        QCOMPARE(dialog.addressing_combo->currentData().toString(), QString("path"));
+        pick(0);
+        QCOMPARE(dialog.endpoint_edit->text(), QString("https://s3.us-east-1.amazonaws.com"));
+        dialog.region_edit->setText("eu-west-1");
+        emit dialog.region_edit->textEdited("eu-west-1");
+        QCOMPARE(dialog.endpoint_edit->text(), QString("https://s3.eu-west-1.amazonaws.com"));
+        dialog.endpoint_edit->setText("https://custom.example.com");
+        dialog.region_edit->setText("ap-1");
+        emit dialog.region_edit->textEdited("ap-1");
+        QCOMPARE(dialog.endpoint_edit->text(), QString("https://custom.example.com"));
+        // An existing target shows what it holds and the provider its endpoint belongs to.
+        upload::Target saved;
+        saved.id = "s";
+        saved.name = "Oss";
+        saved.endpoint = "https://s3.oss-cn-beijing.aliyuncs.com";
+        saved.region = "cn-beijing";
+        saved.bucket = "b";
+        saved.access_key_id = "AK";
+        saved.secret_access_key = "SK";
+        saved.addressing = upload::Addressing::Virtual;
+        UploadTargetDialog edit(saved, {}, false);
+        QCOMPARE(edit.preset_combo->currentIndex(), 2);
+        QCOMPARE(edit.name_edit->text(), QString("Oss"));
+        QCOMPARE(edit.endpoint_edit->text(), saved.endpoint);
+        QCOMPARE(edit.addressing_combo->currentData().toString(), QString("virtual"));
+        QCOMPARE(edit.secret_edit->echoMode(), QLineEdit::Password);
+        QVERIFY(edit.validate_fields());
+        saved.endpoint = "https://storage.internal.example";
+        UploadTargetDialog other(saved, {}, false);
+        QCOMPARE(other.preset_combo->currentIndex(), 4);
+        // An endpoint carrying the account is still the provider's, by its domain.
+        saved.endpoint = "https://0123456789abcdef.r2.cloudflarestorage.com";
+        UploadTargetDialog r2(saved, {}, false);
+        QCOMPARE(r2.preset_combo->currentIndex(), 1);
+    }
+
+    void uploadDialogFollowsTheWindowScaleAndNotThePanelScale() {
+        const auto restore = qScopeGuard([] {
+            get_dialog_scale().set_percent(100);
+            get_ui_scale().set_percent(100);
+        });
+        upload::Target blank;
+        blank.id = "new";
+        get_dialog_scale().set_percent(100);
+        get_ui_scale().set_percent(100);
+        UploadTargetDialog normal(blank, {}, true);
+        normal.show();
+        QCOMPARE(normal.width(), 600);
+        const int edit_height = normal.name_edit->height();
+        const int button_width = normal.save_button->width();
+        get_ui_scale().set_percent(200);
+        UploadTargetDialog panels(blank, {}, true);
+        panels.show();
+        QCOMPARE(panels.width(), normal.width());
+        QCOMPARE(panels.name_edit->height(), edit_height);
+        get_ui_scale().set_percent(100);
+        get_dialog_scale().set_percent(150);
+        UploadTargetDialog large(blank, {}, true);
+        large.show();
+        // The offscreen screen is narrower than 900 plus its margins, so the width is the screen's.
+        QVERIFY(large.width() > normal.width());
+        QVERIFY(large.name_edit->height() > edit_height);
+        QVERIFY(large.save_button->width() > button_width);
+        QVERIFY(large.height() <= large.screen()->availableGeometry().height());
+    }
+
+    // The dialogs in the settings window's look grow with the window scale and ignore the panel scale.
+    void settingsStyleDialogsFollowTheWindowScale() {
+        const auto restore = qScopeGuard([] {
+            get_dialog_scale().set_percent(100);
+            get_ui_scale().set_percent(100);
+        });
+        QMap<QString, QIcon> icons;
+        for (const auto &key : toolbar_layout::default_order()) icons[key] = QIcon();
+        const std::vector<std::pair<const char *, std::function<std::unique_ptr<QDialog>()>>> dialogs = {
+            {"colour formats", [] { return std::make_unique<ColorFormatDialog>(color_formats::default_formats()); }},
+            {"special paste", [] { return std::make_unique<SpecialPasteDialog>(special_paste::default_entries()); }},
+            {"model import", [] { return std::make_unique<PpocrImportForm>(); }},
+            {"toolbar layout", [icons] { return std::make_unique<ToolbarLayoutDialog>(toolbar_layout::default_layout(), icons); }},
+            {"message", [] { return std::make_unique<StandardDialog>(nullptr, "Title", "Message"); }},
+        };
+        // A dialog that does not size itself takes its size hint when shown.
+        const auto width_of = [](const std::unique_ptr<QDialog> &dialog) { return dialog->testAttribute(Qt::WA_Resized) ? dialog->width() : dialog->sizeHint().width(); };
+        for (const auto &[name, make] : dialogs) {
+            get_dialog_scale().set_percent(100);
+            get_ui_scale().set_percent(100);
+            const int width = width_of(make());
+            get_ui_scale().set_percent(150);
+            QVERIFY2(width_of(make()) == width, name);
+            get_ui_scale().set_percent(100);
+            get_dialog_scale().set_percent(150);
+            QVERIFY2(width_of(make()) >= width * 1.49, name);
+        }
+    }
+
+    // Needs real fonts: the dialogs in the settings window's look show every text whole in every language.
+    void settingsStyleDialogsFitEveryLanguage() {
+        if (QGuiApplication::platformName() != "windows") QSKIP("needs desktop fonts");
+        const auto language = I18nManager::get_current_language();
+        const auto restore = qScopeGuard([language] {
+            get_dialog_scale().set_percent(100);
+            I18nManager::load_language(language);
+        });
+        QMap<QString, QIcon> icons;
+        for (const auto &key : toolbar_layout::default_order()) icons[key] = QIcon();
+        QStringList problems;
+        for (const QString lang : {"zh", "zh_TW", "en", "ja", "ko"}) {
+            QVERIFY(I18nManager::load_language(lang));
+            for (const int percent : {100, 150}) {
+                get_dialog_scale().set_percent(percent);
+                std::vector<std::unique_ptr<QDialog>> dialogs;
+                dialogs.push_back(std::make_unique<ColorFormatDialog>(color_formats::default_formats()));
+                dialogs.push_back(std::make_unique<SpecialPasteDialog>(special_paste::default_entries()));
+                dialogs.push_back(std::make_unique<PpocrImportForm>());
+                dialogs.push_back(std::make_unique<ToolbarLayoutDialog>(toolbar_layout::default_layout(), icons));
+                auto choice = std::make_unique<StandardDialog>(nullptr, settings_tr("Existing Clipboard Data"), settings_tr("Clipboard module not available"));
+                choice->button_box->addButton(settings_tr("Use That Data"), QDialogButtonBox::AcceptRole);
+                choice->button_box->addButton(settings_tr("Replace"), QDialogButtonBox::DestructiveRole);
+                choice->button_box->addButton(settings_tr("Cancel"), QDialogButtonBox::RejectRole);
+                dialogs.push_back(std::move(choice));
+                for (auto &dialog : dialogs) {
+                    dialog->setAttribute(Qt::WA_DontShowOnScreen);
+                    dialog->show();
+                    QApplication::processEvents();
+                    const auto where = QString("%1 %2%% %3").arg(lang).arg(percent).arg(dialog->windowTitle());
+                    for (auto *button : dialog->findChildren<QPushButton *>())
+                        if (button->isVisible() && button->width() < button->sizeHint().width()) problems << where + ": " + button->text();
+                    for (auto *combo : dialog->findChildren<QComboBox *>())
+                        if (combo->isVisible() && combo->width() < combo->minimumSizeHint().width()) problems << where + ": " + combo->currentText();
+                    for (auto *label : dialog->findChildren<QLabel *>()) {
+                        if (!label->isVisible() || label->wordWrap() || label->text().isEmpty()) continue;
+                        if (label->width() < label->sizeHint().width()) problems << where + ": " + label->text();
+                    }
+                    if (dialog->width() > dialog->screen()->availableGeometry().width()) problems << where + ": wider than the screen";
+                }
+            }
+        }
+        QVERIFY2(problems.isEmpty(), qPrintable(problems.join('\n')));
+    }
+
+    // A message names the dialog in a large title; its buttons share the footer, the accepting one drawn as primary.
+    void messageDialogButtonsShareTheFooter() {
+        StandardDialog dialog(nullptr, "Reset", "Restore the defaults?");
+        auto *no = dialog.button_box->addButton("No, keep the current settings", QDialogButtonBox::NoRole);
+        auto *yes = dialog.button_box->addButton("Yes", QDialogButtonBox::YesRole);
+        dialog.show();
+        QApplication::processEvents();
+        QCOMPARE(dialog.title_label->text(), QString("Reset"));
+        QVERIFY(dialog.title_label->font().pixelSize() > dialog.label->font().pixelSize() || dialog.title_label->height() > dialog.label->height());
+        // Yes comes first whatever the order added, as in the platform's message boxes.
+        QCOMPARE(dialog.button_box->buttons(), (QList<QAbstractButton *>{yes, no}));
+        QVERIFY(qobject_cast<PrimaryPushButton *>(yes));
+        QVERIFY(!qobject_cast<PrimaryPushButton *>(no));
+        QVERIFY(yes->isDefault());
+        QVERIFY(!no->isDefault());
+        QCOMPARE(yes->width(), no->width());
+        QVERIFY(no->width() >= no->sizeHint().width());
+        QVERIFY(yes->x() < no->x());
+        dialog.setWindowTitle("Renamed");
+        QCOMPARE(dialog.title_label->text(), QString("Renamed"));
+        QCOMPARE(dialog.button_box->buttonRole(no), QDialogButtonBox::NoRole);
+    }
+
+    // Targets are added, edited and deleted from the page; the default and the list follow at once.
+    void uploadGroupAddsEditsAndDeletesTargets() {
+        const auto reset = qScopeGuard([this] {
+            config_->set_upload_targets("");
+            config_->set_upload_default_target("");
+            config_->set_upload_link_format("url");
+        });
+        config_->set_upload_targets("");
+        config_->set_upload_default_target("");
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.on_nav_changed(1, "capture");
+        const auto combo = [&dialog] { return dialog.attr<QComboBox>("upload_default_combo"); };
+        const auto stored = [this] { return upload::parse_targets(config_->get_upload_targets()); };
+        QVERIFY(combo());
+        QCOMPARE(combo()->count(), 1);
+        QCOMPARE(combo()->currentData().toString(), QString());
+        const auto add = [&](const QString &name, const QString &bucket, int items) {
+            drive_upload_dialog([&](UploadTargetDialog *editor) {
+                fill_upload_target(editor, name, bucket);
+                editor->save_button->click();
+            });
+            dialog.findChild<QPushButton *>("upload_add_button")->click();
+            QTRY_COMPARE(combo()->count(), items);
+        };
+        add("Main", "bucket-one", 2);
+        QCOMPARE(stored().size(), size_t(1));
+        const QString first = stored()[0].id;
+        QVERIFY(!first.isEmpty());
+        // The first target added is the default.
+        QCOMPARE(config_->get_upload_default_target(), first);
+        QCOMPARE(combo()->currentData().toString(), first);
+        QCOMPARE(combo()->itemText(1), QString("Main"));
+        auto *card = dialog.findChild<SettingCard *>("upload_target_" + first);
+        QVERIFY(card);
+        QCOMPARE(card->titleLabel->text(), QString("Main"));
+        // The bucket and the host, which may break after its dots.
+        QCOMPARE(card->contentLabel->text().remove(QChar(0x200B)), QString::fromUtf8("bucket-one · s3.us-east-1.amazonaws.com"));
+        add("Second", "bucket-two", 3);
+        QCOMPARE(stored().size(), size_t(2));
+        const QString second = stored()[1].id;
+        QCOMPARE(stored()[1].bucket, QString("bucket-two"));
+        QCOMPARE(config_->get_upload_default_target(), first);
+        QCOMPARE(combo()->currentData().toString(), first);
+        // Editing shows what was saved; a name another target has stays refused.
+        drive_upload_dialog([&](UploadTargetDialog *editor) {
+            QCOMPARE(editor->name_edit->text(), QString("Second"));
+            QCOMPARE(editor->bucket_edit->text(), QString("bucket-two"));
+            QCOMPARE(editor->secret_edit->text(), QString("secret"));
+            editor->name_edit->setText("MAIN");
+            editor->save_button->click();
+            QVERIFY(editor->isVisible());
+            QVERIFY(!editor->errors.value("name")->isHidden());
+        });
+        dialog.findChild<QPushButton *>("upload_edit_" + second)->click();
+        QCOMPARE(stored()[1].name, QString("Second"));
+        drive_upload_dialog([&](UploadTargetDialog *editor) {
+            editor->name_edit->setText("Renamed");
+            editor->prefix_edit->setText("p/{dd}");
+            editor->save_button->click();
+        });
+        dialog.findChild<QPushButton *>("upload_edit_" + second)->click();
+        QTRY_COMPARE(combo()->itemText(2), QString("Renamed"));
+        QCOMPARE(stored()[1].path_prefix, QString("p/{dd}"));
+        QCOMPARE(stored()[1].id, second);
+        QCOMPARE(dialog.findChild<SettingCard *>("upload_target_" + second)->titleLabel->text(), QString("Renamed"));
+        // Cancelling changes nothing.
+        drive_upload_dialog([](UploadTargetDialog *editor) {
+            editor->name_edit->setText("Never saved");
+            editor->cancel_button->click();
+        });
+        dialog.findChild<QPushButton *>("upload_edit_" + second)->click();
+        QCOMPARE(stored()[1].name, QString("Renamed"));
+        // A delete is asked about first.
+        answer_next(false);
+        dialog.findChild<QPushButton *>("upload_delete_" + second)->click();
+        QCOMPARE(stored().size(), size_t(2));
+        answer_next(true);
+        dialog.findChild<QPushButton *>("upload_delete_" + second)->click();
+        QTRY_COMPARE(combo()->count(), 2);
+        QCOMPARE(stored().size(), size_t(1));
+        QCOMPARE(config_->get_upload_default_target(), first);
+        // Deleting the default clears it.
+        answer_next(true);
+        dialog.findChild<QPushButton *>("upload_delete_" + first)->click();
+        QTRY_COMPARE(combo()->count(), 1);
+        QVERIFY(stored().empty());
+        QCOMPARE(config_->get_upload_default_target(), QString());
+        QCOMPARE(combo()->currentData().toString(), QString());
+        QVERIFY(!dialog.findChild<SettingCard *>("upload_target_" + first));
+    }
+
+    // The default and the link format are chosen in their combos and saved like any setting; the page's reset keeps
+    // the targets, whose keys would be lost.
+    void uploadGroupSavesTheDefaultAndTheLinkFormat() {
+        const auto reset = qScopeGuard([this] {
+            config_->set_upload_targets("");
+            config_->set_upload_default_target("");
+            config_->set_upload_link_format("url");
+        });
+        upload::Target a, b;
+        a.id = "a";
+        a.name = "A";
+        a.endpoint = "http://localhost:9000";
+        b = a;
+        b.id = "b";
+        b.name = "B";
+        config_->set_upload_targets(upload::serialize_targets({a, b}));
+        config_->set_upload_default_target("a");
+        config_->set_upload_link_format("url");
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.on_nav_changed(1, "capture");
+        auto *targets = dialog.attr<QComboBox>("upload_default_combo");
+        QCOMPARE(targets->count(), 3);
+        QCOMPARE(targets->currentData().toString(), QString("a"));
+        targets->setCurrentIndex(targets->findData("b"));
+        auto *format = dialog.attr<QComboBox>("upload_format_combo");
+        QCOMPARE(format->count(), 3);
+        QCOMPARE(format->currentData().toString(), QString("url"));
+        format->setCurrentIndex(format->findData("markdown"));
+        dialog.apply_settings();
+        QCOMPARE(config_->get_upload_default_target(), QString("b"));
+        QCOMPARE(config_->get_upload_link_format(), QString("markdown"));
+        reset_page(dialog);
+        dialog.apply_settings();
+        QCOMPARE(config_->get_upload_link_format(), QString("url"));
+        QCOMPARE(upload::parse_targets(config_->get_upload_targets()).size(), size_t(2));
+        QCOMPARE(config_->get_upload_default_target(), QString("b"));
+    }
+
+    // What changed in the settings from outside, or came from an imported file, shows in the list.
+    void uploadGroupFollowsTheSettingsReadFromElsewhere() {
+        const auto reset = qScopeGuard([this] {
+            config_->set_upload_targets("");
+            config_->set_upload_default_target("");
+        });
+        config_->set_upload_targets("");
+        config_->set_upload_default_target("");
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.on_nav_changed(1, "capture");
+        upload::Target a, b;
+        a.id = "a";
+        a.name = "A";
+        a.endpoint = "http://localhost:9000";
+        b = a;
+        b.id = "b";
+        b.name = "B";
+        config_->set_upload_targets(upload::serialize_targets({a, b}));
+        config_->set_upload_default_target("b");
+        dialog.refresh_settings();
+        auto *combo = dialog.attr<QComboBox>("upload_default_combo");
+        QCOMPARE(combo->count(), 3);
+        QCOMPARE(combo->currentData().toString(), QString("b"));
+        QVERIFY(dialog.findChild<SettingCard *>("upload_target_a"));
+        QVERIFY(dialog.findChild<SettingCard *>("upload_target_b"));
+        // An import writes the list and the default, and the window shows them.
+        upload::Target c = a;
+        c.id = "c";
+        c.name = "C";
+        dialog.load_imported_settings({{"upload/targets", upload::serialize_targets({c})}, {"upload/default_target", "c"}});
+        QCOMPARE(config_->get_upload_default_target(), QString("c"));
+        QCOMPARE(upload::parse_targets(config_->get_upload_targets()).size(), size_t(1));
+        combo = dialog.attr<QComboBox>("upload_default_combo");
+        QCOMPARE(combo->count(), 2);
+        QCOMPARE(combo->currentData().toString(), QString("c"));
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QVERIFY(!dialog.findChild<SettingCard *>("upload_target_a"));
+        QVERIFY(dialog.findChild<SettingCard *>("upload_target_c"));
+    }
+
+    // The upload shortcut is a row of the screenshot window's keys, empty by default, saved like the others.
+    void uploadShortcutHasARowAndSavesWithTheOtherKeys() {
+        const auto reset = qScopeGuard([this] { config_->set_inapp_shortcut("inapp_upload", ""); });
+        config_->set_inapp_shortcut("inapp_upload", "");
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        dialog.on_nav_changed(0, "shortcuts");
+        auto *edit = dialog.inapp_edit("inapp_upload");
+        QVERIFY(edit);
+        QCOMPARE(edit->text(), QString());
+        QCOMPARE(dialog.inapp_groups.value("inapp_upload"), QString("screenshot"));
+        edit->setText("ctrl+u");
+        dialog.apply_settings();
+        QCOMPARE(config_->get_inapp_shortcut("inapp_upload"), QString("ctrl+u"));
+    }
+
+    // The upload group and its dialog in every language and scale: needs real fonts.
+    void uploadGroupAndDialogFitEveryLanguage() {
+        if (QGuiApplication::platformName() != "windows") QSKIP("needs -platform windows");
+        auto &scale = get_dialog_scale();
+        const int percent_before = scale.percent();
+        const QString language = I18nManager::get_current_language();
+        const auto restore = qScopeGuard([this, &scale, percent_before, language] {
+            scale.set_percent(percent_before);
+            I18nManager::load_language(language);
+            config_->set_upload_targets("");
+            config_->set_upload_default_target("");
+        });
+        upload::Target target;
+        target.id = "a";
+        target.name = "Cloudflare R2 team screenshots";
+        target.endpoint = "https://0123456789abcdef.r2.cloudflarestorage.com";
+        const auto targets = upload::serialize_targets({target});
+        QStringList problems;
+        for (const int percent : {100, 150, 200}) {
+            scale.set_percent(percent);
+            for (const char *code : {"zh", "zh_TW", "en", "ja", "ko"}) {
+                QVERIFY(I18nManager::load_language(code));
+                const QString where = QString("%1 at %2%").arg(code).arg(percent);
+                {
+                    config_->set_upload_targets("");
+                    config_->set_upload_default_target("");
+                    SettingsDialog dialog(config_, config_->get_hotkey());
+                    dialog.fit_to_available({4000, dialog.height()});
+                    dialog.build_all_pages();
+                    dialog.resize(0, dialog.height());
+                    dialog.show();
+                    dialog.on_nav_changed(1, "capture");
+                    auto *default_combo = dialog.attr<QComboBox>("upload_default_combo");
+                    QVERIFY(default_combo);
+                    QCOMPARE(default_combo->count(), 1);
+                    if (qstrcmp(code, "zh") == 0) QCOMPARE(default_combo->currentText(), QString::fromUtf8("未配置"));
+                    QApplication::processEvents();
+                    if (default_combo->width() < default_combo->sizeHint().width())
+                        problems << where + ": combo " + default_combo->currentText() + " is cut";
+                    config_->set_upload_targets(targets);
+                    config_->set_upload_default_target(target.id);
+                    dialog.refresh_settings();
+                    QApplication::processEvents();
+                    auto *group = dialog.attr<QWidget>("upload_group");
+                    QVERIFY(group);
+                    for (auto *widget : group->findChildren<QWidget *>()) {
+                        if (!widget->isVisible()) continue;
+                        if (auto *button = qobject_cast<QPushButton *>(widget); button && button->width() < button->sizeHint().width())
+                            problems << where + ": button " + button->text() + " is cut";
+                        if (!widget->layout()) continue;
+                        const int needs = widget->layout()->totalMinimumSize().width();
+                        if (needs > widget->width()) problems << QString("%1: %2 needs %3, has %4").arg(where, widget->metaObject()->className()).arg(needs).arg(widget->width());
+                    }
+                    auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+                    if (scroll->horizontalScrollBar()->maximum() > 0) problems << where + ": the page scrolls sideways";
+                }
+                UploadTargetDialog editor(target, {}, false);
+                editor.show();
+                QApplication::processEvents();
+                for (auto *button : editor.findChildren<QPushButton *>())
+                    if (button->width() < button->sizeHint().width()) problems << where + ": dialog button " + button->text() + " is cut";
+                for (auto *label : editor.findChildren<QLabel *>()) {
+                    if (!label->isVisible() || label->wordWrap()) continue;
+                    if (label->width() < label->sizeHint().width() && label->objectName() != "upload_preview") problems << where + ": label " + label->text() + " is cut";
+                }
+                for (auto *box : editor.findChildren<QComboBox *>())
+                    if (box->width() < box->sizeHint().width()) problems << where + ": combo " + box->currentText() + " is cut";
+                editor.validate_fields();
+                if (editor.scroll->horizontalScrollBar()->maximum() > 0) problems << where + ": the dialog scrolls sideways";
+                if (editor.scroll->widget()->width() > editor.scroll->viewport()->width()) problems << where + ": the form is wider than its view";
+                if (editor.height() > editor.screen()->availableGeometry().height()) problems << where + ": the dialog is taller than the screen";
+            }
+        }
+        QVERIFY2(problems.isEmpty(), qPrintable(problems.join('\n')));
+    }
+
+    // The second navigation level: the pages' groups, listed under their items.
+    void outlineListsTheGroupsOfThePageInOrder() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 750);
+        dialog.show();
+        dialog.on_nav_changed(1, "capture");
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+        QVERIFY(nav && scroll);
+        QTRY_VERIFY(nav->subItemCount("capture") > 1);
+        auto groups = page_groups(scroll);
+        QStringList titles;
+        for (auto *group : groups) titles << group_title_of(group);
+        QCOMPARE(nav->subItemTitles("capture"), titles);
+        QCOMPARE(titles.size(), 9);
+
+        // A hidden group is not listed, and comes back when shown.
+        groups[1]->hide();
+        QStringList without = titles;
+        without.removeAt(1);
+        QTRY_COMPARE(nav->subItemTitles("capture"), without);
+        groups[1]->show();
+        QTRY_COMPARE(nav->subItemTitles("capture"), titles);
+    }
+
+    void outlineHighlightFollowsTheScroll() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 600);
+        dialog.show();
+        dialog.on_nav_changed(1, "capture");
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+        QTRY_VERIFY(nav->subItemCount("capture") > 1);
+        auto *bar = scroll->verticalScrollBar();
+        QVERIFY(bar->maximum() > 0);
+        QCOMPARE(nav->currentSubItem(), 0);
+        const auto groups = page_groups(scroll);
+        const int margin = dialog_scaled(PageOutline::TOP_MARGIN);
+        int reached = 0;
+        for (int k = 0; k < static_cast<int>(groups.size()); ++k) {
+            const int value = group_top_of(scroll, groups[k]) - margin;
+            if (value >= bar->maximum()) break;
+            bar->setValue(std::max(0, value));
+            QCOMPARE(nav->currentSubItem(), k);
+            // Still the same group a little further down, until the next one reaches the top.
+            bar->setValue(std::max(0, value) + dialog_scaled(4));
+            QCOMPARE(nav->currentSubItem(), k);
+            ++reached;
+        }
+        QVERIFY(reached >= 3);
+        // A group whose title has nearly reached the top already counts, not the sliver of the one above.
+        const int second = group_top_of(scroll, groups[1]) - margin;
+        bar->setValue(second - dialog_scaled(PageOutline::REACH) + dialog_scaled(4));
+        QCOMPARE(nav->currentSubItem(), 1);
+        bar->setValue(second - dialog_scaled(PageOutline::REACH) - dialog_scaled(4));
+        QCOMPARE(nav->currentSubItem(), 0);
+        // At the end the last group is current, also when it is too short to reach the top.
+        bar->setValue(bar->maximum());
+        QCOMPARE(nav->currentSubItem(), static_cast<int>(groups.size()) - 1);
+        bar->setValue(0);
+        QCOMPARE(nav->currentSubItem(), 0);
+        QCOMPARE(nav->currentSubRoute(), QString("capture"));
+    }
+
+    void clickingASubItemScrollsToItWithoutTheHighlightJumping() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 600);
+        dialog.show();
+        dialog.on_nav_changed(1, "capture");
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+        QTRY_VERIFY(nav->subItemCount("capture") > 3);
+        QTRY_VERIFY(!nav->animating());
+        auto *outline = dialog.page_outline();
+        auto *bar = scroll->verticalScrollBar();
+        const auto groups = page_groups(scroll);
+        const int margin = dialog_scaled(PageOutline::TOP_MARGIN);
+
+        const int target = 3;
+        const int expected = std::clamp(group_top_of(scroll, groups[target]) - margin, 0, bar->maximum());
+        QVERIFY(expected > 0);
+        nav->subItem("capture", target)->click();
+        QVERIFY(outline->animating());
+        int last = bar->value();
+        bool passed_other_group = false;
+        while (outline->animating()) {
+            // The groups the scroll passes do not take the highlight.
+            QCOMPARE(nav->currentSubItem(), target);
+            QVERIFY(bar->value() >= last);
+            last = bar->value();
+            if (group_top_of(scroll, groups[1]) - bar->value() < margin) passed_other_group = true;
+            QTest::qWait(10);
+        }
+        QVERIFY(passed_other_group);
+        QCOMPARE(bar->value(), expected);
+        QCOMPARE(nav->currentSubItem(), target);
+
+        // A group that cannot reach the top ends at the bottom and stays the chosen one.
+        const int count = nav->subItemCount("capture");
+        nav->subItem("capture", count - 2)->click();
+        QTRY_VERIFY(!outline->animating());
+        QCOMPARE(bar->value(), std::clamp(group_top_of(scroll, groups[count - 2]) - margin, 0, bar->maximum()));
+        QCOMPARE(nav->currentSubItem(), count - 2);
+        // Scrolling by other means takes over again.
+        bar->setValue(0);
+        QCOMPARE(nav->currentSubItem(), 0);
+        bar->setValue(bar->maximum());
+        QCOMPARE(nav->currentSubItem(), count - 1);
+        bar->setValue(0);
+        QCOMPARE(nav->currentSubItem(), 0);
+    }
+
+    void outlineHighlightFollowsASearchJump() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 750);
+        dialog.show();
+        dialog.on_nav_changed(1, "capture");
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+        QTRY_VERIFY(nav->subItemCount("capture") > 4);
+        const auto groups = page_groups(scroll);
+        const auto entries = dialog.search_entries();
+        // A row in the group just below the top, which the scroll alone would not mark, and one far below.
+        for (const int index : {1, 4}) {
+            dialog.on_nav_changed(1, "capture");
+            scroll->verticalScrollBar()->setValue(0);
+            QCOMPARE(nav->currentSubItem(), 0);
+            const SettingsSearchEntry *found = nullptr;
+            for (const auto &entry : entries)
+                if (entry.kind == SettingsSearchEntry::Kind::Item && entry.route_key == "capture" && entry.target && groups[index]->isAncestorOf(entry.target)) {
+                    found = &entry;
+                    break;
+                }
+            QVERIFY(found);
+            dialog.show_search_result(*found);
+            QTRY_COMPARE(nav->currentSubItem(), index);
+            QTest::qWait(30);
+            QCOMPARE(nav->currentSubItem(), index);
+            // Scrolling by hand lets go of it.
+            scroll->verticalScrollBar()->setValue(scroll->verticalScrollBar()->maximum());
+            QCOMPARE(nav->currentSubItem(), nav->subItemCount("capture") - 1);
+            scroll->verticalScrollBar()->setValue(0);
+        }
+    }
+
+    // Opening a page or unfolding one with its arrow leaves the others as they are.
+    void unfoldedPagesStayUnfolded() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 750);
+        dialog.show();
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        QVERIFY(nav);
+        const auto unfolded = [nav] {
+            QStringList open;
+            for (const auto *route : {"shortcuts", "mouse", "capture", "pin", "screen_annotation", "clipboard", "translation", "appearance", "log", "other"})
+                if (nav->isExpanded(route)) open << route;
+            return open;
+        };
+        QTRY_COMPARE(unfolded(), QStringList{"shortcuts"});
+        QTRY_VERIFY(nav->subItemCount("shortcuts") > 0);
+        dialog.on_nav_changed(1, "capture");
+        QCOMPARE(unfolded(), (QStringList{"shortcuts", "capture"}));
+        QTRY_VERIFY(nav->subItemCount("capture") > 1);
+        QTRY_VERIFY(!nav->animating());
+        QVERIFY(nav->subItem("shortcuts", 0)->isVisible());
+
+        // An arrow unfolds a page that was never opened, building it; the window stays on its page.
+        const int before = dialog.content_stack->currentIndex();
+        emit nav->arrowClicked("clipboard");
+        QCOMPARE(unfolded(), (QStringList{"shortcuts", "capture", "clipboard"}));
+        QCOMPARE(dialog.content_stack->currentIndex(), before);
+        QVERIFY(nav->subItemCount("clipboard") > 1);
+        QTRY_VERIFY(!nav->animating());
+        QVERIFY(nav->subItem("clipboard", 0)->isVisible());
+        QVERIFY(nav->subItem("capture", 0)->isVisible());
+        // Only the page shown has a highlight.
+        QCOMPARE(nav->currentSubRoute(), QString("capture"));
+
+        // A page folded by the user while on it stays folded until it is opened again.
+        emit nav->arrowClicked("capture");
+        QCOMPARE(unfolded(), (QStringList{"shortcuts", "clipboard"}));
+        dialog.page_outline()->refresh();
+        QTest::qWait(30);
+        QCOMPARE(unfolded(), (QStringList{"shortcuts", "clipboard"}));
+        dialog.on_nav_changed(11, "pin");
+        QCOMPARE(unfolded(), (QStringList{"shortcuts", "pin", "clipboard"}));
+        dialog.on_nav_changed(1, "capture");
+        QCOMPARE(unfolded(), (QStringList{"shortcuts", "capture", "pin", "clipboard"}));
+        QTRY_VERIFY(!nav->animating());
+        QVERIFY(nav->subItem("capture", 0)->isVisible());
+    }
+
+    void theArrowOnlyUnfoldsAndTheRestOfTheItemOpensThePage() {
+        auto &scale = get_dialog_scale();
+        const int before = scale.percent();
+        const auto restore = qScopeGuard([&] { scale.set_percent(before); });
+        // At 150% the arrow's press area is wider, so a point 40 px from the edge is on it only there.
+        for (const int percent : {100, 150}) {
+            scale.set_percent(percent);
+            SettingsDialog dialog(config_, config_->get_hotkey());
+            dialog.fit_to_available({2560, 1392});
+            dialog.show();
+            auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+            QTRY_VERIFY(nav->isExpanded("shortcuts"));
+            auto *item = nav->widget("capture");
+            QVERIFY(item);
+            const QString where = QString("at %1%%").arg(percent);
+            const int width = item->width();
+
+            QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, QPoint(width - dialog_scaled(12), item->height() / 2));
+            QVERIFY2(nav->isExpanded("capture"), qPrintable(where));
+            QVERIFY2(dialog.content_stack->currentIndex() == 0, qPrintable(where));
+            QVERIFY2(nav->isExpanded("shortcuts"), qPrintable(where));
+            QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, QPoint(width - dialog_scaled(12), item->height() / 2));
+            QVERIFY2(!nav->isExpanded("capture"), qPrintable(where));
+            QVERIFY2(dialog.content_stack->currentIndex() == 0, qPrintable(where));
+
+            // Left of the arrow the click opens the page, which unfolds.
+            const bool on_arrow = percent == 150;
+            QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, QPoint(width - 40, item->height() / 2));
+            if (on_arrow) {
+                QVERIFY2(nav->isExpanded("capture") && dialog.content_stack->currentIndex() == 0, qPrintable(where));
+            } else {
+                QVERIFY2(dialog.content_stack->currentIndex() == 1, qPrintable(where));
+                QTRY_VERIFY2(nav->isExpanded("capture"), qPrintable(where));
+            }
+            // On the text an unfolded page folds and stays where it is shown or not; a folded one opens.
+            QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, QPoint(dialog_scaled(60), item->height() / 2));
+            QVERIFY2(!nav->isExpanded("capture"), qPrintable(where));
+            if (on_arrow) {
+                QVERIFY2(dialog.content_stack->currentIndex() == 0 && nav->widget("shortcuts")->isChecked() && !item->isChecked(), qPrintable(where));
+                QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, QPoint(dialog_scaled(60), item->height() / 2));
+            }
+            QVERIFY2(dialog.content_stack->currentIndex() == 1, qPrintable(where));
+        }
+    }
+
+    // Clicked again, the row of the page shown folds it and then unfolds it, like its arrow; the
+    // page stays. Another page's row folds that page while it is unfolded, and opens it once folded.
+    void clickingTheOpenPagesRowFoldsAndUnfoldsIt() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 750);
+        dialog.show();
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        QVERIFY(nav);
+        QTRY_VERIFY(nav->isExpanded("shortcuts"));
+        QTRY_VERIFY(nav->subItemCount("shortcuts") > 0);
+        auto *item = nav->widget("capture");
+        const QPoint on_text(dialog_scaled(60), item->height() / 2);
+        QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, on_text);
+        QCOMPARE(dialog.content_stack->currentIndex(), 1);
+        QVERIFY(item->isChecked() && !nav->widget("shortcuts")->isChecked());
+        QTRY_VERIFY(nav->subItemCount("capture") > 1);
+        QVERIFY(nav->isExpanded("capture"));
+        QTRY_VERIFY(!nav->animating());
+
+        // The current page's mark: a group's row while unfolded, the page's own row while folded. The bar
+        // travels to it, so it is looked for until it has arrived.
+        const auto row_marked = [nav, item] {
+            const QRectF bar = nav->indicatorRect();
+            return !bar.isEmpty() && QRectF(item->geometry()).contains(bar.center());
+        };
+        QCOMPARE(nav->currentSubRoute(), QString("capture"));
+        QTRY_VERIFY(!row_marked());
+
+        QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, on_text);
+        QVERIFY(!nav->isExpanded("capture"));
+        QCOMPARE(dialog.content_stack->currentIndex(), 1);
+        QVERIFY(item->isChecked());
+        QTRY_VERIFY(!nav->animating());
+        QVERIFY(!nav->subItem("capture", 0)->isVisible());
+        QTRY_VERIFY(row_marked());
+        QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, on_text);
+        QVERIFY(nav->isExpanded("capture"));
+        QCOMPARE(dialog.content_stack->currentIndex(), 1);
+        QTRY_VERIFY(!nav->animating());
+        QVERIFY(nav->subItem("capture", 0)->isVisible());
+        QTRY_VERIFY(!row_marked());
+
+        // The shortcut page, left unfolded, folds; the capture page stays the current one.
+        auto *other = nav->widget("shortcuts");
+        QTest::mouseClick(other, Qt::LeftButton, Qt::NoModifier, on_text);
+        QVERIFY(!nav->isExpanded("shortcuts"));
+        QCOMPARE(dialog.content_stack->currentIndex(), 1);
+        QVERIFY(item->isChecked() && !other->isChecked());
+        QCOMPARE(nav->currentSubRoute(), QString("capture"));
+        QTRY_VERIFY(!nav->animating());
+        QVERIFY(!nav->subItem("shortcuts", 0)->isVisible());
+        // Folded, its row opens it.
+        QTest::mouseClick(other, Qt::LeftButton, Qt::NoModifier, on_text);
+        QCOMPARE(dialog.content_stack->currentIndex(), 0);
+        QVERIFY(other->isChecked() && !item->isChecked());
+        QTRY_VERIFY(nav->isExpanded("shortcuts"));
+
+        QTest::mouseClick(nav->widget("pin"), Qt::LeftButton, Qt::NoModifier, on_text);
+        QCOMPARE(dialog.content_stack->currentIndex(), 11);
+        QTRY_VERIFY(nav->isExpanded("pin"));
+    }
+
+    // A window rebuilt on another page (language or scale change) leaves the first page in the same
+    // turn, before that page has listed its groups. Its row, unfolded, has them under it, so a click
+    // folds what is seen unfolded instead of an empty list, and the next one opens the page.
+    void aWindowRebuiltOnAnotherPageListsTheGroupsOfThePageItLeft() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 750);
+        SettingsDialog::ViewState state;
+        state.stack_index = 6;
+        state.route_key = "other";
+        dialog.restore_view_state(state);
+        dialog.show();
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        QVERIFY(nav);
+        QTRY_VERIFY(nav->isExpanded("other") && nav->subItemCount("other") > 0);
+        QTRY_VERIFY(!nav->animating());
+        QVERIFY(nav->isExpanded("shortcuts"));
+        QVERIFY(nav->subItemCount("shortcuts") > 0);
+        QVERIFY(nav->subItem("shortcuts", 0)->isVisible());
+        QCOMPARE(nav->currentSubRoute(), QString("other"));
+
+        auto *item = nav->widget("shortcuts");
+        const QPoint on_text(dialog_scaled(60), item->height() / 2);
+        QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, on_text);
+        QVERIFY(!nav->isExpanded("shortcuts"));
+        QCOMPARE(dialog.content_stack->currentIndex(), 6);
+        QTRY_VERIFY(!nav->animating());
+        QVERIFY(!nav->subItem("shortcuts", 0)->isVisible());
+        QTest::mouseClick(item, Qt::LeftButton, Qt::NoModifier, on_text);
+        QCOMPARE(dialog.content_stack->currentIndex(), 0);
+        QTRY_VERIFY(nav->isExpanded("shortcuts"));
+    }
+
+    void foldingMovesTheHeightOfTheListAndEndsAtItsNaturalSize() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 900);
+        dialog.show();
+        dialog.on_nav_changed(1, "capture");
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        QTRY_VERIFY(nav->subItemCount("capture") > 1);
+        QTRY_VERIFY(!nav->animating());
+        QWidget *list = nav->subItem("capture", 0)->parentWidget()->parentWidget();
+        QVERIFY(list->isVisible());
+        const int full = list->height();
+        QVERIFY(full >= nav->subItemCount("capture") * dialog_scaled(36));
+        auto *box = qobject_cast<FoldBox *>(list);
+        QVERIFY(box);
+        QCOMPARE(box->cover(), 0.0);
+        // The last row ends inside it.
+        auto *last = nav->subItem("capture", nav->subItemCount("capture") - 1);
+        QVERIFY(last->geometry().bottom() < list->height());
+
+        emit nav->arrowClicked("capture");
+        QVERIFY(nav->animating());
+        bool between = false;
+        for (int i = 0; i < 60 && nav->animating(); ++i) {
+            between = between || (list->height() > 0 && list->height() < full);
+            // The rows are hidden before the list starts to shrink.
+            if (list->isVisible() && list->height() < full) QCOMPARE(box->cover(), 1.0);
+            QTest::qWait(5);
+        }
+        QVERIFY(between);
+        QTRY_VERIFY(!nav->animating());
+        QVERIFY(!list->isVisible());
+
+        emit nav->arrowClicked("capture");
+        bool grows = false;
+        for (int i = 0; i < 60 && nav->animating(); ++i) {
+            grows = grows || (list->height() > 0 && list->height() < full);
+            // Covered all the while it grows, in the very colour of the sidebar around it.
+            if (list->height() > 0 && list->height() < full) {
+                QCOMPARE(box->cover(), 1.0);
+                const QImage shot = dialog.grab().toImage();
+                const qreal ratio = shot.devicePixelRatio();
+                const auto pixel = [&](const QPoint &at) { return shot.pixelColor((QPointF(at) * ratio).toPoint()); };
+                const QPoint top = list->mapTo(&dialog, QPoint(0, 0));
+                const QColor beside = pixel(top + QPoint(-2, 1));
+                for (int x = dialog_scaled(20); x < dialog_scaled(120); x += dialog_scaled(3))
+                    for (int y = 0; y < list->height(); y += 3) QCOMPARE(pixel(top + QPoint(x, y)), beside);
+            }
+            QTest::qWait(5);
+        }
+        QVERIFY(grows);
+        QTRY_VERIFY(!nav->animating());
+        QCOMPARE(list->height(), full);
+        QCOMPARE(box->cover(), 0.0);
+        // The highlight kept following the scroll through all of it.
+        QCOMPARE(nav->currentSubRoute(), QString("capture"));
+    }
+
+    // Scrolled to the bottom, a list folding above the rows pulls the scroll position up with the
+    // content: every paint shows the rows at the scroll position that goes with them, so none of
+    // them moves back and forth.
+    void foldingInAScrolledNavigationMovesEveryRowOneWay() {
+        struct PaintSpy : QObject {
+            std::function<void()> on_paint;
+            bool eventFilter(QObject *, QEvent *event) override {
+                if (event->type() == QEvent::Paint && on_paint) on_paint();
+                return false;
+            }
+        };
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 600);
+        dialog.show();
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        QScrollArea *area = nav->scrollArea();
+        dialog.on_nav_changed(1, "capture");
+        QTRY_VERIFY(nav->subItemCount("capture") > 1);
+        QTRY_VERIFY(!nav->animating());
+        // The first page stays unfolded; folded, it leaves the rows below the capture page room to move.
+        QVERIFY(nav->isExpanded("shortcuts"));
+        emit nav->arrowClicked("shortcuts");
+        QTRY_VERIFY(!nav->animating());
+        auto *bar = area->verticalScrollBar();
+        QVERIFY(bar->maximum() > 0);
+        bar->setValue(bar->maximum());
+
+        const QStringList routes{"shortcuts", "mouse", "capture", "pin", "screen_annotation", "clipboard", "translation", "appearance", "log", "other"};
+        QHash<QString, QList<int>> tops;
+        PaintSpy spy;
+        spy.on_paint = [&] {
+            for (const auto &route : routes) {
+                auto &seen = tops[route];
+                const int y = nav->widget(route)->mapTo(area->viewport(), QPoint()).y();
+                if (seen.isEmpty() || seen.last() != y) seen << y;
+            }
+        };
+        area->viewport()->installEventFilter(&spy);
+        for (const auto &route : routes) nav->widget(route)->installEventFilter(&spy);
+        SteppedAnimationClock clock;
+        emit nav->arrowClicked("capture");
+        QVERIFY(clock.step_until([&] { return !nav->animating(); }));
+        QTest::qWait(50);
+        spy.on_paint = nullptr;
+
+        QVERIFY(tops["pin"].size() > 3);
+        for (const auto &route : routes) {
+            const auto &seen = tops[route];
+            QStringList trail;
+            for (const int y : seen) trail << QString::number(y);
+            for (int i = 2; i < seen.size(); ++i)
+                QVERIFY2((seen[i] > seen[i - 1]) == (seen[1] > seen[0]), qPrintable(route + ": " + trail.join(' ')));
+        }
+    }
+
+    void clickingASubItemOfAnotherPageOpensItAndScrollsToTheGroup() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.resize(1050, 600);
+        dialog.show();
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        QTRY_VERIFY(nav->subItemCount("shortcuts") > 0);
+        emit nav->arrowClicked("pin");
+        QVERIFY(nav->subItemCount("pin") > 3);
+        // Only the page shown has a highlight.
+        QCOMPARE(nav->currentSubRoute(), QString("shortcuts"));
+        QTRY_VERIFY(!nav->animating());
+        const int index = 3;
+        const QString title = nav->subItemTitles("pin")[index];
+        nav->subItem("pin", index)->click();
+        QCOMPARE(dialog.content_stack->currentIndex(), 11);
+        auto *scroll = qobject_cast<QScrollArea *>(dialog.content_stack->currentWidget());
+        QVERIFY(scroll);
+        QTRY_VERIFY(dialog.page_outline()->animating() || scroll->verticalScrollBar()->value() > 0);
+        QCOMPARE(nav->currentSubRoute(), QString("pin"));
+        QCOMPARE(nav->currentSubItem(), index);
+        QTRY_VERIFY(!dialog.page_outline()->animating());
+        const auto groups = page_groups(scroll);
+        QCOMPARE(group_title_of(groups[index]), title);
+        auto *bar = scroll->verticalScrollBar();
+        QCOMPARE(bar->value(), std::clamp(group_top_of(scroll, groups[index]) - dialog_scaled(PageOutline::TOP_MARGIN), 0, bar->maximum()));
+        QCOMPARE(nav->currentSubItem(), index);
+        // The page left behind stays unfolded, without a highlight.
+        QVERIFY(nav->isExpanded("shortcuts"));
+        QVERIFY(nav->isExpanded("pin"));
+    }
+
+    void theTitleBarCarriesTheLogoAndTheDeveloperMenu() {
+        auto &scale = get_dialog_scale();
+        const int before = scale.percent();
+        const auto restore = qScopeGuard([&] { scale.set_percent(before); });
+        for (const int percent : {100, 150}) {
+            scale.set_percent(percent);
+            SettingsDialog dialog(config_, config_->get_hotkey());
+            dialog.show();
+            auto *bar = qobject_cast<FluentTitleBar *>(dialog.titleBar());
+            QVERIFY(bar);
+            const QString where = QString("at %1%%").arg(percent);
+            QVERIFY2(bar->iconLabel->isVisible() && bar->titleLabel->isVisible(), qPrintable(where));
+            QVERIFY2(!bar->iconLabel->pixmap().isNull(), qPrintable(where));
+            QCOMPARE(bar->titleLabel->text(), QString("jietuba"));
+            QVERIFY2(bar->iconLabel->width() == 22 * percent / 100, qPrintable(where));
+            QVERIFY2(bar->iconLabel->pixmap().deviceIndependentSize().width() == 16 * percent / 100, qPrintable(where));
+            // The logo sits at the left end of the caption, left of the caption buttons.
+            QVERIFY2(bar->iconLabel->x() < bar->titleLabel->x() && bar->titleLabel->x() < bar->minBtn->x(), qPrintable(where));
+            // The side panel no longer has a logo row of its own.
+            auto *panel = dialog.findChild<QWidget *>("SettingsLeftPanel");
+            QVERIFY(panel);
+            for (auto *label : panel->findChildren<QLabel *>()) QVERIFY2(label->text() != "jietuba", qPrintable(where));
+        }
+    }
+
+    void theDeveloperMenuOpensFromTheNameAsWellAsTheLogo() {
+        SettingsDialog dialog(config_, config_->get_hotkey());
+        dialog.show();
+        auto *bar = qobject_cast<FluentTitleBar *>(dialog.titleBar());
+        auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+        QVERIFY(bar && nav);
+        for (QLabel *label : {bar->titleLabel, bar->iconLabel}) {
+            QCOMPARE(label->contextMenuPolicy(), Qt::CustomContextMenu);
+            dialog.on_nav_changed(1, "capture");
+            QTimer::singleShot(0, &dialog, [] {
+                auto *menu = qobject_cast<QMenu *>(QApplication::activePopupWidget());
+                if (!menu) return;
+                menu->setActiveAction(menu->actions().value(0));
+                QTest::keyClick(menu, Qt::Key_Return);
+            });
+            emit label->customContextMenuRequested(QPoint(2, 2));
+            QCOMPARE(dialog.content_stack->currentIndex(), 7);
+            // No item stands for the developer page: nothing is current there, and the page left stays unfolded.
+            QVERIFY(nav->currentSubRoute().isEmpty());
+            QVERIFY(nav->isExpanded("capture"));
+        }
+    }
+
+    void navigationRowsFollowTheWindowScaleButNotThePanelScale() {
+        auto &scale = get_dialog_scale();
+        const int window_before = scale.percent(), panel_before = get_ui_scale().percent();
+        const auto restore = qScopeGuard([&] {
+            scale.set_percent(window_before);
+            get_ui_scale().set_percent(panel_before);
+        });
+        for (const auto &[window, panel] : {std::pair{100, 100}, std::pair{150, 100}, std::pair{100, 150}, std::pair{150, 150}}) {
+            scale.set_percent(window);
+            get_ui_scale().set_percent(panel);
+            SettingsDialog dialog(config_, config_->get_hotkey());
+            dialog.fit_to_available({2560, 1392});
+            dialog.show();
+            dialog.on_nav_changed(1, "capture");
+            auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+            QTRY_VERIFY(nav->subItemCount("capture") > 1);
+            QTRY_VERIFY(!nav->animating());
+            const QString where = QString("window %1%%, panel %2%%").arg(window).arg(panel);
+            QVERIFY2(nav->widget("capture")->height() == 36 * window / 100, qPrintable(where));
+            QVERIFY2(nav->subItem("capture", 0)->height() == 36 * window / 100, qPrintable(where));
+            QVERIFY2(dialog.search_box()->edit()->height() == 32 * window / 100, qPrintable(where));
+        }
+    }
+
+    // Every item and group title is shown whole in each language, with each page unfolded in turn:
+    // long ones wrap, none is cut or pushes the window wider, and an item's text stops before its arrow.
+    void navigationFitsEveryLanguageAtEveryScale() {
+        if (QGuiApplication::platformName() != "windows") QSKIP("needs desktop fonts");
+        const auto language = I18nManager::get_current_language();
+        const int scale = get_dialog_scale().percent();
+        const auto restore = qScopeGuard([&] { get_dialog_scale().set_percent(scale); I18nManager::load_language(language); });
+        for (int percent : {100, 150, 200}) {
+            get_dialog_scale().set_percent(percent);
+            for (const auto *code : {"zh", "zh_TW", "en", "ja", "ko"}) {
+                QVERIFY(I18nManager::load_language(code));
+                SettingsDialog dialog(config_, config_->get_hotkey());
+                dialog.fit_to_available({4000, 2400});
+                dialog.show();
+                auto *nav = dialog.findChild<NavigationInterface *>("SettingsNavigation");
+                const int beside_text = dialog_scaled(12 + 16 + 12) + dialog_scaled(12);
+                const QStringList routes{"shortcuts", "mouse", "capture", "pin", "screen_annotation", "clipboard", "translation", "appearance", "log", "other"};
+                for (const auto &route : routes) {
+                    if (!nav->isExpanded(route)) emit nav->arrowClicked(route);
+                    QTRY_VERIFY(!nav->animating());
+                    QApplication::processEvents();
+                    const auto where = [&](const QString &text) { return qPrintable(QString("%1 at %2%%, %3: %4").arg(code).arg(percent).arg(route, text)); };
+                    auto *item = nav->widget(route);
+                    // The item's size hint holds its text and the room for the arrow.
+                    QVERIFY2(item->sizeHint().width() <= item->width(), where(item->text()));
+                    for (int i = 0; i < nav->subItemCount(route); ++i) {
+                        auto *sub = nav->subItem(route, i);
+                        QVERIFY2(sub->height() >= sub->heightForWidth(sub->width()), where(sub->text()));
+                        // The shortcut pages' groups are named to keep to one line.
+                        if (route == "shortcuts" || route == "mouse") QVERIFY2(sub->heightForWidth(sub->width()) == dialog_scaled(36), where(sub->text()));
+                        // Chinese and Japanese break between characters; words of other scripts must each fit a line.
+                        static const QRegularExpression breaks_anywhere(QStringLiteral("[\\p{Han}\\p{Hiragana}\\p{Katakana}]"));
+                        for (const auto &word : sub->text().split(' ', Qt::SkipEmptyParts))
+                            if (!word.contains(breaks_anywhere))
+                                QVERIFY2(sub->fontMetrics().horizontalAdvance(word) <= sub->width() - beside_text, where(word));
+                    }
+                }
+                QVERIFY(nav->widget("about")->sizeHint().width() <= nav->widget("about")->width());
+                QCOMPARE(nav->scrollArea()->horizontalScrollBar()->maximum(), 0);
+            }
         }
     }
 

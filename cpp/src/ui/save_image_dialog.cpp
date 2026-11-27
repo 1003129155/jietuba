@@ -10,6 +10,7 @@
 #include "ui/fluent_lite/fluent_lite.h"
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/segmented.h"
+#include "ui/fluent_lite/fluent_dialog.h"
 #include "ui/fluent_lite/theme.h"
 #include "ui/fluent_lite/titlebar.h"
 #include <QApplication>
@@ -46,6 +47,9 @@
 namespace jietuba {
 namespace {
 QString tr_text(const char *text) { return i18n_tr(text, "SaveImageDialog"); }
+
+// What a save takes from the settings rather than from the dialog, whose quality is its own.
+bool same_from_settings(const SaveOptions &a, const SaveOptions &b) { return a.png == b.png && a.pdf_page == b.pdf_page && a.pdf_dpi == b.pdf_dpi; }
 
 // (stored value, label); the stored value is SaveService's format name.
 const std::vector<std::pair<QString, QString>> &FORMATS() {
@@ -144,7 +148,7 @@ QIcon plus_icon(const QColor &color) {
 QString normalized_folder(const QString &path) { return QDir::cleanPath(QDir::fromNativeSeparators(path.trimmed())); }
 
 int confirm(QWidget *parent, const QString &title, const QString &message) {
-    const std::vector<DialogButton> buttons = {{0, tr_text("Cancel"), QDialogButtonBox::RejectRole}, {1, tr_text("OK"), QDialogButtonBox::AcceptRole, true}};
+    const std::vector<DialogButton> buttons = {{0, tr_text("Cancel"), QDialogButtonBox::RejectRole}, {1, tr_text("OK"), QDialogButtonBox::AcceptRole}};
     return show_custom_confirm_dialog(parent, title, message, buttons).toInt();
 }
 }
@@ -289,10 +293,10 @@ PathTagBar::PathTagBar(ToolSettingsManager *config, int width, QWidget *parent)
     add_button->setObjectName("pathTagAdd");
     add_button->setToolTip(tr_text("Add path tag"));
     add_button->setFixedSize(dialog_scaled(26), dialog_scaled(26));
-    add_button->setIcon(plus_icon(css_color(ui_tokens(this).text_muted)));
+    add_button->setIcon(plus_icon(css_color(ui_tokens(this).fg_muted)));
     connect(add_button, &QToolButton::clicked, this, [this] { add_path(current_path_); });
     connect(get_ui_theme(), &UIThemeManager::theme_changed, this, [this] {
-        add_button->setIcon(plus_icon(css_color(ui_tokens(this).text_muted)));
+        add_button->setIcon(plus_icon(css_color(ui_tokens(this).fg_muted)));
         rebuild();
     });
     rebuild();
@@ -533,14 +537,14 @@ void SavePreviewView::paintEvent(QPaintEvent *) {
     QPainter painter(this);
     const auto &t = ui_tokens(this);
     QPainterPath frame;
-    const double radius = dialog_scaled(12);
+    const double radius = dialog_scaled(4);
     frame.addRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), radius, radius);
     painter.setRenderHint(QPainter::Antialiasing);
-    painter.fillPath(frame, css_color(t.window_top));
+    painter.fillPath(frame, css_color(t.page_background));
     painter.setClipPath(frame);
     // A dot grid tells the backdrop apart from white or transparent image content.
     const int step = dialog_scaled(14);
-    auto dot = css_color(t.border_hover);
+    auto dot = css_color(t.control_border_bottom);
     dot.setAlphaF(dot.alphaF() * 0.6);
     painter.setPen(Qt::NoPen);
     painter.setBrush(dot);
@@ -595,7 +599,7 @@ void SavePreviewView::paintEvent(QPaintEvent *) {
         if (loading_) draw_pill(painter, QPointF(width() - dialog_scaled(10), height() - dialog_scaled(30)), true, tr_text("Estimating..."));
     }
     painter.setClipping(false);
-    painter.setPen(QPen(css_color(t.border), 1));
+    painter.setPen(QPen(css_color(t.card_border), 1));
     painter.setBrush(Qt::NoBrush);
     painter.drawPath(frame);
 }
@@ -814,7 +818,7 @@ SaveImageDialog::SaveImageDialog(const QImage &image, const QString &base_name, 
     quality_row->setSpacing(dialog_scaled(8));
     quality_slider = new QSlider(Qt::Horizontal, panel_);
     quality_slider->setRange(1, 100);
-    quality_slider->setValue(std::clamp(static_cast<int>(config_->get_screenshot_quality()), 1, 100));
+    quality_slider->setValue(config_->get_save_dialog_quality());
     quality_value = new QLabel(panel_);
     quality_value->setObjectName("hint");
     quality_value->setMinimumWidth(QFontMetrics(quality_value->font()).horizontalAdvance("100") + dialog_scaled(6));
@@ -986,6 +990,12 @@ QString SaveImageDialog::current_format() const { return format_combo->currentDa
 
 int SaveImageDialog::current_quality() const { return quality_slider->value(); }
 
+SaveOptions SaveImageDialog::current_options() const {
+    auto options = SaveOptions::from_settings(*config_);
+    options.quality = current_quality();
+    return options;
+}
+
 qint64 SaveImageDialog::size_limit_bytes() const {
     if (!size_limit_check->isChecked() || !SaveService::format_has_quality(current_format())) return 0;
     return qint64(size_limit_spin->value()) * 1000;
@@ -1089,6 +1099,7 @@ void SaveImageDialog::show_size() {
 void SaveImageDialog::schedule_encode() {
     ++generation_;
     encoded_bytes_ = -1;
+    encoded_file_.clear();
     // Started first: a pending encode is not a failed one.
     encode_timer_.start(ENCODE_DELAY_MS);
     preview->set_loading(true);
@@ -1096,17 +1107,19 @@ void SaveImageDialog::schedule_encode() {
     update_save_enabled();
 }
 
-SaveImageDialog::Encoded SaveImageDialog::encode(const QImage &image, const QSize &size, const QString &format, int quality, qint64 limit_bytes) {
+SaveImageDialog::Encoded SaveImageDialog::encode(const QImage &image, const QSize &size, const QString &format, const SaveOptions &options, qint64 limit_bytes) {
     Encoded result;
+    result.options = options;
     result.scaled = SaveService::scale_for_save(image, size);
     QByteArray bytes;
     if (limit_bytes > 0) {
-        std::tie(result.quality, bytes) = SaveService::encode_within(result.scaled, format, limit_bytes);
+        std::tie(result.quality, bytes) = SaveService::encode_within(result.scaled, format, limit_bytes, options);
         result.over_limit = !bytes.isEmpty() && bytes.size() > limit_bytes;
     } else {
-        bytes = SaveService::encode_image(result.scaled, format, quality);
+        bytes = SaveService::encode_image(result.scaled, format, options);
     }
     if (bytes.isEmpty()) return result;
+    result.file = bytes;
     result.bytes = bytes.size();
     if (SaveService::format_has_quality(format)) result.decoded = QImage::fromData(bytes, format.toLatin1().constData());
     return result;
@@ -1122,10 +1135,10 @@ void SaveImageDialog::start_encode() {
     encoding_ = true;
     const int generation = generation_;
     QPointer<SaveImageDialog> guard(this);
-    QThreadPool::globalInstance()->start([guard, generation, image = image_, size = target_size(), format = current_format(), quality = current_quality(), limit = size_limit_bytes()] {
+    QThreadPool::globalInstance()->start([guard, generation, image = image_, size = target_size(), format = current_format(), options = current_options(), limit = size_limit_bytes()] {
         Encoded result;
         try {
-            result = encode(image, size, format, quality, limit);
+            result = encode(image, size, format, options, limit);
         } catch (const std::exception &error) {
             log_warning(T("保存预览编码失败: {e}", {{"e", QString::fromLocal8Bit(error.what())}}), "SaveImageDialog");
         }
@@ -1142,6 +1155,8 @@ void SaveImageDialog::on_encoded(int generation, const Encoded &result) {
         preview->set_encoded(result.decoded);
         preview->set_loading(false);
         encoded_bytes_ = result.bytes;
+        encoded_file_ = result.file;
+        encoded_options_ = result.options;
         if (result.quality > 0) {
             updating_quality_ = true;
             quality_slider->setValue(result.quality);
@@ -1151,6 +1166,7 @@ void SaveImageDialog::on_encoded(int generation, const Encoded &result) {
         update_status();
         update_save_enabled();
         emit encode_finished(result.bytes);
+        if (saving_) write_save();
     }
     if (encode_pending_) {
         encode_pending_ = false;
@@ -1171,10 +1187,9 @@ void SaveImageDialog::update_save_enabled() {
     if (problem.isEmpty() && !ToolSettingsManager::is_absolute_save_path(directory)) problem = tr_text("Choose a full folder path.");
     name_hint->setText(problem);
     name_hint->setVisible(!problem.isEmpty());
-    // Saving while encoding is allowed: Save encodes again itself. Only a finished
-    // encode that failed blocks it.
+    // Saving while encoding is allowed: Save waits for it. Only a finished encode that failed blocks it.
     const bool encode_failed = encoded_bytes_ < 0 && !encoding_ && !encode_timer_.isActive();
-    save_button->setEnabled(problem.isEmpty() && !encode_failed);
+    save_button->setEnabled(problem.isEmpty() && !encode_failed && !saving_);
 }
 
 void SaveImageDialog::choose_directory() {
@@ -1206,31 +1221,48 @@ void SaveImageDialog::accept_save() {
     if (QFileInfo::exists(path) &&
         !show_confirm_dialog(this, tr_text("Replace File"), tr_text("%1 already exists.\nReplace it?").arg(QFileInfo(path).fileName())))
         return;
-    const auto image = SaveService::scale_for_save(image_, target_size());
-    const qint64 limit = size_limit_bytes();
-    // The slider holds the fitted quality once the latest encode is in; before that it is found here.
-    int quality = current_quality();
-    if (limit > 0 && encoded_bytes_ < 0) quality = SaveService::encode_within(image, current_format(), limit).first;
-    if (!SaveService::save_qimage_to_path(image, path, current_format(), SaveService::DEFAULT_PDF_DPI, quality)) {
-        show_warning_dialog(this, tr_text("Save Failed"), QDir::toNativeSeparators(path));
+    saving_path_ = path;
+    // The PNG level and the PDF page come from the settings, which may have changed since that encode.
+    if (!encoded_file_.isEmpty() && !same_from_settings(encoded_options_, current_options())) schedule_encode();
+    if (!encoded_file_.isEmpty()) {
+        write_save();
         return;
     }
-    config_->set_save_dialog_last_dir(QDir::toNativeSeparators(directory));
+    // Waits for the encode under way rather than encoding again here, which holds the window for
+    // seconds on a large image; the settings are locked meanwhile.
+    saving_ = true;
+    panel_->setEnabled(false);
+    update_save_enabled();
+    if (encode_timer_.isActive()) {
+        encode_timer_.stop();
+        start_encode();
+    }
+}
+
+void SaveImageDialog::write_save() {
+    saving_ = false;
+    panel_->setEnabled(true);
+    QFile file(saving_path_);
+    const bool written = !encoded_file_.isEmpty() && file.open(QIODevice::WriteOnly) && file.write(encoded_file_) == encoded_file_.size();
+    file.close();
+    if (!written) {
+        SaveService::cleanup_failed_placeholder(saving_path_);
+        update_save_enabled();
+        show_warning_dialog(this, tr_text("Save Failed"), QDir::toNativeSeparators(saving_path_));
+        return;
+    }
+    config_->set_save_dialog_last_dir(QDir::toNativeSeparators(QFileInfo(saving_path_).absolutePath()));
     config_->set_save_dialog_format(current_format());
     // A fitted quality is not the user's choice for the next save.
-    if (limit <= 0) config_->set_screenshot_quality(current_quality());
-    saved_path_ = QDir::toNativeSeparators(path);
+    if (size_limit_bytes() <= 0) config_->set_save_dialog_quality(current_quality());
+    saved_path_ = QDir::toNativeSeparators(saving_path_);
     accept();
 }
 
+// The caption on the window background and the body on the settings window's content layer.
 void SaveImageDialog::paintEvent(QPaintEvent *) {
-    QPainter painter(this);
-    painter.setRenderHint(QPainter::Antialiasing);
-    const auto &t = ui_tokens(this);
-    const auto rect = QRectF(this->rect()).adjusted(0.5, 0.5, -0.5, -0.5);
-    painter.setPen(QPen(css_color(t.window_border), 1));
-    painter.setBrush(css_color(t.popup_background));
-    painter.drawRoundedRect(rect, frosted_corner_radius_, frosted_corner_radius_);
+    const int caption = titleBar() ? titleBar()->height() : 0;
+    paint_dialog_frame(this, frosted_corner_radius_, QRect(0, caption, width(), height() - caption), ui_tokens(this).layer);
 }
 
 bool SaveImageDialog::eventFilter(QObject *watched, QEvent *event) {
@@ -1241,8 +1273,8 @@ bool SaveImageDialog::eventFilter(QObject *watched, QEvent *event) {
 
 void SaveImageDialog::apply_theme() {
     const auto &t = ui_tokens(this);
-    const int radius = dialog_scaled(12);
-    const QString fill = t.is_dark() ? "#1F2327" : "#F1F3F5";
+    const int radius = dialog_scaled(4);
+    const QString fill = t.control;
     panel_->setStyleSheet(QString(R"(
         QLabel#blockTitle { color: %1; font-size: %2px; background: transparent; }
         QLabel#hint { color: %1; font-size: %3px; background: transparent; }
@@ -1250,9 +1282,10 @@ void SaveImageDialog::apply_theme() {
         QLabel#sizeValue { color: %5; font-size: %6px; background: transparent; }
         QLabel#sizeSuffix { color: %1; font-size: %2px; background: transparent; }
         QLabel#pathTagText { color: %5; font-size: %2px; background: transparent; }
-        QLineEdit#field { background: %7; color: %5; border: none; border-radius: %8px; padding: 0 %9px;
+        QLineEdit#field { background: %7; color: %5; border: 1px solid %13; border-bottom-color: %14; border-radius: %8px; padding: 0 %9px;
             min-height: %10px; max-height: %10px; font-size: %2px; selection-background-color: %11; }
-        QFrame#sizeInput { background: %7; border: none; border-radius: %8px; }
+        QLineEdit#field:focus { border-bottom: 2px solid %11; }
+        QFrame#sizeInput { background: %7; border: 1px solid %13; border-bottom-color: %14; border-radius: %8px; }
         QFrame#sizeInput QSpinBox { background: transparent; border: none; color: %5; font-size: %2px; padding-left: %9px; }
         QFrame#pathTag { background: %12; border: 1px solid %13; border-radius: %8px; }
         QFrame#pathTag:hover { border-color: %14; }
@@ -1268,31 +1301,31 @@ void SaveImageDialog::apply_theme() {
         QSlider::handle:horizontal { width: %19px; height: %19px; margin: %20px 0; background: white; border: 1px solid %14; border-radius: %21px; }
         QSlider::handle:horizontal:hover { border-color: %11; }
         )")
-                              .arg(t.text_muted)
+                              .arg(t.fg_muted)
                               .arg(dialog_scaled(13))
                               .arg(dialog_scaled(12))
-                              .arg(warning_color(t), t.text)
+                              .arg(warning_color(t), t.fg)
                               .arg(dialog_scaled(14))
                               .arg(fill)
                               .arg(radius)
                               .arg(dialog_scaled(12))
                               .arg(dialog_scaled(36))
-                              .arg(t.accent, t.popup_background, t.border, t.border_hover)
+                              .arg(t.accent, t.card, t.control_border, t.control_border_bottom)
                               .arg(dialog_scaled(20))
                               .arg(dialog_scaled(4))
-                              .arg(t.switch_off)
+                              .arg(t.control_border_bottom)
                               .arg(dialog_scaled(2))
                               .arg(dialog_scaled(16))
                               .arg(-dialog_scaled(6))
                               .arg(dialog_scaled(8)));
     panel_scroll->verticalScrollBar()->setStyleSheet(scrollbar_qss(this));
     for (auto *label : {zoom_label, original_label})
-        label->setStyleSheet(QString("QLabel { color: %1; font-size: %2px; background: transparent; }").arg(t.text_muted).arg(dialog_scaled(12)));
+        label->setStyleSheet(QString("QLabel { color: %1; font-size: %2px; background: transparent; }").arg(t.fg_muted).arg(dialog_scaled(12)));
     for (auto *button : {save_button, change_button}) button->setFixedHeight(dialog_scaled(34));
-    lock_button->setIcon(lock_icon(lock_button->isChecked() ? css_color(t.accent) : css_color(t.text_muted), lock_button->isChecked()));
-    reset_size_button->setIcon(tinted_icon(FluentIcon::Sync, t.text_muted));
+    lock_button->setIcon(lock_icon(lock_button->isChecked() ? css_color(t.accent) : css_color(t.fg_muted), lock_button->isChecked()));
+    reset_size_button->setIcon(tinted_icon(FluentIcon::Sync, t.fg_muted));
     reset_size_button->setIconSize(QSize(dialog_scaled(16), dialog_scaled(16)));
-    classic_link->setText(QString("<a href=\"classic\" style=\"color: %1; text-decoration: underline;\">%2</a>").arg(t.text_muted, tr_text("Use classic dialog")));
+    classic_link->setText(QString("<a href=\"classic\" style=\"color: %1; text-decoration: underline;\">%2</a>").arg(t.fg_muted, tr_text("Use classic dialog")));
     classic_link->setStyleSheet(QString("QLabel { font-size: %1px; background: transparent; }").arg(dialog_scaled(12)));
     update();
 }

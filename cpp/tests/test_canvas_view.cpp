@@ -1622,6 +1622,39 @@ private slots:
         QCOMPARE(text->font_point_size(), size + 2);
     }
 
+    // With a tool's Select After Drawing switch off, what it draws stays unselected: the wheel sizes
+    // the next number only, and the next click places one at once. The other tools still select.
+    void aToolSwitchedOffLeavesWhatItDrewUnselected() {
+        auto [scene, view] = canvas("number");
+        gesture(view, QPointF(200, 200), QPointF(200, 200), 1);
+        QVERIFY(dynamic_cast<NumberItem *>(view->smart_edit_controller->selected_item()));
+        view->smart_edit_controller->clear_selection();
+
+        config_->set_app_setting("auto_select_number", false);
+        gesture(view, QPointF(300, 200), QPointF(300, 200), 1);
+        QCOMPARE(items_of<NumberItem>(scene).size(), 2);
+        QVERIFY(!view->smart_edit_controller->selected_item());
+        QMap<NumberItem *, double> radii;
+        for (auto *number : items_of<NumberItem>(scene)) radii[number] = number->radius;
+        auto &ctx = scene->tool_controller->ctx;
+        const double width = ctx.stroke_width;
+        wheel(view, 120);
+        QCOMPARE(ctx.stroke_width, width + 1);
+        for (auto it = radii.begin(); it != radii.end(); ++it) QCOMPARE(it.key()->radius, it.value());
+        gesture(view, QPointF(400, 200), QPointF(400, 200), 1);
+        QCOMPARE(items_of<NumberItem>(scene).size(), 3);
+
+        scene->tool_controller->activate("rect");
+        gesture(view, QPointF(60, 260), QPointF(220, 360), 5);
+        QVERIFY(dynamic_cast<RectItem *>(view->smart_edit_controller->selected_item()));
+        view->smart_edit_controller->clear_selection();
+        // Text has no switch: typing goes to the selected text.
+        scene->tool_controller->activate("text");
+        auto *text = write_text(scene, view, "typed");
+        QVERIFY(text);
+        QCOMPARE(view->smart_edit_controller->selected_item(), text);
+    }
+
     // While text is being edited the view hands typing and composition to it; otherwise keys go up to the window.
     void typingAndCompositionGoToTheEditedText() {
         auto [scene, view] = canvas("text");

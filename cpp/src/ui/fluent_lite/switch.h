@@ -4,7 +4,7 @@
 #include <QWidget>
 
 namespace jietuba {
-// Animated on/off switch; 46x26 at 100%, following the window scale.
+// Animated on/off switch; 40x20 at 100%, following the window scale.
 class SwitchButton : public QWidget {
     Q_OBJECT
     Q_PROPERTY(double progress READ progress WRITE set_progress)
@@ -17,8 +17,6 @@ public:
     void set_progress(double value);
     bool isChecked() const { return checked_; }
     void setChecked(bool checked);
-    void setOnText(const QString &text) { on_text_ = text; }
-    void setOffText(const QString &text) { off_text_ = text; }
     void setCompact(bool compact);
 signals:
     void checkedChanged(bool checked);
@@ -26,11 +24,12 @@ protected:
     void mouseReleaseEvent(QMouseEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
     void paintEvent(QPaintEvent *event) override;
+    void enterEvent(QEnterEvent *event) override;
+    void leaveEvent(QEvent *event) override;
 private:
     void animate();
     bool checked_ = false;
     bool compact_ = false;
-    QString on_text_, off_text_;
     double progress_ = 0.0;
     QPropertyAnimation *animation_;
 };

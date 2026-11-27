@@ -22,14 +22,19 @@
 #include "pin/pin_file_card.h"
 #include "pin/pin_file_selection.h"
 #include "pin/pin_manager.h"
+#include "pin/pin_overlay_translation.h"
 #include "pin/pin_shortcut.h"
 #include "pin/pin_text_content.h"
 #include "pin/pin_toolbar.h"
 #include "settings/tool_settings.h"
 #include "tools/controller.h"
 #include "tools/cursor_manager.h"
+#include "translation/overlay_translation_session.h"
+#include "upload/upload_service.h"
 #include "ui/dialogs.h"
 #include "ui/save_image_dialog.h"
+#include "ui/toast.h"
+#include "ui/translation_panel.h"
 #include "ui/arrow_settings_panel.h"
 #include "ui/mosaic_settings_panel.h"
 #include "ui/number_settings_panel.h"
@@ -228,6 +233,7 @@ PinWindow::PinWindow(const QImage &image, const QPoint &position, ToolSettingsMa
     setMouseTracking(true);
     orig_size_ = image.size();
     display_scaler_ = std::make_shared<PinDisplayScaler>();
+    translation_scaler_ = std::make_shared<PinDisplayScaler>();
     win_opacity_ = opacity_setting("pin_default_opacity");
     if (win_opacity_ < 1.0) setWindowOpacity(win_opacity_);
     // Zoom percentage hint.
@@ -515,6 +521,7 @@ void PinWindow::refresh_background_for_scale() {
     const auto target_size = std::make_pair(tw, th);
     if (last_background_scale_size_ == target_size) return;
     last_background_scale_size_ = target_size;
+    refresh_translation_for_scale();
     // An image still being scaled for an earlier size is dropped.
     const auto ticket = ++display_ticket_;
     // Frames go up as they are and the view scales them while drawing: resampling every frame
@@ -1160,8 +1167,12 @@ void PinWindow::show_toolbar() {
     if (!toolbar) {
         toolbar = new PinToolbar(this, config_manager);
         if (canvas) canvas->connect_toolbar(toolbar, view);
+        connect(toolbar, &Toolbar::screenshot_translate_clicked, this, &PinWindow::on_translate_clicked);
+        if (overlay_translation_) overlay_translation_->bind_toolbar(toolbar);
         log_debug(T("创建工具栏，信号已由 PinCanvas 连接"), "PinWindow");
     }
+    // A list of files has no text to translate.
+    if (toolbar->screenshot_translate_btn) toolbar->screenshot_translate_btn->setEnabled(recognizable());
     toolbar->show();
 }
 
@@ -1179,6 +1190,10 @@ void PinWindow::hide_toolbar() {
 
 void PinWindow::on_translate_clicked() {
     if (!translation_helper_ || !recognizable()) return;
+    if (!text_only() && config_manager && config_manager->get_screenshot_translate_mode() != "compare") {
+        start_overlay_translation();
+        return;
+    }
     if (text_only()) {
         translation_helper_->translate_text(text_content_->text());
         return;
@@ -1191,6 +1206,71 @@ void PinWindow::on_translate_clicked() {
         // may load models): the same "panel first, recognize after" feel as capture translation.
         QTimer::singleShot(0, this, &PinWindow::start_ocr_for_translation);
     }
+}
+
+PinOverlayTranslation *PinWindow::ensure_overlay_translation() {
+    if (is_closed_ || !recognizable() || text_only() || !canvas) return nullptr;
+    if (!overlay_translation_) overlay_translation_ = std::make_unique<PinOverlayTranslation>(this, config_manager);
+    return overlay_translation_.get();
+}
+
+bool PinWindow::start_overlay_translation() {
+    auto *translation = ensure_overlay_translation();
+    if (!translation) return false;
+    translation->translate();
+    return true;
+}
+
+void PinWindow::adopt_translation(const QVector<OverlayTextBlock> &blocks, bool original_shown, bool go_on) {
+    if (blocks.isEmpty()) return;
+    if (auto *translation = ensure_overlay_translation()) translation->adopt(blocks, original_shown, go_on);
+}
+
+void PinWindow::toggle_translation_original() {
+    if (overlay_translation_ && overlay_translation_->shown()) overlay_translation_->set_original_shown(!overlay_translation_->original_shown());
+}
+
+void PinWindow::stop_overlay_translation() {
+    if (overlay_translation_) overlay_translation_->stop();
+}
+
+QImage PinWindow::recognition_image() {
+    auto *background = canvas && canvas->scene ? canvas->scene->background : nullptr;
+    // With nothing drawn over the picture it is what the pin shows: shared rather than drawn again,
+    // which on a long image costs a full-size copy and time on the UI thread.
+    const double dpr = devicePixelRatioF();
+    const QSize drawn(static_cast<int>(orig_size_.width() * dpr), static_cast<int>(orig_size_.height() * dpr));
+    if (background && !text_content_ && !file_card_ && !animation_ && background->image_size() == drawn) {
+        const auto items = canvas->scene->items();
+        const bool alone = annotations_hidden_ || std::none_of(items.cbegin(), items.cend(), [background](QGraphicsItem *item) { return item != background && item->isVisible(); });
+        if (alone) {
+            const auto image = background->image();
+            return image_transform_ ? image_transform_->transform_image(image) : image;
+        }
+    }
+    const bool layered = background && background->overlay_visible();
+    if (layered) background->set_overlay_visible(false);
+    auto image = get_current_image();
+    if (layered) background->set_overlay_visible(true);
+    return image;
+}
+
+void PinWindow::refresh_translation_for_scale() {
+    auto *background = canvas && canvas->scene ? canvas->scene->background : nullptr;
+    if (!background || !overlay_translation_ || !last_background_scale_size_ || orig_size_.isEmpty()) return;
+    const QImage layer = background->overlay();
+    const QSize shown(last_background_scale_size_->first, last_background_scale_size_->second);
+    // At 100% the layer is drawn as it is; while a run goes on it keeps changing and is stretched.
+    if (layer.isNull() || shown == orig_size_ || overlay_translation_->busy()) return;
+    const double sx = double(shown.width()) / orig_size_.width(), sy = double(shown.height()) / orig_size_.height();
+    const auto region = overlay_translation_->session()->region();
+    const QPoint position(static_cast<int>(python_round(region.x() * sx)), static_cast<int>(python_round(region.y() * sy)));
+    const QSize size(std::max(1, static_cast<int>(python_round(layer.width() * sx))), std::max(1, static_cast<int>(python_round(layer.height() * sy))));
+    const auto ticket = ++translation_ticket_;
+    translation_scaler_->request(layer, size, this, [this, ticket, position, shown](QPixmap pixmap) {
+        if (is_closed_ || ticket != translation_ticket_ || !canvas || !canvas->scene) return;
+        canvas->scene->background->set_display_overlay(pixmap, position, shown);
+    });
 }
 
 void PinWindow::start_ocr_for_translation() {
@@ -1221,6 +1301,9 @@ void PinWindow::show_context_menu(const QPoint &global_pos) {
     state.has_formatting = text_content_ && text_content_->has_formatting();
     state.formatted = text_formatted();
     state.annotations_hidden = annotations_hidden_;
+    state.translation_shown = overlay_translation_ && overlay_translation_->shown();
+    state.translation_busy = overlay_translation_ && overlay_translation_->busy();
+    state.translation_original_shown = overlay_translation_ && overlay_translation_->original_shown();
     if (animation_) {
         state.content = PinMenuState::Content::Animation;
         state.animation_paused = animation_->paused();
@@ -1450,6 +1533,55 @@ void PinWindow::save_image() {
     });
 }
 
+void PinWindow::upload_image() {
+    auto &config = *(config_manager ? config_manager : get_tool_settings_manager());
+    if (!upload::default_target(config)) {
+        upload::show_no_target_hint();
+        return;
+    }
+    when_pixels_ready([this, &config] {
+        with_edit_paused([this, &config] {
+            const QImage image = animation_ ? animation_->current_frame() : get_current_image();
+            upload::start_upload(image, config, upload::Source::Pin);
+        });
+    });
+}
+
+void PinWindow::quick_save_image() {
+    auto &config = *(config_manager ? config_manager : get_tool_settings_manager());
+    // A path comes back even when the write failed, so it doubles as the detail line;
+    // no path at all means the folder or the file name was the problem.
+    const auto report = [this](bool success, const std::optional<QString> &path) {
+        if (success) {
+            log_info(T("保存成功: {file_path}", {{"file_path", *path}}), "PinWindow");
+            show_toast(pin_tr("Saved: %1").replace("%1", QFileInfo(*path).fileName()));
+            return;
+        }
+        log_error(T("保存失败: {file_path}", {{"file_path", path.value_or(QString())}}), "PinWindow");
+        show_warning_dialog(this, pin_tr("Save Failed"), path ? *path : pin_tr("Cannot create the save folder or reserve a file name."));
+    };
+    if (animation_) {
+        const auto &source = animation_->source();
+        std::optional<QString> path;
+        try {
+            path = SaveService(config).reserve_save_path(config.get_screenshot_save_path(), "pinned", {}, QString::fromLatin1(source.format));
+        } catch (const std::exception &) {
+        }
+        // The reserved name is an empty placeholder; the copy takes its place.
+        const bool copied = path && QFile::remove(*path) && QFile::copy(source.path(), *path);
+        if (path && !copied) SaveService::cleanup_failed_placeholder(*path);
+        report(copied, path);
+        return;
+    }
+    when_pixels_ready([this, &config, report] {
+        QImage image;
+        with_edit_paused([this, &image] { image = get_current_image(); });
+        const SaveService save_service(config);
+        const auto [success, path] = save_service.save_qimage(image, config.get_screenshot_save_path(), "pinned", {}, config.get_screenshot_format(), save_service.options());
+        report(success, path);
+    });
+}
+
 void PinWindow::save_image_with_system_dialog() {
     const auto fmt = (config_manager ? config_manager->get_screenshot_format() : QString("PNG")).toLower();
     const auto default_name = file_names::stem(*(config_manager ? config_manager : get_tool_settings_manager()), file_names::Pin) + "." + fmt;
@@ -1466,10 +1598,11 @@ void PinWindow::save_image_with_system_dialog() {
         image_format = match.hasMatch() ? match.captured(1).toUpper() : QString("PNG");
         file_path = file_path + "." + image_format.toLower();
     }
-    when_pixels_ready([this, file_path, image_format] {
-        with_edit_paused([this, file_path, image_format] {
+    const auto options = save_service.options();
+    when_pixels_ready([this, file_path, image_format, options] {
+        with_edit_paused([this, file_path, image_format, options] {
             const auto image = get_current_image();
-            if (SaveService::save_qimage_to_path(image, file_path, image_format)) log_info(T("保存成功: {file_path}", {{"file_path", file_path}}), "PinWindow");
+            if (SaveService::save_qimage_to_path(image, file_path, image_format, options)) log_info(T("保存成功: {file_path}", {{"file_path", file_path}}), "PinWindow");
             else log_error(T("保存失败: {file_path}", {{"file_path", file_path}}), "PinWindow");
         });
     });
@@ -1590,8 +1723,9 @@ PinWindow::DragOut PinWindow::prepare_drag_out(const QPoint &global_pos) {
         // window that takes drops. The file for Explorer, in the format auto-save uses, is encoded off the UI thread meanwhile.
         const QImage image = get_current_image();
         content.image = ready_value(image);
-        const QString format = SaveService::format_for_size(config_manager ? config_manager->get_screenshot_format() : QString("PNG"), image.width(), image.height());
-        const auto encoded = prepare_in_background([image, format] { return SaveService::encode_image(image, format); });
+        const auto options = SaveOptions::from_settings(config_manager ? *config_manager : *get_tool_settings_manager());
+        const QString format = SaveService::format_for_size(config_manager ? config_manager->get_screenshot_format() : QString("PNG"), image.width(), image.height(), options);
+        const auto encoded = prepare_in_background([image, format, options] { return SaveService::encode_image(image, format, options); });
         content.made_files = {{base_name + "." + format.toLower(), [encoded](const QString &path) {
                                    const QByteArray bytes = encoded.get();
                                    QFile file(path);
@@ -1666,6 +1800,9 @@ void PinWindow::cleanup() {
     folder_drop_.reset();
     if (hover_controls) hover_controls->stop();
     if (display_scaler_) display_scaler_->cancel();
+    if (translation_scaler_) translation_scaler_->cancel();
+    // Its requests stop and its sweep goes before the scene it draws on.
+    overlay_translation_.reset();
     if (zoom_hide_timer_) zoom_hide_timer_->stop();
     if (click_through_bar_) {
         click_through_bar_->close();
@@ -1688,6 +1825,7 @@ void PinWindow::cleanup() {
         close_panel(toolbar->text_panel);
         close_panel(toolbar->mosaic_panel);
         close_panel(toolbar->watermark_panel);
+        close_panel(toolbar->translation_panel);
         if (auto *popup = toolbar->more_popup()) {
             popup->close();
             popup->deleteLater();

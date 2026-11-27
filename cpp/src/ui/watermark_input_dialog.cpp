@@ -53,7 +53,7 @@ WatermarkInputDialog::WatermarkInputDialog(const QString &template_text, const Q
     // Over the full-screen capture window, on top like the capture's colour picker.
     setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowCloseButtonHint | Qt::WindowStaysOnTopHint);
     const auto &tokens = ui_tokens(this);
-    setStyleSheet(QString("QDialog { background: %1; }").arg(tokens.window));
+    setStyleSheet(QString("QDialog { background: %1; }").arg(tokens.page_background));
     time_format_ = default_watermark_time_format();
     for (const auto &entry : watermark_time_formats())
         if (time_format == entry.format) time_format_ = time_format;
@@ -63,14 +63,7 @@ WatermarkInputDialog::WatermarkInputDialog(const QString &template_text, const Q
     edit->setPlaceholderText(wid_tr("Type the watermark. Use the time button to insert the capture time."));
     edit->setPlainText(template_text);
     edit->setFixedHeight(dialog_scaled(BASE_EDIT_HEIGHT));
-    edit->setStyleSheet(QString("QTextEdit { color: %1; background: %2; border: 1px solid %3; border-radius: %4px;"
-                                " padding: %5px; font: %6px %7; selection-background-color: %8; }"
-                                "QTextEdit:focus { border-color: %8; }")
-                            .arg(tokens.text, tokens.input_background, tokens.border)
-                            .arg(dialog_scaled(INPUT_RADIUS))
-                            .arg(dialog_scaled(4))
-                            .arg(dialog_scaled(14))
-                            .arg(FONT_FAMILY, ACCENT));
+    edit->setStyleSheet(text_edit_qss(edit));
     connect(edit, &QTextEdit::textChanged, this, &WatermarkInputDialog::refresh_preview);
 
     preview = new CaptionLabel("", this);
@@ -91,13 +84,13 @@ WatermarkInputDialog::WatermarkInputDialog(const QString &template_text, const Q
                                        " padding: %5px %6px %5px %7px; min-height: %8px; }"
                                        "QToolButton:hover { border-color: %9; background: %10; }"
                                        "QToolButton::menu-button { width: %11px; border: none; }")
-                                   .arg(tokens.text, tokens.input_background, tokens.border)
+                                   .arg(tokens.fg, tokens.control, tokens.control_border_bottom)
                                    .arg(dialog_scaled(INPUT_RADIUS))
                                    .arg(dialog_scaled(4))
                                    .arg(dialog_scaled(26))
                                    .arg(dialog_scaled(10))
                                    .arg(dialog_scaled(22))
-                                   .arg(tokens.border_hover, tokens.surface_strong)
+                                   .arg(tokens.control_border_bottom, tokens.control_hover)
                                    .arg(dialog_scaled(20)));
 
     auto *apply_button = new PrimaryPushButton(wid_tr("Apply"), this);

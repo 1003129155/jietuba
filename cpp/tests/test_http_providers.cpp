@@ -1,7 +1,15 @@
 #include "core/http_client.h"
 #include "translation/deepl_service.h"
+#include "translation/providers/amazon.h"
 #include "translation/providers/azure.h"
+#include "translation/providers/baidu.h"
 #include "translation/providers/custom_llm.h"
+#include "translation/providers/deepl.h"
+#include "translation/providers/deepseek.h"
+#include "translation/providers/google.h"
+#include "translation/providers/tencent.h"
+#include "translation/providers/volcengine.h"
+#include "translation/providers/youdao.h"
 #include <QCoreApplication>
 #include <QElapsedTimer>
 #include <QJsonArray>
@@ -247,6 +255,148 @@ private slots:
         QCOMPARE(AzureTranslateProvider({}).translate(TranslationRequest("hi", "ja")).error_code, std::optional(TranslationErrorCode::NOT_CONFIGURED));
     }
 
+    // A capture's paragraphs go to Azure as one array and come back in the same order.
+    void azureTakesSeveralTextsInOneRequest() {
+        AzureTranslateProvider azure({{"api_key", "secret"}, {"endpoint", server_->url("/azure")}});
+        QVERIFY(azure.supports_batch());
+        const auto entry = [](const QString &text) { return QJsonObject{{"translations", QJsonArray{QJsonObject{{"text", text}}}}}; };
+        QJsonObject first = entry(QString::fromUtf8("设置"));
+        first.insert("detectedLanguage", QJsonObject{{"language", "en"}});
+        server_->queue({200, "OK", json(QJsonArray{first, entry(QString::fromUtf8("取消")), entry(QString::fromUtf8("应用"))})});
+        const auto batch = azure.translate_batch({"Settings", "Cancel", "Apply"}, TranslationRequest(QString(), "zh-Hans"));
+        QVERIFY2(batch.success, qPrintable(batch.error_message));
+        QCOMPARE(batch.translations, QStringList({QString::fromUtf8("设置"), QString::fromUtf8("取消"), QString::fromUtf8("应用")}));
+        QCOMPARE(batch.detected_source_lang, QString("en"));
+        QCOMPARE(server_->exchanges().size(), 1);
+        const auto sent = QJsonDocument::fromJson(server_->exchanges().last().body).array();
+        QCOMPARE(sent.size(), 3);
+        QCOMPARE(sent.at(2).toObject().value("Text").toString(), QString("Apply"));
+
+        const auto failure = [&](const Reply &reply) {
+            server_->queue(reply);
+            return azure.translate_batch({"One", "Two"}, TranslationRequest(QString(), "ja")).error_code;
+        };
+        // Fewer results than texts cannot be paired up.
+        QCOMPARE(failure({200, "OK", json(QJsonArray{entry("Eins")})}), std::optional(TranslationErrorCode::UNKNOWN));
+        QCOMPARE(failure({200, "OK", "{}"}), std::optional(TranslationErrorCode::UNKNOWN));
+        QCOMPARE(failure({200, "OK", "not json"}), std::optional(TranslationErrorCode::UNKNOWN));
+        QCOMPARE(failure({429, "Too Many Requests", {}}), std::optional(TranslationErrorCode::RATE_LIMITED));
+        QCOMPARE(failure({200, "OK", {}, 0, true}), std::optional(TranslationErrorCode::NETWORK_ERROR));
+        QCOMPARE(azure.translate_batch({"One", " "}, TranslationRequest(QString(), "ja")).error_code, std::optional(TranslationErrorCode::INVALID_REQUEST));
+        QCOMPARE(azure.translate_batch({}, TranslationRequest(QString(), "ja")).error_code, std::optional(TranslationErrorCode::INVALID_REQUEST));
+        QCOMPARE(AzureTranslateProvider({}).translate_batch({"One", "Two"}, TranslationRequest(QString(), "ja")).error_code,
+                 std::optional(TranslationErrorCode::NOT_CONFIGURED));
+    }
+
+    // DeepL takes the text parameter once per text.
+    void deeplTakesSeveralTextsInOneRequest() {
+        DeepLService deepl("secret:fx");
+        deepl.api_url = server_->url("/v2/translate");
+        server_->queue({200, "OK", json(QJsonObject{{"translations", QJsonArray{QJsonObject{{"text", "Hallo"}, {"detected_source_language", "EN"}},
+                                                                                QJsonObject{{"text", "Welt"}, {"detected_source_language", "EN"}}}}})});
+        const auto batch = deepl.translate_batch({"Hello", "World & more"}, "de", std::nullopt, "nonewlines", true, 5);
+        QVERIFY2(batch.success, qPrintable(batch.error));
+        QCOMPARE(batch.translated_texts, QStringList({"Hallo", "Welt"}));
+        QCOMPARE(batch.detected_source_lang, QString("EN"));
+        QUrlQuery form;
+        form.setQuery(QString::fromUtf8(server_->exchanges().last().body).replace('+', "%20"));
+        QCOMPARE(form.allQueryItemValues("text", QUrl::FullyDecoded), QStringList({"Hello", "World & more"}));
+        QCOMPARE(form.queryItemValue("target_lang"), QString("DE"));
+        // One translation short: nothing is paired by guesswork.
+        server_->queue({200, "OK", json(QJsonObject{{"translations", QJsonArray{QJsonObject{{"text", "Hallo"}}}}})});
+        QCOMPARE(deepl.translate_batch({"Hello", "World"}, "de").error, QString("Invalid API response format"));
+        QCOMPARE(deepl.translate_batch({"Hello", "  "}, "de").error, QString("Text is empty"));
+        QCOMPARE(deepl.translate_batch({}, "de").error, QString("Text is empty"));
+
+        DeepLProvider provider({});
+        QVERIFY(provider.supports_batch());
+        const auto unconfigured = provider.translate_batch({"Hello", "World"}, TranslationRequest(QString(), "de", QString("en")));
+        QCOMPARE(unconfigured.error_code, std::optional(TranslationErrorCode::AUTH_FAILED));
+        QCOMPARE(unconfigured.error_message, QString("API key not configured"));
+    }
+
+    // The services with a fixed address: what a batch sends and how its reply is read.
+    void googleAndVolcenginePairABatchWithItsReply() {
+        GoogleTranslateProvider google({{"api_key", "k"}});
+        QVERIFY(google.supports_batch());
+        const auto google_body = QJsonDocument::fromJson(google.batch_payload({"One", "Two"}, TranslationRequest(QString(), "zh-Hans", QString("en")))).object();
+        QCOMPARE(google_body.value("q").toArray(), QJsonArray({"One", "Two"}));
+        QCOMPARE(google_body.value("target").toString(), QString("zh-CN"));
+        QCOMPARE(google_body.value("source").toString(), QString("en"));
+        const QJsonObject google_reply{
+            {"data", QJsonObject{{"translations", QJsonArray{QJsonObject{{"translatedText", "A &amp; B"}, {"detectedSourceLanguage", "en"}},
+                                                             QJsonObject{{"translatedText", "C"}}}}}}};
+        const auto google_batch = GoogleTranslateProvider::parse_batch(google_reply, 2);
+        QVERIFY(google_batch.success);
+        QCOMPARE(google_batch.translations, QStringList({"A & B", "C"}));
+        QCOMPARE(google_batch.detected_source_lang, QString("en"));
+        QCOMPARE(GoogleTranslateProvider::parse_batch(google_reply, 3).error_code, std::optional(TranslationErrorCode::UNKNOWN));
+        QCOMPARE(google.translate_batch({"One", ""}, TranslationRequest(QString(), "ja")).error_code, std::optional(TranslationErrorCode::INVALID_REQUEST));
+        QCOMPARE(google.translate_batch({}, TranslationRequest(QString(), "ja")).error_code, std::optional(TranslationErrorCode::INVALID_REQUEST));
+        QCOMPARE(GoogleTranslateProvider({}).translate_batch({"One", "Two"}, TranslationRequest(QString(), "ja")).error_code,
+                 std::optional(TranslationErrorCode::NOT_CONFIGURED));
+
+        VolcengineTranslateProvider volcengine({{"access_key_id", "ak"}, {"secret_access_key", "sk"}});
+        QCOMPARE(volcengine.batch_limits().max_texts, 16);
+        const auto volc_body = QJsonDocument::fromJson(volcengine.batch_payload({"One", "Two"}, TranslationRequest(QString(), "zh-Hans"))).object();
+        QCOMPARE(volc_body.value("TextList").toArray(), QJsonArray({"One", "Two"}));
+        QCOMPARE(volc_body.value("TargetLanguage").toString(), QString("zh"));
+        const QJsonObject volc_reply{{"TranslationList", QJsonArray{QJsonObject{{"Translation", "Yi"}, {"DetectedSourceLanguage", "en"}},
+                                                                    QJsonObject{{"Translation", "Er"}, {"DetectedSourceLanguage", "en"}}}}};
+        const auto volc_batch = volcengine.parse_batch(volc_reply, 2);
+        QVERIFY(volc_batch.success);
+        QCOMPARE(volc_batch.translations, QStringList({"Yi", "Er"}));
+        QCOMPARE(volc_batch.detected_source_lang, QString("en"));
+        QCOMPARE(volcengine.parse_batch(volc_reply, 3).error_code, std::optional(TranslationErrorCode::UNKNOWN));
+        const QJsonObject limited{{"ResponseMetadata", QJsonObject{{"Error", QJsonObject{{"Code", "-429"}, {"Message", "too frequent"}}}}}};
+        QCOMPARE(volcengine.parse_batch(limited, 2).error_code, std::optional(TranslationErrorCode::RATE_LIMITED));
+        QCOMPARE(volcengine.translate_batch({"One", " "}, TranslationRequest(QString(), "ja")).error_code, std::optional(TranslationErrorCode::INVALID_REQUEST));
+        QCOMPARE(volcengine.translate_batch({}, TranslationRequest(QString(), "ja")).error_code, std::optional(TranslationErrorCode::INVALID_REQUEST));
+        QCOMPARE(VolcengineTranslateProvider({}).translate_batch({"One", "Two"}, TranslationRequest(QString(), "ja")).error_code,
+                 std::optional(TranslationErrorCode::NOT_CONFIGURED));
+
+        // Tencent keeps one text a request, paced under its five requests a second.
+        TencentTranslateProvider tencent({{"secret_id", "id"}, {"secret_key", "key"}});
+        QVERIFY(!tencent.supports_batch());
+        QVERIFY(tencent.parallel_requests * 1000 / tencent.request_interval_ms <= 8);
+        QVERIFY(1000 / tencent.request_interval_ms < 5);
+    }
+
+    // Baidu answers one entry per line of q, which is how several texts share a request.
+    void baiduTellsABatchApartByItsLines() {
+        BaiduTranslateProvider baidu({{"appid", "id"}, {"secret_key", "key"}});
+        QVERIFY(baidu.supports_batch());
+        QVector<int> counts;
+        const auto lines = BaiduTranslateProvider::batch_lines({"Save", "A wrapped\nparagraph", "Cancel"}, &counts);
+        QVERIFY(lines.has_value());
+        QCOMPARE(*lines, QStringList({"Save", "A wrapped", "paragraph", "Cancel"}));
+        QCOMPARE(counts, QVector<int>({1, 2, 1}));
+        const auto translations = BaiduTranslateProvider::batch_translations({"S", "W", "P", "C"}, counts);
+        QVERIFY(translations.has_value());
+        QCOMPARE(*translations, QStringList({"S", "W\nP", "C"}));
+        // An entry short cannot be paired up; a blank line would be missing from the reply.
+        QVERIFY(!BaiduTranslateProvider::batch_translations({"S", "W", "C"}, counts).has_value());
+        QVector<int> unused;
+        QVERIFY(!BaiduTranslateProvider::batch_lines({"Save", "two\n\nlines"}, &unused).has_value());
+
+        QStringList entries;
+        const QJsonObject reply{{"from", "en"},
+                                {"trans_result", QJsonArray{QJsonObject{{"src", "Save"}, {"dst", "S"}}, QJsonObject{{"src", "Cancel"}, {"dst", "C"}}}}};
+        const auto parsed = baidu.parse_response(reply, &entries);
+        QVERIFY2(parsed.success, qPrintable(parsed.error_message));
+        QCOMPARE(parsed.translated_text, QString("S\nC"));
+        QCOMPARE(entries, QStringList({"S", "C"}));
+        // Over the account's requests per second: a reason to slow down, not a failed text.
+        QCOMPARE(baidu.parse_response(QJsonObject{{"error_code", 59004}, {"error_msg", "qps limit"}}).error_code,
+                 std::optional(TranslationErrorCode::RATE_LIMITED));
+
+        QCOMPARE(baidu.translate_batch({"Save", "two\n\nlines"}, TranslationRequest(QString(), "ja")).error_code,
+                 std::optional(TranslationErrorCode::INVALID_REQUEST));
+        QCOMPARE(baidu.translate_batch({}, TranslationRequest(QString(), "ja")).error_code, std::optional(TranslationErrorCode::INVALID_REQUEST));
+        QCOMPARE(BaiduTranslateProvider({}).translate_batch({"Save", "Cancel"}, TranslationRequest(QString(), "ja")).error_code,
+                 std::optional(TranslationErrorCode::NOT_CONFIGURED));
+    }
+
     void anOpenAiCompatibleServiceTranslatesAndListsModels() {
         CustomLLMProvider llm({{"api_key", "k"}, {"base_url", server_->url("/v1/")}, {"model", "local-model"}});
         QVERIFY(llm.is_configured());
@@ -312,6 +462,72 @@ private slots:
         QCOMPARE(unconfigured.translate(TranslationRequest("Hello", "de")).error_code, std::optional(TranslationErrorCode::NOT_CONFIGURED));
     }
 
+    // A page of paragraphs goes out as one request and comes back in the same order: this is
+    // what keeps a long capture from costing one round trip per paragraph.
+    void aBatchTranslationKeepsTheInputOrder() {
+        CustomLLMProvider llm({{"api_key", "k"}, {"base_url", server_->url("/v1")}, {"model", "m"}});
+        QVERIFY(llm.supports_batch());
+        QVERIFY(llm.parallel_requests > 1);
+        const QStringList texts{"Hello", "World", "Good morning"};
+        server_->queue({200, "OK", chat_reply("{\"translations\":[\"Bonjour\",\"Monde\",\"Bonjour\"]}")});
+        const auto batch = llm.translate_batch(texts, TranslationRequest(QString(), "fr"));
+        QVERIFY2(batch.success, qPrintable(batch.error_message));
+        QCOMPARE(batch.translations, QStringList({"Bonjour", "Monde", "Bonjour"}));
+        const auto sent = server_->exchanges();
+        QCOMPARE(sent.size(), 1);
+        const auto messages = QJsonDocument::fromJson(sent.last().body).object().value("messages").toArray();
+        QVERIFY(messages.first().toObject().value("content").toString().contains("exactly 3 strings"));
+        // The texts travel as a JSON array, so a paragraph holding quotes stays data.
+        const auto payload = QJsonDocument::fromJson(messages.last().toObject().value("content").toString().toUtf8()).array();
+        QCOMPARE(payload.size(), 3);
+        QCOMPARE(payload.at(1).toString(), QString("World"));
+
+        // One capture, one page: the entries are described as reading order rather than as
+        // unrelated strings, which is what lets a term or a pronoun resolve across them.
+        const auto system = messages.first().toObject().value("content").toString();
+        QVERIFY2(system.contains("reading order"), qPrintable(system));
+        QVERIFY(!system.contains("independent"));
+
+        // The paragraphs before the batch reach the model as reference, not as entries.
+        server_->clear();
+        server_->queue({200, "OK", chat_reply("{\"translations\":[\"Reglages\",\"Appliquer\"]}")});
+        const QVariantMap options{{"context", "Display options"}};
+        QVERIFY(llm.translate_batch({"Settings", "Apply"}, TranslationRequest(QString(), "fr", std::nullopt, true, 10, options)).success);
+        const auto carried = QJsonDocument::fromJson(server_->exchanges().last().body).object().value("messages").toArray();
+        const auto note = carried.first().toObject().value("content").toString();
+        QVERIFY2(note.contains("reference only, to show what they continue"), qPrintable(note));
+        QVERIFY(note.contains("Display options"));
+        QCOMPARE(QJsonDocument::fromJson(carried.last().toObject().value("content").toString().toUtf8()).array().size(), 2);
+
+        // A fenced reply and a leading think block are both still read.
+        server_->clear();
+        server_->queue({200, "OK", chat_reply("```json\n{\"translations\":[\"Eins\",\"Zwei\"]}\n```")});
+        const auto fenced = llm.translate_batch({"One", "Two"}, TranslationRequest(QString(), "de"));
+        QVERIFY2(fenced.success, qPrintable(fenced.error_message));
+        QCOMPARE(fenced.translations, QStringList({"Eins", "Zwei"}));
+        server_->clear();
+        server_->queue({200, "OK", chat_reply("<think>hmm</think>\n{\"translations\":[\"Un\",\"Deux\"]}")});
+        QCOMPARE(llm.translate_batch({"One", "Two"}, TranslationRequest(QString(), "de")).translations, QStringList({"Un", "Deux"}));
+
+        // A short or reordered array is refused, not paired with the wrong paragraph: the
+        // caller then asks text by text.
+        server_->clear();
+        server_->queue({200, "OK", chat_reply("{\"translations\":[\"Seul\"]}")});
+        const auto short_reply = llm.translate_batch({"One", "Two"}, TranslationRequest(QString(), "de"));
+        QVERIFY(!short_reply.success);
+        QCOMPARE(short_reply.error_message, QString("Custom LLM-1 returned 1 translations for 2 texts"));
+        server_->queue({200, "OK", chat_reply("{\"translation\":\"Seul\"}")});
+        QVERIFY(!llm.translate_batch({"One", "Two"}, TranslationRequest(QString(), "de")).success);
+        // A rejected JSON mode is retried without it, as for single texts.
+        server_->clear();
+        server_->queue({400, "Bad Request", json(QJsonObject{{"error", "response_format is not supported"}})});
+        server_->queue({200, "OK", chat_reply("{\"translations\":[\"Uno\",\"Dos\"]}")});
+        QVERIFY(llm.translate_batch({"One", "Two"}, TranslationRequest(QString(), "es")).success);
+        const auto attempts = server_->exchanges();
+        QCOMPARE(attempts.size(), 2);
+        QVERIFY(!QJsonDocument::fromJson(attempts[1].body).object().contains("response_format"));
+    }
+
     // DeepL posts a form with the key in a header and reads the first translation.
     void deeplTranslatesAndNamesHttpErrors() {
         DeepLService deepl("secret:fx");
@@ -341,6 +557,58 @@ private slots:
         QVERIFY(failure({200, "OK", {}, 0, true}).startsWith("Network error"));
         QCOMPARE(deepl.translate("  ").error, QString("Text is empty"));
         QCOMPARE(DeepLService("").translate("Hello").error, QString("API key not configured"));
+    }
+
+    // The load a service starts from: what its documentation allows, not one number for all.
+    void eachServiceStartsFromItsOwnPacing() {
+        struct Case {
+            std::unique_ptr<TranslationProvider> provider;
+            int parallel;
+            int interval_ms;
+        };
+        std::vector<Case> cases;
+        cases.push_back({std::make_unique<GoogleTranslateProvider>(ProviderConfig{}), 4, 0});
+        cases.push_back({std::make_unique<AzureTranslateProvider>(ProviderConfig{}), 4, 0});
+        cases.push_back({std::make_unique<DeepLProvider>(ProviderConfig{}), 4, 0});
+        cases.push_back({std::make_unique<AmazonTranslateProvider>(ProviderConfig{}), 4, 0});
+        cases.push_back({std::make_unique<VolcengineTranslateProvider>(ProviderConfig{}), 4, 0});
+        cases.push_back({std::make_unique<YoudaoTranslateProvider>(ProviderConfig{}), 4, 0});
+        cases.push_back({std::make_unique<BaiduTranslateProvider>(ProviderConfig{}), 4, 50});
+        cases.push_back({std::make_unique<TencentTranslateProvider>(ProviderConfig{}), 2, 250});
+        cases.push_back({std::make_unique<DeepSeekProvider>(ProviderConfig{}), 8, 0});
+        // A service the user runs locally queues what it cannot take at once.
+        cases.push_back({std::make_unique<CustomLLMProvider>(ProviderConfig{}), 4, 0});
+        for (const auto &c : cases) {
+            QVERIFY2(c.provider->parallel_requests == c.parallel && c.provider->request_interval_ms == c.interval_ms, qPrintable(c.provider->provider_id()));
+        }
+    }
+
+    // The settings are text: blank and unusable values fall back, the rest is kept inside what a
+    // person can sensibly ask for.
+    void aConfiguredPacingReplacesTheDefault() {
+        const auto baidu = [](const QString &parallel, const QString &interval) {
+            BaiduTranslateProvider provider({{"parallel_requests", parallel}, {"request_interval_ms", interval}});
+            return std::make_pair(provider.parallel_requests, provider.request_interval_ms);
+        };
+        using Pair = std::pair<int, int>;
+        QCOMPARE(baidu("3", "40"), Pair(3, 40));
+        QCOMPARE(baidu("", ""), Pair(4, 50));
+        QCOMPARE(baidu("many", "soon"), Pair(4, 50));
+        QCOMPARE(baidu(" 5 ", " 0 "), Pair(5, 0));
+        // Out of range values are pulled in.
+        QCOMPARE(baidu("0", "-4"), Pair(1, 0));
+        QCOMPARE(baidu("99", "99999"), Pair(16, 5000));
+        // Digits typed through an IME in full-width form.
+        QCOMPARE(baidu(QString::fromUtf8("\xEF\xBC\x93"), QString::fromUtf8("\xEF\xBC\x91\xEF\xBC\x90\xEF\xBC\x90")), Pair(3, 100));
+        // A key that is absent leaves the default, and a setting for one value leaves the other.
+        const BaiduTranslateProvider one({{"parallel_requests", "6"}});
+        QCOMPARE(Pair(one.parallel_requests, one.request_interval_ms), Pair(6, 50));
+        // The language-model services read the same keys over their own defaults.
+        QCOMPARE(DeepSeekProvider({{"parallel_requests", "2"}}).parallel_requests, 2);
+        QCOMPARE(DeepSeekProvider({{"parallel_requests", "x"}}).parallel_requests, 8);
+        QCOMPARE(CustomLLMProvider({{"parallel_requests", "12"}, {"request_interval_ms", "20"}}).parallel_requests, 12);
+        QCOMPARE(CustomLLMProvider({{"parallel_requests", "12"}, {"request_interval_ms", "20"}}).request_interval_ms, 20);
+        QCOMPARE(TencentTranslateProvider({{"request_interval_ms", "1000"}}).request_interval_ms, 1000);
     }
 };
 

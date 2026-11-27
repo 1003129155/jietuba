@@ -1,4 +1,5 @@
 #include "save_dialog_answerer.h"
+#include "scripted_translation.h"
 #include "ocr/ocr_manager.h"
 #include "canvas/items/background_item.h"
 #include "canvas/items/arrow_item.h"
@@ -13,8 +14,13 @@
 #include "canvas/smart_edit_controller.h"
 #include "tools/controller.h"
 #include "tools/number.h"
+#include "translation/overlay_translation.h"
+#include "translation/overlay_translation_session.h"
 #include "translation/translation_dialog.h"
 #include "translation/translation_manager.h"
+#include "pin/pin_overlay_translation.h"
+#include "ui/translation_panel.h"
+#include "ui/translation_sweep.h"
 #include "ocr/ocr_line_geometry.h"
 #include "pin/ocr_text_layout.h"
 #include "pin/pin_border_overlay.h"
@@ -35,7 +41,9 @@
 #include "core/word_boundaries.h"
 #include "settings/tool_settings.h"
 #include "canvas/undo.h"
+#include "ui/toast.h"
 #include "ui/toolbar_layout.h"
+#include "upload/s3_target.h"
 #include "ui/toolbar_layout_dialog.h"
 #include "ui/arrow_settings_panel.h"
 #include "ui/mosaic_settings_panel.h"
@@ -194,6 +202,45 @@ QLabel *move_handle(PinClickThroughBar *bar) {
 
 LONG_PTR ex_style(QWidget *widget) { return GetWindowLongPtrW(reinterpret_cast<HWND>(widget->winId()), GWL_EXSTYLE); }
 
+// Compares the screen over a window, plus a 2 px band left, right and below, with what the window
+// paints laid over a white backdrop. Empty when they match, else the first differing pixel.
+QString screen_differs_from_painting(QWidget *window) {
+    RECT rect{};
+    GetWindowRect(reinterpret_cast<HWND>(window->winId()), &rect);
+    const int band = 2, width = rect.right - rect.left, height = rect.bottom - rect.top;
+    const auto own = window->grab().toImage().convertToFormat(QImage::Format_ARGB32_Premultiplied);
+    // A fractional scale may round the painted size one pixel off the native one.
+    if (std::abs(own.width() - width) > 1 || std::abs(own.height() - height) > 1)
+        return QString("painted %1x%2, window %3x%4").arg(own.width()).arg(own.height()).arg(width).arg(height);
+    HDC screen = GetDC(nullptr);
+    HDC memory = CreateCompatibleDC(screen);
+    HBITMAP bitmap = CreateCompatibleBitmap(screen, width + 2 * band, height + band);
+    auto *previous = SelectObject(memory, bitmap);
+    BitBlt(memory, 0, 0, width + 2 * band, height + band, screen, rect.left - band, rect.top, SRCCOPY | CAPTUREBLT);
+    SelectObject(memory, previous);
+    const auto shot = QImage::fromHBITMAP(bitmap).convertToFormat(QImage::Format_RGB32);
+    DeleteObject(bitmap);
+    DeleteDC(memory);
+    ReleaseDC(nullptr, screen);
+    for (int y = 0; y < shot.height(); ++y) {
+        for (int x = 0; x < shot.width(); ++x) {
+            const int wx = x - band;
+            const bool inside = wx >= 0 && wx < width && y < height;
+            if (inside && (wx >= own.width() || y >= own.height())) continue;
+            QRgb expected = qRgb(255, 255, 255);
+            if (inside) {
+                const QRgb painted = reinterpret_cast<const QRgb *>(own.constScanLine(y))[wx];
+                const int cover = 255 - qAlpha(painted);
+                expected = qRgb(qRed(painted) + cover, qGreen(painted) + cover, qBlue(painted) + cover);
+            }
+            const QRgb seen = shot.pixel(x, y);
+            if (std::abs(qRed(seen) - qRed(expected)) > 3 || std::abs(qGreen(seen) - qGreen(expected)) > 3 || std::abs(qBlue(seen) - qBlue(expected)) > 3)
+                return QString("at (%1,%2) of the window: screen %3, painted %4").arg(wx).arg(y).arg(QColor(seen).name(), QColor(expected).name());
+        }
+    }
+    return {};
+}
+
 const QString LOCKED_HINT = "Locked, right-click to unlock";
 
 QVector<QPointF> box(double x, double y, double w, double h) { return {QPointF(x, y), QPointF(x + w, y), QPointF(x + w, y + h), QPointF(x, y + h)}; }
@@ -227,6 +274,18 @@ struct StandInEngine {
     explicit StandInEngine(std::function<OcrResult(const QImage &)> recognize) { set_recognizer_for_test(std::move(recognize)); }
     ~StandInEngine() { set_recognizer_for_test({}); }
 };
+
+QDialog *visible_dialog() {
+    for (auto *widget : QApplication::topLevelWidgets())
+        if (auto *dialog = qobject_cast<QDialog *>(widget); dialog && dialog->isVisible()) return dialog;
+    return nullptr;
+}
+
+bool sweep_on_screen() {
+    for (auto *widget : QApplication::topLevelWidgets())
+        if (dynamic_cast<TranslationSweepWindow *>(widget) && widget->isVisible()) return true;
+    return false;
+}
 
 struct RecordingTranslator : SelectionTranslator {
     QStringList texts;
@@ -1190,6 +1249,34 @@ private slots:
         QVERIFY(!(ex_style(pin) & WS_EX_TRANSPARENT));
     }
 
+    // The pin toolbar and its panels are top-level windows; the screen shows only their own
+    // rounded panel, like the capture toolbar, with no system outline or shadow around it.
+    void thePinToolbarShowsNoSystemOutlineOrShadow() {
+        if (!desktop()) QSKIP("needs -platform windows");
+        const auto area = QGuiApplication::primaryScreen()->availableGeometry();
+        QWidget backdrop(nullptr, Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
+        backdrop.setAttribute(Qt::WA_ShowWithoutActivating);
+        QPalette palette;
+        palette.setColor(QPalette::Window, Qt::white);
+        backdrop.setPalette(palette);
+        backdrop.setAutoFillBackground(true);
+        backdrop.setGeometry(area.left(), area.top(), area.width(), 420);
+        backdrop.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&backdrop));
+        QCursor::setPos(area.left() + 10, area.top() + 410);
+        auto *pin = make_pin(QSize(300, 150), area.topLeft() + QPoint(area.width() / 2, 40));
+        pin->show();
+        pin->show_toolbar();
+        auto *toolbar = pin->toolbar;
+        QVERIFY(QTest::qWaitForWindowExposed(toolbar));
+        QTRY_COMPARE_WITH_TIMEOUT(screen_differs_from_painting(toolbar), QString(), 3000);
+        toolbar->select_tool("rect");
+        auto *panel = toolbar->shape_panel;
+        QVERIFY(panel && panel->isWindow());
+        QVERIFY(QTest::qWaitForWindowExposed(panel));
+        QTRY_COMPARE_WITH_TIMEOUT(screen_differs_from_painting(panel), QString(), 3000);
+    }
+
     // ---- Thumbnail mode ----
 
     void thumbnailCentresOnTheCursorAndRoundTrips() {
@@ -1645,7 +1732,7 @@ private slots:
     void theMenuOffersEveryEntryWithStateAndShortcuts() {
         auto *pin = make_pin();
         const QStringList want = {
-            "Copy (CTRL+C)", "Save as", "Translate (Text Recognition)", "Pin as text (T)", "Reset size", "Image transform",
+            "Copy (CTRL+C)", "Save as (CTRL+S)", "Quick save (CTRL+SHIFT+S)", "Upload", "Translate (Text Recognition)", "Pin as text (T)", "Reset size", "Image transform",
             "  Rotate right", "  Rotate left", "  Flip horizontal", "  Flip vertical", "  -", "  Reset transform", "-",
             "[ ] Toolbar (SPACE)", "[ ] Hide annotations (H)", "[x] Always on top", "[ ] Mouse click-through",
             "[ ] Lock (L)", "[x] Border", "[ ] Text selection (P)",
@@ -1758,11 +1845,163 @@ private slots:
         QVERIFY(same_pixels(pin->get_current_image(), content->render(pin->orig_size(), pin->devicePixelRatioF())));
     }
 
+    // Upload is an entry of the menu, a button folded into the toolbar's "..." and a key. Without a default target each
+    // only says so and the pin stays; with one the pin stays as well while the image goes (here to a closed port).
+    void aPinUploadsFromItsMenuToolbarAndKey() {
+        const auto reset = qScopeGuard([this] {
+            config_->set_inapp_shortcut("inapp_upload", "");
+            config_->set_upload_targets("");
+            config_->set_upload_default_target("");
+            PinShortcutController::instance()->reload_bindings();
+        });
+        config_->set_upload_targets("");
+        config_->set_upload_default_target("");
+        config_->set_inapp_shortcut("inapp_upload", "ctrl+u");
+        auto *pin = make_pin();
+        const QPointer<PinWindow> alive(pin);
+        PinShortcutController::instance()->reload_bindings();
+        QCursor::setPos(pin->mapToGlobal(QPoint(30, 20)));
+        const auto toasts = [] {
+            int shown = 0;
+            for (auto *widget : QApplication::topLevelWidgets())
+                if (qobject_cast<Toast *>(widget) && widget->isVisible()) ++shown;
+            return shown;
+        };
+        const auto close_toasts = [] {
+            for (auto *widget : QApplication::topLevelWidgets())
+                if (qobject_cast<Toast *>(widget)) widget->close();
+        };
+        close_toasts();
+        // The entry names its key.
+        QVERIFY(pin_menu(pin).contains("Upload (CTRL+U)"));
+        pin_menu(pin, "Upload");
+        QCOMPARE(toasts(), 1);
+        QVERIFY(alive && alive->isVisible());
+        close_toasts();
+        pin->toggle_toolbar();
+        QVERIFY(pin->toolbar && pin->toolbar->upload_btn);
+        QVERIFY(toolbar_layout::PIN.default_more.contains("upload"));
+        QVERIFY(pin->toolbar->upload_btn->parentWidget() != pin->toolbar || pin->toolbar->upload_btn->isHidden());
+        pin->toolbar->upload_btn->click();
+        QCOMPARE(toasts(), 1);
+        close_toasts();
+        press_key(pin, Qt::Key_U, Qt::ControlModifier);
+        QCOMPARE(toasts(), 1);
+        QVERIFY(alive && alive->isVisible());
+        close_toasts();
+        // A text pin offers it too; the thumbnail menu stays short.
+        QVERIFY(pin_menu(make_text_pin("some text")).contains("Upload (CTRL+U)"));
+        pin->toggle_thumbnail_mode();
+        QVERIFY(!pin_menu(pin).contains("Upload (CTRL+U)"));
+        pin->toggle_thumbnail_mode();
+        // With a target the pin stays and its image goes: the warning of a failed upload shows.
+        upload::Target target;
+        target.id = "t1";
+        target.name = "Closed port";
+        target.endpoint = "http://127.0.0.1:1";
+        target.region = "us-east-1";
+        target.bucket = "b";
+        target.access_key_id = "AKID";
+        target.secret_access_key = "secret";
+        config_->set_upload_targets(upload::serialize_targets({target}));
+        config_->set_upload_default_target("t1");
+        pin->upload_image();
+        QVERIFY(alive && alive->isVisible());
+        QDialog *warning = nullptr;
+        QTRY_VERIFY_WITH_TIMEOUT(([&] {
+            for (auto *widget : QApplication::topLevelWidgets())
+                if (auto *dialog = qobject_cast<QDialog *>(widget); dialog && dialog->isVisible()) warning = dialog;
+            return warning != nullptr;
+        }()), 10000);
+        warning->close();
+        close_toasts();
+    }
+
+    // Quick save writes into the save folder without asking and names the file beside the cursor; the pin stays. It is
+    // Ctrl+Shift+S, a menu entry and a button folded into the toolbar's "..."; Ctrl+S opens the save window. The
+    // thumbnail menu stays short, and a save folder that cannot be made is reported.
+    void aPinQuickSavesFromItsKeyMenuAndToolbar() {
+        const QDir folder(dir_.filePath("captures"));
+        const auto saved = [&folder] { return folder.entryList(QDir::Files); };
+        const auto close_toasts = [] {
+            for (auto *widget : QApplication::topLevelWidgets())
+                if (qobject_cast<Toast *>(widget)) widget->close();
+        };
+        auto *pin = make_pin(QSize(120, 80));
+        const QPointer<PinWindow> alive(pin);
+        PinShortcutController::instance()->reload_bindings();
+        QCursor::setPos(pin->mapToGlobal(QPoint(30, 20)));
+        close_toasts();
+        press_key(pin, Qt::Key_S, Qt::ControlModifier | Qt::ShiftModifier);
+        QCOMPARE(saved().size(), 1);
+        QCOMPARE(QImageReader(folder.filePath(saved().first())).size(), QSize(120, 80));
+        Toast *toast = nullptr;
+        for (auto *widget : QApplication::topLevelWidgets())
+            if (auto *shown = qobject_cast<Toast *>(widget); shown && shown->isVisible()) toast = shown;
+        QVERIFY(toast);
+        // Offscreen fonts measure wide, so the tail may be elided; what shows must still start naming the file.
+        QString shown = toast->label->text();
+        shown.remove(QChar(0x2026));
+        QVERIFY2(QString("Saved: " + saved().first()).startsWith(shown) && shown.size() > QString("Saved: ").size(), qPrintable(shown));
+        QVERIFY(!QApplication::activeModalWidget());
+        QVERIFY(alive && alive->isVisible());
+        close_toasts();
+
+        QVERIFY(pin_menu(pin).contains("Quick save (CTRL+SHIFT+S)"));
+        pin_menu(pin, "Quick save");
+        QCOMPARE(saved().size(), 2);
+        close_toasts();
+
+        pin->toggle_toolbar();
+        QVERIFY(pin->toolbar && pin->toolbar->quick_save_btn);
+        QCOMPARE(toolbar_layout::PIN.default_mode("quick_save"), toolbar_layout::MORE);
+        QCOMPARE(toolbar_layout::PIN.order.indexOf("quick_save"), toolbar_layout::PIN.order.indexOf("save") + 1);
+        QVERIFY(pin->toolbar->quick_save_btn->parentWidget() != pin->toolbar || pin->toolbar->quick_save_btn->isHidden());
+        pin->toolbar->quick_save_btn->click();
+        QCOMPARE(saved().size(), 3);
+        pin->toggle_toolbar();
+        close_toasts();
+
+        QTemporaryDir out;
+        {
+            SaveDialogAnswerer answer(out.filePath("keyed.png"));
+            press_key(pin, Qt::Key_S, Qt::ControlModifier);
+            QTRY_VERIFY(answer.answered);
+        }
+        QTRY_VERIFY(QFileInfo::exists(out.filePath("keyed.png")));
+        QCOMPARE(saved().size(), 3);
+        QVERIFY(alive && alive->isVisible());
+
+        pin->toggle_thumbnail_mode();
+        QVERIFY(!pin_menu(pin).contains("Quick save (CTRL+SHIFT+S)"));
+        pin->toggle_thumbnail_mode();
+
+        // A file where the folder should be: nothing can be made below it.
+        QFile blocker(dir_.filePath("not-a-folder"));
+        QVERIFY(blocker.open(QIODevice::WriteOnly));
+        blocker.close();
+        config_->set_screenshot_save_path(QDir(blocker.fileName()).filePath("sub"));
+        QStringList warning;
+        QTimer poll;
+        QObject::connect(&poll, &QTimer::timeout, [&poll, &warning] {
+            auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            if (!dialog || !dialog->isVisible()) return;
+            poll.stop();
+            for (auto *label : dialog->findChildren<QLabel *>()) warning.append(label->text());
+            dialog->accept();
+        });
+        poll.start(20);
+        pin->quick_save_image();
+        QVERIFY2(warning.contains("Save Failed") && warning.contains("Cannot create the save folder or reserve a file name."), qPrintable(warning.join(" | ")));
+        QCOMPARE(saved().size(), 3);
+        QVERIFY(alive && alive->isVisible());
+    }
+
     void aThumbnailMenuKeepsOnlySevenEntries() {
         auto *pin = make_pin();
         QCursor::setPos(0, 0);
         pin->toggle_thumbnail_mode();
-        const QStringList want = {"Copy (CTRL+C)", "Save as", "-", "[x] Always on top", "[ ] Mouse click-through",
+        const QStringList want = {"Copy (CTRL+C)", "Save as (CTRL+S)", "-", "[x] Always on top", "[ ] Mouse click-through",
                                   "[ ] Lock (L)", "[x] Thumbnail mode (R)", "-", "Close (ESC)"};
         QCOMPARE(pin_menu(pin), want);
     }
@@ -2596,7 +2835,7 @@ private slots:
         QVERIFY(pin->thumbnail_mode());
         press_key(pin, Qt::Key_R);
         QVERIFY(!pin->thumbnail_mode());
-        const QStringList want = {"Copy text (CTRL+C)", "Copy plain text", "Copy image", "Save as", "Translate", "Reset size", "-", "[ ] Toolbar (SPACE)",
+        const QStringList want = {"Copy text (CTRL+C)", "Copy plain text", "Copy image", "Save as (CTRL+S)", "Quick save (CTRL+SHIFT+S)", "Upload", "Translate", "Reset size", "-", "[ ] Toolbar (SPACE)",
                                   "[ ] Hide annotations (H)", "[x] Always on top", "[ ] Mouse click-through", "[ ] Lock (L)", "[x] Border",
                                   "[x] Text selection (P)", "[ ] Thumbnail mode (R)", "-", "Close (ESC)"};
         QCOMPARE(pin_menu(pin), want);
@@ -3118,6 +3357,83 @@ private slots:
         if (thread) QTRY_VERIFY_WITH_TIMEOUT(!thread || thread->isFinished(), 30000);
         QTest::qWait(50);
         QVERIFY(!called);
+    }
+
+    // A pin keeps its picture beside the pixmap it shows, in one copy whatever format the picture came in,
+    // as a long screenshot comes in RGB888 and a capture in premultiplied ARGB; a picture with
+    // transparency keeps its own copy, which premultiplying would change.
+    void aPinHoldsItsPictureOnce() {
+        QImage picture(64, 48, QImage::Format_RGB32);
+        for (int y = 0; y < picture.height(); ++y)
+            for (int x = 0; x < picture.width(); ++x) picture.setPixel(x, y, qRgb(x * 4, y * 5, 90));
+        const auto pinned = [this](const QImage &image) {
+            auto *pin = new PinWindow(image, QPoint(100, 100), config_);
+            pins_.append(pin);
+            return pin;
+        };
+        const auto held_once = [](PinWindow *pin) { return pin->base_pixmap().toImage().constBits() == pin->canvas->scene->background->image().constBits(); };
+        for (const auto format : {QImage::Format_RGB32, QImage::Format_RGB888, QImage::Format_ARGB32_Premultiplied}) {
+            auto *pin = pinned(picture.convertToFormat(format));
+            QVERIFY2(held_once(pin), qPrintable(QString::number(format)));
+            QCOMPARE(pin->canvas->scene->background->image().convertToFormat(QImage::Format_RGB32), picture);
+        }
+        QImage clear(16, 16, QImage::Format_ARGB32);
+        clear.fill(qRgba(200, 100, 50, 3));
+        auto *pin = pinned(clear);
+        QVERIFY(!held_once(pin));
+        QCOMPARE(pin->canvas->scene->background->image(), clear);
+    }
+
+    // With nothing drawn on it a pin hands recognition its picture itself, shared and turned as shown;
+    // a drawing goes into what is recognized, unless the drawings are hidden.
+    void recognitionSharesThePictureUnlessSomethingIsDrawnOnIt() {
+        QImage picture(240, 160, QImage::Format_RGB32);
+        for (int y = 0; y < picture.height(); ++y)
+            for (int x = 0; x < picture.width(); ++x) picture.setPixel(x, y, qRgb(x, y, (x + y) & 0xFF));
+        auto *pin = new PinWindow(picture, QPoint(100, 100), config_);
+        pins_.append(pin);
+        const auto pixels = [](const QImage &image) { return image.convertToFormat(QImage::Format_RGB32); };
+        const auto shared = [pin](const QImage &image) { return image.constBits() == pin->canvas->scene->background->image().constBits(); };
+
+        auto recognized = pin->recognition_image();
+        QVERIFY(shared(recognized));
+        QCOMPARE(pixels(recognized), pixels(pin->get_current_image()));
+
+        pin->rotate_image_cw();
+        recognized = pin->recognition_image();
+        QCOMPARE(recognized.size(), QSize(160, 240));
+        QCOMPARE(pixels(recognized), pixels(pin->get_current_image()));
+        pin->rotate_image_ccw();
+
+        auto *drawing = pin->canvas->scene->addRect(QRectF(10, 10, 50, 30), QPen(Qt::red), QBrush(Qt::red));
+        recognized = pin->recognition_image();
+        QVERIFY(!shared(recognized));
+        QCOMPARE(recognized.pixelColor(20, 20), QColor(Qt::red));
+        QCOMPARE(pixels(recognized), pixels(pin->get_current_image()));
+        pin->set_annotations_hidden(true);
+        QVERIFY(shared(pin->recognition_image()));
+        pin->set_annotations_hidden(false);
+        delete drawing;
+    }
+
+    // A recognition still running when its pin closes ends on its own, and its thread is deleted then.
+    void aRecognitionLeftByAClosedPinIsDeletedWhenItEnds() {
+        std::atomic_bool entered = false, hold = true;
+        StandInEngine engine([&entered, &hold](const QImage &) {
+            entered = true;
+            while (hold) QThread::msleep(5);
+            return ocr_result({{box(10, 10, 100, 20), "hello pin", 0.9}});
+        });
+        const auto release = qScopeGuard([&hold] { hold = false; });
+        auto *pin = make_pin();
+        QVERIFY(pin->ocr_manager()->recognize_then([](bool, const QString &) {}));
+        QTRY_VERIFY(entered.load());
+        const QPointer<PinOcrThread> thread = pin->ocr_manager()->ocr_thread.data();
+        QVERIFY(thread);
+        pin->close_window();
+        QVERIFY(thread && thread->isRunning());
+        hold = false;
+        QTRY_VERIFY(thread.isNull());
     }
 
     // Callers waiting on a recognition share one run and all hear its text; the automatic run after
@@ -3809,6 +4125,160 @@ private slots:
         QCOMPARE(QImageReader(out.filePath("typed.png")).format(), QByteArray("png"));
         pin->copy_to_clipboard();
         QVERIFY(wait_for_clipboard_writes(10.0));
+    }
+
+    // In overlay mode the translation is laid over the pin's own text, as on a capture. The pin's
+    // text is recognized once; while it runs a band sweeps over the pin, following it, and mosaic,
+    // smart erase and selecting text wait. The original is a switch away, and the text to select
+    // follows what is shown.
+    void inOverlayModeAPinTranslatesItsOwnText() {
+        config_->set_screenshot_translate_mode("overlay");
+        // Recognizing on its own after pinning as well: still once.
+        config_->set_ocr_enabled(true);
+        std::atomic_int runs = 0;
+        StandInEngine engine([&runs](const QImage &) {
+            ++runs;
+            return ocr_result({{box(20, 20, 160, 24), "Settings", 0.9}, {box(20, 70, 160, 24), "Cancel", 0.9}});
+        });
+        std::atomic_bool hold = true;
+        const auto release = qScopeGuard([&hold] { hold = false; });
+        auto *pin = make_pin(QSize(240, 120));
+        pin->show();
+        auto *translation = pin->ensure_overlay_translation();
+        QVERIFY(translation);
+        translation->session()->make_service = [&hold] {
+            return scripted_service([&hold](const QString &text) {
+                while (hold) QThread::msleep(5);
+                return translated_as(QString::fromUtf8("译") + text);
+            });
+        };
+        const auto original = pin->get_current_image();
+        pin->show_toolbar();
+        QVERIFY(pin->toolbar->mosaic_btn->isEnabled());
+        pin_menu(pin, "Translate");
+        QVERIFY(translation->shown());
+        QVERIFY(translation->busy());
+        QVERIFY(!pin->toolbar->mosaic_btn->isEnabled());
+        QTRY_VERIFY(translation->sweep() && translation->sweep()->isVisible());
+        QCOMPARE(translation->sweep()->geometry(), translation->sweep_area());
+        QVERIFY(translation->sweep()->windowFlags() & Qt::WindowTransparentForInput);
+        pin->move(pin->pos() + QPoint(30, 10));
+        QCOMPARE(translation->sweep()->geometry(), translation->sweep_area());
+        QVERIFY(pin->geometry().contains(translation->sweep()->geometry()));
+        // Still running: the menu stops it or shows the original.
+        QVERIFY(pin_menu(pin).contains("Stop translating"));
+
+        hold = false;
+        QTRY_VERIFY(!translation->busy());
+        QVERIFY(!sweep_on_screen());
+        QVERIFY(pin->toolbar->mosaic_btn->isEnabled());
+        QTest::qWait(400);
+        QCOMPARE(runs.load(), 1);
+        const auto translated = pin->get_current_image();
+        QVERIFY(!same_pixels(translated, original));
+        QVERIFY(pin->text_selection());
+        QCOMPARE(pin->text_selection()->layout().all_text("\n"), QString::fromUtf8("译Settings\n译Cancel"));
+
+        // The toolbar's panel switches it too; it goes and comes back with the toolbar.
+        pin->show_toolbar();
+        QTRY_VERIFY(pin->toolbar->translation_panel->isVisible());
+        pin->hide_toolbar();
+        QVERIFY(!pin->toolbar->translation_panel->isVisible());
+        pin->show_toolbar();
+        QTRY_VERIFY(pin->toolbar->translation_panel->isVisible());
+
+        const auto entries = pin_menu(pin, "Show original image");
+        QVERIFY(entries.contains("Show original image"));
+        QVERIFY(!entries.contains("Stop translating"));
+        QVERIFY(!entries.contains("Translate (Text Recognition)"));
+        QVERIFY(translation->original_shown());
+        QVERIFY(same_pixels(pin->get_current_image(), original));
+        QCOMPARE(pin->text_selection()->layout().all_text("\n"), QString("Settings\nCancel"));
+        QVERIFY(pin->toolbar->translation_panel->original_shown());
+        pin_menu(pin, "Show translation");
+        QVERIFY(!translation->original_shown());
+        QVERIFY(same_pixels(pin->get_current_image(), translated));
+        QCOMPARE(runs.load(), 1);
+    }
+
+    // Nothing to translate leaves the pin as it was, with the reason shown, to try again.
+    void aPinTranslationThatFindsNoTextLeavesThePinAsItWas() {
+        config_->set_screenshot_translate_mode("overlay");
+        StandInEngine engine([](const QImage &) { return ocr_result({}); });
+        auto *pin = make_pin();
+        pin->show();
+        auto *translation = pin->ensure_overlay_translation();
+        translation->session()->make_service = [] { return scripted_service([](const QString &text) { return translated_as(text); }); };
+        const auto original = pin->get_current_image();
+        QVERIFY(pin->start_overlay_translation());
+        QDialog *reason = nullptr;
+        QTRY_VERIFY((reason = visible_dialog()));
+        reason->close();
+        QVERIFY(!translation->shown());
+        QVERIFY(!translation->busy());
+        QVERIFY(same_pixels(pin->get_current_image(), original));
+        QVERIFY(pin_menu(pin).contains("Translate (Text Recognition)"));
+    }
+
+    // A translation made on the capture goes on with the pin, as it was shown there, without
+    // asking for anything; asked to go on, only what is missing is sent.
+    void aPinGoesOnWithTheTranslationItWasGiven() {
+        config_->set_screenshot_translate_mode("overlay");
+        std::atomic_int asked = 0;
+        const auto service = [&asked] {
+            return scripted_service([&asked](const QString &text) {
+                ++asked;
+                return translated_as(QString::fromUtf8("译") + text);
+            });
+        };
+        auto blocks = group_overlay_blocks(ocr_result({{box(20, 20, 160, 24), "Settings", 0.9}, {box(20, 70, 160, 24), "Cancel", 0.9}}));
+        QCOMPARE(blocks.size(), 2);
+        blocks[0].translated = QString::fromUtf8("译") + blocks[0].source;
+
+        auto *pin = make_pin(QSize(240, 120));
+        pin->show();
+        pin->ensure_overlay_translation()->session()->make_service = service;
+        const auto original = pin->get_current_image();
+        pin->adopt_translation(blocks, false, false);
+        auto *translation = pin->overlay_translation();
+        QVERIFY(translation->shown());
+        QVERIFY(!translation->busy());
+        QVERIFY(!same_pixels(pin->get_current_image(), original));
+        QCOMPARE(asked.load(), 0);
+
+        auto *going_on = make_pin(QSize(240, 120));
+        going_on->show();
+        going_on->ensure_overlay_translation()->session()->make_service = service;
+        going_on->adopt_translation(blocks, true, true);
+        QVERIFY(going_on->overlay_translation()->busy());
+        QTRY_VERIFY(!going_on->overlay_translation()->busy());
+        QCOMPARE(asked.load(), 1);
+        QVERIFY(going_on->overlay_translation()->original_shown());
+        QVERIFY(same_pixels(going_on->get_current_image(), original));
+    }
+
+    // Closing a pin mid-translation stops it at once and takes the sweep with it.
+    void closingAPinStopsItsTranslation() {
+        config_->set_screenshot_translate_mode("overlay");
+        StandInEngine engine([](const QImage &) { return ocr_result({{box(20, 20, 160, 24), "Settings", 0.9}}); });
+        std::atomic_bool hold = true;
+        const auto release = qScopeGuard([&hold] { hold = false; });
+        auto *pin = make_pin();
+        pin->show();
+        auto *translation = pin->ensure_overlay_translation();
+        translation->session()->make_service = [&hold] {
+            return scripted_service([&hold](const QString &text) {
+                while (hold) QThread::msleep(5);
+                return translated_as(text);
+            });
+        };
+        QVERIFY(pin->start_overlay_translation());
+        QTRY_VERIFY(sweep_on_screen());
+        pin->close_window();
+        flush_deletes();
+        QVERIFY(!sweep_on_screen());
+        hold = false;
+        QTest::qWait(50);
     }
 };
 

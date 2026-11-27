@@ -9,6 +9,7 @@
 // toolbar, OCR and settings in a chain.
 namespace jietuba {
 class MainApp;
+class PrimaryInstance;
 class ToolSettingsManager;
 
 // Environment variables and DPI awareness; before QApplication exists.
@@ -16,6 +17,11 @@ void setup_environment();
 // Terminates a confirmed older instance of this program, then records this one. The
 // record holds the PID and creation time, since Windows reuses PIDs.
 void ensure_single_instance();
+// Becomes the primary instance the usual way: ends an older instance, records this one and takes
+// the primary instance's mutex, waiting a few seconds for the older instance's end to free it.
+// The mutex is taken first, so a process started with --pin cannot become the primary instance in
+// the gap; it is not given up for the rest of the process.
+void claim_single_instance(PrimaryInstance &primary);
 // With admin mode on and this process not elevated: runs the scheduled task so an elevated
 // instance takes over, or, when the task's program is gone, starts this program elevated through
 // UAC (that instance points the task at itself). True once that instance has rewritten the

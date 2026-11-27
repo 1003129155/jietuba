@@ -8,6 +8,7 @@
 #include "translation/translation_dialog.h"
 #include "translation/ui/widgets.h"
 #include "ui/fluent_lite/inputs.h"
+#include "ui/motion.h"
 #include <QApplication>
 #include <QClipboard>
 #include <QCursor>
@@ -51,7 +52,6 @@ TranslationPopup::TranslationPopup(QWidget *parent)
     connect(manual_debounce_, &QTimer::timeout, this, &TranslationPopup::request_manual_translation);
 
     fade_ = new QPropertyAnimation(this, "windowOpacity", this);
-    fade_->setDuration(140);
     refresh_speech();
 }
 
@@ -334,7 +334,7 @@ void TranslationPopup::set_theme(const QString &theme_name) {
                 color: @text_2; background: transparent; border: none;
                 border-radius: @control_radiuspx; font-size: @s19px;
             }
-            QPushButton#popupClose:hover { color: white; background: @danger; }
+            QPushButton#popupClose:hover { color: @on_accent; background: @danger; }
             QTextEdit#popupSource {
                 color: @text; background: @field;
                 border: @strokepx solid @fill_hover;
@@ -379,7 +379,7 @@ void TranslationPopup::set_theme(const QString &theme_name) {
                 color: @text; background: transparent; padding: @s6px @s12px;
                 border-radius: @control_radiuspx; font-size: @s12px;
             }
-            QMenu#popupLangMenu::item:selected { background: @accent; color: white; }
+            QMenu#popupLangMenu::item:selected { background: @accent; color: @on_accent; }
             QMenu#popupLangMenu::item:checked { font-weight: 600; }
             )",
                                        *palette_));
@@ -459,6 +459,7 @@ void TranslationPopup::show_animated() {
     show();
     raise();
     fade_->stop();
+    fade_->setDuration(std::max(1, motion::duration(motion::MID_MS)));
     fade_->setStartValue(0.0);
     fade_->setEndValue(1.0);
     fade_->start();

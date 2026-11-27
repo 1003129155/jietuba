@@ -17,10 +17,20 @@ namespace jietuba {
 class ColorPickerButton;
 
 constexpr double PANEL_RADIUS = 12.0;
+// The screenshot toolbar's fixed light look, in both UI themes; the welcome wizard's demo reuses it.
+inline const QColor PANEL_TOP("#fcfdff");
+inline const QColor PANEL_BOTTOM("#eef2f8");
+inline const QColor PANEL_INNER_RING(255, 255, 255, 190);
+// A dark translucent outer ring: visible on white screenshots, almost invisible on dark ones.
+inline const QColor PANEL_OUTER_RING(15, 23, 42, 30);
+inline const QColor TOOLBAR_GRIP_DOT(0x5F, 0x63, 0x68);
 // Frosted panel background shared by settings panels, the screenshot toolbar
 // and its "..." popup. Drawn into a pixmap cached on the widget and redrawn
 // only when size, DPR or UI scale changes. Corners stay transparent through WA_TranslucentBackground.
 void paint_rounded_panel(QWidget *widget);
+// For panels that are top-level windows: keeps the Windows 11 rounded frame, its
+// grey outline and shadow off every time the window shows.
+void keep_system_frame_off(QWidget *window);
 
 // Ink for values and line previews, a lighter grey for glyphs and chevrons.
 inline const QColor CONTROL_INK = QColor("#2a3243");
@@ -38,6 +48,8 @@ void paint_line_style_preview(QPainter *painter, const QRectF &rect, const QVari
 // A combo's drop-down list: white rows, in the panel font. Panels give their own combos fixed sizes
 // with only this; build_settings_panel_stylesheet adds it with its combo sizing.
 QString combo_popup_qss();
+// A menu opened from a panel: white rows like its combo lists, in the panel font.
+QString panel_menu_qss();
 // Settings panel style. Widths are 100% base values, scaled now; call again after a scale change.
 QString build_settings_panel_stylesheet(bool combo_enabled = false, const QString &combo_padding = "2px 8px 2px 4px",
                                         int combo_min_width = 32, int combo_max_width = 90, bool combo_padding_compact = false);

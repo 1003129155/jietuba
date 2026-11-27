@@ -1,4 +1,5 @@
 #pragma once
+#include "ui/fluent_lite/fluent_dialog.h"
 #include "ui/reorderable_rows.h"
 #include "ui/toolbar_layout.h"
 #include <QDialog>
@@ -22,7 +23,7 @@ public:
 
 // Edits one toolbar's layout. layout is [[button, mode]]; icons maps button -> icon; profile holds the
 // toolbar's layout rules. Reading and writing settings and rebuilding the toolbar are up to the caller.
-class ToolbarLayoutDialog : public QDialog {
+class ToolbarLayoutDialog : public FluentDialog {
     Q_OBJECT
 public:
     ToolbarLayoutDialog(const QJsonArray &layout, const QMap<QString, QIcon> &icons, QWidget *parent = nullptr,

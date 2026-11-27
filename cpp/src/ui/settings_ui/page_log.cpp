@@ -5,10 +5,10 @@
 #include "ui/dialogs.h"
 #include "ui/fluent_lite/buttons.h"
 #include "ui/fluent_lite/inputs.h"
+#include "ui/fluent_lite/labels.h"
 #include "ui/settings_ui/components.h"
 #include "ui/settings_ui/dialog.h"
 #include "ui/settings_ui/pages.h"
-#include "ui/settings_ui/search.h"
 #include <QDateTime>
 #include <QDesktopServices>
 #include <QDir>
@@ -36,6 +36,8 @@ void refresh_latest_log_label(SettingsDialog *dialog) {
     const QString log_path = get_logger().log_file_path();
     if (!log_path.isEmpty()) label->setText(dialog->tr_text("Current Log:") + " " + QDir::toNativeSeparators(log_path));
     else label->setText(dialog->tr_text("Current Log: (Not generated)  *Log will be created after app starts"));
+    // A card shows its description label only when it started with text.
+    label->show();
 }
 
 QWidget *create_log_page(SettingsDialog *dialog) {
@@ -46,11 +48,11 @@ QWidget *create_log_page(SettingsDialog *dialog) {
     auto *view = new QWidget;
     set_own_style(view, "background: transparent;");
     auto *layout = new QVBoxLayout(view);
-    layout->setContentsMargins(0, 0, dialog_scaled(10), 0);
+    layout->setContentsMargins(0, 0, dialog_scaled(10), page_bottom_margin());
     layout->setSpacing(dialog_scaled(14));
 
     // ════ Log settings ════
-    auto *grp_log = new SettingsCardGroup(dialog->tr_text("Log Settings"), view);
+    auto *grp_log = new SettingsCardGroup(dialog->tr_text("General"), view);
     auto *log_card = new SwitchSettingCard(FluentIcon::History, dialog->tr_text("Save Logs"), dialog->tr_text("Saves app activity logs to file."), grp_log);
     log_card->setChecked(config->get_log_enabled());
     dialog->set_attr("log_toggle", log_card);
@@ -79,44 +81,23 @@ QWidget *create_log_page(SettingsDialog *dialog) {
 
     // ════ Storage ════
     auto *grp_path = new SettingsCardGroup(dialog->tr_text("Storage"), view);
-    auto *path_card = new WhiteCard(grp_path);
-    auto *path_v = new QVBoxLayout(path_card);
-    path_v->setContentsMargins(dialog_scaled(20), dialog_scaled(14), card_right_margin(), dialog_scaled(14));
-    path_v->setSpacing(dialog_scaled(8));
-    auto *path_title = new QLabel(dialog->tr_text("Save Location:"), path_card);
-    apply_theme_text_style(path_title, 13, true);
-    path_v->addWidget(path_title);
-    auto *path_lbl = new QLabel(config->get_log_dir(), path_card);
-    path_lbl->setWordWrap(true);
-    apply_theme_text_style(path_lbl, 13, false, {}, true);
-    dialog->set_attr("path_lbl", path_lbl);
-    path_v->addWidget(path_lbl);
-    mark_search_row(path_card, path_title, path_lbl);
-    auto *latest_log_lbl = new QLabel("", path_card);
-    apply_theme_text_style(latest_log_lbl, 13, false, {}, true);
-    latest_log_lbl->setWordWrap(true);
-    dialog->set_attr("latest_log_lbl", latest_log_lbl);
-    refresh_latest_log_label(dialog);
-    path_v->addWidget(latest_log_lbl);
-
-    auto *btn_row = new QHBoxLayout;
-    btn_row->setSpacing(dialog_scaled(8));
-    btn_row->addStretch(1);
+    auto *path_card = new SettingCard(FluentIcon::Folder, dialog->tr_text("Log Folder"), config->get_log_dir(), grp_path);
+    dialog->set_attr("path_lbl", path_card->contentLabel);
     auto *btn_change = new PushButton(dialog->tr_text("Change"), path_card);
-    btn_change->setFixedHeight(dialog_scaled(32));
     QObject::connect(btn_change, &QPushButton::clicked, dialog, &SettingsDialog::change_log_dir);
-    btn_row->addWidget(btn_change);
     auto *btn_open = new PushButton(dialog->tr_text("Open"), path_card);
-    btn_open->setFixedHeight(dialog_scaled(32));
     QObject::connect(btn_open, &QPushButton::clicked, dialog, &SettingsDialog::open_log_dir);
-    btn_row->addWidget(btn_open);
-    auto *btn_latest = new PushButton(dialog->tr_text("Latest Log"), path_card);
-    btn_latest->setFixedHeight(dialog_scaled(32));
-    QObject::connect(btn_latest, &QPushButton::clicked, dialog, [dialog] { open_latest_log_file(dialog); });
-    btn_row->addWidget(btn_latest);
-    path_v->addLayout(btn_row);
-    path_card->setFixedHeight(dialog_scaled(146));
+    path_card->addControl(btn_change);
+    path_card->addControl(btn_open);
     grp_path->addSettingCard(path_card);
+
+    auto *latest_card = new SettingCard(FluentIcon::History, dialog->tr_text("Latest Log"), {}, grp_path);
+    dialog->set_attr("latest_log_lbl", latest_card->contentLabel);
+    refresh_latest_log_label(dialog);
+    auto *btn_latest = new PushButton(dialog->tr_text("Open"), latest_card);
+    QObject::connect(btn_latest, &QPushButton::clicked, dialog, [dialog] { open_latest_log_file(dialog); });
+    latest_card->addControl(btn_latest);
+    grp_path->addSettingCard(latest_card);
     layout->addWidget(grp_path);
 
     layout->addStretch();

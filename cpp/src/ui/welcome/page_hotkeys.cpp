@@ -107,7 +107,7 @@ private:
         p.setOpacity(p.opacity() * std::min(1.0, rise));
         draw_shadow(p, theme, pin, 1);
         p.setPen(Qt::NoPen);
-        p.setBrush(QColor(theme.panel));
+        p.setBrush(QColor(theme.demo.panel));
         p.drawRect(pin);
         draw_chart(p, theme, pin.adjusted(6, 6, -6, -6));
         p.setPen(QPen(theme_color(), 1.6));
@@ -145,23 +145,23 @@ private:
         p.save();
         p.setOpacity(p.opacity() * in);
         draw_shadow(p, theme, win, 6);
-        p.setPen(QPen(QColor(theme.border), 0.8));
-        p.setBrush(QColor(theme.panel));
+        p.setPen(QPen(QColor(theme.demo.border), 0.8));
+        p.setBrush(QColor(theme.demo.panel));
         p.drawRoundedRect(win, 6, 6);
         // Title bar: the translate icon, the pin button and the window buttons.
         p.setPen(Qt::NoPen);
         p.setBrush(QColor("#3B82F6"));
         p.drawRoundedRect(QRectF(win.x() + 6, win.y() + 5, 8, 8), 2, 2);
-        p.setBrush(with_alpha(theme.text_soft, 110));
+        p.setBrush(with_alpha(theme.demo.text_soft, 110));
         p.drawRoundedRect(QRectF(win.x() + 17, win.y() + 8, 18, 2.5), 1.2, 1.2);
         for (int i = 0; i < 3; ++i) p.drawRoundedRect(QRectF(win.right() - 10 - i * 10, win.y() + 8, 5, 2), 1, 1);
         // The language pills with the swap button.
         const double pill_w = win.width() * 0.24, pills_y = win.y() + 18;
         const QRectF left_pill(win.center().x() - 9 - pill_w, pills_y, pill_w, 11), right_pill(win.center().x() + 9, pills_y, pill_w, 11);
         for (const QRectF &pill : {left_pill, right_pill}) {
-            p.setBrush(QColor(theme.panel_subtle));
+            p.setBrush(QColor(theme.demo.panel_subtle));
             p.drawRoundedRect(pill, 5.5, 5.5);
-            p.setBrush(with_alpha(theme.text, 110));
+            p.setBrush(with_alpha(theme.demo.text, 110));
             p.drawRoundedRect(QRectF(pill.x() + 6, pill.center().y() - 1.2, 10, 2.4), 1.2, 1.2);
         }
         p.setBrush(with_alpha(theme.accent, theme.is_dark ? 70 : 40));
@@ -172,10 +172,10 @@ private:
         const double pane_w = (win.width() - 18) / 2;
         const QRectF left_pane(win.x() + 6, pane_top, pane_w, pane_h), right_pane(left_pane.right() + 6, pane_top, pane_w, pane_h);
         for (const QRectF &pane : {left_pane, right_pane}) {
-            p.setBrush(QColor(theme.panel_subtle));
+            p.setBrush(QColor(theme.demo.panel_subtle));
             p.drawRoundedRect(pane, 4, 4);
         }
-        p.setBrush(with_alpha(theme.text, 120));
+        p.setBrush(with_alpha(theme.demo.text, 120));
         p.drawRoundedRect(QRectF(left_pane.x() + 5, left_pane.y() + 6, pane_w * 0.75, 2.6), 1.3, 1.3);
         p.drawRoundedRect(QRectF(left_pane.x() + 5, left_pane.y() + 12, pane_w * 0.5, 2.6), 1.3, 1.3);
         const double typed = phase(t, PLAY_MS + 520, PLAY_MS + 1100);

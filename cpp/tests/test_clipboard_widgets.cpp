@@ -881,7 +881,7 @@ private slots:
         // Current values are checked.
         QVERIFY(actions["Paste with Format"]->isChecked());
         QVERIFY(!actions["Auto Paste After Selection"]->isChecked());
-        QVERIFY(actions["Hide Grouped Items from All"]->isChecked());
+        QVERIFY(actions["Hide Grouped Items from History"]->isChecked());
         QVERIFY(actions["20%"]->isChecked());
         QVERIFY(actions["15px"]->isChecked());
         QVERIFY(actions["Medium"]->isChecked());
@@ -905,7 +905,7 @@ private slots:
         QVERIFY(custom);
         QCOMPARE(custom->text(), QString(" | "));
         for (const char *label : {"New Line", "Comma", "No Separator"}) QVERIFY(!actions[label]->isChecked());
-        for (const char *label : {"Paste with Format", "Auto Paste After Selection", "Close After Paste", "Move to Top After Paste", "Hide Grouped Items from All", "Show Time",
+        for (const char *label : {"Paste with Format", "Auto Paste After Selection", "Close After Paste", "Move to Top After Paste", "Hide Grouped Items from History", "Show Time",
                                   "Preserve Search on Reopen", "Opaque", "17px", "Large", "First Selected First", "Record Content", "Comma", "Add Content",
                                   "Clear History", "More Settings", "Follow Mouse"})
             actions[label]->trigger();

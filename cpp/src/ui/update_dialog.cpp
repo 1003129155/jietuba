@@ -1,5 +1,6 @@
 #include "ui/update_dialog.h"
 #include "core/resource_manager.h"
+#include "core/ui_scale.h"
 #include "ui/fluent_lite/inputs.h"
 #include <QCloseEvent>
 #include <QCoreApplication>
@@ -15,19 +16,17 @@ UpdateDialog::UpdateDialog(const ReleaseInfo &release) : StandardDialog(nullptr,
     setWindowModality(Qt::NonModal);
     setWindowTitle(tr_dialog("Update Available"));
     setWindowIcon(ResourceManager::get_icon_by_name(QString::fromUtf8("托盘.svg")));
-    resize(660, 480);
-    auto *box = static_cast<QVBoxLayout *>(layout());
-    box->setContentsMargins(18, 14, 18, 14);
-    box->setSpacing(10);
+    resize(dialog_scaled(660), dialog_scaled(480));
+    setResizeEnabled(true);
     notes = new TextEdit(this);
     notes->setReadOnly(true);
     notes->setPlainText(release.tag_name + "\n\n" + (release.notes.isEmpty() ? tr_dialog("No release notes provided.") : release.notes));
-    box->insertWidget(0, notes, 1);
+    content_layout()->insertWidget(content_layout()->indexOf(label), notes, 1);
     status = label;
     status->setText(tr_dialog("The application will restart after the download finishes."));
     progress = new QProgressBar(this);
     progress->setRange(0, 100);
-    box->insertWidget(box->count() - 1, progress);
+    content_layout()->addWidget(progress);
     action = button_box->addButton(tr_dialog("Update and Restart"), QDialogButtonBox::ActionRole);
     connect(action, &QPushButton::clicked, this, &UpdateDialog::update_requested);
     cancel_button = button_box->addButton(tr_dialog("Cancel"), QDialogButtonBox::RejectRole);

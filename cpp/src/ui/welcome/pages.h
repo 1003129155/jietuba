@@ -150,7 +150,12 @@ protected:
     IllustrationArea *create_illustration() override;
     void build_controls(QVBoxLayout *layout) override;
 private:
+    // Autostart and automatic updates in one card, for builds that update themselves.
+    QWidget *make_startup_update_card();
+    void retranslate_startup_tooltips();
     ToolSettingsManager *config_;
+    WelcomeToggleSwitch *auto_update_switch_ = nullptr;
+    QLabel *startup_title_ = nullptr, *auto_update_lbl_ = nullptr;
     WelcomeToggleSwitch *autostart_switch_ = nullptr;
     WelcomeToggleSwitch *show_main_switch_ = nullptr;
     WelcomeToggleSwitch *desktop_switch_ = nullptr;

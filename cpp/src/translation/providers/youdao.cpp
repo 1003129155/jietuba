@@ -74,6 +74,7 @@ QByteArray utf8_replacing_lone_surrogates(const QString &text) {
 YoudaoTranslateProvider::YoudaoTranslateProvider(const ProviderConfig &config)
     : app_key_(config.value("app_key").toString().trimmed()), app_secret_(config.value("app_secret").toString().trimmed()) {
     min_timeout = 5;
+    apply_pacing(RequestPacing{}, config);
 }
 
 ProviderMetadata YoudaoTranslateProvider::class_metadata() {
@@ -85,6 +86,7 @@ ProviderMetadata YoudaoTranslateProvider::class_metadata() {
         ProviderField::text("youdao_translate_app_secret", "Youdao App Secret", "Application secret, paired with the application ID", true),
     };
     metadata.notice = "Youdao AI Cloud: new accounts get a trial credit, after that translation is billed by character count.";
+    metadata.pacing = pacing_fields("youdao_translate", RequestPacing{});
     metadata.help_label = "Youdao AI Cloud Console";
     metadata.help_url = "https://ai.youdao.com/console/";
     return metadata;

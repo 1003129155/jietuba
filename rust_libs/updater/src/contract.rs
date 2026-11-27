@@ -89,6 +89,10 @@ pub struct Release {
     pub asset_name: String,
     pub arch: Arch,
     pub artifact: DownloadArtifact,
+    /// When GitHub made the release public (RFC 3339); the application waits a while before
+    /// installing a release on its own.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub published_at: Option<String>,
 }
 pub trait ReleaseSource {
     fn candidates(&self, release: &Release) -> Result<Vec<String>>;

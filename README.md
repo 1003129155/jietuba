@@ -107,6 +107,8 @@ Both packages select an available engine automatically, preferring Windows 11 Sn
 
 After installing the first release containing the updater, use **About → Check for Updates → Update and Restart**. It downloads the matching GitHub Release ZIP, replaces only the application EXE, and restarts. Settings, clipboard history, models and other files remain intact. Finish recording, exporting and saving before installation. The last application backup is kept under `.jietuba-update/`; see [updater recovery](rust_libs/updater/README.md). Python builds older than 2.1.8 switch to the C++ build through the one-click update, keeping settings, clipboard history and models.
 
+Automatic updates are on by default: the program checks about a minute after it starts and then once a day, downloads a new release in the background once it has been public for two days, and installs it the next time the program starts. Turn them off in the welcome wizard or under **Other → Updates** in Settings. A manual check is not held back by the two days.
+
 <a id="ppocr-pack"></a>
 
 ### PP-OCR Pack (Lite)
@@ -128,11 +130,11 @@ Free code signing provided by [SignPath.io](https://about.signpath.io/), certifi
 
 ### Privacy
 
-Capture, OCR, annotation, recording and clipboard history are processed and stored on your computer. Every network feature requires a manual action from you; the app never connects automatically. These features include:
+Capture, OCR, annotation, recording and clipboard history are processed and stored on your computer. Apart from automatic updates, which you can turn off, every network feature requires a manual action from you. These features include:
 
 - Everyday capture, OCR recognition and clipboard recording do not require uploading your content. PP-OCR needs local models and ONNX Runtime before recognition.
 - Translation sends the text to the service selected in Settings, using the credentials you configure; that service's privacy policy applies. A custom OpenAI-compatible endpoint can also point to a service on your own computer, in which case the text goes to that local endpoint.
-- When you check for or install updates under **About → Check for Updates**, the program contacts GitHub to read release information and download the release package.
+- With automatic updates on (the default; turn them off in the welcome wizard or under **Other → Updates** in Settings), the program contacts GitHub once a day to read release information and downloads a release package once it has been public for two days. Checking or installing under **About → Check for Updates** contacts GitHub as well.
 - Downloading models or ONNX Runtime in **Manage PP-OCR Models** contacts ModelScope, PyPI or mirrors listed in the built-in catalog. These requests download components; they do not upload images for recognition.
 - Testing a translation connection or fetching a model list contacts the service endpoint you configure. Connection tests send fixed sample text; fetching a model list does not send clipboard content.
 
@@ -213,7 +215,7 @@ Releases are made by [build.yml](.github/workflows/build.yml): the tag must be `
 │   │   ├── ui/              # UI components, capture window, toolbar, settings window
 │   │   └── video/           # MP4 recording worker
 │   ├── native/              # C interface to rust_libs, linked statically
-│   ├── resources/           # Default settings, UI translations (XML and .qm), log messages
+│   ├── resources/           # Default settings, UI translations (XML), log messages
 │   ├── scripts/             # Build, Qt SDK setup, translation compiling
 │   └── tests/               # QtTest tests and reference data
 │

@@ -10,9 +10,20 @@
 #include <QRegularExpression>
 
 namespace jietuba {
-std::array<int, 4> comparable_version(const QString &value) {
+namespace {
+const QRegularExpression &version_pattern() {
     static const QRegularExpression pattern(R"((?<!\d)\d+(?:\.\d+){0,3}(?![\d.]))");
-    const auto match = pattern.match(value.trimmed());
+    return pattern;
+}
+}
+
+QString version_text(const QString &tag) {
+    const auto match = version_pattern().match(tag.trimmed());
+    return match.hasMatch() ? match.captured(0) : tag;
+}
+
+std::array<int, 4> comparable_version(const QString &value) {
+    const auto match = version_pattern().match(value.trimmed());
     if (!match.hasMatch()) throw UpdateCheckError(QString("Invalid release version: '%1'").arg(value).toStdString());
     std::array<int, 4> parts{0, 0, 0, 0};
     const auto pieces = match.captured(0).split('.');
@@ -64,7 +75,8 @@ ReleaseInfo release_from_check_output(const QByteArray &output, int exit_code) {
                 if (!data.value(key).isString()) throw UpdateCheckError(std::string("Missing release field: ") + key);
             if (!data.value("artifact").isObject()) throw UpdateCheckError("Missing release field: artifact");
             return {data.value("tag_name").toString(), data.value("title").toString(), data.value("notes").toString(), data.value("url").toString(),
-                    name == "available", data.value("asset_name").toString(), data.value("arch").toString(), data.value("artifact").toObject()};
+                    name == "available", data.value("asset_name").toString(), data.value("arch").toString(), data.value("artifact").toObject(),
+                    data.value("published_at").toString()};
         }
     }
     throw UpdateCheckError("Updater returned no release");

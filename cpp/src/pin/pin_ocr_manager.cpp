@@ -46,11 +46,18 @@ void PinOcrThread::run() {
     try {
         result = recognize_text(image_, &cancelled_);
         layout = OcrTextLayout(*result, to_image_);
+        image_lines = *result;
+        for (auto &line : image_lines->data) {
+            for (auto &point : line.box) point = to_image_.map(point);
+            line.chars.clear();
+            line.words.clear();
+        }
         log_debug(T("OCR处理完成，总耗时: {elapsed:.3f}秒", {{"elapsed", clock.nsecsElapsed() / 1e9}}), "OCR");
     } catch (const std::exception &e) {
         log_error(T("识别失败: {e}，耗时: {elapsed:.3f}秒", {{"e", QString::fromUtf8(e.what())}, {"elapsed", clock.nsecsElapsed() / 1e9}}), "OCR");
         result.reset();
         layout = OcrTextLayout();
+        image_lines.reset();
     }
     // Releases the image data.
     image_ = QImage();
@@ -115,7 +122,7 @@ bool PinOCRManager::start_recognition() {
     auto *scene = win_->canvas ? win_->canvas->scene : nullptr;
     when_smart_erase_ready(scene, scene ? scene->sceneRect() : QRectF(), pixels_wait_.get(), [this] {
         pixels_wait_.reset();
-        const auto image = win_->get_current_image();
+        const auto image = win_->recognition_image();
         log_debug(T("开始异步识别文字..."), "OCR");
         ocr_thread = new PinOcrThread(image, win_->from_current_image(image.size()), win_);
         QObject::connect(ocr_thread, &QThread::finished, win_, [this] { on_finished(); });
@@ -133,7 +140,10 @@ void PinOCRManager::on_finished() {
         } else if (ocr_thread) {
             if (!ocr_thread->layout.empty()) {
                 const int text_count = static_cast<int>(ocr_thread->layout.lines().size());
+                recognized_lines_ = std::move(ocr_thread->image_lines);
+                recognized_layout_ = ocr_thread->layout;
                 load_text(std::move(ocr_thread->layout));
+                if (text_loaded) text_loaded();
                 if (!pending_callbacks_.empty()) {
                     log_info(T("OCR 完成，执行等待中的操作"), "OCR");
                     flush_pending(true, selection_->layout().all_text("\n"));
@@ -171,6 +181,8 @@ void PinOCRManager::cleanup() {
             QObject::disconnect(ocr_thread, &QThread::finished, nullptr, nullptr);
             ocr_thread->setParent(nullptr);
             QObject::connect(ocr_thread, &QThread::finished, ocr_thread, &QObject::deleteLater);
+            // It may have ended between isRunning() and the connection.
+            if (ocr_thread->isFinished()) ocr_thread->deleteLater();
         } else {
             ocr_thread->deleteLater();
         }
@@ -206,6 +218,17 @@ void PinOCRManager::load_text(OcrTextLayout layout) {
     selection_->set_layout(std::move(layout));
 }
 
+void PinOCRManager::show_layout(const OcrTextLayout &layout) {
+    ensure_selection();
+    if (selection_) selection_->set_layout(layout);
+}
+
+void PinOCRManager::set_translating(bool translating) {
+    if (translating_ == translating) return;
+    translating_ = translating;
+    apply_text_selection_active();
+}
+
 void PinOCRManager::ensure_selection() {
     if (!selection_ && win_->view) {
         PinCanvasView *view = win_->view;
@@ -217,7 +240,7 @@ void PinOCRManager::ensure_selection() {
 }
 
 void PinOCRManager::apply_text_selection_active() {
-    if (selection_) selection_->set_active(text_selection_enabled_ && temporary_enabled_ && !drawing_);
+    if (selection_) selection_->set_active(text_selection_enabled_ && temporary_enabled_ && !drawing_ && !translating_);
 }
 
 void PinOCRManager::set_drawing_mode(bool active) {

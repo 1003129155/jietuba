@@ -1,5 +1,6 @@
 #pragma once
 #include "clipboard/core/models.h"
+#include "core/text_file.h"
 #include <QImage>
 #include <QList>
 #include <QPoint>
@@ -31,6 +32,11 @@ bool create_pin_from_image(const QImage &image, QWidget *clipboard_window = null
 bool create_pins_from_clipboard_items(const QList<ClipboardItem> &items, QWidget *clipboard_window = nullptr, std::optional<QPoint> center = std::nullopt);
 // A text-only pin, formatted as in html unless the settings turn formatting off; false for blank text.
 bool create_pin_from_text(const QString &text, const QString &html, QWidget *clipboard_window = nullptr, std::optional<QPoint> center = std::nullopt);
+// The files an Explorer menu entry handed over, at origin and stepping down and right from it: a pin per
+// picture file (animations play) and per text file, in order. Files that are none of these or no longer
+// exist are skipped; a toast says so when nothing is left to pin. False then. A text file is read up to
+// text_limit bytes; a longer one ends with a note that it was cut.
+bool pin_explorer_files(const QStringList &files, const QPoint &origin, qint64 text_limit = TEXT_FILE_LIMIT);
 // Pins what the system clipboard holds, the first kind found of: PNG data, a bitmap, copied files
 // (a pin per picture file, animations playing, the rest as cards), text. With none of them and
 // no copied files, the newest image in history. The settings can leave out images, text or files.

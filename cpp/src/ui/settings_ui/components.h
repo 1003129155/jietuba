@@ -24,13 +24,6 @@ QScrollArea *page_scroll_area(SettingsDialog *dialog);
 // Settings pages scroll with the pointer often over a combo or spin box; the wheel must not change their values.
 void disable_wheel_on_value_controls(QWidget *root);
 
-// One of two values for the effective application theme.
-QString theme_color(const QString &light, const QString &dark);
-QString theme_surface_color();
-QString theme_border_color();
-QString theme_input_background();
-QString theme_popup_background();
-QString theme_popup_hover_background();
 QString theme_text_style(int font_size = 14, bool bold = false, const QString &extra = {});
 QString theme_caption_style(int font_size = 13, const QString &extra = {});
 // Applies a semantic text style and registers it for refresh on theme changes.
@@ -47,9 +40,8 @@ public:
     // Recomputes the height from the visible cards. Computing it once in showEvent is not
     // enough: after cards are shown or hidden (another provider's credentials on the
     // translation page), a stale height leaves a gap at the top and cuts off cards below.
-    void refreshHeight();
+    void refreshHeight() override;
 protected:
-    void showEvent(QShowEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
 };
 
@@ -63,9 +55,9 @@ SwitchSettingCard *add_switch_card(SettingsDialog *dialog, SettingsCardGroup *gr
 // Sizes a button for its current text and icon.
 void adjust_button_width(QPushButton *button, int min_width = 0, int horizontal_padding = 28);
 
-// A custom-layout row inside a group, as tall as its content. No background or border:
-// the group paints them, and another layer would show a nested frame in dark mode.
-class WhiteCard : public QFrame {
+// A custom-layout row: as tall as its content. Inside a group it paints its own card; as a part
+// of a larger card (the provider cards) it has no background or border, which would nest a frame.
+class WhiteCard : public CardSurface {
     Q_OBJECT
 public:
     explicit WhiteCard(QWidget *parent = nullptr);
@@ -98,6 +90,11 @@ protected:
     void paintEvent(QPaintEvent *event) override;
 };
 
+// A one-line note under a group: a small info icon and a caption. A leading light-bulb emoji in the
+// text is dropped, so notes look alike in every language.
+QWidget *page_hint(QWidget *parent, const QString &text);
+// Space left below the last group of a page, so its last card does not touch the window's bottom edge.
+int page_bottom_margin();
 // Adds a row to a vertical layout with a theme-coloured separator above it.
 void add_separated_row(QVBoxLayout *layout, QWidget *widget);
 // A file name under svg/ as a full path; FluentIcon passes through.

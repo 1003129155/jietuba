@@ -1,4 +1,6 @@
+#include "ui/fluent_lite/fluent_dialog.h"
 #include "save_dialog_answerer.h"
+#include "scripted_translation.h"
 #include "pool_block.h"
 #include "canvas/items/mosaic_item.h"
 #include "tools/mosaic.h"
@@ -11,6 +13,7 @@
 #include "canvas/smart_edit_controller.h"
 #include "canvas/view.h"
 #include "core/clipboard_utils.h"
+#include "ocr/ocr_manager.h"
 #include "core/last_capture_region.h"
 #include "core/native.h"
 #include "core/theme.h"
@@ -18,6 +21,7 @@
 #include "pin/pin_canvas.h"
 #include "pin/pin_window.h"
 #include "pin/pin_manager.h"
+#include "pin/pin_overlay_translation.h"
 #include "settings/tool_settings.h"
 #include "tools/controller.h"
 #include "ui/mask_overlay.h"
@@ -47,10 +51,13 @@
 #include "ui/toast.h"
 #include "ui/toolbar_layout.h"
 #include "ui/toolbar_layout_dialog.h"
+#include "ui/translation_panel.h"
 #include "barcode/result_window.h"
 #include "text_recognition/recognizer.h"
 #include "text_recognition/result_window.h"
+#include "translation/overlay_translation_session.h"
 #include "translation/translation_manager.h"
+#include "upload/s3_target.h"
 #include <QClipboard>
 #include <QMimeData>
 #include <QApplication>
@@ -75,6 +82,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+#include <atomic>
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -775,6 +783,57 @@ private slots:
         QCOMPARE(get_last_region(), std::optional<QRect>(QRect(50, 40, 200, 150)));
     }
 
+    // A translation laid over the selection goes on with its pin as a layer of its own: the pin's picture is
+    // the capture as it was, the translation shows over it and switches off, and nothing is asked for again.
+    void aTranslationOnTheCaptureGoesOnWithItsPin() {
+        config_->set_screenshot_translate_mode("overlay");
+        set_recognizer_for_test([](const QImage &) {
+            OcrResult result;
+            result.data = {OcrLine{{QPointF(20, 20), QPointF(170, 20), QPointF(170, 44), QPointF(20, 44)}, "Settings"}};
+            return result;
+        });
+        const auto restore = qScopeGuard([] { set_recognizer_for_test({}); });
+        auto *window = open_with_selection();
+        auto *session = window->action_handler->overlay_translation();
+        std::atomic_int asked = 0;
+        session->make_service = [&asked] {
+            return scripted_service([&asked](const QString &text) {
+                ++asked;
+                return translated_as(QString::fromUtf8("译") + text);
+            });
+        };
+        window->toolbar->screenshot_translate_btn->click();
+        QTRY_VERIFY(!session->busy());
+        QVERIFY(session->shown());
+        QCOMPARE(asked.load(), 1);
+        clear_clipboard();
+        window->toolbar->pin_btn->click();
+        const auto pins = PinManager::instance()->get_all_pins();
+        QCOMPARE(pins.size(), 1);
+        auto *pin = pins.first();
+        const auto picture = pin->base_pixmap().toImage().convertToFormat(QImage::Format_RGB32);
+        int painted = 0;
+        for (int y = 0; y < picture.height(); ++y)
+            for (int x = 0; x < picture.width(); ++x) painted += picture.pixelColor(x, y) != QColor(Qt::blue);
+        QCOMPARE(painted, 0);
+        auto *translation = pin->overlay_translation();
+        QVERIFY(translation && translation->shown());
+        QVERIFY(!translation->original_shown());
+        QVERIFY(!translation->busy());
+        const auto differing = [&] {
+            const auto shown = pin->get_current_image().convertToFormat(QImage::Format_RGB32).scaled(picture.size());
+            int count = 0;
+            for (int y = 20; y < 44; ++y)
+                for (int x = 20; x < 170; ++x) count += shown.pixel(x, y) != picture.pixel(x, y);
+            return count;
+        };
+        QVERIFY(differing() > 0);
+        pin->toggle_translation_original();
+        QCOMPARE(differing(), 0);
+        QCOMPARE(asked.load(), 1);
+        QVERIFY(wait_for_clipboard_writes(10.0));
+    }
+
     // A number outside the selection whose label is inside comes along to the pin, once, label and guide line included.
     void pinningCarriesANumbersLabelOnce() {
         auto *window = open_with_selection();
@@ -834,7 +893,7 @@ private slots:
         QVERIFY(window->session_active());
         QTimer::singleShot(0, this, [] {
             auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
-            auto *box = dialog ? dialog->findChild<QDialogButtonBox *>() : nullptr;
+            auto *box = dialog ? dialog->findChild<jietuba::DialogButtonRow *>() : nullptr;
             if (!box) return;
             for (auto *button : box->buttons())
                 if (box->buttonRole(button) == QDialogButtonBox::YesRole) button->click();
@@ -1157,13 +1216,23 @@ private slots:
         window->toolbar->text_recognize_btn->click();
         QVERIFY(!window->session_active());
         shutdown_recognition();
-        // Screenshot translation: an engine without a key answers locally.
+        // Screenshot translation: an engine without a key answers locally. The default closes
+        // the capture and opens the side-by-side translation window.
         config_->set_translation_provider("deepl");
         window = open_with_selection();
         window->toolbar->screenshot_translate_btn->click();
         QVERIFY(!window->session_active());
         QVERIFY(TranslationManager::instance()->is_dialog_open());
         TranslationManager::cleanup();
+        // In place, the capture stays open and the missing key is reported over it.
+        config_->set_screenshot_translate_mode("overlay");
+        window = open_with_selection();
+        window->toolbar->screenshot_translate_btn->click();
+        QVERIFY(window->session_active());
+        QDialog *refusal = nullptr;
+        QTRY_VERIFY((refusal = visible_window<QDialog>()));
+        refusal->close();
+        QVERIFY(window->session_active());
         // Without a confirmed selection a warning explains why nothing happens.
         window = open();
         window->action_handler->handle_scan_code();
@@ -1173,6 +1242,29 @@ private slots:
             if (qobject_cast<QDialog *>(widget) && widget->isVisible()) warning = widget;
         QVERIFY(warning);
         warning->close();
+    }
+
+    // Moving the selection hides the toolbar and the translation panel under it; both come back
+    // at the new place on release.
+    void theTranslationPanelHidesWhileTheSelectionIsDragged() {
+        auto *window = open_with_selection();
+        window->toolbar->set_translation_shown(true);
+        auto *panel = window->toolbar->translation_panel;
+        QVERIFY(panel && panel->isVisible());
+        const QPoint offset = panel->pos() - window->toolbar->pos();
+        const QPoint toolbar_before = window->toolbar->pos();
+        send_mouse(window, QEvent::MouseButtonPress, Qt::LeftButton, QPoint(150, 115), Qt::LeftButton);
+        send_mouse(window, QEvent::MouseMove, Qt::NoButton, QPoint(170, 125), Qt::LeftButton);
+        QVERIFY(window->scene->selection_model->is_dragging());
+        QVERIFY(!window->toolbar->isVisible());
+        QVERIFY(!panel->isVisible());
+        send_mouse(window, QEvent::MouseMove, Qt::NoButton, QPoint(190, 135), Qt::LeftButton);
+        send_mouse(window, QEvent::MouseButtonRelease, Qt::LeftButton, QPoint(190, 135), Qt::NoButton);
+        QCOMPARE(window->scene->selection_model->rect(), QRectF(90, 60, 200, 150));
+        QVERIFY(window->toolbar->isVisible());
+        QTRY_VERIFY(panel->isVisible());
+        QVERIFY(window->toolbar->pos() != toolbar_before);
+        QCOMPARE(panel->pos() - window->toolbar->pos(), offset);
     }
 
     // ---- The capture toolbar's panels, placement and layout ----
@@ -1536,6 +1628,79 @@ private slots:
         toolbar->quick_save_btn->click();
         QVERIFY(!window->session_active());
         QCOMPARE(saved_files().size(), 1);
+    }
+
+    // The upload button is folded into "..." by default, beside quick save. With no default target the button and
+    // the key only say so: the capture stays.
+    void theUploadButtonIsFoldedAndAsksForATargetFirst() {
+        namespace tl = toolbar_layout;
+        QCOMPARE(tl::SCREENSHOT.default_mode("upload"), tl::MORE);
+        QCOMPARE(tl::PIN.default_mode("upload"), tl::MORE);
+        QCOMPARE(tl::default_order().indexOf("upload"), tl::default_order().indexOf("quick_save") + 1);
+        QCOMPARE(tl::PIN.order.indexOf("upload"), tl::PIN.order.indexOf("quick_save") + 1);
+        config_->set_inapp_shortcut("inapp_upload", "ctrl+u");
+        const auto close_toasts = [] {
+            for (auto *widget : QApplication::topLevelWidgets())
+                if (qobject_cast<Toast *>(widget)) widget->close();
+        };
+        const auto asks = [&] {
+            auto *toast = visible_window<Toast>();
+            if (!toast) return false;
+            // Offscreen fonts measure wide, so the tail may be elided.
+            QString shown = toast->label->text();
+            shown.remove(QChar(0x2026));
+            return QString(i18n_tr("Add an upload target in Settings first", "CloudUpload")).startsWith(shown) && shown.size() > 8;
+        };
+        auto *window = open_with_selection();
+        auto *toolbar = window->toolbar;
+        QVERIFY(toolbar->upload_btn->parentWidget() != toolbar || toolbar->upload_btn->isHidden());
+        QVERIFY(!toolbar->upload_btn->icon().isNull());
+        close_toasts();
+        toolbar->upload_btn->click();
+        QVERIFY(window->session_active());
+        QVERIFY(asks());
+        close_toasts();
+        const auto binding = load_inapp_bindings().value("inapp_upload");
+        QCOMPARE(binding.first, int(Qt::Key_U));
+        QTest::keyClick(window, Qt::Key(binding.first), binding.second);
+        QVERIFY(window->session_active());
+        QVERIFY(asks());
+        QVERIFY(saved_files().isEmpty());
+        // Without a selection the key is not taken.
+        close_toasts();
+        window = open();
+        QTest::keyClick(window, Qt::Key(binding.first), binding.second);
+        QVERIFY(window->session_active());
+        QVERIFY(!visible_window<Toast>());
+        config_->set_inapp_shortcut("inapp_upload", "");
+    }
+
+    // An upload ends the capture and saves it as any capture is saved; the unreachable address makes the upload
+    // itself fail, which opens its warning.
+    void anUploadClosesTheCaptureAndAutoSavesIt() {
+        upload::Target target;
+        target.id = "t1";
+        target.name = "Closed port";
+        target.endpoint = "http://127.0.0.1:1";
+        target.region = "us-east-1";
+        target.bucket = "b";
+        target.access_key_id = "AKID";
+        target.secret_access_key = "secret";
+        config_->set_upload_targets(upload::serialize_targets({target}));
+        config_->set_upload_default_target("t1");
+        config_->set_screenshot_save_enabled(true);
+        auto *window = open_with_selection();
+        window->toolbar->upload_btn->click();
+        QVERIFY(!window->session_active());
+        QTRY_COMPARE(saved_files().size(), 1);
+        QDialog *warning = nullptr;
+        QTRY_VERIFY_WITH_TIMEOUT((warning = visible_window<QDialog>()), 10000);
+        auto *message = qobject_cast<StandardDialog *>(warning);
+        QVERIFY(message);
+        QVERIFY(message->label->text().contains(i18n_tr("Upload failed: network error", "CloudUpload")));
+        warning->close();
+        for (auto *widget : QApplication::topLevelWidgets())
+            if (qobject_cast<Toast *>(widget)) widget->close();
     }
 
     // A host for the external pen latency measurement: with JIETUBA_CANVAS_BENCH=<base path> it opens a

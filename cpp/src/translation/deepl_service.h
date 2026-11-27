@@ -1,5 +1,6 @@
 #pragma once
 #include <QString>
+#include <QStringList>
 #include <optional>
 
 namespace jietuba {
@@ -7,6 +8,14 @@ namespace jietuba {
 struct DeepLResult {
     bool success = false;
     QString translated_text;
+    QString detected_source_lang;
+    QString error;
+};
+
+// DeepLService::translate_batch's outcome; the texts come back in the order they were sent.
+struct DeepLBatchResult {
+    bool success = false;
+    QStringList translated_texts;
     QString detected_source_lang;
     QString error;
 };
@@ -21,6 +30,9 @@ public:
     // split_sentences: "0" none, "1" automatic (keeps line breaks), "nonewlines" ignores line breaks.
     DeepLResult translate(const QString &text, const QString &target_lang = "ZH", const std::optional<QString> &source_lang = std::nullopt,
                           const QString &split_sentences = "1", bool preserve_formatting = true, int timeout = 30);
+    // Several texts in one request, each translated on its own.
+    DeepLBatchResult translate_batch(const QStringList &texts, const QString &target_lang = "ZH", const std::optional<QString> &source_lang = std::nullopt,
+                                     const QString &split_sentences = "1", bool preserve_formatting = true, int timeout = 30);
     QString api_key;
     QString api_url;
 private:

@@ -72,6 +72,10 @@ pub fn parse_release(data: &Value, arch: Arch, variant: AppVariant) -> Result<Re
             urls: vec![url.into()],
             size: matches[0].get("size").and_then(Value::as_u64),
         },
+        published_at: data
+            .get("published_at")
+            .and_then(Value::as_str)
+            .map(str::to_owned),
     })
 }
 pub fn client() -> Result<reqwest::Client> {
@@ -105,6 +109,26 @@ mod tests {
                 assert_eq!(release.arch, arch);
             }
         }
+    }
+
+    #[test]
+    fn reports_when_the_release_was_published() {
+        let tag = "release-2.2.0";
+        let asset = json!({
+            "name": AppVariant::Lite.asset_name(tag, Arch::X64),
+            "browser_download_url": "https://example.com/lite.zip",
+        });
+        let published = json!({"tag_name": tag, "published_at": "2026-11-20T08:00:00Z", "assets": [asset]});
+        let release = parse_release(&published, Arch::X64, AppVariant::Lite).unwrap();
+        assert_eq!(release.published_at.as_deref(), Some("2026-11-20T08:00:00Z"));
+        let output = serde_json::to_value(&release).unwrap();
+        assert_eq!(output["published_at"], "2026-11-20T08:00:00Z");
+
+        // A request written without the field still reads back.
+        let mut request = output;
+        request.as_object_mut().unwrap().remove("published_at");
+        let read: Release = serde_json::from_value(request).unwrap();
+        assert!(read.published_at.is_none());
     }
 
     #[test]

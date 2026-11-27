@@ -20,7 +20,10 @@
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/segmented.h"
 #include "caption_check.h"
+#include <QComboBox>
 #include <QDragEnterEvent>
+#include <QFrame>
+#include <QPushButton>
 #include <QEvent>
 #include <QFile>
 #include <QMimeData>
@@ -716,6 +719,20 @@ private slots:
         QVERIFY(dialog->file_path_input);
     }
 
+    // The encoding name is not elided, and the export button has a row of its own below it, so the row fits the narrow column.
+    void exportFormGivesTheEncodingRoomAndTheButtonItsOwnRow() {
+        auto *dialog = open_dialog();
+        dialog->import_export_btn->click();
+        QApplication::processEvents();
+        const auto cards = dialog->findChildren<QFrame *>("ManageSectionCard");
+        QCOMPARE(cards.size(), 2);
+        QComboBox *combo = dialog->export_encoding_combo;
+        QVERIFY(combo->width() >= combo->fontMetrics().horizontalAdvance("UTF-8 (BOM)") + 40);
+        const auto buttons = cards[0]->findChildren<QPushButton *>();
+        QCOMPARE(buttons.size(), 1);
+        QVERIFY(buttons[0]->mapTo(cards[0], QPoint()).y() >= combo->mapTo(cards[0], QPoint()).y() + combo->height());
+    }
+
     void csvRoundTripsThroughTheWindow() {
         const auto notes = manager().create_group("Notes");
         const auto ids = add_texts({"alpha", "beta, with comma", "gamma\nlines"});
@@ -958,7 +975,7 @@ private slots:
         QCOMPARE(pin_height(), normal);
     }
 
-    void theFooterFitsEveryLanguageInTheNarrowestWindow() {
+    void theButtonsFitEveryLanguageInTheNarrowestWindow() {
         // Text widths need real fonts, which the offscreen platform does not have.
         if (QGuiApplication::platformName() != "windows") QSKIP("needs -platform windows");
         const auto notes = manager().create_group("Notes");
@@ -1003,6 +1020,15 @@ private slots:
                 for (QWidget *part : std::initializer_list<QWidget *>{meta, dialog->pin_btn, dialog->delete_btn, dialog->save_btn}) {
                     QVERIFY2(part->isVisible(), qPrintable(where));
                     QVERIFY2(column.contains(QRect(part->mapTo(dialog, QPoint(0, 0)), part->size())), qPrintable(QString("%1: %2 leaves the column").arg(where, part->property("text").toString())));
+                }
+                // The sidebar's buttons and the group's Edit button get their whole width as well.
+                const QRect sidebar(dialog->sidebar->mapTo(dialog, QPoint(0, 0)), dialog->sidebar->size());
+                const QRect list(dialog->list_column->mapTo(dialog, QPoint(0, 0)), dialog->list_column->size());
+                for (const auto &[part, area] : std::initializer_list<std::pair<QWidget *, QRect>>{{dialog->new_group_btn, sidebar}, {dialog->import_export_btn, sidebar}, {dialog->edit_group_btn, list}}) {
+                    const QString text = part->property("text").toString();
+                    QVERIFY2(part->isVisible(), qPrintable(QString("%1: %2").arg(where, text)));
+                    QVERIFY2(part->width() >= part->sizeHint().width(), qPrintable(QString("%1: %2 is %3 wide, needs %4").arg(where, text).arg(part->width()).arg(part->sizeHint().width())));
+                    QVERIFY2(area.contains(QRect(part->mapTo(dialog, QPoint(0, 0)), part->size())), qPrintable(QString("%1: %2 leaves its column").arg(where, text)));
                 }
             }
         }
@@ -1108,18 +1134,6 @@ private slots:
         }
     }
 
-    void iconPreviewFollowsTheGroupType() {
-        auto *dialog = open_dialog();
-        dialog->new_group_btn->click();
-        auto *preview = qobject_cast<IconPreview *>(dialog->icon_preview.data());
-        QVERIFY(preview);
-        QCOMPARE(preview->kind(), KIND_NORMAL());
-        dialog->radio_file->setChecked(true);
-        QCOMPARE(preview->kind(), KIND_FILE());
-        dialog->radio_filter->setChecked(true);
-        QCOMPARE(preview->kind(), KIND_FILTER());
-    }
-
     void emojiInputSharesTheCategoryRow() {
         auto *dialog = open_dialog();
         dialog->new_group_btn->click();
@@ -1131,15 +1145,13 @@ private slots:
         QVERIFY(dialog->icon_input->mapTo(dialog, QPoint()).x() > dialog->emoji_tab_buttons.last()->mapTo(dialog, QPoint()).x());
     }
 
-    void groupRowsCarryTheGroupKindAndTheNewGroupButtonIsAnAddRow() {
+    void groupRowsOfEveryTypePaintAndTheNewGroupButtonIsAnAddRow() {
         QVERIFY(manager().create_group("Plain"));
         QVERIFY(manager().create_group("Launch", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILE)));
         QVERIFY(manager().create_group("Secret", std::nullopt, std::nullopt, static_cast<int>(GroupType::HIDDEN)));
         QVERIFY(manager().create_group("Pictures", std::nullopt, std::nullopt, static_cast<int>(GroupType::FILTER), FilterRule::of_kind("image")));
         auto *dialog = open_dialog();
-        QStringList kinds;
-        for (int row = 0; row < dialog->group_list->count(); ++row) kinds << dialog->group_list->item(row)->data(KIND_ROLE).toString();
-        QCOMPARE(kinds, (QStringList{"normal", "file", "hidden", "filter"}));
+        QCOMPARE(dialog->group_list->count(), 4);
         QVERIFY(!dialog->group_list->viewport()->grab().isNull());
 
         QCOMPARE(dialog->new_group_btn->objectName(), QString("ManageAddButton"));

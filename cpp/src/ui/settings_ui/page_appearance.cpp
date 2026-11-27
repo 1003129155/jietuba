@@ -180,7 +180,7 @@ QWidget *create_appearance_page(SettingsDialog *dialog) {
     auto *view = new QWidget;
     set_own_style(view, "background: transparent;");
     auto *layout = new QVBoxLayout(view);
-    layout->setContentsMargins(0, 0, dialog_scaled(10), 0);
+    layout->setContentsMargins(0, 0, dialog_scaled(10), page_bottom_margin());
     layout->setSpacing(dialog_scaled(14));
 
     auto *grp_app = new SettingsCardGroup(dialog->tr_text("Application"), view);
@@ -195,9 +195,7 @@ QWidget *create_appearance_page(SettingsDialog *dialog) {
     build_clipboard_section(dialog, grp_clip);
     layout->addWidget(grp_clip);
 
-    auto *hint = new CaptionLabel(dialog->tr_text("💡 Hint: Color changes take effect on the next screenshot."), view);
-    hint->setStyleSheet(QString("padding: %1px;").arg(dialog_scaled(5)));
-    layout->addWidget(hint);
+    layout->addWidget(page_hint(view, dialog->tr_text("💡 Hint: Color changes take effect on the next screenshot.")));
     layout->addStretch();
     scroll->setWidget(view);
     return scroll;

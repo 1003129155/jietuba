@@ -38,11 +38,18 @@ public:
         // Fixed fields added to the request body; parameter names differ per
         // service and some reject unknown ones, so they are opt-in.
         QJsonObject extra_body;
+        // A hosted service takes many requests at once; a service the user runs locally
+        // queues them, and a queued request waits out its timeout.
+        RequestPacing pacing{8, 0};
     };
     static constexpr int MODELS_TIMEOUT = 15;
     OpenAICompatibleProvider(const ProviderConfig &config, const Defaults &defaults);
     bool is_configured() const override;
     TranslationResult translate(const TranslationRequest &request) override;
+    // Small batches: the reply is generated token by token, so wall time comes from how
+    // many requests run at once, not from how much one request carries.
+    BatchLimits batch_limits() const override { return {8, 900}; }
+    BatchTranslationResult translate_batch(const QStringList &texts, const TranslationRequest &request) override;
     QStringList list_models() override;
     QString api_url() const { return base_url_ + "/chat/completions"; }
     // Users often paste the full request URL, which would repeat the path.
@@ -73,6 +80,10 @@ protected:
 private:
     HttpHeaders headers() const;
     QJsonArray build_messages(const TranslationRequest &request) const;
+    QJsonArray batch_messages(const QStringList &texts, const TranslationRequest &request) const;
+    // The texts translated together: exactly one entry per input, or a failure that makes
+    // the caller go text by text.
+    BatchTranslationResult parse_batch_response(const QJsonValue &raw, int expected) const;
     TranslationResult http_error(const HttpResponse &response) const;
     static TranslationErrorCode map_error_type(const QString &error_type, int status_code);
 };

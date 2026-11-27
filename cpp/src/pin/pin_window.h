@@ -33,10 +33,12 @@ class PinClickThroughBar;
 class PinDisplayScaler;
 class PinFileCard;
 class PinFileSelection;
+class PinOverlayTranslation;
 class PinTextContent;
 class PinToolbar;
 class ToolSettingsManager;
 class WaitBar;
+struct OverlayTextBlock;
 
 // Wheel and settings never take opacity below this, so a pin cannot vanish.
 constexpr double MIN_OPACITY = 0.15;
@@ -151,6 +153,21 @@ public:
     void show_toolbar();
     void hide_toolbar();
     void on_translate_clicked();
+    // Lays a translation over the pin's own text, as the overlay mode does on a capture; false
+    // when the pin has no text to read.
+    bool start_overlay_translation();
+    PinOverlayTranslation *overlay_translation() const { return overlay_translation_.get(); }
+    // Made on first use; null for a pin with no text to read.
+    PinOverlayTranslation *ensure_overlay_translation();
+    // Goes on with the translation of the capture the pin was made from, in the pin's pixels; with
+    // go_on the paragraphs still missing are asked for.
+    void adopt_translation(const QVector<OverlayTextBlock> &blocks, bool original_shown, bool go_on);
+    void toggle_translation_original();
+    void stop_overlay_translation();
+    // What get_current_image() gives, without a translation laid over the text.
+    QImage recognition_image();
+    // The translation layer resampled for the zoom shown, as the background is.
+    void refresh_translation_for_scale();
     void show_context_menu(const QPoint &global_pos);
     void toggle_stay_on_top();
     void toggle_lock();
@@ -188,6 +205,10 @@ public:
     void when_pixels_ready(std::function<void()> then);
     void save_image();
     void save_image_with_system_dialog();
+    // Straight into the save folder without asking, an animation as its own file; the pin stays open.
+    void quick_save_image();
+    // Uploads what the pin shows (an animation's current frame) to the default upload target; the pin stays open.
+    void upload_image();
     // A text pin copies its selected text, or all of it.
     void copy_to_clipboard();
     void copy_image();
@@ -332,6 +353,8 @@ private:
     // Counts the backgrounds shown, so an image scaled for an earlier one is dropped.
     quint64 display_ticket_ = 0;
     std::shared_ptr<PinDisplayScaler> display_scaler_;
+    std::shared_ptr<PinDisplayScaler> translation_scaler_;
+    quint64 translation_ticket_ = 0;
     double win_opacity_;
     QLabel *zoom_label_ = nullptr;
     QTimer *zoom_hide_timer_ = nullptr;
@@ -339,6 +362,7 @@ private:
     std::unique_ptr<PinControlButtons> control_buttons_;
     std::unique_ptr<PinContextMenu> context_menu_;
     std::unique_ptr<PinTranslationHelper> translation_helper_;
+    std::unique_ptr<PinOverlayTranslation> overlay_translation_;
     std::unique_ptr<PinOCRManager> ocr_mgr_;
     std::unique_ptr<PinThumbnailMode> thumbnail_;
     std::unique_ptr<PinTextContent> text_content_;

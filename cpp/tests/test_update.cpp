@@ -1,10 +1,13 @@
+#include "core/auto_update.h"
 #include "core/package_identity.h"
 #include "core/update_cache.h"
 #include "core/update_checker.h"
 #include "core/update_controller.h"
 #include "core/updater_process.h"
 #include "main_app.h"
+#include "settings/tool_settings.h"
 #include "ui/update_dialog.h"
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QJsonArray>
@@ -100,6 +103,16 @@ QMap<QString, QString> options(const QStringList &arguments) {
     for (qsizetype i = 0; i + 1 < arguments.size(); i += 2) result[arguments.at(i)] = arguments.at(i + 1);
     return result;
 }
+
+// A finished download as the helper leaves it in the cache.
+QString staged(const QString &root, const QString &id, const QString &executable, const QString &version, const QString &tag) {
+    const QJsonObject record{{"tag_name", tag}, {"title", tag}, {"notes", ""}, {"url", "https://example.com"}, {"asset_name", "jietuba_lite-" + tag + "-x64.zip"},
+                             {"arch", "x64"}, {"artifact", QJsonObject{{"urls", QJsonArray{"https://example.com/package.zip"}}}}};
+    const QJsonObject prepared{{"executable", executable}, {"current_version", version}, {"release", record}, {"staged_hash", "hash"}};
+    return directory(root, id, {{"app.exe", "MZ"}, {"prepared.json", QJsonDocument(prepared).toJson()}});
+}
+
+QByteArray days_ago(int days) { return QDateTime::currentDateTimeUtc().addDays(-days).toString(Qt::ISODate).toUtf8(); }
 }
 
 class UpdateTests : public QObject {
@@ -109,12 +122,24 @@ class UpdateTests : public QObject {
     FakeHost host_;
     FakeRunner *runner_ = nullptr;
     UpdateController *controller_ = nullptr;
+    std::unique_ptr<QSettings> settings_;
+    std::unique_ptr<ToolSettingsManager> config_;
 
-    void use_controller() {
+    // A controller with no window yet, as automatic updates use it.
+    void use_background_controller() {
         host_ = FakeHost();
         runner_ = new FakeRunner;
         controller_ = new UpdateController(&host_, nullptr, runner_);
+    }
+
+    void use_controller() {
+        use_background_controller();
         controller_->present(release());
+    }
+
+    void use_settings() {
+        settings_ = std::make_unique<QSettings>(QDir(local_->path()).filePath("settings.ini"), QSettings::IniFormat);
+        config_ = std::make_unique<ToolSettingsManager>(*settings_);
     }
 
     void downloaded() {
@@ -136,9 +161,12 @@ private slots:
             delete controller_;
             controller_ = nullptr;
         }
+        config_.reset();
+        settings_.reset();
         set_helper_source_for_test({});
         qunsetenv("JIETUBA_FAKE_UPDATER");
         qunsetenv("JIETUBA_FAKE_UPDATER_ARGS");
+        qunsetenv("JIETUBA_FAKE_PUBLISHED");
         update_cache::reset_sessions_for_test();
         local_.reset();
     }
@@ -507,6 +535,264 @@ private slots:
 
     void everyBuildUpdatesAsTheLitePackage() {
         QCOMPARE(app_variant(), QString("lite"));
+    }
+
+    void checkOutputCarriesThePublishTime() {
+        const QByteArray with = R"({"protocol":1,"event":"available","data":{"tag_name":"v99.0.0","title":"t","notes":"n","url":"u","asset_name":"p.zip",)"
+                                R"("arch":"x64","artifact":{"urls":["https://example.com/p.zip"]},"published_at":"2026-11-20T08:00:00Z"}})";
+        QCOMPARE(release_from_check_output(with, 0).published_at, QString("2026-11-20T08:00:00Z"));
+        QByteArray without = with;
+        without.replace(R"(,"published_at":"2026-11-20T08:00:00Z")", "");
+        QVERIFY(release_from_check_output(without, 0).published_at.isEmpty());
+    }
+
+    void versionTextDropsTheTagPrefix() {
+        QCOMPARE(version_text("release-2.2.5"), QString("2.2.5"));
+        QCOMPARE(version_text("v3.0"), QString("3.0"));
+        QCOMPARE(version_text("latest"), QString("latest"));
+    }
+
+    void releasesInstallOnTheirOwnTwoDaysAfterPublishing() {
+        const QDateTime now = QDateTime::fromString("2026-11-24T12:00:00Z", Qt::ISODate);
+        ReleaseInfo info = release();
+        info.published_at = "2026-11-22T12:00:00Z";
+        QVERIFY(AutoUpdater::old_enough(info, now));
+        info.published_at = "2026-11-22T12:00:01Z";
+        QVERIFY(!AutoUpdater::old_enough(info, now));
+        // Without a usable time it is left to a manual update.
+        for (const QString &value : {QString(), QString("yesterday")}) {
+            info.published_at = value;
+            QVERIFY(!AutoUpdater::old_enough(info, now));
+        }
+    }
+
+    void backgroundDownloadOpensNoWindowAndKeepsTheResult() {
+        use_background_controller();
+        const QString stage = directory(cache_, ID, {{"app.exe", "MZ"}});
+        QSignalSpy finished(controller_, &UpdateController::background_download_finished);
+        QVERIFY(controller_->download_in_background(release()));
+        QVERIFY(!controller_->dialog);
+        QCOMPARE(runner_->calls.size(), 1);
+        QCOMPARE(runner_->calls.first().first, QString("download"));
+        QVERIFY(!controller_->download_in_background(release()));
+        emit runner_->event_received("progress", ID, {{"received", 50}, {"total", 100}});
+        downloaded();
+        // Nothing installs until the next start.
+        QCOMPARE(runner_->calls.size(), 1);
+        QCOMPARE(finished.count(), 1);
+        QVERIFY(finished.first().first().toBool());
+        QVERIFY(controller_->has_download(release()));
+        QVERIFY(!controller_->download_in_background(release()));
+        // Quitting keeps it.
+        controller_->cancel();
+        QVERIFY(QFileInfo::exists(stage));
+        QVERIFY(controller_->has_download(release()));
+    }
+
+    void presentingADownloadedReleaseInstallsItWithoutDownloadingAgain() {
+        use_background_controller();
+        const QString stage = directory(cache_, ID, {{"app.exe", "MZ"}});
+        QVERIFY(controller_->download_in_background(release()));
+        downloaded();
+        controller_->present(release());
+        QVERIFY(controller_->dialog);
+        // Closing the window keeps it for the next start as well.
+        controller_->dialog->reject();
+        QVERIFY(QFileInfo::exists(stage));
+        controller_->present(release());
+        controller_->start();
+        QCOMPARE(runner_->calls.size(), 2);
+        QCOMPARE(runner_->calls.last().first, QString("apply"));
+        QCOMPARE(options(runner_->calls.last().second)["--transaction"], ID);
+    }
+
+    void presentingDuringABackgroundDownloadTakesItOver() {
+        use_background_controller();
+        QSignalSpy finished(controller_, &UpdateController::background_download_finished);
+        QVERIFY(controller_->download_in_background(release()));
+        controller_->present(release());
+        QVERIFY(controller_->dialog);
+        QVERIFY(controller_->dialog->working);
+        emit runner_->event_received("progress", ID, {{"received", 25}, {"total", 100}});
+        QCOMPARE(controller_->dialog->progress->value(), 25);
+        downloaded();
+        QCOMPARE(finished.count(), 0);
+        QCOMPARE(runner_->calls.size(), 2);
+        QCOMPARE(runner_->calls.last().first, QString("apply"));
+    }
+
+    void aNewerReleaseReplacesTheKeptDownload() {
+        use_background_controller();
+        const QString stage = directory(cache_, ID, {{"app.exe", "MZ"}});
+        QVERIFY(controller_->download_in_background(release()));
+        downloaded();
+        ReleaseInfo newer = release();
+        newer.tag_name = "release-99.1.0";
+        QVERIFY(controller_->download_in_background(newer));
+        QVERIFY(!QFileInfo::exists(stage));
+        QCOMPARE(runner_->calls.size(), 2);
+    }
+
+    void backgroundInstallHandsOffWithoutAWindow() {
+        use_background_controller();
+        QVERIFY(controller_->install_in_background(release(), ID));
+        QVERIFY(!controller_->dialog);
+        QCOMPARE(runner_->calls.last().first, QString("apply"));
+        QCOMPARE(options(runner_->calls.last().second)["--transaction"], ID);
+        emit runner_->event_received("ready", ID, {});
+        QCOMPARE(runner_->sent, QStringList{"go"});
+        emit runner_->event_received("handed_off", ID, {});
+        runner_->finish();
+        QCOMPARE(host_.quit_count, 1);
+    }
+
+    void failedBackgroundInstallIsReportedAndDropped() {
+        use_background_controller();
+        const QString stage = directory(cache_, ID, {{"app.exe", "MZ"}});
+        QSignalSpy failed(controller_, &UpdateController::background_install_failed);
+        QVERIFY(controller_->install_in_background(release(), ID));
+        emit runner_->failed("No permission");
+        runner_->finish();
+        QCOMPARE(failed.count(), 1);
+        QCOMPARE(failed.first().first().toString(), QString("No permission"));
+        QCOMPARE(host_.quit_count, 0);
+        QVERIFY(!QFileInfo::exists(stage));
+        // A busy application does not start it.
+        host_.reason = "busy";
+        QVERIFY(!controller_->install_in_background(release(), ID));
+        QCOMPARE(runner_->calls.size(), 1);
+    }
+
+    void pendingUpdateIsTheNewestStagedForThisProgramAndVersion() {
+        const QString exe = QCoreApplication::applicationFilePath();
+        // The helper writes the path as Rust canonicalizes it.
+        const QString recorded = "\\\\?\\" + QDir::toNativeSeparators(QFileInfo(exe).canonicalFilePath()).toUpper();
+        staged(cache_, QString(32, 'a'), recorded, APP_VERSION, "release-99.0.0");
+        staged(cache_, QString(32, 'b'), recorded, APP_VERSION, "release-99.1.0");
+        staged(cache_, QString(32, 'c'), recorded, "0.0.1", "release-99.2.0");
+        staged(cache_, QString(32, 'd'), "C:\\other\\jietuba_lite.exe", APP_VERSION, "release-99.3.0");
+        staged(cache_, QString(32, 'e'), recorded, APP_VERSION, "release-0.0.1");
+        directory(cache_, QString(32, 'f'), {{"prepared.json", "{}"}});
+        const auto pending = find_pending_update(cache_, exe, APP_VERSION);
+        QVERIFY(pending);
+        QCOMPARE(pending->transaction, QString(32, 'b'));
+        QCOMPARE(pending->release.tag_name, QString("release-99.1.0"));
+        QVERIFY(pending->release.available == true);
+        QVERIFY(!find_pending_update(cache_, exe, "99.9.9"));
+    }
+
+    void autoUpdaterDownloadsAReleaseTwoDaysAfterItIsPublished() {
+        use_background_controller();
+        use_settings();
+        qputenv("JIETUBA_FAKE_UPDATER", "check-available");
+        qputenv("JIETUBA_FAKE_PUBLISHED", days_ago(3));
+        AutoUpdater updater(config_.get(), controller_);
+        QSignalSpy ready(&updater, &AutoUpdater::update_ready);
+        updater.check_now();
+        QTRY_COMPARE_WITH_TIMEOUT(runner_->calls.size(), 1, 10000);
+        QCOMPARE(runner_->calls.first().first, QString("download"));
+        QVERIFY(!controller_->dialog);
+        QCOMPARE(updater.timer.interval(), updater.interval_ms);
+        downloaded();
+        QCOMPARE(ready.count(), 1);
+        QCOMPARE(ready.first().first().value<ReleaseInfo>().tag_name, QString("v99.0.0"));
+        // The next check finds it downloaded and says nothing again.
+        updater.check_now();
+        QTRY_VERIFY_WITH_TIMEOUT(!updater.checking(), 10000);
+        QCOMPARE(runner_->calls.size(), 1);
+        QCOMPARE(ready.count(), 1);
+    }
+
+    void autoUpdaterWaitsForNewReleasesAndSkipsFailedOnes() {
+        use_background_controller();
+        use_settings();
+        qputenv("JIETUBA_FAKE_UPDATER", "check-available");
+        AutoUpdater updater(config_.get(), controller_);
+        const auto check = [&updater] {
+            updater.check_now();
+            QTRY_VERIFY_WITH_TIMEOUT(!updater.checking(), 10000);
+        };
+        qputenv("JIETUBA_FAKE_PUBLISHED", days_ago(1));
+        check();
+        QVERIFY(runner_->calls.isEmpty());
+        qunsetenv("JIETUBA_FAKE_PUBLISHED");
+        check();
+        QVERIFY(runner_->calls.isEmpty());
+        qputenv("JIETUBA_FAKE_PUBLISHED", days_ago(5));
+        config_->set_auto_update_failed_version("v99.0.0");
+        check();
+        QVERIFY(runner_->calls.isEmpty());
+        config_->set_auto_update_failed_version("");
+        check();
+        QCOMPARE(runner_->calls.size(), 1);
+    }
+
+    void autoUpdaterOffChecksNothingAndStopsItsDownload() {
+        use_background_controller();
+        use_settings();
+        config_->set_auto_update(false);
+        AutoUpdater updater(config_.get(), controller_);
+        updater.start();
+        QVERIFY(!updater.timer.isActive());
+        updater.check_now();
+        QVERIFY(!updater.checking());
+        config_->set_auto_update(true);
+        updater.set_enabled(true);
+        QVERIFY(updater.timer.isActive());
+        QCOMPARE(updater.timer.interval(), updater.first_check_ms);
+        QVERIFY(controller_->download_in_background(release()));
+        config_->set_auto_update(false);
+        updater.set_enabled(false);
+        QVERIFY(!updater.timer.isActive());
+        QCOMPARE(runner_->sent, QStringList{"cancel"});
+    }
+
+    void startUpInstallsTheDownloadFromTheLastRun() {
+        use_background_controller();
+        use_settings();
+        const QString stage = staged(cache_, ID, "\\\\?\\" + QDir::toNativeSeparators(QCoreApplication::applicationFilePath()), APP_VERSION, "release-99.0.0");
+        AutoUpdater updater(config_.get(), controller_);
+        int resumed = 0;
+        QVERIFY(updater.install_pending([&resumed] { ++resumed; }));
+        QCOMPARE(runner_->calls.last().first, QString("apply"));
+        QCOMPARE(options(runner_->calls.last().second)["--transaction"], ID);
+        QVERIFY(QFileInfo::exists(QDir(stage).filePath("auto_install")));
+        // A failure lets start-up go on and leaves that release to a manual update.
+        emit runner_->failed("No permission");
+        runner_->finish();
+        QCOMPARE(resumed, 1);
+        QCOMPARE(config_->get_auto_update_failed_version(), QString("release-99.0.0"));
+        QVERIFY(!QFileInfo::exists(stage));
+        QVERIFY(!updater.install_pending([&resumed] { ++resumed; }));
+    }
+
+    void startUpDropsADownloadWhoseInstallDidNotTake() {
+        use_background_controller();
+        use_settings();
+        const QString stage = staged(cache_, ID, QCoreApplication::applicationFilePath(), APP_VERSION, "release-99.0.0");
+        // Left by the last start: the worker restored the old version instead of removing the folder.
+        directory(cache_, ID, {{"auto_install", {}}});
+        AutoUpdater updater(config_.get(), controller_);
+        QVERIFY(!updater.install_pending([] {}));
+        QVERIFY(runner_->calls.isEmpty());
+        QCOMPARE(config_->get_auto_update_failed_version(), QString("release-99.0.0"));
+        QVERIFY(!QFileInfo::exists(stage));
+    }
+
+    void startUpNotesAnUpdateAndInstallsNothingWhenOff() {
+        use_background_controller();
+        use_settings();
+        config_->set_last_run_version("0.0.1");
+        config_->set_auto_update(false);
+        staged(cache_, ID, QCoreApplication::applicationFilePath(), APP_VERSION, "release-99.0.0");
+        AutoUpdater updater(config_.get(), controller_);
+        QVERIFY(!updater.install_pending([] {}));
+        QVERIFY(runner_->calls.isEmpty());
+        QCOMPARE(updater.updated_from(), QString("0.0.1"));
+        QCOMPARE(config_->get_last_run_version(), APP_VERSION);
+        AutoUpdater again(config_.get(), controller_);
+        again.install_pending([] {});
+        QVERIFY(again.updated_from().isEmpty());
     }
 
     void sweepRemovesOldCacheAndPreservesRecentFilesAndBackups() {

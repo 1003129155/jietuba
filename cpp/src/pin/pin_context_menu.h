@@ -22,6 +22,8 @@ struct PinMenuState {
     bool has_formatting = false;
     bool formatted = false;
     bool annotations_hidden = false;
+    // A translation laid over the image, whether it still runs, and whether the original shows instead.
+    bool translation_shown = false, translation_busy = false, translation_original_shown = false;
     // Whether Esc can close the pin right now.
     bool close_shortcut_enabled = true;
     // What the pin shows when it is not a still image or text.

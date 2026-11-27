@@ -9,6 +9,7 @@
 #include <optional>
 #include <QRectF>
 #include <QSystemTrayIcon>
+#include <functional>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -20,10 +21,13 @@ namespace clipboard {
 class ClipboardManager;
 class ClipboardWindow;
 }
+class AutoUpdater;
 class DisplayChangeWatcher;
 class GameModeMonitor;
 class GifRecordWindow;
 class HotkeySystem;
+class PinInbox;
+class PinRequestQueue;
 class PreloadManager;
 class QuickCaptureController;
 class ScreenAnnotation;
@@ -66,6 +70,12 @@ public:
     // A capture whose selection opens the recording window.
     void start_screen_recording();
     void open_settings();
+    // Files to pin: those on this process's command line and the ones other processes hand over
+    // through inbox (Explorer's menu entry). Pinned in batches at the cursor.
+    void accept_pin_requests(PinInbox &inbox, const QStringList &initial_files);
+    // Makes Explorer's right-click entry match the setting, the interface language and this
+    // executable's place.
+    void sync_explorer_menu();
     // Opens the settings window on one page (SettingsDialog::on_nav_changed's index and route).
     void open_settings_page(int stack_index, const QString &route_key);
     void open_translator();
@@ -90,6 +100,10 @@ public:
     QString update_busy_reason() override;
     std::pair<bool, QString> prepare_for_update() override;
     void cancel_update_preparation() override;
+    // A tray balloon; on_click runs when this balloon, not an earlier one, is clicked.
+    void show_tray_message(const QString &title, const QString &text, QSystemTrayIcon::MessageIcon icon, std::function<void()> on_click = {});
+    // A one-line balloon under the program's name and icon (the Start menu shortcut gives Windows both).
+    void show_tray_line(const QString &text, std::function<void()> on_click = {});
     void setup_pin_tray_updates();
     // Creates the capture window once the screen is captured.
     void on_capture_ready(const QImage &image, const QRectF &rect, std::shared_ptr<SystemCursor> cursor = nullptr);
@@ -125,6 +139,7 @@ public:
     bool screen_annotation_running_ = false;
     bool update_preparing = false;
     UpdateController *update_controller = nullptr;
+    AutoUpdater *auto_updater = nullptr;
 
 signals:
     // Each recorded clipboard item, on the GUI thread.
@@ -157,12 +172,19 @@ private:
     // Rebuilds the cached clipboard manager window after a window scale change.
     void recreate_clipboard_manage_dialog();
     void on_clipboard_item_received(const clipboard::ClipboardItem &item);
+    // A downloaded release: the tray says it installs at the next start, and a click installs it now.
+    // Waits while a capture is open, so the balloon does not cover it.
+    void notify_update_ready(const ReleaseInfo &release);
+    // The Start menu shortcut that names the program, in the interface language, on its notifications.
+    void update_notification_identity();
 
+    std::function<void()> tray_message_click_;
     bool capture_pending_ = false;
     // The pending capture is for recording.
     bool record_pending_ = false;
     QPointer<ScreenshotCountdown> screenshot_countdown_;
     DisplayChangeWatcher *display_watcher_ = nullptr;
+    PinRequestQueue *pin_requests_ = nullptr;
     std::unique_ptr<PreloadManager> preloader_;
 };
 }

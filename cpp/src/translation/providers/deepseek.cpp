@@ -22,6 +22,7 @@ ProviderMetadata DeepSeekProvider::class_metadata() {
     ProviderMetadata metadata;
     metadata.provider_id = "deepseek";
     metadata.display_name = "DeepSeek";
+    metadata.language_model = true;
     metadata.credentials = {
         ProviderField::text("deepseek_api_key", "DeepSeek API Key", "sk-...", true),
         // Model names do change between generations; editable so a rename needs no release.
@@ -29,6 +30,7 @@ ProviderMetadata DeepSeekProvider::class_metadata() {
         // Normally untouched; allows a proxy, mirror or any other compatible service.
         ProviderField::text("deepseek_base_url", "API Base URL", DEFAULT_BASE_URL),
     };
+    metadata.pacing = pacing_fields("deepseek", OpenAICompatibleProvider::Defaults{}.pacing);
     metadata.notice = "LLM translation: better with context and idioms, but slower, billed per token, and may refuse some content";
     metadata.help_label = "platform.deepseek.com";
     metadata.help_url = "https://platform.deepseek.com/api_keys";

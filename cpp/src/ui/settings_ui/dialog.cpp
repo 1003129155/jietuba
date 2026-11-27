@@ -1,6 +1,7 @@
 #include "ui/settings_ui/dialog.h"
 #include "core/file_names.h"
 #include "clipboard/ui/theme/themes.h"
+#include "core/auto_update.h"
 #include "core/i18n.h"
 #include "core/logger.h"
 #include "core/elevation.h"
@@ -28,6 +29,7 @@
 #include "ui/key_chip.h"
 #include "ui/settings_ui/components.h"
 #include "ui/settings_ui/mouse_binding_editor.h"
+#include "ui/settings_ui/page_outline.h"
 #include "ui/settings_ui/pages.h"
 #include "ui/settings_ui/search.h"
 #include "ui/toolbar_layout.h"
@@ -52,6 +54,7 @@
 #include <QTemporaryDir>
 #include <QTimer>
 #include <QUrl>
+#include <algorithm>
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -148,8 +151,8 @@ private:
     int &depth_;
 };
 
-// Between the window edge and a card: window margins, navigation, the page's scroll bar and the group frame.
-constexpr int OUTSIDE_CARDS = 315;
+// Between the window edge and a card: window margin, navigation, the page margins and its scroll bar.
+constexpr int OUTSIDE_CARDS = 301;
 // The longest card titles are Japanese.
 constexpr int LONGEST_CARD_TITLE = 260;
 
@@ -162,22 +165,21 @@ struct NavItem {
     const char *text;
     int stack_index;
     NavigationItemPosition position;
-    QString tone;
 };
 
 std::vector<NavItem> nav_items() {
     return {
-        {"shortcuts", ResourceManager::get_icon_path(QString::fromUtf8("热键.svg")), "Shortcuts", 0, NavigationItemPosition::TOP, {}},
-        {"mouse", ResourceManager::get_icon_path(QString::fromUtf8("鼠标线框.svg")), "Mouse Shortcuts", 10, NavigationItemPosition::TOP, {}},
-        {"capture", FluentIcon::Camera, "Screenshot", 1, NavigationItemPosition::TOP, "capture"},
-        {"pin", FluentIcon::Pin, "Pin", 11, NavigationItemPosition::TOP, "pin"},
-        {"screen_annotation", ResourceManager::get_icon_path(QString::fromUtf8("画笔.svg")), "Screen Annotation", 12, NavigationItemPosition::TOP, "capture"},
-        {"clipboard", FluentIcon::Paste, "Clipboard", 2, NavigationItemPosition::TOP, "clipboard"},
-        {"translation", FluentIcon::Language, "Translation", 4, NavigationItemPosition::TOP, "translate"},
-        {"appearance", FluentIcon::Brush, "Appearance", 3, NavigationItemPosition::TOP, {}},
-        {"log", FluentIcon::History, "Log Settings", 5, NavigationItemPosition::TOP, {}},
-        {"other", FluentIcon::Application, "Other", 6, NavigationItemPosition::TOP, {}},
-        {"about", FluentIcon::Info, "About", 8, NavigationItemPosition::BOTTOM, {}},
+        {"shortcuts", ResourceManager::get_icon_path(QString::fromUtf8("热键.svg")), "Shortcuts", 0, NavigationItemPosition::TOP},
+        {"mouse", ResourceManager::get_icon_path(QString::fromUtf8("鼠标线框.svg")), "Mouse Shortcuts", 10, NavigationItemPosition::TOP},
+        {"capture", FluentIcon::Camera, "Screenshot", 1, NavigationItemPosition::TOP},
+        {"pin", FluentIcon::Pin, "Pin", 11, NavigationItemPosition::TOP},
+        {"screen_annotation", ResourceManager::get_icon_path(QString::fromUtf8("画笔.svg")), "Screen Annotation", 12, NavigationItemPosition::TOP},
+        {"clipboard", FluentIcon::Paste, "Clipboard", 2, NavigationItemPosition::TOP},
+        {"translation", FluentIcon::Language, "Translation", 4, NavigationItemPosition::TOP},
+        {"appearance", FluentIcon::Brush, "Appearance", 3, NavigationItemPosition::TOP},
+        {"log", FluentIcon::History, "Log", 5, NavigationItemPosition::TOP},
+        {"other", FluentIcon::Application, "Other", 6, NavigationItemPosition::TOP},
+        {"about", FluentIcon::Info, "About", 8, NavigationItemPosition::BOTTOM},
     };
 }
 }
@@ -265,14 +267,25 @@ void SettingsDialog::setup_titlebar() {
     auto *title_bar = new FluentTitleBar(this);
     configure_dialog_control(*title_bar);
     setTitleBar(title_bar);
-    title_bar->iconLabel->hide();
-    title_bar->titleLabel->hide();
     title_bar->setFixedHeight(title_bar->buttonLayout->sizeHint().height());
-    title_bar->hBoxLayout->setContentsMargins(0, 0, 0, 0);
+    apply_titlebar_layout();
+    // The logo and the name carry the developer options in their context menu.
+    for (QLabel *label : {title_bar->iconLabel, title_bar->titleLabel}) {
+        label->setContextMenuPolicy(Qt::CustomContextMenu);
+        connect(label, &QWidget::customContextMenuRequested, this, [this, label](const QPoint &pos) { show_logo_context_menu(label->mapTo(this, pos)); });
+    }
     if (title_bar->maxBtn) title_bar->maxBtn->hide();
     title_bar->setDoubleClickEnabled(false);
     const QString icon_path = ResourceManager::get_resource_path(QString::fromUtf8("svg/托盘.svg"));
     if (QFileInfo::exists(icon_path)) setWindowIcon(QIcon(icon_path));
+}
+
+void SettingsDialog::apply_titlebar_layout() {
+    auto *title_bar = qobject_cast<FluentTitleBar *>(titleBar());
+    if (!title_bar) return;
+    // The logo lines up with the navigation icons below it; the caption buttons keep the right edge.
+    title_bar->hBoxLayout->setContentsMargins(dialog_scaled(14), 0, 0, 0);
+    title_bar->titleLabel->setIndent(dialog_scaled(8));
 }
 
 // ── UI ──
@@ -283,36 +296,17 @@ void SettingsDialog::setup_ui() {
     const int title_bar_height = titleBar() ? titleBar()->height() : dialog_scaled(32);
 
     auto *main_layout = new QHBoxLayout(this);
-    main_layout->setContentsMargins(dialog_scaled(10), title_bar_height + dialog_scaled(6), dialog_scaled(10), dialog_scaled(10));
-    main_layout->setSpacing(dialog_scaled(10));
+    // The content layer runs to the window's right and bottom edges.
+    main_layout->setContentsMargins(dialog_scaled(10), title_bar_height + dialog_scaled(6), 0, 0);
+    main_layout->setSpacing(0);
 
     // 1. Left panel.
     auto *left_panel = new QWidget;
     left_panel->setObjectName("SettingsLeftPanel");
     left_panel->setFixedWidth(sidebar_width);
     auto *left_v = new QVBoxLayout(left_panel);
-    left_v->setContentsMargins(dialog_scaled(8), 0, dialog_scaled(8), dialog_scaled(8));
+    left_v->setContentsMargins(dialog_scaled(4), 0, dialog_scaled(4), dialog_scaled(8));
     left_v->setSpacing(dialog_scaled(6));
-
-    auto *logo_area = new QWidget;
-    logo_area->setFixedHeight(dialog_scaled(48));
-    auto *logo_layout = new QHBoxLayout(logo_area);
-    logo_layout->setContentsMargins(dialog_scaled(10), 0, dialog_scaled(10), dialog_scaled(4));
-    logo_layout->setSpacing(dialog_scaled(9));
-    logo_layout->setAlignment(Qt::AlignVCenter);
-    auto *logo_icon_lbl = new QLabel;
-    logo_icon_lbl->setFixedSize(dialog_scaled(26), dialog_scaled(26));
-    logo_icon_lbl->setAlignment(Qt::AlignCenter);
-    const QString icon_path = ResourceManager::get_resource_path(QString::fromUtf8("svg/托盘.svg"));
-    if (QFileInfo::exists(icon_path)) logo_icon_lbl->setPixmap(QIcon(icon_path).pixmap(dialog_scaled(26), dialog_scaled(26)));
-    logo_layout->addWidget(logo_icon_lbl, 0, Qt::AlignVCenter);
-    auto *app_name_lbl = new BodyLabel(tr_text("jietuba"));
-    apply_theme_text_style(app_name_lbl, 14, true);
-    logo_layout->addWidget(app_name_lbl, 1, Qt::AlignVCenter);
-    left_v->addWidget(logo_area);
-    // The logo's context menu opens developer options.
-    logo_area->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(logo_area, &QWidget::customContextMenuRequested, this, [this, logo_area](const QPoint &pos) { show_logo_context_menu(logo_area->mapTo(this, pos)); });
 
     search_box_ = new SettingsSearchBox(left_panel);
     search_box_->entries = [this] { return search_entries(); };
@@ -325,16 +319,30 @@ void SettingsDialog::setup_ui() {
 
     nav_list_ = create_navigation(left_panel);
     left_v->addWidget(nav_list_, 1);
+    outline_ = new PageOutline(nav_list_, this);
+    outline_->page_of = [this](const QString &route) -> QScrollArea * {
+        for (const auto &item : nav_items()) {
+            if (item.route_key != route) continue;
+            ensure_page(item.stack_index);
+            return qobject_cast<QScrollArea *>(content_stack->widget(item.stack_index));
+        }
+        return nullptr;
+    };
+    outline_->open_page = [this](const QString &route) {
+        for (const auto &item : nav_items())
+            if (item.route_key == route) on_nav_changed(item.stack_index, route);
+    };
     main_layout->addWidget(left_panel);
 
     // 2. Right content area.
     right_area_ = new QWidget;
     right_area_->setObjectName("SettingsRightArea");
     auto *right_layout = new QVBoxLayout(right_area_);
-    right_layout->setContentsMargins(dialog_scaled(12), dialog_scaled(2), dialog_scaled(4), dialog_scaled(2));
-    right_layout->setSpacing(dialog_scaled(10));
-    content_title_ = new QLabel(tr_text("Shortcut Settings"));
-    apply_theme_text_style(content_title_, 21, true, QString("padding: 0 %1px %2px %1px;").arg(dialog_scaled(6)).arg(dialog_scaled(2)));
+    right_layout->setContentsMargins(dialog_scaled(24), dialog_scaled(14), dialog_scaled(4), 0);
+    right_layout->setSpacing(dialog_scaled(2));
+    content_title_ = new QLabel(tr_text("Shortcuts"));
+    content_title_->setObjectName("SettingsPageTitle");
+    apply_theme_text_style(content_title_, 28, true, QString("font-family: %1; padding: 0 0 %2px 0;").arg(FONT_FAMILY).arg(dialog_scaled(2)));
 
     // Pages are built on first visit (ensure_page): building all takes over a second and
     // would stall opening the window. Placeholders keep the indices.
@@ -349,6 +357,7 @@ void SettingsDialog::setup_ui() {
 
     apply_dialog_stylesheet();
     set_current_nav("shortcuts");
+    outline_->set_page(qobject_cast<QScrollArea *>(content_stack->currentWidget()), "shortcuts");
     // Saves write what differs from the snapshot; later pages join it in ensure_page.
     settings_snapshot_ = snapshot_settings();
 }
@@ -368,8 +377,9 @@ NavigationInterface *SettingsDialog::create_navigation(QWidget *parent) {
         if (group_starts.contains(item.route_key)) nav->addSeparator();
         const int stack_index = item.stack_index;
         const QString route_key = item.route_key;
-        nav->addItem(route_key, item.icon, tr_text(item.text), [this, stack_index, route_key] { on_nav_changed(stack_index, route_key); }, item.position, {},
-                     item.tone);
+        nav->addItem(route_key, item.icon, tr_text(item.text), [this, stack_index, route_key] { on_nav_changed(stack_index, route_key); }, item.position);
+        // Pages are built on first visit, so whether one has groups to list is learnt then.
+        nav->setExpandable(route_key, item.position == NavigationItemPosition::TOP);
     }
     return nav;
 }
@@ -407,21 +417,21 @@ void SettingsDialog::build_all_pages() {
 // ── Navigation and developer entry ──
 
 void SettingsDialog::on_nav_changed(int stack_index, const QString &route_key) {
-    static const QMap<int, const char *> title_map{
-        {0, "Shortcut Settings"}, {1, "Capture Settings"}, {2, "Clipboard Settings"}, {3, "Appearance Settings"},
-        {4, "Translation Settings"}, {5, "Log Settings"}, {6, "Other Settings"}, {8, "Software Information"},
-        {10, "Mouse Shortcuts"}, {11, "Pin Settings"}, {12, "Screen Annotation Settings"},
-    };
-    if (!title_map.contains(stack_index)) return;
+    const auto items = nav_items();
+    const auto item = std::find_if(items.begin(), items.end(), [stack_index](const NavItem &entry) { return entry.stack_index == stack_index; });
+    if (item == items.end()) return;
     ensure_page(stack_index);
     // The hotkey may have been edited on the shortcut page since.
     if (stack_index == 12) refresh_screen_annotation_hotkey();
-    content_title_->setText(tr_text(title_map.value(stack_index)));
+    // Titled like its navigation item, so the name reads the same in both places.
+    content_title_->setText(tr_text(item->text));
     content_stack->setCurrentIndex(stack_index);
     if (!route_key.isEmpty()) {
         set_current_nav(route_key);
         current_route_ = route_key;
     }
+    // Without a route the navigation keeps its item, which does not own this page.
+    outline_->set_page(route_key.isEmpty() ? nullptr : qobject_cast<QScrollArea *>(content_stack->currentWidget()), route_key);
     refresh_after_page_change();
 }
 
@@ -446,12 +456,14 @@ void SettingsDialog::open_developer_page() {
     content_stack->setCurrentIndex(7);
     content_title_->setText(tr_text("Developer Options"));
     nav_list_->clearCurrentItem();
+    outline_->set_page(nullptr, {});
     refresh_after_page_change();
 }
 
 void SettingsDialog::refresh_after_page_change() {
-    // The information page has nothing to reset.
+    // The information page has nothing to reset, and it shows the application's name in place of a title.
     if (page_reset_btn_) page_reset_btn_->setVisible(content_stack->currentIndex() != 8);
+    content_title_->setVisible(content_stack->currentIndex() != 8);
     update();
     right_area_->update();
     content_stack->update();
@@ -587,18 +599,12 @@ void SettingsDialog::reset_pin_page() {
 
 void SettingsDialog::show_pin_shortcuts(bool mouse) {
     on_nav_changed(mouse ? 10 : 0, mouse ? "mouse" : "shortcuts");
-    SegmentedWidget *tabs = mouse ? mouse_inapp_tabs.data() : inapp_shortcut_tabs.data();
-    if (!tabs) return;
-    tabs->setCurrentItem("pin");
-    if (auto *scroll = qobject_cast<QScrollArea *>(content_stack->currentWidget())) {
-        // The page may be new; scroll after layout so the tab row and its section title reach the top.
-        QPointer<QScrollArea> guarded_scroll(scroll);
-        QPointer<SegmentedWidget> guarded_tabs(tabs);
-        QTimer::singleShot(0, this, [guarded_scroll, guarded_tabs] {
-            if (guarded_scroll && guarded_tabs)
-                guarded_scroll->verticalScrollBar()->setValue(guarded_tabs->mapTo(guarded_scroll->widget(), QPoint(0, 0)).y() - dialog_scaled(60));
-        });
-    }
+    const QPointer<QWidget> group(attr_widget(mouse ? "mouse_pin_group" : "inapp_pin_group"));
+    if (!group) return;
+    // The page may be new; scroll after layout.
+    QTimer::singleShot(0, this, [this, group] {
+        if (group) outline_->scroll_to_group_of(group);
+    });
 }
 
 void SettingsDialog::reset_screen_annotation_page() { refresh_behavior_controls(true, {}, SCREEN_ANNOTATION_BEHAVIOR_KEYS); }
@@ -623,7 +629,6 @@ std::vector<SettingsSearchEntry> SettingsDialog::search_entries() const {
         page.stack_index = item.stack_index;
         page.route_key = item.route_key;
         page.title = tr_text(item.text);
-        page.tone = item.tone;
         entries.push_back(page);
         if (built_pages_.count(item.stack_index)) collect_settings_entries(content_stack->widget(item.stack_index), page, entries);
     }
@@ -658,6 +663,7 @@ void SettingsDialog::show_search_result(const SettingsSearchEntry &entry) {
             if (top < bar->value() + margin || top + target->height() > bar->value() + view_height - margin)
                 bar->setValue(target->height() > view_height ? top - margin : top - (view_height - target->height()) / 2);
         }
+        outline_->select_group_of(target);
         delete search_flash_.data();
         search_flash_ = flash_settings_row(target);
     });
@@ -736,7 +742,9 @@ void SettingsDialog::reset_appearance_page() {
 }
 
 void SettingsDialog::reset_quick_actions_page() {
-    refresh_behavior_controls(true, {}, std::set<QString>{"capture_fullscreen_crosshair", "capture_include_cursor"});
+    std::set<QString> keys{"capture_fullscreen_crosshair", "capture_include_cursor"};
+    for (const auto &tool : AUTO_SELECT_TOOLS) keys.insert(auto_select_setting(tool.tool_id));
+    refresh_behavior_controls(true, {}, keys);
     const auto &defaults = config_manager->app_defaults();
     for (const auto &[attr_name, key] : {std::make_pair("ocr_copy_directly_toggle", "ocr_copy_directly"), std::make_pair("barcode_copy_single_toggle", "barcode_copy_single"),
                                          std::make_pair("cross_tool_selection_toggle", "cross_tool_selection"), std::make_pair("text_always_on_top_toggle", "text_always_on_top")})
@@ -746,7 +754,8 @@ void SettingsDialog::reset_quick_actions_page() {
 
 void SettingsDialog::reset_screenshot_settings_page() {
     const auto &defaults = config_manager->app_defaults();
-    refresh_behavior_controls(true, {}, std::set<QString>{"recording_hide_toolbar_in_captures"});
+    // Targets and the default are not reset: they hold keys that would be lost.
+    refresh_behavior_controls(true, {}, std::set<QString>{"recording_hide_toolbar_in_captures", "upload_link_format"});
     if (auto *combo = attr<QComboBox>("capture_engine_combo")) combo->setCurrentIndex(CAPTURE_ENGINE_CHOICES.indexOf(defaults.value("capture_engine").toString()));
     if (auto *combo = attr<QComboBox>("smart_mode_combo"))
         combo->setCurrentIndex(SMART_SELECTION_MODES.indexOf(defaults.value("smart_selection").toBool() ? defaults.value("smart_selection_mode").toString() : QString("off")));
@@ -762,6 +771,9 @@ void SettingsDialog::reset_screenshot_settings_page() {
     if (auto *combo = attr<QComboBox>("screenshot_format_combo"))
         combo->setCurrentIndex(std::max<int>(0, QStringList{"PNG", "JPG", "BMP", "WEBP", "PDF"}.indexOf(defaults.value("screenshot_format").toString().toUpper())));
     select_data(attr<QComboBox>("save_dialog_style_combo"), defaults.value("save_dialog_style"));
+    if (auto *slider = attr<ValueSlider>("screenshot_quality_slider")) slider->setValue(defaults.value("screenshot_quality").toInt());
+    select_data(attr<QComboBox>("png_compression_combo"), defaults.value("png_compression"));
+    select_data(attr<QComboBox>("pdf_page_size_combo"), defaults.value("pdf_page_size"));
     if (save_filename_patterns) save_filename_patterns = file_names::defaults();
     if (magnifier_color_formats) magnifier_color_formats = color_formats::default_formats();
     fill_ocr_engines(this, defaults.value("ocr_engine").toString(), defaults.value("ppocr_model").toString());
@@ -785,6 +797,7 @@ void SettingsDialog::reset_misc_page() {
     if (auto *toggle = attr_widget("autostart_toggle")) set_checked(toggle, defaults.value("autostart_enabled").toBool());
     if (auto *toggle = attr_widget("run_as_admin_toggle")) set_checked(toggle, defaults.value("run_as_admin").toBool());
     if (auto *toggle = attr_widget("show_main_window_toggle")) set_checked(toggle, defaults.value("show_main_window").toBool());
+    if (auto *toggle = attr_widget("auto_update_toggle")) set_checked(toggle, defaults.value("auto_update").toBool());
 }
 
 void SettingsDialog::reset_translation_page() {
@@ -793,6 +806,7 @@ void SettingsDialog::reset_translation_page() {
     // Every provider's credentials and switches reset from the registry's declarations.
     if (provider_field_widgets) provider_fields::reset_to_defaults(defaults, provider_fields::all_fields(*translation_registry), *provider_field_widgets);
     select_data(attr<QComboBox>("translation_target_combo"), defaults.value("translation_target_lang"));
+    select_data(attr<QComboBox>("screenshot_translate_mode_combo"), defaults.value("screenshot_translate_mode"));
     if (auto *toggle = attr_widget("split_sentences_toggle")) set_checked(toggle, defaults.value("translation_split_sentences").toBool());
     if (auto *toggle = attr_widget("preserve_formatting_toggle")) set_checked(toggle, defaults.value("translation_preserve_formatting").toBool());
     if (auto *toggle = attr_widget("translation_auto_close_toggle")) set_checked(toggle, defaults.value("translation_popup_auto_close").toBool());
@@ -926,6 +940,9 @@ void SettingsDialog::save_changes(QSet<QString> changed) {
     if (auto *label = attr_widget("save_path_lbl"); label && has("save_path_lbl")) config_manager->set_screenshot_save_path(text_of(label));
     if (auto *combo = attr<QComboBox>("screenshot_format_combo"); combo && has("screenshot_format_combo")) config_manager->set_screenshot_format(combo->currentData().toString());
     if (auto *combo = attr<QComboBox>("save_dialog_style_combo"); combo && has("save_dialog_style_combo")) config_manager->set_save_dialog_style(combo->currentData().toString());
+    if (auto *slider = attr<ValueSlider>("screenshot_quality_slider"); slider && has("screenshot_quality_slider")) config_manager->set_screenshot_quality(slider->value());
+    if (auto *combo = attr<QComboBox>("png_compression_combo"); combo && has("png_compression_combo")) config_manager->set_png_compression(combo->currentData().toString());
+    if (auto *combo = attr<QComboBox>("pdf_page_size_combo"); combo && has("pdf_page_size_combo")) config_manager->set_pdf_page_size(combo->currentData().toString());
 
     // 3.5 Magnifier.
     for (const auto &[attr_name, key] : {std::make_pair("magnifier_enabled_toggle", "magnifier_enabled"), std::make_pair("magnifier_grid_toggle", "magnifier_grid"),
@@ -962,6 +979,8 @@ void SettingsDialog::save_changes(QSet<QString> changed) {
     }
     if (auto *combo = attr<QComboBox>("translation_target_combo"); combo && has("translation_target_combo"))
         config_manager->set_translation_target_lang(combo->currentData().toString());
+    if (auto *combo = attr<QComboBox>("screenshot_translate_mode_combo"); combo && has("screenshot_translate_mode_combo"))
+        config_manager->set_screenshot_translate_mode(combo->currentData().toString());
     if (auto *toggle = attr_widget("split_sentences_toggle"); toggle && has("split_sentences_toggle")) config_manager->set_translation_split_sentences(checked_of(toggle));
     if (auto *toggle = attr_widget("preserve_formatting_toggle"); toggle && has("preserve_formatting_toggle"))
         config_manager->set_translation_preserve_formatting(checked_of(toggle));
@@ -973,6 +992,10 @@ void SettingsDialog::save_changes(QSet<QString> changed) {
     // that prompt is the confirmation.
     if (attr_widget("autostart_toggle") && has_any({"autostart_toggle", "run_as_admin_toggle"})) apply_startup();
     if (auto *toggle = attr_widget("show_main_window_toggle"); toggle && has("show_main_window_toggle")) config_manager->set_show_main_window(checked_of(toggle));
+    if (auto *toggle = attr_widget("auto_update_toggle"); toggle && has("auto_update_toggle")) {
+        config_manager->set_auto_update(checked_of(toggle));
+        if (auto *updater = qobject_cast<AutoUpdater *>(qApp->property("_auto_updater").value<QObject *>())) updater->set_enabled(checked_of(toggle));
+    }
     if (auto *toggle = attr_widget("pin_auto_toolbar_toggle"); toggle && has("pin_auto_toolbar_toggle")) config_manager->set_pin_auto_toolbar(checked_of(toggle));
 
     // Interface language.
@@ -1141,7 +1164,7 @@ void SettingsDialog::apply_dialog_stylesheet() {
                 background: transparent;
             }
         )")
-                              .arg(tokens.text) +
+                              .arg(tokens.fg) +
                           scrollbar_qss(this) + R"(
             QScrollBar::handle:vertical:disabled { background: transparent; }
         )";
@@ -1150,9 +1173,10 @@ void SettingsDialog::apply_dialog_stylesheet() {
 }
 
 void SettingsDialog::on_ui_theme_changed() {
+    apply_titlebar_layout();
     apply_dialog_stylesheet();
     refresh_theme_widget_styles(this);
-    content_title_->setStyleSheet(theme_text_style(21, true, "padding: 0 6px 2px 6px;"));
+    content_title_->setStyleSheet(theme_text_style(28, true, QString("font-family: %1; padding: 0 0 %2px 0;").arg(FONT_FAMILY).arg(dialog_scaled(2))));
     update();
 }
 
@@ -1161,7 +1185,16 @@ void SettingsDialog::resizeEvent(QResizeEvent *event) {
     if (titleBar()) titleBar()->resize(width(), titleBar()->height());
 }
 
+void SettingsDialog::paintEvent(QPaintEvent *) {
+    paint_layered_background(this, frosted_corner_radius_, right_area_ ? right_area_->geometry() : QRect(), dialog_scaled(8));
+}
+
 void SettingsDialog::showEvent(QShowEvent *event) {
+    // Restored from minimized: the page is shown as it was left; reloading it would relayout every row.
+    if (event->spontaneous()) {
+        FrostedFramelessDialog::showEvent(event);
+        return;
+    }
     apply_dialog_stylesheet();
     refresh_external_state();
     refresh_settings();
@@ -1241,12 +1274,12 @@ QVariantMap SettingsDialog::snapshot_settings() const {
                              "save_toggle", "screenshot_pin_save_toggle", "clipboard_file_reference_toggle", "screenshot_save_original_toggle", "watermark_auto_toggle",
                              "magnifier_enabled_toggle", "magnifier_grid_toggle", "magnifier_selection_toggle", "magnifier_hint_toggle", "ocr_enable_toggle", "ocr_grayscale_toggle",
                              "ocr_upscale_toggle", "split_sentences_toggle", "preserve_formatting_toggle", "translation_auto_close_toggle", "log_toggle", "clipboard_enabled_toggle",
-                             "autostart_toggle", "run_as_admin_toggle", "show_main_window_toggle", "pin_auto_toolbar_toggle", "info_hide_on_drag_toggle",
+                             "autostart_toggle", "run_as_admin_toggle", "show_main_window_toggle", "auto_update_toggle", "pin_auto_toolbar_toggle", "info_hide_on_drag_toggle",
                              "preload_screenshot_toggle", "preload_toolbar_toggle", "preload_ocr_toggle", "preload_settings_toggle", "preload_clipboard_toggle"})
         if (auto *widget = attr_widget(name)) snap[name] = checked_of(widget);
     // Combos.
-    for (const char *name : {"screenshot_format_combo", "save_dialog_style_combo", "shift_line_angle_combo", "ocr_result_position_combo", "translation_provider_combo", "translation_target_combo",
-                             "log_level_combo", "language_combo", "engine_combo", "cursor_move_combo", "clipboard_pick_combo", "log_retention_combo", "_ui_theme_combo",
+    for (const char *name : {"screenshot_format_combo", "png_compression_combo", "pdf_page_size_combo", "save_dialog_style_combo", "shift_line_angle_combo", "ocr_result_position_combo", "translation_provider_combo", "translation_target_combo",
+                             "screenshot_translate_mode_combo", "log_level_combo", "language_combo", "engine_combo", "cursor_move_combo", "clipboard_pick_combo", "log_retention_combo", "_ui_theme_combo",
                              "_ui_scale_combo", "_dialog_scale_combo", "_selection_border_combo", "_selection_handle_combo", "_selection_handle_size_combo",
                              "_color_picker_style_combo", "smart_mode_combo", "capture_engine_combo"})
         if (auto *combo = attr<QComboBox>(name)) snap[name] = combo->currentIndex();
@@ -1257,6 +1290,7 @@ QVariantMap SettingsDialog::snapshot_settings() const {
         if (auto *spin = attr<QSpinBox>(name)) snap[name] = spin->value();
         else if (auto *double_spin = attr<QDoubleSpinBox>(name)) snap[name] = double_spin->value();
     }
+    if (auto *slider = attr<ValueSlider>("screenshot_quality_slider")) snap["screenshot_quality_slider"] = slider->value();
     // In-app shortcuts.
     for (const auto &[cfg_key, edit] : inapp_edits) snap["inapp_" + cfg_key] = edit->text();
     // Colours.
@@ -1400,6 +1434,10 @@ void SettingsDialog::refresh_settings() {
     if (auto *combo = attr<QComboBox>("screenshot_format_combo"))
         combo->setCurrentIndex(std::max<int>(0, QStringList{"PNG", "JPG", "BMP", "WEBP", "PDF"}.indexOf(config_manager->get_screenshot_format().toUpper())));
     select_data(attr<QComboBox>("save_dialog_style_combo"), config_manager->get_save_dialog_style());
+    if (auto *slider = attr<ValueSlider>("screenshot_quality_slider")) slider->setValue(std::clamp(config_manager->get_screenshot_quality(), 1, 100));
+    select_data(attr<QComboBox>("png_compression_combo"), config_manager->get_png_compression());
+    select_data(attr<QComboBox>("pdf_page_size_combo"), config_manager->get_pdf_page_size());
+    if (has_attr("upload_group")) refresh_upload_group(this);
     for (const auto &[attr_name, key] : {std::make_pair("magnifier_enabled_toggle", "magnifier_enabled"), std::make_pair("magnifier_grid_toggle", "magnifier_grid"),
                                          std::make_pair("magnifier_selection_toggle", "magnifier_selection"), std::make_pair("magnifier_hint_toggle", "magnifier_hint")})
         if (auto *toggle = attr_widget(attr_name)) set_checked(toggle, config_manager->get_app_setting(key).toBool());
@@ -1413,6 +1451,7 @@ void SettingsDialog::refresh_settings() {
     // Every provider's credentials and switches reload from the declarations.
     if (provider_field_widgets) provider_fields::load_into(config_manager, provider_fields::all_fields(*translation_registry), *provider_field_widgets);
     select_data(attr<QComboBox>("translation_target_combo"), config_manager->get_saved_translation_target_lang());
+    select_data(attr<QComboBox>("screenshot_translate_mode_combo"), config_manager->get_screenshot_translate_mode());
     if (auto *toggle = attr_widget("split_sentences_toggle")) set_checked(toggle, config_manager->get_translation_split_sentences());
     if (auto *toggle = attr_widget("preserve_formatting_toggle")) set_checked(toggle, config_manager->get_translation_preserve_formatting());
     if (auto *toggle = attr_widget("translation_auto_close_toggle")) set_checked(toggle, config_manager->get_translation_popup_auto_close());
@@ -1435,6 +1474,7 @@ void SettingsDialog::refresh_settings() {
     if (auto *toggle = attr_widget("autostart_toggle")) set_checked(toggle, config_manager->get_autostart_enabled());
     if (auto *toggle = attr_widget("run_as_admin_toggle")) set_checked(toggle, config_manager->get_run_as_admin());
     if (auto *toggle = attr_widget("show_main_window_toggle")) set_checked(toggle, config_manager->get_show_main_window());
+    if (auto *toggle = attr_widget("auto_update_toggle")) set_checked(toggle, config_manager->get_auto_update());
     if (auto *toggle = attr_widget("pin_auto_toolbar_toggle")) set_checked(toggle, config_manager->get_pin_auto_toolbar());
     select_data(attr<QComboBox>("language_combo"), config_manager->get_language("ja"));
 
@@ -1543,6 +1583,12 @@ void SettingsDialog::load_imported_settings(const QVariantMap &values) {
         }
         config_manager = config;
     }
+    // The upload targets have no control of their own to fill: the list is read again from what was just written.
+    for (const char *key : {"upload_targets", "upload_default_target"}) {
+        const QVariant value = values.value(ToolSettingsManager::app_setting_path(key));
+        if (value.typeId() == QMetaType::QString) config_manager->set_app_setting(key, value.toString());
+    }
+    if (has_attr("upload_group")) refresh_upload_group(this);
     // No control shows the toolbar layouts. Absent from the file, or not text (edited by hand):
     // the current layout stays.
     for (const auto &key : toolbar_layout::setting_keys()) {

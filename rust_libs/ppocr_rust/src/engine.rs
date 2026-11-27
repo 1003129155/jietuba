@@ -1,6 +1,8 @@
 //! PP-OCR 引擎：det(DBNet) + rec(CRNN/CTC)，纯 Rust + ort。
 
 
+use std::borrow::Cow;
+
 use ort::session::Session;
 use ort::value::Tensor;
 
@@ -48,30 +50,31 @@ pub fn runtime_loaded() -> bool {
 
 // ====================== 打包的 RGB 图像 ======================
 
-struct Img {
+/// RGB 像素，每行相隔 stride 字节。整图直接借用调用方的数据：长图拷一份紧密 RGB 要多占上百 MB。
+struct Img<'a> {
     w: usize,
     h: usize,
-    data: Vec<u8>, // 紧密排列的 RGB，长度 w*h*3
+    stride: usize,
+    data: Cow<'a, [u8]>,
 }
 
-impl Img {
-    /// 从带 stride 的 RGB 源构造紧密 RGB；源比给的尺寸短时报错。
-    fn from_raw_rgb(src: &[u8], w: usize, h: usize, stride: usize) -> Result<Img, String> {
+impl<'a> Img<'a> {
+    /// 借用带 stride 的 RGB 源；源比给的尺寸短时报错。
+    fn from_raw_rgb(src: &'a [u8], w: usize, h: usize, stride: usize) -> Result<Img<'a>, String> {
         if h > 0 && (stride < w * 3 || src.len() < (h - 1) * stride + w * 3) {
             return Err(format!("图像数据不足: {w}x{h}, stride {stride}, {} 字节", src.len()));
         }
-        let mut data = vec![0u8; w * h * 3];
-        for y in 0..h {
-            let srow = y * stride;
-            let drow = y * w * 3;
-            data[drow..drow + w * 3].copy_from_slice(&src[srow..srow + w * 3]);
-        }
-        Ok(Img { w, h, data })
+        Ok(Img { w, h, stride, data: Cow::Borrowed(src) })
+    }
+
+    /// 紧密排列的 RGB，长度 w*h*3。
+    fn packed(w: usize, h: usize, data: Vec<u8>) -> Img<'static> {
+        Img { w, h, stride: w * 3, data: Cow::Owned(data) }
     }
 
     #[inline]
     fn px(&self, x: usize, y: usize) -> [f32; 3] {
-        let i = (y * self.w + x) * 3;
+        let i = y * self.stride + x * 3;
         [self.data[i] as f32, self.data[i + 1] as f32, self.data[i + 2] as f32]
     }
 
@@ -248,7 +251,7 @@ fn clear_flat(prob: &mut [f32], img: &Img) {
     let (w, h) = (img.w, img.h);
     let (gw, gh) = (w.div_ceil(FLAT_CELL), h.div_ceil(FLAT_CELL));
     let luma = |x: usize, y: usize| {
-        let i = (y * w + x) * 3;
+        let i = y * img.stride + x * 3;
         (299 * img.data[i] as i32 + 587 * img.data[i + 1] as i32 + 114 * img.data[i + 2] as i32) / 1000
     };
     let mut changed = vec![false; gw * gh];
@@ -321,7 +324,7 @@ fn connected_components(bitmap: &[bool], w: usize, h: usize) -> Vec<Vec<(usize, 
 // ====================== 透视裁剪（四边形 → 矩形） ======================
 
 /// 用四边形双线性映射把文本框抠出来并校正为正立矩形；第二项为真表示竖排、已转成横向。
-fn crop_quad(img: &Img, quad: &[Pt]) -> (Img, bool) {
+fn crop_quad(img: &Img, quad: &[Pt]) -> (Img<'static>, bool) {
     let tl = quad[0];
     let tr = quad[1];
     let br = quad[2];
@@ -349,7 +352,7 @@ fn crop_quad(img: &Img, quad: &[Pt]) -> (Img, bool) {
             data[i + 2] = rgb[2] as u8;
         }
     }
-    let out = Img { w: crop_w, h: crop_h, data };
+    let out = Img::packed(crop_w, crop_h, data);
     // 竖排文本（高远大于宽）：顺时针转 90°，让文字变横向
     if out.h as f32 >= out.w as f32 * 1.5 {
         return (rotate90(&out), true);
@@ -357,7 +360,7 @@ fn crop_quad(img: &Img, quad: &[Pt]) -> (Img, bool) {
     (out, false)
 }
 
-fn rotate90(img: &Img) -> Img {
+fn rotate90(img: &Img) -> Img<'static> {
     // 顺时针 90°：new(w,h) = (img.h, img.w); new[x,y] = old[y, h-1-x]
     let nw = img.h;
     let nh = img.w;
@@ -366,12 +369,12 @@ fn rotate90(img: &Img) -> Img {
         for x in 0..nw {
             let oy = x;
             let ox = img.w - 1 - y;
-            let src = (oy * img.w + ox) * 3;
+            let src = oy * img.stride + ox * 3;
             let dst = (y * nw + x) * 3;
             data[dst..dst + 3].copy_from_slice(&img.data[src..src + 3]);
         }
     }
-    Img { w: nw, h: nh, data }
+    Img::packed(nw, nh, data)
 }
 
 // ====================== rec 预处理 ======================
@@ -876,8 +879,8 @@ mod tests {
         // 3×2：四角是黑、红、绿、蓝，中间两个白像素不参与。
         let data = [[0, 0, 0], [255, 255, 255], [255, 0, 0], [0, 255, 0], [255, 255, 255], [0, 0, 255]].concat();
         // 每个通道 255/4 = 63.75，取 64。
-        assert_eq!(border_color(&Img { w: 3, h: 2, data }), [64, 64, 64]);
-        assert_eq!(border_color(&Img { w: 1, h: 1, data: vec![10, 20, 30] }), [10, 20, 30]);
+        assert_eq!(border_color(&Img::packed(3, 2, data)), [64, 64, 64]);
+        assert_eq!(border_color(&Img::packed(1, 1, vec![10, 20, 30])), [10, 20, 30]);
     }
 
     #[test]
@@ -939,7 +942,7 @@ mod tests {
     #[test]
     fn the_input_places_the_image_inside_the_border() {
         // 2×1 的图补成 128×128，原图左上角在 (63, 63)。
-        let img = Img { w: 2, h: 1, data: vec![255, 0, 0, 0, 0, 255] };
+        let img = Img::packed(2, 1, vec![255, 0, 0, 0, 0, 255]);
         let padded = det_canvas(2, 1);
         assert_eq!(padded, Canvas { w: 128, h: 128, left: 63, top: 63 });
         let input = det_input(&img, [255, 255, 255], padded, Tile { x: 0, y: 0, w: 128, h: 128 });
@@ -996,7 +999,7 @@ mod tests {
         let dotted = |x: usize, y: usize| {
             let mut data = vec![255u8; w * h * 3];
             data[(y * w + x) * 3..(y * w + x) * 3 + 3].fill(0);
-            Img { w, h, data }
+            Img::packed(w, h, data)
         };
         let cleared = |img: &Img| {
             let mut prob = vec![1.0f32; w * h];
@@ -1018,15 +1021,15 @@ mod tests {
         let mut halves = vec![255u8; w2 * h2 * 3];
         halves[w2 * 100 * 3..].fill(0);
         let mut prob = vec![1.0f32; w2 * h2];
-        clear_flat(&mut prob, &Img { w: w2, h: h2, data: halves });
+        clear_flat(&mut prob, &Img::packed(w2, h2, halves));
         for (y, kept) in [(47, false), (48, true), (159, true), (160, false)] {
             assert_eq!(prob[y * w2 + 10] == 1.0, kept, "y {y}");
         }
         // 一点变化都没有就全清掉；亮度差不到 8 的不算变化。
-        assert!(cleared(&Img { w, h, data: vec![200; w * h * 3] }).iter().all(|&v| v == 0.0));
+        assert!(cleared(&Img::packed(w, h, vec![200; w * h * 3])).iter().all(|&v| v == 0.0));
         let mut faint = vec![200u8; w * h * 3];
         faint[(10 * w + 10) * 3..(10 * w + 10) * 3 + 3].fill(193);
-        assert!(cleared(&Img { w, h, data: faint }).iter().all(|&v| v == 0.0));
+        assert!(cleared(&Img::packed(w, h, faint)).iter().all(|&v| v == 0.0));
     }
 
     #[test]
@@ -1038,8 +1041,27 @@ mod tests {
     }
 
     #[test]
+    fn rows_are_read_stride_apart() {
+        // 2×2，每行 8 字节，行尾两字节是填充，不该被读到。
+        let src = [1, 2, 3, 4, 5, 6, 99, 99, 7, 8, 9, 10, 11, 12];
+        let img = Img::from_raw_rgb(&src, 2, 2, 8).unwrap();
+        assert_eq!(img.px(1, 0), [4.0, 5.0, 6.0]);
+        assert_eq!(img.px(0, 1), [7.0, 8.0, 9.0]);
+        let packed = Img::packed(2, 2, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+        assert_eq!(rotate90(&img).data, rotate90(&packed).data);
+        let quad = [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]];
+        assert_eq!(crop_quad(&img, &quad).0.data, crop_quad(&packed, &quad).0.data);
+        let cleared = |img: &Img| {
+            let mut prob = vec![1.0f32; 4];
+            clear_flat(&mut prob, img);
+            prob
+        };
+        assert_eq!(cleared(&img), cleared(&packed));
+    }
+
+    #[test]
     fn vertical_crops_are_turned() {
-        let img = Img { w: 20, h: 100, data: vec![255; 20 * 100 * 3] };
+        let img = Img::packed(20, 100, vec![255; 20 * 100 * 3]);
         let (tall, vertical) = crop_quad(&img, &[[0.0, 0.0], [10.0, 0.0], [10.0, 60.0], [0.0, 60.0]]);
         assert!(vertical);
         assert!(tall.w > tall.h);

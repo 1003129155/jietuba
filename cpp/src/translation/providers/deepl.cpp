@@ -3,7 +3,9 @@
 #include <QHash>
 
 namespace jietuba {
-DeepLProvider::DeepLProvider(const ProviderConfig &config) : api_key_(config.value("api_key").toString()), use_pro_(config.value("use_pro", false).toBool()) {}
+DeepLProvider::DeepLProvider(const ProviderConfig &config) : api_key_(config.value("api_key").toString()), use_pro_(config.value("use_pro", false).toBool()) {
+    apply_pacing(RequestPacing{}, config);
+}
 
 ProviderMetadata DeepLProvider::class_metadata() {
     ProviderMetadata metadata;
@@ -14,6 +16,7 @@ ProviderMetadata DeepLProvider::class_metadata() {
     // Only DeepL's API takes these two; this only drives the UI, requests always carry them.
     metadata.supported_request_options = {"split_sentences", "preserve_formatting"};
     metadata.notice = "DeepL free tier: 500,000 chars/month. Get API key at";
+    metadata.pacing = pacing_fields("deepl", RequestPacing{});
     metadata.help_label = "deepl.com/pro-api";
     metadata.help_url = "https://www.deepl.com/pro-api";
     return metadata;
@@ -30,6 +33,17 @@ TranslationResult DeepLProvider::translate(const TranslationRequest &request) {
     }
     const auto message = raw.error.isEmpty() ? QString("Translation failed") : raw.error;
     return TranslationResult::failure(error_code(message), message);
+}
+
+BatchTranslationResult DeepLProvider::translate_batch(const QStringList &texts, const TranslationRequest &request) {
+    const auto split_sentences = request.options.value("split_sentences", "nonewlines").toString();
+    DeepLService service(api_key_, use_pro_);
+    const auto raw = service.translate_batch(texts, to_deepl_code(request.target_lang),
+                                             request.source_lang ? std::optional<QString>(to_deepl_code(*request.source_lang)) : std::nullopt, split_sentences,
+                                             request.preserve_formatting, request.timeout);
+    if (raw.success) return BatchTranslationResult{true, raw.translated_texts, normalize_language_code(raw.detected_source_lang).value_or(QString()), std::nullopt, {}};
+    const auto message = raw.error.isEmpty() ? QString("Translation failed") : raw.error;
+    return BatchTranslationResult::failure(error_code(message), message);
 }
 
 QString DeepLProvider::to_deepl_code(const QString &language_code) {

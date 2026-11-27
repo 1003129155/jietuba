@@ -74,7 +74,6 @@ public:
     QWidget *list_column = nullptr;
     QFrame *column_separator = nullptr;
     QWidget *detail_column = nullptr;
-    QLabel *groups_caption = nullptr;
     QPushButton *new_group_btn = nullptr;
     ReorderListWidget *group_list = nullptr;
     QPushButton *import_export_btn = nullptr;
@@ -159,6 +158,7 @@ protected:
     void closeEvent(QCloseEvent *event) override;
     void hideEvent(QHideEvent *event) override;
     void showEvent(QShowEvent *event) override;
+    void paintEvent(QPaintEvent *event) override;
 
 private:
     struct ImageRequest {

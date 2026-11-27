@@ -1,5 +1,6 @@
 #include "tools/action.h"
 #include "barcode/barcode.h"
+#include "canvas/items/background_item.h"
 #include "canvas/scene.h"
 #include "canvas/selection_model.h"
 #include "canvas/smart_erase_wait.h"
@@ -17,10 +18,15 @@
 #include "text_recognition/text_recognition.h"
 #include "tools/controller.h"
 #include "tools/number.h"
+#include "translation/overlay_translation.h"
+#include "translation/overlay_translation_session.h"
+#include "translation/service.h"
 #include "translation/translation_manager.h"
+#include "upload/upload_service.h"
 #include "ui/dialogs.h"
 #include "ui/save_image_dialog.h"
 #include "ui/toast.h"
+#include "ui/overlay_translation_indicator.h"
 #include "ui/wait_bar.h"
 #include <QApplication>
 #include <QDateTime>
@@ -28,6 +34,7 @@
 #include <QGraphicsItem>
 #include <QPixmap>
 #include <QRegularExpression>
+#include <QThread>
 #include <QTimer>
 
 namespace jietuba {
@@ -35,6 +42,8 @@ namespace {
 QString action_tr(const char *text) { return i18n_tr(text, "ActionTools"); }
 // A capture handed over shows that it is still at work only when that takes a while.
 constexpr int WAIT_BAR_DELAY_MS = 200;
+// A selection changed without a drag is taken as resting after this long.
+constexpr int SELECTION_REST_MS = 300;
 }
 
 ActionTools::ActionTools(CanvasScene *scene, ToolSettingsManager *config_manager, QWidget *parent_window)
@@ -61,18 +70,20 @@ void ActionTools::finish_when_ready(const QRectF &selection_rect, std::function<
     });
 }
 
-void ActionTools::copy_save_and_close(bool close_after) {
+void ActionTools::copy_save_and_close(bool close_after, bool as_link) {
     temporarily_exit_editing();
     const auto selection_rect = scene->selection_model->rect();
     remember_last_region(selection_rect);
-    const auto finish = [this, selection_rect, close_after] {
+    const auto finish = [this, selection_rect, close_after, as_link] {
         const auto image = export_service.export_image(selection_rect);
         // The image is in hand, so the window can go before the rest.
         if (parent_window && close_after) parent_window->hide();
         QImage original;
         if (has_annotations(scene->get_drawing_items_in_rect(selection_rect))) original = export_service.export_base_image_only(selection_rect);
-        deliver_screenshot(image, config_manager, true, "capture", {}, original, save_service);
-        log_debug(T("已交给后台复制到剪贴板"), "Action");
+        // An upload leaves the clipboard to the link.
+        deliver_screenshot(image, config_manager, !as_link, "capture", {}, original, save_service);
+        if (as_link) upload::start_upload(image, save_service->config_manager, upload::Source::Screenshot);
+        else log_debug(T("已交给后台复制到剪贴板"), "Action");
         if (parent_window && close_after) cleanup_and_close();
     };
     if (close_after) finish_when_ready(selection_rect, finish);
@@ -111,20 +122,32 @@ void ActionTools::handle_quick_save() {
     remember_last_region(rect);
     finish_when_ready(rect, [this, rect] {
         const auto image = export_service.export_image(rect);
-        const auto [success, path] = save_service->save_qimage(image, config_manager->get_screenshot_save_path(), "", "", config_manager->get_screenshot_format());
+        const auto [success, path] = save_service->save_qimage(image, config_manager->get_screenshot_save_path(), "", "", config_manager->get_screenshot_format(),
+                                                               save_service->options());
+        // A path comes back even when the write failed, so it doubles as the detail line;
+        // no path at all means the folder or the file name was the problem.
+        const auto failure_detail = path ? *path : action_tr("Cannot create the save folder or reserve a file name.");
         if (success) {
             save_original_beside(rect, path.value_or(QString()));
             cleanup_and_close();
             // Nothing else shows that the file was written.
             show_toast(action_tr("Saved: %1").replace("%1", QFileInfo(path.value_or(QString())).fileName()));
         } else if (parent_window && parent_window->isVisible()) {
-            show_warning_dialog(parent_window, action_tr("Save Failed"), path.value_or(QString()));
+            show_warning_dialog(parent_window, action_tr("Save Failed"), failure_detail);
         } else {
             // Handed over: the capture cannot come back, so it ends before the warning.
             cleanup_and_close();
-            show_warning_dialog(nullptr, action_tr("Save Failed"), path.value_or(QString()));
+            show_warning_dialog(nullptr, action_tr("Save Failed"), failure_detail);
         }
     });
+}
+
+void ActionTools::handle_upload() {
+    if (!upload::default_target(save_service->config_manager)) {
+        upload::show_no_target_hint();
+        return;
+    }
+    copy_save_and_close(true, true);
 }
 
 void ActionTools::save_image_interactively(QWidget *parent, const QImage &image, const QString &base_name, ToolSettingsManager *config,
@@ -140,7 +163,7 @@ void ActionTools::save_image_interactively(QWidget *parent, const QImage &image,
     if (file_path.isEmpty()) return;
     const auto image_format = format_from_save_path(file_path, selected_filter);
     if (QFileInfo(file_path).suffix().isEmpty()) file_path = file_path + "." + image_format.toLower();
-    if (SaveService::save_qimage_to_path(image, file_path, image_format)) log_info(T("已保存到: {file_path}", {{"file_path", file_path}}), "Action");
+    if (SaveService::save_qimage_to_path(image, file_path, image_format, service->options())) log_info(T("已保存到: {file_path}", {{"file_path", file_path}}), "Action");
     else show_warning_dialog(parent, action_tr("Save Failed"), file_path);
 }
 
@@ -150,14 +173,23 @@ void ActionTools::handle_pin(bool close_after) {
     // Declined, the capture stays open as it was.
     if (!PinManager::confirm_small_pin(selection_rect.size().toSize(), parent_window)) return;
     remember_last_region(selection_rect);
+    // A translation laid over the selection goes on with the pin as a layer of its own, so the pin
+    // keeps the picture under it and can show either.
+    auto *translation = overlay_session_.data();
+    const bool carried = translation && translation->shown() && !translation->blocks().isEmpty() &&
+                         translation->region() == translation->region_of(selection_rect);
+    const bool layered = carried && scene->background->overlay_visible();
+    if (layered) scene->background->set_overlay_visible(false);
     // The base image only, without annotations.
     const auto base_image = export_service.export_base_image_only(selection_rect);
+    if (layered) scene->background->set_overlay_visible(true);
     const auto drawing_items = scene->get_drawing_items_in_rect(selection_rect);
     const QPoint position(static_cast<int>(python_round(selection_rect.x())), static_cast<int>(python_round(selection_rect.y())));
     auto *pin_window = PinManager::instance()->create_pin(base_image, position, config_manager, drawing_items,
                                                           QPoint(static_cast<int>(selection_rect.x()), static_cast<int>(selection_rect.y())),
                                                           NumberTool::get_next_number(scene));
     pin_window->show();
+    if (carried) pin_window->adopt_translation(translation->blocks(), translation->original_shown(), translation->busy());
     log_debug(T("已创建钉图窗口"), "PinAction");
     log_debug(T("位置: ({pos_x}, {pos_y})", {{"pos_x", position.x()}, {"pos_y", position.y()}}), "PinAction");
     log_debug(T("底图: {width}x{height}", {{"width", base_image.width()}, {"height", base_image.height()}}), "PinAction");
@@ -192,6 +224,8 @@ bool ActionTools::handle_capture_action(const QString &action) {
         handle_save();
     } else if (action == "quick_save") {
         handle_quick_save();
+    } else if (action == "upload") {
+        handle_upload();
     } else {
         return false;
     }
@@ -207,10 +241,16 @@ void ActionTools::save_original_beside(const QRectF &selection_rect, const QStri
     if (!has_annotations(scene->get_drawing_items_in_rect(selection_rect))) return;
     const auto original = export_service.export_base_image_only(selection_rect);
     const auto suffix = file_names::load(*config_manager).at(file_names::OriginalSuffix);
-    background_tasks::start_thread([original, saved_path, suffix] { SaveService::save_beside(original, saved_path, suffix); }, "SaveOriginal");
+    background_tasks::start_thread([original, saved_path, suffix, options = save_service->options()] { SaveService::save_beside(original, saved_path, suffix, options); },
+                                   "SaveOriginal");
 }
 
 void ActionTools::handle_screenshot_translate() {
+    if (!config_manager || config_manager->get_screenshot_translate_mode() == "compare") handle_screenshot_translate_compare();
+    else handle_screenshot_translate_overlay();
+}
+
+void ActionTools::handle_screenshot_translate_compare() {
     log_info(T("启动截图翻译模式"), "ScreenshotTranslate");
     const auto base_image = selection_base_image();
     if (base_image.isNull()) return;
@@ -222,6 +262,69 @@ void ActionTools::handle_screenshot_translate() {
     log_debug(T("关闭截图窗口，释放内存"), "ScreenshotTranslate");
     cleanup_and_close();
     TranslationManager::instance()->translate_from_image(pixmap_copy, params);
+}
+
+void ActionTools::handle_screenshot_translate_overlay() { show_overlay_translation(); }
+
+bool ActionTools::show_overlay_translation() {
+    if (!scene || !scene->selection_model->is_confirmed() || scene->selection_model->rect().isEmpty()) {
+        show_modeless_warning_dialog(parent_window, action_tr("Warning"), action_tr("Please select a valid capture area first."));
+        return false;
+    }
+    // Selection frames and handles must not end up in the recognized pixels.
+    temporarily_exit_editing();
+    const auto selection = scene->selection_model->rect();
+    remember_last_region(selection);
+    log_info(T("启动覆盖翻译: {width}x{height}", {{"width", static_cast<int>(selection.width())}, {"height", static_cast<int>(selection.height())}}),
+             "ScreenshotTranslate");
+    return overlay_translation()->show(selection);
+}
+
+OverlayTranslationSession *ActionTools::overlay_translation() {
+    if (overlay_session_) return overlay_session_;
+    // It goes with the scene, whichever way the capture ends: no more requests are sent for a
+    // capture that is gone.
+    auto *session = new OverlayTranslationSession(scene, config_manager, scene);
+    overlay_session_ = session;
+    const QPointer<QWidget> parent = parent_window;
+    // The wait is swept over the selection until the run ends.
+    if (auto *view = scene->views().value(0)) {
+        auto *indicator = new OverlayTranslationIndicator(view);
+        QObject::connect(session, &OverlayTranslationSession::waiting_changed, indicator, [indicator, session] { indicator->set_waiting(session->waiting()); });
+        QObject::connect(session, &QObject::destroyed, indicator, &QObject::deleteLater);
+    }
+    // The layer belongs to the pixels it was translated from: moving the selection takes it
+    // off, and the translation follows once the selection rests. A drag ends on release; a
+    // change without one, as from the keyboard, rests after a short pause.
+    auto *rest = new QTimer(session);
+    rest->setSingleShot(true);
+    rest->setInterval(SELECTION_REST_MS);
+    const QPointer<CanvasScene> canvas(scene);
+    const auto follow = [session, canvas] {
+        if (canvas && session->shown() && !canvas->selection_model->is_dragging()) session->show(canvas->selection_model->rect());
+    };
+    QObject::connect(rest, &QTimer::timeout, session, follow);
+    QObject::connect(scene->selection_model, &SelectionModel::rectChanged, session, [session, rest](const QRectF &rect) {
+        if (!session->shown() || session->region_of(rect) == session->region()) return;
+        session->suspend();
+        rest->start();
+    });
+    QObject::connect(scene->selection_model, &SelectionModel::draggingChanged, session, [rest, follow](bool dragging) {
+        if (dragging) return;
+        rest->stop();
+        follow();
+    });
+    const auto report = [parent](const QString &message) {
+        if (parent) show_modeless_warning_dialog(parent, action_tr("Translation"), message);
+    };
+    QObject::connect(session, &OverlayTranslationSession::failed, session, report);
+    QObject::connect(session, &OverlayTranslationSession::partly_failed, session, report);
+    QObject::connect(session, &OverlayTranslationSession::translations_did_not_fit, session, [parent](const QString &text, const QString &notice) {
+        if (parent) show_unplaced_overlay_translations(parent, action_tr("Translation"), text, notice);
+    });
+    QObject::connect(session, &OverlayTranslationSession::nothing_to_translate, session,
+                     [] { show_toast(action_tr("Nothing to translate: the text is already in the target language.")); });
+    return session;
 }
 
 void ActionTools::handle_text_recognize() {

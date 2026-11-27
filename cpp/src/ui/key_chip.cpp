@@ -109,17 +109,19 @@ void KeyChipLineEdit::paintEvent(QPaintEvent *) {
     const int radius = dialog_scaled(8);
     const QRectF rect = QRectF(this->rect()).adjusted(0.5, 0.5, -0.5, -0.5);
     const int pad = dialog_scaled(12);
+    const bool enabled = isEnabled();
     const bool focused = hasFocus();
     const auto [parts, pending] = shortcut_display_parts(text());
+    const QColor muted = css_color(enabled ? t.fg_muted : t.fg_disabled);
 
     if (parts.isEmpty() && !pending && !focused) {
-        QColor border = css_color(t.text_muted);
-        border.setAlphaF(0.55);
+        QColor border = muted;
+        border.setAlphaF(border.alphaF() * 0.55);
         painter.setPen(QPen(border, 1.0, Qt::DashLine));
         painter.setBrush(Qt::NoBrush);
         painter.drawRoundedRect(rect, radius, radius);
-        paint_plus(painter, QPointF(pad + dialog_scaled(5), rect.center().y()), css_color(t.text_muted));
-        painter.setPen(css_color(t.text_muted));
+        paint_plus(painter, QPointF(pad + dialog_scaled(5), rect.center().y()), muted);
+        painter.setPen(muted);
         const QRectF text_rect = rect.adjusted(pad + dialog_scaled(16), 0, -pad, 0);
         painter.drawText(text_rect, Qt::AlignVCenter | Qt::AlignLeft, metrics.elidedText(tr_text("Add shortcut"), Qt::ElideRight, static_cast<int>(text_rect.width())));
         return;
@@ -127,14 +129,16 @@ void KeyChipLineEdit::paintEvent(QPaintEvent *) {
 
     QColor fill, border;
     double width = 1.0;
-    if (error_) {
+    if (!enabled) {
+        // As the shared inputs show a disabled field: a dimmer fill and a plain edge.
+        fill = css_color(t.control_pressed), border = css_color(t.control_border);
+    } else if (error_) {
         fill = css_color(t.danger_soft), border = css_color(t.danger);
     } else if (focused) {
-        fill = css_color(t.surface_hover), border = css_color(t.accent), width = 1.5;
+        fill = css_color(t.control), border = css_color(t.accent), width = 1.5;
     } else {
-        // In the dark theme input_background equals the card colour and the chip would be only an outline.
-        fill = css_color(t.surface_hover);
-        border = css_color(underMouse() ? t.accent : t.border_hover);
+        fill = css_color(underMouse() ? t.control_hover : t.control);
+        border = css_color(underMouse() ? t.accent : t.control_border_bottom);
     }
     const double inset = width / 2;
     painter.setPen(QPen(border, width));
@@ -144,7 +148,7 @@ void KeyChipLineEdit::paintEvent(QPaintEvent *) {
     const QRectF clear = clear_rect();
     const double text_right = !text().isEmpty() ? clear.left() : rect.right() - pad;
     const int available = static_cast<int>(text_right - pad);
-    const QColor text_color = css_color(t.text), sep_color = css_color(t.text_muted);
+    const QColor text_color = css_color(enabled ? t.fg : t.fg_disabled), sep_color = muted;
     const double baseline = rect.center().y() + (metrics.ascent() - metrics.descent()) / 2.0;
 
     if (parts.isEmpty()) {
@@ -175,8 +179,9 @@ void KeyChipLineEdit::paintEvent(QPaintEvent *) {
         }
     }
 
-    if (!text().isEmpty()) {
-        const QColor color = css_color(hover_clear_ ? t.text : t.text_muted);
+    // A disabled chip cannot be cleared, so it shows no clear mark.
+    if (!text().isEmpty() && enabled) {
+        const QColor color = css_color(hover_clear_ ? t.fg : t.fg_muted);
         const int half = dialog_scaled(4);
         const QPointF center = clear.center();
         painter.setPen(QPen(color, 1.4, Qt::SolidLine, Qt::RoundCap));

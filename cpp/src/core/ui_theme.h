@@ -1,5 +1,8 @@
 #pragma once
+#include <QColor>
+#include <QList>
 #include <QObject>
+#include <QPair>
 #include <QPalette>
 #include <QString>
 #include <QVariant>
@@ -16,14 +19,10 @@ enum class UIThemeMode { SYSTEM, LIGHT, DARK };
 QString ui_theme_mode_value(UIThemeMode mode);
 UIThemeMode coerce_ui_theme_mode(const QVariant &value);
 
+// A new colour field must also be listed in ui_token_entries(), which the design gallery shows.
 struct UIThemeTokens {
     UIThemeMode mode;
     QString accent, accent_hover, accent_pressed, accent_soft;
-    QString window, window_top, window_bottom;
-    QString surface, surface_strong, surface_subtle, surface_hover;
-    QString text, text_muted, text_disabled;
-    QString border, border_hover, window_border;
-    QString input_background, popup_background, popup_hover, separator, switch_off;
     // White text on accent is only 3.4:1; fills carrying white text use the darker
     // accent_strong (4.9:1), switches and indicators keep accent.
     QString accent_strong, accent_strong_hover, accent_strong_pressed;
@@ -31,11 +30,26 @@ struct UIThemeTokens {
     QString accent_text;
     QString success, danger, danger_soft, status_idle;
     QString selected_text = "#FFFFFF";
+    // Window, the content layer over it, the page cards and their expanded bodies, and the window's outline.
+    QString page_background, layer, layer_border, card, card_border, card_body, window_border;
+    // Text, controls (buttons, inputs), hover fill of list items, the line between rows, a switch's off fill.
+    QString fg, fg_muted, fg_disabled;
+    QString control, control_hover, control_pressed, control_border, control_border_bottom;
+    QString item_hover, divider, switch_off_fill;
+    // Menus, drop-down lists and tooltips, opaque because they float over other windows.
+    QString popup_background, popup_hover;
     bool is_dark() const { return mode == UIThemeMode::DARK; }
 };
 
 const UIThemeTokens &LIGHT_TOKENS();
 const UIThemeTokens &DARK_TOKENS();
+// Every colour field as (field name, value), in declaration order; the mode is not included.
+QList<QPair<QString, QString>> ui_token_entries(const UIThemeTokens &tokens);
+
+// Parses token colours for QPainter and QPalette; QColor::fromString rejects rgb()/rgba().
+QColor css_color(const QString &value);
+// `top` as it looks painted over the opaque `under`.
+QColor painted_over(const QColor &top, const QColor &under);
 
 class UIThemeManager : public QObject {
     Q_OBJECT
@@ -71,4 +85,22 @@ void apply_style_sheet(QWidget *widget, const QString &sheet);
 void set_own_style(QWidget *widget, const QString &declarations);
 
 UIThemeManager *get_ui_theme();
+
+// Translation style: the translation window and the translation popup keep a look of
+// their own instead of the window palette above.
+struct DashboardPalette {
+    QString window, field, surface_strong, text, text_2, text_3, accent, accent_hover, accent_tint, fill, fill_hover;
+    QColor fill_color, fill_hover_color;
+    QString danger, green;
+    // Text, selection and caption symbols drawn over accent or danger fills.
+    QString on_accent;
+    // The primary button while disabled.
+    QString accent_disabled;
+    // Window background gradient from the top edge; equal stops draw a flat window.
+    QString window_top, window_bottom;
+    // The pinned (checked) always-on-top button's background.
+    QColor pin_checked_fill;
+};
+const DashboardPalette &dashboard_dark();
+const DashboardPalette &dashboard_light();
 }

@@ -1,8 +1,11 @@
 #include "ui/fluent_lite/segmented.h"
 #include "core/ui_scale.h"
 #include "ui/fluent_lite/theme.h"
+#include "ui/motion.h"
 #include <QFont>
 #include <QFontMetrics>
+#include <QPainter>
+#include <QSignalBlocker>
 
 namespace jietuba {
 namespace {
@@ -16,7 +19,7 @@ int bold_text_width(const QString &text, int pixel_size) {
 
 struct Metrics {
     int font, pad_v, pad_h, inset;
-    int radius() const { return pad_v + 5; }
+    int radius() const { return 4; }
 };
 Metrics metrics(bool large, bool compact, int compact_padding) {
     if (large) return {14, 7, 20, 3};
@@ -26,6 +29,11 @@ Metrics metrics(bool large, bool compact, int compact_padding) {
 
 SegmentedWidget::SegmentedWidget(QWidget *parent) : QWidget(parent), indicator_(ACCENT), group_(new QButtonGroup(this)), layout_(new QHBoxLayout(this)) {
     group_->setExclusive(true);
+    slide_anim_.setEasingCurve(motion::decelerate());
+    connect(&slide_anim_, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
+        slide_ = value.toDouble();
+        update();
+    });
     _apply_theme();
     connect(get_ui_theme(), &UIThemeManager::theme_changed, this, [this] { _apply_theme(); });
 }
@@ -37,9 +45,29 @@ QString SegmentedWidget::style() const {
             QPushButton { padding: %1px %2px; color: %3; background: transparent;
                 border: none; border-radius: %4px; font: %5px %6; }
             QPushButton:hover { color: %7; background: %8; }
-            QPushButton:checked { color: %9; background: %10; font-weight: 600; }
-        )").arg(dialog_scaled(m.pad_v)).arg(dialog_scaled(m.pad_h)).arg(t.text_muted).arg(dialog_scaled(m.radius())).arg(dialog_scaled(m.font))
-        .arg(FONT_FAMILY, t.text, t.surface_subtle, t.accent_text, t.accent_soft);
+            QPushButton:checked { color: %9; background: transparent; font-weight: 600; }
+        )").arg(dialog_scaled(m.pad_v)).arg(dialog_scaled(m.pad_h)).arg(t.fg_muted).arg(dialog_scaled(m.radius())).arg(dialog_scaled(m.font))
+        .arg(FONT_FAMILY, t.fg, t.item_hover, t.fg);
+}
+
+QRectF SegmentedWidget::thumbRect() const {
+    const auto *button = items_.value(current_);
+    if (!button) return {};
+    const QRectF to(button->geometry());
+    if (slide_ >= 1) return to;
+    const auto mix = [this](double from, double end) { return from + (end - from) * slide_; };
+    return QRectF(mix(slide_from_.x(), to.x()), mix(slide_from_.y(), to.y()), mix(slide_from_.width(), to.width()), mix(slide_from_.height(), to.height()));
+}
+
+void SegmentedWidget::paintEvent(QPaintEvent *) {
+    const QRectF thumb = thumbRect();
+    if (thumb.isEmpty()) return;
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(css_color(ui_tokens(this).is_dark() ? "rgba(255, 255, 255, 0.1)" : "#FFFFFF"));
+    const double radius = dialog_scaled(metrics(large_, compact_, compact_padding_).radius());
+    painter.drawRoundedRect(thumb, radius, radius);
 }
 
 void SegmentedWidget::_apply_theme() {
@@ -49,8 +77,8 @@ void SegmentedWidget::_apply_theme() {
     layout_->setContentsMargins(inset, inset, inset, inset);
     layout_->setSpacing(inset);
     set_own_style(this, QString("background: %1; border: 1px solid %2; border-radius: %3px;")
-                            .arg(floating_ ? t.popup_background : t.surface_subtle, t.border)
-                            .arg(dialog_scaled(m.radius() + 2)));
+                            .arg(floating_ ? t.popup_background : t.control, t.control_border)
+                            .arg(dialog_scaled(m.radius() + m.inset)));
     for (auto *button : items_) apply_style_sheet(button, style());
 }
 
@@ -110,7 +138,23 @@ void SegmentedWidget::setCurrentItem(const QString &route_key) {
     if (!items_.contains(route_key)) return;
     items_[route_key]->setChecked(true);
     if (current_ != route_key) {
+        const QRectF from = thumbRect();
         current_ = route_key;
+        slide_anim_.stop();
+        slide_ = 1;
+        const int length = motion::duration(motion::MID_MS);
+        if (isVisible() && length > 0 && !from.isEmpty()) {
+            slide_from_ = from;
+            slide_ = 0;
+            {
+                const QSignalBlocker quiet(&slide_anim_);
+                slide_anim_.setDuration(length);
+                slide_anim_.setStartValue(0.0);
+                slide_anim_.setEndValue(1.0);
+            }
+            slide_anim_.start();
+        }
+        update();
         emit currentItemChanged(route_key);
     }
 }

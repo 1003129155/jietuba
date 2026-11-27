@@ -4,8 +4,6 @@
 #include <QWidget>
 
 namespace jietuba {
-class SimpleCardWidget;
-
 // Rows are plain widgets in a layout rather than list items with built-in drag and
 // drop: an internal move removes and reinserts the item, losing the combo boxes and
 // check boxes set with setItemWidget. Shared by the toolbar layout and magnifier
@@ -41,7 +39,7 @@ private:
     bool dragging_ = false;
 };
 
-// A card holding a column of rows that can be dragged into a new order.
+// A column of row cards that can be dragged into a new order. On screen the rows slide to their new places.
 class ReorderableRowList : public QScrollArea {
     Q_OBJECT
 public:
@@ -54,9 +52,9 @@ public:
     int content_height();
 private:
     void place(DraggableRow *row, int index);
-    // The dragged row's slot is the number of other rows whose centre is above the pointer.
+    // The dragged row's slot is the number of other rows whose place has its centre above the pointer.
     void drag_row(DraggableRow *row, int global_y);
-    SimpleCardWidget *card_ = nullptr;
+    QWidget *rows_widget_ = nullptr;
     QVBoxLayout *layout_ = nullptr;
 };
 }

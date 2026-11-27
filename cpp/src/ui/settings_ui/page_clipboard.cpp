@@ -367,7 +367,7 @@ QThread *change_clipboard_data_location(QWidget *parent, std::function<void(cons
                         "Replace: move the current data there; the data already in that folder will be deleted."),
             {{"use", settings_tr("Use That Data"), QDialogButtonBox::AcceptRole},
              {"replace", settings_tr("Replace"), QDialogButtonBox::DestructiveRole},
-             {"cancel", settings_tr("Cancel"), QDialogButtonBox::RejectRole, true}});
+             {"cancel", settings_tr("Cancel"), QDialogButtonBox::RejectRole}});
         if (choice.toString() == "use") switch_clipboard_data_location(parent, current_db_path, target_dir, on_changed);
         if (choice.toString() != "replace") return nullptr;
     }
@@ -499,11 +499,11 @@ QWidget *create_clipboard_page(SettingsDialog *dialog) {
     auto *view = new QWidget;
     set_own_style(view, "background: transparent;");
     auto *layout = new QVBoxLayout(view);
-    layout->setContentsMargins(0, 0, dialog_scaled(10), 0);
+    layout->setContentsMargins(0, 0, dialog_scaled(10), page_bottom_margin());
     layout->setSpacing(dialog_scaled(14));
 
     // ════ Basic settings ════
-    auto *grp_basic = new SettingsCardGroup(dialog->tr_text("Basic Settings"), view, "clipboard");
+    auto *grp_basic = new SettingsCardGroup(dialog->tr_text("General"), view, "clipboard");
     auto *enabled_card = new SwitchSettingCard(FluentIcon::Paste, dialog->tr_text("Enable Clipboard Manager"), dialog->tr_text("Monitor and manage clipboard history"), grp_basic);
     enabled_card->setChecked(dialog->config_manager->get_clipboard_enabled());
     dialog->set_attr("clipboard_enabled_toggle", enabled_card);
@@ -532,7 +532,7 @@ QWidget *create_clipboard_page(SettingsDialog *dialog) {
     layout->addWidget(grp_basic);
 
     // ════ Data ════
-    auto *grp_data = new SettingsCardGroup(dialog->tr_text("Data"), view, "clipboard");
+    auto *grp_data = new SettingsCardGroup(dialog->tr_text("History"), view, "clipboard");
     auto *storage_card = new SettingCard(FluentIcon::Folder, dialog->tr_text("Data Storage Location"), get_clipboard_db_path(dialog), grp_data);
     dialog->set_attr("_clipboard_storage_card", storage_card);
     auto *change_folder_btn = new PushButton(dialog->tr_text("Change"), storage_card);
@@ -599,7 +599,7 @@ QWidget *create_clipboard_page(SettingsDialog *dialog) {
     choice_combo(dialog, image_card, "clipboard_image_size",
                  {{dialog->tr_text("Small"), QString("small")}, {dialog->tr_text("Medium"), QString("medium")}, {dialog->tr_text("Large"), QString("large")}});
     grp_list->addSettingCard(image_card);
-    add_switch_card(dialog, grp_list, FluentIcon::Hide, "Hide Grouped Items from All", "Items in a group no longer show in All; filter groups still list them",
+    add_switch_card(dialog, grp_list, FluentIcon::Hide, "Hide Grouped Items from History", "Items in a group no longer show in Clipboard History; filter groups still list them",
                     "clipboard_hide_grouped_in_history");
     layout->addWidget(grp_list);
 
@@ -633,12 +633,8 @@ QWidget *create_clipboard_page(SettingsDialog *dialog) {
     grp_special_paste->addSettingCard(special_paste_card);
     layout->addWidget(grp_special_paste);
 
-    auto *hint = new CaptionLabel(dialog->tr_text("💡 Hint: Set clipboard hotkey in Shortcuts settings."), view);
-    hint->setStyleSheet("padding: 5px;");
-    layout->addWidget(hint);
-    auto *appearance_hint = new CaptionLabel(dialog->tr_text("💡 The clipboard window's theme, font size and opacity are on the Appearance page."), view);
-    appearance_hint->setStyleSheet("padding: 5px;");
-    layout->addWidget(appearance_hint);
+    layout->addWidget(page_hint(view, dialog->tr_text("💡 Hint: Set clipboard hotkey in Shortcuts settings.")));
+    layout->addWidget(page_hint(view, dialog->tr_text("💡 The clipboard window's theme, font size and opacity are on the Appearance page.")));
 
     layout->addStretch();
     scroll->setWidget(view);

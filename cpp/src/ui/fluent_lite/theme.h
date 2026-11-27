@@ -11,7 +11,8 @@
 class QWidget;
 
 namespace jietuba {
-inline const QString FONT_FAMILY = R"("Segoe UI Variable", "Microsoft YaHei UI", "Segoe UI", sans-serif)";
+// Latin text in Segoe UI; CJK falls through to the YaHei UI family.
+inline const QString FONT_FAMILY = R"("Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", sans-serif)";
 // The same stack for QFont::setFamilies.
 const QStringList &FONT_FAMILIES();
 // One restrained blue-grey accent so dialogs do not drift to unrelated blues.
@@ -23,10 +24,10 @@ inline const QString ACCENT_SUBTLE = "rgba(111, 143, 171, 0.18)";
 inline const QString FOCUS_RING = "rgba(111, 143, 171, 0.24)";
 // Frame metrics of input controls; widgets aligned with them (such as colour
 // swatch buttons in the same column) take these values too.
-constexpr int INPUT_RADIUS = 10;
-constexpr int INPUT_CONTENT_HEIGHT = 26;
-constexpr int INPUT_PADDING_V = 4;
-constexpr int INPUT_PADDING_H = 11;
+constexpr int INPUT_RADIUS = 4;
+constexpr int INPUT_CONTENT_HEIGHT = 20;
+constexpr int INPUT_PADDING_V = 5;
+constexpr int INPUT_PADDING_H = 12;
 constexpr int INPUT_HEIGHT = INPUT_CONTENT_HEIGHT + 2 * INPUT_PADDING_V + 2;
 
 // Semantic colours for widget.
@@ -38,9 +39,12 @@ QString scrollbar_qss(const QWidget *widget = nullptr);
 using IconSource = std::variant<std::monostate, QIcon, FluentIcon, QString>;
 // SVG-backed icons are tinted with the theme's text colour; *White icons keep their colour.
 QIcon to_qicon(const IconSource &icon, const QWidget *widget = nullptr);
-// Parses token colours for QPainter; QColor rejects rgb()/rgba().
-QColor css_color(const QString &value);
 QIcon tinted_icon(const IconSource &icon, const QString &color);
-// Opaque rounded background with a subtle vertical gradient for frameless dialogs.
+// The opaque rounded background and outline of a frameless window.
 void paint_solid_background(QWidget *widget, int radius = 8);
+// Flat window background with a translucent content layer over layer_rect (widget coordinates):
+// only its top-left corner is rounded, and the window's own rounding clips the rest.
+void paint_layered_background(QWidget *widget, int radius, const QRect &layer_rect, int layer_radius);
+// What the cards of a layered window lie on: the content layer over the window's background.
+QColor layer_backdrop(const QWidget *widget = nullptr);
 }

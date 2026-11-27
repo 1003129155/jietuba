@@ -324,7 +324,7 @@ void ReorderListWidget::paint_drop_overlay() {
         pill.moveCenter(rect.center());
         painter.setFont(font);
         painter.setBrush(css_color(tokens.popup_background));
-        painter.setPen(QPen(css_color(tokens.border), 1));
+        painter.setPen(QPen(css_color(tokens.control_border_bottom), 1));
         painter.drawRoundedRect(pill, pill.height() / 2, pill.height() / 2);
         painter.setPen(css_color(tokens.accent_text));
         painter.drawText(pill, Qt::AlignCenter, text);

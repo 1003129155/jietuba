@@ -2,6 +2,7 @@
 // version, so a test that forgets its own throwaway settings must still not reach the
 // user's: before main() this points the defaults (settings store, %LOCALAPPDATA%,
 // %APPDATA%, desktop, autostart) at a temporary folder.
+#include "ui/motion.h"
 #include <QDateTime>
 #include <QDir>
 #include <QFileInfo>
@@ -39,6 +40,8 @@ struct TestSandbox {
         // fails instead of opening a system dialog that outlives the test. Children inherit this.
         SetErrorMode(GetErrorMode() | SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX);
 #endif
+        // Transitions run in tests whatever this machine's animation setting is.
+        jietuba::motion::set_enabled_override(true);
         // A child process started by a test keeps its parent's sandbox and environment.
         if (!qEnvironmentVariableIsEmpty("JIETUBA_TEST_SANDBOX")) return;
         remove_stale_sandboxes();

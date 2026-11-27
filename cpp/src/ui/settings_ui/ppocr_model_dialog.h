@@ -1,4 +1,5 @@
 #pragma once
+#include "ui/fluent_lite/fluent_dialog.h"
 #include <QDialog>
 #include <QJsonObject>
 #include <functional>
@@ -22,7 +23,7 @@ class ModelRow;
 // "Chinese, Japanese, English" for catalog language codes.
 QString ppocr_language_names(const QStringList &codes);
 
-class PpocrModelDialog : public QDialog {
+class PpocrModelDialog : public FluentDialog {
     Q_OBJECT
 public:
     explicit PpocrModelDialog(QWidget *parent = nullptr, ModelDownloads *downloads = nullptr);
@@ -71,7 +72,7 @@ private:
 };
 
 // Picks the detection model, recognition model and optional dictionary, and names the model.
-class PpocrImportForm : public QDialog {
+class PpocrImportForm : public FluentDialog {
     Q_OBJECT
 public:
     explicit PpocrImportForm(QWidget *parent = nullptr);

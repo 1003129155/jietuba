@@ -22,6 +22,7 @@ class GifDrawingView;
 class PlaybackController;
 class RecordToolbar;
 class VideoRecorder;
+class WaitBar;
 struct FrameData;
 
 enum class AppState {
@@ -68,8 +69,11 @@ private:
     void start_gif_recording();
     // stop_async waits for the capture thread in the background, then playback starts.
     void on_record_stop();
+    // Called from FrameRecorder::stop_finished: playback starts here, after the capture thread exited.
+    void on_stop_finished();
     // A frameless progress bar, shown late so it is not recorded at the end.
     void show_stop_progress();
+    void dismiss_stop_progress();
     void on_pause_toggled(bool paused);
     void begin_countdown(std::function<void()> action);
     void advance_countdown();
@@ -112,6 +116,9 @@ private:
     int countdown_remaining_ = 0;
     QTimer countdown_timer_;
     QTimer release_timer_;
+    // A stop asked for and not finished yet; a second request is ignored.
+    bool stop_pending_ = false;
+    QPointer<WaitBar> stop_bar_;
     CaptureOverlay *overlay_ = nullptr;
     GifDrawingView *drawing_view_ = nullptr;
     RecordToolbar *record_toolbar_ = nullptr;

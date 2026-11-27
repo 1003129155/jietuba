@@ -1,4 +1,5 @@
 #pragma once
+#include "ui/fluent_lite/fluent_dialog.h"
 #include "clipboard/controllers/paste_keystroke.h"
 #include "clipboard/core/manager.h"
 #include "clipboard/ui/widgets/preview_popup.h"
@@ -85,7 +86,7 @@ private:
         if (check_box_)
             for (auto *box : dialog->findChildren<QCheckBox *>()) box->setChecked(true);
         QPushButton *target = nullptr;
-        if (auto *buttons = dialog->findChild<QDialogButtonBox *>()) {
+        if (auto *buttons = dialog->findChild<jietuba::DialogButtonRow *>()) {
             for (auto *button : buttons->buttons()) {
                 const auto role = buttons->buttonRole(button);
                 const bool yes = role == QDialogButtonBox::YesRole || role == QDialogButtonBox::AcceptRole;

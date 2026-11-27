@@ -1,3 +1,4 @@
+#include "core/package_identity.h"
 #include "core/platform_utils.h"
 #include "core/resource_manager.h"
 #include "core/ui_scale.h"
@@ -172,6 +173,17 @@ void build_hotkey_section(SettingsDialog *dialog, SettingsCardGroup *grp) {
     }
 }
 
+// Explorer's right-click entry; the application makes it match once the choice is saved. The packaged
+// build's entry is on Windows 11's first level, so its text leaves out "Show more options".
+void build_explorer_section(SettingsDialog *dialog, SettingsCardGroup *grp) {
+    const char *description = is_packaged() ? "Right-click files in File Explorer and choose \"Pin to Screen with jietuba\"."
+                                            : "Right-click files in File Explorer and choose \"Pin to Screen with jietuba\". Windows 11 lists it under Show more options.";
+    auto *card = new SettingCard(FluentIcon::Folder, dialog->tr_text("Right-Click Menu"), dialog->tr_text(description), grp);
+    choice_combo(dialog, card, "explorer_context_menu",
+                 {{dialog->tr_text("Off"), QString("off")}, {dialog->tr_text("Images"), QString("images")}, {dialog->tr_text("Images and Text Files"), QString("images_text")}});
+    grp->addSettingCard(card);
+}
+
 void build_shortcuts_section(SettingsDialog *dialog, SettingsCardGroup *grp) {
     const std::tuple<IconSource, const char *, const char *, bool> entries[] = {
         {FluentIcon::CommandPrompt, "Keyboard Shortcuts", "Copy, lock, thumbnail, toolbar and other keys for pinned images.", false},
@@ -192,7 +204,7 @@ const std::set<QString> PIN_BEHAVIOR_KEYS = {
     "pin_default_opacity", "pin_rounded_corners", "pin_auto_border", "pin_hover_buttons", "pin_click_through_opacity",
     "pin_zoom_step", "pin_fine_zoom_step", "pin_opacity_step", "pin_zoom_anchor", "pin_border_resize", "pin_auto_shrink",
     "pin_lock_block_move", "pin_lock_block_click_close", "pin_lock_block_key_close", "pin_lock_hint",
-    "pin_clipboard_image", "pin_clipboard_text", "pin_clipboard_file", "pin_text_formatting", "pin_point_out_repeats",
+    "pin_clipboard_image", "pin_clipboard_text", "pin_clipboard_file", "pin_text_formatting", "pin_point_out_repeats", "explorer_context_menu",
 };
 
 // Pin settings: behaviour, zoom and size, appearance, click-through, lock, the pin hotkey; shortcuts jump to the shortcut pages' pin tab.
@@ -203,15 +215,16 @@ QWidget *create_pin_page(SettingsDialog *dialog) {
     auto *view = new QWidget;
     set_own_style(view, "background: transparent;");
     auto *layout = new QVBoxLayout(view);
-    layout->setContentsMargins(0, 0, dialog_scaled(10), 0);
+    layout->setContentsMargins(0, 0, dialog_scaled(10), page_bottom_margin());
     layout->setSpacing(dialog_scaled(14));
     const std::pair<const char *, void (*)(SettingsDialog *, SettingsCardGroup *)> sections[] = {
-        {"Behavior", build_behavior_section},
+        {"General", build_behavior_section},
         {"Zoom and Size", build_zoom_section},
         {"Appearance", build_appearance_section},
         {"Mouse Click-Through", build_click_through_section},
         {"Lock", build_lock_section},
-        {"Pin Clipboard Image", build_hotkey_section},
+        {"Pin from Clipboard", build_hotkey_section},
+        {"File Explorer", build_explorer_section},
         {"Shortcuts", build_shortcuts_section},
     };
     for (const auto &[title, build] : sections) {

@@ -1,5 +1,6 @@
 #include "core/platform_utils.h"
 #include <QDir>
+#include <QFile>
 #include <QCoreApplication>
 #include "core/constants.h"
 #include "core/crash_handler.h"
@@ -155,6 +156,126 @@ void set_app_user_model_id(const QString &app_id) {
 #else
     Q_UNUSED(app_id);
 #endif
+}
+
+namespace {
+// PKEY_AppUserModel_ID, spelled out so no property-key library has to be linked.
+const PROPERTYKEY APP_ID_KEY = {{0x9F4C2855, 0x9F79, 0x4B39, {0xA8, 0xD0, 0xE1, 0xD4, 0x2D, 0xE1, 0xD5, 0xF3}}, 5};
+
+struct ComScope {
+    HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    ~ComScope() {
+        if (SUCCEEDED(hr)) CoUninitialize();
+    }
+};
+
+template <typename T> void release(T *&com) {
+    if (com) com->Release();
+    com = nullptr;
+}
+
+// A shortcut's target and AppUserModelID.
+std::pair<QString, QString> read_shortcut(const QString &path) {
+    ComScope com;
+    IShellLinkW *link = nullptr;
+    IPersistFile *file = nullptr;
+    IPropertyStore *store = nullptr;
+    QString target, app_id;
+    if (SUCCEEDED(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&link))) && SUCCEEDED(link->QueryInterface(IID_PPV_ARGS(&file))) &&
+        SUCCEEDED(file->Load(reinterpret_cast<LPCWSTR>(QDir::toNativeSeparators(path).utf16()), STGM_READ))) {
+        wchar_t buffer[MAX_PATH * 2] = {};
+        if (SUCCEEDED(link->GetPath(buffer, MAX_PATH * 2, nullptr, SLGP_RAWPATH))) target = QString::fromWCharArray(buffer);
+        if (SUCCEEDED(link->QueryInterface(IID_PPV_ARGS(&store)))) {
+            PROPVARIANT value;
+            PropVariantInit(&value);
+            if (SUCCEEDED(store->GetValue(APP_ID_KEY, &value)) && value.vt == VT_LPWSTR && value.pwszVal) app_id = QString::fromWCharArray(value.pwszVal);
+            PropVariantClear(&value);
+        }
+    }
+    release(store);
+    release(file);
+    release(link);
+    return {target, app_id};
+}
+
+bool write_shortcut(const QString &path, const QString &program, const QString &app_id) {
+    ComScope com;
+    IShellLinkW *link = nullptr;
+    IPersistFile *file = nullptr;
+    IPropertyStore *store = nullptr;
+    const QString native = QDir::toNativeSeparators(program);
+    const QString directory = QDir::toNativeSeparators(QFileInfo(program).absolutePath());
+    HRESULT hr = CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&link));
+    if (SUCCEEDED(hr)) {
+        link->SetPath(reinterpret_cast<LPCWSTR>(native.utf16()));
+        link->SetWorkingDirectory(reinterpret_cast<LPCWSTR>(directory.utf16()));
+        link->SetIconLocation(reinterpret_cast<LPCWSTR>(native.utf16()), 0);
+        hr = link->QueryInterface(IID_PPV_ARGS(&store));
+    }
+    if (SUCCEEDED(hr)) {
+        PROPVARIANT value;
+        PropVariantInit(&value);
+        value.vt = VT_LPWSTR;
+        const qsizetype bytes = (app_id.size() + 1) * qsizetype(sizeof(wchar_t));
+        value.pwszVal = static_cast<LPWSTR>(CoTaskMemAlloc(static_cast<SIZE_T>(bytes)));
+        hr = value.pwszVal ? S_OK : E_OUTOFMEMORY;
+        if (SUCCEEDED(hr)) {
+            memcpy(value.pwszVal, app_id.utf16(), static_cast<size_t>(bytes));
+            hr = store->SetValue(APP_ID_KEY, value);
+        }
+        PropVariantClear(&value);
+        if (SUCCEEDED(hr)) hr = store->Commit();
+    }
+    if (SUCCEEDED(hr)) hr = link->QueryInterface(IID_PPV_ARGS(&file));
+    if (SUCCEEDED(hr)) hr = file->Save(reinterpret_cast<LPCWSTR>(QDir::toNativeSeparators(path).utf16()), TRUE);
+    release(store);
+    release(file);
+    release(link);
+    return SUCCEEDED(hr);
+}
+}
+
+QString shortcut_app_id(const QString &path) { return read_shortcut(path).second; }
+
+void ensure_start_menu_shortcut(const QString &folder, const QString &name, const QStringList &other_names, const QString &program, const QString &app_id) {
+    if (folder.isEmpty() || name.isEmpty()) return;
+    const QString path = QDir(folder).filePath(name + ".lnk");
+    for (const QString &other : other_names) {
+        const QString old = QDir(folder).filePath(other + ".lnk");
+        if (old.compare(path, Qt::CaseInsensitive) != 0 && QFileInfo::exists(old) && read_shortcut(old).second == app_id) QFile::remove(old);
+    }
+    if (QFileInfo::exists(path)) {
+        const auto [target, id] = read_shortcut(path);
+        if (id != app_id) return;
+        if (QDir::toNativeSeparators(target).compare(QDir::toNativeSeparators(program), Qt::CaseInsensitive) == 0) return;
+    }
+    QDir().mkpath(folder);
+    if (!write_shortcut(path, program, app_id)) log_warning(T("无法创建开始菜单快捷方式: {path}", {{"path", QDir::toNativeSeparators(path)}}), "Platform");
+}
+
+bool show_one_line_tray_message(const QString &text, int timeout_ms) {
+    // Qt's tray icon window and its icon ID 0 (QWindowsSystemTrayIcon); the application has one tray icon.
+    const wchar_t *const window_name = L"QTrayIconMessageWindow";
+    HWND hwnd = nullptr;
+    for (HWND window = FindWindowExW(nullptr, nullptr, nullptr, window_name); window; window = FindWindowExW(nullptr, window, nullptr, window_name)) {
+        DWORD owner = 0;
+        GetWindowThreadProcessId(window, &owner);
+        if (owner == GetCurrentProcessId()) {
+            hwnd = window;
+            break;
+        }
+    }
+    if (!hwnd) return false;
+    NOTIFYICONDATAW data{};
+    data.cbSize = sizeof(data);
+    data.hWnd = hwnd;
+    data.uID = 0;
+    data.uFlags = NIF_INFO | NIF_SHOWTIP;
+    data.dwInfoFlags = NIIF_NONE;
+    data.uTimeout = static_cast<UINT>(timeout_ms);
+    const int length = text.left(255).toWCharArray(data.szInfo);
+    data.szInfo[length] = 0;
+    return Shell_NotifyIconW(NIM_MODIFY, &data) != FALSE;
 }
 
 std::optional<std::pair<quint64, QString>> get_process_identity(qint64 pid) {

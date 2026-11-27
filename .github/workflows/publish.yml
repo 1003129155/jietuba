@@ -1,0 +1,125 @@
+name: Publish Release
+
+# 正式发布测过的草稿：取建草稿那次 Build Release 的 .msixbundle 提交微软商店认证，再公开 GitHub Release。
+# 不重新构建，商店和 GitHub 上的包就是测过的那一份；草稿里改过的说明保持原样。
+# 手动触发只认默认分支上的工作流文件，所以先把 release 分支合进 master2 再触发。
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 要发布的标签，如 release-2.2.4
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-${{ inputs.tag }}
+
+jobs:
+  locate:
+    runs-on: ubuntu-latest
+    permissions:
+      # 草稿只对有写权限的令牌可见
+      contents: write
+      actions: read
+    outputs:
+      run-id: ${{ steps.find.outputs.run-id }}
+    steps:
+      - name: Find the draft and the build that made it
+        id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$TAG" =~ ^release-[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Unexpected tag $TAG"
+            exit 1
+          fi
+          if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" != "true" ]; then
+            echo "$TAG is not a draft release"
+            exit 1
+          fi
+          sha=$(gh api "repos/$GH_REPO/commits/$TAG" --jq .sha)
+          run=$(gh run list --workflow build.yml --branch "$TAG" --status success --limit 20 --json databaseId,headSha \
+            --jq "[.[] | select(.headSha == \"$sha\")][0].databaseId // empty")
+          if [ -z "$run" ]; then
+            echo "No successful Build Release run for $TAG at $sha"
+            exit 1
+          fi
+          echo "Using Build Release run $run"
+          echo "run-id=$run" >> "$GITHUB_OUTPUT"
+
+  # 仓库变量 MSSTORE_PRODUCT_ID_LITE（Store ID）为空时跳过。凭据存在仓库 Secrets 里。
+  store:
+    needs: locate
+    if: vars.MSSTORE_PRODUCT_ID_LITE != ''
+    runs-on: windows-latest
+    permissions:
+      actions: read
+    steps:
+      - name: Download .msixbundle from that build
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: msixbundle-lite
+          path: msix
+          run-id: ${{ needs.locate.outputs.run-id }}
+          github-token: ${{ github.token }}
+
+      - name: Setup Microsoft Store Developer CLI
+        uses: microsoft/microsoft-store-apppublisher@cc9910a8d59f2eb55cbb83df0a3800cf3b5300e0 # v1.4
+
+      - name: Verify package version and submit to Microsoft Store
+        env:
+          TAG: ${{ inputs.tag }}
+          TENANT_ID: ${{ secrets.MSSTORE_TENANT_ID }}
+          SELLER_ID: ${{ secrets.MSSTORE_SELLER_ID }}
+          CLIENT_ID: ${{ secrets.MSSTORE_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.MSSTORE_CLIENT_SECRET }}
+          PRODUCT_ID: ${{ vars.MSSTORE_PRODUCT_ID_LITE }}
+        run: |
+          $bundles = @(Get-ChildItem -LiteralPath msix -Filter '*.msixbundle' -File)
+          if ($bundles.Count -ne 1) { throw "Expected exactly one .msixbundle, found $($bundles.Count)." }
+          $bundle = $bundles[0]
+          $expectedVersion = "$($env:TAG.Substring('release-'.Length)).0"
+          $archive = [System.IO.Compression.ZipFile]::OpenRead($bundle.FullName)
+          try {
+            $entry = $archive.GetEntry('AppxMetadata/AppxBundleManifest.xml')
+            if ($null -eq $entry) { throw 'Bundle manifest is missing.' }
+            $manifest = [System.Xml.XmlDocument]::new()
+            $stream = $entry.Open()
+            try {
+              $manifest.Load($stream)
+            } finally {
+              $stream.Dispose()
+            }
+          } finally {
+            $archive.Dispose()
+          }
+          $version = $manifest.DocumentElement.Identity.Version
+          if ($version -ne $expectedVersion) { throw "Bundle version $version does not match $expectedVersion." }
+          $bundle = Rename-Item -LiteralPath $bundle.FullName -NewName "$($bundle.BaseName)_$expectedVersion.msixbundle" -PassThru
+          Write-Host "Submitting $($bundle.Name) (version $version)"
+
+          msstore reconfigure --tenantId $env:TENANT_ID --sellerId $env:SELLER_ID --clientId $env:CLIENT_ID --clientSecret $env:CLIENT_SECRET
+          if ($LASTEXITCODE -ne 0) { throw "msstore reconfigure failed" }
+          msstore publish $bundle.FullName --appId $env:PRODUCT_ID
+          if ($LASTEXITCODE -ne 0) { throw "msstore publish failed" }
+
+  # 商店提交失败时不公开，修好后重跑失败的作业即可
+  github:
+    needs: [locate, store]
+    if: ${{ !cancelled() && needs.locate.result == 'success' && (needs.store.result == 'success' || needs.store.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Publish the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+        run: gh release edit "$TAG" --draft=false

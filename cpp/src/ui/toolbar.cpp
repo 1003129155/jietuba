@@ -23,6 +23,8 @@
 #include "ui/toolbar_layout.h"
 #include "ui/toolbar_layout_dialog.h"
 #include "ui/watermark_input_dialog.h"
+#include "ui/translation_panel.h"
+#include "ui/busy_ring.h"
 #include "ui/watermark_settings_panel.h"
 #include <QApplication>
 #include <QMouseEvent>
@@ -33,7 +35,7 @@ namespace jietuba {
 namespace {
 QString toolbar_tr(const char *text) { return i18n_tr(text, "Toolbar"); }
 
-const QColor GRIP_DOT_COLOR(0x5F, 0x63, 0x68);
+const QColor &GRIP_DOT_COLOR = TOOLBAR_GRIP_DOT;
 const QColor GRIP_DOT_COLOR_IDLE(0xB4, 0xB8, 0xBE);
 
 // Three vertical dots centred in rect.
@@ -184,14 +186,15 @@ void Toolbar::init_ui() {
 
     const int wide = BASE_WIDE_WIDTH;
     const int tool = BASE_BTN_WIDTH;
-    long_screenshot_btn = add_button("long_screenshot", QString::fromUtf8("svg/长截图.svg"), "Long screenshot (scroll)", wide, [this] { emit long_screenshot_clicked(); });
+    long_screenshot_btn = add_button("long_screenshot", QString::fromUtf8("svg/长截图.svg"), "Long screenshot", wide, [this] { emit long_screenshot_clicked(); });
     save_btn = add_button("save", QString::fromUtf8("svg/下载.svg"), "Save to file", wide, [this] { emit save_clicked(); });
-    quick_save_btn = add_button("quick_save", QString::fromUtf8("svg/快速保存.svg"), "Quick save: straight to the save folder, no dialog", wide, [this] { emit quick_save_clicked(); });
-    screenshot_translate_btn = add_button("screenshot_translate", QString::fromUtf8("svg/翻译.svg"), "Screenshot translate (OCR + Translate)", wide,
+    quick_save_btn = add_button("quick_save", QString::fromUtf8("svg/快速保存.svg"), "Quick save without a dialog", wide, [this] { emit quick_save_clicked(); });
+    upload_btn = add_button("upload", QString::fromUtf8("svg/上传.svg"), "Upload to cloud storage", wide, [this] { emit upload_clicked(); });
+    screenshot_translate_btn = add_button("screenshot_translate", QString::fromUtf8("svg/翻译.svg"), "Translate screenshot", wide,
                                           [this] { emit screenshot_translate_clicked(); });
-    text_recognize_btn = add_button("text_recognize", QString::fromUtf8("svg/文字识别.svg"), "Recognize text (OCR)", wide, [this] { emit text_recognize_clicked(); });
-    scan_code_btn = add_button("scan_code", QString::fromUtf8("svg/扫码.svg"), "Scan QR code / barcode", wide, [this] { emit scan_code_clicked(); });
-    gif_btn = add_button("gif", "svg/gif.svg", "GIF / Video recording", wide, [this] { emit gif_record_clicked(); });
+    text_recognize_btn = add_button("text_recognize", QString::fromUtf8("svg/文字识别.svg"), "Recognize text", wide, [this] { emit text_recognize_clicked(); });
+    scan_code_btn = add_button("scan_code", QString::fromUtf8("svg/扫码.svg"), "Scan code", wide, [this] { emit scan_code_clicked(); });
+    gif_btn = add_button("gif", "svg/gif.svg", "Screen recording", wide, [this] { emit gif_record_clicked(); });
     // Copy is laid out only in pin windows; the capture layout has no copy button.
     copy_btn = add_button("copy", "svg/copy.svg", "Copy image", wide, [this] { emit copy_clicked(); });
 
@@ -211,7 +214,7 @@ void Toolbar::init_ui() {
     redo_btn = add_button("redo", QString::fromUtf8("svg/复原.svg"), "Redo", tool, [this] { emit redo_clicked(); });
     cancel_btn = add_button("cancel", QString::fromUtf8("svg/结束截图.svg"), "Cancel screenshot (ESC)", wide, [this] { emit cancel_clicked(); });
     pin_btn = add_button("pin", QString::fromUtf8("svg/钉图.svg"), "Pin image", wide, [this] { emit pin_clicked(); });
-    confirm_btn = add_button("confirm", QString::fromUtf8("svg/确定.svg"), "Confirm and save", wide, [this] { emit confirm_clicked(); });
+    confirm_btn = add_button("confirm", QString::fromUtf8("svg/确定.svg"), "Confirm", wide, [this] { emit confirm_clicked(); });
 
     // "...": hover or click opens folded buttons; registered like a button, arranged last.
     more_btn = new ToolbarMoreHandle(this);
@@ -284,6 +287,7 @@ void Toolbar::make_floating(QWidget *widget) const {
     if (!parent()) {
         widget->setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool | Qt::X11BypassWindowManagerHint);
         widget->setAttribute(Qt::WA_ShowWithoutActivating);
+        keep_system_frame_off(widget);
     } else {
         widget->setWindowFlags(Qt::FramelessWindowHint);
     }
@@ -325,7 +329,8 @@ void Toolbar::reload_layout() {
 
 QList<QWidget *> Toolbar::panels() const {
     QList<QWidget *> result;
-    for (QWidget *panel : std::initializer_list<QWidget *>{paint_panel, shape_panel, arrow_panel, number_panel, text_panel, mosaic_panel, watermark_panel})
+    for (QWidget *panel : std::initializer_list<QWidget *>{paint_panel, shape_panel, arrow_panel, number_panel, text_panel, mosaic_panel, watermark_panel,
+                                                           translation_panel})
         if (panel) result.append(panel);
     return result;
 }
@@ -343,6 +348,7 @@ void Toolbar::apply_scale() {
     if (text_panel) text_panel->apply_scale();
     if (mosaic_panel) mosaic_panel->apply_scale();
     if (watermark_panel) watermark_panel->apply_scale();
+    if (translation_panel) translation_panel->apply_scale();
     reposition_self();
     sync_all_panels_position();
 }
@@ -579,6 +585,7 @@ void Toolbar::retranslate() {
     if (mosaic_panel) mosaic_panel->retranslate();
     if (text_panel) text_panel->retranslate();
     if (watermark_panel) watermark_panel->retranslate();
+    if (translation_panel) translation_panel->retranslate();
     if (more_popup_) more_popup_->adjust_btn->setText(toolbar_tr("Adjust"));
 }
 
@@ -586,6 +593,7 @@ void Toolbar::restore_active_tool_state(const QString &tool_id, const ToolContex
     set_temporary_edit_active(false);
     if (tool_id == "cursor" || tool_id.isEmpty()) {
         hide_all_panels();
+        sync_translation_panel();
         return;
     }
     ensure_panel_for_tool(tool_id);
@@ -627,6 +635,7 @@ void Toolbar::select_tool(const QString &tool_id, bool toggle) {
         current_tool.reset();
         emit tool_changed("cursor");
         hide_all_panels();
+        sync_translation_panel();
         return;
     }
     if (!tool_buttons.contains(tool_id)) return;
@@ -644,6 +653,69 @@ void Toolbar::select_tool(const QString &tool_id, bool toggle) {
 
 void Toolbar::hide_all_panels() {
     for (auto *panel : panels()) panel->hide();
+}
+
+TranslationPanel *Toolbar::ensure_translation_panel() {
+    if (!translation_panel) {
+        translation_panel = new TranslationPanel(parentWidget());
+        make_floating(translation_panel);
+        translation_panel->hide();
+        // It widens and narrows as its folded part slides, and must stay on screen meanwhile.
+        connect(translation_panel, &TranslationPanel::resized, this, [this] {
+            if (translation_panel->isVisible()) sync_panel_position(translation_panel);
+        });
+    }
+    return translation_panel;
+}
+
+void Toolbar::set_translation_shown(bool shown) {
+    translation_shown_ = shown;
+    translation_panel_wanted_ = shown;
+    if (screenshot_translate_btn) {
+        screenshot_translate_btn->setCheckable(shown);
+        screenshot_translate_btn->setChecked(shown);
+    }
+    // The panel takes a tool panel's place, so the tool goes back to the cursor first.
+    if (shown && current_tool) select_tool("cursor");
+    else sync_translation_panel();
+}
+
+void Toolbar::set_translation_busy(bool busy) {
+    if (!screenshot_translate_btn) return;
+    if (!translation_busy_ring) translation_busy_ring = new BusyRing(screenshot_translate_btn);
+    translation_busy_ring->set_busy(busy);
+}
+
+void Toolbar::set_translation_progress(int done, int total) {
+    if (!screenshot_translate_btn) return;
+    if (!translation_busy_ring) translation_busy_ring = new BusyRing(screenshot_translate_btn);
+    translation_busy_ring->set_progress(done, total);
+}
+
+void Toolbar::toggle_translation_panel() {
+    if (!translation_shown_) return;
+    if (current_tool) {
+        translation_panel_wanted_ = true;
+        select_tool("cursor");
+    } else {
+        translation_panel_wanted_ = !translation_panel_wanted_;
+        sync_translation_panel();
+    }
+    // The click toggled the button itself; lit means a translation is shown.
+    screenshot_translate_btn->setChecked(true);
+}
+
+void Toolbar::sync_translation_panel() {
+    if (!translation_shown_ || !translation_panel_wanted_ || current_tool || !isVisible()) {
+        if (translation_panel) translation_panel->hide();
+        return;
+    }
+    auto *panel = ensure_translation_panel();
+    panel->show();
+    panel->raise();
+    sync_panel_position(panel);
+    // Keeps the toolbar above its panel.
+    raise();
 }
 
 void Toolbar::show_panel_for_tool(const QString &tool_id) {
@@ -896,6 +968,13 @@ void Toolbar::moveEvent(QMoveEvent *event) {
 void Toolbar::hideEvent(QHideEvent *event) {
     QWidget::hideEvent(event);
     hide_more_popup();
+    if (translation_panel) translation_panel->hide();
+}
+
+void Toolbar::showEvent(QShowEvent *event) {
+    QWidget::showEvent(event);
+    // Queued: the host places the bar right after showing it, and the panel goes under it there.
+    if (translation_shown_) QTimer::singleShot(0, this, [this] { sync_translation_panel(); });
 }
 
 void Toolbar::sync_all_panels_position() {

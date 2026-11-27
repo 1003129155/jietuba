@@ -33,7 +33,7 @@ public:
         text_column->addWidget(name_label);
         text_column->addWidget(sample_label);
         auto *layout = new QHBoxLayout(this);
-        layout->setContentsMargins(dialog_scaled(8), dialog_scaled(6), dialog_scaled(8), dialog_scaled(6));
+        layout->setContentsMargins(dialog_scaled(10), dialog_scaled(10), dialog_scaled(16), dialog_scaled(10));
         layout->setSpacing(dialog_scaled(10));
         layout->addWidget(grip);
         layout->addWidget(check);
@@ -46,42 +46,25 @@ public:
 };
 }
 
-ColorFormatDialog::ColorFormatDialog(const QVector<color_formats::ColorFormat> &formats, QWidget *parent) : QDialog(parent) {
-    scale_dialog_font(*this);
+ColorFormatDialog::ColorFormatDialog(const QVector<color_formats::ColorFormat> &formats, QWidget *parent) : FluentDialog(parent) {
     setWindowTitle(tr_text("Manage Color Formats"));
-    setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowCloseButtonHint);
-    setStyleSheet(QString("QDialog { background: %1; }").arg(ui_tokens(this).window));
-
-    list_ = new ReorderableRowList(this);
-    auto *hint = new CaptionLabel(tr_text("The magnifier shows one checked format at a time — Shift cycles between them, C copies whichever is shown. "
-                                          "Drag one to the top to make it the default."),
-                                  this);
-    hint->setWordWrap(true);
-    configure_dialog_control(*hint);
+    list_ = new ReorderableRowList(body());
+    bodyLayout()->addWidget(list_, 1);
+    bodyLayout()->addSpacing(dialog_scaled(8));
+    bodyLayout()->addWidget(dialog_hint(body(), tr_text("The magnifier shows one checked format at a time — Shift cycles between them, C copies whichever is shown. "
+                                                      "Drag one to the top to make it the default.")));
 
     auto *reset_btn = new TransparentPushButton(tr_text("Restore defaults"), this);
     connect(reset_btn, &QPushButton::clicked, this, [this] { fill(color_formats::default_formats()); });
     auto *ok_btn = new PrimaryPushButton(tr_text("OK"), this);
+    ok_btn->setDefault(true);
     connect(ok_btn, &QPushButton::clicked, this, &QDialog::accept);
     auto *cancel_btn = new PushButton(tr_text("Cancel"), this);
     connect(cancel_btn, &QPushButton::clicked, this, &QDialog::reject);
+    setFooterButtons({reset_btn}, {ok_btn, cancel_btn});
 
-    auto *buttons = new QHBoxLayout;
-    buttons->setSpacing(dialog_scaled(8));
-    buttons->addWidget(reset_btn);
-    buttons->addStretch(1);
-    buttons->addWidget(ok_btn);
-    buttons->addWidget(cancel_btn);
-
-    auto *root = new QVBoxLayout(this);
-    root->setContentsMargins(dialog_scaled(16), dialog_scaled(16), dialog_scaled(16), dialog_scaled(14));
-    root->setSpacing(dialog_scaled(10));
-    root->addWidget(list_, 1);
-    root->addWidget(hint);
-    root->addLayout(buttons);
-
-    configure_dialog_controls(*this);
     fill(formats);
+    finish_controls();
     fit_height_to_rows();
 }
 
@@ -101,19 +84,9 @@ void ColorFormatDialog::fill(const QVector<color_formats::ColorFormat> &formats)
 }
 
 void ColorFormatDialog::fit_height_to_rows() {
-    int content_height = list_->content_height();
-    list_->setFixedHeight(content_height);
-    int desired_height = sizeHint().height();
     QScreen *screen = parentWidget() ? parentWidget()->screen() : QApplication::primaryScreen();
-    if (screen) {
-        const int max_height = std::max(dialog_scaled(360), screen->availableGeometry().height() - dialog_scaled(40));
-        if (desired_height > max_height) {
-            const int non_list_height = desired_height - content_height;
-            content_height = std::max(dialog_scaled(180), max_height - non_list_height);
-            list_->setFixedHeight(content_height);
-            desired_height = non_list_height + content_height;
-        }
-    }
-    resize(dialog_scaled(520), desired_height);
+    const int limit = screen ? std::max(dialog_scaled(360), screen->availableGeometry().height() - dialog_scaled(40)) : QWIDGETSIZE_MAX;
+    const int width = dialog_scaled(520);
+    resize(width, std::min(height_showing(list_, width), limit));
 }
 }

@@ -1,3 +1,4 @@
+#include "ui/fluent_lite/fluent_dialog.h"
 #include "core/native.h"
 #include "ocr/ppocr_models.h"
 #include "ui/settings_ui/ppocr_model_dialog.h"
@@ -94,7 +95,7 @@ QString requested_staging(const FakeRunner &runner) {
 void confirm_next_dialog() {
     QTimer::singleShot(0, [] {
         auto *dialog = QApplication::activeModalWidget();
-        auto *box = dialog ? dialog->findChild<QDialogButtonBox *>() : nullptr;
+        auto *box = dialog ? dialog->findChild<jietuba::DialogButtonRow *>() : nullptr;
         if (!box) return;
         for (auto *button : box->buttons())
             if (box->buttonRole(button) == QDialogButtonBox::YesRole) button->click();

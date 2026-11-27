@@ -8,6 +8,7 @@
 #include "ui/screenshot_window.h"
 #include "ui/toolbar.h"
 #include "pin/pin_manager.h"
+#include "pin/pin_overlay_translation.h"
 #include "pin/pin_window.h"
 #include "settings/tool_settings.h"
 #include "stitch/auto_scroll.h"
@@ -16,6 +17,7 @@
 #include "stitch/scroll_toolbar.h"
 #include "stitch/scroll_window.h"
 #include "text_recognition/result_window.h"
+#include "translation/translation_manager.h"
 #include "ui/fluent_lite/buttons.h"
 #include "ui/fluent_lite/inputs.h"
 #include "ui/save_image_dialog.h"
@@ -31,6 +33,7 @@
 #include <QLabel>
 #include <QMenu>
 #include <QPainter>
+#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QRandomGenerator>
 #include <QRegularExpression>
@@ -44,7 +47,9 @@
 #include <QTransform>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QThread>
 #include <QTimer>
+#include <atomic>
 #include <future>
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -371,6 +376,56 @@ private slots:
             QCOMPARE(QImage(QDir(folder).filePath(files.first())).convertToFormat(QImage::Format_RGB32), expected);
             QVERIFY(!answer.answered);
         } else QTRY_COMPARE(cancelled.count(), 1);
+    }
+
+    // In overlay mode the long image is pinned as it is at once, which ends the long screenshot, and
+    // the translation is laid over the pin; one that cannot run leaves the pin to try again.
+    void anOverlayTranslationPinsTheLongImageFirst() {
+        auto *window = open();
+        QVERIFY(window);
+        QVERIFY(scroll_in_steps({100, 300}));
+        auto *stitcher = window->findChild<IncrementalStitcher *>();
+        const auto original = stitcher->export_image().convertToFormat(QImage::Format_RGB32);
+        set_recognizer_for_test([](const QImage &) {
+            return OcrResult{100, "ok", {OcrLine{{QPointF(0, 0), QPointF(80, 0), QPointF(80, 16), QPointF(0, 16)}, "long text"}}, 0.0};
+        });
+        const auto restore = qScopeGuard([] { set_recognizer_for_test({}); });
+        // DeepL without a key answers locally that it is not set up, so nothing reaches the network.
+        config_->set_translation_provider("deepl");
+        config_->set_screenshot_translate_mode("overlay");
+        QSignalSpy finished(window, &ScrollCaptureWindow::finished);
+        window->toolbar->translate_btn->click();
+        QCOMPARE(finished.count(), 1);
+        QCOMPARE(PinManager::instance()->count(), 1);
+        auto *pin = PinManager::instance()->get_all_pins().first();
+        QCOMPARE(pin->base_pixmap().toImage().convertToFormat(QImage::Format_RGB32), original);
+        QVERIFY(pin->overlay_translation());
+        QDialog *refusal = nullptr;
+        QTRY_VERIFY((refusal = visible_top_level<QDialog>()));
+        refusal->close();
+        QVERIFY(!pin->overlay_translation()->shown());
+        QVERIFY(!pin->overlay_translation()->busy());
+        PinManager::instance()->close_all();
+    }
+
+    // By default, translate ends the long screenshot and opens the side-by-side window.
+    void translatingByDefaultHandsTheLongImageOver() {
+        settings_->remove("translation/screenshot_mode");
+        auto *window = open();
+        QVERIFY(window);
+        QVERIFY(scroll_in_steps({150, 300}));
+        set_recognizer_for_test([](const QImage &) {
+            return OcrResult{100, "ok", {OcrLine{{QPointF(0, 0), QPointF(80, 0), QPointF(80, 16), QPointF(0, 16)}, "long text"}}, 0.0};
+        });
+        config_->set_translation_provider("deepl");
+        const auto restore = qScopeGuard([] {
+            set_recognizer_for_test({});
+            TranslationManager::cleanup();
+        });
+        QSignalSpy finished(window, &ScrollCaptureWindow::finished);
+        window->toolbar->translate_btn->click();
+        QCOMPARE(finished.count(), 1);
+        QTRY_VERIFY(TranslationManager::instance()->is_dialog_open());
     }
 
     void doubleClickBindingCapturesThatButtonWithoutBlockingTheWheel() {
@@ -1188,7 +1243,7 @@ private slots:
         const int before = window->screenshots;
         page_window_->set_page(stranger);
         QTRY_VERIFY_WITH_TIMEOUT(window->preview_panel->warning_label->isVisible(), 8000);
-        QCOMPARE(window->preview_panel->warning_label->text(), i18n_tr("Couldn't join. Scroll back", "ScrollCaptureWindow"));
+        QCOMPARE(window->preview_panel->warning_label->text(), i18n_tr("Couldn't join. Scroll back a little.", "ScrollCaptureWindow"));
         QCOMPARE(window->screenshots, before);
         page_window_->set_page(page_);
         page_window_->scroll_to(180);

@@ -28,18 +28,18 @@ FileDropZone::FileDropZone(std::function<void(const QString &)> on_path_dropped,
 void FileDropZone::_apply_theme() {
     const auto &tokens = ui_tokens(this);
     // QLabel is a QFrame too; a bare QFrame selector would give the hint text a dashed frame of its own.
-    default_style_ = QString("QFrame#FileDropZone {border: 2px dashed %1;border-radius: %2px;background: %3;}"
+    default_style_ = QString("QFrame#FileDropZone {border: 1px dashed %1;border-radius: %2px;background: %3;}"
                              "QLabel {color: %4;font-size: %5px;padding: %6px;}")
-                         .arg(tokens.border_hover)
-                         .arg(scale_ui(10))
-                         .arg(tokens.surface_subtle, tokens.text_muted)
+                         .arg(tokens.control_border_bottom)
+                         .arg(scale_ui(4))
+                         .arg(tokens.card, tokens.fg_muted)
                          .arg(scale_ui(13))
                          .arg(scale_ui(8));
-    hover_style_ = QString("QFrame#FileDropZone {border: 2px dashed %1;border-radius: %2px;background: %3;}"
+    hover_style_ = QString("QFrame#FileDropZone {border: 1px dashed %1;border-radius: %2px;background: %3;}"
                            "QLabel {color: %1;font-size: %4px;padding: %5px;font-weight: 500;}")
                        .arg(tokens.accent)
-                       .arg(scale_ui(10))
-                       .arg(tokens.accent_soft)
+                       .arg(scale_ui(4))
+                       .arg(tokens.item_hover)
                        .arg(scale_ui(13))
                        .arg(scale_ui(8));
     setStyleSheet(drag_active_ ? hover_style_ : default_style_);

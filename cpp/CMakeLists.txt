@@ -21,10 +21,10 @@ list(REMOVE_ITEM JIETUBA_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 
 add_library(jietuba_lib STATIC ${JIETUBA_SOURCES} resources/settings.qrc)
 set_target_properties(jietuba_lib PROPERTIES AUTORCC ON)
-# The .qm files are compiled from resources/translations/*.xml by scripts/compile_translations.py.
-file(GLOB JIETUBA_QM_FILES CONFIGURE_DEPENDS resources/translations/*.qm)
+# The interface catalogs are embedded as they are edited; XmlTranslator reads them.
+file(GLOB JIETUBA_TRANSLATION_FILES CONFIGURE_DEPENDS resources/translations/*.xml)
 qt_add_resources(jietuba_lib "jietuba_runtime_resources" PREFIX "/" BASE resources
-    FILES resources/core/log_translations.json ${JIETUBA_QM_FILES})
+    FILES resources/core/log_translations.json ${JIETUBA_TRANSLATION_FILES})
 # The repository's svg/ is embedded as :/svg.
 file(GLOB_RECURSE JIETUBA_SVG_FILES CONFIGURE_DEPENDS ${JIETUBA_REPO_ROOT}/svg/*.svg ${JIETUBA_REPO_ROOT}/svg/*.json)
 qt_add_resources(jietuba_lib "jietuba_svg_resources" PREFIX "/" BASE ${JIETUBA_REPO_ROOT}
@@ -214,6 +214,9 @@ if(JIETUBA_UPDATES)
     qt_add_resources(jietuba_cpp jietuba_updater PREFIX /updater BASE ${JIETUBA_UPDATER_DIR} FILES ${JIETUBA_UPDATER_EXE})
 endif()
 
+# The packaged build's Explorer command (a COM DLL with a static runtime, no Qt).
+add_subdirectory(explorer_command)
+
 include(CTest)
 if(BUILD_TESTING)
     # QtTest output never reaches ctest's pipe; each test also writes its report here, read by
@@ -232,6 +235,40 @@ if(BUILD_TESTING)
     target_compile_definitions(jietuba_translation_tests PRIVATE JIETUBA_TRANSLATION_FIXTURE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/translation.json")
     add_test(NAME python_translation_parity COMMAND jietuba_translation_tests -o ${JIETUBA_TEST_REPORTS}/python_translation_parity.txt,txt)
     set_tests_properties(python_translation_parity PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    qt_add_executable(jietuba_translation_overlay_tests tests/test_translation_overlay.cpp)
+    target_link_libraries(jietuba_translation_overlay_tests PRIVATE jietuba_lib Qt6::Test)
+    add_test(NAME translation_overlay COMMAND jietuba_translation_overlay_tests -o ${JIETUBA_TEST_REPORTS}/translation_overlay.txt,txt)
+    set_tests_properties(translation_overlay PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    qt_add_executable(jietuba_line_grouping_tests tests/test_line_grouping.cpp)
+    target_link_libraries(jietuba_line_grouping_tests PRIVATE jietuba_lib Qt6::Test)
+    add_test(NAME line_grouping COMMAND jietuba_line_grouping_tests -o ${JIETUBA_TEST_REPORTS}/line_grouping.txt,txt)
+    set_tests_properties(line_grouping PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    # Training and evaluation data for the paragraph model (scripts/paragraph_model).
+    qt_add_executable(jietuba_paragraph_tool scripts/paragraph_model/paragraph_tool.cpp)
+    target_link_libraries(jietuba_paragraph_tool PRIVATE jietuba_lib)
+    # Training and evaluation data for the table models (scripts/table_model).
+    qt_add_executable(jietuba_table_tool scripts/table_model/table_tool.cpp)
+    target_link_libraries(jietuba_table_tool PRIVATE jietuba_lib)
+    # Development-only design gallery (scripts/ui_gallery): not installed, and release builds have no tests.
+    qt_add_executable(jietuba_ui_gallery WIN32 scripts/ui_gallery/main.cpp scripts/ui_gallery/gallery_window.cpp scripts/ui_gallery/gallery_window.h)
+    target_include_directories(jietuba_ui_gallery PRIVATE scripts/ui_gallery)
+    target_link_libraries(jietuba_ui_gallery PRIVATE jietuba_lib)
+    qt_add_executable(jietuba_paragraph_translator_tests tests/test_paragraph_translator.cpp)
+    target_link_libraries(jietuba_paragraph_translator_tests PRIVATE jietuba_lib Qt6::Test)
+    add_test(NAME paragraph_translator COMMAND jietuba_paragraph_translator_tests -o ${JIETUBA_TEST_REPORTS}/paragraph_translator.txt,txt)
+    set_tests_properties(paragraph_translator PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    # The gallery sources are built into the test, not into jietuba_lib.
+    qt_add_executable(jietuba_ui_gallery_tests tests/test_ui_gallery.cpp scripts/ui_gallery/gallery_window.cpp scripts/ui_gallery/gallery_window.h)
+    target_include_directories(jietuba_ui_gallery_tests PRIVATE scripts/ui_gallery)
+    target_link_libraries(jietuba_ui_gallery_tests PRIVATE jietuba_lib Qt6::Test)
+    add_test(NAME ui_gallery COMMAND jietuba_ui_gallery_tests -o ${JIETUBA_TEST_REPORTS}/ui_gallery.txt,txt)
+    set_tests_properties(ui_gallery PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    qt_add_executable(jietuba_style_literals_tests tests/test_style_literals.cpp)
+    target_link_libraries(jietuba_style_literals_tests PRIVATE jietuba_lib Qt6::Test)
+    target_compile_definitions(jietuba_style_literals_tests PRIVATE JIETUBA_STYLE_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src"
+        JIETUBA_STYLE_BASELINE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/style_literals_baseline.txt")
+    add_test(NAME style_literals COMMAND jietuba_style_literals_tests -o ${JIETUBA_TEST_REPORTS}/style_literals.txt,txt)
+    set_tests_properties(style_literals PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     qt_add_executable(jietuba_barcode_tests tests/test_barcode.cpp)
     target_link_libraries(jietuba_barcode_tests PRIVATE jietuba_lib Qt6::Test)
     target_compile_definitions(jietuba_barcode_tests PRIVATE JIETUBA_BARCODE_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures")
@@ -348,7 +385,7 @@ if(BUILD_TESTING)
     set_tests_properties(clipboard_manage PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     if(WIN32)
         # Whether the footer's texts fit needs real fonts.
-        add_test(NAME clipboard_manage_desktop COMMAND jietuba_clipboard_manage_tests -o ${JIETUBA_TEST_REPORTS}/clipboard_manage_desktop.txt,txt -platform windows theFooterFitsEveryLanguageInTheNarrowestWindow)
+        add_test(NAME clipboard_manage_desktop COMMAND jietuba_clipboard_manage_tests -o ${JIETUBA_TEST_REPORTS}/clipboard_manage_desktop.txt,txt -platform windows theButtonsFitEveryLanguageInTheNarrowestWindow)
         set_tests_properties(clipboard_manage_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
     endif()
     qt_add_executable(jietuba_clipboard_backend_tests tests/test_clipboard_backend.cpp)
@@ -367,6 +404,13 @@ if(BUILD_TESTING)
     target_link_libraries(jietuba_drag_out_tests PRIVATE jietuba_lib Qt6::Test)
     add_test(NAME drag_out COMMAND jietuba_drag_out_tests -o ${JIETUBA_TEST_REPORTS}/drag_out.txt,txt)
     set_tests_properties(drag_out PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    # The motion tests step animations by a fixed amount (fixed_animation_steps.h), a switch in a private
+    # header.
+    find_package(Qt6 QUIET COMPONENTS CorePrivate)
+    qt_add_executable(jietuba_motion_tests tests/test_motion.cpp)
+    target_link_libraries(jietuba_motion_tests PRIVATE jietuba_lib Qt6::Test Qt6::CorePrivate)
+    add_test(NAME motion COMMAND jietuba_motion_tests -o ${JIETUBA_TEST_REPORTS}/motion.txt,txt)
+    set_tests_properties(motion PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     qt_add_executable(jietuba_settings_window_tests tests/test_settings_window.cpp)
     target_link_libraries(jietuba_settings_window_tests PRIVATE jietuba_lib Qt6::Test)
     add_test(NAME settings_window COMMAND jietuba_settings_window_tests -o ${JIETUBA_TEST_REPORTS}/settings_window.txt,txt)
@@ -374,11 +418,25 @@ if(BUILD_TESTING)
     if(WIN32)
         # Whether texts fit needs real fonts.
         add_test(NAME settings_window_desktop COMMAND jietuba_settings_window_tests -o ${JIETUBA_TEST_REPORTS}/settings_window_desktop.txt,txt -platform windows
-                 readAloudGroupFitsEveryLanguageInTheNarrowestWindow everyPageFitsEveryLanguageAtTheMinimumWidth wizardMouseGridFitsEveryLanguage
+                 readAloudGroupFitsEveryLanguageInTheNarrowestWindow everyPageFitsEveryLanguageAtTheMinimumWidth translationApiTabFitsEveryLanguageAtTheMinimumWidth
+                 wizardMouseGridFitsEveryLanguage wizardFinishPageFitsEveryLanguage
                  longScreenshotMousePageFitsEveryLanguage fileNameDialogFitsEveryLanguageAndFollowsWindowScale fileNameDialogDoesNotMoveWhileTyping
-                 fileNameDialogErrorsStayVisibleAndKeepPastedText)
+                 fileNameDialogErrorsStayVisibleAndKeepPastedText saveOptionCardsFitEveryLanguage explorerMenuCardFitsEveryLanguageAtEveryScale
+                 settingsStyleDialogsFitEveryLanguage)
         set_tests_properties(settings_window_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
+        add_test(NAME settings_nav_desktop COMMAND jietuba_settings_window_tests -o ${JIETUBA_TEST_REPORTS}/settings_nav_desktop.txt,txt -platform windows
+                 navigationFitsEveryLanguageAtEveryScale)
+        set_tests_properties(settings_nav_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
+        add_test(NAME upload_desktop COMMAND jietuba_settings_window_tests -o ${JIETUBA_TEST_REPORTS}/upload_desktop.txt,txt -platform windows
+                 uploadGroupAndDialogFitEveryLanguage)
+        set_tests_properties(upload_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
     endif()
+    # Explorer's right-click entry: command line, hand-over to the running instance, registry verbs
+    # under a throwaway key, the packaged build's preference file.
+    qt_add_executable(jietuba_explorer_menu_tests tests/test_explorer_menu.cpp)
+    target_link_libraries(jietuba_explorer_menu_tests PRIVATE jietuba_lib Qt6::Test)
+    add_test(NAME explorer_menu COMMAND jietuba_explorer_menu_tests -o ${JIETUBA_TEST_REPORTS}/explorer_menu.txt,txt)
+    set_tests_properties(explorer_menu PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     qt_add_executable(jietuba_data_folder_tests tests/test_data_folder.cpp)
     target_link_libraries(jietuba_data_folder_tests PRIVATE jietuba_lib Qt6::Test)
     add_test(NAME data_folder COMMAND jietuba_data_folder_tests -o ${JIETUBA_TEST_REPORTS}/data_folder.txt,txt)
@@ -431,6 +489,9 @@ if(BUILD_TESTING)
         # Verify the kind buttons with the desktop's icons and fonts.
         add_test(NAME mosaic_panel_desktop COMMAND jietuba_ui_widgets_tests -o ${JIETUBA_TEST_REPORTS}/mosaic_panel_desktop.txt,txt -platform windows mosaicPanelKindsAreIconsNamedByTooltips)
         set_tests_properties(mosaic_panel_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
+        # The translation bar's words in every language, measured with the desktop's fonts.
+        add_test(NAME translation_panel_desktop COMMAND jietuba_ui_widgets_tests -o ${JIETUBA_TEST_REPORTS}/translation_panel_desktop.txt,txt -platform windows theTranslationBarFitsEveryLanguage)
+        set_tests_properties(translation_panel_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
     endif()
     qt_add_executable(jietuba_save_image_dialog_tests tests/test_save_image_dialog.cpp)
     target_link_libraries(jietuba_save_image_dialog_tests PRIVATE jietuba_lib Qt6::Test)
@@ -441,6 +502,10 @@ if(BUILD_TESTING)
         add_test(NAME save_image_dialog_desktop COMMAND jietuba_save_image_dialog_tests -o ${JIETUBA_TEST_REPORTS}/save_image_dialog_desktop.txt,txt -platform windows theSizeLimitRowFitsEveryLanguage)
         set_tests_properties(save_image_dialog_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
     endif()
+    qt_add_executable(jietuba_save_options_tests tests/test_save_options.cpp)
+    target_link_libraries(jietuba_save_options_tests PRIVATE jietuba_lib Qt6::Test)
+    add_test(NAME save_options COMMAND jietuba_save_options_tests -o ${JIETUBA_TEST_REPORTS}/save_options.txt,txt)
+    set_tests_properties(save_options PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     # The PP-OCR pack is not in the repository; the PP-OCR cases copy it from this folder when set.
     # CI names it in the environment.
     set(JIETUBA_PPOCR_MODELS "$ENV{JIETUBA_PPOCR_MODELS}" CACHE PATH "Folder holding the PP-OCR pack (models and onnxruntime.dll) for the OCR tests")
@@ -487,6 +552,19 @@ if(BUILD_TESTING)
     target_link_libraries(jietuba_http_provider_tests PRIVATE jietuba_lib Qt6::Test Qt6::Network)
     add_test(NAME http_providers COMMAND jietuba_http_provider_tests -o ${JIETUBA_TEST_REPORTS}/http_providers.txt,txt)
     set_tests_properties(http_providers PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    # The packaged Explorer command's logic, the manifest it is registered by and its package script.
+    qt_add_executable(jietuba_explorer_command_tests tests/test_explorer_command.cpp)
+    target_link_libraries(jietuba_explorer_command_tests PRIVATE jietuba_lib jietuba_explorer_command_core Qt6::Test)
+    target_compile_definitions(jietuba_explorer_command_tests PRIVATE JIETUBA_CPP_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+        JIETUBA_EXPLORER_COMMAND_DLL="$<TARGET_FILE:jietuba_explorer_command>")
+    add_dependencies(jietuba_explorer_command_tests jietuba_explorer_command)
+    add_test(NAME explorer_command COMMAND jietuba_explorer_command_tests -o ${JIETUBA_TEST_REPORTS}/explorer_command.txt,txt)
+    set_tests_properties(explorer_command PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    # Cloud upload: the signature, addresses and keys, and the whole exchange against a local server.
+    qt_add_executable(jietuba_upload_tests tests/test_upload.cpp)
+    target_link_libraries(jietuba_upload_tests PRIVATE jietuba_lib Qt6::Test Qt6::Network)
+    add_test(NAME upload COMMAND jietuba_upload_tests -o ${JIETUBA_TEST_REPORTS}/upload.txt,txt)
+    set_tests_properties(upload PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     qt_add_executable(jietuba_logger_tests tests/test_logger.cpp)
     target_link_libraries(jietuba_logger_tests PRIVATE jietuba_lib Qt6::Test)
     add_test(NAME logger COMMAND jietuba_logger_tests -o ${JIETUBA_TEST_REPORTS}/logger.txt,txt)
@@ -508,11 +586,11 @@ if(BUILD_TESTING)
     add_test(NAME pin_window COMMAND jietuba_pin_tests -o ${JIETUBA_TEST_REPORTS}/pin_window.txt,txt)
     set_tests_properties(pin_window PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     if(WIN32)
-        # Window styles only exist on real windows; the translation window needs a real screen's width beside the pin;
+        # Window styles and system frames only exist on real windows; the translation window needs a real screen's width beside the pin;
         # only Windows shows a pin without activating it.
         add_test(NAME pin_window_desktop COMMAND jietuba_pin_tests -o ${JIETUBA_TEST_REPORTS}/pin_window_desktop.txt,txt -platform windows clickThroughStyleSurvivesStayOnTopToggles aPinMadeDuringACaptureGoesRightBelowIt
             translatingAPinRecognizesThenTranslates aNewPinTakesKeyboardFocus
-            hiddenPinsComeBackInTheirOrderAndANewPinShowsThem)
+            hiddenPinsComeBackInTheirOrderAndANewPinShowsThem thePinToolbarShowsNoSystemOutlineOrShadow)
         set_tests_properties(pin_window_desktop PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=windows")
     endif()
     qt_add_executable(jietuba_pin_media_tests tests/test_pin_media.cpp)
@@ -576,7 +654,7 @@ if(BUILD_TESTING)
     endif()
     get_property(jietuba_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
     foreach(target IN LISTS jietuba_targets)
-        if(target MATCHES "_tests$")
+        if(target MATCHES "_tests$" OR target STREQUAL "jietuba_paragraph_tool" OR target STREQUAL "jietuba_table_tool" OR target STREQUAL "jietuba_ui_gallery")
             target_link_libraries(${target} PRIVATE jietuba_test_sandbox)
             add_dependencies(${target} jietuba_native)
             if(WIN32)

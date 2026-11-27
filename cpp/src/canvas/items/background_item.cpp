@@ -1,5 +1,6 @@
 #include "canvas/items/background_item.h"
 #include "core/logger.h"
+#include <QPainter>
 #include <QPixmap>
 #include <algorithm>
 
@@ -29,9 +30,10 @@ QImage reduce(const QImage &rgba, int block) {
 }
 }
 
-BackgroundItem::BackgroundItem(const QImage &image, const QRectF &scene_rect) : scene_rect_(scene_rect), cached_image_(image) {
+BackgroundItem::BackgroundItem(const QImage &image, const QRectF &scene_rect) : scene_rect_(scene_rect), image_size_(image.size()), cached_image_(image) {
     setZValue(0);
     setPixmap(QPixmap::fromImage(image));
+    hold_pixels_once();
     // Scene coordinates via offset; boundingRect() stays in pixmap-local (0, 0, w, h).
     setOffset(scene_rect_.topLeft());
     setAcceptedMouseButtons(Qt::NoButton);
@@ -51,10 +53,21 @@ void BackgroundItem::update_image(const QImage &image) { update_image(image, QPi
 void BackgroundItem::update_image(const QImage &image, const QPixmap &pixmap) {
     image_source_ = nullptr;
     cached_image_ = image;
+    image_size_ = image.size();
     has_cached_image_ = true;
     reduced_cache_key_.reset();
     reduced_cache_image_ = QImage();
     setPixmap(pixmap);
+    hold_pixels_once();
+}
+
+void BackgroundItem::hold_pixels_once() {
+    // Converting to the pixmap's format is lossless only without alpha: premultiplying loses colour
+    // where alpha is low, so an image with transparency keeps its own copy. Painting on the pixmap
+    // copies before writing, but QPixmap::scroll() writes the shared pixels in place: never scroll it.
+    if (pixmap().hasAlphaChannel()) return;
+    const auto shown = pixmap().toImage();
+    if (shown.size() == cached_image_.size() && shown.constBits() != cached_image_.constBits()) cached_image_ = shown;
 }
 
 void BackgroundItem::set_image_source(std::function<QImage()> source) {
@@ -90,6 +103,49 @@ QImage BackgroundItem::reduced_image(int block_size) {
     reduced_cache_key_ = block_size;
     reduced_cache_image_ = padded;
     return padded;
+}
+
+void BackgroundItem::set_overlay(const QImage &layer, const QPoint &position) {
+    overlay_ = layer;
+    overlay_position_ = position;
+    display_overlay_ = QPixmap();
+    update();
+}
+
+void BackgroundItem::set_display_overlay(const QPixmap &layer, const QPoint &position, const QSize &display_size) {
+    display_overlay_ = layer;
+    display_overlay_position_ = position;
+    display_overlay_for_ = display_size;
+    update();
+}
+
+void BackgroundItem::set_overlay_visible(bool visible) {
+    if (overlay_visible_ == visible) return;
+    overlay_visible_ = visible;
+    update();
+}
+
+void BackgroundItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) {
+    QGraphicsPixmapItem::paint(painter, option, widget);
+    if (!overlay_visible()) return;
+    if (transform().isIdentity()) {
+        painter->drawImage(offset() + overlay_position_, overlay_);
+        return;
+    }
+    // The display pixmap is resampled under a compensating transform, while the layer stays in
+    // image pixels.
+    if (!display_overlay_.isNull() && pixmap().size() == display_overlay_for_) {
+        painter->drawPixmap(offset() + display_overlay_position_, display_overlay_);
+        return;
+    }
+    bool invertible = false;
+    const auto to_item = transform().inverted(&invertible);
+    if (!invertible) return;
+    painter->save();
+    painter->setRenderHint(QPainter::SmoothPixmapTransform, true);
+    painter->setTransform(to_item, true);
+    painter->drawImage(offset() + overlay_position_, overlay_);
+    painter->restore();
 }
 
 void BackgroundItem::release_image_cache() {

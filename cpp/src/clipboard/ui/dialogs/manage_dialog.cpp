@@ -12,7 +12,6 @@
 #include "clipboard/ui/forms/image_content_form.h"
 #include "clipboard/ui/forms/import_export_form.h"
 #include "clipboard/ui/forms/text_content_form.h"
-#include "clipboard/ui/group_kind_style.h"
 #include "clipboard/ui/image_item_actions.h"
 #include "clipboard/ui/layout_scale.h"
 #include "clipboard/ui/widgets/manage_rows.h"
@@ -24,6 +23,7 @@
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
 #include "ui/dialogs.h"
+#include "ui/fluent_lite/buttons.h"
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/segmented.h"
 #include "ui/fluent_lite/theme.h"
@@ -207,11 +207,14 @@ void ManageDialog::reload_if_released() {
 // Layout
 // ------------------------------------------------------------------
 
+void ManageDialog::paintEvent(QPaintEvent *) { paint_layered_background(this, frosted_corner_radius_, panel ? panel->geometry() : QRect(), dialog_scaled(8)); }
+
 void ManageDialog::setup_ui() {
     const int title_height = titleBar() ? titleBar()->height() : dialog_scaled(32);
     auto *main_layout = new QHBoxLayout(this);
-    main_layout->setContentsMargins(dialog_scaled(10), title_height + dialog_scaled(2), dialog_scaled(10), dialog_scaled(10));
-    main_layout->setSpacing(dialog_scaled(10));
+    // The groups on the window background, the list and editor on the content layer running to the right and bottom edges.
+    main_layout->setContentsMargins(dialog_scaled(10), title_height + dialog_scaled(6), 0, 0);
+    main_layout->setSpacing(0);
 
     sidebar = create_sidebar();
     main_layout->addWidget(sidebar);
@@ -237,19 +240,14 @@ void ManageDialog::setup_ui() {
 QWidget *ManageDialog::create_sidebar() {
     auto *bar = new QWidget;
     bar->setObjectName("ManageSidebar");
-    bar->setFixedWidth(dialog_scaled(228));
+    bar->setFixedWidth(dialog_scaled(236));
     auto *layout = new QVBoxLayout(bar);
-    layout->setContentsMargins(dialog_scaled(4), dialog_scaled(4), dialog_scaled(4), dialog_scaled(4));
+    layout->setContentsMargins(dialog_scaled(4), 0, dialog_scaled(4), dialog_scaled(8));
     layout->setSpacing(dialog_scaled(6));
 
-    groups_caption = new QLabel(tr_text("Groups"));
-    groups_caption->setContentsMargins(dialog_scaled(12), dialog_scaled(6), dialog_scaled(6), 0);
-    apply_theme_text_style(groups_caption, 12, false, "font-weight: 600;", true);
-    layout->addWidget(groups_caption);
-
-    // The same full-width dashed button as the middle column's "Add Content", lined up with the group rows.
+    // The same full-width button as the middle column's "Add Content", in the place of the settings search box.
     auto *add_row = new QHBoxLayout;
-    add_row->setContentsMargins(dialog_scaled(4), 0, dialog_scaled(4), 0);
+    add_row->setContentsMargins(0, 0, 0, dialog_scaled(4));
     new_group_btn = new QPushButton("+  " + tr_text("New Group"));
     new_group_btn->setObjectName("ManageAddButton");
     // Checked while a new group is being created, instead of a highlighted group row.
@@ -285,24 +283,22 @@ QWidget *ManageDialog::create_list_column() {
     column->setObjectName("ManageListColumn");
     column->setFixedWidth(dialog_scaled(340));
     auto *layout = new QVBoxLayout(column);
-    layout->setContentsMargins(dialog_scaled(16), dialog_scaled(20), dialog_scaled(16), dialog_scaled(12));
+    layout->setContentsMargins(dialog_scaled(16), dialog_scaled(18), dialog_scaled(16), dialog_scaled(12));
     layout->setSpacing(dialog_scaled(10));
 
     auto *header = new QHBoxLayout;
-    header->setContentsMargins(dialog_scaled(6), 0, 0, 0);
+    header->setContentsMargins(dialog_scaled(4), 0, 0, 0);
     header->setSpacing(dialog_scaled(6));
     auto *title_box = new QVBoxLayout;
     title_box->setSpacing(dialog_scaled(2));
     list_title = new QLabel;
-    apply_theme_text_style(list_title, 16, true);
+    apply_theme_text_style(list_title, 20, true, QString("font-family: %1;").arg(FONT_FAMILY));
     list_count = new QLabel;
     apply_theme_text_style(list_count, 12, false, {}, true);
     title_box->addWidget(list_title);
     title_box->addWidget(list_count);
     header->addLayout(title_box, 1);
-    // QPushButton's icon-text spacing cannot be styled; a space separates them.
-    edit_group_btn = new QPushButton(" " + tr_text("Edit"));
-    edit_group_btn->setObjectName("ManageTextButton");
+    edit_group_btn = new TransparentPushButton(tr_text("Edit"), nullptr, FluentIcon::Edit);
     edit_group_btn->setToolTip(tr_text("Edit Group"));
     edit_group_btn->setCursor(Qt::PointingHandCursor);
     connect(edit_group_btn, &QPushButton::clicked, this, [this] {
@@ -359,11 +355,11 @@ QWidget *ManageDialog::create_detail_column() {
     auto *column = new QWidget;
     column->setObjectName("ManageDetailColumn");
     auto *layout = new QVBoxLayout(column);
-    layout->setContentsMargins(dialog_scaled(36), dialog_scaled(24), dialog_scaled(36), dialog_scaled(20));
-    layout->setSpacing(dialog_scaled(6));
+    layout->setContentsMargins(dialog_scaled(28), dialog_scaled(18), dialog_scaled(28), dialog_scaled(20));
+    layout->setSpacing(dialog_scaled(4));
 
     detail_title = new QLabel;
-    apply_theme_text_style(detail_title, 18, true);
+    apply_theme_text_style(detail_title, 20, true, QString("font-family: %1;").arg(FONT_FAMILY));
     layout->addWidget(detail_title);
 
     detail_subtitle = new QLabel;
@@ -371,7 +367,7 @@ QWidget *ManageDialog::create_detail_column() {
     apply_theme_text_style(detail_subtitle, 12, false, {}, true);
     detail_subtitle->hide();
     layout->addWidget(detail_subtitle);
-    layout->addSpacing(dialog_scaled(12));
+    layout->addSpacing(dialog_scaled(8));
 
     auto *scroll = new QScrollArea;
     scroll->setWidgetResizable(true);
@@ -399,8 +395,7 @@ QWidget *ManageDialog::create_detail_column() {
     footer->setSpacing(dialog_scaled(10));
     footer->addStretch(1);
 
-    pin_btn = new QPushButton(tr_text("Pin to Screen"));
-    pin_btn->setObjectName("ManagePinButton");
+    pin_btn = new PushButton(tr_text("Pin to Screen"));
     pin_btn->setCursor(Qt::PointingHandCursor);
     connect(pin_btn, &QPushButton::clicked, this, [this] {
         if (editing_item_id) create_pin_from_clipboard_item(*editing_item_id, manager, this);
@@ -408,18 +403,17 @@ QWidget *ManageDialog::create_detail_column() {
     pin_btn->hide();
     footer->addWidget(pin_btn);
 
-    delete_btn = new QPushButton(tr_text("Delete"));
-    delete_btn->setObjectName("ManageDeleteButton");
+    delete_btn = new PushButton(tr_text("Delete"));
     delete_btn->setCursor(Qt::PointingHandCursor);
     connect(delete_btn, &QPushButton::clicked, this, [this] { on_delete_clicked(); });
     delete_btn->hide();
     footer->addWidget(delete_btn);
 
-    save_btn = new QPushButton(tr_text("Save"));
-    save_btn->setObjectName("ManageSaveButton");
+    save_btn = new PrimaryPushButton(tr_text("Save"));
     save_btn->setCursor(Qt::PointingHandCursor);
     connect(save_btn, &QPushButton::clicked, this, [this] { on_save_clicked(); });
     footer->addWidget(save_btn);
+    for (QPushButton *button : {pin_btn, delete_btn, save_btn}) button->setMinimumWidth(dialog_scaled(96));
     bottom->addLayout(footer);
     layout->addLayout(bottom);
     return column;
@@ -446,13 +440,9 @@ void ManageDialog::apply_ui_theme(const UIThemeTokens &tokens) {
     const auto s = [](int value) { return QString::number(dialog_scaled(value)); };
     refresh_theme_scope();
     refresh_theme_widget_styles(this);
+    // The settings window's neutral palette and Fluent metrics; the list rows and forms paint with the same tokens.
     setStyleSheet(QString(R"(
-            QWidget#ManagePanel {
-                background: %1;
-                border: 1px solid %2;
-                border-radius: %3px;
-            }
-            QWidget#ManageSidebar, QWidget#ManageListColumn,
+            QWidget#ManagePanel, QWidget#ManageSidebar, QWidget#ManageListColumn,
             QWidget#ManageDetailColumn, QWidget#ManageDetailContent {
                 background: transparent;
             }
@@ -462,121 +452,53 @@ void ManageDialog::apply_ui_theme(const UIThemeTokens &tokens) {
                 outline: none;
             }
             QFrame#ManageSectionCard {
-                background: %4;
+                background: %1;
                 border: 1px solid %2;
                 border-radius: %3px;
             }
-            QTextEdit {
-                border: 1px solid %5;
-                border-radius: %6px;
-                padding: %7px %3px;
-                font-size: %8px;
-                background: %4;
-                color: %9;
-                selection-background-color: %10;
-            }
-            QTextEdit:focus {
-                border-color: %10;
-            }
-            QPushButton#ManageTextButton {
-                background: transparent;
-                border: none;
-                border-radius: %6px;
-                color: %11;
-                font-size: %3px;
-                font-weight: 600;
-                padding: %12px %7px;
-            }
-            QPushButton#ManageTextButton:hover {
-                background: %13;
-            }
             QPushButton#ManageSidebarAction {
                 background: transparent;
-                border: 1px solid transparent;
-                border-radius: %6px;
-                color: %14;
-                font-size: %3px;
-                padding: %6px %3px;
+                border: none;
+                border-radius: %3px;
+                color: %8;
+                font: %9px %10;
+                padding: %7px %7px;
                 text-align: left;
             }
             QPushButton#ManageSidebarAction:hover {
                 background: %13;
-                color: %11;
             }
             QPushButton#ManageAddButton {
-                background: transparent;
-                border: 1px dashed %15;
-                border-radius: %7px;
-                color: %11;
-                font-size: %3px;
-                font-weight: 600;
-                min-height: %16px;
-            }
-            QPushButton#ManageAddButton:hover {
-                background: %13;
-                border-color: %10;
-            }
-            QPushButton#ManagePinButton,
-            QPushButton#ManageDeleteButton,
-            QPushButton#ManageSaveButton {
                 background: %4;
                 border: 1px solid %5;
-                border-radius: %26px;
-                color: %9;
-                font-size: %8px;
-                font-weight: 500;
-                min-height: %18px;
-                min-width: %23px;
-                padding: 0 %19px;
+                border-bottom-color: %6;
+                border-radius: %3px;
+                color: %8;
+                font: %9px %10;
+                min-height: %14px;
             }
-            QPushButton#ManagePinButton:hover,
-            QPushButton#ManageDeleteButton:hover {
+            QPushButton#ManageAddButton:hover {
+                background: %12;
+            }
+            QPushButton#ManageAddButton:pressed {
+                background: %15;
+            }
+            QPushButton#ManageAddButton:checked {
                 background: %13;
-                border-color: %15;
+                border-color: %11;
             }
-            QPushButton#ManagePinButton:pressed {
-                background: %13;
-                border-color: %10;
-            }
-            QPushButton#ManageDeleteButton {
-                color: %17;
-            }
-            QPushButton#ManageDeleteButton:pressed {
-                background: %20;
-                border-color: %17;
-            }
-            QPushButton#ManageSaveButton {
-                background: %21;
-                border-color: %21;
-                color: #FFFFFF;
-                min-width: %22px;
-            }
-            QPushButton#ManageSaveButton:hover {
-                background: %24;
-                border-color: %24;
-            }
-            QPushButton#ManageSaveButton:pressed {
-                background: %25;
-                border-color: %25;
-            }
-            QPushButton#ManagePinButton:disabled,
-            QPushButton#ManageDeleteButton:disabled,
-            QPushButton#ManageSaveButton:disabled {
-                background: %28;
+            QPushButton#ManageAddButton:disabled {
+                background: %15;
                 border-color: %5;
-                color: %27;
+                color: %16;
             }
         )")
-                      .arg(theme_surface_color(), tokens.separator, s(12), tokens.input_background, tokens.border, s(8), s(10), s(13), tokens.text)
-                      .arg(tokens.accent, tokens.accent_text, s(4), tokens.accent_soft, tokens.text_muted, tokens.border_hover, s(34), tokens.danger, s(30))
-                      .arg(s(8), tokens.danger_soft, tokens.accent_strong, s(66), s(50), tokens.accent_strong_hover, tokens.accent_strong_pressed)
-                      .arg(s(6), tokens.text_disabled, tokens.surface_subtle) +
-                  QString("QPushButton#ManageAddButton:checked { background: %1; border: 1px solid %2; }").arg(tokens.accent_soft, tokens.accent) +
-                  scrollbar_qss(this));
-    set_own_style(column_separator, QString("background: %1; border: none;").arg(tokens.separator));
-    search_action->setIcon(tinted_icon(FluentIcon::Search, tokens.text_muted));
-    import_export_btn->setIcon(tinted_icon(FluentIcon::Sync, tokens.text_muted));
-    edit_group_btn->setIcon(tinted_icon(FluentIcon::Edit, tokens.accent_text));
+                      .arg(tokens.card, tokens.card_border, s(4), tokens.control, tokens.control_border, tokens.control_border_bottom, s(12), tokens.fg, s(14))
+                      .arg(FONT_FAMILY, ACCENT, tokens.control_hover, tokens.item_hover, s(30), tokens.control_pressed, tokens.fg_disabled) +
+                  text_edit_qss(this) + scrollbar_qss(this));
+    set_own_style(column_separator, QString("background: %1; border: none;").arg(tokens.divider));
+    search_action->setIcon(tinted_icon(FluentIcon::Search, tokens.fg_muted));
+    import_export_btn->setIcon(tinted_icon(FluentIcon::Sync, tokens.fg));
     apply_dynamic_form_theme();
     update();
 }
@@ -615,7 +537,6 @@ void ManageDialog::refresh_group_list() {
         item->setData(ID_ROLE, group.id);
         item->setData(ICON_ROLE, display_icon(group));
         item->setData(TAG_ROLE, group_tag(group));
-        item->setData(KIND_ROLE, group_kind(group.group_type));
         group_list->addItem(item);
     }
     const int row = group_list->row_of_id(selected_group_id);
@@ -1055,7 +976,6 @@ void ManageDialog::on_group_type_toggled(bool checked, std::optional<int> form_t
     const bool empty_filter = rule && !rule->kind && !rule->app;
     save_btn->setEnabled(!empty_filter);
     save_btn->setToolTip(empty_filter ? tr_text("Choose a content type or a source app") : QString());
-    refresh_group_icon_kind(this);
     update_group_form_header();
 }
 
@@ -1089,7 +1009,7 @@ void ManageDialog::update_group_form_header() {
         subtitle = tr_text("Filter groups store no content; they show the clipboard history that matches the chosen type and source app");
     } else if (radio_hidden && radio_hidden->isChecked()) {
         title = is_new ? tr_text("New Hidden Group") : tr_text("Edit Hidden Group");
-        subtitle = tr_text("Hidden groups are not displayed on the clipboard panel; changing to normal group restores visibility");
+        subtitle = tr_text("Hidden groups are not displayed on the clipboard panel; changing to General Group restores visibility");
     } else if (radio_file->isChecked()) {
         title = is_new ? tr_text("New Quick Launch Group") : tr_text("Edit Quick Launch Group");
         subtitle = tr_text("Quick launch groups accept files, folder paths and links; selecting an item opens them");

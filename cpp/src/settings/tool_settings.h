@@ -181,6 +181,12 @@ public:
     void set_smart_selection_mode(const QString &mode);
     void set_screenshot_format(const QString &value) { store_screenshot_format(value.toUpper()); }
     void set_screenshot_quality(int value) { store_screenshot_quality(std::max(1, std::min(100, value))); }
+    QString get_png_compression() const;
+    void set_png_compression(const QString &value);
+    QString get_pdf_page_size() const;
+    void set_pdf_page_size(const QString &value);
+    int get_save_dialog_quality() const;
+    void set_save_dialog_quality(int value) { store_save_dialog_quality(std::clamp(value, 1, 100)); }
     QString get_ocr_engine() const;
     void set_ocr_engine(const QString &value);
     // One of SHIFT_LINE_ANGLES; anything else reads as the default.
@@ -188,6 +194,8 @@ public:
     void set_shift_line_angle(int value);
     QString get_ocr_result_position() const;
     void set_ocr_result_position(const QString &value);
+    QString get_screenshot_translate_mode() const;
+    void set_screenshot_translate_mode(const QString &value);
     QString get_ocr_layout_mode() const;
     void set_ocr_layout_mode(const QString &value);
     QString get_ocr_punctuation() const;
@@ -243,6 +251,8 @@ private:
     void _load_tool_settings(ToolSettings &tool);
     void _save_tool_settings(const ToolSettings &tool);
     QVariant typed_value(const QString &path, const QVariant &fallback) const;
+    // A provider's credentials and own options, without the request pacing.
+    QVariantMap provider_own_config(const QString &provider_id) const;
     // Until the third clipboard slot is saved it follows the old switch; nothing is written.
     void migrate_win_v_slot(QStringList &values) const;
     std::unique_ptr<QSettings> owned_settings_;
@@ -304,7 +314,12 @@ inline const QStringList CAPTURE_ENGINE_CHOICES = {"auto", "mss", "hdr"};
 // OCR engines in settings-page order: auto prefers the system OCR, else PP-OCR; a named one never falls back.
 inline const QStringList OCR_ENGINES = {"auto", "oneocr", "ppocr_rust"};
 // Where the text recognition window opens, in settings-page order.
+inline const QStringList PNG_COMPRESSIONS = {"low", "medium", "high"};
+inline const QStringList PDF_PAGE_SIZES = {"image", "a4_portrait", "a4_landscape"};
 inline const QStringList OCR_RESULT_POSITIONS = {"region_screen", "primary_screen", "beside_region", "near_cursor", "last_position"};
+// The translate button, in settings-page order: paint the translation over the original text in
+// the capture, or close the capture and open the side-by-side window.
+inline const QStringList SCREENSHOT_TRANSLATE_MODES = {"overlay", "compare"};
 // Result layout; values match text_recognition.layout.
 inline const QStringList OCR_LAYOUT_MODES = {"auto", "single_line", "multiline"};
 inline const QStringList OCR_PUNCTUATION_MODES = {"keep", "halfwidth", "fullwidth"};
@@ -313,6 +328,20 @@ inline const QStringList OCR_PUNCTUATION_MODES = {"keep", "halfwidth", "fullwidt
 inline const QList<int> SHIFT_LINE_ANGLES = {90, 45, 30, 15, 0};
 // The registry default, for tools that run without a settings manager.
 inline constexpr int DEFAULT_SHIFT_LINE_ANGLE = 45;
+// Tools whose new annotation can be left unselected, in toolbar order, with their settings-page
+// labels; each has the setting auto_select_<tool id>. Text is always selected, since that is where typing goes.
+struct AutoSelectTool {
+    const char *tool_id;
+    const char *label;
+};
+inline constexpr AutoSelectTool AUTO_SELECT_TOOLS[] = {{"highlighter", "Highlighter"}, {"mosaic", "Mosaic"}, {"spotlight", "Spotlight"}, {"arrow", "Arrow"},
+                                                       {"number", "Number"},           {"rect", "Rectangle"}, {"ellipse", "Ellipse"}};
+inline QString auto_select_setting(const QString &tool_id) { return "auto_select_" + tool_id; }
+inline bool has_auto_select_setting(const QString &tool_id) {
+    for (const auto &tool : AUTO_SELECT_TOOLS)
+        if (tool_id == QLatin1String(tool.tool_id)) return true;
+    return false;
+}
 
 // (config key, tool id, label, default key) of an annotation tool shortcut.
 struct ToolShortcut {

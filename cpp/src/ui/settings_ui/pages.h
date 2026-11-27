@@ -39,6 +39,10 @@ QWidget *create_developer_page(SettingsDialog *dialog);
 QWidget *create_about_page(SettingsDialog *dialog);
 // The quick actions group, laid out on the screenshot page.
 void add_quick_actions_group(SettingsDialog *dialog, QWidget *view, QVBoxLayout *layout);
+// The upload group (page_upload), laid out on the screenshot page: the default target, the targets and the link format.
+void add_upload_group(SettingsDialog *dialog, QWidget *view, QVBoxLayout *layout);
+// Builds the group again from the settings, after they were read from somewhere else (a refresh or an import).
+void refresh_upload_group(SettingsDialog *dialog);
 QWidget *create_mouse_page(SettingsDialog *dialog);
 QWidget *create_pin_page(SettingsDialog *dialog);
 QWidget *create_screen_annotation_page(SettingsDialog *dialog);
@@ -108,6 +112,8 @@ void refresh_latest_log_label(SettingsDialog *dialog);
 // page_translation: this month's usage and the guard state of a provider declaring a free
 // quota; empty for other providers.
 QString quota_usage_text(SettingsDialog *dialog, const QString &provider_id, std::optional<qint64> usage = std::nullopt);
+// Opens the translation page's API tab on a provider's card; nothing until the page is built.
+void show_translation_provider(SettingsDialog *dialog, const QString &provider_id);
 // The voice preferences ("lang=token"), including voices currently not installed.
 QStringList speech_voice_choices(const SettingsDialog *dialog);
 // Selects each language's saved voice; a language without one, or whose voice is gone, shows Auto.

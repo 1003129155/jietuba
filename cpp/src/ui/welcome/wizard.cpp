@@ -6,6 +6,7 @@
 #include "main_app.h"
 #include "settings/tool_settings.h"
 #include "ui/fluent_lite/buttons.h"
+#include "ui/fluent_lite/fluent_dialog.h"
 #include "ui/fluent_lite/titlebar.h"
 #include "ui/welcome/pages.h"
 #include <QCloseEvent>
@@ -46,7 +47,7 @@ void StepItem::paintEvent(QPaintEvent *) {
     // A short bar in the middle of a taller hit area; done and current steps are filled.
     const double bar_h = dialog_scaled_f(4);
     const QRectF bar(0, (height() - bar_h) / 2, width(), bar_h);
-    QColor color(active_ || completed_ ? theme.accent : theme.border_strong);
+    QColor color(active_ || completed_ ? theme.accent : theme.step_idle);
     if (hovered_ && !active_) color = completed_ ? QColor(theme.accent_hover) : QColor(theme.text_soft);
     p.setPen(Qt::NoPen);
     p.setBrush(color);
@@ -205,7 +206,7 @@ void WelcomeWizard::apply_welcome_theme() {
     const auto theme = welcome_theme();
     const auto s = [](int base) { return dialog_scaled(base); };
     setPalette(UIThemeManager::build_palette(get_ui_theme()->tokens()));
-    shell_->setStyleSheet(QString("#WizardSurface { background: %1; border: 1px solid %2; border-radius: %3px; }").arg(theme.page, theme.border).arg(s(14)));
+    shell_->setStyleSheet(QString("#WizardSurface { background: %1; border: 1px solid %2; border-radius: %3px; }").arg(theme.page, theme.outline).arg(s(14)));
     right_->setStyleSheet(QString("#WizardContent { background: %1; border: none; }").arg(theme.page));
     set_own_style(page_count_, QString("font-size: %1px; font-weight: 600; color: %2; background: transparent;").arg(s(12)).arg(theme.text_muted));
     for (auto *item : step_items_) item->apply_welcome_theme();
@@ -306,6 +307,11 @@ void WelcomeWizard::save_all() {
 void WelcomeWizard::finish() {
     save_all();
     accept();
+}
+
+void WelcomeWizard::paintEvent(QPaintEvent *) {
+    const int caption = titleBar() ? titleBar()->height() : 0;
+    paint_dialog_frame(this, frosted_corner_radius_, QRect(0, caption, width(), height() - caption), get_ui_theme()->tokens().layer);
 }
 
 void WelcomeWizard::closeEvent(QCloseEvent *event) {

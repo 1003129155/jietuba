@@ -1,3 +1,4 @@
+#include "ui/fluent_lite/fluent_dialog.h"
 #include "clipboard/ui/windows/pin_window.h"
 #include "clipboard/core/manager.h"
 #include "pin/pin_animation.h"
@@ -15,6 +16,7 @@
 #include "pin/pin_text_content.h"
 #include "pin/pin_window.h"
 #include "settings/tool_settings.h"
+#include "ui/toast.h"
 #include "ui/wait_bar.h"
 #include <QApplication>
 #include <QBuffer>
@@ -290,7 +292,7 @@ private slots:
             ++small_pin_asked_;
             if (!small_pin_answer_) return dialog->reject();
             // Closing is a no; only the yes button answers yes.
-            auto *box = dialog->findChild<QDialogButtonBox *>();
+            auto *box = dialog->findChild<jietuba::DialogButtonRow *>();
             for (auto *button : box->buttons())
                 if (box->buttonRole(button) == QDialogButtonBox::YesRole) button->click();
         });
@@ -904,6 +906,91 @@ private slots:
         QVERIFY(!clipboard::create_pins_from_clipboard_items({blank}, nullptr));
     }
 
+    // ---- Explorer's menu entry ----
+
+    void explorerFilesPinPicturesAndTextFilesInOrderAndSkipTheRest() {
+        const auto still = picture("explorer.png", QSize(30, 20), Qt::red);
+        const auto notes = write("explorer_notes.txt", "some notes");
+        const auto page = write("explorer_page.html", "<p>Hello <b>bold</b> world</p>");
+        const auto other = write("explorer_data.bin", "x");
+        QVERIFY(clipboard::pin_explorer_files({other, dir_.filePath("gone.png"), still, notes, dir_.filePath("gone.txt"), page}, QPoint(400, 300)));
+        // Decoded and laid out off the UI thread: no pin has opened yet.
+        QCOMPARE(pins().size(), 0);
+        QTRY_COMPARE(pins().size(), 3);
+        // Neither the unsupported file nor the missing ones: a pin each for the picture and the two texts, in order, no card.
+        QCOMPARE(pins()[0]->orig_size(), QSize(30, 20));
+        QVERIFY(!pins()[0]->file_card());
+        QVERIFY(pins()[1]->text_only());
+        QCOMPARE(pins()[1]->text_content()->text(), QString("some notes"));
+        QVERIFY(pins()[2]->text_only());
+        QVERIFY(pins()[2]->text_content()->text().contains("Hello bold world"));
+        // An html file keeps its formatting, a plain one has none.
+        QVERIFY(!pins()[2]->text_content()->html().isEmpty());
+        QVERIFY(pins()[1]->text_content()->html().isEmpty());
+        // Stepping down and right from the cursor.
+        QVERIFY(pins()[1]->geometry().center().x() > pins()[0]->geometry().center().x());
+        QVERIFY(pins()[2]->geometry().center().y() > pins()[1]->geometry().center().y());
+        QTest::qWait(100);
+        QCOMPARE(pins().size(), 3);
+    }
+
+    void explorerFilesAnAnimationPlaysAndExtensionsAreAnyCase() {
+        const auto moving = three_frames();
+        const auto upper = dir_.filePath("UPPER.TXT");
+        QVERIFY(QFile::copy(write("upper_source.txt", "loud"), upper));
+        QVERIFY(clipboard::pin_explorer_files({moving, upper}, QPoint(400, 300)));
+        QTRY_COMPARE(pins().size(), 2);
+        QVERIFY(pins()[0]->animation());
+        QCOMPARE(pins()[1]->text_content()->text(), QString("loud"));
+    }
+
+    void explorerFilesAlreadyPinnedShakeInsteadOfPinningAgain() {
+        const auto notes = write("explorer_repeat.txt", "repeat me");
+        QVERIFY(clipboard::pin_explorer_files({notes}, QPoint(400, 300)));
+        QTRY_COMPARE(pins().size(), 1);
+        QVERIFY(clipboard::pin_explorer_files({notes}, QPoint(400, 300)));
+        QTest::qWait(150);
+        QCOMPARE(pins().size(), 1);
+    }
+
+    void aLongTextFileIsCutAndSaysSo() {
+        const auto text = write("explorer_long.txt", QByteArray("0123456789 0123456789 0123456789"));
+        QVERIFY(clipboard::pin_explorer_files({text}, QPoint(400, 300), 11));
+        QTRY_COMPARE(pins().size(), 1);
+        const QString shown = pins()[0]->text_content()->text();
+        QVERIFY(shown.startsWith("0123456789 "));
+        QVERIFY(!shown.contains("0123456789 0123"));
+        QVERIFY(shown.endsWith(i18n_tr("[Only the first 64 KB of the file is shown]", "PinWindow")));
+    }
+
+    void explorerFilesWithNothingToPinSayThatInAToast() {
+        const QString expected = i18n_tr("None of the selected files could be pinned", "PinWindow");
+        // Offscreen fonts measure wide, so the tail of a toast may be elided; what shows must still start the sentence.
+        const auto toast_says_it = [&expected] {
+            for (auto *widget : QApplication::topLevelWidgets())
+                if (auto *toast = qobject_cast<Toast *>(widget)) {
+                    QString shown = toast->label->text();
+                    shown.remove(QChar(0x2026));
+                    if (shown.size() > 8 && expected.startsWith(shown)) return true;
+                }
+            return false;
+        };
+        const auto close_toasts = [] {
+            for (auto *widget : QApplication::topLevelWidgets())
+                if (qobject_cast<Toast *>(widget)) widget->close();
+        };
+        const auto other = write("explorer_none.bin", "x");
+        close_toasts();
+        QVERIFY(!clipboard::pin_explorer_files({other, dir_.filePath("never_there.png")}, QPoint(400, 300)));
+        QVERIFY(toast_says_it());
+        QCOMPARE(pins().size(), 0);
+        // A picture that does not decode says the same, not the clipboard's wording.
+        close_toasts();
+        QVERIFY(clipboard::pin_explorer_files({write("explorer_fake.png", "not a picture")}, QPoint(400, 300)));
+        QTRY_VERIFY(toast_says_it());
+        QCOMPARE(pins().size(), 0);
+    }
+
     void pathTextPinsAsTheFilesItNamesWhileTheyExist() {
         auto &manager = clipboard::ClipboardManager::instance();
         const QString database = QDir::toNativeSeparators(dir_.filePath("path_history/clipboard.db"));
@@ -988,6 +1075,30 @@ private slots:
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
         QVERIFY(!QFile::exists(own));
         QVERIFY(QFile::exists(copied));
+    }
+
+    // Quick save puts the animation itself, every frame, into the save folder; the pin stays.
+    void quickSavingAnAnimationKeepsItsFile() {
+        const auto original = three_frames();
+        QFile file(original);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QByteArray bytes = file.readAll();
+        file.close();
+        const QDir folder(dir_.filePath("quick-saves"));
+        config_->set_screenshot_save_path(folder.path());
+        auto source = load_animation(original);
+        QVERIFY(source);
+        auto *pin = PinManager::instance()->create_animation_pin(std::move(*source), QPoint(100, 100), config_);
+        pin->quick_save_image();
+        const auto saved = folder.entryList(QDir::Files);
+        QCOMPARE(saved.size(), 1);
+        QCOMPARE(QFileInfo(saved.first()).suffix(), QString("gif"));
+        QFile copy(folder.filePath(saved.first()));
+        QVERIFY(copy.open(QIODevice::ReadOnly));
+        QCOMPARE(copy.readAll(), bytes);
+        QVERIFY(!pin->is_closed() && pin->isVisible());
+        for (auto *widget : QApplication::topLevelWidgets())
+            if (qobject_cast<Toast *>(widget)) widget->close();
     }
 
     void theAnimationMenuControlsPlayback() {
@@ -1476,8 +1587,8 @@ private slots:
             {"PinWindow", "Pin Too Small"}, {"PinWindow", "This pin is only %1 × %2 pixels. Pin it anyway?"},
         };
         for (const char *language : {"zh", "zh_TW", "en", "ja", "ko"}) {
-            QTranslator translator;
-            QVERIFY(translator.load(QString(":/translations/app_%1.qm").arg(language)));
+            XmlTranslator translator;
+            QVERIFY(translator.load_from_xml(QString(":/translations/app_%1.xml").arg(language)));
             for (const auto &[context, text] : texts)
                 QVERIFY2(!translator.translate(context, text).isEmpty(), qPrintable(QString("%1 %2: %3").arg(language, context, text)));
             // Side by side in the clipboard menu, putting an item on the screen and at the top of the list read apart.

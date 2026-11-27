@@ -24,6 +24,11 @@ public:
     QString display_name() const override { return "Volcengine"; }
     bool is_configured() const override { return !access_key_id_.isEmpty() && !secret_access_key_.isEmpty(); }
     TranslationResult translate(const TranslationRequest &request) override;
+    // The API takes 16 texts and 5000 characters a request.
+    BatchLimits batch_limits() const override { return {16, 4500}; }
+    BatchTranslationResult translate_batch(const QStringList &texts, const TranslationRequest &request) override;
+    QByteArray batch_payload(const QStringList &texts, const TranslationRequest &request) const;
+    BatchTranslationResult parse_batch(const QJsonValue &raw, int expected) const;
     static QString request_url() { return API_URL + "/?Action=" + ACTION + "&Version=" + VERSION; }
     QByteArray request_payload(const TranslationRequest &request) const;
     // The request headers, authorization included, for payload signed at x_date

@@ -86,10 +86,10 @@ void ImagePreview::paintEvent(QPaintEvent *) {
     const auto &tokens = get_ui_theme()->tokens();
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
-    const int radius = dialog_scaled(10);
-    painter.setPen(css_color(tokens.border));
-    painter.setBrush(css_color(tokens.surface_subtle));
-    painter.drawRoundedRect(rect().adjusted(0, 0, -1, -1), radius, radius);
+    const int radius = dialog_scaled(4);
+    painter.setPen(css_color(tokens.card_border));
+    painter.setBrush(css_color(tokens.card));
+    painter.drawRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), radius, radius);
 
     const QRect target = image_rect();
     if (image_.hasAlphaChannel()) {
@@ -162,16 +162,16 @@ void ImageDropZone::paintEvent(QPaintEvent *) {
     const auto &tokens = get_ui_theme()->tokens();
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
-    QPen pen(css_color(drag_active_ ? tokens.accent : tokens.border_hover), dialog_scaled(2));
+    QPen pen(css_color(drag_active_ ? tokens.accent : tokens.control_border_bottom), 1);
     pen.setStyle(Qt::DashLine);
     painter.setPen(pen);
-    painter.setBrush(css_color(drag_active_ ? tokens.accent_soft : tokens.surface_subtle));
-    const int radius = dialog_scaled(10);
-    painter.drawRoundedRect(rect().adjusted(1, 1, -1, -1), radius, radius);
+    painter.setBrush(css_color(drag_active_ ? tokens.item_hover : tokens.card));
+    const int radius = dialog_scaled(4);
+    painter.drawRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), radius, radius);
     QFont font(this->font());
     font.setPixelSize(dialog_scaled(13));
     painter.setFont(font);
-    painter.setPen(css_color(drag_active_ ? tokens.accent : tokens.text_muted));
+    painter.setPen(css_color(drag_active_ ? tokens.accent : tokens.fg_muted));
     painter.drawText(rect(), Qt::AlignCenter | Qt::TextWordWrap, prompt_);
 }
 

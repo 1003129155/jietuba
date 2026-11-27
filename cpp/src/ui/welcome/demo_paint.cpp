@@ -2,9 +2,11 @@
 #include "core/resource_manager.h"
 #include "core/theme.h"
 #include "core/ui_scale.h"
+#include "ui/base_settings_panel.h"
 #include "ui/fluent_lite/theme.h"
 #include <QFontMetricsF>
 #include <QHash>
+#include <QLinearGradient>
 #include <QPainter>
 #include <QPainterPath>
 #include <algorithm>
@@ -50,21 +52,21 @@ QRectF chart_bar(const QRectF &chart, int index) {
 }
 
 void draw_screen(QPainter &p, const WelcomeTheme &theme, const QRectF &screen) {
-    p.setPen(QPen(QColor(theme.border), 1));
-    p.setBrush(QColor(theme.panel_subtle));
+    p.setPen(QPen(QColor(theme.demo.border), 1));
+    p.setBrush(QColor(theme.demo.panel_subtle));
     p.drawRoundedRect(screen, 10, 10);
     const QRectF window = window_rect(screen);
-    p.setBrush(QColor(theme.panel));
+    p.setBrush(QColor(theme.demo.panel));
     p.drawRoundedRect(window, 6, 6);
     p.setPen(Qt::NoPen);
-    p.setBrush(QColor(theme.border));
+    p.setBrush(QColor(theme.demo.border));
     for (int i = 0; i < 3; ++i) p.drawEllipse(QPointF(window.x() + 10 + i * 8, window.y() + 9), 2.4, 2.4);
-    p.setBrush(with_alpha(theme.text_soft, 70));
+    p.setBrush(with_alpha(theme.demo.text_soft, 70));
     p.drawRoundedRect(QRectF(window.x() + window.width() * 0.08, window.y() + window.height() * 0.2, window.width() * 0.62, 6), 3, 3);
     p.drawRoundedRect(QRectF(window.x() + window.width() * 0.08, window.y() + window.height() * 0.3, window.width() * 0.44, 6), 3, 3);
     const QRectF chart = chart_rect(screen);
     draw_chart(p, theme, chart);
-    p.setBrush(with_alpha(theme.text_soft, 50));
+    p.setBrush(with_alpha(theme.demo.text_soft, 50));
     for (int i = 0; i < 4; ++i) p.drawRoundedRect(QRectF(chart.right() + 10, chart.y() + 4 + i * 13, window.right() - chart.right() - 20, 6), 3, 3);
 }
 
@@ -100,12 +102,22 @@ namespace {
 QIcon cached_icon(const QString &key, const IconSource &source) {
     static QHash<QString, QIcon> cache;
     static QString tint;
-    if (const QString now = welcome_theme().text; now != tint) {
+    if (const QString now = welcome_theme().demo.text; now != tint) {
         cache.clear();
         tint = now;
     }
     auto it = cache.find(key);
     if (it == cache.end()) it = cache.insert(key, to_qicon(source));
+    return *it;
+}
+}
+
+namespace {
+// The capture toolbar keeps the icons' own colours in both UI themes, like the real one.
+QIcon toolbar_icon(const QString &svg_name) {
+    static QHash<QString, QIcon> cache;
+    auto it = cache.find(svg_name);
+    if (it == cache.end()) it = cache.insert(svg_name, ResourceManager::get_icon(ResourceManager::get_icon_path(svg_name + ".svg")));
     return *it;
 }
 }
@@ -149,17 +161,27 @@ QRectF toolbar_size(const QStringList &tools) {
 
 void draw_toolbar(QPainter &p, const WelcomeTheme &theme, const QRectF &bar, const QStringList &tools, int checked) {
     draw_shadow(p, theme, bar, bar.height() / 2);
-    p.setPen(QPen(QColor(theme.border), 0.8));
-    p.setBrush(QColor(theme.panel));
-    p.drawRoundedRect(bar, bar.height() / 2, bar.height() / 2);
+    // The real toolbar's fixed light panel (see paint_rounded_panel), whatever the UI theme.
+    const double radius = bar.height() / 2;
+    QLinearGradient gradient(bar.topLeft(), bar.bottomLeft());
+    gradient.setColorAt(0, PANEL_TOP);
+    gradient.setColorAt(1, PANEL_BOTTOM);
     p.setPen(Qt::NoPen);
-    p.setBrush(QColor(theme.text_soft));
+    p.setBrush(gradient);
+    p.drawRoundedRect(bar, radius, radius);
+    p.setBrush(Qt::NoBrush);
+    p.setPen(QPen(PANEL_INNER_RING, 0.8));
+    p.drawRoundedRect(bar.adjusted(1.2, 1.2, -1.2, -1.2), radius - 1.2, radius - 1.2);
+    p.setPen(QPen(PANEL_OUTER_RING, 0.8));
+    p.drawRoundedRect(bar.adjusted(0.4, 0.4, -0.4, -0.4), radius, radius);
+    p.setPen(Qt::NoPen);
+    p.setBrush(TOOLBAR_GRIP_DOT);
     for (int row = 0; row < 3; ++row)
         for (int col = 0; col < 2; ++col) p.drawEllipse(QPointF(bar.x() + TOOL_PAD + 2 + col * 2.6, bar.center().y() - 2.6 + row * 2.6), 0.75, 0.75);
     double x = bar.x() + TOOL_PAD + GRIP_W;
     for (qsizetype i = 0; i < tools.size(); ++i) {
         if (tools[i].isEmpty()) {
-            p.setPen(QPen(QColor(theme.separator), 1));
+            p.setPen(QPen(DIVIDER_COLOR, 1));
             p.drawLine(QPointF(x + TOOL_SEPARATOR / 2, bar.y() + 6), QPointF(x + TOOL_SEPARATOR / 2, bar.bottom() - 6));
             x += TOOL_SEPARATOR;
             continue;
@@ -173,7 +195,7 @@ void draw_toolbar(QPainter &p, const WelcomeTheme &theme, const QRectF &bar, con
             p.drawRoundedRect(button.adjusted(0.5, 0.5, -0.5, -0.5), 4, 4);
         }
         const double inset = (TOOL_BUTTON - TOOL_ICON) / 2;
-        demo_icon(tools[i]).paint(&p, button.adjusted(inset, inset, -inset, -inset).toRect());
+        toolbar_icon(tools[i]).paint(&p, button.adjusted(inset, inset, -inset, -inset).toRect());
         x += TOOL_BUTTON;
     }
 }
@@ -257,13 +279,13 @@ QRectF clipboard_window_rect(const QRectF &screen) {
 void draw_clipboard_window(QPainter &p, const WelcomeTheme &theme, const QRectF &win, double fresh) {
     static const char *kinds[] = {"clipboard_image", "clipboard_file", "clipboard_text", "clipboard_link", "clipboard_text", "clipboard_image", "clipboard_text"};
     draw_shadow(p, theme, win, 6);
-    p.setPen(QPen(QColor(theme.border), 0.8));
-    p.setBrush(QColor(theme.panel));
+    p.setPen(QPen(QColor(theme.demo.border), 0.8));
+    p.setBrush(QColor(theme.demo.panel));
     p.drawRoundedRect(win, 6, 6);
     // The group rail: close, the clipboard with the current-group bar, then add.
     const double rail_w = 16;
     const QRectF rail(win.right() - rail_w, win.y(), rail_w, win.height());
-    p.setPen(QPen(QColor(theme.separator), 0.8));
+    p.setPen(QPen(QColor(theme.demo.separator), 0.8));
     p.drawLine(QPointF(rail.left(), rail.top() + 2), QPointF(rail.left(), rail.bottom() - 2));
     demo_icon(FluentIcon::Close).paint(&p, QRectF(rail.center().x() - 3.5, rail.y() + 5, 7, 7).toRect());
     p.setPen(Qt::NoPen);
@@ -271,7 +293,7 @@ void draw_clipboard_window(QPainter &p, const WelcomeTheme &theme, const QRectF 
     p.drawRoundedRect(QRectF(rail.right() - 3, rail.y() + 19, 2, 9), 1, 1);
     p.setBrush(QColor("#D9822B"));
     p.drawRoundedRect(QRectF(rail.center().x() - 3.5, rail.y() + 19.5, 7, 8), 1.5, 1.5);
-    p.setPen(QPen(QColor(theme.text_soft), 1));
+    p.setPen(QPen(QColor(theme.demo.text_soft), 1));
     p.drawLine(QPointF(rail.center().x() - 2.5, rail.y() + 39), QPointF(rail.center().x() + 2.5, rail.y() + 39));
     p.drawLine(QPointF(rail.center().x(), rail.y() + 36.5), QPointF(rail.center().x(), rail.y() + 41.5));
     // The rows: number, kind icon, text and time; the newest pushes the others down.
@@ -286,16 +308,16 @@ void draw_clipboard_window(QPainter &p, const WelcomeTheme &theme, const QRectF 
         p.save();
         if (row == 0) p.setOpacity(p.opacity() * fresh);
         p.setPen(Qt::NoPen);
-        p.setBrush(row == 0 && fresh < 1 ? with_alpha(theme.accent, 40) : QColor(theme.panel_subtle));
+        p.setBrush(row == 0 && fresh < 1 ? with_alpha(theme.accent, 40) : QColor(theme.demo.panel_subtle));
         p.drawRoundedRect(item, 3, 3);
         p.setFont(number);
-        p.setPen(QColor(theme.text_soft));
+        p.setPen(QColor(theme.demo.text_soft));
         p.drawText(QRectF(item.x() + 2, item.y(), 6, item.height()), Qt::AlignCenter, QString::number(row + 1));
         demo_icon(kinds[row]).paint(&p, QRectF(item.x() + 9, item.center().y() - 3.5, 7, 7).toRect());
         p.setPen(Qt::NoPen);
-        p.setBrush(with_alpha(theme.text, 110));
+        p.setBrush(with_alpha(theme.demo.text, 110));
         p.drawRoundedRect(QRectF(item.x() + 19, item.center().y() - 1.5, (item.width() - 38) * (row % 2 ? 0.55 : 0.8), 3), 1.5, 1.5);
-        p.setBrush(with_alpha(theme.text_soft, 120));
+        p.setBrush(with_alpha(theme.demo.text_soft, 120));
         p.drawRoundedRect(QRectF(item.right() - 13, item.center().y() - 1, 10, 2.5), 1.2, 1.2);
         p.restore();
     }
@@ -303,7 +325,7 @@ void draw_clipboard_window(QPainter &p, const WelcomeTheme &theme, const QRectF 
     // The search bar with the filter and settings buttons.
     const QRectF search(win.x() + 4, win.bottom() - 18, win.width() - rail_w - 30, 13);
     p.setPen(Qt::NoPen);
-    p.setBrush(QColor(theme.panel_subtle));
+    p.setBrush(QColor(theme.demo.panel_subtle));
     p.drawRoundedRect(search, 4, 4);
     demo_icon(FluentIcon::Search).paint(&p, QRectF(search.x() + 3, search.center().y() - 3, 6, 6).toRect());
     demo_icon(FluentIcon::Filter).paint(&p, QRectF(search.right() + 4, search.center().y() - 3.5, 7, 7).toRect());
@@ -324,14 +346,14 @@ void draw_keycap(QPainter &p, const WelcomeTheme &theme, const QRectF &box, cons
     const QRectF face = pressed ? box.adjusted(0, KEYCAP_EDGE, 0, 0) : box.adjusted(0, 0, 0, -KEYCAP_EDGE);
     p.setPen(Qt::NoPen);
     if (!pressed) {
-        p.setBrush(QColor(theme.border_strong));
+        p.setBrush(QColor(theme.demo.border_strong));
         p.drawRoundedRect(box, radius, radius);
     }
-    p.setBrush(pressed ? QColor(theme.accent) : QColor(theme.panel));
-    p.setPen(QPen(pressed ? QColor(theme.accent) : QColor(theme.border_strong), 1));
+    p.setBrush(pressed ? QColor(theme.accent) : QColor(theme.demo.panel));
+    p.setPen(QPen(pressed ? QColor(theme.accent) : QColor(theme.demo.border_strong), 1));
     p.drawRoundedRect(face.adjusted(0.5, 0.5, -0.5, -0.5), radius, radius);
     p.setFont(keycap_font(box.height()));
-    p.setPen(pressed ? QColor("#FFFFFF") : QColor(theme.text));
+    p.setPen(pressed ? QColor("#FFFFFF") : QColor(theme.demo.text));
     p.drawText(face, Qt::AlignCenter, label);
 }
 

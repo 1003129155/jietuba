@@ -260,6 +260,26 @@ private slots:
         QVERIFY(bytes.endsWith(QByteArray(4, '\0')));
     }
 
+    // The bitmap's rows run bottom-up after its 124-byte header, each pixel blue, green, red, alpha.
+    void theBitmapRowsRunBottomUp() {
+        QImage image(2, 3, QImage::Format_ARGB32_Premultiplied);
+        image.setPixel(0, 0, qRgba(10, 20, 30, 255));
+        image.setPixel(1, 0, qRgba(40, 50, 60, 255));
+        image.setPixel(0, 1, qRgba(70, 80, 90, 255));
+        image.setPixel(1, 1, qRgba(100, 110, 120, 255));
+        image.setPixel(0, 2, qRgba(130, 140, 150, 255));
+        image.setPixel(1, 2, qRgba(160, 170, 180, 255));
+        const QByteArray bytes = build_dibv5(image);
+        QCOMPARE(bytes.size(), 124 + 2 * 3 * 4);
+        const auto *header = reinterpret_cast<const BITMAPV5HEADER *>(bytes.constData());
+        QCOMPARE(header->bV5Width, LONG(2));
+        QCOMPARE(header->bV5Height, LONG(3));
+        const QByteArray expected("\x96\x8c\x82\xff\xb4\xaa\xa0\xff"
+                                  "\x5a\x50\x46\xff\x78\x6e\x64\xff"
+                                  "\x1e\x14\x0a\xff\x3c\x32\x28\xff", 24);
+        QCOMPARE(bytes.mid(124), expected);
+    }
+
     void groupsAndOrderingThroughTheBackend() {
         const auto a = manager().create_group("A"), b = manager().create_group("B");
         QVERIFY(a && b);

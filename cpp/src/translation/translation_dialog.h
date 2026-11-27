@@ -1,4 +1,5 @@
 #pragma once
+#include "core/ui_theme.h"
 #include "ui/fluent_lite/frameless.h"
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/titlebar.h"
@@ -30,13 +31,6 @@ constexpr int BADGE_MAX_WIDTH = 220;
 // padding is the stylesheet's horizontal padding per side (unscaled).
 void set_badge_text(QLabel *badge, const QString &text, int padding);
 
-struct DashboardPalette {
-    QString window, field, surface_strong, text, text_2, text_3, accent, accent_hover, accent_tint, fill, fill_hover;
-    QColor fill_color, fill_hover_color;
-    QString danger, green;
-};
-const DashboardPalette &dashboard_dark();
-const DashboardPalette &dashboard_light();
 // Fills a style sheet template: @name is a palette entry, @sN is dialog_scaled(N),
 // @stroke one scaled pixel, @control_radius / @surface_radius the scaled radii.
 QString fill_dashboard_sheet(QString sheet, const DashboardPalette &p);

@@ -4,8 +4,8 @@
 #include "ui/fluent_lite/cards.h"
 #include "ui/fluent_lite/inputs.h"
 #include "ui/fluent_lite/labels.h"
-#include "ui/fluent_lite/segmented.h"
 #include "ui/fluent_lite/theme.h"
+#include "ui/motion.h"
 #include "ui/settings_ui/components.h"
 #include "ui/settings_ui/dialog.h"
 #include <QApplication>
@@ -16,7 +16,6 @@
 #include <QListWidget>
 #include <QPainter>
 #include <QRegularExpression>
-#include <QStackedWidget>
 #include <QStyledItemDelegate>
 #include <QTextDocument>
 #include <QTextDocumentFragment>
@@ -29,8 +28,27 @@ namespace jietuba {
 namespace {
 const char *const ROW_TITLE = "_search_title";
 const char *const ROW_DESCRIPTION = "_search_description";
-const char *const STACK_TABS = "_search_tabs";
-const char *const STACK_ROUTES = "_search_routes";
+const char *const PAGE_LINK = "_search_pages";
+const char *const REVEALER = "_search_reveal";
+
+// How search reaches the pages of a container that shows one at a time.
+class PageLink : public QObject {
+public:
+    using QObject::QObject;
+    std::function<QList<QWidget *>()> pages;
+    QStringList routes;
+    std::function<QString(const QString &)> label;
+    std::function<void(const QString &)> select;
+};
+
+class Revealer : public QObject {
+public:
+    using QObject::QObject;
+    std::function<void()> reveal;
+};
+
+PageLink *page_link(const QWidget *container) { return container ? dynamic_cast<PageLink *>(container->property(PAGE_LINK).value<QObject *>()) : nullptr; }
+Revealer *revealer(const QWidget *widget) { return dynamic_cast<Revealer *>(widget->property(REVEALER).value<QObject *>()); }
 
 // Result list geometry at 100%.
 constexpr int POPUP_WIDTH = 480;
@@ -38,10 +56,9 @@ constexpr int POPUP_MAX_HEIGHT = 440;
 constexpr int ROW_HEIGHT = 56;
 constexpr int SHORT_ROW_HEIGHT = 40;
 constexpr int FLASH_HOLD_MS = 1100;
-constexpr int FLASH_FADE_MS = 400;
 constexpr int FLASH_OUTSET = 8;
 
-enum Role { TitleRole = Qt::UserRole + 1, PathRole, DescriptionRole, ToneRole };
+enum Role { TitleRole = Qt::UserRole + 1, PathRole, DescriptionRole };
 
 QString normalized(const QString &text) {
     static const QRegularExpression spaces("\\s+");
@@ -89,8 +106,6 @@ int kind_rank(SettingsSearchEntry::Kind kind) {
 // Hidden by code, not merely because an ancestor is.
 bool hidden_on_purpose(const QWidget *widget) { return widget->isHidden() && widget->testAttribute(Qt::WA_WState_ExplicitShowHide); }
 
-SegmentedWidget *stack_tabs(const QWidget *stack) { return qobject_cast<SegmentedWidget *>(stack->property(STACK_TABS).value<QObject *>()); }
-
 void add_entry(std::vector<SettingsSearchEntry> &out, const SettingsSearchEntry &page_entry, SettingsSearchEntry::Kind kind, const QString &title,
                const QString &description, const QStringList &path, QWidget *target, const QStringList &options = {}) {
     if (title.isEmpty()) return;
@@ -98,7 +113,6 @@ void add_entry(std::vector<SettingsSearchEntry> &out, const SettingsSearchEntry 
     entry.kind = kind;
     entry.stack_index = page_entry.stack_index;
     entry.route_key = page_entry.route_key;
-    entry.tone = page_entry.tone;
     entry.title = title;
     entry.description = description;
     entry.path = join_path(path);
@@ -139,17 +153,16 @@ void visit(QWidget *child, const SettingsSearchEntry &page_entry, const QString 
 }
 
 void walk(QWidget *widget, const SettingsSearchEntry &page_entry, const QString &group, const QString &tab, std::vector<SettingsSearchEntry> &out) {
-    auto *stack = qobject_cast<QStackedWidget *>(widget);
-    if (SegmentedWidget *tabs = stack ? stack_tabs(stack) : nullptr) {
-        // Pages of other tabs are hidden by the stack and reachable through their tab. In tab
-        // order: showing a page raises it, which reorders the children.
-        const QStringList routes = stack->property(STACK_ROUTES).toStringList();
-        for (int index = 0; index < stack->count() && index < routes.size(); ++index) visit(stack->widget(index), page_entry, group, tabs->itemText(routes[index]), out);
+    if (PageLink *link = page_link(widget)) {
+        // Pages of other tabs are hidden and reachable through their tab. In tab order: showing
+        // a stack page raises it, which reorders the children.
+        const QList<QWidget *> pages = link->pages();
+        for (int index = 0; index < pages.size() && index < link->routes.size(); ++index) visit(pages[index], page_entry, group, link->label(link->routes[index]), out);
         return;
     }
     for (QObject *object : widget->children()) {
         auto *child = qobject_cast<QWidget *>(object);
-        if (child && !child->isWindow() && !hidden_on_purpose(child)) visit(child, page_entry, group, tab, out);
+        if (child && !child->isWindow() && (!hidden_on_purpose(child) || revealer(child))) visit(child, page_entry, group, tab, out);
     }
 }
 
@@ -203,11 +216,11 @@ public:
         const auto widths = search_row_widths(option.rect.width(), title, path);
 
         painter->setFont(big);
-        painter->setPen(css_color(t.text));
+        painter->setPen(css_color(t.fg));
         painter->drawText(QRect(content.left(), top, widths.title_room, line_height), Qt::AlignLeft | Qt::AlignVCenter,
                           title_metrics.elidedText(title, Qt::ElideRight, widths.title_room));
         if (widths.tag > 0) {
-            const auto &tone = feature_tone(index.data(ToneRole).toString());
+            const auto &tone = feature_tone("neutral");
             const bool dark = t.is_dark();
             const int tag_height = small_metrics.height() + dialog_scaled(4);
             const QRect tag(content.right() - widths.tag + 1, top + (line_height - tag_height) / 2, widths.tag, tag_height);
@@ -221,7 +234,7 @@ public:
         }
         if (!description.isEmpty()) {
             painter->setFont(small);
-            painter->setPen(css_color(t.text_muted));
+            painter->setPen(css_color(t.fg_muted));
             const QRect line(content.left(), content.bottom() - small_metrics.height() + 1, content.width(), small_metrics.height());
             painter->drawText(line, Qt::AlignLeft | Qt::AlignVCenter, small_metrics.elidedText(description, Qt::ElideRight, content.width()));
         }
@@ -242,7 +255,7 @@ public:
         auto *fade = new QVariantAnimation(this);
         fade->setStartValue(1.0);
         fade->setEndValue(0.0);
-        fade->setDuration(FLASH_FADE_MS);
+        fade->setDuration(std::max(1, motion::duration(motion::SLOW_MS)));
         connect(fade, &QVariantAnimation::valueChanged, this, [this](const QVariant &value) {
             strength_ = value.toDouble();
             update();
@@ -327,7 +340,7 @@ protected:
         const auto &t = get_ui_theme()->tokens();
         QPainter painter(this);
         painter.setRenderHint(QPainter::Antialiasing);
-        painter.setPen(css_color(t.border));
+        painter.setPen(css_color(t.control_border_bottom));
         painter.setBrush(css_color(t.popup_background));
         painter.drawRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), dialog_scaled(10), dialog_scaled(10));
     }
@@ -381,10 +394,20 @@ void mark_search_row(QWidget *row, QLabel *title, QLabel *description) {
     if (description) row->setProperty(ROW_DESCRIPTION, QVariant::fromValue<QObject *>(description));
 }
 
-void link_tabs(SegmentedWidget *tabs, QStackedWidget *stack, const QStringList &routes) {
-    QObject::connect(tabs, &SegmentedWidget::currentItemChanged, stack, [stack, routes](const QString &route) { stack->setCurrentIndex(routes.indexOf(route)); });
-    stack->setProperty(STACK_TABS, QVariant::fromValue<QObject *>(tabs));
-    stack->setProperty(STACK_ROUTES, routes);
+void link_pages(QWidget *container, std::function<QList<QWidget *>()> pages, const QStringList &routes, std::function<QString(const QString &)> label,
+                std::function<void(const QString &)> select) {
+    auto *link = new PageLink(container);
+    link->pages = std::move(pages);
+    link->routes = routes;
+    link->label = std::move(label);
+    link->select = std::move(select);
+    container->setProperty(PAGE_LINK, QVariant::fromValue<QObject *>(link));
+}
+
+void mark_search_revealable(QWidget *container, std::function<void()> reveal) {
+    auto *holder = new Revealer(container);
+    holder->reveal = std::move(reveal);
+    container->setProperty(REVEALER, QVariant::fromValue<QObject *>(holder));
 }
 
 SearchRowWidths search_row_widths(int row_width, const QString &title, const QString &tag) {
@@ -410,12 +433,11 @@ SearchRowWidths search_row_widths(int row_width, const QString &title, const QSt
 
 void reveal_settings_row(QWidget *target, QWidget *page) {
     for (QWidget *widget = target; widget && widget != page; widget = widget->parentWidget()) {
-        auto *stack = qobject_cast<QStackedWidget *>(widget->parentWidget());
-        SegmentedWidget *tabs = stack ? stack_tabs(stack) : nullptr;
-        if (!tabs) continue;
-        const QStringList routes = stack->property(STACK_ROUTES).toStringList();
-        const int index = stack->indexOf(widget);
-        if (index >= 0 && index < routes.size()) tabs->setCurrentItem(routes[index]);
+        if (Revealer *holder = revealer(widget); holder && hidden_on_purpose(widget)) holder->reveal();
+        PageLink *link = page_link(widget->parentWidget());
+        if (!link) continue;
+        const int index = link->pages().indexOf(widget);
+        if (index >= 0 && index < link->routes.size()) link->select(link->routes[index]);
     }
 }
 
@@ -423,9 +445,11 @@ QWidget *flash_settings_row(QWidget *target) { return target && target->parentWi
 
 SettingsSearchBox::SettingsSearchBox(QWidget *parent) : QWidget(parent) {
     auto *layout = new QHBoxLayout(this);
-    layout->setContentsMargins(0, 0, 0, 0);
-    edit_ = new LineEdit(this);
+    // The inset lines the field up with the navigation rows below it.
+    layout->setContentsMargins(dialog_scaled(4), 0, dialog_scaled(4), 0);
+    edit_ = new LineEdit(this, false);
     edit_->setObjectName("SettingsSearchEdit");
+    edit_->setFixedHeight(dialog_scaled(32));
     edit_->setPlaceholderText(settings_tr("Search settings"));
     search_icon_ = new QLabel(edit_);
     search_icon_->setAttribute(Qt::WA_TransparentForMouseEvents);
@@ -464,13 +488,30 @@ bool SettingsSearchBox::results_visible() const { return popup_ && popup_->isVis
 void SettingsSearchBox::apply_theme() {
     const auto &t = get_ui_theme()->tokens();
     const int icon = dialog_scaled(16);
-    search_icon_->setPixmap(tinted_icon(FluentIcon::Search, t.text_muted).pixmap(QSize(icon, icon), search_icon_->devicePixelRatioF()));
-    clear_button_->setIcon(tinted_icon(FluentIcon::Close, t.text_muted));
+    search_icon_->setPixmap(tinted_icon(FluentIcon::Search, t.fg_muted).pixmap(QSize(icon, icon), search_icon_->devicePixelRatioF()));
+    clear_button_->setIcon(tinted_icon(FluentIcon::Close, t.fg_muted));
     clear_button_->setIconSize(QSize(dialog_scaled(12), dialog_scaled(12)));
     clear_button_->setStyleSheet(QString("QToolButton#SettingsSearchClear { border: none; background: transparent; border-radius: %1px; }"
                                          "QToolButton#SettingsSearchClear:hover { background: %2; }")
                                      .arg(dialog_scaled(6))
-                                     .arg(t.surface_hover));
+                                     .arg(t.item_hover));
+    // The bottom edge is stronger than the others and thickens in the accent colour while typing; the
+    // padding gives the extra pixel back so the text does not move.
+    const bool dark = t.is_dark();
+    edit_->setStyleSheet(QString(R"(
+            QLineEdit#SettingsSearchEdit { background: %1; color: %2; border: 1px solid %3; border-bottom: 1px solid %4;
+                border-radius: %5px; padding: 0 %6px; font-size: %7px; selection-background-color: %8; selection-color: %9; }
+            QLineEdit#SettingsSearchEdit:focus { border-bottom: 2px solid %8; padding-bottom: 0; }
+        )")
+                             .arg(t.control)
+                             .arg(t.fg)
+                             .arg(t.control_border)
+                             .arg(dark ? "rgba(255, 255, 255, 0.5442)" : "rgba(0, 0, 0, 0.4458)")
+                             .arg(dialog_scaled(4))
+                             .arg(dialog_scaled(8))
+                             .arg(dialog_scaled(14))
+                             .arg(t.accent_strong)
+                             .arg(t.selected_text));
     if (popup_) popup_->apply_theme();
 }
 
@@ -510,7 +551,6 @@ void SettingsSearchBox::refresh() {
         item->setData(TitleRole, entry.title);
         item->setData(PathRole, entry.kind == SettingsSearchEntry::Kind::Page ? settings_tr("Page") : entry.path);
         item->setData(DescriptionRole, entry.description);
-        item->setData(ToneRole, entry.tone);
         item->setToolTip(entry.description);
         if (entry.target == selected_target && entry.route_key == selected_route) selected = i;
     }

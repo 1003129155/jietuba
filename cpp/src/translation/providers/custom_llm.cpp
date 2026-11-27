@@ -4,14 +4,18 @@
 
 namespace jietuba {
 namespace {
+RequestPacing custom_pacing() { return RequestPacing{4, 0}; }
+
 OpenAICompatibleProvider::Defaults custom_defaults() {
     OpenAICompatibleProvider::Defaults defaults;
     defaults.temperature = std::nullopt;
     defaults.requires_api_key = false;
     defaults.min_timeout = CustomLLMProvider::DEFAULT_TIMEOUT;
+    defaults.pacing = custom_pacing();
     // Reasoning models (e.g. on Ollama) think by default and may exhaust the output
-    // budget; Ollama's /v1 endpoint accepts reasoning_effort, not think.
-    defaults.thinking_hint = "Turn thinking off by adding {\"reasoning_effort\": \"none\"} to Extra Body";
+    // budget; the switch is named differently per service, and an unknown field is a 400.
+    defaults.thinking_hint = "Turn thinking off in Extra Body: {\"reasoning_effort\": \"none\"} for OpenAI-style services, "
+                             "{\"thinking\": {\"type\": \"disabled\"}} for DeepSeek";
     return defaults;
 }
 }
@@ -57,20 +61,23 @@ ProviderMetadata CustomLLMProvider::slot_metadata(const QString &prefix, const Q
     ProviderMetadata metadata;
     metadata.provider_id = prefix;
     metadata.display_name = display_name;
+    metadata.language_model = true;
     metadata.credentials = {
         ProviderField::text(prefix + "_base_url", "API Base URL", "https://api.openai.com/v1"),
         ProviderField::text(prefix + "_api_key", "API Key", "Optional for local models", true),
         ProviderField::model(prefix + "_model", "Model", "gpt-4o-mini"),
     };
     metadata.options = {
-        ProviderField::text(prefix + "_name", "Display Name", "Shown in the translation window"),
-        ProviderField::text(prefix + "_temperature", "Temperature", "Server default"),
-        ProviderField::text(prefix + "_timeout", "Timeout (s)", QString::number(DEFAULT_TIMEOUT)),
-        ProviderField::text(prefix + "_instructions", "Instructions", "e.g. Keep product names untranslated"),
-        ProviderField::text(prefix + "_extra_body", "Extra Body", "{\"reasoning_effort\": \"none\"}"),
+        ProviderField::text(prefix + "_name", "Display Name", "Shown in the translation window").as_advanced(),
+        ProviderField::text(prefix + "_temperature", "Temperature", "Server default").as_advanced(),
+        ProviderField::text(prefix + "_timeout", "Timeout (s)", QString::number(DEFAULT_TIMEOUT)).as_advanced(),
+        ProviderField::text(prefix + "_instructions", "Instructions", "e.g. Keep product names untranslated").as_advanced(),
+        ProviderField::text(prefix + "_extra_body", "Extra Body", "{\"reasoning_effort\": \"none\"}").as_advanced(),
         ProviderField::toggle(prefix + "_json_mode", "JSON Mode",
-                              "Ask for JSON replies. If the service rejects it, the request is retried without; turn it off to skip that retry"),
+                              "Ask for JSON replies. If the service rejects it, the request is retried without; turn it off to skip that retry")
+            .as_advanced(),
     };
+    metadata.pacing = pacing_fields(prefix, custom_pacing());
     metadata.notice = "Any OpenAI-compatible service. Ollama: http://localhost:11434/v1, LM Studio: http://localhost:1234/v1";
     return metadata;
 }

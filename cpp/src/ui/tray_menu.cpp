@@ -50,7 +50,7 @@ QString menu_style() {
             margin: 3px 6px;
         }
     )")
-        .arg(t.popup_background, t.border, CSS_FONT_FAMILY_UI, t.text, tc, t.text_disabled, t.separator);
+        .arg(t.popup_background, t.control_border_bottom, CSS_FONT_FAMILY_UI, t.fg, tc, t.fg_disabled, t.divider);
 }
 
 void save_all_pins_as(PinManager *pin_manager) {

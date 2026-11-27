@@ -81,11 +81,18 @@ private slots:
         QVERIFY(is_table(table));
     }
 
-    void aTitleAboveIsLeftOut() {
+    void aTitleAboveBecomesARowAcross() {
+        // A larger line right above the table is its title: one cell across all columns, kept out
+        // of the columns and of the check that the rest is a table.
         auto lines = borderless_lines(50);
         lines.prepend(line({{"Quarterly", 10, 100}, {"report", 106, 160}}, 6, 26));
         const auto table = build_table(blank(400, 170), lines);
-        QCOMPARE(grid(table), QStringList({"Name|Qty|Price", "Apple|12|3.50", "Pear|7|12.00"}));
+        QCOMPARE(grid(table), QStringList({"Quarterly report|<none>|<none>", "Name|Qty|Price", "Apple|12|3.50", "Pear|7|12.00"}));
+        QCOMPARE(table.title_rows, 1);
+        QVERIFY(is_table(table));
+        RowControl untitled;
+        untitled.use_caption_model = false;
+        QCOMPARE(grid(build_table(blank(400, 170), lines, untitled)), QStringList({"Name|Qty|Price", "Apple|12|3.50", "Pear|7|12.00"}));
     }
 
     void ruledCellsWithoutALineBetweenMerge() {
@@ -124,8 +131,12 @@ private slots:
 
     void linesBetweenTheSameRulesShareARow() {
         // Rules under every row; the meaning of a+b wraps with more space between its lines than
-        // whitespace alone would join. Without the rule at y = 140 the two rows stay apart.
+        // whitespace alone would join. Without the rule at y = 140 the rules keep the two rows apart;
+        // the trees decide that case from screenshots, where a line centred beside wrapped cells is far
+        // more common than a missed rule, so it is checked on the rules alone.
         for (const bool missed : {false, true}) {
+            RowControl control;
+            control.use_model = control.use_extent_model = !missed;
             auto image = blank(400, 250);
             QPainter painter(&image);
             painter.setPen(Qt::black);
@@ -138,9 +149,118 @@ private slots:
                                          line({{"numbers", 130, 200}}, 91),
                                          line({{"a-b", 10, 45}}, 155), line({{"Subtracts", 130, 210}}, 155), line({{"ok", 270, 290}}, 155),
                                          line({{"a*b", 10, 45}}, 205), line({{"Multiplies", 130, 215}}, 205), line({{"no", 270, 290}}, 205)};
-            const auto table = build_table(image, lines);
+            const auto table = build_table(image, lines, control);
             QCOMPARE(grid(table), QStringList({"Op|Meaning|Note", "a+b|Adds two numbers|ok", "a-b|Subtracts|ok", "a*b|Multiplies|no"}));
         }
+    }
+
+    void rowPairsCanBeTracedAndDecidedFromOutside() {
+        auto image = blank(400, 250);
+        QPainter painter(&image);
+        painter.setPen(Qt::black);
+        for (int y : {0, 40, 140, 190, 240}) painter.drawLine(0, y, 380, y);
+        for (int x : {0, 120, 260, 380}) painter.drawLine(x, 0, x, 240);
+        painter.end();
+        const QVector<Line> lines = {line({{"Op", 10, 40}}, 10), line({{"Meaning", 130, 200}}, 10), line({{"Note", 270, 310}}, 10),
+                                     line({{"a+b", 10, 45}}, 55), line({{"Adds", 130, 170}, {"two", 176, 205}}, 55), line({{"ok", 270, 290}}, 55),
+                                     line({{"numbers", 130, 200}}, 91),
+                                     line({{"a-b", 10, 45}}, 155), line({{"Subtracts", 130, 210}}, 155), line({{"ok", 270, 290}}, 155)};
+        RowTrace trace;
+        RowControl control;
+        control.trace = &trace;
+        const auto usual = build_table(image, lines, control);
+        QCOMPARE(grid(usual), QStringList({"Op|Meaning|Note", "a+b|Adds two numbers|ok", "a-b|Subtracts|ok"}));
+        QCOMPARE(trace.rows.size(), 4);
+        QCOMPARE(trace.texts[2], QStringList({"numbers"}));
+        QCOMPARE(trace.pairs.size(), 3);
+        QVERIFY(!trace.pairs[0].joined && trace.pairs[1].joined && !trace.pairs[2].joined);
+        QVERIFY(trace.pairs[1].rules_join);
+        QCOMPARE(trace.pairs[1].features[0], 0.8f);  // gap over line height: 16 px between 20 px lines
+
+        // The wrapped line moved down to the next row: given decisions override model and rules.
+        RowControl given;
+        given.given = {-1, 0, 1};
+        QCOMPARE(grid(build_table(image, lines, given)), QStringList({"Op|Meaning|Note", "a+b|Adds two|ok", "a-b|numbers Subtracts|ok"}));
+
+        RowControl rules;
+        rules.use_model = false;
+        QCOMPARE(grid(build_table(image, lines, rules)), grid(usual));
+
+        // Every visual row is measured for the extent; a row given as outside at the top is cut.
+        QCOMPARE(trace.all_rows.size(), 4);
+        QCOMPARE(trace.extent.size(), 4);
+        QVERIFY(trace.extent[0].in && trace.extent[0].rules_in);
+        RowControl headless;
+        headless.given_extent = {0};
+        QCOMPARE(grid(build_table(image, lines, headless)), QStringList({"a+b|Adds two numbers|ok", "a-b|Subtracts|ok"}));
+    }
+
+    void twoGroupHeadersNeverTakeTheSameColumn() {
+        // Laid out as a social insurance sheet a user reported: 公司部分 and 个人部分 head two columns
+        // each over 险种, 基数 and 合计 spanning both header rows. The column between them is free
+        // in the row of spanning cells; it belongs to the nearer header, not to both.
+        auto image = blank(1225, 600);
+        QPainter painter(&image);
+        painter.setPen(Qt::black);
+        for (int x : {0, 152, 306, 496, 688, 878, 1069, 1222}) painter.drawLine(x, 88, x, 597);
+        for (int y : {88, 235, 308, 381, 453, 526, 597}) painter.drawLine(0, y, 1222, y);
+        painter.drawLine(306, 160, 1069, 160);
+        painter.end();
+        const QVector<Line> lines = {
+            line({{"公司部分", 448, 550}}, 111, 30), line({{"个人部分", 830, 934}}, 112, 29), line({{"基数", 200, 258}}, 145, 35),
+            line({{"险种", 45, 104}}, 148, 30), line({{"合计", 1118, 1169}}, 146, 33), line({{"比例", 374, 431}}, 181, 35),
+            line({{"金额", 563, 624}}, 182, 34), line({{"比例", 756, 812}}, 185, 29), line({{"金额", 947, 1002}}, 187, 27),
+            line({{"养老", 48, 102}}, 258, 28), line({{"7270", 199, 260}}, 256, 34), line({{"16.00%", 361, 449}}, 262, 24),
+            line({{"1163.2", 549, 639}}, 261, 25), line({{"8.00%", 746, 821}}, 262, 24), line({{"581.6", 938, 1011}}, 262, 24),
+            line({{"1744.8", 1102, 1191}}, 262, 24), line({{"工伤", 47, 104}}, 330, 29), line({{"7270", 197, 256}}, 329, 33),
+            line({{"0.40%", 367, 438}}, 334, 26), line({{"29.08", 556, 630}}, 334, 26), line({{"0.00%", 747, 820}}, 333, 26),
+            line({{"0", 967, 982}}, 336, 21), line({{"29.08", 1109, 1182}}, 334, 25), line({{"失业", 49, 104}}, 400, 37),
+            line({{"7270", 199, 257}}, 407, 23), line({{"0.50%", 366, 440}}, 407, 24), line({{"36.35", 556, 631}}, 407, 23),
+            line({{"0.50%", 749, 820}}, 407, 23), line({{"36.35", 937, 1012}}, 407, 24), line({{"72.7", 1117, 1177}}, 400, 35),
+            line({{"医疗", 50, 102}}, 478, 27), line({{"7270", 199, 259}}, 481, 22), line({{"9.80%", 367, 441}}, 481, 23),
+            line({{"712.46", 549, 637}}, 480, 24), line({{"2%+3", 753, 813}}, 481, 22), line({{"148.4", 938, 1012}}, 480, 24),
+            line({{"860.86", 1103, 1189}}, 480, 25)};
+        const auto table = build_table(image, lines);
+        QCOMPARE(grid(table).mid(0, 3), QStringList({"险种|基数|公司部分|<none>|个人部分|<none>|合计", "<none>|<none>|比例|金额|比例|金额|<none>",
+                                                     "养老|7270|16.00%|1163.2|8.00%|581.6|1744.8"}));
+        const Cell *company = cell_at(table, 0, 2), *personal = cell_at(table, 0, 4);
+        QVERIFY(company && personal);
+        QCOMPARE(company->column_span, 2);
+        QCOMPARE(personal->column_span, 2);
+    }
+
+    void aTitleAndANoteBecomeRowsAcrossTheTable() {
+        auto lines = borderless_lines(60);
+        lines.prepend(line({{"Fruit", 120, 170}, {"prices", 178, 240}}, 10));
+        lines.append(line({{"Note:", 10, 58}, {"weekly", 64, 130}}, 200));
+        const QImage image = blank(400, 240);
+        RowTrace trace;
+        RowControl control;
+        control.trace = &trace;
+        build_table(image, lines, control);
+        QCOMPARE(trace.all_rows.size(), 5);
+
+        // The extent given as the three rows between; the lines around them kept as title and note.
+        RowControl kept;
+        kept.given_extent = {0, 1, 1, 1, 0};
+        kept.given_caption = {1, -1, -1, -1, 1};
+        trace = {};
+        kept.trace = &trace;
+        const auto table = build_table(image, lines, kept);
+        QCOMPARE(trace.captions.size(), 2);
+        QVERIFY(trace.captions[0].above && !trace.captions[1].above);
+        QCOMPARE(table.title_rows, 1);
+        QCOMPARE(table.note_rows, 1);
+        QCOMPARE(grid(table), QStringList({"Fruit prices|<none>|<none>", "Name|Qty|Price", "Apple|12|3.50", "Pear|7|12.00", "Note: weekly|<none>|<none>"}));
+        // Two single-cell rows more do not make the three rows below the limit for a table.
+        QVERIFY(is_table(table));
+
+        RowControl dropped = kept;
+        dropped.given_caption = {0, -1, -1, -1, 0};
+        dropped.trace = nullptr;
+        const auto plain = build_table(image, lines, dropped);
+        QCOMPARE(plain.title_rows + plain.note_rows, 0);
+        QCOMPARE(grid(plain), QStringList({"Name|Qty|Price", "Apple|12|3.50", "Pear|7|12.00"}));
     }
 
     void aBoxAroundInlineCodeSeparatesNothing() {

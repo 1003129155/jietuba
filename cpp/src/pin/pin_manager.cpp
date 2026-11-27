@@ -2,6 +2,7 @@
 #include "core/i18n.h"
 #include "core/logger.h"
 #include "core/platform_utils.h"
+#include "core/save.h"
 #include "pin/pin_animation.h"
 #include "pin/pin_file_card.h"
 #include "pin/pin_text_content.h"
@@ -251,13 +252,14 @@ void PinManager::set_all_thumbnail_mode(bool active) {
 
 std::pair<int, int> PinManager::save_all_to_directory(const QString &directory, const QString &prefix) {
     QDir().mkpath(directory);
+    const auto options = SaveOptions::from_settings(*get_tool_settings_manager());
     int saved = 0, failed = 0;
     int index = 0;
     for (auto *pin_window : get_all_pins()) {
         ++index;
         const auto file_path = QDir(directory).filePath(QString("%1_%2.png").arg(prefix).arg(index, 3, 10, QChar('0')));
         bool ok = false;
-        pin_window->with_edit_paused([&] { ok = pin_window->get_current_image().save(file_path); });
+        pin_window->with_edit_paused([&] { ok = SaveService::save_qimage_to_path(pin_window->get_current_image(), file_path, "PNG", options); });
         if (ok) {
             ++saved;
         } else {

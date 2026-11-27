@@ -12,6 +12,7 @@
 #include "core/ui_scale.h"
 #include "core/ui_theme.h"
 #include "pin/pin_manager.h"
+#include "pin/pin_window.h"
 #include "settings/tool_settings.h"
 #include "stitch/auto_scroll.h"
 #include "stitch/change_watch.h"
@@ -19,7 +20,11 @@
 #include "stitch/scroll_toolbar.h"
 #include "text_recognition/result_window.h"
 #include "tools/action.h"
+#include "translation/translation_manager.h"
+#include "ui/dialogs.h"
+#include "ui/motion.h"
 #include "ui/toast.h"
+#include <algorithm>
 #include <QApplication>
 #include <QCursor>
 #include <QDateTime>
@@ -91,7 +96,6 @@ constexpr int BASE_MARGIN = 24;
 constexpr double HOVER_OPACITY = 0.25;
 constexpr int HOVER_DELAY_MS = 200;
 constexpr int HOVER_POLL_MS = 50;
-constexpr int HOVER_FADE_MS = 300;
 
 // No change along the stitch direction (a white screen, mid repaint): nothing to stitch,
 // and two matching grabs of it do not count as settled. Vertically every row is the
@@ -131,7 +135,6 @@ PreviewPanel::PreviewPanel(QWidget *parent) : QWidget(parent), hover_timer_(this
     build_ui();
     setup_mouse_transparent();
     fade_ = new QPropertyAnimation(this, "windowOpacity", this);
-    fade_->setDuration(HOVER_FADE_MS);
     fade_->setEasingCurve(QEasingCurve::InOutQuad);
     hover_timer_.setInterval(HOVER_POLL_MS);
     connect(&hover_timer_, &QTimer::timeout, this, &PreviewPanel::update_hover_fade);
@@ -146,6 +149,7 @@ void PreviewPanel::update_hover_fade() {
     if (fade == faded_) return;
     faded_ = fade;
     fade_->stop();
+    fade_->setDuration(std::max(1, motion::duration(motion::SLOW_MS)));
     fade_->setStartValue(windowOpacity());
     fade_->setEndValue(fade ? HOVER_OPACITY : 1.0);
     fade_->start();
@@ -418,6 +422,7 @@ void ScrollCaptureWindow::setup_floating_toolbar() {
     connect(toolbar, &FloatingToolbar::crop_requested, this, &ScrollCaptureWindow::crop);
     connect(toolbar, &FloatingToolbar::save_clicked, this, &ScrollCaptureWindow::on_save);
     connect(toolbar, &FloatingToolbar::ocr_clicked, this, &ScrollCaptureWindow::on_text_recognize);
+    connect(toolbar, &FloatingToolbar::translate_clicked, this, &ScrollCaptureWindow::on_translate);
     connect(toolbar, &FloatingToolbar::pin_clicked, this, &ScrollCaptureWindow::on_pin);
     connect(toolbar, &FloatingToolbar::finish_clicked, this, &ScrollCaptureWindow::on_finish);
     connect(toolbar, &FloatingToolbar::cancel_clicked, this, &ScrollCaptureWindow::on_cancel);
@@ -1117,7 +1122,7 @@ void ScrollCaptureWindow::on_frame_stitched(const FrameResult &result) {
         handle_stitch_failure(tr_text("Stitching failed"), true);
     } else {
         if (!stitch_failing_) log_stitch(T("[WARN] 第 {screenshot_count} 张拼接失败，未找到重叠区域", {{"screenshot_count", result.index}}));
-        handle_stitch_failure(tr_text("Couldn't join. Scroll back"));
+        handle_stitch_failure(tr_text("Couldn't join. Scroll back a little."));
     }
     if (!result.preview.isNull()) {
         latest_preview_ = result.preview;
@@ -1344,14 +1349,19 @@ void ScrollCaptureWindow::on_pin() {
         log_stitch(T("[WARN] 没有拼接结果，无法钉图"));
         return;
     }
+    pin_and_close(image);
+}
+
+PinWindow *ScrollCaptureWindow::pin_and_close(const QImage &image) {
     // The pin is centred on the long screenshot region.
     const auto center = capture_rect.center();
     const QPoint position(center.x() - python_floordiv(image.width(), 2), center.y() - python_floordiv(image.height(), 2));
+    PinWindow *pin = nullptr;
     try {
-        PinManager::instance()->create_pin(image, position, config_manager);
+        pin = PinManager::instance()->create_pin(image, position, config_manager);
     } catch (const std::exception &e) {
         log_stitch(T("[ERROR] 创建钉图失败: {e}", {{"e", QString::fromUtf8(e.what())}}));
-        return;
+        return nullptr;
     }
     log_debug(T("钉图已创建，位置: ({pin_x}, {pin_y})", {{"pin_x", position.x()}, {"pin_y", position.y()}}), MODULE_TAG);
     cleanup();
@@ -1359,6 +1369,7 @@ void ScrollCaptureWindow::on_pin() {
     deliver_screenshot(image, config_manager, false, "pin", file_prefix());
     emit finished();
     close();
+    return pin;
 }
 
 void ScrollCaptureWindow::on_text_recognize() {
@@ -1376,6 +1387,42 @@ void ScrollCaptureWindow::on_text_recognize() {
     else show_text_recognition(image, anchor);
     emit finished();
     close();
+}
+
+void ScrollCaptureWindow::on_translate() {
+    if (!config_manager || config_manager->get_screenshot_translate_mode() == "compare") on_translate_compare();
+    else on_translate_overlay();
+}
+
+void ScrollCaptureWindow::on_translate_compare() {
+    capture_pending_now();
+    const auto image = result_qimage();
+    if (image.isNull()) {
+        log_stitch(T("[WARN] 没有拼接结果，无法翻译"));
+        show_preview_warning(tr_text("Nothing to translate yet"));
+        return;
+    }
+    // Read before the window closes.
+    const auto params = config_manager ? config_manager->get_translation_request_params() : QVariantMap();
+    cleanup();
+    hide();
+    TranslationManager::instance()->translate_from_image(QPixmap::fromImage(image), params);
+    emit finished();
+    close();
+}
+
+void ScrollCaptureWindow::on_translate_overlay() {
+    capture_pending_now();
+    const auto image = result_qimage();
+    if (image.isNull()) {
+        log_stitch(T("[WARN] 没有拼接结果，无法翻译"));
+        show_preview_warning(tr_text("Nothing to translate yet"));
+        return;
+    }
+    log_stitch(T("🌐 长截图钉出后覆盖翻译: {width}x{height}", {{"width", image.width()}, {"height", image.height()}}));
+    // Pinned at once and translated on the pin: the long screenshot ends without waiting, and a
+    // translation that fails leaves the pin to try again.
+    if (auto *pin = pin_and_close(image)) pin->start_overlay_translation();
 }
 
 void ScrollCaptureWindow::on_save() {
@@ -1418,8 +1465,9 @@ void ScrollCaptureWindow::on_quick_save() {
     const QPointer<ScrollCaptureWindow> guard(this);
     std::optional<QString> path;
     try {
-        path = SaveService(*config).save_qimage_async(image, config->get_screenshot_save_path(), file_prefix(), "", config->get_screenshot_format(),
-        SaveService::DEFAULT_PDF_DPI, [guard](bool ok, QString path) {
+        const SaveService service(*config);
+        path = service.save_qimage_async(image, config->get_screenshot_save_path(), file_prefix(), "", config->get_screenshot_format(),
+        service.options(), [guard](bool ok, QString path) {
             QMetaObject::invokeMethod(qApp, [guard, ok, path] {
                 if (!guard || !guard->stitcher_) return;
                 guard->quick_saving_ = false;

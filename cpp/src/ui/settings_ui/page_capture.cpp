@@ -127,11 +127,11 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     auto *view = new QWidget;
     set_own_style(view, "background: transparent;");
     auto *layout = new QVBoxLayout(view);
-    layout->setContentsMargins(0, 0, dialog_scaled(10), 0);
+    layout->setContentsMargins(0, 0, dialog_scaled(10), page_bottom_margin());
     layout->setSpacing(dialog_scaled(14));
 
     // ── Capture ──
-    auto *grp_engine = new SettingsCardGroup(dialog->tr_text("Screenshot"), view, "capture");
+    auto *grp_engine = new SettingsCardGroup(dialog->tr_text("General"), view, "capture");
     auto *engine_card = new SettingCard(FluentIcon::Camera, dialog->tr_text("Capture Engine"),
                                         dialog->tr_text("Auto uses the HDR engine when a display has HDR turned on."), grp_engine);
     auto *capture_engine_combo = new ComboBox(engine_card);
@@ -156,7 +156,7 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     layout->addWidget(grp_engine);
 
     // ── Saving ──
-    auto *grp_save = new SettingsCardGroup(dialog->tr_text("Save Settings"), view, "capture");
+    auto *grp_save = new SettingsCardGroup(dialog->tr_text("Saving"), view, "capture");
     // Auto-save has one switch per moment under this title card; deliver_screenshot decides.
     grp_save->addSettingCard(new SettingCard(FluentIcon::Save, dialog->tr_text("Auto-save"),
                                              dialog->tr_text("Screenshots are saved to the save folder automatically when the actions below finish."), grp_save));
@@ -193,6 +193,34 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     dialog->set_attr("screenshot_format_combo", format_combo);
     fmt_card->addControl(format_combo);
     grp_save->addSettingCard(fmt_card);
+    // The save dialog keeps a quality of its own, so this is the quality of every other way of saving.
+    auto *quality_card = new SettingCard(FluentIcon::Filter, dialog->tr_text("Image Quality"),
+                                         dialog->tr_text("Only affects JPG and WebP, in saves that do not open the save dialog."), grp_save);
+    auto *quality_slider = new ValueSlider(quality_card);
+    quality_slider->setRange(1, 100);
+    quality_slider->setValue(std::clamp(config->get_screenshot_quality(), 1, 100));
+    dialog->set_attr("screenshot_quality_slider", quality_slider);
+    quality_card->addControl(quality_slider);
+    grp_save->addSettingCard(quality_card);
+    // PNG and PDF options act on every save, the save dialog's too, so they do not follow the auto-save format.
+    auto *png_card = new SettingCard(FluentIcon::StopWatch, dialog->tr_text("PNG Compression"),
+                                     dialog->tr_text("A higher level makes smaller PNG files and saves more slowly."), grp_save);
+    auto *png_combo = new ComboBox(png_card);
+    for (const auto &[label, value] : {std::make_pair("Low (Faster)", "low"), std::make_pair("Medium", "medium"), std::make_pair("High (Smaller)", "high")})
+        png_combo->addItem(dialog->tr_text(label), QString(value));
+    png_combo->setCurrentIndex(std::max<int>(0, PNG_COMPRESSIONS.indexOf(config->get_png_compression())));
+    dialog->set_attr("png_compression_combo", png_combo);
+    png_card->addControl(png_combo);
+    grp_save->addSettingCard(png_card);
+    auto *pdf_card = new SettingCard(FluentIcon::Document, dialog->tr_text("PDF Page Size"),
+                                     dialog->tr_text("A4 shrinks a wide image to fit and splits a long screenshot over several pages."), grp_save);
+    auto *pdf_combo = new ComboBox(pdf_card);
+    for (const auto &[label, value] : {std::make_pair("Image Size", "image"), std::make_pair("A4 Portrait", "a4_portrait"), std::make_pair("A4 Landscape", "a4_landscape")})
+        pdf_combo->addItem(dialog->tr_text(label), QString(value));
+    pdf_combo->setCurrentIndex(std::max<int>(0, PDF_PAGE_SIZES.indexOf(config->get_pdf_page_size())));
+    dialog->set_attr("pdf_page_size_combo", pdf_combo);
+    pdf_card->addControl(pdf_combo);
+    grp_save->addSettingCard(pdf_card);
     dialog->save_filename_patterns = file_names::load(*config);
     auto *names_card = new SettingCard(FluentIcon::Document, dialog->tr_text("File Name Settings"),
                                       dialog->tr_text("Set file names for screenshots, long screenshots, GIFs and videos."), grp_save);
@@ -228,9 +256,9 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     grp_save->addSettingCard(style_card);
     layout->addWidget(grp_save);
 
-    auto *hint = new CaptionLabel(dialog->tr_text("💡 Hint: Even with auto-save off, it will be copied to clipboard."), view);
-    hint->setStyleSheet("padding: 5px;");
-    layout->addWidget(hint);
+    layout->addWidget(page_hint(view, dialog->tr_text("💡 Hint: Even with auto-save off, it will be copied to clipboard.")));
+
+    add_upload_group(dialog, view, layout);
 
     add_quick_actions_group(dialog, view, layout);
 
@@ -280,7 +308,7 @@ QWidget *create_capture_page(SettingsDialog *dialog) {
     layout->addWidget(grp_magnifier);
 
     // ── OCR ──
-    auto *grp_ocr = new SettingsCardGroup(dialog->tr_text("OCR Settings"), view, "capture");
+    auto *grp_ocr = new SettingsCardGroup(dialog->tr_text("Text Recognition"), view, "capture");
     dialog->set_attr("ocr_settings_group", grp_ocr);
     auto *ocr_engine_card = new SettingCard(FluentIcon::Font, dialog->tr_text("OCR Engine"), dialog->tr_text("Switch OCR engines here."), grp_ocr);
     auto *ocr_engine_combo = new ComboBox(ocr_engine_card);

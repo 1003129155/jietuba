@@ -21,7 +21,7 @@ Toast::Toast(const QString &text) : QWidget(nullptr) {
     label = new QLabel(this);
     label->setTextFormat(Qt::PlainText);
     label->setStyleSheet(QString("QLabel { background: %1; color: %2; border: 1px solid %3; border-radius: %4px; padding: %5px %6px; font: %7px %8; }")
-                             .arg(t.popup_background, t.text, t.window_border)
+                             .arg(t.popup_background, t.fg, t.window_border)
                              .arg(dialog_scaled(8))
                              .arg(dialog_scaled(6))
                              .arg(dialog_scaled(12))
@@ -33,7 +33,15 @@ Toast::Toast(const QString &text) : QWidget(nullptr) {
 
     anchor_ = QCursor::pos();
     set_text(text);
+    const int fade_in = motion::duration(FADE_MS);
+    if (fade_in > 0) setWindowOpacity(0.0);
     show();
+    if (fade_in <= 0) return;
+    auto *fade = new QPropertyAnimation(this, "windowOpacity", this);
+    fade->setDuration(fade_in);
+    fade->setStartValue(0.0);
+    fade->setEndValue(1.0);
+    fade->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
 void Toast::set_text(const QString &text) {
@@ -58,7 +66,7 @@ void Toast::finish() {
 
 void Toast::fade_out() {
     auto *fade = new QPropertyAnimation(this, "windowOpacity", this);
-    fade->setDuration(FADE_MS);
+    fade->setDuration(std::max(1, motion::duration(FADE_MS)));
     fade->setStartValue(1.0);
     fade->setEndValue(0.0);
     connect(fade, &QPropertyAnimation::finished, this, &QWidget::close);

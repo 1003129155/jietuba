@@ -9,6 +9,22 @@
 <context>
     <name>SettingsDialog</name>
     <message>
+        <source>Side-by-side window</source>
+        <translation>Side-by-side window</translation>
+    </message>
+    <message>
+        <source>Replace the original text</source>
+        <translation>Replace the original text</translation>
+    </message>
+    <message>
+        <source>What the translate button on the capture and long screenshot toolbars does</source>
+        <translation>What the translate button on the capture and long screenshot toolbars does</translation>
+    </message>
+    <message>
+        <source>Screenshot Translation</source>
+        <translation>Screenshot Translation</translation>
+    </message>
+    <message>
         <source>Search settings</source>
         <translation>Search settings</translation>
     </message>
@@ -45,10 +61,6 @@
         <translation>Forward Button Drag</translation>
     </message>
     <message>
-        <source>Hold modifier keys and drag the mouse</source>
-        <translation>Hold modifier keys and drag the mouse</translation>
-    </message>
-    <message>
         <source>Capture failed. Please try again.</source>
         <translation>Capture failed. Please try again.</translation>
     </message>
@@ -73,10 +85,6 @@
         <translation>Translation</translation>
     </message>
     <message>
-        <source>Log Settings</source>
-        <translation>Log Settings</translation>
-    </message>
-    <message>
         <source>Other</source>
         <translation>Other</translation>
     </message>
@@ -84,40 +92,8 @@
         <source>About</source>
         <translation>About</translation>
     </message>
-    <message>
-        <source>Developer</source>
-        <translation>Developer</translation>
-    </message>
 
     <!-- Page Titles -->
-    <message>
-        <source>Shortcut Settings</source>
-        <translation>Shortcut Settings</translation>
-    </message>
-    <message>
-        <source>Capture Settings</source>
-        <translation>Capture Settings</translation>
-    </message>
-    <message>
-        <source>Clipboard Settings</source>
-        <translation>Clipboard Settings</translation>
-    </message>
-    <message>
-        <source>Appearance Settings</source>
-        <translation>Appearance Settings</translation>
-    </message>
-    <message>
-        <source>Translation Settings</source>
-        <translation>Translation Settings</translation>
-    </message>
-    <message>
-        <source>Other Settings</source>
-        <translation>Other Settings</translation>
-    </message>
-    <message>
-        <source>Software Information</source>
-        <translation>Software Information</translation>
-    </message>
     <message>
         <source>Developer Options</source>
         <translation>Developer Options</translation>
@@ -128,12 +104,12 @@
         <translation>Smart Selection</translation>
     </message>
     <message>
-        <source>Save Settings</source>
-        <translation>Save Settings</translation>
+        <source>Saving</source>
+        <translation>Saving</translation>
     </message>
     <message>
-        <source>OCR Settings</source>
-        <translation>OCR Settings</translation>
+        <source>Text Recognition</source>
+        <translation>Text Recognition</translation>
     </message>
 
     <!-- Setup Wizard -->
@@ -254,6 +230,10 @@
     <message>
         <source>Latest Log</source>
         <translation>Latest Log</translation>
+    </message>
+    <message>
+        <source>Log Folder</source>
+        <translation>Log Folder</translation>
     </message>
     
     <!-- Hotkey Page -->
@@ -423,8 +403,8 @@ Replace it?</translation>
         <translation>Recognize Text</translation>
     </message>
     <message>
-        <source>Cursor Move Keys</source>
-        <translation>Cursor Move Keys</translation>
+        <source>Mouse Nudge Keys</source>
+        <translation>Mouse Nudge Keys</translation>
     </message>
     <message>
         <source>💡 Hint: Click the input box and press the desired key combination.</source>
@@ -489,6 +469,37 @@ Replace it?</translation>
     <message>
         <source>Keep text above other annotations, including ones drawn later.</source>
         <translation>Keep text above other annotations, including ones drawn later.</translation>
+    </message>
+    <message>
+        <source>Select After Drawing</source>
+        <translation>Select After Drawing</translation>
+    </message>
+    <message>
+        <source>Select a new annotation right away, so the wheel or its handles adjust it. For tools turned off, the wheel sizes the next annotation instead.</source>
+        <translation>Select a new annotation right away, so the wheel or its handles adjust it. For tools turned off, the wheel sizes the next annotation instead.</translation>
+    </message>
+    <message>
+        <source>All On</source>
+        <translation>All On</translation>
+    </message>
+    <message>
+        <source>All Off</source>
+        <translation>All Off</translation>
+    </message>
+    <message>
+        <source>Off: %1</source>
+        <translation>Off: %1</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n Off</source>
+        <translation>
+            <numerusform>%n Off</numerusform>
+            <numerusform>%n Off</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Spotlight</source>
+        <translation>Spotlight</translation>
     </message>
     <message>
         <source>Automatically Wrap Text</source>
@@ -833,6 +844,10 @@ Replace it?</translation>
         <translation>Language</translation>
     </message>
     <message>
+        <source>Display Language</source>
+        <translation>Display Language</translation>
+    </message>
+    <message>
         <source>Select display language. Restart required after change.</source>
         <translation>Select display language. Restart required after change.</translation>
     </message>
@@ -841,8 +856,8 @@ Replace it?</translation>
         <translation>💡 Hint: Even with background startup, you can operate from system tray.</translation>
     </message>
     <message>
-        <source>Settings Backup</source>
-        <translation>Settings Backup</translation>
+        <source>Backup</source>
+        <translation>Backup</translation>
     </message>
     <message>
         <source>Settings File</source>
@@ -969,10 +984,6 @@ Replace it?</translation>
     <message>
         <source>Optional, use default if empty</source>
         <translation>Optional, use default if empty</translation>
-    </message>
-    <message>
-        <source>Translation Options</source>
-        <translation>Translation Options</translation>
     </message>
     <message>
         <source>Target Language</source>
@@ -1222,10 +1233,6 @@ Replace it?</translation>
         <translation>Toggle Text Selection</translation>
     </message>
     <message>
-        <source>Behavior</source>
-        <translation>Behavior</translation>
-    </message>
-    <message>
         <source>Mouse Click-Through</source>
         <translation>Mouse Click-Through</translation>
     </message>
@@ -1406,14 +1413,6 @@ Replace it?</translation>
         <translation>Screen Annotation</translation>
     </message>
     <message>
-        <source>Screen Annotation Settings</source>
-        <translation>Screen Annotation Settings</translation>
-    </message>
-    <message>
-        <source>Start and End</source>
-        <translation>Start and End</translation>
-    </message>
-    <message>
         <source>Toolbar</source>
         <translation>Toolbar</translation>
     </message>
@@ -1550,6 +1549,14 @@ Replace it?</translation>
         <translation>Timeout (s)</translation>
     </message>
     <message>
+        <source>Parallel requests</source>
+        <translation>Parallel requests</translation>
+    </message>
+    <message>
+        <source>Interval (ms)</source>
+        <translation>Interval (ms)</translation>
+    </message>
+    <message>
         <source>Temperature</source>
         <translation>Temperature</translation>
     </message>
@@ -1606,8 +1613,8 @@ Replace it?</translation>
         <translation>Custom LLM-3</translation>
     </message>
     <message>
-        <source>Baidu Translate Open Platform</source>
-        <translation>Baidu Translate Open Platform</translation>
+        <source>Baidu Translate Open Platform · Developer Info</source>
+        <translation>Baidu Translate Open Platform · Developer Info</translation>
     </message>
     <message>
         <source>API Key</source>
@@ -1634,10 +1641,6 @@ Replace it?</translation>
         <translation>Could not move the settings file: %1</translation>
     </message>
     <message>
-        <source>Unassigned buttons and the wheel pass through. A double-click binding also captures single clicks of that button.</source>
-        <translation>Unassigned buttons and the wheel pass through. A double-click binding also captures single clicks of that button.</translation>
-    </message>
-    <message>
         <source>Long Screenshot Shortcuts</source>
         <translation>Long Screenshot Shortcuts</translation>
     </message>
@@ -1661,6 +1664,18 @@ Replace it?</translation>
 
 <context>
     <name>ActionTools</name>
+    <message>
+        <source>Translation</source>
+        <translation>Translation</translation>
+    </message>
+    <message>
+        <source>Nothing to translate: the text is already in the target language.</source>
+        <translation>Nothing to translate: the text is already in the target language.</translation>
+    </message>
+    <message>
+        <source>Cannot create the save folder or reserve a file name.</source>
+        <translation>Cannot create the save folder or reserve a file name.</translation>
+    </message>
     <message>
         <source>Save Screenshot</source>
         <translation>Save Screenshot</translation>
@@ -1735,16 +1750,16 @@ Replace it?</translation>
         <translation>Spotlight (dim outside the box)</translation>
     </message>
     <message>
-        <source>Long screenshot (scroll)</source>
-        <translation>Long screenshot (scroll)</translation>
+        <source>Long screenshot</source>
+        <translation>Long screenshot</translation>
     </message>
     <message>
         <source>Save to file</source>
         <translation>Save to file</translation>
     </message>
     <message>
-        <source>Quick save: straight to the save folder, no dialog</source>
-        <translation>Quick save: straight to the save folder, no dialog</translation>
+        <source>Quick save without a dialog</source>
+        <translation>Quick save without a dialog</translation>
     </message>
     <message>
         <source>Copy image</source>
@@ -1791,16 +1806,16 @@ Replace it?</translation>
         <translation>Redo</translation>
     </message>
     <message>
-        <source>Screenshot translate (OCR + Translate)</source>
-        <translation>Screenshot translate (OCR + Translate)</translation>
+        <source>Translate screenshot</source>
+        <translation>Translate screenshot</translation>
     </message>
     <message>
-        <source>Recognize text (OCR)</source>
-        <translation>Recognize text (OCR)</translation>
+        <source>Recognize text</source>
+        <translation>Recognize text</translation>
     </message>
     <message>
-        <source>Scan QR code / barcode</source>
-        <translation>Scan QR code / barcode</translation>
+        <source>Scan code</source>
+        <translation>Scan code</translation>
     </message>
     <message>
         <source>Recognizing...</source>
@@ -1809,10 +1824,6 @@ Replace it?</translation>
     <message>
         <source>Pin image</source>
         <translation>Pin image</translation>
-    </message>
-    <message>
-        <source>Confirm and save</source>
-        <translation>Confirm and save</translation>
     </message>
     <message>
         <source>Cancel screenshot (ESC)</source>
@@ -1875,8 +1886,8 @@ Replace it?</translation>
         <translation>Drag to move</translation>
     </message>
     <message>
-        <source>GIF / Video recording</source>
-        <translation>GIF / Video recording</translation>
+        <source>Screen recording</source>
+        <translation>Screen recording</translation>
     </message>
     <message>
         <source>Pass through: the mouse works the windows below (Esc)</source>
@@ -1895,12 +1906,12 @@ Replace it?</translation>
         <translation>Exit screen annotation</translation>
     </message>
     <message>
-        <source>Whiteboard: click to cover the screen with white, click again to remove</source>
-        <translation>Whiteboard: click to cover the screen with white, click again to remove</translation>
+        <source>Toggle whiteboard</source>
+        <translation>Toggle whiteboard</translation>
     </message>
     <message>
-        <source>Cursor highlight: a light around the pointer and a ring for every click</source>
-        <translation>Cursor highlight: a light around the pointer and a ring for every click</translation>
+        <source>Highlight cursor and clicks</source>
+        <translation>Highlight cursor and clicks</translation>
     </message>
 </context>
 
@@ -1914,6 +1925,22 @@ Replace it?</translation>
     <message>
         <source>Save as</source>
         <translation>Save as</translation>
+    </message>
+    <message>
+        <source>Quick save</source>
+        <translation>Quick save</translation>
+    </message>
+    <message>
+        <source>Saved: %1</source>
+        <translation>Saved: %1</translation>
+    </message>
+    <message>
+        <source>Save Failed</source>
+        <translation>Save Failed</translation>
+    </message>
+    <message>
+        <source>Cannot create the save folder or reserve a file name.</source>
+        <translation>Cannot create the save folder or reserve a file name.</translation>
     </message>
     <message>
         <source>Toolbar</source>
@@ -2010,6 +2037,18 @@ Replace it?</translation>
     <message>
         <source>Translate (Text Recognition)</source>
         <translation>Translate (Text Recognition)</translation>
+    </message>
+    <message>
+        <source>Show original image</source>
+        <translation>Show original image</translation>
+    </message>
+    <message>
+        <source>Show translation</source>
+        <translation>Show translation</translation>
+    </message>
+    <message>
+        <source>Stop translating</source>
+        <translation>Stop translating</translation>
     </message>
     <message>
         <source>OCR recognition could not be started</source>
@@ -2195,6 +2234,14 @@ Replace it?</translation>
         <source>This pin is only %1 × %2 pixels. Pin it anyway?</source>
         <translation>This pin is only %1 × %2 pixels. Pin it anyway?</translation>
     </message>
+    <message>
+        <source>None of the selected files could be pinned</source>
+        <translation>None of the selected files could be pinned</translation>
+    </message>
+    <message>
+        <source>[Only the first 64 KB of the file is shown]</source>
+        <translation>[Only the first 64 KB of the file is shown]</translation>
+    </message>
 </context>
 
 <!-- ========== Pin Click-Through Bar ========== -->
@@ -2217,6 +2264,10 @@ Replace it?</translation>
 <!-- ========== Scroll Screenshot (Long Screenshot) ========== -->
 <context>
     <name>FloatingToolbar</name>
+    <message>
+        <source>Translate the long screenshot</source>
+        <translation>Translate the long screenshot</translation>
+    </message>
     <message>
         <source>Drag to move</source>
         <translation>Drag to move</translation>
@@ -2290,8 +2341,8 @@ Replace it?</translation>
         <translation>Save to file</translation>
     </message>
     <message>
-        <source>Recognize text (OCR)</source>
-        <translation>Recognize text (OCR)</translation>
+        <source>Recognize text</source>
+        <translation>Recognize text</translation>
     </message>
     <message>
         <source>Finish and save</source>
@@ -2382,6 +2433,18 @@ Replace it?</translation>
 <!-- ========== Main App (Tray Menu) ========== -->
 <context>
     <name>MainApp</name>
+    <message>
+        <source>jietuba</source>
+        <translation>jietuba</translation>
+    </message>
+    <message>
+        <source>Updated to %1</source>
+        <translation>Updated to %1</translation>
+    </message>
+    <message>
+        <source>Version %1 downloaded, installs at the next start</source>
+        <translation>Version %1 downloaded, installs at the next start</translation>
+    </message>
     <message><source>jietuba - Click to screenshot</source><translation>jietuba - Click to screenshot</translation></message>
     <message><source>Screenshot</source><translation>Screenshot</translation></message>
     <message><source>Translation</source><translation>Translation</translation></message>
@@ -2635,7 +2698,7 @@ Replace it?</translation>
 <!-- ========== Translation Settings ========== -->
 <context>
     <name>SettingsDialog</name>
-    <message><source>Pin Clipboard Image</source><translation>Create Pin Image</translation></message>
+    <message><source>Pin from Clipboard</source><translation>Pin from Clipboard</translation></message>
     <message>
         <source>Get your API key from DeepL website (free tier available)</source>
         <translation>Get your API key from DeepL website (free tier available)</translation>
@@ -2747,6 +2810,30 @@ Replace it?</translation>
     <message>
         <source>Youdao AI Cloud Console</source>
         <translation>Youdao AI Cloud Console</translation>
+    </message>
+    <message>
+        <source>File Explorer</source>
+        <translation>File Explorer</translation>
+    </message>
+    <message>
+        <source>Right-Click Menu</source>
+        <translation>Right-Click Menu</translation>
+    </message>
+    <message>
+        <source>Right-click files in File Explorer and choose "Pin to Screen with jietuba". Windows 11 lists it under Show more options.</source>
+        <translation>Right-click files in File Explorer and choose "Pin to Screen with jietuba". Windows 11 lists it under Show more options.</translation>
+    </message>
+    <message>
+        <source>Right-click files in File Explorer and choose "Pin to Screen with jietuba".</source>
+        <translation>Right-click files in File Explorer and choose "Pin to Screen with jietuba".</translation>
+    </message>
+    <message>
+        <source>Images</source>
+        <translation>Images</translation>
+    </message>
+    <message>
+        <source>Images and Text Files</source>
+        <translation>Images and Text Files</translation>
     </message>
 </context>
 <!-- ========== Clipboard Window ========== -->
@@ -2861,8 +2948,8 @@ Replace it?</translation>
         <translation>Show Time</translation>
     </message>
     <message>
-        <source>Hide Grouped Items from All</source>
-        <translation>Hide Grouped Items from All</translation>
+        <source>Hide Grouped Items from History</source>
+        <translation>Hide Grouped Items from History</translation>
     </message>
     <message>
         <source>More Settings</source>
@@ -3372,8 +3459,8 @@ This action cannot be undone.</translation>
         <translation>Edit Hidden Group</translation>
     </message>
     <message>
-        <source>Hidden groups are not displayed on the clipboard panel; changing to normal group restores visibility</source>
-        <translation>Hidden groups are not displayed on the clipboard panel; changing to normal group restores visibility</translation>
+        <source>Hidden groups are not displayed on the clipboard panel; changing to General Group restores visibility</source>
+        <translation>Hidden groups are not displayed on the clipboard panel; changing to General Group restores visibility</translation>
     </message>
     <message>
         <source>General groups allow any content; selecting an item pastes content or files to the target</source>
@@ -3685,10 +3772,6 @@ Items in the group will be moved back to clipboard history.</translation>
     <message>
         <source>General</source>
         <translation>General</translation>
-    </message>
-    <message>
-        <source>Groups</source>
-        <translation>Groups</translation>
     </message>
     <message>
         <source>Hidden</source>
@@ -4012,12 +4095,12 @@ Items in the group will be moved back to clipboard history.</translation>
         <translation>Size of image thumbnails in the list</translation>
     </message>
     <message>
-        <source>Hide Grouped Items from All</source>
-        <translation>Hide Grouped Items from All</translation>
+        <source>Hide Grouped Items from History</source>
+        <translation>Hide Grouped Items from History</translation>
     </message>
     <message>
-        <source>Items in a group no longer show in All; filter groups still list them</source>
-        <translation>Items in a group no longer show in All; filter groups still list them</translation>
+        <source>Items in a group no longer show in Clipboard History; filter groups still list them</source>
+        <translation>Items in a group no longer show in Clipboard History; filter groups still list them</translation>
     </message>
     <message>
         <source>Close After Paste</source>
@@ -4800,8 +4883,20 @@ You can tweak more options in Settings anytime.</translation>
         <translation>Launch at Startup</translation>
     </message>
     <message>
-        <source>开机后在检测更新后启动。</source>
-        <translation>Checks for updates then starts silently in the background.</translation>
+        <source>开机后在后台静默启动。</source>
+        <translation>Starts silently in the background after you sign in.</translation>
+    </message>
+    <message>
+        <source>自动更新</source>
+        <translation>Automatic Updates</translation>
+    </message>
+    <message>
+        <source>开机自启和更新</source>
+        <translation>Startup and Updates</translation>
+    </message>
+    <message>
+        <source>在后台下载新版本，下次启动时安装。</source>
+        <translation>Downloads new versions in the background and installs them at the next start.</translation>
     </message>
     <message>
         <source>启动时显示主界面</source>
@@ -5053,8 +5148,8 @@ You can tweak more options in Settings anytime.</translation>
         <translation>Custom LLM-3</translation>
     </message>
     <message>
-        <source>Baidu Translate Open Platform</source>
-        <translation>Baidu Translate Open Platform</translation>
+        <source>Baidu Translate Open Platform · Developer Info</source>
+        <translation>Baidu Translate Open Platform · Developer Info</translation>
     </message>
     <message>
         <source>API Key</source>
@@ -5264,14 +5359,25 @@ You can tweak more options in Settings anytime.</translation>
 <context>
     <name>SettingsDialog</name>
     <!-- Clipboard page group headers -->
-    <message><source>Basic Settings</source><translation>Basic Settings</translation></message>
-    <message><source>Data</source><translation>Data</translation></message>
+    <message><source>History</source><translation>History</translation></message>
     <message><source>Warning</source><translation>Warning</translation></message>
     <message><source>Folder does not exist</source><translation>Folder does not exist</translation></message>
     <message><source>Error</source><translation>Error</translation></message>
     <message><source>Success</source><translation>Success</translation></message>
     <!-- Misc page group headers -->
     <message><source>Startup</source><translation>Startup</translation></message>
+    <message>
+        <source>Updates</source>
+        <translation>Updates</translation>
+    </message>
+    <message>
+        <source>Automatic Updates</source>
+        <translation>Automatic Updates</translation>
+    </message>
+    <message>
+        <source>Downloads new versions in the background and installs them the next time the program starts.</source>
+        <translation>Downloads new versions in the background and installs them the next time the program starts.</translation>
+    </message>
     <message><source>Show Magnifier</source><translation>Show Magnifier</translation></message>
     <message><source>Follows the cursor while selecting, and picks the color under it.</source><translation>Follows the cursor while selecting, and picks the color under it.</translation></message>
     <message><source>Pixel Grid</source><translation>Pixel Grid</translation></message>
@@ -5281,13 +5387,10 @@ You can tweak more options in Settings anytime.</translation>
     <message><source>Shortcut Hint</source><translation>Shortcut Hint</translation></message>
     <message><source>Show the switch-format and copy-color shortcuts under the readings. Off makes the magnifier shorter.</source><translation>Show the switch-format and copy-color shortcuts under the readings. Off makes the magnifier shorter.</translation></message>
     <message><source>Magnifier</source><translation>Magnifier</translation></message>
-    <message><source>Pin Settings</source><translation>Pin Settings</translation></message>
-    <message><source>Operation</source><translation>Operation</translation></message>
     <!-- About page -->
     <message><source>Features</source><translation>Features</translation></message>
     <message><source>OCR text recognition · Long screenshot · Pin window · Clipboard manager · DeepL translation</source><translation>OCR text recognition · Long screenshot · Pin window · Clipboard manager · DeepL translation</translation></message>
     <message><source>Licenses</source><translation>Licenses</translation></message>
-    <message><source>Details</source><translation>Details</translation></message>
     <message><source>MIT License</source><translation>MIT License</translation></message>
     <message><source>MIT License Text</source><translation>MIT License
 
@@ -5311,7 +5414,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.</translation></message>
     <message><source>Source Code</source><translation>Source Code</translation></message>
-    <message><source>Open GitHub</source><translation>Open GitHub</translation></message>
+    <message><source>Feedback</source><translation>Feedback</translation></message>
+    <message><source>Enjoying jietuba? Give it a Star</source><translation>Enjoying jietuba? Give it a Star</translation></message>
     <message><source>Version</source><translation>Version</translation></message>
     <message><source>Check for Updates</source><translation>Check for Updates</translation></message>
     <message><source>Checking...</source><translation>Checking...</translation></message>
@@ -5784,16 +5888,16 @@ Replace: move the current data there; the data already in that folder will be de
         <translation>No text found in the selection.</translation>
     </message>
     <message>
-        <source>No PP-OCR model is installed. Download one in the OCR settings.</source>
-        <translation>No PP-OCR model is installed. Download one in the OCR settings.</translation>
+        <source>No PP-OCR model is installed. Download one in Settings &gt; Screenshot &gt; Text Recognition.</source>
+        <translation>No PP-OCR model is installed. Download one in Settings &gt; Screenshot &gt; Text Recognition.</translation>
     </message>
     <message>
-        <source>The PP-OCR model could not be loaded. Download it again or choose another one in the OCR settings.</source>
-        <translation>The PP-OCR model could not be loaded. Download it again or choose another one in the OCR settings.</translation>
+        <source>The PP-OCR model could not be loaded. Download it again or choose another one in Settings &gt; Screenshot &gt; Text Recognition.</source>
+        <translation>The PP-OCR model could not be loaded. Download it again or choose another one in Settings &gt; Screenshot &gt; Text Recognition.</translation>
     </message>
     <message>
-        <source>ONNX Runtime, which PP-OCR needs, is not installed. Download it in the OCR settings.</source>
-        <translation>ONNX Runtime, which PP-OCR needs, is not installed. Download it in the OCR settings.</translation>
+        <source>ONNX Runtime, which PP-OCR needs, is not installed. Download it in Settings &gt; Screenshot &gt; Text Recognition.</source>
+        <translation>ONNX Runtime, which PP-OCR needs, is not installed. Download it in Settings &gt; Screenshot &gt; Text Recognition.</translation>
     </message>
     <message>
         <source>This build does not include the text recognition engine.</source>
@@ -5920,24 +6024,12 @@ Replace: move the current data there; the data already in that folder will be de
 </context>
 <context>
     <name>SettingsDialog</name>
-    <message>
-        <source>Works anytime</source>
-        <translation>Works anytime</translation>
-    </message>
-    <message>
-        <source>Only in screenshot, pin and clipboard windows</source>
-        <translation>Only in screenshot, pin and clipboard windows</translation>
-    </message>
-    <message>
-        <source>Only in the corresponding window</source>
-        <translation>Only in the corresponding window</translation>
-    </message>
 </context>
 <context>
     <name>SettingsDialog</name>
     <message>
-        <source>Quick Actions</source>
-        <translation>Quick Actions</translation>
+        <source>Annotation</source>
+        <translation>Annotation</translation>
     </message>
     <message>
         <source>Copy Recognized Text Directly</source>
@@ -6137,8 +6229,12 @@ Replace: move the current data there; the data already in that folder will be de
 <context>
     <name>ScrollCaptureWindow</name>
     <message>
-        <source>Couldn't join. Scroll back</source>
-        <translation>Couldn't join. Scroll back</translation>
+        <source>Nothing to translate yet</source>
+        <translation>Nothing to translate yet</translation>
+    </message>
+    <message>
+        <source>Couldn't join. Scroll back a little.</source>
+        <translation>Couldn't join. Scroll back a little.</translation>
     </message>
     <message>
         <source>Stitching failed</source>
@@ -6310,8 +6406,8 @@ Make sure gifrecorder is installed correctly.</translation>
         <translation>Preparing to restart...</translation>
     </message>
 <message>
-        <source>Update handoff failed.</source>
-        <translation>Update handoff failed.</translation>
+        <source>Could not start installing the update.</source>
+        <translation>Could not start installing the update.</translation>
     </message>
 <message>
         <source>Update failed: %1</source>
@@ -7158,6 +7254,46 @@ Make sure gifrecorder is installed correctly.</translation>
         <translation>Used when saving a screenshot, a pin or a clipboard image.</translation>
     </message>
     <message>
+        <source>PNG Compression</source>
+        <translation>PNG Compression</translation>
+    </message>
+    <message>
+        <source>A higher level makes smaller PNG files and saves more slowly.</source>
+        <translation>A higher level makes smaller PNG files and saves more slowly.</translation>
+    </message>
+    <message>
+        <source>Low (Faster)</source>
+        <translation>Low (Faster)</translation>
+    </message>
+    <message>
+        <source>High (Smaller)</source>
+        <translation>High (Smaller)</translation>
+    </message>
+    <message>
+        <source>PDF Page Size</source>
+        <translation>PDF Page Size</translation>
+    </message>
+    <message>
+        <source>A4 shrinks a wide image to fit and splits a long screenshot over several pages.</source>
+        <translation>A4 shrinks a wide image to fit and splits a long screenshot over several pages.</translation>
+    </message>
+    <message>
+        <source>A4 Portrait</source>
+        <translation>A4 Portrait</translation>
+    </message>
+    <message>
+        <source>A4 Landscape</source>
+        <translation>A4 Landscape</translation>
+    </message>
+    <message>
+        <source>Image Quality</source>
+        <translation>Image Quality</translation>
+    </message>
+    <message>
+        <source>Only affects JPG and WebP, in saves that do not open the save dialog.</source>
+        <translation>Only affects JPG and WebP, in saves that do not open the save dialog.</translation>
+    </message>
+    <message>
         <source>Modern (with preview)</source>
         <translation>Modern (with preview)</translation>
     </message>
@@ -7469,10 +7605,11 @@ Replace it?</translation>
 </context>
   <context>
     <name>ShortcutTabs</name>
-    <message><source>Screenshot</source><translation>Screenshot</translation></message>
-    <message><source>Long Screenshot</source><translation>Long Screenshot</translation></message>
-    <message><source>Pin</source><translation>Pin</translation></message>
-    <message><source>Clipboard</source><translation>Clipboard</translation></message>
+    <message><source>Global Mouse Shortcuts</source><translation>Global Mouse Shortcuts</translation></message>
+    <message><source>Screenshot Window</source><translation>Screenshot Window</translation></message>
+    <message><source>Long Screenshot Window</source><translation>Long Capture Window</translation></message>
+    <message><source>Pinned Window</source><translation>Pinned Window</translation></message>
+    <message><source>Clipboard Window</source><translation>Clipboard Window</translation></message>
     <message><source>Annotation Tools</source><translation>Annotation Tools</translation></message>
   </context>
 <context>
@@ -7552,6 +7689,437 @@ Replace it?</translation>
     <message>
         <source>Leave out the file extension; it is added automatically.</source>
         <translation>Leave out the file extension; it is added automatically.</translation>
+    </message>
+</context>
+<context>
+    <name>OverlayTranslation</name>
+    <message>
+        <source>Some translations do not fit. The original text is still shown in the image.</source>
+        <translation>Some translations do not fit. The original text is still shown in the image.</translation>
+    </message>
+    <message>
+        <source>The translation service is not configured yet.</source>
+        <translation>The translation service is not configured yet.</translation>
+    </message>
+    <message>
+        <source>Text recognition failed.</source>
+        <translation>Text recognition failed.</translation>
+    </message>
+    <message>
+        <source>No translation service is selected.</source>
+        <translation>No translation service is selected.</translation>
+    </message>
+    <message>
+        <source>No text was recognized in the selection.</source>
+        <translation>No text was recognized in the selection.</translation>
+    </message>
+    <message>
+        <source>%1 paragraphs could not be translated and were left as they are.</source>
+        <translation>%1 paragraphs could not be translated and were left as they are.</translation>
+    </message>
+    <message>
+        <source>The translation service returned no text.</source>
+        <translation>The translation service returned no text.</translation>
+    </message>
+</context>
+<context>
+    <name>TranslationPanel</name>
+    <message>
+        <source>Show original image</source>
+        <translation>Show original image</translation>
+    </message>
+    <message>
+        <source>Target language</source>
+        <translation>Target language</translation>
+    </message>
+    <message>
+        <source>Translation service</source>
+        <translation>Translation service</translation>
+    </message>
+    <message>
+        <source>Translated</source>
+        <translation>Translated</translation>
+    </message>
+    <message>
+        <source>Original</source>
+        <translation>Original</translation>
+    </message>
+    <message>
+        <source>To</source>
+        <translation>To</translation>
+    </message>
+    <message>
+        <source>Expand</source>
+        <translation>Expand</translation>
+    </message>
+    <message>
+        <source>Collapse</source>
+        <translation>Collapse</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <!-- Translation page tabs and provider cards -->
+    <message>
+        <source>General</source>
+        <translation>General</translation>
+    </message>
+    <message>
+        <source>API Services</source>
+        <translation>API Services</translation>
+    </message>
+    <message>
+        <source>Translation API</source>
+        <translation>Translation API</translation>
+    </message>
+    <message>
+        <source>Large Language Models</source>
+        <translation>Large Language Models</translation>
+    </message>
+    <message>
+        <source>Use This</source>
+        <translation>Use This</translation>
+    </message>
+    <message>
+        <source>In Use</source>
+        <translation>In Use</translation>
+    </message>
+    <message>
+        <source>Not Configured</source>
+        <translation>Not Configured</translation>
+    </message>
+    <message>
+        <source>Configured</source>
+        <translation>Configured</translation>
+    </message>
+    <message>
+        <source>Not configured yet</source>
+        <translation>Not configured yet</translation>
+    </message>
+    <message>
+        <source>%1% used this month</source>
+        <translation>%1% used this month</translation>
+    </message>
+    <message>
+        <source>Advanced</source>
+        <translation>Advanced</translation>
+    </message>
+    <message>
+        <source>Configure API</source>
+        <translation>Configure API</translation>
+    </message>
+</context>
+<context>
+    <name>ExplorerMenu</name>
+    <message>
+        <source>Pin to Screen with jietuba</source>
+        <translation>Pin to Screen with jietuba</translation>
+    </message>
+</context>
+<context>
+    <name>CloudUpload</name>
+    <message>
+        <source>Upload timed out</source>
+        <translation>Upload timed out</translation>
+    </message>
+    <message>
+        <source>Upload failed: network error</source>
+        <translation>Upload failed: network error</translation>
+    </message>
+    <message>
+        <source>Upload failed: the image could not be encoded</source>
+        <translation>Upload failed: the image could not be encoded</translation>
+    </message>
+    <message>
+        <source>Upload failed: HTTP %1</source>
+        <translation>Upload failed: HTTP %1</translation>
+    </message>
+    <message>
+        <source>Upload failed: HTTP %1, %2</source>
+        <translation>Upload failed: HTTP %1, %2</translation>
+    </message>
+    <message>
+        <source>Check the access key, the secret key and the region.</source>
+        <translation>Check the access key, the secret key and the region.</translation>
+    </message>
+    <message>
+        <source>The access key ID is not known to this service.</source>
+        <translation>The access key ID is not known to this service.</translation>
+    </message>
+    <message>
+        <source>Check that this key may write to the bucket.</source>
+        <translation>Check that this key may write to the bucket.</translation>
+    </message>
+    <message>
+        <source>The bucket does not exist.</source>
+        <translation>The bucket does not exist.</translation>
+    </message>
+    <message>
+        <source>Check the date and time of this computer.</source>
+        <translation>Check the date and time of this computer.</translation>
+    </message>
+    <message>
+        <source>The region or the endpoint is wrong.</source>
+        <translation>The region or the endpoint is wrong.</translation>
+    </message>
+    <message>
+        <source>Add an upload target in Settings first</source>
+        <translation>Add an upload target in Settings first</translation>
+    </message>
+    <message>
+        <source>Uploading...</source>
+        <translation>Uploading...</translation>
+    </message>
+    <message>
+        <source>Uploaded, link copied</source>
+        <translation>Uploaded, link copied</translation>
+    </message>
+    <message>
+        <source>Upload</source>
+        <translation>Upload</translation>
+    </message>
+    <message>
+        <source>Test upload succeeded</source>
+        <translation>Test upload succeeded</translation>
+    </message>
+</context>
+<context>
+    <name>UploadTargetDialog</name>
+    <message>
+        <source>Add Upload Target</source>
+        <translation>Add Upload Target</translation>
+    </message>
+    <message>
+        <source>Edit Upload Target</source>
+        <translation>Edit Upload Target</translation>
+    </message>
+    <message>
+        <source>AWS S3</source>
+        <translation>AWS S3</translation>
+    </message>
+    <message>
+        <source>Cloudflare R2</source>
+        <translation>Cloudflare R2</translation>
+    </message>
+    <message>
+        <source>Alibaba Cloud OSS</source>
+        <translation>Alibaba Cloud OSS</translation>
+    </message>
+    <message>
+        <source>Tencent Cloud COS</source>
+        <translation>Tencent Cloud COS</translation>
+    </message>
+    <message>
+        <source>MinIO or other</source>
+        <translation>MinIO or other</translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation>Name</translation>
+    </message>
+    <message>
+        <source>Service</source>
+        <translation>Service</translation>
+    </message>
+    <message>
+        <source>Endpoint</source>
+        <translation>Endpoint</translation>
+    </message>
+    <message>
+        <source>Region</source>
+        <translation>Region</translation>
+    </message>
+    <message>
+        <source>Bucket</source>
+        <translation>Bucket</translation>
+    </message>
+    <message>
+        <source>Access Key ID</source>
+        <translation>Access Key ID</translation>
+    </message>
+    <message>
+        <source>Secret Access Key</source>
+        <translation>Secret Access Key</translation>
+    </message>
+    <message>
+        <source>Path Prefix</source>
+        <translation>Path Prefix</translation>
+    </message>
+    <message>
+        <source>Addressing</source>
+        <translation>Addressing</translation>
+    </message>
+    <message>
+        <source>Public Address (optional)</source>
+        <translation>Public Address (optional)</translation>
+    </message>
+    <message>
+        <source>Link Preview</source>
+        <translation>Link Preview</translation>
+    </message>
+    <message>
+        <source>Path-style</source>
+        <translation>Path-style</translation>
+    </message>
+    <message>
+        <source>Virtual-hosted</source>
+        <translation>Virtual-hosted</translation>
+    </message>
+    <message>
+        <source>Test Upload</source>
+        <translation>Test Upload</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>Save</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Fill in the endpoint and the bucket to see the link.</source>
+        <translation>Fill in the endpoint and the bucket to see the link.</translation>
+    </message>
+    <message>
+        <source>Uploading...</source>
+        <translation>Uploading...</translation>
+    </message>
+    <message>
+        <source>Test upload succeeded: %1</source>
+        <translation>Test upload succeeded: %1</translation>
+    </message>
+    <message>
+        <source>Enter a name.</source>
+        <translation>Enter a name.</translation>
+    </message>
+    <message>
+        <source>This name is already used.</source>
+        <translation>This name is already used.</translation>
+    </message>
+    <message>
+        <source>Enter the service endpoint.</source>
+        <translation>Enter the service endpoint.</translation>
+    </message>
+    <message>
+        <source>The endpoint must be an http:// or https:// address without account, query or fragment.</source>
+        <translation>The endpoint must be an http:// or https:// address without account, query or fragment.</translation>
+    </message>
+    <message>
+        <source>Enter the region (Cloudflare R2 uses auto).</source>
+        <translation>Enter the region (Cloudflare R2 uses auto).</translation>
+    </message>
+    <message>
+        <source>The region can only contain letters, digits, dots, hyphens and underscores.</source>
+        <translation>The region can only contain letters, digits, dots, hyphens and underscores.</translation>
+    </message>
+    <message>
+        <source>Enter the bucket name.</source>
+        <translation>Enter the bucket name.</translation>
+    </message>
+    <message>
+        <source>The bucket name cannot contain '/' or spaces.</source>
+        <translation>The bucket name cannot contain '/' or spaces.</translation>
+    </message>
+    <message>
+        <source>Enter the access key ID.</source>
+        <translation>Enter the access key ID.</translation>
+    </message>
+    <message>
+        <source>The access key ID cannot contain spaces.</source>
+        <translation>The access key ID cannot contain spaces.</translation>
+    </message>
+    <message>
+        <source>Enter the secret access key.</source>
+        <translation>Enter the secret access key.</translation>
+    </message>
+    <message>
+        <source>The secret access key cannot contain spaces.</source>
+        <translation>The secret access key cannot contain spaces.</translation>
+    </message>
+    <message>
+        <source>The public address must be an http:// or https:// address.</source>
+        <translation>The public address must be an http:// or https:// address.</translation>
+    </message>
+</context>
+<context>
+    <name>SettingsDialog</name>
+    <message>
+        <source>Upload</source>
+        <translation>Upload</translation>
+    </message>
+    <message>
+        <source>Default Upload Target</source>
+        <translation>Default Upload Target</translation>
+    </message>
+    <message>
+        <source>The target the upload buttons and the upload shortcut send to.</source>
+        <translation>The target the upload buttons and the upload shortcut send to.</translation>
+    </message>
+    <message>
+        <source>Upload Targets</source>
+        <translation>Upload Targets</translation>
+    </message>
+    <message>
+        <source>S3-compatible storage such as AWS S3, Cloudflare R2, Alibaba Cloud OSS, Tencent Cloud COS or MinIO.</source>
+        <translation>S3-compatible storage such as AWS S3, Cloudflare R2, Alibaba Cloud OSS, Tencent Cloud COS or MinIO.</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>Add</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>Delete</translation>
+    </message>
+    <message>
+        <source>Link Format</source>
+        <translation>Link Format</translation>
+    </message>
+    <message>
+        <source>What is copied after an upload.</source>
+        <translation>What is copied after an upload.</translation>
+    </message>
+    <message>
+        <source>Link</source>
+        <translation>Link</translation>
+    </message>
+    <message>
+        <source>Markdown</source>
+        <translation>Markdown</translation>
+    </message>
+    <message>
+        <source>HTML</source>
+        <translation>HTML</translation>
+    </message>
+    <message>
+        <source>Delete Upload Target</source>
+        <translation>Delete Upload Target</translation>
+    </message>
+    <message>
+        <source>Delete the upload target "%1"?</source>
+        <translation>Delete the upload target "%1"?</translation>
+    </message>
+</context>
+<context>
+    <name>Toolbar</name>
+    <message>
+        <source>Upload to cloud storage</source>
+        <translation>Upload to cloud storage</translation>
+    </message>
+</context>
+<context>
+    <name>ToolbarLayoutDialog</name>
+    <message>
+        <source>Upload</source>
+        <translation>Upload</translation>
+    </message>
+</context>
+<context>
+    <name>PinWindow</name>
+    <message>
+        <source>Upload</source>
+        <translation>Upload</translation>
     </message>
 </context>
 </TS>

@@ -34,6 +34,8 @@
 #include "ui/selection_info/panel.h"
 #include "ui/selection_overlay.h"
 #include "ui/toolbar.h"
+#include "ui/translation_panel.h"
+#include "translation/overlay_translation_session.h"
 #include <QApplication>
 #include <QCursor>
 #include <QElapsedTimer>
@@ -60,7 +62,7 @@ ScreenshotShortcutHandler::ScreenshotShortcutHandler(ScreenshotWindow *window) :
         "inapp_confirm", "inapp_pin", "inapp_undo", "inapp_redo",
         "inapp_delete", "inapp_restore_last_region",
         "inapp_zoom_in", "inapp_zoom_out", "inapp_translate",
-        "inapp_text_recognize", "inapp_save", "inapp_quick_save",
+        "inapp_text_recognize", "inapp_save", "inapp_quick_save", "inapp_upload",
     };
     for (const auto &entry : ANNOTATION_TOOL_SHORTCUTS()) {
         tool_shortcuts_.emplace_back(entry.config_key, entry.tool_id);
@@ -166,7 +168,7 @@ bool ScreenshotShortcutHandler::handle_key(QInputEvent *event) {
         }
     }
     // Held down, the repeats are consumed: the first press already ends the capture.
-    for (const auto &[cfg_key, action] : {std::pair{"inapp_save", "save"}, std::pair{"inapp_quick_save", "quick_save"}}) {
+    for (const auto &[cfg_key, action] : {std::pair{"inapp_save", "save"}, std::pair{"inapp_quick_save", "quick_save"}, std::pair{"inapp_upload", "upload"}}) {
         if (!match(event, cfg_key) || !w->scene || !w->scene->selection_model->is_confirmed()) continue;
         if (!event_is_auto_repeat(event)) w->action_handler->handle_capture_action(action);
         return true;
@@ -517,13 +519,14 @@ void ScreenshotWindow::connect_toolbar_signals() {
     connect(toolbar, &Toolbar::quick_save_clicked, this, [this] {
         if (action_handler) action_handler->handle_quick_save();
     });
+    connect(toolbar, &Toolbar::upload_clicked, this, [this] {
+        if (action_handler) action_handler->handle_upload();
+    });
     connect(toolbar, &Toolbar::pin_clicked, this, [this] {
         if (action_handler) action_handler->handle_pin();
     });
     connect(toolbar, &Toolbar::long_screenshot_clicked, this, &ScreenshotWindow::start_long_screenshot_mode);
-    connect(toolbar, &Toolbar::screenshot_translate_clicked, this, [this] {
-        if (action_handler) action_handler->handle_screenshot_translate();
-    });
+    connect(toolbar, &Toolbar::screenshot_translate_clicked, this, &ScreenshotWindow::on_screenshot_translate);
     connect(toolbar, &Toolbar::text_recognize_clicked, this, [this] {
         if (action_handler) action_handler->handle_text_recognize();
     });
@@ -724,6 +727,42 @@ void ScreenshotWindow::on_watermark_text_changed(const QString &template_text) {
 }
 
 void ScreenshotWindow::add_auto_watermark() { WatermarkTool::add(scene, false); }
+
+void ScreenshotWindow::on_screenshot_translate() {
+    if (!action_handler || !toolbar) return;
+    if (!config_manager || config_manager->get_screenshot_translate_mode() == "compare") {
+        action_handler->handle_screenshot_translate();
+        return;
+    }
+    auto *session = action_handler->overlay_translation();
+    // Shown already: the button opens and closes the panel, the translation stays.
+    if (session->shown()) {
+        toolbar->toggle_translation_panel();
+        return;
+    }
+    if (!action_handler->show_overlay_translation()) return;
+    auto *panel = toolbar->ensure_translation_panel();
+    panel->set_original_shown(false);
+    panel->set_providers(session->providers(), config_manager ? config_manager->get_translation_provider() : QString());
+    panel->set_target_language(config_manager ? config_manager->get_translation_request_params().value("target_lang").toString() : QString("ZH"));
+    if (!translation_panel_bound_) {
+        translation_panel_bound_ = true;
+        connect(panel, &TranslationPanel::original_shown_changed, session, &OverlayTranslationSession::set_original_shown);
+        connect(panel, &TranslationPanel::target_language_changed, session, &OverlayTranslationSession::set_target_language);
+        connect(panel, &TranslationPanel::provider_changed, session, &OverlayTranslationSession::set_provider);
+        connect(session, &OverlayTranslationSession::shown_changed, toolbar, &Toolbar::set_translation_shown);
+        connect(session, &OverlayTranslationSession::busy_changed, toolbar, &Toolbar::set_translation_busy);
+        connect(session, &OverlayTranslationSession::waiting_changed, toolbar, [bar = toolbar, session] {
+            const auto [done, total] = session->progress();
+            bar->set_translation_progress(done, total);
+        });
+    }
+    toolbar->set_translation_shown(true);
+    // The run began before the toolbar was listening.
+    toolbar->set_translation_busy(session->busy());
+    const auto [done, total] = session->progress();
+    toolbar->set_translation_progress(done, total);
+}
 
 void ScreenshotWindow::remember_watermark() {
     if (scene && scene->selection_model->is_confirmed()) WatermarkTool::remember(scene);

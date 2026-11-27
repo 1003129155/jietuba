@@ -562,13 +562,12 @@ The interface texts in several languages, in `cpp/resources/translations/`.
 translations/
 ├── app_zh.xml / app_en.xml  # Chinese / English source files
 ├── app_ja.xml / app_ko.xml  # Japanese / Korean source files
-├── app_zh_TW.xml            # Traditional Chinese (Taiwan) source file
-└── app_*.qm                 # compiled Qt binaries (e.g. app_zh.qm)
+└── app_zh_TW.xml            # Traditional Chinese (Taiwan) source file
 ```
 
 </details>
 
-`.xml` = editable source files, `.qm` = compiled Qt runtime files. When adding or changing UI text, add an entry with the same context to all five `.xml` files (use real line breaks in multi-line text), then run `scripts/compile_translations.py`. Log texts are edited directly in `resources/core/log_translations.json`.
+The `.xml` files are embedded as they are and read at startup; nothing is compiled from them. When adding or changing UI text, add an entry with the same context to all five `.xml` files (use real line breaks in multi-line text). Log texts are edited directly in `resources/core/log_translations.json`.
 
 ---
 
@@ -749,6 +748,7 @@ tests/
 ├── test_result_windows.cpp        # OCR and barcode result windows
 ├── test_sandbox.cpp               # Linked into every test program: points settings, data and logs at a temporary folder
 ├── test_save_image_dialog.cpp     # Save image dialog: folder tags, format and quality
+├── test_save_options.cpp          # How images are encoded on every way out: quality, PNG level, PDF pages
 ├── test_screen_annotation.cpp     # Screen annotation: one layer over every screen, click-through and focus, drawings across screens, screens plugged in or out
 ├── test_screenshot_window.cpp     # Screenshot window
 ├── test_scroll_capture.cpp        # Scroll capture

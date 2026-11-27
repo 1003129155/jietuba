@@ -1,4 +1,5 @@
 #pragma once
+#include "core/save.h"
 #include "ui/fluent_lite/frameless.h"
 #include <QFrame>
 #include <QImage>
@@ -188,6 +189,8 @@ public:
     QString target_path() const;
     QString current_format() const;
     int current_quality() const;
+    // What a save with the dialog's choices writes: the settings' options with the dialog's quality.
+    SaveOptions current_options() const;
     // The byte limit the quality is chosen under; 0 when off or the format has no quality.
     qint64 size_limit_bytes() const;
     QSize target_size() const;
@@ -235,12 +238,14 @@ protected:
 private:
     struct Encoded {
         QImage scaled, decoded;
+        QByteArray file;
+        SaveOptions options;
         qint64 bytes = -1;
         // Chosen under a size limit; -1 without one.
         int quality = -1;
         bool over_limit = false;
     };
-    static Encoded encode(const QImage &image, const QSize &size, const QString &format, int quality, qint64 limit_bytes);
+    static Encoded encode(const QImage &image, const QSize &size, const QString &format, const SaveOptions &options, qint64 limit_bytes);
     void schedule_encode();
     void start_encode();
     void on_encoded(int generation, const Encoded &result);
@@ -257,6 +262,8 @@ private:
     void choose_directory();
     void switch_to_classic();
     void accept_save();
+    // Writes the bytes of the latest encode to saving_path_ and closes, or says it failed.
+    void write_save();
     void apply_theme();
     void place(QWidget *parent);
     QImage image_;
@@ -269,6 +276,12 @@ private:
     bool updating_size_ = false;
     bool updating_quality_ = false;
     qint64 encoded_bytes_ = -1;
+    // What the latest settings encode to, which Save writes; empty until that encode is in.
+    QByteArray encoded_file_;
+    SaveOptions encoded_options_;
+    // Save was pressed while encoding: the settings are held until the encode comes in.
+    bool saving_ = false;
+    QString saving_path_;
     QString saved_path_;
     bool classic_ = false;
     QWidget *panel_;

@@ -106,8 +106,8 @@ std::vector<ProviderField> provider_fields(const ProviderRegistry &registry, con
 std::vector<ProviderField> all_fields(const ProviderRegistry &registry) {
     std::vector<ProviderField> fields;
     for (const auto &meta : registry.available_providers()) {
-        fields.insert(fields.end(), meta.credentials.begin(), meta.credentials.end());
-        fields.insert(fields.end(), meta.options.begin(), meta.options.end());
+        const auto own = meta.all_fields();
+        fields.insert(fields.end(), own.begin(), own.end());
     }
     return fields;
 }
