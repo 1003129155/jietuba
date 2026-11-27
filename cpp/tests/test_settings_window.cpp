@@ -43,7 +43,7 @@
 #include "ui/welcome/pages.h"
 #include "ui/welcome/wizard.h"
 #include "caption_check.h"
-#include "fixed_animation_steps.h"
+#include "stepped_animation_clock.h"
 #include <QApplication>
 #include <QColorDialog>
 #include <QComboBox>
@@ -2067,7 +2067,6 @@ private slots:
     // Folding near the bottom of a scrolled page changes the heights of several nested layouts at every step
     // of the fold; each paint shows a settled layout, the row below right under the fold as tall as it is then.
     void foldingNearTheBottomOfAPagePaintsOnlySettledLayouts() {
-        const FixedAnimationSteps fixed_steps;
         struct PaintSpy : QObject {
             std::function<void()> on_paint;
             bool eventFilter(QObject *, QEvent *event) override {
@@ -2111,11 +2110,12 @@ private slots:
         area->viewport()->installEventFilter(&spy);
         // A paint can come as soon as a fold ends, before anything queued is handled.
         QObject::connect(fold, &FoldBox::finished, area->viewport(), [area] { area->viewport()->repaint(); });
+        SteppedAnimationClock clock;
         for (const bool unfold : {true, false}) {
             frames.clear();
             advanced->click();
             QVERIFY(!fold->settled());
-            QTRY_VERIFY_WITH_TIMEOUT(fold->settled(), 2000);
+            QVERIFY(clock.step_until([&] { return fold->settled(); }));
             QTest::qWait(50);
             QStringList trail;
             for (const auto &frame : frames) trail << QString("%1/%2").arg(frame.fold_height).arg(frame.below);
@@ -2133,7 +2133,6 @@ private slots:
     // Folding a card's rows changes its group's height at every step of the fold; each paint shows the group
     // as tall as its cards are then, not a layout still catching up.
     void foldingSettingRowsPaintsOnlySettledLayouts() {
-        const FixedAnimationSteps fixed_steps;
         struct PaintSpy : QObject {
             std::function<void()> on_paint;
             bool eventFilter(QObject *, QEvent *event) override {
@@ -2172,11 +2171,12 @@ private slots:
         area->viewport()->installEventFilter(&spy);
         // A paint can come as soon as a fold ends, before anything queued is handled.
         QObject::connect(fold, &FoldBox::finished, area->viewport(), [area] { area->viewport()->repaint(); });
+        SteppedAnimationClock clock;
         for (const bool unfold : {true, false}) {
             frames.clear();
             expander->arrow()->click();
             QVERIFY(!fold->settled());
-            QTRY_VERIFY_WITH_TIMEOUT(fold->settled(), 2000);
+            QVERIFY(clock.step_until([&] { return fold->settled(); }));
             QTest::qWait(50);
             QStringList trail;
             for (const auto &frame : frames) trail << QString("%1/%2").arg(frame.first).arg(frame.second);
@@ -5618,7 +5618,6 @@ private slots:
     // content: every paint shows the rows at the scroll position that goes with them, so none of
     // them moves back and forth.
     void foldingInAScrolledNavigationMovesEveryRowOneWay() {
-        const FixedAnimationSteps fixed_steps;
         struct PaintSpy : QObject {
             std::function<void()> on_paint;
             bool eventFilter(QObject *, QEvent *event) override {
@@ -5654,8 +5653,9 @@ private slots:
         };
         area->viewport()->installEventFilter(&spy);
         for (const auto &route : routes) nav->widget(route)->installEventFilter(&spy);
+        SteppedAnimationClock clock;
         emit nav->arrowClicked("capture");
-        QTRY_VERIFY(!nav->animating());
+        QVERIFY(clock.step_until([&] { return !nav->animating(); }));
         QTest::qWait(50);
         spy.on_paint = nullptr;
 
